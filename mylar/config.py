@@ -154,10 +154,18 @@ _CONFIG_DEFINITIONS = OrderedDict({
     'COMICVINE_API': (str, 'CV', None),
     'IGNORED_PUBLISHERS' : (str, 'CV', ""),
     'CV_VERIFY': (bool, 'CV', True),
+    'CV_TIMEOUT': (int, 'CV', 30),
     'CV_ONLY': (bool, 'CV', True),
     'CV_ONETIMER': (bool, 'CV', True),
     'CVINFO': (bool, 'CV', False),
     'CV_USER_AGENT': (str, 'CV', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'),
+    'CV_CACHE_ENABLED': (bool, 'CV', True),
+    'CV_CACHE_TTL_SEARCH': (int, 'CV', 86400),  # 1 day
+    'CV_CACHE_TTL_METADATA': (int, 'CV', 604800),  # 7 days
+    'CV_CACHE_TTL_ARC': (int, 'CV', 259200),  # 3 days
+    'CV_SKIP_IMPRINT_VALIDATION': (bool, 'CV', False),
+    'CV_PARALLEL_PAGINATION': (bool, 'CV', True),
+    'CV_MAX_PARALLEL_REQUESTS': (int, 'CV', 3),
     'IMPRINT_MAPPING_TYPE': (str, 'CV', 'CV'),  # either 'CV' for ComicVine or 'JSON' for imprints.json to choose which naming to use for imprints
 
     'LOG_DIR' : (str, 'Logs', None),

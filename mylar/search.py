@@ -36,6 +36,8 @@ from mylar.downloaders import external_server as exs
 
 import feedparser
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import os
 import errno
 import sys
@@ -52,6 +54,118 @@ import shutil
 from operator import itemgetter
 from wsgiref.handlers import format_date_time
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+# ThreadPoolExecutor for parallel provider searches
+# Using a module-level executor allows connection reuse across searches
+_search_executor = None
+
+
+def get_search_executor():
+    """
+    Get the module-level ThreadPoolExecutor for parallel searches.
+    Creates the executor lazily on first use.
+    """
+    global _search_executor
+    if _search_executor is None:
+        # Use a reasonable number of workers - not too many to avoid
+        # overwhelming providers, but enough to see parallelization benefit
+        _search_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix='search_worker')
+    return _search_executor
+
+
+def parallel_search_providers(scarios_list, timeout=120):
+    """
+    Search multiple providers in parallel and return the first successful result.
+
+    Args:
+        scarios_list: List of scarios dicts, each containing parameters for one provider
+        timeout: Maximum time to wait for all searches (seconds)
+
+    Returns:
+        The first successful findit result, or {'status': False} if none succeed
+    """
+    if not scarios_list:
+        return {'status': False}
+
+    # If only one provider, skip parallelization overhead
+    if len(scarios_list) == 1:
+        try:
+            return search_the_matrix(scarios_list[0])
+        except Exception as e:
+            logger.warn(f'Search error: {e}')
+            return {'status': False}
+
+    executor = get_search_executor()
+    futures = {}
+
+    # Submit all searches
+    for scarios in scarios_list:
+        provider_name = list(scarios.get('current_prov', {}).keys())[0] if scarios.get('current_prov') else 'unknown'
+        future = executor.submit(search_the_matrix, scarios)
+        futures[future] = provider_name
+
+    logger.fdebug(f'[PARALLEL-SEARCH] Submitted {len(futures)} provider searches in parallel')
+
+    # Wait for results, return first success
+    try:
+        for future in as_completed(futures, timeout=timeout):
+            provider_name = futures[future]
+            try:
+                result = future.result()
+                if result.get('status') is True:
+                    logger.info(f'[PARALLEL-SEARCH] Found result from {provider_name}')
+                    # Cancel remaining futures
+                    for f in futures:
+                        if f != future and not f.done():
+                            f.cancel()
+                    return result
+            except Exception as e:
+                logger.warn(f'[PARALLEL-SEARCH] Error from {provider_name}: {e}')
+                continue
+    except TimeoutError:
+        logger.warn('[PARALLEL-SEARCH] Search timeout exceeded')
+
+    # No successful results
+    return {'status': False}
+
+
+# Module-level HTTP session for connection pooling
+# This reuses TCP connections across multiple requests, significantly
+# improving performance when making many requests to the same hosts
+_http_session = None
+
+
+def get_http_session():
+    """
+    Get the module-level HTTP session with connection pooling.
+    Creates the session lazily on first use.
+    """
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+
+        # Configure retry strategy for resilience
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+
+        # Mount adapters with connection pool settings
+        # pool_connections: number of connection pools to cache
+        # pool_maxsize: max connections per pool
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=10,
+            pool_maxsize=20
+        )
+        _http_session.mount("http://", adapter)
+        _http_session.mount("https://", adapter)
+
+    return _http_session
 
 
 def search_init(
@@ -1134,8 +1248,9 @@ def NZB_SEARCH(
                             logger.fdebug('[PROVIDER-SEARCH-DELAY][%s] Last search took place %s seconds ago. We\'re clear...' % (nzbprov, int(diff)))
 
                     try:
-                        r = requests.get(
-                            findurl, params=payload, verify=verify, headers=headers
+                        r = get_http_session().get(
+                            findurl, params=payload, verify=verify, headers=headers,
+                            timeout=30
                         )
                         r.raise_for_status()
                     except requests.exceptions.Timeout as e:
@@ -1520,14 +1635,14 @@ def verification(verified_matches, is_info):
 
 def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
     if rsschecker == 'yes':
-        while mylar.SEARCHLOCK is True:
+        while mylar.SEARCHLOCK.locked():
            # logger.info(
            #     'A search is currently in progress....queueing this up again to try'
            #     ' in a bit.'
            # )
             time.sleep(5)
 
-    if mylar.SEARCHLOCK is True:
+    if mylar.SEARCHLOCK.locked():
         logger.info(
             'A search is currently in progress....queueing this up again to try'
             ' in a bit.'
@@ -1578,7 +1693,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                     'Initiating RSS Search Scan at the scheduled interval of %s minutes'
                     % mylar.CONFIG.RSS_CHECKINTERVAL
                 )
-                mylar.SEARCHLOCK = True
+                mylar.SEARCHLOCK.acquire()
             else:
                 logger.info('Initiating check to add Wanted items to Search Queue....')
 
@@ -2255,15 +2370,15 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                         continue
 
                 logger.info('Completed RSS Search scan')
-                if mylar.SEARCHLOCK is True:
-                    mylar.SEARCHLOCK = False
+                if mylar.SEARCHLOCK.locked():
+                    mylar.SEARCHLOCK.release()
             else:
                 logger.info('Completed Queueing API Search scan')
-                if mylar.SEARCHLOCK is True:
-                    mylar.SEARCHLOCK = False
+                if mylar.SEARCHLOCK.locked():
+                    mylar.SEARCHLOCK.release()
         else:
             try:
-                mylar.SEARCHLOCK = True
+                mylar.SEARCHLOCK.acquire()
                 result = myDB.selectone(
                     'SELECT * FROM issues where IssueID=?', [issueid]
                 ).fetchone()
@@ -2291,7 +2406,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                                     'Unable to locate IssueID - you probably should'
                                     ' delete/refresh the series.'
                                 )
-                                mylar.SEARCHLOCK = False
+                                mylar.SEARCHLOCK.release()
                                 return
 
                 #if it's not manually initiated, make sure it's not already downloaded/snatched.
@@ -2432,10 +2547,10 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                     ignore_booktype=ignore_booktype,
                 )
                 if manual is True:
-                    mylar.SEARCHLOCK = False
+                    mylar.SEARCHLOCK.release()
                     return foundNZB
                 if foundNZB['status'] is True:
-                    mylar.SEARCHLOCK = False
+                    mylar.SEARCHLOCK.release()
                     logger.fdebug('I found %s #%s' % (ComicName, IssueNumber))
                     #updater.foundsearch(
                     #    ComicID,
@@ -2480,7 +2595,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                 logger.exception(tracebackline)
 
             finally:
-                mylar.SEARCHLOCK = False
+                mylar.SEARCHLOCK.release()
     else:
         if rsschecker:
             logger.warn(
@@ -2994,8 +3109,11 @@ def searcher(
                 )
 
         try:
-            r = requests.get(down_url, params=payload, verify=verify, headers=headers)
+            r = get_http_session().get(down_url, params=payload, verify=verify, headers=headers, timeout=30)
 
+        except requests.exceptions.Timeout:
+            logger.warn('Timeout fetching data from %s' % tmpprov)
+            return "sab-fail"
         except Exception as e:
             logger.warn('Error fetching data from %s: %s' % (tmpprov, e))
             return "sab-fail"

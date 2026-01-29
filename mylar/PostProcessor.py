@@ -62,12 +62,12 @@ class PostProcessor(object):
         if queue:
             self.queue = queue
 
-        if mylar.APILOCK is True:
+        if mylar.APILOCK.locked():
             return {'status':  'IN PROGRESS'}
 
         if apicall is True:
             self.apicall = True
-            mylar.APILOCK = True
+            mylar.APILOCK.acquire()
         else:
             self.apicall = False
 
@@ -2183,15 +2183,15 @@ class PostProcessor(object):
                 if len(manual_list) == 0 and len(manual_arclist) == 0:
                     if self.nzb_name == 'Manual Run':
                         logger.info('%s No matches for Manual Run ... exiting.' % module)
-                    if mylar.APILOCK is True:
-                        mylar.APILOCK = False
+                    if mylar.APILOCK.locked():
+                        mylar.APILOCK.release()
                     self.valreturn.append({"self.log": self.log,
                                            "mode": 'stop'})
                     return self.queue.put(self.valreturn)
                 #elif len(manual_arclist) > 0: # and len(manual_list) == 0:
                 #    logger.info('%s Manual post-processing completed for %s story-arc issues.' % (module, len(manual_arclist)))
-                    #if mylar.APILOCK is True:
-                    #    mylar.APILOCK = False
+                    #if mylar.APILOCK.locked():
+                    #    mylar.APILOCK.release()
                     #self.valreturn.append({"self.log": self.log,
                     #                       "mode": 'stop'})
                     #return self.queue.put(self.valreturn)
@@ -2311,8 +2311,8 @@ class PostProcessor(object):
 
                 mylar.GLOBAL_MESSAGES = d_line
 
-                if mylar.APILOCK is True:
-                    mylar.APILOCK = False
+                if mylar.APILOCK.locked():
+                    mylar.APILOCK.release()
                 self.valreturn.append({"self.log": self.log,
                                        "mode": 'stop'})
                 return self.queue.put(self.valreturn)
@@ -3586,7 +3586,7 @@ class FolderCheck():
             mylar.MONITOR_STATUS = 'Paused'
             helpers.job_management(write=True)
         else:
-            if mylar.APILOCK is True:
+            if mylar.APILOCK.locked():
                 logger.info('%s Unable to initiate folder monitor as another process is currently using it or using post-processing.' % self.module)
                 return {'status': 'IN PROGRESS'}
             helpers.job_management(write=True, job='Folder Monitor', current_run=helpers.utctimestamp(), status='Running')

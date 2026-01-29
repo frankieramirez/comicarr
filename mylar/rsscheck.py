@@ -474,7 +474,10 @@ def nzbs(provider=None, forcerss=False):
         headers = {'User-Agent':      str(mylar.USER_AGENT)}
 
         try:
-            r = requests.get(url, params=payload, verify=verify, headers=headers)
+            r = requests.get(url, params=payload, verify=verify, headers=headers, timeout=30)
+        except requests.exceptions.Timeout:
+            logger.warn('Timeout fetching RSS Feed Data from %s' % site)
+            return False
         except Exception as e:
             logger.warn('Error fetching RSS Feed Data from %s: %s' % (site, e))
             return False
@@ -1329,7 +1332,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
                     url = helpers.torrent_create(site, linkit, True)
                     logger.fdebug('Trying alternate url: ' + str(url))
                     try:
-                        r = requests.get(url, params=payload, verify=verify, stream=True, headers=headers)
+                        r = requests.get(url, params=payload, verify=verify, stream=True, headers=headers, timeout=30)
 
                     except Exception as e:
                         return "fail"

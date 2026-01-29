@@ -69,16 +69,14 @@ def pullsearch(comicapi, comicquery, offset, search_type):
     #logger.info('MB.PULLURL:' + PULLURL)
 
     #new CV API restriction - one api request / second.
-    if mylar.CONFIG.CVAPI_RATE is None or mylar.CONFIG.CVAPI_RATE < 2:
-        time.sleep(2)
-    else:
-        time.sleep(mylar.CONFIG.CVAPI_RATE)
+    # Use intelligent rate limiter instead of fixed sleep
+    mylar.CV_RATE_LIMITER.acquire()
 
     #download the file:
     payload = None
 
     try:
-        r = requests.get(PULLURL, params=payload, verify=mylar.CONFIG.CV_VERIFY, headers=mylar.CV_HEADERS)
+        r = mylar.CV_SESSION.get(PULLURL, params=payload, verify=mylar.CONFIG.CV_VERIFY, timeout=mylar.CV_TIMEOUT)
     except Exception as e:
         logger.warn('Error fetching data from ComicVine: %s' % e)
         return
@@ -99,6 +97,9 @@ def pullsearch(comicapi, comicquery, offset, search_type):
         return dom
 
 def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=False):
+    import time
+    search_start_time = time.time()
+    logger.info('[SEARCH PERFORMANCE] Starting search for: %s' % name)
 
     #with mb_lock:
     comicResults = None
@@ -158,13 +159,54 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
     if int(totalResults) > 1000:
         logger.warn('Search returned more than 1000 hits [' + str(totalResults) + ']. Only displaying first 1000 results - use more specifics or the exact ComicID if required.')
         totalResults = 1000
-    countResults = 0
-    while (countResults < int(totalResults)):
-        #logger.fdebug("querying " + str(countResults))
-        if countResults > 0:
-            offsetcount = countResults
 
-            searched = pullsearch(comicapi, comicquery, offsetcount, search_type)
+    # Calculate pages needed (100 results per page)
+    pages_needed = (int(totalResults) + 99) // 100
+
+    # Fetch all pages - either in parallel or sequentially
+    all_pages = []
+    if mylar.CONFIG.CV_PARALLEL_PAGINATION and pages_needed > 1:
+        parallel_start = time.time()
+        logger.info('[PARALLEL] Fetching %d pages in parallel (max %d workers)' % (pages_needed, mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS))
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Start with first page already fetched
+        all_pages = [(0, searched)]
+
+        # Fetch remaining pages in parallel
+        with ThreadPoolExecutor(max_workers=min(mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS, pages_needed - 1)) as executor:
+            # Submit remaining pages
+            futures = {
+                executor.submit(pullsearch, comicapi, comicquery, offset * 100, search_type): offset
+                for offset in range(1, pages_needed)
+            }
+
+            # Collect results as they complete
+            for future in as_completed(futures):
+                offset = futures[future]
+                try:
+                    result = future.result()
+                    if result:
+                        all_pages.append((offset, result))
+                except Exception as e:
+                    logger.error('[PARALLEL] Error fetching page %d: %s' % (offset, e))
+
+        # Sort pages by offset to maintain order
+        all_pages.sort(key=lambda x: x[0])
+        parallel_duration = time.time() - parallel_start
+        logger.info('[PARALLEL] Fetched %d/%d pages successfully in %.2f seconds' % (len(all_pages), pages_needed, parallel_duration))
+    else:
+        # Sequential fetching (original behavior)
+        countResults = 0
+        while (countResults < int(totalResults)):
+            if countResults > 0:
+                searched = pullsearch(comicapi, comicquery, countResults, search_type)
+            if searched:
+                all_pages.append((countResults // 100, searched))
+            countResults = countResults + 100
+
+    # Process all pages
+    for offset, searched in all_pages:
         comicResults = searched.getElementsByTagName(search_type)
         body = ''
         n = 0
@@ -220,17 +262,19 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
                     xmlid = result.getElementsByTagName('id')[0].firstChild.wholeText
 
                     if xmlid is not None:
-                        arcinfolist = storyarcinfo(xmlid)
-                        if any(
-                                   [
-                                       arcinfolist['comicyear'] is None,
-                                       arcinfolist['issues'] == 0,
-                                       arcinfolist['arclist'] is None,
-                                       arcinfolist['arclist'] == '',
-                                   ]
-                        ):
-                            continue
-                        logger.info('[IMAGE] : ' + arcinfolist['comicimage'])
+                        # Lazy load story arc details - don't call storyarcinfo during search
+                        # Arc details will be loaded on-demand when user views/clicks the arc
+                        arcinfolist = {
+                            'comicyear': None,
+                            'issues': '?',
+                            'arclist': None,
+                            'comicimage': '',
+                            'comicthumb': '',
+                            'description': 'Story Arc - Click to load details',
+                            'deck': None,
+                            'haveit': 'No'
+                        }
+                        logger.info('[LAZY LOAD] Story arc %s - details deferred' % xmlid)
                         comiclist.append({
                                 'name':                 xmlTag,
                                 'comicyear':            arcinfolist['comicyear'],
@@ -404,8 +448,16 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
                             except:
                                 xmldeck = "None"
 
-                            givb = cv.get_imprint_volume_and_booktype(True, xmlYr, xmlpub, xml_firstissueid, xmldesc, xmldeck, annual_check)
-                            logger.fdebug('givb: %s' % (givb,))
+                            # Conditional imprint validation - only for known imprint publishers
+                            IMPRINT_PUBLISHERS = ['Marvel', 'DC Comics', 'Image Comics']
+                            if not mylar.CONFIG.CV_SKIP_IMPRINT_VALIDATION and xmlpub in IMPRINT_PUBLISHERS:
+                                givb = cv.get_imprint_volume_and_booktype(True, xmlYr, xmlpub, xml_firstissueid, xmldesc, xmldeck, annual_check)
+                                logger.fdebug('givb: %s' % (givb,))
+                            else:
+                                # Skip imprint validation - use existing values
+                                givb = None
+                                logger.fdebug('[SKIP IMPRINT] Skipping imprint validation for publisher: %s' % xmlpub)
+
                             if givb:
                                 if givb['Type'] == 'None':
                                     xmltype = None
@@ -427,6 +479,12 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
                                     xmlimprint = None
                                 else:
                                     xmlimprint = givb['PublisherImprint']
+                            else:
+                                # When skipping imprint validation, use defaults
+                                xmltype = None
+                                xmlvol = None
+                                xmlimprint = None
+                                # xmlpub and xmldesc already set above
 
                             #xmltype = None
                             #if xmldeck != 'None':
@@ -506,9 +564,9 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
                             #logger.fdebug('year: ' + str(xmlYr) + ' -  contraint not met. Has to be within ' + str(limityear))
                             pass
                 n+=1
-        #search results are limited to 100 and by pagination now...let's account for this.
-        countResults = countResults + 100
 
+    search_duration = time.time() - search_start_time
+    logger.info('[SEARCH PERFORMANCE] Search completed in %.2f seconds (%d results)' % (search_duration, len(comiclist)))
     return comiclist
 
 def storyarcinfo(xmlid):
@@ -528,16 +586,14 @@ def storyarcinfo(xmlid):
     #logger.fdebug('arcpull_url:' + str(ARCPULL_URL))
 
     #new CV API restriction - one api request / second.
-    if mylar.CONFIG.CVAPI_RATE is None or mylar.CONFIG.CVAPI_RATE < 2:
-        time.sleep(2)
-    else:
-        time.sleep(mylar.CONFIG.CVAPI_RATE)
+    # Use intelligent rate limiter instead of fixed sleep
+    mylar.CV_RATE_LIMITER.acquire()
 
     #download the file:
     payload = None
 
     try:
-        r = requests.get(ARCPULL_URL, params=payload, verify=mylar.CONFIG.CV_VERIFY, headers=mylar.CV_HEADERS)
+        r = mylar.CV_SESSION.get(ARCPULL_URL, params=payload, verify=mylar.CONFIG.CV_VERIFY, timeout=mylar.CV_TIMEOUT)
     except Exception as e:
         logger.warn('While parsing data from ComicVine, got exception: %s' % e)
         return

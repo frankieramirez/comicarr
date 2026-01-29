@@ -79,59 +79,85 @@ from mylar.auth import (
     require,
 )
 
+# Template caching to avoid creating new TemplateLookup on every request
+_template_cache = {}
+_icons_cache = {}
+
+
+def _get_template_lookup(interface, interface_dir):
+    """Get cached TemplateLookup for the given interface."""
+    if interface not in _template_cache:
+        if any([interface == 'default', interface is None]):
+            tmper_dir = 'default'
+        else:
+            tmper_dir = interface
+        template_dir = os.path.join(str(interface_dir), tmper_dir)
+        _template_cache[interface] = TemplateLookup(directories=[template_dir])
+    return _template_cache[interface]
+
+
+def _get_icons(interface, http_root):
+    """Get cached icons dictionary for the given interface."""
+    cache_key = (interface, http_root)
+    if cache_key not in _icons_cache:
+        if interface == 'default':
+            icons = {
+                'icon_gear': os.path.join(http_root, 'images', 'icon_gear.png'),
+                'icon_upcoming': os.path.join(http_root, 'images', 'icon_upcoming.png'),
+                'icon_wanted': os.path.join(http_root, 'images', 'icon_wanted.png'),
+                'icon_search': os.path.join(http_root, 'images', 'icon_search.png'),
+                'discord-icon': os.path.join(http_root, 'images', 'discord-icon.png'),
+                'github-icon': os.path.join(http_root, 'images', 'github-icon.png'),
+                'forum-icon': os.path.join(http_root, 'images', 'forum-icon.png'),
+                'irc-icon': os.path.join(http_root, 'images', 'irc-icon.png'),
+                'listview_icon': os.path.join(http_root, 'images', 'listview_icon.png'),
+                'delete_icon': os.path.join(http_root, 'images', 'delete_icon.png'),
+                'deleteall_icon': os.path.join(http_root, 'images', 'deleteall_icon.png'),
+                'prowl_logo': os.path.join(http_root, 'images', 'prowl_logo.png'),
+                'ReadingList-icon': os.path.join(http_root, 'images', 'ReadingList-icon.png'),
+                'next': os.path.join(http_root, 'images', 'next.gif'),
+                'prev': os.path.join(http_root, 'images', 'prev.gif'),
+            }
+        else:
+            icons = {
+                'icon_gear': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_gear.png'),
+                'icon_upcoming': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_upcoming.png'),
+                'icon_wanted': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_wanted.png'),
+                'icon_search': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_search.png'),
+                'discord-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'discord-icon-carbon.png'),
+                'github-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'github-icon-carbon.png'),
+                'forum-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'forum-icon-carbon.png'),
+                'irc-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'irc-icon-carbon.png'),
+                'listview_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'listview_icon.png'),
+                'delete_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'delete_icon.png'),
+                'deleteall_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'deleteall_icon.png'),
+                'prowl_logo': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prowl_logo.png'),
+                'ReadingList-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'ReadingList-icon.png'),
+                'next': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'next.gif'),
+                'prev': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prev.gif'),
+            }
+        _icons_cache[cache_key] = icons
+    return _icons_cache[cache_key]
+
+
 def serve_template(templatename, **kwargs):
     interface_dir = os.path.join(str(mylar.PROG_DIR), 'data/interfaces/')
-    if any([mylar.CONFIG.INTERFACE == 'default', mylar.CONFIG.INTERFACE is None]):
-        tmper_dir = 'default'
-    else:
-        tmper_dir = mylar.CONFIG.INTERFACE
+    interface = mylar.CONFIG.INTERFACE if mylar.CONFIG.INTERFACE else 'default'
+    http_root = mylar.CONFIG.HTTP_ROOT
 
-    icons = []
-    if mylar.CONFIG.INTERFACE == 'default':
-        icons = {'icon_gear': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_gear.png'),
-                 'icon_upcoming': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_upcoming.png'),
-                 'icon_wanted': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_wanted.png'),
-                 'icon_search': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_search.png'),
-                 'discord-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'discord-icon.png'),
-                 'github-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'github-icon.png'),
-                 'forum-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'forum-icon.png'),
-                 'irc-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'irc-icon.png'),
-                 'listview_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'listview_icon.png'),
-                 'delete_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'delete_icon.png'),
-                 'deleteall_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'deleteall_icon.png'),
-                 'prowl_logo': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'prowl_logo.png'),
-                 'ReadingList-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'ReadingList-icon.png'),
-                 'next': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'next.gif'),
-                 'prev': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'prev.gif')}
-    else:
-        icons = {'icon_gear': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_gear.png'),
-                 'icon_upcoming': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_upcoming.png'),
-                 'icon_wanted': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_wanted.png'),
-                 'icon_search': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_search.png'),
-                 'discord-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'discord-icon-carbon.png'),
-                 'github-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'github-icon-carbon.png'),
-                 'forum-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'forum-icon-carbon.png'),
-                 'irc-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'irc-icon-carbon.png'),
-                 'listview_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'listview_icon.png'),
-                 'delete_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'delete_icon.png'),
-                 'deleteall_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'deleteall_icon.png'),
-                 'prowl_logo': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'prowl_logo.png'),
-                 'ReadingList-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'ReadingList-icon.png'),
-                 'next': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'next.gif'),
-                 'prev': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'prev.gif')}
+    # Use cached icons and template lookup
+    icons = _get_icons(interface, http_root)
+    _hplookup = _get_template_lookup(interface, interface_dir)
 
-    template_dir = os.path.join(str(interface_dir), tmper_dir)
-    _hplookup = TemplateLookup(directories=[template_dir])
     try:
         template = _hplookup.get_template(templatename)
-        return template.render(http_root=mylar.CONFIG.HTTP_ROOT, interface=mylar.CONFIG.INTERFACE, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
-    except Exception as e:
-        #default to base in case the html hasn't been changed in new interface.
-        template_dir = os.path.join(str(interface_dir), 'default')
-        _hplookup = TemplateLookup(directories=[template_dir])
+        return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
+    except Exception:
+        # Default to base in case the html hasn't been changed in new interface.
+        _hplookup_default = _get_template_lookup('default', interface_dir)
         try:
-            template = _hplookup.get_template(templatename)
-            return template.render(http_root=mylar.CONFIG.HTTP_ROOT, interface=mylar.CONFIG.INTERFACE, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
+            template = _hplookup_default.get_template(templatename)
+            return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
         except Exception:
             return exceptions.html_error_template().render()
 
@@ -1215,6 +1241,131 @@ class WebInterface(object):
         return serve_template(templatename="searchresults.html", title='Search Results for: "' + name + '"', query_id=query_id, query=name, search_type=search_type)
         # searchresults=searchresults, search_type=search_type, imported=None, ogcname=None, name=name, serinfo=serinfo)
     searchit.exposed = True
+
+    def searchit_async(self, name, issue=None, smode=None, search_type=None, serinfo=None):
+        """Async search - returns page immediately, performs search in background"""
+
+        # Validate inputs
+        if search_type is None:
+            search_type = 'comic'
+        if smode is None:
+            smode = 'series'
+        if len(name) == 0:
+            raise cherrypy.HTTPRedirect("home")
+
+        # Generate unique search ID
+        search_id = random.randint(1, 999999)
+
+        # Launch background search thread
+        threading.Thread(
+            target=self._perform_search_background,
+            args=[search_id, name, issue, smode, search_type, serinfo]
+        ).start()
+
+        # Return page immediately with loading state
+        return serve_template(
+            templatename="searchresults.html",
+            title='Search Results for: "' + name + '"',
+            query_id=search_id,
+            query=name,
+            search_type=search_type,
+            search_status='loading'
+        )
+
+    searchit_async.exposed = True
+
+    def _perform_search_background(self, search_id, name, issue, smode, search_type, serinfo):
+        """Background worker - performs actual ComicVine search"""
+
+        try:
+            # Emit progress message
+            logger.info('[ASYNC SEARCH] Starting search for: %s (search_id=%s)' % (name, search_id))
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'mid-message-event',
+                'event': 'search_progress',
+                'search_id': search_id,
+                'message': 'Searching Comic Vine for: ' + name
+            }
+
+            # Perform search (existing logic from searchit method)
+            searchresults = None
+            if search_type == 'comic' and smode == 'pullseries':
+                if issue == 0 or issue == '0':
+                    issue = 1
+                searchresults = mb.findComic(name, smode, issue=issue)
+            elif search_type == 'comic' and smode == 'series':
+                if name.startswith('4050-'):
+                    # Direct add by ComicVine ID
+                    comicid = re.sub('4050-', '', name)
+                    logger.info('Attempting to add directly by ComicVineID: ' + str(comicid))
+                    self.addbyid(comicid, calledby=False, nothread=False)
+                    return
+                searchresults = mb.findComic(name, smode, issue=None)
+            elif search_type == 'comic' and smode == 'want':
+                searchresults = mb.findComic(name, smode, issue)
+            elif search_type == 'story_arc':
+                searchresults = mb.findComic(name, mode=None, issue=None, search_type='story_arc')
+
+            if searchresults is None:
+                raise Exception('No results returned from Comic Vine')
+
+            # Sort results
+            searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
+            logger.info('[ASYNC SEARCH] Sorted %d results, now storing in database (search_id=%s)' % (len(searchresults), search_id))
+
+            # Store in database (existing logic)
+            myDB = db.DBConnection()
+            for x in searchresults:
+                ctrlid = {'query_id': search_id, 'comicid': int(x['comicid'])}
+                haveit = "Yes" if x['haveit'] != "No" else "No"
+
+                vals = {
+                    'comicname': x['name'],
+                    'publisher': x['publisher'],
+                    'comicyear': x['comicyear'],
+                    'issues': x['issues'],
+                    'deck': x['deck'],
+                    'url': x['url'],
+                    'comicimage': x['comicimage'],
+                    'thumbimage': x['comicthumb'],
+                    'description': x['description'],
+                    'haveit': haveit,
+                    'mode': smode,
+                    'searchtype': search_type
+                }
+
+                if search_type == 'story_arc':
+                    vals['cvarcid'] = x['cvarcid']
+                    vals['arclist'] = x['arclist']
+                else:
+                    vals['volume'] = x['volume']
+                    vals['publisherimprint'] = x['imprint']
+                    vals['type'] = x['type']
+
+                myDB.upsert("tmp_searches", vals, ctrlid)
+
+            # Emit completion message
+            logger.info('[ASYNC SEARCH] Search completed successfully. Setting GLOBAL_MESSAGES for search_id=%s with %d results' % (search_id, len(searchresults)))
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'success',
+                'event': 'search_complete',
+                'search_id': search_id,
+                'message': 'Found %d results for: %s' % (len(searchresults), name),
+                'result_count': len(searchresults)
+            }
+            logger.info('[ASYNC SEARCH] GLOBAL_MESSAGES set to: %s' % mylar.GLOBAL_MESSAGES)
+
+        except Exception as e:
+            import traceback
+            logger.error('[ASYNC SEARCH] Error in search_id=%s: %s' % (search_id, e))
+            logger.error('[ASYNC SEARCH] Traceback: %s' % traceback.format_exc())
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'error',
+                'event': 'search_complete',
+                'search_id': search_id,
+                'message': 'Search failed: %s' % str(e)
+            }
+            logger.info('[ASYNC SEARCH] Error GLOBAL_MESSAGES set to: %s' % mylar.GLOBAL_MESSAGES)
 
     def searchit_old(self, name, issue=None, mode=None, search_type=None, serinfo=None):
         if search_type is None: search_type = 'comic'  # let's default this to comic search only for the time being (will add story arc, characters, etc later)
@@ -3175,7 +3326,15 @@ class WebInterface(object):
 
         myDB = db.DBConnection()
         logger.info('weeknumber: %s' % weeknumber)
-        upcomingdata = myDB.select("SELECT * from weekly WHERE Issue is not NULL AND Comic is not NULL and CAST(weeknumber as numeric) >= ? and CAST(year as numeric) >= ? order by weeknumber DESC", [weeknumber, weekyear])
+        upcomingdata = myDB.select("""
+            SELECT weeknumber, year, Status, IssueID, ComicID, Comic, Issue,
+                   ShipDate, DynamicName
+            FROM weekly
+            WHERE Issue IS NOT NULL AND Comic IS NOT NULL
+              AND CAST(weeknumber as numeric) >= ?
+              AND CAST(year as numeric) >= ?
+            ORDER BY weeknumber DESC
+        """, [weeknumber, weekyear])
         if upcomingdata is None:
             logger.info('No upcoming data as of yet...')
         else:
@@ -3221,37 +3380,70 @@ class WebInterface(object):
                                                "WeekNumber":   upc['weeknumber'],
                                                "DynamicName":  upc['DynamicName']})
 
-        fup1 = sorted(futureupcoming, key=lambda x: x if isinstance(itemgetter('IssueDate'), str) else "", reverse=True)
-        fup2 = sorted(fup1, key=itemgetter('ComicName'), reverse=True)
-        futureupcoming = sorted(fup2, key=lambda x: x if isinstance(itemgetter('IssueNumber'), str) else "", reverse=True)
+        # Single sort with proper multi-key logic
+        def sort_future_upcoming(item):
+            # Convert IssueNumber to numeric for proper sorting
+            try:
+                issue_num = float(item.get('IssueNumber', 0))
+            except (ValueError, TypeError):
+                issue_num = 0
+
+            return (
+                -issue_num,  # Primary: IssueNumber descending
+                item.get('ComicName', ''),  # Secondary: ComicName ascending
+                item.get('IssueDate', '')  # Tertiary: IssueDate ascending
+            )
+
+        futureupcoming = sorted(futureupcoming, key=sort_future_upcoming)
 
         #fix None DateAdded points here
         helpers.DateAddedFix()
         #let's straightload the series that have no issue data associated as of yet (ie. new series) from the futurepulllist
-        future_nodata_upcoming = myDB.select("SELECT * FROM futureupcoming WHERE IssueNumber='1' OR IssueNumber='0'")
+        future_nodata_upcoming = myDB.select("""
+            SELECT ComicName, IssueNumber, ComicID, IssueID, IssueDate, Status
+            FROM futureupcoming
+            WHERE IssueNumber='1' OR IssueNumber='0'
+        """)
 
         #let's move any items from the upcoming table into the wanted table if the date has already passed.
         #gather the list...
-        mvupcome = myDB.select("SELECT * from upcoming WHERE IssueDate < date('now') order by IssueDate DESC")
-        #get the issue ID's
-        for mvup in mvupcome:
-            myissue = myDB.selectone("SELECT ComicName, Issue_Number, IssueID, ComicID FROM issues WHERE IssueID=?", [mvup['IssueID']]).fetchone()
-            #myissue =  myDB.action("SELECT * FROM issues WHERE Issue_Number=?", [mvup['IssueNumber']]).fetchone()
+        # Single query with JOIN to get all outdated items and their issue data
+        outdated_query = """
+            SELECT
+                u.ComicName,
+                u.IssueNumber,
+                i.IssueID,
+                i.ComicID,
+                i.ComicName as i_ComicName,
+                i.Issue_Number
+            FROM upcoming u
+            LEFT JOIN issues i ON u.IssueID = i.IssueID
+            WHERE u.IssueDate < date('now')
+            ORDER BY u.IssueDate DESC
+        """
+        outdated_items = myDB.select(outdated_query)
 
-            if myissue is None: pass
-            else:
-                logger.fdebug("--Updating Status of issues table because of Upcoming status--")
-                logger.fdebug("ComicName: " + str(myissue['ComicName']))
-                logger.fdebug("Issue number : " + str(myissue['Issue_Number']))
+        if outdated_items:
+            # Batch UPDATE - single query for all issues
+            issue_ids_to_update = [item['IssueID'] for item in outdated_items if item['IssueID'] is not None]
 
-                mvcontroldict = {"IssueID":    myissue['IssueID']}
-                mvvalues = {"ComicID":         myissue['ComicID'],
-                            "Status":          "Wanted"}
-                myDB.upsert("issues", mvvalues, mvcontroldict)
+            if issue_ids_to_update:
+                placeholders = ','.join(['?'] * len(issue_ids_to_update))
+                batch_update_query = f"UPDATE issues SET Status = 'Wanted' WHERE IssueID IN ({placeholders})"
+                myDB.action(batch_update_query, issue_ids_to_update)
 
-                #remove old entry from upcoming so it won't try to continually download again.
-                logger.fdebug('[DELETE] - ' + mvup['ComicName'] + ' issue #: ' + str(mvup['IssueNumber']))
-                deleteit = myDB.action("DELETE from upcoming WHERE ComicName=? AND IssueNumber=?", [mvup['ComicName'], mvup['IssueNumber']])
+                # Preserve logging for each item
+                for item in outdated_items:
+                    if item['IssueID'] is not None:
+                        logger.fdebug("--Updating Status of issues table because of Upcoming status--")
+                        logger.fdebug("ComicName: " + str(item['i_ComicName']))
+                        logger.fdebug("Issue number: " + str(item['Issue_Number']))
+
+            # Batch DELETE - delete all outdated items from upcoming
+            for item in outdated_items:
+                logger.fdebug('[DELETE] - ' + item['ComicName'] + ' issue #: ' + str(item['IssueNumber']))
+                myDB.action("DELETE from upcoming WHERE ComicName=? AND IssueNumber=?",
+                           [item['ComicName'], item['IssueNumber']])
 
         mism = myDB.select("SELECT c.Type as BookType, c.ComicYear, c.ComicVersion, a.IssueDate, a.ReleaseDate, b.* FROM Comics as c LEFT JOIN Issues as a ON a.Comicid=c.ComicID INNER JOIN Weekly as b ON a.IssueID=b.IssueID WHERE b.Status='Mismatched' OR b.Status='Incomplete'")
         mismatched = []
@@ -3391,6 +3583,9 @@ class WebInterface(object):
     update_upcoming_filters.exposed = True
 
     def loadupcoming(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
+        import time
+        start_time = time.time()
+
         try:
             filters = json.loads(kwargs.get('filters'))
         except Exception as e:
@@ -3409,12 +3604,47 @@ class WebInterface(object):
         if mylar.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
             statline += " OR Status='Failed'"
 
-        iss_query = "SELECT ComicName, Issue_Number, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded from issues WHERE %s" % statline
-        issues = myDB.select(iss_query)
+        # Build WHERE clause with search filter for database-level filtering
+        search_params = []
+        where_clause = f"({statline})"
+
+        if sSearch:
+            search_pattern = f"%{sSearch}%"
+            where_clause += """ AND (ComicName LIKE ? COLLATE NOCASE
+                                OR Issue_Number LIKE ?
+                                OR ReleaseDate LIKE ?
+                                OR DateAdded LIKE ?)"""
+            search_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+        iss_query = f"""
+            SELECT ComicName, Issue_Number, Int_IssueNumber, ReleaseDate,
+                   Status, ComicID, IssueID, DateAdded
+            FROM issues
+            WHERE {where_clause}
+        """
+        issues = myDB.select(iss_query, search_params)
         arcs = {}
         if mylar.CONFIG.UPCOMING_STORYARCS is True:
-            arcs_query = "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded from storyarcs WHERE %s" % statline
-            arclist = myDB.select(arcs_query)
+            arc_search_params = []
+            arc_where = f"({statline})"
+
+            if sSearch:
+                search_pattern = f"%{sSearch}%"
+                arc_where += """ AND (ComicName LIKE ? COLLATE NOCASE
+                                 OR IssueNumber LIKE ?
+                                 OR Storyarc LIKE ? COLLATE NOCASE
+                                 OR ReleaseDate LIKE ?
+                                 OR DateAdded LIKE ?)"""
+                arc_search_params.extend([search_pattern, search_pattern, search_pattern,
+                                         search_pattern, search_pattern])
+
+            arcs_query = f"""
+                SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber,
+                       Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded
+                FROM storyarcs
+                WHERE {arc_where}
+            """
+            arclist = myDB.select(arcs_query, arc_search_params)
             for arc in arclist:
                 arc_int_number = arc['Int_IssueNumber']
                 if arc_int_number is None:
@@ -3431,8 +3661,13 @@ class WebInterface(object):
                                         'dateadded': arc['DateAdded']}
 
         if mylar.CONFIG.ANNUALS_ON:
-            annuals_query = "SELECT ReleaseComicName as ComicName, Issue_Number as Issue_Number, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded FROM annuals WHERE NOT Deleted AND %s" % statline
-            annuals_list = myDB.select(annuals_query)
+            annuals_query = f"""
+                SELECT ReleaseComicName as ComicName, Issue_Number, Int_IssueNumber,
+                       ReleaseDate, Status, ComicID, IssueID, DateAdded
+                FROM annuals
+                WHERE NOT Deleted AND {where_clause}
+            """
+            annuals_list = myDB.select(annuals_query, search_params)
 
             issues += annuals_list
 
@@ -3444,24 +3679,19 @@ class WebInterface(object):
         dollars = []
         bills = []
         for row in resultlist:
-            matched = False
+            # Calculate tier for display and tier-based searching
             if row['Status'] == 'Wanted':
                 try:
                     if row['DateAdded'] <= mylar.SEARCH_TIER_DATE:
                         tier = '2nd'
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                     else:
                         tier = '1st [%s]' % row['DateAdded']
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                 except:
                     tier = '1st [%s]' % row['DateAdded']
-                    if sSearch.lower() in tier.lower():
-                        matched = True
             else:
                 tier = ''
 
+            # Check if this row passes filter checkbox criteria
             foundfilter = False
             for filter in filters:
                 if filter['name'] == 'StoryArc' or filter['name'] == row['Status'] or all(['Tier1' in filter['name'], row['Status'] == 'Wanted', '1st' in tier]) or all(['Tier2' in filter['name'], row['Status'] == 'Wanted', '2nd' in tier]):
@@ -3472,21 +3702,20 @@ class WebInterface(object):
             if foundfilter:
                 continue
 
-            if row['ComicName'] is not None and sSearch.lower() in row['ComicName'].lower():
-                matched = True
-            elif row['Status'] is not None and sSearch.lower() in row['Status'].lower():
-                matched = True
-            elif row['DateAdded'] is not None and sSearch in row['DateAdded']:
-                matched = True
-            elif row['ReleaseDate'] is not None and sSearch in row['ReleaseDate']:
-                matched = True
-            elif tier != '' and sSearch in tier.lower():
-                matched = True
-            elif row['IssueID'] in arcs:
-                if sSearch.lower() in arcs[row['IssueID']]['storyarc'].lower():
+            # If there's a search term, check tier and story arc fields (not handled by SQL)
+            matched = True  # Default to matched since SQL already filtered most fields
+            if sSearch:
+                # Check tier match (tier is calculated in Python, not in DB)
+                if tier != '' and sSearch.lower() in tier.lower():
                     matched = True
-            else:
-                if sSearch.lower() in row['Issue_Number']:
+                # Check story arc match (story arc comes from separate table)
+                elif row['IssueID'] in arcs and sSearch.lower() in arcs[row['IssueID']]['storyarc'].lower():
+                    matched = True
+                # If searching for tier keywords and no match yet, exclude
+                elif any(tier_keyword in sSearch.lower() for tier_keyword in ['1st', '2nd', 'tier']):
+                    matched = False
+                # Otherwise, SQL already filtered, so keep it
+                else:
                     matched = True
 
             if matched is True:
@@ -3512,24 +3741,19 @@ class WebInterface(object):
 
         if mylar.CONFIG.UPCOMING_STORYARCS is True:
             for key, ark in arcs.items():
-                matched = False
+                # Calculate tier for display and tier-based searching
                 if ark['status'] == 'Wanted':
                     try:
                         if ark['dateadded'] <= mylar.SEARCH_TIER_DATE:
                             tier = '2nd'
-                            if sSearch.lower() in tier.lower():
-                                matched = True
                         else:
                             tier = '1st [%s]' % ark['dateadded']
-                            if sSearch.lower() in tier.lower():
-                                matched = True
                     except:
                         tier = '1st [%s]' % ark['dateadded']
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                 else:
                     tier = ''
 
+                # Check if this arc passes filter checkbox criteria
                 foundfilter = False
                 for filter in filters:
                     if filter['name'] == 'StoryArc' or filter['name'] == ark['status'] or all(['Tier1' in filter['name'], ark['status'] == 'Wanted', '1st' in tier]) or all(['Tier2' in filter['name'], ark['status'] == 'Wanted', '2nd' in tier]):
@@ -3540,20 +3764,17 @@ class WebInterface(object):
                 if foundfilter:
                     continue
 
-                if ark['comicname'] is not None and sSearch.lower() in ark['comicname'].lower():
-                    matched = True
-                elif ark['status'] is not None and sSearch.lower() in ark['status'].lower():
-                    matched = True
-                elif ark['dateadded'] is not None and sSearch in ark['dateadded']:
-                    matched = True
-                elif ark['releasedate'] is not None and sSearch in ark['releasedate']:
-                    matched = True
-                elif tier != '' and sSearch in tier.lower():
-                    matched = True
-                elif ark['storyarc'] is not None and sSearch.lower() in ark['storyarc'].lower():
-                    matched = True
-                else:
-                    if sSearch.lower() in ark['issuenumber']:
+                # If there's a search term, check tier field (not handled by SQL)
+                matched = True  # Default to matched since SQL already filtered most fields
+                if sSearch:
+                    # Check tier match (tier is calculated in Python, not in DB)
+                    if tier != '' and sSearch.lower() in tier.lower():
+                        matched = True
+                    # If searching for tier keywords and no match yet, exclude
+                    elif any(tier_keyword in sSearch.lower() for tier_keyword in ['1st', '2nd', 'tier']):
+                        matched = False
+                    # Otherwise, SQL already filtered, so keep it
+                    else:
                         matched = True
 
                 if matched is True:
@@ -3588,6 +3809,9 @@ class WebInterface(object):
             rows = final_filtered
         else:
             rows = final_filtered[iDisplayStart:(iDisplayStart + iDisplayLength)]
+
+        elapsed = time.time() - start_time
+        logger.fdebug(f"loadupcoming: {elapsed:.2f}s | search='{sSearch}' | results={len(final_filtered)}")
 
         return json.dumps({
             'iTotalDisplayRecords': len(final_filtered),
@@ -4703,6 +4927,22 @@ class WebInterface(object):
         myDB.upsert('storyarcs', {'Status': 'Skipped'}, {'IssueArcID': issuearcid})
         logger.info('Status set to Skipped.')
     clear_arcstatus.exposed = True
+
+    def load_arc_details(self, arcid):
+        """Load story arc details on-demand via AJAX"""
+        try:
+            arcinfolist = mb.storyarcinfo(arcid)
+            return json.dumps({
+                'status': 'success',
+                'data': arcinfolist
+            })
+        except Exception as e:
+            logger.error('Error loading arc details for %s: %s' % (arcid, e))
+            return json.dumps({
+                'status': 'error',
+                'message': str(e)
+            })
+    load_arc_details.exposed = True
 
     def storyarc_main(self, arcid=None, **kwargs):
         myDB = db.DBConnection()

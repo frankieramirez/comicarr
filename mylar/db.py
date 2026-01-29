@@ -31,6 +31,96 @@ from . import logger
 db_lock = threading.Lock()
 mylarQueue = queue.Queue()
 
+# Thread-local storage for database connections
+# SQLite connections can only be used from the thread that created them
+_thread_local = threading.local()
+
+
+class ConnectionPool:
+    """
+    Thread-safe connection pool for SQLite.
+
+    Uses thread-local storage to provide one connection per thread,
+    which is the recommended pattern for SQLite since connections
+    are not thread-safe.
+    """
+
+    _instance = None
+    _init_lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._init_lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
+        self._filename = "mylar.db"
+        self._connections = {}  # Track connections for cleanup
+        self._conn_lock = threading.Lock()
+        logger.fdebug('ConnectionPool initialized.')
+
+    def get_connection(self, filename="mylar.db"):
+        """Get a connection for the current thread."""
+        thread_id = threading.current_thread().ident
+
+        # Check if this thread already has a connection
+        if not hasattr(_thread_local, 'connections'):
+            _thread_local.connections = {}
+
+        if filename not in _thread_local.connections:
+            # Create new connection for this thread
+            conn = sqlite3.connect(
+                dbFilename(filename),
+                timeout=20,
+                check_same_thread=False
+            )
+            conn.row_factory = sqlite3.Row
+            _thread_local.connections[filename] = conn
+
+            # Track for cleanup
+            with self._conn_lock:
+                if thread_id not in self._connections:
+                    self._connections[thread_id] = {}
+                self._connections[thread_id][filename] = conn
+
+            logger.fdebug(
+                f'ConnectionPool: Created new connection for thread {thread_id}'
+            )
+
+        return _thread_local.connections[filename]
+
+    def close_all(self):
+        """Close all connections in the pool."""
+        with self._conn_lock:
+            for thread_id, conns in self._connections.items():
+                for filename, conn in conns.items():
+                    try:
+                        conn.close()
+                        logger.fdebug(
+                            f'ConnectionPool: Closed connection for thread {thread_id}'
+                        )
+                    except Exception as e:
+                        logger.warn(f'Error closing connection: {e}')
+            self._connections.clear()
+
+
+# Global connection pool instance
+_connection_pool = None
+
+
+def get_connection_pool():
+    """Get the global connection pool instance."""
+    global _connection_pool
+    if _connection_pool is None:
+        _connection_pool = ConnectionPool()
+    return _connection_pool
+
 def dbFilename(filename="mylar.db"):
 
     return os.path.join(mylar.DATA_DIR, filename)
@@ -67,8 +157,8 @@ class DBConnection:
     def __init__(self, filename="mylar.db"):
 
         self.filename = filename
-        self.connection = sqlite3.connect(dbFilename(filename), timeout=20)
-        self.connection.row_factory = sqlite3.Row
+        # Use connection pool instead of creating new connections
+        self.connection = get_connection_pool().get_connection(filename)
         self.queue = mylarQueue
 
     def fetch(self, query, args=None):

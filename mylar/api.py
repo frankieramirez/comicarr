@@ -109,6 +109,18 @@ class Api(object):
                     data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "current_version": "' + results['current_version'] + '",\ndata: "latest_version": "' + results['latest_version'] + '",\ndata: "commits_behind": "' + results['commits_behind'] + '",\ndata: "docker": "' + results['docker'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
                 except Exception as e:
                     data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
+            elif results['event'] == 'search_progress':
+                try:
+                    data = '\nevent: search_progress\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
+                except Exception as e:
+                    logger.error('[SSE] Error formatting search_progress event: %s' % e)
+                    data = '\nevent: search_progress\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
+            elif results['event'] == 'search_complete':
+                try:
+                    data = '\nevent: search_complete\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '",\ndata: "result_count": "' + str(results['result_count']) + '"\ndata: }\n\n'
+                except Exception as e:
+                    logger.error('[SSE] Error formatting search_complete event: %s' % e)
+                    data = '\nevent: search_complete\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
             else:
                 try:
                     data = '\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '",\ndata: "comicname": "' + results['comicname'] + '",\ndata: "seriesyear": "' + results['seriesyear'] + '"\ndata: }\n\n'
@@ -142,6 +154,58 @@ class Api(object):
             results.append(dict(list(zip(list(row.keys()), row))))
 
         return results
+
+    def _paginatedResultsFromQuery(self, query, limit=None, offset=None):
+        """
+        Execute a query with optional pagination support.
+
+        Args:
+            query: Base SQL query (should not include LIMIT/OFFSET)
+            limit: Maximum number of results to return (None = all)
+            offset: Number of results to skip (default 0)
+
+        Returns:
+            dict with 'results', 'total', 'limit', 'offset', 'has_more'
+        """
+        myDB = db.DBConnection()
+
+        # Get total count first (for pagination metadata)
+        # Extract the FROM clause to build a count query
+        count_query = query
+        if ' ORDER BY ' in count_query.upper():
+            count_query = count_query[:count_query.upper().find(' ORDER BY ')]
+        # Replace SELECT ... FROM with SELECT COUNT(*) FROM
+        from_pos = count_query.upper().find(' FROM ')
+        if from_pos != -1:
+            count_query = 'SELECT COUNT(*)' + count_query[from_pos:]
+
+        total_rows = myDB.select(count_query)
+        total = total_rows[0][0] if total_rows else 0
+
+        # Apply pagination to original query
+        paginated_query = query
+        if limit is not None:
+            paginated_query += f' LIMIT {int(limit)}'
+            if offset is not None and offset > 0:
+                paginated_query += f' OFFSET {int(offset)}'
+
+        rows = myDB.select(paginated_query)
+        results = []
+        for row in rows:
+            results.append(dict(list(zip(list(row.keys()), row))))
+
+        # Calculate if there are more results
+        current_offset = int(offset) if offset else 0
+        current_limit = int(limit) if limit else total
+        has_more = (current_offset + len(results)) < total
+
+        return {
+            'results': results,
+            'total': total,
+            'limit': current_limit,
+            'offset': current_offset,
+            'has_more': has_more
+        }
 
     def checkParams(self, *args, **kwargs):
 
@@ -311,14 +375,31 @@ class Api(object):
                 self.data = self._failureResponse('Incorrect username or password.')
 
     def _getIndex(self, **kwargs):
+        # Support pagination via limit and offset parameters
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
 
         query = '{select} ORDER BY ComicSortName COLLATE NOCASE'.format(
             select = self._selectForComics()
         )
 
-        self.data = self._successResponse(
-            self._resultsFromQuery(query)
-        )
+        if limit is not None:
+            # Return paginated results with metadata
+            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            self.data = self._successResponse({
+                'comics': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            })
+        else:
+            # Backwards compatible: return all results without pagination wrapper
+            self.data = self._successResponse(
+                self._resultsFromQuery(query)
+            )
 
         return
 
@@ -372,9 +453,29 @@ class Api(object):
         return
 
     def _getHistory(self, **kwargs):
-        self.data = self._successResponse(
-            self._resultsFromQuery('SELECT * from snatched order by DateAdded DESC')
-        )
+        # Support pagination via limit and offset parameters
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
+
+        query = 'SELECT * from snatched order by DateAdded DESC'
+
+        if limit is not None:
+            # Return paginated results with metadata
+            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            self.data = self._successResponse({
+                'history': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            })
+        else:
+            # Backwards compatible: return all results without pagination wrapper
+            self.data = self._successResponse(
+                self._resultsFromQuery(query)
+            )
         return
 
     def _getUpcoming(self, **kwargs):
@@ -401,9 +502,29 @@ class Api(object):
         return
 
     def _getWanted(self, **kwargs):
+        # Support pagination via limit and offset parameters (applies to issues)
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
+
         iss_query = "SELECT a.ComicName, a.ComicYear, a.ComicVersion, a.Type as BookType, a.ComicPublisher, a.publisherImprint, b.Issue_Number, b.IssueName, b.ReleaseDate, b.IssueDate, b.DigitalDate, b.Status, b.ComicID, b.IssueID, b.DateAdded from comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID WHERE b.Status='Wanted'"
-        issues = self._resultsFromQuery(iss_query)
-        tmp_data = {'issues': issues}
+
+        if limit is not None:
+            # Return paginated issues with metadata
+            paginated = self._paginatedResultsFromQuery(iss_query, limit=limit, offset=offset)
+            tmp_data = {
+                'issues': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            }
+        else:
+            # Backwards compatible: return all results
+            issues = self._resultsFromQuery(iss_query)
+            tmp_data = {'issues': issues}
+
         if 'story_arcs' in kwargs and kwargs['story_arcs'] == 'true':
             if mylar.CONFIG.UPCOMING_STORYARCS is True:
                 arcs_query = "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber, IssueName, ReleaseDate, IssueDate, DigitalDate, Status, ComicID, IssueID, DateAdded from storyarcs WHERE Status='Wanted'"
@@ -1288,6 +1409,15 @@ class Api(object):
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'message': mylar.GLOBAL_MESSAGES['message']}
             elif event is not None and event == 'check_update':
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'current_version': mylar.GLOBAL_MESSAGES['current_version'], 'latest_version': mylar.GLOBAL_MESSAGES['latest_version'], 'commits_behind': str(mylar.GLOBAL_MESSAGES['commits_behind']), 'docker': mylar.GLOBAL_MESSAGES['docker'], 'message': mylar.GLOBAL_MESSAGES['message']}
+            elif event is not None and event in ['search_progress', 'search_complete']:
+                the_message = {
+                    'status': mylar.GLOBAL_MESSAGES['status'],
+                    'event': event,
+                    'search_id': mylar.GLOBAL_MESSAGES.get('search_id'),
+                    'message': mylar.GLOBAL_MESSAGES['message']
+                }
+                if event == 'search_complete':
+                    the_message['result_count'] = mylar.GLOBAL_MESSAGES.get('result_count', 0)
             else:
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'comicid': mylar.GLOBAL_MESSAGES['comicid'], 'tables': mylar.GLOBAL_MESSAGES['tables'], 'message': mylar.GLOBAL_MESSAGES['message']}
                 try:
@@ -1296,7 +1426,8 @@ class Api(object):
                 except Exception as e:
                     logger.warn('error: %s' % e)
             #logger.fdebug('the_message added: %s' % (the_message,))
-            if mylar.GLOBAL_MESSAGES['status'] != 'mid-message-event':
+            # Don't save search events to database, just stream them
+            if mylar.GLOBAL_MESSAGES['status'] != 'mid-message-event' and event not in ['search_progress', 'search_complete']:
                 myDB = db.DBConnection()
                 tmp_message = dict(the_message, **{'session_id': mylar.SESSION_ID})
                 if event != 'check_update':
@@ -1314,6 +1445,8 @@ class Api(object):
                 tmp_message = dict(tmp_message, **{'message': the_real_message})
                 #logger.fdebug('the_message re-added: %s' % (tmp_message,))
                 myDB.upsert( "notifs", tmp_message, {'date': helpers.now()} )
+            if event in ['search_progress', 'search_complete']:
+                logger.info('[SSE] Sending search event via SSE: event=%s, search_id=%s' % (event, the_message.get('search_id')))
             mylar.GLOBAL_MESSAGES = None
         self.data = self._eventStreamResponse(the_message)
 

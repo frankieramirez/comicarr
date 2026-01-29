@@ -23,9 +23,25 @@ import requests
 import datetime
 from operator import itemgetter
 
+def get_cache_ttl_for_rtype(rtype):
+    """Get cache TTL based on request type"""
+    if rtype in ['comic', 'comicyears', 'import', 'image', 'firstissue', 'imprints_first']:
+        # Comic metadata - cache longer
+        return mylar.CONFIG.CV_CACHE_TTL_METADATA
+    elif rtype == 'storyarc':
+        # Story arc info
+        return mylar.CONFIG.CV_CACHE_TTL_ARC
+    elif rtype in ['issue', 'single_issue', 'db_updater']:
+        # Issue searches - cache for medium duration
+        return mylar.CONFIG.CV_CACHE_TTL_SEARCH
+    else:
+        # Default to search TTL
+        return mylar.CONFIG.CV_CACHE_TTL_SEARCH
+
 def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlist=None, dateinfo=None):
     #import easy to use xml parser called minidom:
     from xml.dom.minidom import parseString
+    import json
 
     if mylar.CONFIG.COMICVINE_API == 'None' or mylar.CONFIG.COMICVINE_API is None:
         logger.warn('You have not specified your own ComicVine API key - it\'s a requirement. Get your own @ http://api.comicvine.com.')
@@ -65,14 +81,27 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
     elif rtype == 'db_updater':
         PULLURL = mylar.CVURL + 'issues/?api_key=' + str(comicapi) + '&format=json&filter=date_last_updated:'+dateinfo['start_date']+'|'+dateinfo['end_date']+'&field_list=date_last_updated,id,volume,issue_number&sort=date_last_updated:asc&offset=' + str(offset)
     #logger.info('CV.PULLURL: ' + PULLURL)
+
+    # Check cache first if enabled
+    if mylar.CONFIG.CV_CACHE_ENABLED and mylar.CV_CACHE:
+        cached_response = mylar.CV_CACHE.get(PULLURL)
+        if cached_response:
+            logger.fdebug('[CACHE HIT] %s' % rtype)
+            try:
+                if any([rtype == 'single_issue', rtype == 'db_updater']):
+                    return json.loads(cached_response)
+                else:
+                    return parseString(cached_response)
+            except Exception as e:
+                logger.warn('[CACHE] Error parsing cached response: %s' % e)
+                # Fall through to fetch from API
+
     #new CV API restriction - one api request / second.
-    if mylar.CONFIG.CVAPI_RATE is None or mylar.CONFIG.CVAPI_RATE < 2:
-        time.sleep(2)
-    else:
-        time.sleep(mylar.CONFIG.CVAPI_RATE)
+    # Use intelligent rate limiter instead of fixed sleep (only on cache miss)
+    mylar.CV_RATE_LIMITER.acquire()
 
     try:
-        r = requests.get(PULLURL, verify=mylar.CONFIG.CV_VERIFY, headers=mylar.CV_HEADERS)
+        r = mylar.CV_SESSION.get(PULLURL, verify=mylar.CONFIG.CV_VERIFY, timeout=mylar.CV_TIMEOUT)
     except Exception as e:
         logger.warn('Error fetching data from ComicVine: %s' % (e))
         if all(['Expecting value: line 1 column 1' not in str(e), rtype != 'db_updater']):
@@ -84,6 +113,17 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
     mylar.BACKENDSTATUS_CV = 'up'
     #logger.fdebug('cv status code : ' + str(r.status_code))
     #logger.fdebug('rtype: %s' % rtype)
+
+    # Cache the response if enabled (before parsing)
+    if mylar.CONFIG.CV_CACHE_ENABLED and mylar.CV_CACHE and r.status_code == 200:
+        ttl = get_cache_ttl_for_rtype(rtype)
+        if any([rtype == 'single_issue', rtype == 'db_updater']):
+            # For JSON responses, cache the text content
+            mylar.CV_CACHE.set(PULLURL, r.text.encode('utf-8'), ttl)
+        else:
+            # For XML responses, cache the raw content
+            mylar.CV_CACHE.set(PULLURL, r.content, ttl)
+
     try:
         if any([rtype == 'single_issue', rtype == 'db_updater']):
             dom = r.json()
