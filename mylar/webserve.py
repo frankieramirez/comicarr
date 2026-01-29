@@ -1242,6 +1242,131 @@ class WebInterface(object):
         # searchresults=searchresults, search_type=search_type, imported=None, ogcname=None, name=name, serinfo=serinfo)
     searchit.exposed = True
 
+    def searchit_async(self, name, issue=None, smode=None, search_type=None, serinfo=None):
+        """Async search - returns page immediately, performs search in background"""
+
+        # Validate inputs
+        if search_type is None:
+            search_type = 'comic'
+        if smode is None:
+            smode = 'series'
+        if len(name) == 0:
+            raise cherrypy.HTTPRedirect("home")
+
+        # Generate unique search ID
+        search_id = random.randint(1, 999999)
+
+        # Launch background search thread
+        threading.Thread(
+            target=self._perform_search_background,
+            args=[search_id, name, issue, smode, search_type, serinfo]
+        ).start()
+
+        # Return page immediately with loading state
+        return serve_template(
+            templatename="searchresults.html",
+            title='Search Results for: "' + name + '"',
+            query_id=search_id,
+            query=name,
+            search_type=search_type,
+            search_status='loading'
+        )
+
+    searchit_async.exposed = True
+
+    def _perform_search_background(self, search_id, name, issue, smode, search_type, serinfo):
+        """Background worker - performs actual ComicVine search"""
+
+        try:
+            # Emit progress message
+            logger.info('[ASYNC SEARCH] Starting search for: %s (search_id=%s)' % (name, search_id))
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'mid-message-event',
+                'event': 'search_progress',
+                'search_id': search_id,
+                'message': 'Searching Comic Vine for: ' + name
+            }
+
+            # Perform search (existing logic from searchit method)
+            searchresults = None
+            if search_type == 'comic' and smode == 'pullseries':
+                if issue == 0 or issue == '0':
+                    issue = 1
+                searchresults = mb.findComic(name, smode, issue=issue)
+            elif search_type == 'comic' and smode == 'series':
+                if name.startswith('4050-'):
+                    # Direct add by ComicVine ID
+                    comicid = re.sub('4050-', '', name)
+                    logger.info('Attempting to add directly by ComicVineID: ' + str(comicid))
+                    self.addbyid(comicid, calledby=False, nothread=False)
+                    return
+                searchresults = mb.findComic(name, smode, issue=None)
+            elif search_type == 'comic' and smode == 'want':
+                searchresults = mb.findComic(name, smode, issue)
+            elif search_type == 'story_arc':
+                searchresults = mb.findComic(name, mode=None, issue=None, search_type='story_arc')
+
+            if searchresults is None:
+                raise Exception('No results returned from Comic Vine')
+
+            # Sort results
+            searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
+            logger.info('[ASYNC SEARCH] Sorted %d results, now storing in database (search_id=%s)' % (len(searchresults), search_id))
+
+            # Store in database (existing logic)
+            myDB = db.DBConnection()
+            for x in searchresults:
+                ctrlid = {'query_id': search_id, 'comicid': int(x['comicid'])}
+                haveit = "Yes" if x['haveit'] != "No" else "No"
+
+                vals = {
+                    'comicname': x['name'],
+                    'publisher': x['publisher'],
+                    'comicyear': x['comicyear'],
+                    'issues': x['issues'],
+                    'deck': x['deck'],
+                    'url': x['url'],
+                    'comicimage': x['comicimage'],
+                    'thumbimage': x['comicthumb'],
+                    'description': x['description'],
+                    'haveit': haveit,
+                    'mode': smode,
+                    'searchtype': search_type
+                }
+
+                if search_type == 'story_arc':
+                    vals['cvarcid'] = x['cvarcid']
+                    vals['arclist'] = x['arclist']
+                else:
+                    vals['volume'] = x['volume']
+                    vals['publisherimprint'] = x['imprint']
+                    vals['type'] = x['type']
+
+                myDB.upsert("tmp_searches", vals, ctrlid)
+
+            # Emit completion message
+            logger.info('[ASYNC SEARCH] Search completed successfully. Setting GLOBAL_MESSAGES for search_id=%s with %d results' % (search_id, len(searchresults)))
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'success',
+                'event': 'search_complete',
+                'search_id': search_id,
+                'message': 'Found %d results for: %s' % (len(searchresults), name),
+                'result_count': len(searchresults)
+            }
+            logger.info('[ASYNC SEARCH] GLOBAL_MESSAGES set to: %s' % mylar.GLOBAL_MESSAGES)
+
+        except Exception as e:
+            import traceback
+            logger.error('[ASYNC SEARCH] Error in search_id=%s: %s' % (search_id, e))
+            logger.error('[ASYNC SEARCH] Traceback: %s' % traceback.format_exc())
+            mylar.GLOBAL_MESSAGES = {
+                'status': 'error',
+                'event': 'search_complete',
+                'search_id': search_id,
+                'message': 'Search failed: %s' % str(e)
+            }
+            logger.info('[ASYNC SEARCH] Error GLOBAL_MESSAGES set to: %s' % mylar.GLOBAL_MESSAGES)
+
     def searchit_old(self, name, issue=None, mode=None, search_type=None, serinfo=None):
         if search_type is None: search_type = 'comic'  # let's default this to comic search only for the time being (will add story arc, characters, etc later)
         else: logger.fdebug(str(search_type) + " mode enabled.")

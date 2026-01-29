@@ -29,7 +29,7 @@ echo ""
 tail -f "$LOG_FILE" | grep --line-buffered -E "(SEARCH PERFORMANCE|PARALLEL|CACHE HIT|LAZY LOAD|SKIP IMPRINT)" | while read line; do
     # Extract timestamp and message
     timestamp=$(echo "$line" | cut -d'-' -f1-3)
-    message=$(echo "$line" | grep -oP '(SEARCH PERFORMANCE|PARALLEL|CACHE HIT|LAZY LOAD|SKIP IMPRINT).*')
+    message=$(echo "$line" | grep -oE '(SEARCH PERFORMANCE|PARALLEL|CACHE HIT|LAZY LOAD|SKIP IMPRINT).*')
 
     # Color code based on type
     if echo "$message" | grep -q "SEARCH PERFORMANCE"; then

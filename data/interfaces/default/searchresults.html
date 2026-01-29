@@ -19,8 +19,17 @@
                       searchtext = typesel + " results for : </br><center>" + query + "</center>"
                  %>
                 <input type="hidden" id="search_query" name="search_query" value="${query_id}" />
+                <input type="hidden" id="search_status" value="${search_status if 'search_status' in dir() else 'complete'}" />
 
 		<h1 class="clearfix"><img src="${icons['icon_search']}" alt="Search results"/>${searchtext}</h1>
+
+                <!-- Loading overlay -->
+                <div id="search_loading_overlay" style="display:none; text-align:center; padding:50px;">
+                    <img src="images/loader_black.gif" height="40" width="40" alt="Searching..."/>
+                    <p id="search_status_message" style="font-size:16px; margin-top:20px;">
+                        Searching Comic Vine...
+                    </p>
+                </div>
 <!--
             <div>
               <form action="CreateFolders" method="GET" id="CreatetheFolders">
@@ -527,9 +536,12 @@
                 });
             };
 
-        $(document).ready(function() {
-            initThisPage();
-            var tables = $('table.display').DataTable();
+        var tables = null;
+
+        function setupDataTableEvents() {
+            if (!tables) {
+                tables = $('table.display').DataTable();
+            }
 
             $(document).on("change", '#checkboxControls input[type="checkbox"]', function() {
             //$('#checkboxControls input[type="checkbox"]').onchange(function(){
@@ -581,6 +593,65 @@
                   }
                });
             });
+        }
+
+        $(document).ready(function() {
+            var search_status = document.getElementById("search_status").value;
+            var search_id = retrieve_searchquery();
+
+            if (search_status === 'loading') {
+                // Show loading overlay, hide results table
+                document.getElementById("search_loading_overlay").style.display = "block";
+                document.getElementById("search_wrapper").style.display = "none";
+
+                // Set up SSE listeners (evtSource already exists from base.html)
+                if (typeof evtSource !== 'undefined') {
+                    // Progress updates
+                    evtSource.addEventListener("search_progress", function(e) {
+                        if (e.data) {
+                            var data = JSON.parse(e.data);
+                            if (data.search_id == search_id) {
+                                document.getElementById("search_status_message").textContent = data.message;
+                            }
+                        }
+                    }, false);
+
+                    // Search completion
+                    evtSource.addEventListener("search_complete", function(e) {
+                        if (e.data) {
+                            var data = JSON.parse(e.data);
+                            if (data.search_id == search_id) {
+                                if (data.status === 'success') {
+                                    // Hide loading, show results
+                                    document.getElementById("search_loading_overlay").style.display = "none";
+                                    document.getElementById("search_wrapper").style.display = "block";
+
+                                    // Initialize DataTable with results
+                                    initThisPage();
+                                    setupDataTableEvents();
+
+                                    // Show success message
+                                    if (typeof $('#ajaxMsg') !== 'undefined') {
+                                        $('#ajaxMsg').html(data.message)
+                                            .addClass('ajaxMsg_success')
+                                            .fadeIn()
+                                            .delay(3000)
+                                            .fadeOut();
+                                    }
+                                } else {
+                                    // Show error
+                                    document.getElementById("search_status_message").innerHTML =
+                                        '<span style="color:red;">' + data.message + '</span>';
+                                }
+                            }
+                        }
+                    }, false);
+                }
+            } else {
+                // Results already loaded (direct page access), initialize normally
+                initThisPage();
+                setupDataTableEvents();
+            }
         });
 	</script>
 </%def>

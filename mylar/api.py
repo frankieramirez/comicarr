@@ -109,6 +109,18 @@ class Api(object):
                     data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "current_version": "' + results['current_version'] + '",\ndata: "latest_version": "' + results['latest_version'] + '",\ndata: "commits_behind": "' + results['commits_behind'] + '",\ndata: "docker": "' + results['docker'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
                 except Exception as e:
                     data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
+            elif results['event'] == 'search_progress':
+                try:
+                    data = '\nevent: search_progress\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
+                except Exception as e:
+                    logger.error('[SSE] Error formatting search_progress event: %s' % e)
+                    data = '\nevent: search_progress\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
+            elif results['event'] == 'search_complete':
+                try:
+                    data = '\nevent: search_complete\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '",\ndata: "result_count": "' + str(results['result_count']) + '"\ndata: }\n\n'
+                except Exception as e:
+                    logger.error('[SSE] Error formatting search_complete event: %s' % e)
+                    data = '\nevent: search_complete\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
             else:
                 try:
                     data = '\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '",\ndata: "comicname": "' + results['comicname'] + '",\ndata: "seriesyear": "' + results['seriesyear'] + '"\ndata: }\n\n'
@@ -1397,6 +1409,15 @@ class Api(object):
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'message': mylar.GLOBAL_MESSAGES['message']}
             elif event is not None and event == 'check_update':
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'current_version': mylar.GLOBAL_MESSAGES['current_version'], 'latest_version': mylar.GLOBAL_MESSAGES['latest_version'], 'commits_behind': str(mylar.GLOBAL_MESSAGES['commits_behind']), 'docker': mylar.GLOBAL_MESSAGES['docker'], 'message': mylar.GLOBAL_MESSAGES['message']}
+            elif event is not None and event in ['search_progress', 'search_complete']:
+                the_message = {
+                    'status': mylar.GLOBAL_MESSAGES['status'],
+                    'event': event,
+                    'search_id': mylar.GLOBAL_MESSAGES.get('search_id'),
+                    'message': mylar.GLOBAL_MESSAGES['message']
+                }
+                if event == 'search_complete':
+                    the_message['result_count'] = mylar.GLOBAL_MESSAGES.get('result_count', 0)
             else:
                 the_message = {'status': mylar.GLOBAL_MESSAGES['status'], 'event': event, 'comicid': mylar.GLOBAL_MESSAGES['comicid'], 'tables': mylar.GLOBAL_MESSAGES['tables'], 'message': mylar.GLOBAL_MESSAGES['message']}
                 try:
@@ -1405,7 +1426,8 @@ class Api(object):
                 except Exception as e:
                     logger.warn('error: %s' % e)
             #logger.fdebug('the_message added: %s' % (the_message,))
-            if mylar.GLOBAL_MESSAGES['status'] != 'mid-message-event':
+            # Don't save search events to database, just stream them
+            if mylar.GLOBAL_MESSAGES['status'] != 'mid-message-event' and event not in ['search_progress', 'search_complete']:
                 myDB = db.DBConnection()
                 tmp_message = dict(the_message, **{'session_id': mylar.SESSION_ID})
                 if event != 'check_update':
@@ -1423,6 +1445,8 @@ class Api(object):
                 tmp_message = dict(tmp_message, **{'message': the_real_message})
                 #logger.fdebug('the_message re-added: %s' % (tmp_message,))
                 myDB.upsert( "notifs", tmp_message, {'date': helpers.now()} )
+            if event in ['search_progress', 'search_complete']:
+                logger.info('[SSE] Sending search event via SSE: event=%s, search_id=%s' % (event, the_message.get('search_id')))
             mylar.GLOBAL_MESSAGES = None
         self.data = self._eventStreamResponse(the_message)
 
