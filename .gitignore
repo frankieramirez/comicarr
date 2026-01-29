@@ -23,3 +23,8 @@ cv_cache.db
 .mylar_maintenance.db
 *.db-shm
 *.db-wal
+
+# React frontend build
+data/react-build/
+frontend/node_modules/
+frontend/dist/
