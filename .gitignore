@@ -17,3 +17,9 @@ version.py
 env/
 .nova/
 *.swp
+
+# Runtime database files
+cv_cache.db
+.mylar_maintenance.db
+*.db-shm
+*.db-wal
