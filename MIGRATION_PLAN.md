@@ -9,23 +9,23 @@
 
 ## 🎯 Progress Tracker
 
-**Overall Status:** 3 of 7 days complete (43%)
+**Overall Status:** 4 of 7 days complete (57%)
 
 | Day | Task | Status | Completion Date |
 |-----|------|--------|----------------|
 | **Day 1** | Foundation Setup | ✅ **COMPLETE** | 2026-01-29 |
 | **Day 2** | Series Management | ✅ **COMPLETE** | 2026-01-29 |
 | **Day 3** | Search & Add Comics | ✅ **COMPLETE** | 2026-01-29 |
-| **Day 4** | Queue & Wanted Management | 🔄 **NEXT** | - |
-| **Day 5** | Basic Settings | ⏳ Pending | - |
+| **Day 4** | Queue & Wanted Management | ✅ **COMPLETE** | 2026-01-29 |
+| **Day 5** | Basic Settings | 🔄 **NEXT** | - |
 | **Day 6** | Real-time Updates & Polish | ⏳ Pending | - |
 | **Day 7** | Testing & Deployment | ⏳ Pending | - |
 
-**Latest Commit:** `fc8643c9` - IMP: Add React frontend (Days 1-3)
+**Latest Commit:** TBD - IMP: Add Queue & Wanted Management (Day 4)
 
 ### ✨ What's Been Built
 
-**Days 1-3 Implementation Summary:**
+**Days 1-4 Implementation Summary:**
 
 ✅ **Core Infrastructure**
 - Vite + React 18 + TailwindCSS 4 with hot module replacement
@@ -49,12 +49,26 @@
 - Toast notifications for user feedback
 - Automatic navigation to series detail after adding
 
+✅ **Queue & Wanted Management** ⬅️ NEW
+- Upcoming releases page with filter toggle (new releases vs. all)
+- Wanted issues page with pagination (50 items per page)
+- Client-side search by series name or issue number
+- Row selection with checkboxes (select all / individual)
+- Bulk actions: mark wanted, skip issues (fixed bottom action bar)
+- Individual actions per issue (status-based conditional rendering)
+- Force search all wanted issues (with confirmation dialog)
+- Cover image thumbnails with error handling
+- Sortable columns with click-to-sort
+- Click row to navigate to series detail
+- Loading states, error states, empty states
+- Toast notifications for all queue operations
+
 **Tech Stack Implemented:**
 - React 18 + Vite 5 + TailwindCSS 4
-- TanStack Query + TanStack Table
+- TanStack Query + TanStack Table (with row selection)
 - Lucide React icons
 - shadcn/ui component library
-- 40 files, 6,838 lines of code
+- 51 files, ~8,500 lines of code
 
 ---
 
@@ -266,7 +280,7 @@ Migrate Mylar3 from Mako templates + jQuery to React + TailwindCSS + Vite using 
 
 ---
 
-### Day 4: Queue & Wanted Management (6-8 hours)
+### Day 4: Queue & Wanted Management ✅ COMPLETE
 
 **Morning: Wanted/Upcoming Page**
 1. Fetch upcoming via `/api?cmd=getUpcoming`

@@ -7,6 +7,8 @@ import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
 import SeriesDetailPage from '@/pages/SeriesDetailPage';
 import SearchPage from '@/pages/SearchPage';
+import UpcomingPage from '@/pages/UpcomingPage';
+import WantedPage from '@/pages/WantedPage';
 import { ToastProvider } from '@/components/ui/toast';
 
 // Create a client
@@ -37,8 +39,8 @@ function App() {
                       <Route path="/" element={<HomePage />} />
                       <Route path="/series/:comicId" element={<SeriesDetailPage />} />
                       <Route path="/search" element={<SearchPage />} />
-                      <Route path="/upcoming" element={<div>Upcoming page coming soon...</div>} />
-                      <Route path="/wanted" element={<div>Wanted page coming soon...</div>} />
+                      <Route path="/upcoming" element={<UpcomingPage />} />
+                      <Route path="/wanted" element={<WantedPage />} />
                       <Route path="/story-arcs" element={<div>Story Arcs page coming soon...</div>} />
                       <Route path="/settings" element={<div>Settings page coming soon...</div>} />
                       <Route path="*" element={<Navigate to="/" replace />} />
