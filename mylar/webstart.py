@@ -129,8 +129,8 @@ def initialize(options):
                 # using the @require() decorator on the methods in webserve.py
                 'auth.require': []
             })
-            # exempt api, login page and static elements from authentication requirements
-            for i in ('/api', '/auth/login', '/css', '/images', '/js', 'favicon.ico'):
+            # exempt api, login page, json auth endpoints and static elements from authentication requirements
+            for i in ('/api', '/auth/login', '/auth/login_json', '/auth/logout_json', '/auth/check_session', '/css', '/images', '/js', 'favicon.ico'):
                 if i in conf:
                     conf[i].update({'tools.auth.on': False})
                 else:
