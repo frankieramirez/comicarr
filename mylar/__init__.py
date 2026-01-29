@@ -826,16 +826,26 @@ def dbcheck():
     c.execute('CREATE TABLE IF NOT EXISTS notifs(session_id INT, date TEXT, event TEXT, comicid TEXT, comicname TEXT, issuenumber TEXT, seriesyear TEXT, status TEXT, message TEXT, PRIMARY KEY (session_id, date))')
     c.execute('CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)')
     c.execute('CREATE TABLE IF NOT EXISTS mylar_info(DatabaseVersion INTEGER PRIMARY KEY)')
-    conn.commit
-    c.close
+    conn.commit()  # Commit table creations before continuing
 
     #create some indexes
     c.execute('CREATE INDEX IF NOT EXISTS issues_id on issues(IssueID)')
     c.execute('CREATE INDEX IF NOT EXISTS comics_id on comics(ComicID)')
+    # Additional indexes for common query patterns
+    c.execute('CREATE INDEX IF NOT EXISTS issues_comicid ON issues(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS issues_status ON issues(Status)')
+    c.execute('CREATE INDEX IF NOT EXISTS annuals_comicid ON annuals(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS comics_status ON comics(Status)')
+    c.execute('CREATE INDEX IF NOT EXISTS snatched_issueid ON snatched(IssueID)')
+    c.execute('CREATE INDEX IF NOT EXISTS weekly_comicid ON weekly(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_comicid ON storyarcs(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_storyarcid ON storyarcs(StoryArcID)')
+    c.execute('CREATE INDEX IF NOT EXISTS failed_issueid ON failed(IssueID)')
 
-    #might enable these at a later date.
-    #c.execute('''PRAGMA synchronous = EXTRA''')
-    #c.execute('''PRAGMA journal_mode = WAL''')
+    # Enable SQLite performance optimizations
+    c.execute('PRAGMA journal_mode = WAL')
+    c.execute('PRAGMA synchronous = NORMAL')
+    c.execute('PRAGMA cache_size = -64000')  # 64MB cache
 
     #add in the late players to the game....
 

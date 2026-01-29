@@ -1135,7 +1135,8 @@ def NZB_SEARCH(
 
                     try:
                         r = requests.get(
-                            findurl, params=payload, verify=verify, headers=headers
+                            findurl, params=payload, verify=verify, headers=headers,
+                            timeout=30
                         )
                         r.raise_for_status()
                     except requests.exceptions.Timeout as e:
@@ -2994,8 +2995,11 @@ def searcher(
                 )
 
         try:
-            r = requests.get(down_url, params=payload, verify=verify, headers=headers)
+            r = requests.get(down_url, params=payload, verify=verify, headers=headers, timeout=30)
 
+        except requests.exceptions.Timeout:
+            logger.warn('Timeout fetching data from %s' % tmpprov)
+            return "sab-fail"
         except Exception as e:
             logger.warn('Error fetching data from %s: %s' % (tmpprov, e))
             return "sab-fail"

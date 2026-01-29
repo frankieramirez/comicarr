@@ -79,59 +79,85 @@ from mylar.auth import (
     require,
 )
 
+# Template caching to avoid creating new TemplateLookup on every request
+_template_cache = {}
+_icons_cache = {}
+
+
+def _get_template_lookup(interface, interface_dir):
+    """Get cached TemplateLookup for the given interface."""
+    if interface not in _template_cache:
+        if any([interface == 'default', interface is None]):
+            tmper_dir = 'default'
+        else:
+            tmper_dir = interface
+        template_dir = os.path.join(str(interface_dir), tmper_dir)
+        _template_cache[interface] = TemplateLookup(directories=[template_dir])
+    return _template_cache[interface]
+
+
+def _get_icons(interface, http_root):
+    """Get cached icons dictionary for the given interface."""
+    cache_key = (interface, http_root)
+    if cache_key not in _icons_cache:
+        if interface == 'default':
+            icons = {
+                'icon_gear': os.path.join(http_root, 'images', 'icon_gear.png'),
+                'icon_upcoming': os.path.join(http_root, 'images', 'icon_upcoming.png'),
+                'icon_wanted': os.path.join(http_root, 'images', 'icon_wanted.png'),
+                'icon_search': os.path.join(http_root, 'images', 'icon_search.png'),
+                'discord-icon': os.path.join(http_root, 'images', 'discord-icon.png'),
+                'github-icon': os.path.join(http_root, 'images', 'github-icon.png'),
+                'forum-icon': os.path.join(http_root, 'images', 'forum-icon.png'),
+                'irc-icon': os.path.join(http_root, 'images', 'irc-icon.png'),
+                'listview_icon': os.path.join(http_root, 'images', 'listview_icon.png'),
+                'delete_icon': os.path.join(http_root, 'images', 'delete_icon.png'),
+                'deleteall_icon': os.path.join(http_root, 'images', 'deleteall_icon.png'),
+                'prowl_logo': os.path.join(http_root, 'images', 'prowl_logo.png'),
+                'ReadingList-icon': os.path.join(http_root, 'images', 'ReadingList-icon.png'),
+                'next': os.path.join(http_root, 'images', 'next.gif'),
+                'prev': os.path.join(http_root, 'images', 'prev.gif'),
+            }
+        else:
+            icons = {
+                'icon_gear': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_gear.png'),
+                'icon_upcoming': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_upcoming.png'),
+                'icon_wanted': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_wanted.png'),
+                'icon_search': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_search.png'),
+                'discord-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'discord-icon-carbon.png'),
+                'github-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'github-icon-carbon.png'),
+                'forum-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'forum-icon-carbon.png'),
+                'irc-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'irc-icon-carbon.png'),
+                'listview_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'listview_icon.png'),
+                'delete_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'delete_icon.png'),
+                'deleteall_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'deleteall_icon.png'),
+                'prowl_logo': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prowl_logo.png'),
+                'ReadingList-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'ReadingList-icon.png'),
+                'next': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'next.gif'),
+                'prev': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prev.gif'),
+            }
+        _icons_cache[cache_key] = icons
+    return _icons_cache[cache_key]
+
+
 def serve_template(templatename, **kwargs):
     interface_dir = os.path.join(str(mylar.PROG_DIR), 'data/interfaces/')
-    if any([mylar.CONFIG.INTERFACE == 'default', mylar.CONFIG.INTERFACE is None]):
-        tmper_dir = 'default'
-    else:
-        tmper_dir = mylar.CONFIG.INTERFACE
+    interface = mylar.CONFIG.INTERFACE if mylar.CONFIG.INTERFACE else 'default'
+    http_root = mylar.CONFIG.HTTP_ROOT
 
-    icons = []
-    if mylar.CONFIG.INTERFACE == 'default':
-        icons = {'icon_gear': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_gear.png'),
-                 'icon_upcoming': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_upcoming.png'),
-                 'icon_wanted': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_wanted.png'),
-                 'icon_search': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'icon_search.png'),
-                 'discord-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'discord-icon.png'),
-                 'github-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'github-icon.png'),
-                 'forum-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'forum-icon.png'),
-                 'irc-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'irc-icon.png'),
-                 'listview_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'listview_icon.png'),
-                 'delete_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'delete_icon.png'),
-                 'deleteall_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'deleteall_icon.png'),
-                 'prowl_logo': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'prowl_logo.png'),
-                 'ReadingList-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'ReadingList-icon.png'),
-                 'next': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'next.gif'),
-                 'prev': os.path.join(mylar.CONFIG.HTTP_ROOT, 'images', 'prev.gif')}
-    else:
-        icons = {'icon_gear': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_gear.png'),
-                 'icon_upcoming': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_upcoming.png'),
-                 'icon_wanted': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_wanted.png'),
-                 'icon_search': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'icon_search.png'),
-                 'discord-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'discord-icon-carbon.png'),
-                 'github-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'github-icon-carbon.png'),
-                 'forum-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'forum-icon-carbon.png'),
-                 'irc-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'irc-icon-carbon.png'),
-                 'listview_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'listview_icon.png'),
-                 'delete_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'delete_icon.png'),
-                 'deleteall_icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'deleteall_icon.png'),
-                 'prowl_logo': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'prowl_logo.png'),
-                 'ReadingList-icon': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'ReadingList-icon.png'),
-                 'next': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'next.gif'),
-                 'prev': os.path.join(mylar.CONFIG.HTTP_ROOT, 'interfaces', 'carbon', 'images', 'prev.gif')}
+    # Use cached icons and template lookup
+    icons = _get_icons(interface, http_root)
+    _hplookup = _get_template_lookup(interface, interface_dir)
 
-    template_dir = os.path.join(str(interface_dir), tmper_dir)
-    _hplookup = TemplateLookup(directories=[template_dir])
     try:
         template = _hplookup.get_template(templatename)
-        return template.render(http_root=mylar.CONFIG.HTTP_ROOT, interface=mylar.CONFIG.INTERFACE, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
-    except Exception as e:
-        #default to base in case the html hasn't been changed in new interface.
-        template_dir = os.path.join(str(interface_dir), 'default')
-        _hplookup = TemplateLookup(directories=[template_dir])
+        return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
+    except Exception:
+        # Default to base in case the html hasn't been changed in new interface.
+        _hplookup_default = _get_template_lookup('default', interface_dir)
         try:
-            template = _hplookup.get_template(templatename)
-            return template.render(http_root=mylar.CONFIG.HTTP_ROOT, interface=mylar.CONFIG.INTERFACE, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
+            template = _hplookup_default.get_template(templatename)
+            return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
         except Exception:
             return exceptions.html_error_template().render()
 
