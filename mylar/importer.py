@@ -25,7 +25,7 @@ import json
 import urllib.request, urllib.parse, urllib.error
 import urllib.request, urllib.error, urllib.parse
 import shutil
-import imghdr
+# import imghdr  # Removed - deprecated in Python 3.13+ and not used in this file
 import sqlite3
 import cherrypy
 import requests

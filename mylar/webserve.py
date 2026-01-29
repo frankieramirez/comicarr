@@ -3458,6 +3458,9 @@ class WebInterface(object):
     update_upcoming_filters.exposed = True
 
     def loadupcoming(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
+        import time
+        start_time = time.time()
+
         try:
             filters = json.loads(kwargs.get('filters'))
         except Exception as e:
@@ -3476,12 +3479,47 @@ class WebInterface(object):
         if mylar.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
             statline += " OR Status='Failed'"
 
-        iss_query = "SELECT ComicName, Issue_Number, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded from issues WHERE %s" % statline
-        issues = myDB.select(iss_query)
+        # Build WHERE clause with search filter for database-level filtering
+        search_params = []
+        where_clause = f"({statline})"
+
+        if sSearch:
+            search_pattern = f"%{sSearch}%"
+            where_clause += """ AND (ComicName LIKE ? COLLATE NOCASE
+                                OR Issue_Number LIKE ?
+                                OR ReleaseDate LIKE ?
+                                OR DateAdded LIKE ?)"""
+            search_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+        iss_query = f"""
+            SELECT ComicName, Issue_Number, Int_IssueNumber, ReleaseDate,
+                   Status, ComicID, IssueID, DateAdded
+            FROM issues
+            WHERE {where_clause}
+        """
+        issues = myDB.select(iss_query, search_params)
         arcs = {}
         if mylar.CONFIG.UPCOMING_STORYARCS is True:
-            arcs_query = "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded from storyarcs WHERE %s" % statline
-            arclist = myDB.select(arcs_query)
+            arc_search_params = []
+            arc_where = f"({statline})"
+
+            if sSearch:
+                search_pattern = f"%{sSearch}%"
+                arc_where += """ AND (ComicName LIKE ? COLLATE NOCASE
+                                 OR IssueNumber LIKE ?
+                                 OR Storyarc LIKE ? COLLATE NOCASE
+                                 OR ReleaseDate LIKE ?
+                                 OR DateAdded LIKE ?)"""
+                arc_search_params.extend([search_pattern, search_pattern, search_pattern,
+                                         search_pattern, search_pattern])
+
+            arcs_query = f"""
+                SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber,
+                       Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded
+                FROM storyarcs
+                WHERE {arc_where}
+            """
+            arclist = myDB.select(arcs_query, arc_search_params)
             for arc in arclist:
                 arc_int_number = arc['Int_IssueNumber']
                 if arc_int_number is None:
@@ -3498,8 +3536,13 @@ class WebInterface(object):
                                         'dateadded': arc['DateAdded']}
 
         if mylar.CONFIG.ANNUALS_ON:
-            annuals_query = "SELECT ReleaseComicName as ComicName, Issue_Number as Issue_Number, Int_IssueNumber, ReleaseDate, Status, ComicID, IssueID, DateAdded FROM annuals WHERE NOT Deleted AND %s" % statline
-            annuals_list = myDB.select(annuals_query)
+            annuals_query = f"""
+                SELECT ReleaseComicName as ComicName, Issue_Number, Int_IssueNumber,
+                       ReleaseDate, Status, ComicID, IssueID, DateAdded
+                FROM annuals
+                WHERE NOT Deleted AND {where_clause}
+            """
+            annuals_list = myDB.select(annuals_query, search_params)
 
             issues += annuals_list
 
@@ -3511,24 +3554,19 @@ class WebInterface(object):
         dollars = []
         bills = []
         for row in resultlist:
-            matched = False
+            # Calculate tier for display and tier-based searching
             if row['Status'] == 'Wanted':
                 try:
                     if row['DateAdded'] <= mylar.SEARCH_TIER_DATE:
                         tier = '2nd'
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                     else:
                         tier = '1st [%s]' % row['DateAdded']
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                 except:
                     tier = '1st [%s]' % row['DateAdded']
-                    if sSearch.lower() in tier.lower():
-                        matched = True
             else:
                 tier = ''
 
+            # Check if this row passes filter checkbox criteria
             foundfilter = False
             for filter in filters:
                 if filter['name'] == 'StoryArc' or filter['name'] == row['Status'] or all(['Tier1' in filter['name'], row['Status'] == 'Wanted', '1st' in tier]) or all(['Tier2' in filter['name'], row['Status'] == 'Wanted', '2nd' in tier]):
@@ -3539,21 +3577,20 @@ class WebInterface(object):
             if foundfilter:
                 continue
 
-            if row['ComicName'] is not None and sSearch.lower() in row['ComicName'].lower():
-                matched = True
-            elif row['Status'] is not None and sSearch.lower() in row['Status'].lower():
-                matched = True
-            elif row['DateAdded'] is not None and sSearch in row['DateAdded']:
-                matched = True
-            elif row['ReleaseDate'] is not None and sSearch in row['ReleaseDate']:
-                matched = True
-            elif tier != '' and sSearch in tier.lower():
-                matched = True
-            elif row['IssueID'] in arcs:
-                if sSearch.lower() in arcs[row['IssueID']]['storyarc'].lower():
+            # If there's a search term, check tier and story arc fields (not handled by SQL)
+            matched = True  # Default to matched since SQL already filtered most fields
+            if sSearch:
+                # Check tier match (tier is calculated in Python, not in DB)
+                if tier != '' and sSearch.lower() in tier.lower():
                     matched = True
-            else:
-                if sSearch.lower() in row['Issue_Number']:
+                # Check story arc match (story arc comes from separate table)
+                elif row['IssueID'] in arcs and sSearch.lower() in arcs[row['IssueID']]['storyarc'].lower():
+                    matched = True
+                # If searching for tier keywords and no match yet, exclude
+                elif any(tier_keyword in sSearch.lower() for tier_keyword in ['1st', '2nd', 'tier']):
+                    matched = False
+                # Otherwise, SQL already filtered, so keep it
+                else:
                     matched = True
 
             if matched is True:
@@ -3579,24 +3616,19 @@ class WebInterface(object):
 
         if mylar.CONFIG.UPCOMING_STORYARCS is True:
             for key, ark in arcs.items():
-                matched = False
+                # Calculate tier for display and tier-based searching
                 if ark['status'] == 'Wanted':
                     try:
                         if ark['dateadded'] <= mylar.SEARCH_TIER_DATE:
                             tier = '2nd'
-                            if sSearch.lower() in tier.lower():
-                                matched = True
                         else:
                             tier = '1st [%s]' % ark['dateadded']
-                            if sSearch.lower() in tier.lower():
-                                matched = True
                     except:
                         tier = '1st [%s]' % ark['dateadded']
-                        if sSearch.lower() in tier.lower():
-                            matched = True
                 else:
                     tier = ''
 
+                # Check if this arc passes filter checkbox criteria
                 foundfilter = False
                 for filter in filters:
                     if filter['name'] == 'StoryArc' or filter['name'] == ark['status'] or all(['Tier1' in filter['name'], ark['status'] == 'Wanted', '1st' in tier]) or all(['Tier2' in filter['name'], ark['status'] == 'Wanted', '2nd' in tier]):
@@ -3607,20 +3639,17 @@ class WebInterface(object):
                 if foundfilter:
                     continue
 
-                if ark['comicname'] is not None and sSearch.lower() in ark['comicname'].lower():
-                    matched = True
-                elif ark['status'] is not None and sSearch.lower() in ark['status'].lower():
-                    matched = True
-                elif ark['dateadded'] is not None and sSearch in ark['dateadded']:
-                    matched = True
-                elif ark['releasedate'] is not None and sSearch in ark['releasedate']:
-                    matched = True
-                elif tier != '' and sSearch in tier.lower():
-                    matched = True
-                elif ark['storyarc'] is not None and sSearch.lower() in ark['storyarc'].lower():
-                    matched = True
-                else:
-                    if sSearch.lower() in ark['issuenumber']:
+                # If there's a search term, check tier field (not handled by SQL)
+                matched = True  # Default to matched since SQL already filtered most fields
+                if sSearch:
+                    # Check tier match (tier is calculated in Python, not in DB)
+                    if tier != '' and sSearch.lower() in tier.lower():
+                        matched = True
+                    # If searching for tier keywords and no match yet, exclude
+                    elif any(tier_keyword in sSearch.lower() for tier_keyword in ['1st', '2nd', 'tier']):
+                        matched = False
+                    # Otherwise, SQL already filtered, so keep it
+                    else:
                         matched = True
 
                 if matched is True:
@@ -3655,6 +3684,9 @@ class WebInterface(object):
             rows = final_filtered
         else:
             rows = final_filtered[iDisplayStart:(iDisplayStart + iDisplayLength)]
+
+        elapsed = time.time() - start_time
+        logger.fdebug(f"loadupcoming: {elapsed:.2f}s | search='{sSearch}' | results={len(final_filtered)}")
 
         return json.dumps({
             'iTotalDisplayRecords': len(final_filtered),
@@ -4770,6 +4802,22 @@ class WebInterface(object):
         myDB.upsert('storyarcs', {'Status': 'Skipped'}, {'IssueArcID': issuearcid})
         logger.info('Status set to Skipped.')
     clear_arcstatus.exposed = True
+
+    def load_arc_details(self, arcid):
+        """Load story arc details on-demand via AJAX"""
+        try:
+            arcinfolist = mb.storyarcinfo(arcid)
+            return json.dumps({
+                'status': 'success',
+                'data': arcinfolist
+            })
+        except Exception as e:
+            logger.error('Error loading arc details for %s: %s' % (arcid, e))
+            return json.dumps({
+                'status': 'error',
+                'message': str(e)
+            })
+    load_arc_details.exposed = True
 
     def storyarc_main(self, arcid=None, **kwargs):
         myDB = db.DBConnection()
