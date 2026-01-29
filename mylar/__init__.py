@@ -172,6 +172,10 @@ PULLNEW = None
 CONFIG = None
 CONFIG_FILE = None
 CV_HEADERS = None
+CV_SESSION = None
+CV_RATE_LIMITER = None
+CV_CACHE = None
+CV_TIMEOUT = 30
 CVURL = None
 EXPURL = None
 DEMURL = None
@@ -397,6 +401,40 @@ def initialize(config_file):
         SESSION_ID = random.randint(10000,999999)
 
         CV_HEADERS = {'User-Agent': mylar.CONFIG.CV_USER_AGENT}
+
+        # Initialize ComicVine API session with connection pooling
+        def initialize_cv_session():
+            """Initialize ComicVine API session with connection pooling"""
+            global CV_SESSION, CV_RATE_LIMITER, CV_CACHE
+            if CV_SESSION is None:
+                CV_SESSION = requests.Session()
+                CV_SESSION.headers.update(CV_HEADERS)
+                adapter = requests.adapters.HTTPAdapter(
+                    pool_connections=10,
+                    pool_maxsize=20,
+                    max_retries=3,
+                    pool_block=False
+                )
+                CV_SESSION.mount('https://', adapter)
+                CV_SESSION.mount('http://', adapter)
+                logger.info('ComicVine API session initialized with connection pooling')
+
+            # Initialize rate limiter
+            if CV_RATE_LIMITER is None:
+                from mylar import rate_limiter
+                # Default to 1 call per 2 seconds (0.5 calls/sec)
+                cvapi_rate = mylar.CONFIG.CVAPI_RATE if mylar.CONFIG.CVAPI_RATE and mylar.CONFIG.CVAPI_RATE >= 2 else 2
+                CV_RATE_LIMITER = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0/cvapi_rate)
+                logger.info('ComicVine rate limiter initialized with %s second interval' % cvapi_rate)
+
+            # Initialize ComicVine cache
+            if CV_CACHE is None:
+                from mylar import cv_cache
+                cache_db_path = os.path.join(mylar.DATA_DIR, 'cv_cache.db')
+                CV_CACHE = cv_cache.CVCache(cache_db_path)
+                logger.info('ComicVine cache initialized at: %s' % cache_db_path)
+
+        initialize_cv_session()
 
         # set the current week for the pull-list
         todaydate = datetime.datetime.today()
@@ -900,6 +938,11 @@ def dbcheck():
     c.execute('CREATE INDEX IF NOT EXISTS failed_issueid ON failed(IssueID)')
     c.execute('CREATE INDEX IF NOT EXISTS upcoming_issuedate ON upcoming(IssueDate)')
     c.execute('CREATE INDEX IF NOT EXISTS upcoming_issueid ON upcoming(IssueID)')
+    # Indexes for /upcoming page search performance
+    c.execute('CREATE INDEX IF NOT EXISTS issues_status_comicname ON issues(Status, ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS issues_comicname ON issues(ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_status_comicname ON storyarcs(Status, ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_status_storyarc ON storyarcs(Status, Storyarc COLLATE NOCASE)')
 
     # Enable SQLite performance optimizations
     c.execute('PRAGMA journal_mode = WAL')
