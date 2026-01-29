@@ -44,6 +44,63 @@ from mylar import logger, versioncheckit, rsscheckit, searchit, weeklypullit, Po
 
 import mylar.config
 
+
+class ThreadSafeLock:
+    """
+    Thread-safe lock that provides boolean-like interface for backwards
+    compatibility while using proper threading primitives.
+
+    Usage:
+        lock = ThreadSafeLock()
+        if lock:  # or lock == True or lock.locked()
+            print("locked")
+        lock.acquire()  # instead of lock = True
+        lock.release()  # instead of lock = False
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+
+    def __bool__(self):
+        """Allow `if lock:` syntax."""
+        return self._lock.locked()
+
+    def __eq__(self, other):
+        """Allow `lock == True` or `lock is True` style comparisons."""
+        if isinstance(other, bool):
+            return self._lock.locked() == other
+        return NotImplemented
+
+    def acquire(self, blocking=True, timeout=-1):
+        """Acquire the lock (equivalent to setting to True)."""
+        return self._lock.acquire(blocking=blocking, timeout=timeout)
+
+    def release(self):
+        """
+        Release the lock (equivalent to setting to False).
+        Safe to call even if not locked.
+        """
+        try:
+            self._lock.release()
+        except RuntimeError:
+            # Lock was not held - this is fine for backwards compatibility
+            pass
+
+    def locked(self):
+        """Check if the lock is currently held."""
+        return self._lock.locked()
+
+    def __enter__(self):
+        """Support context manager usage."""
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Support context manager usage."""
+        self._lock.release()
+        return False
+
+
 #these are the globals that are runtime-based (ie. not config-valued at all)
 #they are referenced in other modules just as mylar.VARIABLE (instead of mylar.CONFIG.VARIABLE)
 MINIMUM_PY_VERSION = '3.8.1'
@@ -115,6 +172,10 @@ PULLNEW = None
 CONFIG = None
 CONFIG_FILE = None
 CV_HEADERS = None
+CV_SESSION = None
+CV_RATE_LIMITER = None
+CV_CACHE = None
+CV_TIMEOUT = 30
 CVURL = None
 EXPURL = None
 DEMURL = None
@@ -170,9 +231,9 @@ LATEST_VERSION = None
 COMMITS_BEHIND = None
 LOCAL_IP = None
 DOWNLOAD_APIKEY = None
-APILOCK = False
-SEARCHLOCK = False
-DDL_LOCK = False
+APILOCK = ThreadSafeLock()
+SEARCHLOCK = ThreadSafeLock()
+DDL_LOCK = ThreadSafeLock()
 CMTAGGER_PATH = None
 STATIC_COMICRN_VERSION = "1.01"
 STATIC_APC_VERSION = "2.04"
@@ -340,6 +401,40 @@ def initialize(config_file):
         SESSION_ID = random.randint(10000,999999)
 
         CV_HEADERS = {'User-Agent': mylar.CONFIG.CV_USER_AGENT}
+
+        # Initialize ComicVine API session with connection pooling
+        def initialize_cv_session():
+            """Initialize ComicVine API session with connection pooling"""
+            global CV_SESSION, CV_RATE_LIMITER, CV_CACHE
+            if CV_SESSION is None:
+                CV_SESSION = requests.Session()
+                CV_SESSION.headers.update(CV_HEADERS)
+                adapter = requests.adapters.HTTPAdapter(
+                    pool_connections=10,
+                    pool_maxsize=20,
+                    max_retries=3,
+                    pool_block=False
+                )
+                CV_SESSION.mount('https://', adapter)
+                CV_SESSION.mount('http://', adapter)
+                logger.info('ComicVine API session initialized with connection pooling')
+
+            # Initialize rate limiter
+            if CV_RATE_LIMITER is None:
+                from mylar import rate_limiter
+                # Default to 1 call per 2 seconds (0.5 calls/sec)
+                cvapi_rate = mylar.CONFIG.CVAPI_RATE if mylar.CONFIG.CVAPI_RATE and mylar.CONFIG.CVAPI_RATE >= 2 else 2
+                CV_RATE_LIMITER = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0/cvapi_rate)
+                logger.info('ComicVine rate limiter initialized with %s second interval' % cvapi_rate)
+
+            # Initialize ComicVine cache
+            if CV_CACHE is None:
+                from mylar import cv_cache
+                cache_db_path = os.path.join(mylar.DATA_DIR, 'cv_cache.db')
+                CV_CACHE = cv_cache.CVCache(cache_db_path)
+                logger.info('ComicVine cache initialized at: %s' % cache_db_path)
+
+        initialize_cv_session()
 
         # set the current week for the pull-list
         todaydate = datetime.datetime.today()
@@ -826,16 +921,33 @@ def dbcheck():
     c.execute('CREATE TABLE IF NOT EXISTS notifs(session_id INT, date TEXT, event TEXT, comicid TEXT, comicname TEXT, issuenumber TEXT, seriesyear TEXT, status TEXT, message TEXT, PRIMARY KEY (session_id, date))')
     c.execute('CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)')
     c.execute('CREATE TABLE IF NOT EXISTS mylar_info(DatabaseVersion INTEGER PRIMARY KEY)')
-    conn.commit
-    c.close
+    conn.commit()  # Commit table creations before continuing
 
     #create some indexes
     c.execute('CREATE INDEX IF NOT EXISTS issues_id on issues(IssueID)')
     c.execute('CREATE INDEX IF NOT EXISTS comics_id on comics(ComicID)')
+    # Additional indexes for common query patterns
+    c.execute('CREATE INDEX IF NOT EXISTS issues_comicid ON issues(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS issues_status ON issues(Status)')
+    c.execute('CREATE INDEX IF NOT EXISTS annuals_comicid ON annuals(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS comics_status ON comics(Status)')
+    c.execute('CREATE INDEX IF NOT EXISTS snatched_issueid ON snatched(IssueID)')
+    c.execute('CREATE INDEX IF NOT EXISTS weekly_comicid ON weekly(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_comicid ON storyarcs(ComicID)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_storyarcid ON storyarcs(StoryArcID)')
+    c.execute('CREATE INDEX IF NOT EXISTS failed_issueid ON failed(IssueID)')
+    c.execute('CREATE INDEX IF NOT EXISTS upcoming_issuedate ON upcoming(IssueDate)')
+    c.execute('CREATE INDEX IF NOT EXISTS upcoming_issueid ON upcoming(IssueID)')
+    # Indexes for /upcoming page search performance
+    c.execute('CREATE INDEX IF NOT EXISTS issues_status_comicname ON issues(Status, ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS issues_comicname ON issues(ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_status_comicname ON storyarcs(Status, ComicName COLLATE NOCASE)')
+    c.execute('CREATE INDEX IF NOT EXISTS storyarcs_status_storyarc ON storyarcs(Status, Storyarc COLLATE NOCASE)')
 
-    #might enable these at a later date.
-    #c.execute('''PRAGMA synchronous = EXTRA''')
-    #c.execute('''PRAGMA journal_mode = WAL''')
+    # Enable SQLite performance optimizations
+    c.execute('PRAGMA journal_mode = WAL')
+    c.execute('PRAGMA synchronous = NORMAL')
+    c.execute('PRAGMA cache_size = -64000')  # 64MB cache
 
     #add in the late players to the game....
 

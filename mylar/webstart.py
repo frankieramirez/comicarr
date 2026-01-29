@@ -52,7 +52,7 @@ def initialize(options):
     options_dict = {
         'server.socket_port': options['http_port'],
         'server.socket_host': options['http_host'],
-        'server.thread_pool': 10,
+        'server.thread_pool': 50,
         'tools.encode.on': True,
         'tools.encode.encoding': 'utf-8',
         'tools.encode.text_only': False,

@@ -3105,7 +3105,7 @@ def weekly_info(week=None, year=None, current=None):
     if todaydate.year == 2025:
         current_weeknumber = todaydate.isocalendar()[1]
     else:
-        current_weeknumber = todaydate.strftime("%U")
+        current_weeknumber = int(todaydate.strftime("%U"))
     if current is not None:
         c_weeknumber = int(current[:current.find('-')])
         c_weekyear = int(current[current.find('-')+1:])
@@ -3294,10 +3294,10 @@ def ddl_downloader(queue):
     myDB = db.DBConnection()
     link_type_failure = {}
     while True:
-        if mylar.DDL_LOCK is True:
+        if mylar.DDL_LOCK.locked():
             time.sleep(5)
 
-        elif mylar.DDL_LOCK is False and queue.qsize() >= 1:
+        elif not mylar.DDL_LOCK.locked() and queue.qsize() >= 1:
             item = queue.get(True)
 
             if item == 'exit':
@@ -3458,10 +3458,10 @@ def ddl_cleanup(id):
 
 def postprocess_main(queue):
     while True:
-        if mylar.APILOCK is True:
+        if mylar.APILOCK.locked():
             time.sleep(5)
 
-        elif mylar.APILOCK is False and queue.qsize() >= 1: #len(queue) > 1:
+        elif not mylar.APILOCK.locked() and queue.qsize() >= 1: #len(queue) > 1:
             pp = None
             item = queue.get(True)
             logger.info('Now loading from post-processing queue: %s' % item)
@@ -3469,7 +3469,7 @@ def postprocess_main(queue):
                 logger.info('Cleaning up workers for shutdown')
                 break
 
-            if mylar.APILOCK is False:
+            if not mylar.APILOCK.locked():
                 try:
                     pprocess = process.Process(item['nzb_name'], item['nzb_folder'], item['failed'], item['issueid'], item['comicid'], item['apicall'], item['ddl'], item['download_info'])
                 except:
@@ -3480,9 +3480,9 @@ def postprocess_main(queue):
             if pp is not None:
                 if pp['mode'] == 'stop':
                     #reset the lock so any subsequent items can pp and not keep the queue locked up.
-                    mylar.APILOCK = False
+                    mylar.APILOCK.release()
 
-            if mylar.APILOCK is True:
+            if mylar.APILOCK.locked():
                 logger.info('Another item is post-processing still...')
                 time.sleep(15)
                 #mylar.PP_QUEUE.put(item)
@@ -3491,10 +3491,10 @@ def postprocess_main(queue):
 
 def search_queue(queue):
     while True:
-        if mylar.SEARCHLOCK is True:
+        if mylar.SEARCHLOCK.locked():
             time.sleep(5)
 
-        elif mylar.SEARCHLOCK is False and queue.qsize() >= 1: #len(queue) > 1:
+        elif not mylar.SEARCHLOCK.locked() and queue.qsize() >= 1: #len(queue) > 1:
             item = queue.get(True)
             if item == 'exit':
                 logger.info('[SEARCH-QUEUE] Cleaning up workers for shutdown')
@@ -3510,7 +3510,7 @@ def search_queue(queue):
 
             if gumbo_line:
                 logger.fdebug('[SEARCH-QUEUE] Now loading item from search queue: %s' % item)
-                if mylar.SEARCHLOCK is False:
+                if not mylar.SEARCHLOCK.locked():
                     arcid = None
                     comicid = item['comicid']
                     issueid = item['issueid']
@@ -3546,7 +3546,7 @@ def search_queue(queue):
                         ss_queue = mylar.search.searchforissue(item['issueid'], manual=manual)
                     time.sleep(5) #arbitrary sleep to let the process attempt to finish pp'ing
 
-            if mylar.SEARCHLOCK is True:
+            if mylar.SEARCHLOCK.locked():
                 logger.fdebug('[SEARCH-QUEUE] Another item is currently being searched....')
                 time.sleep(15)
         else:
@@ -4709,12 +4709,20 @@ def DateAddedFix():
     myDB = db.DBConnection()
     DA_A = datetime.datetime.today()
     DateAdded = DA_A.strftime('%Y-%m-%d')
-    issues = myDB.select("SELECT IssueID FROM issues WHERE Status='Wanted' and DateAdded is NULL")
-    for da in issues:
-        myDB.upsert("issues", {'DateAdded': DateAdded}, {'IssueID': da[0]})
-    annuals = myDB.select("SELECT IssueID FROM annuals WHERE Status='Wanted' and DateAdded is NULL and not Deleted")
-    for an in annuals:
-        myDB.upsert("annuals", {'DateAdded': DateAdded}, {'IssueID': an[0]})
+
+    # Batch UPDATE for issues table
+    myDB.action("""
+        UPDATE issues
+        SET DateAdded = ?
+        WHERE Status = 'Wanted' AND DateAdded IS NULL
+    """, [DateAdded])
+
+    # Batch UPDATE for annuals table
+    myDB.action("""
+        UPDATE annuals
+        SET DateAdded = ?
+        WHERE Status = 'Wanted' AND DateAdded IS NULL AND NOT Deleted
+    """, [DateAdded])
 
 
 def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):
