@@ -1131,14 +1131,14 @@ class GC(object):
                "success": False,
                "link_type": link_type}
 
-        if mylar.DDL_LOCK is True:
+        if mylar.DDL_LOCK.locked():
             logger.fdebug(
                 '[DDL] Another item is currently downloading via DDL. Only one item can'
                 ' be downloaded at a time using DDL. Patience.'
             )
             return
         else:
-            mylar.DDL_LOCK = True
+            mylar.DDL_LOCK.acquire()
 
         myDB = db.DBConnection()
         mylar.DDL_QUEUED.append(id)
@@ -1208,7 +1208,7 @@ class GC(object):
                                     ' invalid and will ignore this result.'
                                 )
                                 remote_filesize = 0
-                                mylar.DDL_LOCK = False
+                                mylar.DDL_LOCK.release()
                                 return {
                                     "success": False,
                                     "filename": filename,
@@ -1227,7 +1227,7 @@ class GC(object):
                                 ' and will ignore this result.'
                             )
                             remote_filesize = 0
-                            mylar.DDL_LOCK = False
+                            mylar.DDL_LOCK.release()
                             return {
                                 "success": False,
                                 "filename": filename,
@@ -1290,7 +1290,7 @@ class GC(object):
 
         except requests.exceptions.Timeout as e:
             logger.error('[ERROR] download has timed out due to inactivity...: %s', e)
-            mylar.DDL_LOCK = False
+            mylar.DDL_LOCK.release()
             return {
                "success": False,
                "filename": filename,
@@ -1299,14 +1299,14 @@ class GC(object):
 
         except Exception as e:
             logger.error('[ERROR] %s' % e)
-            mylar.DDL_LOCK = False
+            mylar.DDL_LOCK.release()
             return {
                "success": False,
                "filename": filename,
                "path": None,
                "link_type": link_type}
         else:
-            mylar.DDL_LOCK = False
+            mylar.DDL_LOCK.release()
             return self.zip_zip(id, dst_path, filename)
 
 
@@ -1342,7 +1342,7 @@ class GC(object):
                 new_path = dst_path
             return {"success": True, "filename": filename, "path": new_path}
 
-        mylar.DDL_LOCK = False
+        mylar.DDL_LOCK.release()
         return {"success": False, "filename": filename, "path": None}
 
     def check_for_pack(self, title, issue_in_pack=None):

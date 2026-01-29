@@ -143,6 +143,58 @@ class Api(object):
 
         return results
 
+    def _paginatedResultsFromQuery(self, query, limit=None, offset=None):
+        """
+        Execute a query with optional pagination support.
+
+        Args:
+            query: Base SQL query (should not include LIMIT/OFFSET)
+            limit: Maximum number of results to return (None = all)
+            offset: Number of results to skip (default 0)
+
+        Returns:
+            dict with 'results', 'total', 'limit', 'offset', 'has_more'
+        """
+        myDB = db.DBConnection()
+
+        # Get total count first (for pagination metadata)
+        # Extract the FROM clause to build a count query
+        count_query = query
+        if ' ORDER BY ' in count_query.upper():
+            count_query = count_query[:count_query.upper().find(' ORDER BY ')]
+        # Replace SELECT ... FROM with SELECT COUNT(*) FROM
+        from_pos = count_query.upper().find(' FROM ')
+        if from_pos != -1:
+            count_query = 'SELECT COUNT(*)' + count_query[from_pos:]
+
+        total_rows = myDB.select(count_query)
+        total = total_rows[0][0] if total_rows else 0
+
+        # Apply pagination to original query
+        paginated_query = query
+        if limit is not None:
+            paginated_query += f' LIMIT {int(limit)}'
+            if offset is not None and offset > 0:
+                paginated_query += f' OFFSET {int(offset)}'
+
+        rows = myDB.select(paginated_query)
+        results = []
+        for row in rows:
+            results.append(dict(list(zip(list(row.keys()), row))))
+
+        # Calculate if there are more results
+        current_offset = int(offset) if offset else 0
+        current_limit = int(limit) if limit else total
+        has_more = (current_offset + len(results)) < total
+
+        return {
+            'results': results,
+            'total': total,
+            'limit': current_limit,
+            'offset': current_offset,
+            'has_more': has_more
+        }
+
     def checkParams(self, *args, **kwargs):
 
         if 'cmd' not in kwargs:
@@ -311,14 +363,31 @@ class Api(object):
                 self.data = self._failureResponse('Incorrect username or password.')
 
     def _getIndex(self, **kwargs):
+        # Support pagination via limit and offset parameters
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
 
         query = '{select} ORDER BY ComicSortName COLLATE NOCASE'.format(
             select = self._selectForComics()
         )
 
-        self.data = self._successResponse(
-            self._resultsFromQuery(query)
-        )
+        if limit is not None:
+            # Return paginated results with metadata
+            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            self.data = self._successResponse({
+                'comics': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            })
+        else:
+            # Backwards compatible: return all results without pagination wrapper
+            self.data = self._successResponse(
+                self._resultsFromQuery(query)
+            )
 
         return
 
@@ -372,9 +441,29 @@ class Api(object):
         return
 
     def _getHistory(self, **kwargs):
-        self.data = self._successResponse(
-            self._resultsFromQuery('SELECT * from snatched order by DateAdded DESC')
-        )
+        # Support pagination via limit and offset parameters
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
+
+        query = 'SELECT * from snatched order by DateAdded DESC'
+
+        if limit is not None:
+            # Return paginated results with metadata
+            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            self.data = self._successResponse({
+                'history': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            })
+        else:
+            # Backwards compatible: return all results without pagination wrapper
+            self.data = self._successResponse(
+                self._resultsFromQuery(query)
+            )
         return
 
     def _getUpcoming(self, **kwargs):
@@ -401,9 +490,29 @@ class Api(object):
         return
 
     def _getWanted(self, **kwargs):
+        # Support pagination via limit and offset parameters (applies to issues)
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset', 0)
+
         iss_query = "SELECT a.ComicName, a.ComicYear, a.ComicVersion, a.Type as BookType, a.ComicPublisher, a.publisherImprint, b.Issue_Number, b.IssueName, b.ReleaseDate, b.IssueDate, b.DigitalDate, b.Status, b.ComicID, b.IssueID, b.DateAdded from comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID WHERE b.Status='Wanted'"
-        issues = self._resultsFromQuery(iss_query)
-        tmp_data = {'issues': issues}
+
+        if limit is not None:
+            # Return paginated issues with metadata
+            paginated = self._paginatedResultsFromQuery(iss_query, limit=limit, offset=offset)
+            tmp_data = {
+                'issues': paginated['results'],
+                'pagination': {
+                    'total': paginated['total'],
+                    'limit': paginated['limit'],
+                    'offset': paginated['offset'],
+                    'has_more': paginated['has_more']
+                }
+            }
+        else:
+            # Backwards compatible: return all results
+            issues = self._resultsFromQuery(iss_query)
+            tmp_data = {'issues': issues}
+
         if 'story_arcs' in kwargs and kwargs['story_arcs'] == 'true':
             if mylar.CONFIG.UPCOMING_STORYARCS is True:
                 arcs_query = "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber, IssueName, ReleaseDate, IssueDate, DigitalDate, Status, ComicID, IssueID, DateAdded from storyarcs WHERE Status='Wanted'"
