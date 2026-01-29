@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LoginPage() {
-  const [apiKey, setApiKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, isVerifying } = useAuth();
   const navigate = useNavigate();
@@ -15,17 +16,17 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!apiKey.trim()) {
-      setError('Please enter an API key');
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password');
       return;
     }
 
-    const result = await login(apiKey);
+    const result = await login(username, password);
 
     if (result.success) {
       navigate('/');
     } else {
-      setError(result.error || 'Invalid API key');
+      setError(result.error || 'Login failed');
     }
   };
 
@@ -35,22 +36,38 @@ export default function LoginPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl text-center">Mylar3</CardTitle>
           <CardDescription className="text-center">
-            Enter your API key to continue
+            Sign in to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="apiKey" className="text-sm font-medium">
-                API Key
+              <label htmlFor="username" className="text-sm font-medium">
+                Username
               </label>
               <Input
-                id="apiKey"
-                type="password"
-                placeholder="Enter your Mylar3 API key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={isVerifying}
+                autoComplete="username"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isVerifying}
+                autoComplete="current-password"
               />
             </div>
 
@@ -65,13 +82,9 @@ export default function LoginPage() {
               className="w-full"
               disabled={isVerifying}
             >
-              {isVerifying ? 'Verifying...' : 'Login'}
+              {isVerifying ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
-
-          <div className="mt-4 text-xs text-gray-500 text-center">
-            <p>Find your API key in Mylar3 Settings → Web Interface</p>
-          </div>
         </CardContent>
       </Card>
     </div>

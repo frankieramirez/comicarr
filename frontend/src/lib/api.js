@@ -4,6 +4,7 @@
  */
 
 const API_BASE = '/api';
+const AUTH_BASE = '/auth';
 
 /**
  * Make an API call to Mylar3
@@ -12,14 +13,7 @@ const API_BASE = '/api';
  * @returns {Promise<any>} The API response data
  */
 export async function apiCall(cmd, params = {}) {
-  const apiKey = localStorage.getItem('apiKey');
-
-  if (!apiKey) {
-    throw new Error('No API key found. Please log in.');
-  }
-
   const url = new URL(API_BASE, window.location.origin);
-  url.searchParams.set('apikey', apiKey);
   url.searchParams.set('cmd', cmd);
 
   // Add additional parameters
@@ -30,7 +24,9 @@ export async function apiCall(cmd, params = {}) {
   });
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      credentials: 'include', // Send session cookies
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -51,22 +47,84 @@ export async function apiCall(cmd, params = {}) {
 }
 
 /**
- * Verify if an API key is valid
- * @param {string} apiKey - The API key to verify
- * @returns {Promise<boolean>} True if valid
+ * Login with username and password
+ * @param {string} username - The username
+ * @param {string} password - The password
+ * @returns {Promise<{success: boolean, username?: string, error?: string}>}
  */
-export async function verifyApiKey(apiKey) {
+export async function login(username, password) {
   try {
-    const url = new URL(API_BASE, window.location.origin);
-    url.searchParams.set('apikey', apiKey);
-    url.searchParams.set('cmd', 'getVersion');
+    const url = new URL(`${AUTH_BASE}/login_json`, window.location.origin);
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        username,
+        password,
+      }),
+      credentials: 'include', // Receive session cookies
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
-
-    return data.success !== false;
+    return data;
   } catch (error) {
-    console.error('API key verification failed:', error);
-    return false;
+    console.error('Login failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Logout the current user
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function logout() {
+  try {
+    const url = new URL(`${AUTH_BASE}/logout_json`, window.location.origin);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Logout failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check if user has a valid session
+ * @returns {Promise<{success: boolean, authenticated: boolean, username?: string}>}
+ */
+export async function checkSession() {
+  try {
+    const url = new URL(`${AUTH_BASE}/check_session`, window.location.origin);
+
+    const response = await fetch(url, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Session check failed:', error);
+    return { success: true, authenticated: false };
   }
 }
