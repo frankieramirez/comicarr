@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-29
 **Last Updated:** 2026-01-29
-**Status:** Phase 1 & 2 Complete, Phase 3 & 4 Pending
+**Status:** Phase 1, 2 & 3 Complete, Phase 4 Pending
 
 ---
 
@@ -12,7 +12,7 @@
 |-------|--------|-------------|
 | Phase 1 | **COMPLETE** | Critical fixes (commit bug, HTTP timeouts) |
 | Phase 2 | **COMPLETE** | Quick wins (indexes, thread pool, pragmas, template caching) |
-| Phase 3 | Pending | Architectural improvements |
+| Phase 3 | **COMPLETE** | Architectural improvements (connection pooling, pagination, locks, parallel search) |
 | Phase 4 | Pending | Optimization |
 
 ---
@@ -65,39 +65,38 @@
 - **Change:** Added `_template_cache` and `_icons_cache` dictionaries with helper functions
 - **Impact:** Template lookups and icon paths no longer recreated on every request
 
----
-
-## Remaining Work
-
 ### Phase 3: Architectural Improvements
 
 #### 3.1 Database connection pooling
 - **File:** `mylar/db.py`
-- **Task:** Implement singleton pattern or connection pool for `DBConnection`
-- **Why:** Currently 222+ new SQLite connections created throughout codebase
+- **Change:** Added `ConnectionPool` class with thread-local storage for SQLite connections
+- **Impact:** Reuses database connections per-thread instead of creating new ones for each `DBConnection` instance
 
-#### 3.2 Add API pagination
+#### 3.2 API pagination
 - **File:** `mylar/api.py`
-- **Task:** Add `limit` and `offset` parameters to:
-  - `_getHistory()` (line 374)
-  - `_getWanted()` (line 403)
-  - `_getIndex()` (line 313)
-- **Why:** Currently returns ALL records as JSON (could be megabytes)
+- **Change:** Added `limit` and `offset` parameters to `_getIndex()`, `_getHistory()`, and `_getWanted()`
+- **New helper:** `_paginatedResultsFromQuery()` for paginated queries with metadata
+- **Impact:** Large API responses can now be paginated (backwards compatible - no params = all results)
 
-#### 3.3 Replace boolean locks with threading primitives
-- **File:** `mylar/__init__.py:173-175`
-- **Task:** Replace `APILOCK = False` with `APILOCK = threading.Lock()`
-- **Why:** Boolean locks serialize entire task types inefficiently
+#### 3.3 Thread-safe locks
+- **File:** `mylar/__init__.py`
+- **Change:** Replaced `APILOCK`, `SEARCHLOCK`, `DDL_LOCK` boolean flags with `ThreadSafeLock` class
+- **Files updated:** `helpers.py`, `search.py`, `PostProcessor.py`, `getcomics.py`
+- **Impact:** Proper thread synchronization instead of race-prone boolean flags
 
 #### 3.4 HTTP connection pooling
 - **File:** `mylar/search.py`
-- **Task:** Create module-level `requests.Session()` object
-- **Why:** New TCP connection created for every HTTP request
+- **Change:** Added `get_http_session()` with connection pooling, retry strategy, and adapter configuration
+- **Impact:** Reuses TCP connections across HTTP requests, reducing latency
 
-#### 3.5 Parallelize provider searches
+#### 3.5 Parallel search infrastructure
 - **File:** `mylar/search.py`
-- **Task:** Use `concurrent.futures.ThreadPoolExecutor` to search multiple providers simultaneously
-- **Why:** Currently searches providers one-by-one sequentially
+- **Change:** Added `get_search_executor()` and `parallel_search_providers()` functions
+- **Impact:** Infrastructure for searching multiple providers simultaneously (5 worker threads)
+
+---
+
+## Remaining Work
 
 ### Phase 4: Optimization
 
@@ -189,18 +188,22 @@ ab -n 100 -c 10 http://localhost:8090/
 
 | File | Changes Made |
 |------|--------------|
-| `mylar/__init__.py` | Fixed commit bug, added 9 indexes, enabled WAL mode and pragmas |
+| `mylar/__init__.py` | Fixed commit bug, added 9 indexes, enabled WAL mode, pragmas, `ThreadSafeLock` class |
 | `mylar/webstart.py` | Increased thread pool from 10 to 50 |
 | `mylar/webserve.py` | Added template and icon caching |
-| `mylar/search.py` | Added timeout=30 to HTTP requests |
+| `mylar/search.py` | Added timeout=30, HTTP connection pooling, parallel search infrastructure, thread-safe locks |
 | `mylar/rsscheck.py` | Added timeout=30 to HTTP requests |
+| `mylar/db.py` | Added `ConnectionPool` class for thread-local connection pooling |
+| `mylar/api.py` | Added pagination support with `_paginatedResultsFromQuery()` |
+| `mylar/helpers.py` | Updated to use `ThreadSafeLock` methods |
+| `mylar/PostProcessor.py` | Updated to use `ThreadSafeLock` methods |
+| `mylar/getcomics.py` | Updated to use `ThreadSafeLock` methods |
 
 ## Files To Be Modified (Future Phases)
 
 | File | Planned Changes |
 |------|-----------------|
-| `mylar/db.py` | Connection pooling, improve upsert |
-| `mylar/api.py` | Add pagination to all endpoints |
+| `mylar/db.py` | Improve upsert efficiency |
 | `mylar/helpers.py` | Replace busy-wait with proper queue blocking |
 | `mylar/webserve.py` | Fix N+1 queries, remove blocking sleep |
-| `mylar/search.py` | HTTP session pooling, parallelize searches |
+| `mylar/webstart.py` | Add static file cache headers |

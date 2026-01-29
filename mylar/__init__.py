@@ -44,6 +44,63 @@ from mylar import logger, versioncheckit, rsscheckit, searchit, weeklypullit, Po
 
 import mylar.config
 
+
+class ThreadSafeLock:
+    """
+    Thread-safe lock that provides boolean-like interface for backwards
+    compatibility while using proper threading primitives.
+
+    Usage:
+        lock = ThreadSafeLock()
+        if lock:  # or lock == True or lock.locked()
+            print("locked")
+        lock.acquire()  # instead of lock = True
+        lock.release()  # instead of lock = False
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+
+    def __bool__(self):
+        """Allow `if lock:` syntax."""
+        return self._lock.locked()
+
+    def __eq__(self, other):
+        """Allow `lock == True` or `lock is True` style comparisons."""
+        if isinstance(other, bool):
+            return self._lock.locked() == other
+        return NotImplemented
+
+    def acquire(self, blocking=True, timeout=-1):
+        """Acquire the lock (equivalent to setting to True)."""
+        return self._lock.acquire(blocking=blocking, timeout=timeout)
+
+    def release(self):
+        """
+        Release the lock (equivalent to setting to False).
+        Safe to call even if not locked.
+        """
+        try:
+            self._lock.release()
+        except RuntimeError:
+            # Lock was not held - this is fine for backwards compatibility
+            pass
+
+    def locked(self):
+        """Check if the lock is currently held."""
+        return self._lock.locked()
+
+    def __enter__(self):
+        """Support context manager usage."""
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Support context manager usage."""
+        self._lock.release()
+        return False
+
+
 #these are the globals that are runtime-based (ie. not config-valued at all)
 #they are referenced in other modules just as mylar.VARIABLE (instead of mylar.CONFIG.VARIABLE)
 MINIMUM_PY_VERSION = '3.8.1'
@@ -170,9 +227,9 @@ LATEST_VERSION = None
 COMMITS_BEHIND = None
 LOCAL_IP = None
 DOWNLOAD_APIKEY = None
-APILOCK = False
-SEARCHLOCK = False
-DDL_LOCK = False
+APILOCK = ThreadSafeLock()
+SEARCHLOCK = ThreadSafeLock()
+DDL_LOCK = ThreadSafeLock()
 CMTAGGER_PATH = None
 STATIC_COMICRN_VERSION = "1.01"
 STATIC_APC_VERSION = "2.04"
