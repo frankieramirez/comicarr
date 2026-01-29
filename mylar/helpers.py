@@ -3105,7 +3105,7 @@ def weekly_info(week=None, year=None, current=None):
     if todaydate.year == 2025:
         current_weeknumber = todaydate.isocalendar()[1]
     else:
-        current_weeknumber = todaydate.strftime("%U")
+        current_weeknumber = int(todaydate.strftime("%U"))
     if current is not None:
         c_weeknumber = int(current[:current.find('-')])
         c_weekyear = int(current[current.find('-')+1:])
@@ -4709,12 +4709,20 @@ def DateAddedFix():
     myDB = db.DBConnection()
     DA_A = datetime.datetime.today()
     DateAdded = DA_A.strftime('%Y-%m-%d')
-    issues = myDB.select("SELECT IssueID FROM issues WHERE Status='Wanted' and DateAdded is NULL")
-    for da in issues:
-        myDB.upsert("issues", {'DateAdded': DateAdded}, {'IssueID': da[0]})
-    annuals = myDB.select("SELECT IssueID FROM annuals WHERE Status='Wanted' and DateAdded is NULL and not Deleted")
-    for an in annuals:
-        myDB.upsert("annuals", {'DateAdded': DateAdded}, {'IssueID': an[0]})
+
+    # Batch UPDATE for issues table
+    myDB.action("""
+        UPDATE issues
+        SET DateAdded = ?
+        WHERE Status = 'Wanted' AND DateAdded IS NULL
+    """, [DateAdded])
+
+    # Batch UPDATE for annuals table
+    myDB.action("""
+        UPDATE annuals
+        SET DateAdded = ?
+        WHERE Status = 'Wanted' AND DateAdded IS NULL AND NOT Deleted
+    """, [DateAdded])
 
 
 def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):

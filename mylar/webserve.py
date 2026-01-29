@@ -3201,7 +3201,15 @@ class WebInterface(object):
 
         myDB = db.DBConnection()
         logger.info('weeknumber: %s' % weeknumber)
-        upcomingdata = myDB.select("SELECT * from weekly WHERE Issue is not NULL AND Comic is not NULL and CAST(weeknumber as numeric) >= ? and CAST(year as numeric) >= ? order by weeknumber DESC", [weeknumber, weekyear])
+        upcomingdata = myDB.select("""
+            SELECT weeknumber, year, Status, IssueID, ComicID, Comic, Issue,
+                   ShipDate, DynamicName
+            FROM weekly
+            WHERE Issue IS NOT NULL AND Comic IS NOT NULL
+              AND CAST(weeknumber as numeric) >= ?
+              AND CAST(year as numeric) >= ?
+            ORDER BY weeknumber DESC
+        """, [weeknumber, weekyear])
         if upcomingdata is None:
             logger.info('No upcoming data as of yet...')
         else:
@@ -3247,37 +3255,70 @@ class WebInterface(object):
                                                "WeekNumber":   upc['weeknumber'],
                                                "DynamicName":  upc['DynamicName']})
 
-        fup1 = sorted(futureupcoming, key=lambda x: x if isinstance(itemgetter('IssueDate'), str) else "", reverse=True)
-        fup2 = sorted(fup1, key=itemgetter('ComicName'), reverse=True)
-        futureupcoming = sorted(fup2, key=lambda x: x if isinstance(itemgetter('IssueNumber'), str) else "", reverse=True)
+        # Single sort with proper multi-key logic
+        def sort_future_upcoming(item):
+            # Convert IssueNumber to numeric for proper sorting
+            try:
+                issue_num = float(item.get('IssueNumber', 0))
+            except (ValueError, TypeError):
+                issue_num = 0
+
+            return (
+                -issue_num,  # Primary: IssueNumber descending
+                item.get('ComicName', ''),  # Secondary: ComicName ascending
+                item.get('IssueDate', '')  # Tertiary: IssueDate ascending
+            )
+
+        futureupcoming = sorted(futureupcoming, key=sort_future_upcoming)
 
         #fix None DateAdded points here
         helpers.DateAddedFix()
         #let's straightload the series that have no issue data associated as of yet (ie. new series) from the futurepulllist
-        future_nodata_upcoming = myDB.select("SELECT * FROM futureupcoming WHERE IssueNumber='1' OR IssueNumber='0'")
+        future_nodata_upcoming = myDB.select("""
+            SELECT ComicName, IssueNumber, ComicID, IssueID, IssueDate, Status
+            FROM futureupcoming
+            WHERE IssueNumber='1' OR IssueNumber='0'
+        """)
 
         #let's move any items from the upcoming table into the wanted table if the date has already passed.
         #gather the list...
-        mvupcome = myDB.select("SELECT * from upcoming WHERE IssueDate < date('now') order by IssueDate DESC")
-        #get the issue ID's
-        for mvup in mvupcome:
-            myissue = myDB.selectone("SELECT ComicName, Issue_Number, IssueID, ComicID FROM issues WHERE IssueID=?", [mvup['IssueID']]).fetchone()
-            #myissue =  myDB.action("SELECT * FROM issues WHERE Issue_Number=?", [mvup['IssueNumber']]).fetchone()
+        # Single query with JOIN to get all outdated items and their issue data
+        outdated_query = """
+            SELECT
+                u.ComicName,
+                u.IssueNumber,
+                i.IssueID,
+                i.ComicID,
+                i.ComicName as i_ComicName,
+                i.Issue_Number
+            FROM upcoming u
+            LEFT JOIN issues i ON u.IssueID = i.IssueID
+            WHERE u.IssueDate < date('now')
+            ORDER BY u.IssueDate DESC
+        """
+        outdated_items = myDB.select(outdated_query)
 
-            if myissue is None: pass
-            else:
-                logger.fdebug("--Updating Status of issues table because of Upcoming status--")
-                logger.fdebug("ComicName: " + str(myissue['ComicName']))
-                logger.fdebug("Issue number : " + str(myissue['Issue_Number']))
+        if outdated_items:
+            # Batch UPDATE - single query for all issues
+            issue_ids_to_update = [item['IssueID'] for item in outdated_items if item['IssueID'] is not None]
 
-                mvcontroldict = {"IssueID":    myissue['IssueID']}
-                mvvalues = {"ComicID":         myissue['ComicID'],
-                            "Status":          "Wanted"}
-                myDB.upsert("issues", mvvalues, mvcontroldict)
+            if issue_ids_to_update:
+                placeholders = ','.join(['?'] * len(issue_ids_to_update))
+                batch_update_query = f"UPDATE issues SET Status = 'Wanted' WHERE IssueID IN ({placeholders})"
+                myDB.action(batch_update_query, issue_ids_to_update)
 
-                #remove old entry from upcoming so it won't try to continually download again.
-                logger.fdebug('[DELETE] - ' + mvup['ComicName'] + ' issue #: ' + str(mvup['IssueNumber']))
-                deleteit = myDB.action("DELETE from upcoming WHERE ComicName=? AND IssueNumber=?", [mvup['ComicName'], mvup['IssueNumber']])
+                # Preserve logging for each item
+                for item in outdated_items:
+                    if item['IssueID'] is not None:
+                        logger.fdebug("--Updating Status of issues table because of Upcoming status--")
+                        logger.fdebug("ComicName: " + str(item['i_ComicName']))
+                        logger.fdebug("Issue number: " + str(item['Issue_Number']))
+
+            # Batch DELETE - delete all outdated items from upcoming
+            for item in outdated_items:
+                logger.fdebug('[DELETE] - ' + item['ComicName'] + ' issue #: ' + str(item['IssueNumber']))
+                myDB.action("DELETE from upcoming WHERE ComicName=? AND IssueNumber=?",
+                           [item['ComicName'], item['IssueNumber']])
 
         mism = myDB.select("SELECT c.Type as BookType, c.ComicYear, c.ComicVersion, a.IssueDate, a.ReleaseDate, b.* FROM Comics as c LEFT JOIN Issues as a ON a.Comicid=c.ComicID INNER JOIN Weekly as b ON a.IssueID=b.IssueID WHERE b.Status='Mismatched' OR b.Status='Incomplete'")
         mismatched = []

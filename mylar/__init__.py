@@ -898,6 +898,8 @@ def dbcheck():
     c.execute('CREATE INDEX IF NOT EXISTS storyarcs_comicid ON storyarcs(ComicID)')
     c.execute('CREATE INDEX IF NOT EXISTS storyarcs_storyarcid ON storyarcs(StoryArcID)')
     c.execute('CREATE INDEX IF NOT EXISTS failed_issueid ON failed(IssueID)')
+    c.execute('CREATE INDEX IF NOT EXISTS upcoming_issuedate ON upcoming(IssueDate)')
+    c.execute('CREATE INDEX IF NOT EXISTS upcoming_issueid ON upcoming(IssueID)')
 
     # Enable SQLite performance optimizations
     c.execute('PRAGMA journal_mode = WAL')
