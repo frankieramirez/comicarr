@@ -4,9 +4,9 @@
 
 /** Base SSE event data */
 export interface SSEEventData {
-  status?: 'success' | 'failure' | 'mid-message-event';
+  status?: "success" | "failure" | "mid-message-event";
   message?: string;
-  tables?: 'both' | 'tables' | 'tabs';
+  tables?: "both" | "tables" | "tabs";
 }
 
 /** addbyid event data */

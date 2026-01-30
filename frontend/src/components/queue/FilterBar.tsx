@@ -1,5 +1,5 @@
-import { RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FilterBarProps {
   showAll: boolean;
@@ -8,7 +8,12 @@ interface FilterBarProps {
   isRefreshing?: boolean;
 }
 
-export default function FilterBar({ showAll, onToggleFilter, onRefresh, isRefreshing }: FilterBarProps) {
+export default function FilterBar({
+  showAll,
+  onToggleFilter,
+  onRefresh,
+  isRefreshing,
+}: FilterBarProps) {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center space-x-2">
@@ -26,7 +31,9 @@ export default function FilterBar({ showAll, onToggleFilter, onRefresh, isRefres
         </Button>
       </div>
       <Button variant="outline" onClick={onRefresh} disabled={isRefreshing}>
-        <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+        <RefreshCw
+          className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+        />
         Refresh
       </Button>
     </div>

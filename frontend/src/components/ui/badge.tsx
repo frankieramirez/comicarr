@@ -1,10 +1,18 @@
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-type BadgeVariant = "default" | "active" | "paused" | "ended" | "error" | "wanted" | "downloaded" | "skipped"
+type BadgeVariant =
+  | "default"
+  | "active"
+  | "paused"
+  | "ended"
+  | "error"
+  | "wanted"
+  | "downloaded"
+  | "skipped";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: BadgeVariant
+  variant?: BadgeVariant;
 }
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
@@ -16,9 +24,10 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       ended: "bg-[var(--status-ended-bg)] text-[var(--status-ended)]",
       error: "bg-[var(--status-error-bg)] text-[var(--status-error)]",
       wanted: "bg-[var(--status-wanted-bg)] text-[var(--status-wanted)]",
-      downloaded: "bg-[var(--status-downloaded-bg)] text-[var(--status-downloaded)]",
+      downloaded:
+        "bg-[var(--status-downloaded-bg)] text-[var(--status-downloaded)]",
       skipped: "bg-[var(--status-skipped-bg)] text-[var(--status-skipped)]",
-    }
+    };
 
     return (
       <span
@@ -26,13 +35,13 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
         className={cn(
           "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all hover:scale-105",
           variants[variant],
-          className
+          className,
         )}
         {...props}
       />
-    )
-  }
-)
-Badge.displayName = "Badge"
+    );
+  },
+);
+Badge.displayName = "Badge";
 
-export { Badge }
+export { Badge };

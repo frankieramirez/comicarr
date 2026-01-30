@@ -2,9 +2,17 @@
  * Component prop type definitions
  */
 
-import type { ReactNode } from 'react';
-import type { Issue, WantedIssue, UpcomingIssue, Comic, SearchResult, IssueStatus, SeriesStatus } from './entities';
-import type { PaginationMeta } from './api';
+import type { ReactNode } from "react";
+import type {
+  Issue,
+  WantedIssue,
+  UpcomingIssue,
+  Comic,
+  SearchResult,
+  IssueStatus,
+  SeriesStatus,
+} from "./entities";
+import type { PaginationMeta } from "./api";
 
 /** StatusBadge props */
 export interface StatusBadgeProps {
@@ -13,11 +21,17 @@ export interface StatusBadgeProps {
 }
 
 /** Button variants */
-export type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-export type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
+export type ButtonVariant =
+  | "default"
+  | "destructive"
+  | "outline"
+  | "secondary"
+  | "ghost"
+  | "link";
+export type ButtonSize = "default" | "sm" | "lg" | "icon";
 
 /** Toast types */
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = "success" | "error" | "info";
 
 /** Toast data */
 export interface ToastData {
@@ -76,7 +90,7 @@ export interface FilterBarProps {
 
 /** Filter state */
 export interface FilterState {
-  status?: IssueStatus | 'all';
+  status?: IssueStatus | "all";
   search?: string;
 }
 

@@ -1,5 +1,5 @@
-import { SettingGroup } from './SettingGroup';
-import { SettingField } from './SettingField';
+import { SettingGroup } from "./SettingGroup";
+import { SettingField } from "./SettingField";
 
 interface GeneralTabProps {
   config: Record<string, unknown>;

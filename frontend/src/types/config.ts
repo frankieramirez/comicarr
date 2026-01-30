@@ -42,7 +42,7 @@ export interface Config {
   torznab?: TorznabProvider[];
 
   // UI preferences
-  theme?: 'light' | 'dark' | 'system';
+  theme?: "light" | "dark" | "system";
 
   // Any additional config fields
   [key: string]: unknown;

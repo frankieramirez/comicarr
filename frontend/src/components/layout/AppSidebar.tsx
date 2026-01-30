@@ -1,8 +1,8 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import type { LucideIcon } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import ThemeToggle from '@/components/ThemeToggle';
+import { useState, FormEvent } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import type { LucideIcon } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   Sidebar,
   SidebarContent,
@@ -14,12 +14,12 @@ import {
   SidebarMenuButton,
   SidebarSeparator,
   useSidebar,
-} from '@/components/ui/sidebar';
+} from "@/components/ui/sidebar";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 import {
   Home,
   Search,
@@ -29,19 +29,19 @@ import {
   LogOut,
   BookMarked,
   MessageSquare,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function AppSidebar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { setOpenMobile } = useSidebar();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -49,7 +49,7 @@ export default function AppSidebar() {
     const trimmed = searchQuery.trim();
     if (trimmed.length >= 3) {
       navigate(`/search?q=${encodeURIComponent(trimmed)}&page=1`);
-      setSearchQuery('');
+      setSearchQuery("");
       setOpenMobile(false);
     }
   };
@@ -61,15 +61,15 @@ export default function AppSidebar() {
   }
 
   const navItems: NavItem[] = [
-    { path: '/', label: 'Series', icon: Home },
-    { path: '/upcoming', label: 'Upcoming', icon: Calendar },
-    { path: '/wanted', label: 'Wanted', icon: ListTodo },
-    { path: '/story-arcs', label: 'Story Arcs', icon: BookMarked },
+    { path: "/", label: "Series", icon: Home },
+    { path: "/upcoming", label: "Upcoming", icon: Calendar },
+    { path: "/wanted", label: "Wanted", icon: ListTodo },
+    { path: "/story-arcs", label: "Story Arcs", icon: BookMarked },
   ];
 
   const isActive = (path: string): boolean => {
-    if (path === '/') {
-      return location.pathname === '/';
+    if (path === "/") {
+      return location.pathname === "/";
     }
     return location.pathname.startsWith(path);
   };
@@ -100,7 +100,10 @@ export default function AppSidebar() {
       {/* Search Section */}
       <div className="px-2 py-2">
         {/* Expanded: show input */}
-        <form onSubmit={handleSearchSubmit} className="group-data-[collapsible=icon]:hidden">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="group-data-[collapsible=icon]:hidden"
+        >
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <SidebarInput
@@ -117,7 +120,7 @@ export default function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => navigate('/search')}
+                onClick={() => navigate("/search")}
                 className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <Search className="w-4 h-4" />
@@ -156,7 +159,7 @@ export default function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              isActive={isActive('/settings')}
+              isActive={isActive("/settings")}
               tooltip="Settings"
             >
               <Link to="/settings" onClick={handleNavClick}>

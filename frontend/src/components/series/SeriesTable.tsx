@@ -1,5 +1,5 @@
-import { useState, useMemo, SyntheticEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, SyntheticEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
@@ -10,29 +10,32 @@ import {
   ColumnDef,
   SortingState,
   CellContext,
-} from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import StatusBadge from '@/components/StatusBadge';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { Comic } from '@/types';
+} from "@tanstack/react-table";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import StatusBadge from "@/components/StatusBadge";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Comic } from "@/types";
 
 interface SeriesTableProps {
   data?: Comic[];
   isLoading?: boolean;
 }
 
-export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) {
+export default function SeriesTable({
+  data = [],
+  isLoading,
+}: SeriesTableProps) {
   const navigate = useNavigate();
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState("");
 
   const columns = useMemo<ColumnDef<Comic>[]>(
     () => [
       {
-        accessorKey: 'ComicName',
-        header: 'Comic',
+        accessorKey: "ComicName",
+        header: "Comic",
         cell: ({ row }: CellContext<Comic, unknown>) => (
           <div className="flex items-center space-x-3">
             {row.original.ComicImage && (
@@ -41,32 +44,38 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
                 alt={row.original.ComicName}
                 className="w-10 h-14 object-cover rounded shadow-sm"
                 onError={(e: SyntheticEvent<HTMLImageElement>) => {
-                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.style.display = "none";
                 }}
               />
             )}
             <div>
               <div className="font-medium">{row.original.ComicName}</div>
               {row.original.ComicYear && (
-                <div className="text-sm text-gray-500">({row.original.ComicYear})</div>
+                <div className="text-sm text-gray-500">
+                  ({row.original.ComicYear})
+                </div>
               )}
             </div>
           </div>
         ),
       },
       {
-        accessorKey: 'ComicPublisher',
-        header: 'Publisher',
-        cell: ({ getValue }: CellContext<Comic, unknown>) => <span className="text-sm">{(getValue() as string) || 'N/A'}</span>,
+        accessorKey: "ComicPublisher",
+        header: "Publisher",
+        cell: ({ getValue }: CellContext<Comic, unknown>) => (
+          <span className="text-sm">{(getValue() as string) || "N/A"}</span>
+        ),
       },
       {
-        accessorKey: 'Status',
-        header: 'Status',
-        cell: ({ getValue }: CellContext<Comic, unknown>) => <StatusBadge status={getValue() as string} />,
+        accessorKey: "Status",
+        header: "Status",
+        cell: ({ getValue }: CellContext<Comic, unknown>) => (
+          <StatusBadge status={getValue() as string} />
+        ),
       },
       {
-        accessorKey: 'Total',
-        header: 'Issues',
+        accessorKey: "Total",
+        header: "Issues",
         cell: ({ row }: CellContext<Comic, unknown>) => (
           <div className="text-center">
             <span className="font-medium">{row.original.Have || 0}</span>
@@ -75,8 +84,8 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
         ),
       },
       {
-        id: 'progress',
-        header: 'Progress',
+        id: "progress",
+        header: "Progress",
         cell: ({ row }: CellContext<Comic, unknown>) => {
           const total = parseInt(String(row.original.Total)) || 0;
           const have = parseInt(String(row.original.Have)) || 0;
@@ -89,17 +98,19 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
                   className="h-full rounded-full transition-all"
                   style={{
                     width: `${percentage}%`,
-                    background: 'var(--gradient-brand)'
+                    background: "var(--gradient-brand)",
                   }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground min-w-[3rem]">{percentage}%</span>
+              <span className="text-xs text-muted-foreground min-w-[3rem]">
+                {percentage}%
+              </span>
             </div>
           );
         },
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -136,7 +147,9 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
   if (data.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground text-lg">No series in your library yet.</p>
+        <p className="text-muted-foreground text-lg">
+          No series in your library yet.
+        </p>
         <p className="text-muted-foreground/70 text-sm mt-2">
           Use the search page to add comics to your library.
         </p>
@@ -150,7 +163,7 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
       <div className="flex items-center space-x-2">
         <Input
           placeholder="Search series..."
-          value={globalFilter ?? ''}
+          value={globalFilter ?? ""}
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-sm"
         />
@@ -175,19 +188,22 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
                         <div
                           className={
                             header.column.getCanSort()
-                              ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
-                              : ''
+                              ? "flex items-center space-x-1 cursor-pointer select-none hover:text-foreground"
+                              : ""
                           }
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           <span>
-                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
                           </span>
                           {header.column.getCanSort() && (
                             <span className="text-gray-400">
-                              {header.column.getIsSorted() === 'asc' ? (
+                              {header.column.getIsSorted() === "asc" ? (
                                 <ChevronUp className="w-4 h-4" />
-                              ) : header.column.getIsSorted() === 'desc' ? (
+                              ) : header.column.getIsSorted() === "desc" ? (
                                 <ChevronDown className="w-4 h-4" />
                               ) : (
                                 <ChevronsUpDown className="w-4 h-4" />
@@ -210,7 +226,10 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -223,7 +242,8 @@ export default function SeriesTable({ data = [], isLoading }: SeriesTableProps) 
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          Page {table.getState().pagination.pageIndex + 1} of{" "}
+          {table.getPageCount()}
         </div>
         <div className="flex items-center space-x-2">
           <Button

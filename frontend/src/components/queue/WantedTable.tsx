@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,13 +11,13 @@ import {
   CellContext,
   HeaderContext,
   Updater,
-} from '@tanstack/react-table';
-import { X, ChevronUp, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import StatusBadge from '@/components/StatusBadge';
-import { useUnqueueIssue } from '@/hooks/useSeries';
-import type { WantedIssue, PaginationMeta } from '@/types';
+} from "@tanstack/react-table";
+import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import StatusBadge from "@/components/StatusBadge";
+import { useUnqueueIssue } from "@/hooks/useSeries";
+import type { WantedIssue, PaginationMeta } from "@/types";
 
 interface WantedTableProps {
   issues?: WantedIssue[];
@@ -27,9 +27,17 @@ interface WantedTableProps {
   onSelectionChange?: (selectedIds: string[]) => void;
 }
 
-export default function WantedTable({ issues = [], pagination, onNextPage, onPrevPage, onSelectionChange }: WantedTableProps) {
+export default function WantedTable({
+  issues = [],
+  pagination,
+  onNextPage,
+  onPrevPage,
+  onSelectionChange,
+}: WantedTableProps) {
   const navigate = useNavigate();
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'DateAdded', desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "DateAdded", desc: true },
+  ]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const unqueueIssueMutation = useUnqueueIssue();
 
@@ -44,11 +52,13 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
 
   const columns: ColumnDef<WantedIssue>[] = [
     {
-      id: 'select',
+      id: "select",
       header: ({ table }: HeaderContext<WantedIssue, unknown>) => (
         <Checkbox
           checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+          indeterminate={
+            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          }
           onChange={table.getToggleAllRowsSelectedHandler()}
         />
       ),
@@ -62,8 +72,8 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       size: 40,
     },
     {
-      accessorKey: 'cover',
-      header: '',
+      accessorKey: "cover",
+      header: "",
       cell: ({ row }: CellContext<WantedIssue, unknown>) => {
         const [imageError, setImageError] = useState(false);
         const comicId = row.original.ComicID;
@@ -72,7 +82,7 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
           <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
             {!imageError && comicId ? (
               <img
-                src={`/api?apikey=${localStorage.getItem('apiKey')}&cmd=getComic&id=${comicId}`}
+                src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
                 alt=""
                 className="w-full h-full object-cover"
                 onError={() => setImageError(true)}
@@ -88,27 +98,31 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       size: 60,
     },
     {
-      accessorKey: 'ComicName',
-      header: 'Series',
+      accessorKey: "ComicName",
+      header: "Series",
       cell: ({ row }: CellContext<WantedIssue, unknown>) => (
         <div>
           <div className="font-medium">{row.original.ComicName}</div>
           {row.original.ComicYear && (
-            <div className="text-sm text-muted-foreground">({row.original.ComicYear})</div>
+            <div className="text-sm text-muted-foreground">
+              ({row.original.ComicYear})
+            </div>
           )}
         </div>
       ),
     },
     {
-      accessorKey: 'Issue_Number',
-      header: '#',
+      accessorKey: "Issue_Number",
+      header: "#",
       cell: ({ getValue }: CellContext<WantedIssue, unknown>) => (
-        <span className="font-mono text-sm">{(getValue() as string) || 'N/A'}</span>
+        <span className="font-mono text-sm">
+          {(getValue() as string) || "N/A"}
+        </span>
       ),
     },
     {
-      accessorKey: 'IssueName',
-      header: 'Issue Name',
+      accessorKey: "IssueName",
+      header: "Issue Name",
       cell: ({ getValue }: CellContext<WantedIssue, unknown>) => {
         const name = getValue() as string | undefined;
         return name ? (
@@ -119,8 +133,8 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       },
     },
     {
-      accessorKey: 'DateAdded',
-      header: 'Date Added',
+      accessorKey: "DateAdded",
+      header: "Date Added",
       cell: ({ getValue }: CellContext<WantedIssue, unknown>) => {
         const date = getValue() as string | undefined;
         if (!date) return <span className="text-muted-foreground/70">N/A</span>;
@@ -128,8 +142,8 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       },
     },
     {
-      accessorKey: 'IssueDate',
-      header: 'Release Date',
+      accessorKey: "IssueDate",
+      header: "Release Date",
       cell: ({ getValue }: CellContext<WantedIssue, unknown>) => {
         const date = getValue() as string | undefined;
         if (!date) return <span className="text-muted-foreground/70">N/A</span>;
@@ -137,13 +151,15 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       },
     },
     {
-      accessorKey: 'Status',
-      header: 'Status',
-      cell: ({ getValue }: CellContext<WantedIssue, unknown>) => <StatusBadge status={getValue() as string} />,
+      accessorKey: "Status",
+      header: "Status",
+      cell: ({ getValue }: CellContext<WantedIssue, unknown>) => (
+        <StatusBadge status={getValue() as string} />
+      ),
     },
     {
-      id: 'actions',
-      header: 'Actions',
+      id: "actions",
+      header: "Actions",
       cell: ({ row }: CellContext<WantedIssue, unknown>) => {
         const issueId = row.original.IssueID;
 
@@ -177,8 +193,11 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       setRowSelection(updater);
       // Notify parent of selection changes
       if (onSelectionChange) {
-        const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
-        const selectedIds = Object.keys(newSelection).map((index) => issues[parseInt(index)]?.IssueID).filter(Boolean) as string[];
+        const newSelection =
+          typeof updater === "function" ? updater(rowSelection) : updater;
+        const selectedIds = Object.keys(newSelection)
+          .map((index) => issues[parseInt(index)]?.IssueID)
+          .filter(Boolean) as string[];
         onSelectionChange(selectedIds);
       }
     },
@@ -212,23 +231,27 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
                       <div
                         className={
                           header.column.getCanSort()
-                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
-                            : ''
+                            ? "flex items-center space-x-1 cursor-pointer select-none hover:text-foreground"
+                            : ""
                         }
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         <span>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
                         </span>
-                        {header.column.getCanSort() && header.column.getIsSorted() && (
-                          <span className="text-muted-foreground/70">
-                            {header.column.getIsSorted() === 'asc' ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </span>
-                        )}
+                        {header.column.getCanSort() &&
+                          header.column.getIsSorted() && (
+                            <span className="text-muted-foreground/70">
+                              {header.column.getIsSorted() === "asc" ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </span>
+                          )}
                       </div>
                     )}
                   </th>
@@ -256,7 +279,9 @@ export default function WantedTable({ issues = [], pagination, onNextPage, onPre
       {pagination && (
         <div className="border-t border-card-border px-6 py-3 flex items-center justify-between bg-muted/50">
           <div className="text-sm text-gray-600">
-            Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} issues
+            Showing {pagination.offset + 1} to{" "}
+            {Math.min(pagination.offset + pagination.limit, pagination.total)}{" "}
+            of {pagination.total} issues
           </div>
           <div className="flex items-center space-x-2">
             <Button

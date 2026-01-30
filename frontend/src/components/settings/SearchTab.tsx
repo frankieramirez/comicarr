@@ -1,5 +1,5 @@
-import { SettingGroup } from './SettingGroup';
-import { SettingField } from './SettingField';
+import { SettingGroup } from "./SettingGroup";
+import { SettingField } from "./SettingField";
 
 interface SearchTabProps {
   config: Record<string, unknown>;
@@ -9,9 +9,9 @@ interface SearchTabProps {
 
 export function SearchTab({ formData, onChange }: SearchTabProps) {
   const qualityOptions = [
-    { value: '0', label: 'Any Quality' },
-    { value: '1', label: 'HD Only' },
-    { value: '2', label: 'Web-DL Only' },
+    { value: "0", label: "Any Quality" },
+    { value: "1", label: "HD Only" },
+    { value: "2", label: "Web-DL Only" },
   ];
 
   return (
@@ -22,10 +22,12 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
       >
         <SettingField
           label="Preferred Quality"
-          value={String(formData.preferred_quality ?? '')}
+          value={String(formData.preferred_quality ?? "")}
           type="select"
           options={qualityOptions}
-          onChange={(value) => onChange('preferred_quality', parseInt(value as string))}
+          onChange={(value) =>
+            onChange("preferred_quality", parseInt(value as string))
+          }
           helpText="Filter search results by quality preference"
         />
       </SettingGroup>
@@ -38,7 +40,7 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
           label="Enable Minimum Size"
           type="checkbox"
           checked={formData.use_minsize as boolean | undefined}
-          onChange={(checked) => onChange('use_minsize', checked as boolean)}
+          onChange={(checked) => onChange("use_minsize", checked as boolean)}
           helpText="Reject downloads smaller than the minimum size"
         />
         {Boolean(formData.use_minsize) && (
@@ -46,7 +48,7 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
             label="Minimum Size (MB)"
             value={formData.minsize as number | undefined}
             type="number"
-            onChange={(value) => onChange('minsize', value as string)}
+            onChange={(value) => onChange("minsize", value as string)}
             placeholder="e.g., 10"
             helpText="Minimum file size in megabytes"
           />
@@ -55,7 +57,7 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
           label="Enable Maximum Size"
           type="checkbox"
           checked={formData.use_maxsize as boolean | undefined}
-          onChange={(checked) => onChange('use_maxsize', checked as boolean)}
+          onChange={(checked) => onChange("use_maxsize", checked as boolean)}
           helpText="Reject downloads larger than the maximum size"
         />
         {Boolean(formData.use_maxsize) && (
@@ -63,7 +65,7 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
             label="Maximum Size (MB)"
             value={formData.maxsize as number | undefined}
             type="number"
-            onChange={(value) => onChange('maxsize', value as string)}
+            onChange={(value) => onChange("maxsize", value as string)}
             placeholder="e.g., 500"
             helpText="Maximum file size in megabytes"
           />

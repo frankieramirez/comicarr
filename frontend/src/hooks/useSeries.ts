@@ -1,14 +1,20 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from '@tanstack/react-query';
-import { apiCall } from '@/lib/api';
-import type { Comic, SeriesDetail } from '@/types';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type UseQueryResult,
+  type UseMutationResult,
+} from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
+import type { Comic, SeriesDetail } from "@/types";
 
 /**
  * Fetch all series from the library
  */
 export function useSeries(): UseQueryResult<Comic[]> {
   return useQuery({
-    queryKey: ['series'],
-    queryFn: () => apiCall<Comic[]>('getIndex'),
+    queryKey: ["series"],
+    queryFn: () => apiCall<Comic[]>("getIndex"),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -16,10 +22,12 @@ export function useSeries(): UseQueryResult<Comic[]> {
 /**
  * Fetch a single series with its issues
  */
-export function useSeriesDetail(comicId: string | undefined): UseQueryResult<SeriesDetail> {
+export function useSeriesDetail(
+  comicId: string | undefined,
+): UseQueryResult<SeriesDetail> {
   return useQuery({
-    queryKey: ['series', comicId],
-    queryFn: () => apiCall<SeriesDetail>('getComic', { id: comicId }),
+    queryKey: ["series", comicId],
+    queryFn: () => apiCall<SeriesDetail>("getComic", { id: comicId }),
     enabled: !!comicId,
   });
 }
@@ -31,11 +39,11 @@ export function usePauseSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall('pauseComic', { id: comicId }),
+    mutationFn: (comicId: string) => apiCall("pauseComic", { id: comicId }),
     onSuccess: (_, comicId) => {
       // Invalidate both the series list and the specific series detail
-      queryClient.invalidateQueries({ queryKey: ['series'] });
-      queryClient.invalidateQueries({ queryKey: ['series', comicId] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
     },
   });
 }
@@ -47,10 +55,10 @@ export function useResumeSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall('resumeComic', { id: comicId }),
+    mutationFn: (comicId: string) => apiCall("resumeComic", { id: comicId }),
     onSuccess: (_, comicId) => {
-      queryClient.invalidateQueries({ queryKey: ['series'] });
-      queryClient.invalidateQueries({ queryKey: ['series', comicId] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
     },
   });
 }
@@ -62,10 +70,10 @@ export function useRefreshSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall('refreshComic', { id: comicId }),
+    mutationFn: (comicId: string) => apiCall("refreshComic", { id: comicId }),
     onSuccess: (_, comicId) => {
-      queryClient.invalidateQueries({ queryKey: ['series'] });
-      queryClient.invalidateQueries({ queryKey: ['series', comicId] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
     },
   });
 }
@@ -77,9 +85,9 @@ export function useDeleteSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall('delComic', { id: comicId }),
+    mutationFn: (comicId: string) => apiCall("delComic", { id: comicId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['series'] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
 }
@@ -91,11 +99,11 @@ export function useQueueIssue(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (issueId: string) => apiCall('queueIssue', { id: issueId }),
+    mutationFn: (issueId: string) => apiCall("queueIssue", { id: issueId }),
     onSuccess: () => {
       // Invalidate all series-related queries
-      queryClient.invalidateQueries({ queryKey: ['series'] });
-      queryClient.invalidateQueries({ queryKey: ['wanted'] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["wanted"] });
     },
   });
 }
@@ -107,10 +115,10 @@ export function useUnqueueIssue(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (issueId: string) => apiCall('unqueueIssue', { id: issueId }),
+    mutationFn: (issueId: string) => apiCall("unqueueIssue", { id: issueId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['series'] });
-      queryClient.invalidateQueries({ queryKey: ['wanted'] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["wanted"] });
     },
   });
 }
