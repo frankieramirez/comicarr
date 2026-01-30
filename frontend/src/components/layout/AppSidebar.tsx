@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Sidebar,
   SidebarContent,
@@ -29,11 +29,13 @@ import {
   LogOut,
   BookMarked,
   MessageSquare,
+  Moon,
+  Sun,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function AppSidebar() {
   const { logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { setOpenMobile } = useSidebar();
@@ -82,7 +84,7 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       {/* Header with Logo */}
-      <SidebarHeader>
+      <SidebarHeader className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
@@ -95,10 +97,8 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarSeparator />
-
       {/* Search Section */}
-      <div className="px-2 py-2">
+      <div className="px-3 pb-3">
         {/* Expanded: show input */}
         <form
           onSubmit={handleSearchSubmit}
@@ -134,7 +134,7 @@ export default function AppSidebar() {
       <SidebarSeparator />
 
       {/* Main Navigation */}
-      <SidebarContent>
+      <SidebarContent className="pt-2">
         <SidebarMenu>
           {navItems.map(({ path, label, icon: Icon }) => (
             <SidebarMenuItem key={path}>
@@ -144,18 +144,21 @@ export default function AppSidebar() {
                 tooltip={label}
               >
                 <Link to={path} onClick={handleNavClick}>
-                  <Icon className="w-4 h-4 opacity-80" />
+                  <Icon className="w-4 h-4" />
                   <span>{label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+      </SidebarContent>
 
-        <SidebarSeparator className="mt-auto" />
+      <SidebarSeparator />
 
-        {/* Settings at bottom */}
+      {/* Footer with Settings, Theme, and Logout */}
+      <SidebarFooter className="pb-4">
         <SidebarMenu>
+          {/* Settings */}
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
@@ -163,30 +166,30 @@ export default function AppSidebar() {
               tooltip="Settings"
             >
               <Link to="/settings" onClick={handleNavClick}>
-                <Settings className="w-4 h-4 opacity-80" />
+                <Settings className="w-4 h-4" />
                 <span>Settings</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarContent>
 
-      {/* Footer with Theme Toggle and Logout */}
-      <SidebarFooter>
-        <SidebarMenu>
+          {/* Theme Toggle */}
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2">
-              <ThemeToggle />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="flex-1 justify-start text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <SidebarMenuButton onClick={toggleTheme} tooltip={theme === "light" ? "Dark mode" : "Light mode"}>
+              {theme === "light" ? (
+                <Moon className="w-4 h-4" />
+              ) : (
+                <Sun className="w-4 h-4" />
+              )}
+              <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Logout */}
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

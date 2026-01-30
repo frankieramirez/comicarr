@@ -73,8 +73,8 @@
   /* Gradients */
   --gradient-brand: linear-gradient(
     135deg,
-    oklch(0.55 0.24 280),
-    oklch(0.6 0.22 265)
+    oklch(0.67 0.16 58),
+    oklch(0.77 0.16 70)
   );
 }
 
