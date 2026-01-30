@@ -41,7 +41,8 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'refreshSeriesjson', 'seriesjsonListing', 'checkGlobalMessages',
             'listProviders', 'changeProvider', 'addProvider', 'delProvider',
             'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
-            'getConfig', 'setConfig', 'getSeriesImage']
+            'getConfig', 'setConfig', 'getSeriesImage',
+            'findManga', 'addManga', 'getMangaInfo']
 
 class Api(object):
 
@@ -1190,7 +1191,7 @@ class Api(object):
             else:
                 self.data = self._failureResponse('Failed to return a image')
 
-    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None, limit=None, offset=None, sort=None):
+    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None, limit=None, offset=None, sort=None, content_type=None):
         # set defaults
         if type_ is None:
             type_ = 'comic'
@@ -1206,12 +1207,19 @@ class Api(object):
         parsed_limit = int(limit) if limit else None
         parsed_offset = int(offset) if offset else None
 
-        if type_ == 'comic' and mode == 'series':
-            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        # Handle manga search via content_type parameter
+        if content_type == 'manga':
+            if not mylar.CONFIG.MANGADEX_ENABLED:
+                self.data = self._failureResponse('MangaDex integration is not enabled')
+                return
+            from mylar import mangadex
+            searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'comic' and mode == 'series':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort, content_type=content_type)
         elif type_ == 'comic' and mode == 'pullseries':
-            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort, content_type=content_type)
         elif type_ == 'comic' and mode == 'want':
-            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort, content_type=content_type)
         elif type_ == 'story_arc':
             searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc', limit=parsed_limit, offset=parsed_offset, sort=sort)
 
@@ -2100,6 +2108,150 @@ class Api(object):
         image_url = metron.get_series_image(series_id)
 
         self.data = self._successResponse({'image': image_url})
+
+    def _findManga(self, **kwargs):
+        """
+        Search for manga using MangaDex API.
+
+        Parameters:
+            name: Manga name to search for (required)
+            limit: Number of results per page (optional)
+            offset: Offset for pagination (optional)
+            sort: Sort order (optional) - relevance, latest, oldest, title_asc, title_desc, year_desc, year_asc, follows
+
+        Returns:
+            Search results with pagination metadata
+        """
+        if 'name' not in kwargs or not kwargs['name']:
+            self.data = self._failureResponse('Missing parameter: name')
+            return
+
+        name = kwargs['name']
+        limit = kwargs.get('limit')
+        offset = kwargs.get('offset')
+        sort = kwargs.get('sort')
+
+        # Check if MangaDex is enabled
+        if not mylar.CONFIG.MANGADEX_ENABLED:
+            self.data = self._failureResponse('MangaDex integration is not enabled')
+            return
+
+        # Parse pagination parameters
+        parsed_limit = int(limit) if limit else None
+        parsed_offset = int(offset) if offset else None
+
+        from mylar import mangadex
+        searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
+
+        # Transform haveit field to in_library boolean for frontend
+        def add_in_library(manga):
+            manga['in_library'] = manga.get('haveit') != "No"
+            return manga
+
+        if isinstance(searchresults, dict) and 'results' in searchresults:
+            searchresults['results'] = [add_in_library(m) for m in searchresults['results']]
+            self.data = searchresults
+        else:
+            self.data = self._failureResponse('Search returned no results')
+
+    def _addManga(self, **kwargs):
+        """
+        Add a manga to the library by MangaDex ID.
+
+        Parameters:
+            id: MangaDex manga ID (with or without 'md-' prefix) (required)
+
+        Returns:
+            Success/failure response
+        """
+        if 'id' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: id')
+            return
+
+        manga_id = kwargs['id']
+
+        # Ensure the ID has the md- prefix
+        if not str(manga_id).startswith('md-'):
+            manga_id = 'md-' + manga_id
+
+        # Check if MangaDex is enabled
+        if not mylar.CONFIG.MANGADEX_ENABLED:
+            self.data = self._failureResponse('MangaDex integration is not enabled')
+            return
+
+        try:
+            from mylar import importer
+            result = importer.addMangaToDB(manga_id)
+
+            if result and result.get('status') == 'complete':
+                self.data = self._successResponse({
+                    'message': 'Successfully added manga: %s' % result.get('comicname', manga_id),
+                    'comicid': manga_id,
+                    'content_type': 'manga'
+                })
+            else:
+                self.data = self._failureResponse('Failed to add manga: %s' % manga_id)
+        except Exception as e:
+            logger.error('[API][addManga] Error adding manga %s: %s' % (manga_id, e))
+            self.data = self._failureResponse('Error adding manga: %s' % str(e))
+
+    def _getMangaInfo(self, **kwargs):
+        """
+        Get detailed information about a manga from MangaDex.
+
+        Parameters:
+            id: MangaDex manga ID (with or without 'md-' prefix) (required)
+            include_chapters: Whether to include chapter list (optional, default False)
+
+        Returns:
+            Manga details and optionally chapter list
+        """
+        if 'id' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: id')
+            return
+
+        manga_id = kwargs['id']
+        include_chapters = kwargs.get('include_chapters', 'false').lower() == 'true'
+
+        # Check if MangaDex is enabled
+        if not mylar.CONFIG.MANGADEX_ENABLED:
+            self.data = self._failureResponse('MangaDex integration is not enabled')
+            return
+
+        from mylar import mangadex
+
+        # Get manga details
+        details = mangadex.get_manga_details(manga_id)
+
+        if not details:
+            self.data = self._failureResponse('Manga not found: %s' % manga_id)
+            return
+
+        response_data = {
+            'manga': details
+        }
+
+        # Optionally include chapters
+        if include_chapters:
+            chapters = mangadex.get_all_chapters(manga_id)
+            response_data['chapters'] = chapters
+            response_data['chapter_count'] = len(chapters)
+
+        # Check if manga is in library
+        myDB = db.DBConnection()
+        if str(manga_id).startswith('md-'):
+            db_manga = myDB.selectone('SELECT * FROM comics WHERE ComicID=?', [manga_id]).fetchone()
+        else:
+            db_manga = myDB.selectone('SELECT * FROM comics WHERE ComicID=?', ['md-' + manga_id]).fetchone()
+
+        response_data['in_library'] = db_manga is not None
+        if db_manga:
+            response_data['library_status'] = db_manga['Status']
+            response_data['have'] = db_manga['Have']
+            response_data['total'] = db_manga['Total']
+
+        self.data = self._successResponse(response_data)
+
 
 class REST(object):
 

@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Trash2,
   Home,
+  BookOpen,
 } from "lucide-react";
 import {
   useSeriesDetail,
@@ -19,7 +20,8 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/StatusBadge";
 import IssuesTable from "@/components/series/IssuesTable";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Comic } from "@/types";
+import { Badge } from "@/components/ui/badge";
+import type { ComicOrManga } from "@/types";
 
 export default function SeriesDetailPage() {
   const { comicId } = useParams<{ comicId: string }>();
@@ -62,11 +64,15 @@ export default function SeriesDetailPage() {
     );
   }
 
-  const comic: Comic = Array.isArray(seriesData.comic)
+  const comic: ComicOrManga = Array.isArray(seriesData.comic)
     ? seriesData.comic[0]
     : seriesData.comic;
   const issues = seriesData.issues || [];
   const isPaused = comic.Status?.toLowerCase() === "paused";
+
+  // Check if this is a manga (either by ContentType field or ComicID prefix)
+  const isManga = comic.ContentType === "manga" || comicId?.startsWith("md-");
+  const itemLabel = isManga ? "Chapters" : "Issues";
 
   const handlePauseResume = async () => {
     if (!comicId) return;
@@ -167,9 +173,15 @@ export default function SeriesDetailPage() {
               )}
 
               <div className="flex items-center space-x-4 text-sm">
+                {isManga && (
+                  <Badge variant="default" className="flex items-center gap-1">
+                    <BookOpen className="w-3 h-3" />
+                    Manga
+                  </Badge>
+                )}
                 <div>
                   <span className="font-medium text-foreground">
-                    Total Issues:
+                    Total {itemLabel}:
                   </span>{" "}
                   <span className="text-muted-foreground">
                     {comic.Total || 0}
@@ -253,10 +265,10 @@ export default function SeriesDetailPage() {
         </div>
       </div>
 
-      {/* Issues */}
+      {/* Issues/Chapters */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Issues</h2>
-        <IssuesTable issues={issues} />
+        <h2 className="text-2xl font-bold">{itemLabel}</h2>
+        <IssuesTable issues={issues} isManga={isManga} />
       </div>
     </div>
   );

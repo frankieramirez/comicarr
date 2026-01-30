@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search as SearchIcon, ChevronLeft, ChevronRight, BookOpen, Book } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useSearchComics } from "@/hooks/useSearch";
+import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ContentType } from "@/types/entities";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,12 +15,14 @@ export default function SearchPage() {
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "year_desc";
+  const urlContentType = (searchParams.get("type") as ContentType) || "comic";
 
   // Initialize search query from URL parameter
   const [searchQuery, setSearchQuery] = useState(urlQuery);
+  const [contentType, setContentType] = useState<ContentType>(urlContentType);
 
-  // Map frontend sort values to ComicVine API format
-  const sortMapping: Record<string, string> = {
+  // Map frontend sort values to ComicVine API format (for comics)
+  const comicSortMapping: Record<string, string> = {
     year_desc: "start_year:desc",
     year_asc: "start_year:asc",
     issues_desc: "count_of_issues:desc",
@@ -28,21 +31,52 @@ export default function SearchPage() {
     name_desc: "name:desc",
   };
 
-  const apiSort = sortMapping[urlSort] || urlSort;
+  // Map frontend sort values to MangaDex API format (for manga)
+  const mangaSortMapping: Record<string, string> = {
+    year_desc: "year_desc",
+    year_asc: "year_asc",
+    name_asc: "title_asc",
+    name_desc: "title_desc",
+    relevance: "relevance",
+    latest: "latest",
+    follows: "follows",
+  };
 
-  // Use server-side pagination
-  const { data, isLoading, error } = useSearchComics(
-    urlQuery,
+  const apiSort = contentType === "manga"
+    ? mangaSortMapping[urlSort] || "relevance"
+    : comicSortMapping[urlSort] || urlSort;
+
+  // Use server-side pagination for comics
+  const comicSearch = useSearchComics(
+    contentType === "comic" ? urlQuery : "",
     urlPage,
     apiSort,
   );
+
+  // Use server-side pagination for manga
+  const mangaSearch = useSearchManga(
+    contentType === "manga" ? urlQuery : "",
+    urlPage,
+    apiSort,
+  );
+
+  // Select the active search based on content type
+  const { data, isLoading, error } = contentType === "manga" ? mangaSearch : comicSearch;
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim().length > 2) {
-      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort });
+      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort, type: contentType });
+    }
+  };
+
+  const handleContentTypeChange = (newType: ContentType) => {
+    setContentType(newType);
+    // If there's a query, re-search with new content type
+    if (urlQuery) {
+      setSearchParams({ q: urlQuery, page: "1", sort: newType === "manga" ? "relevance" : urlSort, type: newType });
     }
   };
 
@@ -72,13 +106,33 @@ export default function SearchPage() {
   return (
     <div className="space-y-4 page-transition">
       {/* Page Title */}
-      <h1 className="text-3xl font-bold">Search Comics</h1>
+      <h1 className="text-3xl font-bold">Search {contentType === "manga" ? "Manga" : "Comics"}</h1>
+
+      {/* Content Type Toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={contentType === "comic" ? "default" : "outline"}
+          onClick={() => handleContentTypeChange("comic")}
+          className="flex items-center"
+        >
+          <Book className="w-4 h-4 mr-2" />
+          Comics
+        </Button>
+        <Button
+          variant={contentType === "manga" ? "default" : "outline"}
+          onClick={() => handleContentTypeChange("manga")}
+          className="flex items-center"
+        >
+          <BookOpen className="w-4 h-4 mr-2" />
+          Manga
+        </Button>
+      </div>
 
       {/* Search Form */}
       <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
         <Input
           type="text"
-          placeholder="Enter comic name..."
+          placeholder={`Enter ${contentType === "manga" ? "manga" : "comic"} name...`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1"
@@ -151,6 +205,7 @@ export default function SearchPage() {
             results={searchResults}
             currentSort={urlSort}
             onSortChange={handleSortChange}
+            contentType={contentType}
           />
 
           {/* Pagination Controls */}
@@ -187,7 +242,7 @@ export default function SearchPage() {
         <div className="text-center py-12">
           <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-muted-foreground text-lg">
-            Enter a search term to find comics
+            Enter a search term to find {contentType === "manga" ? "manga" : "comics"}
           </p>
           <p className="text-gray-400 text-sm mt-2">
             Search requires at least 3 characters

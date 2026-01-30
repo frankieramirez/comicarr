@@ -102,10 +102,16 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
     else:
         return dom
 
-def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=False, limit=None, offset=None, sort=None):
+def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=False, limit=None, offset=None, sort=None, content_type=None):
     import time
     search_start_time = time.time()
-    logger.info('[SEARCH PERFORMANCE] Starting search for: %s (limit=%s, offset=%s, sort=%s)' % (name, limit, offset, sort))
+    logger.info('[SEARCH PERFORMANCE] Starting search for: %s (limit=%s, offset=%s, sort=%s, content_type=%s)' % (name, limit, offset, sort, content_type))
+
+    # Check if manga search is requested and MangaDex is enabled
+    if content_type == 'manga' and mylar.CONFIG.MANGADEX_ENABLED:
+        logger.info('[MANGADEX] Using MangaDex API for manga search')
+        from mylar import mangadex
+        return mangadex.search_manga(name, limit=limit, offset=offset, sort=sort)
 
     # Check if Metron search is enabled and configured (only for volume/series search, not story arcs)
     if search_type != 'story_arc' and mylar.CONFIG.USE_METRON_SEARCH and mylar.METRON_API:

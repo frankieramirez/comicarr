@@ -118,6 +118,10 @@ def markIssueWantedById(issueId):
 def addComictoDB(comicid, mismatch=None, pullupd=None, imported=None, ogcname=None, calledfrom=None, annload=None, chkwant=None, issuechk=None, issuetype=None, latestissueinfo=None, csyear=None, fixed_type=None, suppress_addall=None):
     myDB = db.DBConnection()
 
+    # Check if this is a MangaDex manga ID (prefixed with 'md-')
+    if str(comicid).startswith('md-'):
+        return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom)
+
     controlValueDict = {"ComicID":     comicid}
 
     dbcomic = myDB.selectone('SELECT * FROM comics WHERE ComicID=?', [comicid]).fetchone()
@@ -757,6 +761,198 @@ def addComictoDB(comicid, mismatch=None, pullupd=None, imported=None, ogcname=No
 #                            "SRID":             result['SRID'],
 #                            "ComicID":          comicid}
 #                myDB.upsert("importresults", newValue, controlValue)
+
+
+def addMangaToDB(mangaid, imported=None, calledfrom=None):
+    """
+    Add a manga from MangaDex to the database.
+
+    Args:
+        mangaid: MangaDex manga ID (prefixed with 'md-')
+        imported: Import information if coming from file import
+        calledfrom: Calling context
+
+    Returns:
+        dict with status information
+    """
+    from mylar import mangadex
+
+    myDB = db.DBConnection()
+    logger.info('[MANGADEX] Adding manga with ID: %s' % mangaid)
+
+    # Get the raw MangaDex UUID (without md- prefix)
+    mangadex_uuid = mangadex.strip_manga_prefix(mangaid)
+
+    controlValueDict = {"ComicID": mangaid}
+
+    # Check if manga already exists
+    dbmanga = myDB.selectone('SELECT * FROM comics WHERE ComicID=?', [mangaid]).fetchone()
+
+    if dbmanga is not None:
+        if dbmanga['Status'] == 'Active':
+            series_status = 'Active'
+        elif dbmanga['Status'] == 'Paused':
+            series_status = 'Paused'
+        else:
+            series_status = 'Loading'
+        comlocation = dbmanga['ComicLocation']
+    else:
+        series_status = 'Loading'
+        comlocation = None
+
+    # Set loading status
+    myDB.upsert("comics", {"Status": "Loading"}, controlValueDict)
+
+    # Fetch manga details from MangaDex
+    manga = mangadex.get_manga_details(mangaid)
+
+    if not manga:
+        logger.error('[MANGADEX] Error fetching manga details for: %s' % mangaid)
+        myDB.upsert("comics", {
+            "ComicName": "Fetch failed, try refreshing. (%s)" % mangaid,
+            "Status": "Active"
+        }, controlValueDict)
+        return {'status': 'incomplete'}
+
+    manga_name = manga.get('name', 'Unknown')
+    manga_year = manga.get('year') or '0000'
+    description = manga.get('description', 'No description available')
+
+    logger.info('[MANGADEX] Now adding: %s (%s)' % (manga_name, manga_year))
+
+    # Generate sort name
+    if manga_name.startswith('The '):
+        sortname = manga_name[4:]
+    else:
+        sortname = manga_name
+
+    # Generate dynamic name for matching
+    dynamic_name = helpers.filesafe(re.sub(r'[\'\!\@\#\$\%\:\;\/\\]', '', manga_name).lower())
+
+    # Build folder path if destination directory is set
+    if mylar.CONFIG.DESTINATION_DIR:
+        folder_format = mylar.CONFIG.FOLDER_FORMAT or '$Series ($Year)'
+        folder_name = folder_format.replace('$Series', manga_name).replace('$Year', str(manga_year))
+        folder_name = helpers.filesafe(folder_name)
+        comlocation = os.path.join(mylar.CONFIG.DESTINATION_DIR, folder_name)
+
+        if mylar.CONFIG.CREATE_FOLDERS:
+            checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
+            if not checkdirectory:
+                logger.warn('[MANGADEX] Error creating directory for %s' % manga_name)
+    elif comlocation is None:
+        comlocation = None
+
+    # Map MangaDex status to Mylar status format
+    md_status = manga.get('status', 'unknown')
+    status_mapping = {
+        'ongoing': 'Continuing',
+        'completed': 'Ended',
+        'hiatus': 'Continuing',
+        'cancelled': 'Ended'
+    }
+    comic_published = status_mapping.get(md_status, 'Unknown')
+
+    # Prepare comic values
+    comic_values = {
+        "ComicID": mangaid,
+        "ComicName": manga_name,
+        "ComicSortName": sortname,
+        "ComicYear": str(manga_year),
+        "Status": series_status if series_status != 'Loading' else 'Active',
+        "ComicPublished": comic_published,
+        "ComicPublisher": manga.get('author', 'Unknown'),
+        "Description": description[:4000] if description else None,
+        "ComicImage": manga.get('cover_url', 'cache/blankcover.jpg'),
+        "ComicImageURL": manga.get('cover_url'),
+        "DetailURL": manga.get('url'),
+        "DynamicComicName": dynamic_name,
+        "ComicLocation": comlocation,
+        "Type": 'Manga',
+        "ContentType": 'manga',
+        "ReadingDirection": 'rtl',
+        "MetadataSource": 'mangadex',
+        "ExternalID": mangadex_uuid,
+        "LastUpdated": helpers.now(),
+        "DateAdded": helpers.today() if dbmanga is None else dbmanga.get('DateAdded', helpers.today()),
+    }
+
+    # Store alternate titles as AlternateSearch
+    alt_titles = manga.get('alt_titles', [])
+    if alt_titles:
+        comic_values["AlternateSearch"] = '##'.join(alt_titles[:5])  # Limit to 5 alt titles
+
+    myDB.upsert("comics", comic_values, controlValueDict)
+
+    # Now fetch and add chapters as issues
+    logger.info('[MANGADEX] Fetching chapters for: %s' % manga_name)
+    chapters = mangadex.get_all_chapters(mangaid)
+
+    if chapters:
+        issue_count = 0
+        latest_chapter = None
+        latest_date = None
+
+        for chapter in chapters:
+            chapter_num = chapter.get('chapter')
+            if chapter_num is None:
+                continue
+
+            # Create a unique issue ID using manga ID and chapter
+            issue_id = '%s-ch%s' % (mangaid, chapter_num)
+
+            # Determine issue status
+            issue_status = 'Skipped'
+            if mylar.CONFIG.AUTOWANT_ALL:
+                issue_status = 'Wanted'
+
+            release_date = chapter.get('release_date') or chapter.get('publish_at', '')[:10] if chapter.get('publish_at') else None
+
+            issue_values = {
+                "IssueID": issue_id,
+                "ComicID": mangaid,
+                "ComicName": manga_name,
+                "Issue_Number": str(chapter_num),
+                "IssueName": chapter.get('title') or ('Chapter %s' % chapter_num),
+                "ReleaseDate": release_date,
+                "IssueDate": release_date,
+                "Status": issue_status,
+                "Int_IssueNumber": helpers.issuedigits(chapter_num),
+                "ChapterNumber": str(chapter_num),
+                "VolumeNumber": str(chapter.get('volume')) if chapter.get('volume') else None,
+                "DateAdded": helpers.now(),
+            }
+
+            myDB.upsert("issues", issue_values, {"IssueID": issue_id})
+            issue_count += 1
+
+            # Track latest chapter
+            if latest_chapter is None or float(chapter_num) > float(latest_chapter):
+                latest_chapter = chapter_num
+                latest_date = release_date
+
+        # Update comic with issue count and latest info
+        update_values = {
+            "Total": issue_count,
+            "Have": 0,
+            "LatestIssue": str(latest_chapter) if latest_chapter else '0',
+            "LatestDate": latest_date or 'Unknown',
+        }
+        myDB.upsert("comics", update_values, controlValueDict)
+
+        logger.info('[MANGADEX] Added %d chapters for %s' % (issue_count, manga_name))
+
+    # Update sort order
+    helpers.ComicSort(comicorder=mylar.COMICSORT, imported=mangaid)
+
+    logger.info('[MANGADEX] Successfully added manga: %s' % manga_name)
+
+    return {
+        'status': 'complete',
+        'comicid': mangaid,
+        'comicname': manga_name,
+        'content_type': 'manga'
+    }
 
 
 def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):

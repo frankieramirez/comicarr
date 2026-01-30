@@ -35,9 +35,14 @@ type StatusFilter = "all" | "wanted" | "downloaded" | "skipped" | "other";
 
 interface IssuesTableProps {
   issues?: Issue[];
+  isManga?: boolean;
 }
 
-export default function IssuesTable({ issues = [] }: IssuesTableProps) {
+export default function IssuesTable({ issues = [], isManga = false }: IssuesTableProps) {
+  // Dynamic labels based on content type
+  const itemLabel = isManga ? "chapter" : "issue";
+  const itemLabelPlural = isManga ? "chapters" : "issues";
+  const itemLabelCapitalized = isManga ? "Chapter" : "Issue";
   const [sorting, setSorting] = useState<SortingState>([
     { id: "number", desc: false },
   ]);
@@ -90,13 +95,13 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       await bulkQueueMutation.mutateAsync(selectedIssueIds);
       addToast({
         type: "success",
-        message: `${selectedIssueIds.length} issue${selectedIssueIds.length !== 1 ? "s" : ""} marked as wanted`,
+        message: `${selectedIssueIds.length} ${selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel} marked as wanted`,
       });
       setRowSelection({});
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to mark issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: `Failed to mark ${itemLabelPlural}: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
@@ -106,13 +111,13 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       await bulkUnqueueMutation.mutateAsync(selectedIssueIds);
       addToast({
         type: "success",
-        message: `${selectedIssueIds.length} issue${selectedIssueIds.length !== 1 ? "s" : ""} skipped`,
+        message: `${selectedIssueIds.length} ${selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel} skipped`,
       });
       setRowSelection({});
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to skip issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: `Failed to skip ${itemLabelPlural}: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
@@ -125,12 +130,12 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       await bulkQueueMutation.mutateAsync(allIds);
       addToast({
         type: "success",
-        message: `${allIds.length} issues marked as wanted`,
+        message: `${allIds.length} ${itemLabelPlural} marked as wanted`,
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to mark issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: `Failed to mark ${itemLabelPlural}: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
@@ -168,7 +173,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
     },
     {
       accessorKey: "name",
-      header: "Issue Name",
+      header: `${itemLabelCapitalized} Name`,
       cell: ({ row }: CellContext<Issue, unknown>) => (
         <div>
           <div className="font-medium">{row.original.number}</div>
@@ -297,7 +302,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search issues by number or name..."
+            placeholder={`Search ${itemLabelPlural} by number or name...`}
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
@@ -351,8 +356,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       {selectedIssueIds.length > 0 && (
         <div className="flex items-center gap-4 px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
           <span className="text-sm font-medium">
-            {selectedIssueIds.length} issue
-            {selectedIssueIds.length !== 1 ? "s" : ""} selected
+            {selectedIssueIds.length} {selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel} selected
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -463,7 +467,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                 table.getState().pagination.pageSize,
               table.getFilteredRowModel().rows.length,
             )}{" "}
-            of {table.getFilteredRowModel().rows.length} issues
+            of {table.getFilteredRowModel().rows.length} {itemLabelPlural}
             {globalFilter && ` (filtered from ${filteredByStatus.length})`}
           </div>
           <div className="flex items-center space-x-2">

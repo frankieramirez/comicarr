@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAddComic } from "@/hooks/useSearch";
+import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
-import type { SearchResult } from "@/types";
+import type { SearchResult, ContentType } from "@/types";
 
 // Lazy-loaded cover thumbnail component
 function CoverThumbnail({ comic }: { comic: SearchResult }) {
@@ -58,6 +58,7 @@ interface SearchResultsTableProps {
   results: SearchResult[];
   currentSort: string;
   onSortChange: (sort: string) => void;
+  contentType?: ContentType;
 }
 
 interface AddByIdEventDetail {
@@ -86,13 +87,17 @@ function getColumnSort(
 }
 
 // Action cell component to handle add-to-library logic
-function ActionCell({ comic }: { comic: SearchResult }) {
+function ActionCell({ comic, contentType = "comic" }: { comic: SearchResult; contentType?: ContentType }) {
   const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
+  const addMangaMutation = useAddManga();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const comicIdRef = useRef<string | null>(null);
+
+  const isManga = contentType === "manga";
+  const itemLabel = isManga ? "Manga" : "Comic";
 
   // Listen for SSE events when a comic is being added
   useEffect(() => {
@@ -138,14 +143,18 @@ function ActionCell({ comic }: { comic: SearchResult }) {
     e.stopPropagation();
 
     try {
-      comicIdRef.current = comic.comicid ?? null;
+      comicIdRef.current = comic.comicid ?? comic.id ?? null;
       setIsProcessing(true);
 
-      await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      if (isManga) {
+        await addMangaMutation.mutateAsync(comic.comicid ?? comic.id);
+      } else {
+        await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      }
       setIsAdded(true);
       addToast({
         type: "success",
-        title: "Adding Comic...",
+        title: `Adding ${itemLabel}...`,
         description: `${comic.name} is being added to your library. Please wait...`,
         duration: 5000,
       });
@@ -155,7 +164,7 @@ function ActionCell({ comic }: { comic: SearchResult }) {
       comicIdRef.current = null;
       addToast({
         type: "error",
-        title: "Failed to Add Comic",
+        title: `Failed to Add ${itemLabel}`,
         description: err instanceof Error ? err.message : "Unknown error",
       });
     }
@@ -182,16 +191,17 @@ function ActionCell({ comic }: { comic: SearchResult }) {
   }
 
   // Default - Add button with primary outline style
+  const isPending = isManga ? addMangaMutation.isPending : addComicMutation.isPending;
   return (
     <Button
       onClick={handleAddComic}
-      disabled={addComicMutation.isPending}
+      disabled={isPending}
       variant="outline"
       size="sm"
       className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
     >
       <Plus className="w-3 h-3 mr-1" />
-      {addComicMutation.isPending ? "Adding..." : "Add"}
+      {isPending ? "Adding..." : "Add"}
     </Button>
   );
 }
@@ -200,7 +210,10 @@ export default function SearchResultsTable({
   results,
   currentSort,
   onSortChange,
+  contentType = "comic",
 }: SearchResultsTableProps) {
+  const isManga = contentType === "manga";
+  const issuesLabel = isManga ? "Chapters" : "Issues";
   // Handle column header click for sorting
   const handleSortClick = (columnId: string) => {
     const mapping = SORT_COLUMN_MAP[columnId];
@@ -254,7 +267,7 @@ export default function SearchResultsTable({
       {
         id: "issues",
         accessorKey: "issues",
-        header: "Issues",
+        header: issuesLabel,
         cell: ({ row }: CellContext<SearchResult, unknown>) => {
           const issues = row.original.issues ?? row.original.count_of_issues;
           return <span>{issues !== undefined ? issues : "—"}</span>;
@@ -275,12 +288,12 @@ export default function SearchResultsTable({
         enableSorting: false,
         cell: ({ row }: CellContext<SearchResult, unknown>) => (
           <div className="text-right">
-            <ActionCell comic={row.original} />
+            <ActionCell comic={row.original} contentType={contentType} />
           </div>
         ),
       },
     ],
-    [],
+    [contentType, issuesLabel],
   );
 
   const table = useReactTable({
