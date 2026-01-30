@@ -1,34 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAddComic } from '@/hooks/useSearch';
 import { useToast } from '@/components/ui/toast';
 
 export default function ComicCard({ comic }) {
   const [isAdded, setIsAdded] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const comicIdRef = useRef(null);
+
+  // Listen for SSE events when a comic is being added
+  useEffect(() => {
+    if (!isProcessing || !comicIdRef.current) return;
+
+    const handleAddById = (event) => {
+      try {
+        const data = JSON.parse(event.detail);
+        
+        // Check if this event is for our comic
+        if (data.comicid === comicIdRef.current) {
+          if (data.status === 'success') {
+            // Navigate to series detail page
+            navigate(`/series/${comicIdRef.current}`);
+            setIsProcessing(false);
+            comicIdRef.current = null;
+          } else if (data.status === 'failure') {
+            addToast({
+              type: 'error',
+              title: 'Failed to Add Series',
+              description: data.message || 'An error occurred while adding the series.',
+            });
+            setIsProcessing(false);
+            setIsAdded(false);
+            comicIdRef.current = null;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing addbyid event:', error);
+      }
+    };
+
+    // Listen for custom event dispatched by useServerEvents
+    window.addEventListener('comic-added', handleAddById);
+    
+    return () => {
+      window.removeEventListener('comic-added', handleAddById);
+    };
+  }, [isProcessing, navigate, addToast]);
 
   const handleAddComic = async (e) => {
     e.stopPropagation();
 
     try {
+      comicIdRef.current = comic.comicid;
+      setIsProcessing(true);
+      
       await addComicMutation.mutateAsync(comic.comicid);
       setIsAdded(true);
       addToast({
         type: 'success',
-        title: 'Comic Added',
-        description: `${comic.name} has been added to your library.`,
-        duration: 3000,
+        title: 'Adding Comic...',
+        description: `${comic.name} is being added to your library. Please wait...`,
+        duration: 5000,
       });
-
-      // Navigate to the series detail page after a short delay
-      setTimeout(() => {
-        navigate(`/series/${comic.comicid}`);
-      }, 1000);
     } catch (error) {
+      setIsProcessing(false);
+      setIsAdded(false);
+      comicIdRef.current = null;
       addToast({
         type: 'error',
         title: 'Failed to Add Comic',
@@ -77,12 +119,17 @@ export default function ComicCard({ comic }) {
         {/* Add Button - Always at bottom */}
         <Button
           onClick={handleAddComic}
-          disabled={addComicMutation.isPending || isAdded}
+          disabled={addComicMutation.isPending || isAdded || isProcessing}
           className="w-full h-8 text-xs mt-3"
           variant={isAdded ? 'outline' : 'default'}
           size="sm"
         >
-          {addComicMutation.isPending ? (
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Processing...
+            </>
+          ) : addComicMutation.isPending ? (
             'Adding...'
           ) : isAdded ? (
             <>

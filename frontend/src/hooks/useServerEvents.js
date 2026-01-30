@@ -73,10 +73,19 @@ export function useServerEvents(sseKey, enabled = true) {
           // Invalidate series cache if tables='both' or 'tables'
           if (data.tables === 'both' || data.tables === 'tables') {
             queryClient.invalidateQueries({ queryKey: ['series'] });
+            // Also invalidate specific series detail if we have comicid
+            if (data.comicid) {
+              queryClient.invalidateQueries({ queryKey: ['series', data.comicid] });
+            }
           }
 
-          // Show success toast with series name
-          if (data.comicname && data.status === 'success') {
+          // Dispatch custom event for ComicCard to handle navigation
+          if (data.comicid && (data.status === 'success' || data.status === 'failure')) {
+            window.dispatchEvent(new CustomEvent('comic-added', { detail: JSON.stringify(data) }));
+          }
+
+          // Show success toast with series name (only for non-mid-message events)
+          if (data.comicname && data.status === 'success' && data.tables) {
             addToast({
               type: 'success',
               title: 'Series Added',
