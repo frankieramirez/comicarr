@@ -17,7 +17,8 @@ interface AddByIdEventDetail {
 }
 
 export default function ComicCard({ comic }: ComicCardProps) {
-  const [isAdded, setIsAdded] = useState(false);
+  // Initialize isAdded based on whether comic is already in library
+  const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
   const { addToast } = useToast();

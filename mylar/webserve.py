@@ -1651,8 +1651,13 @@ class WebInterface(object):
         else:
             return importer.addComictoDB(comicid, mismatch, None, imported, ogcname)
 
+        # Update tmp_searches to reflect comic is now in library
+        if query_id is not None:
+            myDB = db.DBConnection()
+            myDB.upsert("tmp_searches", {'haveit': 'Yes'}, {'query_id': query_id, 'comicid': int(comicid)})
+
         if calledby is True or calledby == 'True':
-           return
+           return json.dumps({'status': 'success', 'comicid': comicid, 'comicname': ogcname})
         elif calledby == 'web-import':
            raise cherrypy.HTTPRedirect("importResults")
         else:
@@ -7142,6 +7147,9 @@ class WebInterface(object):
                     "zero_level_n": mylar.CONFIG.ZERO_LEVEL_N,
                     "add_to_csv": helpers.checked(mylar.CONFIG.ADD_TO_CSV),
                     "cvinfo": helpers.checked(mylar.CONFIG.CVINFO),
+                    "metron_username": mylar.CONFIG.METRON_USERNAME,
+                    "metron_password": mylar.CONFIG.METRON_PASSWORD,
+                    "use_metron_search": helpers.checked(mylar.CONFIG.USE_METRON_SEARCH),
                     "lowercase_filenames": helpers.checked(mylar.CONFIG.LOWERCASE_FILENAMES),
                     "syno_fix": helpers.checked(mylar.CONFIG.SYNO_FIX),
                     "prowl_enabled": helpers.checked(mylar.CONFIG.PROWL_ENABLED),
@@ -7566,7 +7574,7 @@ class WebInterface(object):
                            'failed_auto', 'post_processing', 'enable_check_folder', 'enable_pre_scripts', 'enable_snatch_script', 'enable_extra_scripts',
                            'enable_meta', 'cbr2cbz_only', 'ct_tag_cr', 'ct_tag_cbl', 'ct_cbz_overwrite', 'cmtag_start_year_as_volume', 'cmtag_volume', 'setdefaultvolume',
                            'rename_files', 'replace_spaces', 'zero_level', 'sab_remove_completed', 'sab_remove_failed',
-                           'lowercase_filenames', 'autowant_upcoming', 'autowant_all', 'comic_cover_local', 'cover_folder_local', 'series_metadata_local', 'alternate_latest_series_covers', 'cvinfo', 'snatchedtorrent_notify',
+                           'lowercase_filenames', 'autowant_upcoming', 'autowant_all', 'comic_cover_local', 'cover_folder_local', 'series_metadata_local', 'alternate_latest_series_covers', 'cvinfo', 'use_metron_search', 'snatchedtorrent_notify',
                            'prowl_enabled', 'prowl_onsnatch', 'pushover_enabled', 'pushover_onsnatch', 'pushover_image', 'mattermost_enabled', 'mattermost_onsnatch', 'boxcar_enabled',
                            'boxcar_onsnatch', 'pushbullet_enabled', 'pushbullet_onsnatch', 'telegram_enabled', 'telegram_onsnatch', 'telegram_image', 'discord_enabled', 'discord_onsnatch', 'slack_enabled', 'slack_onsnatch',
                            'email_enabled', 'email_enc', 'email_ongrab', 'email_onpost', 'gotify_enabled', 'gotify_server_url', 'gotify_token', 'gotify_onsnatch', 'opds_enable', 'opds_authentication', 'opds_metainfo', 'opds_pagesize', 'enable_ddl',

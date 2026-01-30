@@ -173,20 +173,41 @@
             if(typeof(booktype) === "undefined" || booktype === null){
                 booktype = null;
             }
+
+            // Show loading spinner, hide add button
+            var addBtn = document.getElementById("addbyid_"+comicid);
+            var spinner = document.getElementById("loading_spinner_"+comicid);
+            if (addBtn) addBtn.style.display = "none";
+            if (spinner) spinner.style.display = "block";
+
             console.log('com_location:'+com_location);
-            $.when($.ajax({
+            $.ajax({
                  type: "GET",
                  url: "addbyid",
-                 data: { comicid: comicid, query_id: query_id, com_location: com_location, booktype: booktype}, //, markupcoming: markupcoming, markall: markall},
+                 data: { comicid: comicid, query_id: query_id, com_location: com_location, booktype: booktype},
                  success: function(response) {
-                    //obj = JSON.parse(response);
+                    // Hide spinner
+                    if (spinner) spinner.style.display = "none";
+
+                    // Update the DataTable row to show "Already in Library"
+                    var table = $('#searchresults_table').DataTable();
+                    table.rows().every(function() {
+                        var rowData = this.data();
+                        if (rowData[0] == comicid) {
+                            // Update haveit value (index 9) to trigger "Already in Library" display
+                            rowData[9] = "Yes";
+                            this.data(rowData);
+                            // Update row styling to "have it" style
+                            $(this.node()).removeClass('gradeB gradeZ').addClass('gradeH');
+                        }
+                    });
                  },
-                 error: function(data)
-                     {
-                       alert('ERROR'+data.responseText);
-                     },
-            })).done(function(data) {
-                 //reload_table();
+                 error: function(data) {
+                    // Restore add button on error
+                    if (spinner) spinner.style.display = "none";
+                    if (addBtn) addBtn.style.display = "inline";
+                    alert('ERROR: ' + data.responseText);
+                 },
             });
         }
 

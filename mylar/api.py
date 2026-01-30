@@ -1215,13 +1215,21 @@ class Api(object):
         elif type_ == 'story_arc':
             searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc', limit=parsed_limit, offset=parsed_offset, sort=sort)
 
+        # Transform haveit field to in_library boolean for frontend
+        def add_in_library(comic):
+            # haveit is either "No" (not in library) or a dict (in library)
+            comic['in_library'] = comic.get('haveit') != "No"
+            return comic
+
         # Handle both old format (list) and new format (dict with pagination)
         if isinstance(searchresults, dict) and 'results' in searchresults:
             # New format with pagination - don't sort here, respect server-side sort
+            searchresults['results'] = [add_in_library(c) for c in searchresults['results']]
             self.data = searchresults
         else:
             # Legacy format (list) - apply sorting
             searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
+            searchresults = [add_in_library(c) for c in searchresults]
             self.data = searchresults
 
     def _downloadIssue(self, id):
@@ -2002,6 +2010,11 @@ class Api(object):
             'cv_verify': mylar.CONFIG.CV_VERIFY,
             'cv_only': mylar.CONFIG.CV_ONLY,
 
+            # Metron
+            'metron_username': mylar.CONFIG.METRON_USERNAME,
+            'metron_password': mylar.CONFIG.METRON_PASSWORD,
+            'use_metron_search': mylar.CONFIG.USE_METRON_SEARCH,
+
             # Search
             'preferred_quality': mylar.CONFIG.PREFERRED_QUALITY,
             'use_minsize': mylar.CONFIG.USE_MINSIZE,
@@ -2023,6 +2036,7 @@ class Api(object):
         Update configuration values from frontend settings page.
         Only allows whitelisted safe config values to be updated.
         """
+        logger.info('[API][setConfig] Received kwargs: %s' % list(kwargs.keys()))
         # Whitelist of allowed config keys
         allowed_keys = [
             'api_key',
@@ -2031,6 +2045,9 @@ class Api(object):
             'comicvine_api',
             'cv_verify',
             'cv_only',
+            'metron_username',
+            'metron_password',
+            'use_metron_search',
             'preferred_quality',
             'use_minsize',
             'minsize',

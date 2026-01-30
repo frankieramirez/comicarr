@@ -107,6 +107,12 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
     search_start_time = time.time()
     logger.info('[SEARCH PERFORMANCE] Starting search for: %s (limit=%s, offset=%s, sort=%s)' % (name, limit, offset, sort))
 
+    # Check if Metron search is enabled and configured (only for volume/series search, not story arcs)
+    if search_type != 'story_arc' and mylar.CONFIG.USE_METRON_SEARCH and mylar.METRON_API:
+        logger.info('[METRON] Using Metron API for search')
+        from mylar import metron
+        return metron.search_series(name, mode=mode, issue=issue, limityear=limityear, limit=limit, offset=offset, sort=sort)
+
     #with mb_lock:
     comicResults = None
     comicLibrary = listLibrary()
@@ -571,7 +577,12 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
                             if xmlid in comicLibrary:
                                 haveit = comicLibrary[xmlid]
                             else:
-                                haveit = "No"
+                                # Fallback: check by name and year for cross-provider matching
+                                name_key = 'name:' + xmlTag.lower().strip() + ':' + str(xmlYr).strip()
+                                if name_key in comicLibrary:
+                                    haveit = comicLibrary[name_key]
+                                else:
+                                    haveit = "No"
                             comiclist.append({
                                     'name':                 xmlTag,
                                     'comicyear':            xmlYr,
