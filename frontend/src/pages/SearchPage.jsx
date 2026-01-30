@@ -68,61 +68,30 @@ export default function SearchPage() {
   const endIndex = pagination ? pagination.offset + pagination.returned : 0;
 
   return (
-    <div className="space-y-6 page-transition">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Search Comics</h1>
-        <p className="text-gray-600">
-          Search for comics to add to your library
-        </p>
+    <div className="space-y-4 page-transition">
+      {/* Header with search form */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:gap-6">
+        <h1 className="text-3xl font-bold mb-3 lg:mb-0 lg:whitespace-nowrap">
+          Search Comics
+        </h1>
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-2xl">
+          <Input
+            type="text"
+            placeholder="Enter comic name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            disabled={searchQuery.trim().length < 3}
+            className="flex items-center"
+          >
+            <SearchIcon className="w-4 h-4 mr-2" />
+            Search
+          </Button>
+        </form>
       </div>
-
-      {/* Search Form */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
-        <Input
-          type="text"
-          placeholder="Enter comic name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
-        />
-        <Button
-          type="submit"
-          disabled={searchQuery.trim().length < 3}
-          className="flex items-center"
-        >
-          <SearchIcon className="w-4 h-4 mr-2" />
-          Search
-        </Button>
-      </form>
-
-      {/* Sort - Only show if we have results */}
-      {!isLoading && !error && urlQuery && searchResults.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 max-w-xs">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Sort by
-              </label>
-              <Select
-                value={urlSort}
-                onValueChange={handleSortChange}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="year_desc">Year (Newest First)</SelectItem>
-                  <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
-                  <SelectItem value="issues_desc">Issue Count (Most First)</SelectItem>
-                  <SelectItem value="issues_asc">Issue Count (Least First)</SelectItem>
-                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
-                  <SelectItem value="name_desc">Name (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -162,9 +131,32 @@ export default function SearchPage() {
       {/* Results Grid */}
       {!isLoading && !error && searchResults.length > 0 && (
         <div>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Showing {startIndex}-{endIndex} of {pagination?.total || 0} result{pagination?.total !== 1 ? 's' : ''} for "{urlQuery}"
-          </p>
+          {/* Combined results count and sort control */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Showing {startIndex}-{endIndex} of {pagination?.total || 0} result{pagination?.total !== 1 ? 's' : ''} for "{urlQuery}"
+            </p>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                Sort by:
+              </span>
+              <Select value={urlSort} onValueChange={handleSortChange}>
+                <SelectTrigger className="w-48" aria-label="Sort search results">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="year_desc">Year (Newest First)</SelectItem>
+                  <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
+                  <SelectItem value="issues_desc">Issue Count (Most First)</SelectItem>
+                  <SelectItem value="issues_asc">Issue Count (Least First)</SelectItem>
+                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name_desc">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
             {searchResults.map((comic) => (
               <ComicCard key={comic.comicid} comic={comic} />
