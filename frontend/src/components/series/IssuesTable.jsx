@@ -11,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { useQueueIssue, useUnqueueIssue } from '@/hooks/useSeries';
 
 export default function IssuesTable({ issues = [] }) {
-  const [sorting, setSorting] = useState([{ id: 'Int_IssueNumber', desc: false }]);
+  const [sorting, setSorting] = useState([{ id: 'number', desc: false }]);
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
 
@@ -27,26 +27,26 @@ export default function IssuesTable({ issues = [] }) {
 
   const columns = [
     {
-      accessorKey: 'Int_IssueNumber',
+      accessorKey: 'number',
       header: '#',
       cell: ({ getValue }) => (
         <span className="font-mono text-sm">{getValue() || 'N/A'}</span>
       ),
     },
     {
-      accessorKey: 'IssueName',
+      accessorKey: 'name',
       header: 'Issue Name',
       cell: ({ row }) => (
         <div>
-          <div className="font-medium">{row.original.Issue_Number}</div>
-          {row.original.IssueName && (
-            <div className="text-sm text-muted-foreground">{row.original.IssueName}</div>
+          <div className="font-medium">{row.original.number}</div>
+          {row.original.name && (
+            <div className="text-sm text-muted-foreground">{row.original.name}</div>
           )}
         </div>
       ),
     },
     {
-      accessorKey: 'IssueDate',
+      accessorKey: 'releaseDate',
       header: 'Release Date',
       cell: ({ getValue }) => {
         const date = getValue();
@@ -55,7 +55,7 @@ export default function IssuesTable({ issues = [] }) {
       },
     },
     {
-      accessorKey: 'Status',
+      accessorKey: 'status',
       header: 'Status',
       cell: ({ getValue }) => <StatusBadge status={getValue()} />,
     },
@@ -63,8 +63,8 @@ export default function IssuesTable({ issues = [] }) {
       id: 'actions',
       header: 'Actions',
       cell: ({ row }) => {
-        const status = row.original.Status?.toLowerCase();
-        const issueId = row.original.IssueID;
+        const status = row.original.status?.toLowerCase();
+        const issueId = row.original.id;
 
         return (
           <div className="flex items-center space-x-2">

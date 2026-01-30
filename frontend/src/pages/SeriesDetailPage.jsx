@@ -61,7 +61,7 @@ export default function SeriesDetailPage() {
     );
   }
 
-  const comic = seriesData.comic || seriesData;
+  const comic = seriesData.comic?.[0] || seriesData;
   const issues = seriesData.issues || [];
   const isPaused = comic.Status?.toLowerCase() === 'paused';
 
@@ -95,7 +95,7 @@ export default function SeriesDetailPage() {
       </div>
 
       {/* Series Info */}
-      <div className="bg-white rounded-lg shadow-sm border border-card-border overflow-hidden">
+      <div className="bg-card rounded-lg card-shadow border border-card-border overflow-hidden">
         <div className="p-6">
           <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
             {/* Cover Image */}
@@ -117,16 +117,16 @@ export default function SeriesDetailPage() {
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold">{comic.ComicName}</h1>
+                    <h1 className="text-3xl font-bold text-foreground">{comic.ComicName}</h1>
                     {comic.ComicYear && (
-                      <p className="text-lg text-gray-600 mt-1">({comic.ComicYear})</p>
+                      <p className="text-lg text-muted-foreground mt-1">({comic.ComicYear})</p>
                     )}
                   </div>
                   <StatusBadge status={comic.Status} />
                 </div>
 
                 {comic.ComicPublisher && (
-                  <p className="text-gray-600 mt-2">
+                  <p className="text-muted-foreground mt-2">
                     <span className="font-medium">Publisher:</span> {comic.ComicPublisher}
                   </p>
                 )}
@@ -134,8 +134,8 @@ export default function SeriesDetailPage() {
 
               {comic.Description && (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Description</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <h3 className="font-medium text-foreground mb-2">Description</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
                     {comic.Description}
                   </p>
                 </div>
@@ -143,12 +143,12 @@ export default function SeriesDetailPage() {
 
               <div className="flex items-center space-x-4 text-sm">
                 <div>
-                  <span className="font-medium">Total Issues:</span>{' '}
-                  <span className="text-gray-600">{comic.Total || 0}</span>
+                  <span className="font-medium text-foreground">Total Issues:</span>{' '}
+                  <span className="text-muted-foreground">{comic.Total || 0}</span>
                 </div>
                 <div>
-                  <span className="font-medium">Have:</span>{' '}
-                  <span className="text-gray-600">{comic.Have || 0}</span>
+                  <span className="font-medium text-foreground">Have:</span>{' '}
+                  <span className="text-muted-foreground">{comic.Have || 0}</span>
                 </div>
               </div>
 
