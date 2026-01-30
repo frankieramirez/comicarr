@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -6,12 +7,18 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarInput,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Home,
   Search,
@@ -29,15 +36,25 @@ export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setOpenMobile } = useSidebar();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = searchQuery.trim();
+    if (trimmed.length >= 3) {
+      navigate(`/search?q=${encodeURIComponent(trimmed)}&page=1`);
+      setSearchQuery('');
+      setOpenMobile(false);
+    }
+  };
+
   const navItems = [
     { path: '/', label: 'Series', icon: Home },
-    { path: '/search', label: 'Search', icon: Search },
     { path: '/upcoming', label: 'Upcoming', icon: Calendar },
     { path: '/wanted', label: 'Wanted', icon: ListTodo },
     { path: '/story-arcs', label: 'Story Arcs', icon: BookMarked },
@@ -70,6 +87,39 @@ export default function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
+      <SidebarSeparator />
+
+      {/* Search Section */}
+      <div className="px-2 py-2">
+        {/* Expanded: show input */}
+        <form onSubmit={handleSearchSubmit} className="group-data-[collapsible=icon]:hidden">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <SidebarInput
+              placeholder="Search comics..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </form>
+
+        {/* Collapsed: show icon button with tooltip */}
+        <div className="hidden group-data-[collapsible=icon]:flex justify-center">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => navigate('/search')}
+                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Search</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
 
       <SidebarSeparator />
 
