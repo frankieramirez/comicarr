@@ -72,30 +72,16 @@ def initialize(options):
     logger.info("[MAINTENANCE-MODE] Starting Mylar in maintenance mode on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
     cherrypy.config.update(options_dict)
 
+    # Maintenance mode serves a simple inline HTML page, so minimal static config needed
+    frontend_dist = os.path.join(mylar.PROG_DIR, 'frontend', 'dist')
+
     conf = {
         '/': {
-            'tools.staticdir.root': os.path.join(mylar.PROG_DIR, 'data'),
             'tools.proxy.on': True  # pay attention to X-Forwarded-Proto header
-        },
-        '/interfaces': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "interfaces"
-        },
-        '/images': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "images"
-        },
-        '/css': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "css"
-        },
-        '/js': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "js"
         },
         '/favicon.ico': {
             'tools.staticfile.on': True,
-            'tools.staticfile.filename': os.path.join(os.path.abspath(os.curdir), 'images' + os.sep + 'favicon.ico')
+            'tools.staticfile.filename': os.path.join(frontend_dist, 'favicon.ico')
         },
         '/cache': {
             'tools.staticdir.on': True,
@@ -129,7 +115,7 @@ def initialize(options):
                 'auth.require': []
             })
             # exempt api, login page and static elements from authentication requirements
-            for i in ('/api', '/auth/login', '/css', '/images', '/js', 'favicon.ico'):
+            for i in ('/api', '/auth/login', '/favicon.ico'):
                 if i in conf:
                     conf[i].update({'tools.auth.on': False})
                 else:
@@ -143,8 +129,6 @@ def initialize(options):
                     })
 
     cherrypy.tree.mount(WebMaintenance(), str(options['http_root']), config = conf)
-
-    cherrypy.config.update({'error_page.default': os.path.join(mylar.PROG_DIR, 'data', 'interfaces', 'default', 'maintenance_mode.html')})
 
     try:
         portend.Checker().assert_free(options['http_host'], options['http_port'])

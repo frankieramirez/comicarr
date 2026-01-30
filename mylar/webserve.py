@@ -31,10 +31,6 @@ import ntpath
 from pathlib import Path
 from packaging.version import parse as parse_version
 
-from mako.template import Template
-from mako.lookup import TemplateLookup
-from mako import exceptions
-
 import traceback
 
 import time
@@ -79,87 +75,108 @@ from mylar.auth import (
     require,
 )
 
-# Template caching to avoid creating new TemplateLookup on every request
-_template_cache = {}
-_icons_cache = {}
+
+def _serve_spa_index():
+    """Serve the React SPA index.html for client-side routing."""
+    index_path = os.path.join(mylar.PROG_DIR, 'frontend', 'dist', 'index.html')
+    cherrypy.response.headers['Content-Type'] = 'text/html'
+    with open(index_path, 'r') as f:
+        return f.read()
 
 
-def _get_template_lookup(interface, interface_dir):
-    """Get cached TemplateLookup for the given interface."""
-    if interface not in _template_cache:
-        if any([interface == 'default', interface is None]):
-            tmper_dir = 'default'
-        else:
-            tmper_dir = interface
-        template_dir = os.path.join(str(interface_dir), tmper_dir)
-        _template_cache[interface] = TemplateLookup(directories=[template_dir])
-    return _template_cache[interface]
+def _serve_maintenance_html():
+    """Return a simple maintenance mode HTML page."""
+    return '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mylar - Maintenance Mode</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        p { font-size: 1.2rem; opacity: 0.8; }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Maintenance Mode</h1>
+        <div class="spinner"></div>
+        <p>Mylar is performing database maintenance.<br>Please wait...</p>
+    </div>
+</body>
+</html>'''
 
 
-def _get_icons(interface, http_root):
-    """Get cached icons dictionary for the given interface."""
-    cache_key = (interface, http_root)
-    if cache_key not in _icons_cache:
-        if interface == 'default':
-            icons = {
-                'icon_gear': os.path.join(http_root, 'images', 'icon_gear.png'),
-                'icon_upcoming': os.path.join(http_root, 'images', 'icon_upcoming.png'),
-                'icon_wanted': os.path.join(http_root, 'images', 'icon_wanted.png'),
-                'icon_search': os.path.join(http_root, 'images', 'icon_search.png'),
-                'discord-icon': os.path.join(http_root, 'images', 'discord-icon.png'),
-                'github-icon': os.path.join(http_root, 'images', 'github-icon.png'),
-                'forum-icon': os.path.join(http_root, 'images', 'forum-icon.png'),
-                'irc-icon': os.path.join(http_root, 'images', 'irc-icon.png'),
-                'listview_icon': os.path.join(http_root, 'images', 'listview_icon.png'),
-                'delete_icon': os.path.join(http_root, 'images', 'delete_icon.png'),
-                'deleteall_icon': os.path.join(http_root, 'images', 'deleteall_icon.png'),
-                'prowl_logo': os.path.join(http_root, 'images', 'prowl_logo.png'),
-                'ReadingList-icon': os.path.join(http_root, 'images', 'ReadingList-icon.png'),
-                'next': os.path.join(http_root, 'images', 'next.gif'),
-                'prev': os.path.join(http_root, 'images', 'prev.gif'),
-            }
-        else:
-            icons = {
-                'icon_gear': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_gear.png'),
-                'icon_upcoming': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_upcoming.png'),
-                'icon_wanted': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_wanted.png'),
-                'icon_search': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'icon_search.png'),
-                'discord-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'discord-icon-carbon.png'),
-                'github-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'github-icon-carbon.png'),
-                'forum-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'forum-icon-carbon.png'),
-                'irc-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'irc-icon-carbon.png'),
-                'listview_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'listview_icon.png'),
-                'delete_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'delete_icon.png'),
-                'deleteall_icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'deleteall_icon.png'),
-                'prowl_logo': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prowl_logo.png'),
-                'ReadingList-icon': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'ReadingList-icon.png'),
-                'next': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'next.gif'),
-                'prev': os.path.join(http_root, 'interfaces', 'carbon', 'images', 'prev.gif'),
-            }
-        _icons_cache[cache_key] = icons
-    return _icons_cache[cache_key]
-
-
-def serve_template(templatename, **kwargs):
-    interface_dir = os.path.join(str(mylar.PROG_DIR), 'data/interfaces/')
-    interface = mylar.CONFIG.INTERFACE if mylar.CONFIG.INTERFACE else 'default'
-    http_root = mylar.CONFIG.HTTP_ROOT
-
-    # Use cached icons and template lookup
-    icons = _get_icons(interface, http_root)
-    _hplookup = _get_template_lookup(interface, interface_dir)
-
-    try:
-        template = _hplookup.get_template(templatename)
-        return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
-    except Exception:
-        # Default to base in case the html hasn't been changed in new interface.
-        _hplookup_default = _get_template_lookup('default', interface_dir)
-        try:
-            template = _hplookup_default.get_template(templatename)
-            return template.render(http_root=http_root, interface=interface, icons=icons, gl_messages=mylar.GLOBAL_MESSAGES, sse_key=mylar.SSE_KEY, pre_update=mylar.UPDATE_VALUE, **kwargs)
-        except Exception:
-            return exceptions.html_error_template().render()
+def _serve_shutdown_html(title, message, timer=5):
+    """Return a simple shutdown/restart HTML page."""
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="{timer}">
+    <title>Mylar - {title}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+        }}
+        .container {{
+            text-align: center;
+            padding: 2rem;
+        }}
+        h1 {{ font-size: 2.5rem; margin-bottom: 1rem; }}
+        p {{ font-size: 1.2rem; opacity: 0.8; }}
+        .spinner {{
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{title}</h1>
+        <div class="spinner"></div>
+        <p>{message}</p>
+    </div>
+</body>
+</html>'''
 
 
 class WebMaintenance(object):
@@ -171,7 +188,8 @@ class WebMaintenance(object):
     default.exposed = True
 
     def maintenance_mode(self):
-        return serve_template(templatename='maintenance_mode.html', title='Maintenance Mode!')
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_maintenance_html()
     maintenance_mode.exposed = True
 
     def check_ActiveMaintenance(self):
@@ -201,15 +219,15 @@ class WebMaintenance(object):
     def restart(self):
         logger.info('[RESTART] Now Restarting Mylar...')
         mylar.SIGNAL = 'restart'
-        message = 'Restarting...'
-        return serve_template(templatename="shutdown.html", title="Restarting", message=message, timer=5)
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_shutdown_html("Restarting", "Restarting...", timer=5)
     restart.exposed = True
 
     def shutdown(self):
         logger.info('[SHUTDOWN] Now Shutting down Mylar...')
         mylar.SIGNAL = 'shutdown'
-        message = 'Shutting Down...'
-        return serve_template(templatename="shutdown.html", title="Shutting Down", message=message, timer=5)
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_shutdown_html("Shutting Down", "Shutting Down...", timer=5)
     shutdown.exposed = True
 
 
@@ -218,11 +236,23 @@ class WebInterface(object):
     auth = AuthController()
 
     def index(self):
-        if mylar.SAFESTART:
-            raise cherrypy.HTTPRedirect("manageComics")
-        else:
-            raise cherrypy.HTTPRedirect("home")
-    index.exposed=True
+        """Serve the React SPA index.html"""
+        return _serve_spa_index()
+    index.exposed = True
+
+    def default(self, *args, **kwargs):
+        """SPA fallback - return index.html for client-side routing.
+
+        This handles any URL that doesn't match a specific route,
+        allowing React Router to handle client-side navigation.
+        """
+        # Skip API-like paths that should return 404
+        path = '/'.join(args) if args else ''
+        if path.startswith('api/') or path.startswith('rest/'):
+            raise cherrypy.NotFound()
+
+        return _serve_spa_index()
+    default.exposed = True
 
     def check_ActiveMaintenance(self):
         # this is just here to return 100% on completion so the reload can occur properly.
@@ -316,11 +346,7 @@ class WebInterface(object):
                              'loading': '#1c5188',
                              'failed': '#641716'}
 
-        if mylar.CONFIG.ALPHAINDEX == True:
-            comics = helpers.havetotals()
-            return serve_template(templatename="index-alphaindex.html", title="Home", comics=comics, alphaindex=mylar.CONFIG.ALPHAINDEX, legend_colors=legend_colors)
-        else:
-            return serve_template(templatename="index.html", title="Home", legend_colors=legend_colors)
+        return _serve_spa_index()
     home.exposed = True
 
     def loadhome(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
@@ -743,7 +769,7 @@ class WebInterface(object):
                     "ImageTime":                      '?' + datetime.datetime.now().strftime('%y-%m-%d %H:%M:%S')
                }
 
-        return serve_template(templatename="comicdetails_update.html", title=comicname, comic=comic, comicConfig=comicConfig, series=series, default_dates=default_dates)
+        return _serve_spa_index()
     comicDetails.exposed = True
 
     def update_series_filters(self, comicid):
@@ -1238,8 +1264,7 @@ class WebInterface(object):
                     vals['type'] =  x['type']
                 myDB.upsert("tmp_searches", vals, ctrlid)
 
-        return serve_template(templatename="searchresults.html", title='Search Results for: "' + name + '"', query_id=query_id, query=name, search_type=search_type)
-        # searchresults=searchresults, search_type=search_type, imported=None, ogcname=None, name=name, serinfo=serinfo)
+        return _serve_spa_index()
     searchit.exposed = True
 
     def searchit_async(self, name, issue=None, smode=None, search_type=None, serinfo=None):
@@ -1262,15 +1287,7 @@ class WebInterface(object):
             args=[search_id, name, issue, smode, search_type, serinfo]
         ).start()
 
-        # Return page immediately with loading state
-        return serve_template(
-            templatename="searchresults.html",
-            title='Search Results for: "' + name + '"',
-            query_id=search_id,
-            query=name,
-            search_type=search_type,
-            search_status='loading'
-        )
+        return _serve_spa_index()
 
     searchit_async.exposed = True
 
@@ -1419,7 +1436,7 @@ class WebInterface(object):
             if mylar.CONFIG.COMICVINE_API is None:
                 logger.error('You NEED to set a ComicVine API key prior to adding anything. It\'s Free - Go get one!')
                 return
-        return serve_template(templatename="searchresults.html", title='Search Results for: "' + name + '"', searchresults=searchresults, search_type=search_type, imported=None, ogcname=None, name=name, serinfo=serinfo)
+        return _serve_spa_index()
     searchit_old.exposed = True
 
     def addComic(self, comicid, comicname=None, comicyear=None, comicimage=None, comicissues=None, comicpublisher=None, imported=None, ogcname=None, serinfo=None):
@@ -1498,7 +1515,7 @@ class WebInterface(object):
                     #to the calling function and have that return the template
                         return cresults
                     else:
-                        return serve_template(templatename="searchfix.html", title="Error Check", comicname=comicname, comicid=comicid, comicyear=comicyear, comicimage=comicimage, comicissues=comicissues, cresults=cresults, imported=None, ogcname=None)
+                        return _serve_spa_index()
                 else:
                     nomatch = "false"
                     logger.info("Quick match success..continuing.")
@@ -1529,7 +1546,7 @@ class WebInterface(object):
                             t+=1
                         #searchfix(-1).html is for misnamed comics and wrong years.
                         #searchfix-2.html is for comics that span multiple volumes.
-                        return serve_template(templatename="searchfix-2.html", title="In-Depth Results", sresults=sresults)
+                        return _serve_spa_index()
         #print ("imported is: " + str(imported))
         threading.Thread(target=importer.addComictoDB, args=[comicid, mismatch, None, imported, ogcname]).start()
         time.sleep(5) #wait 5s so the db can be populated enough to display the page - otherwise will return to home page if not enough info is loaded.
@@ -3098,7 +3115,7 @@ class WebInterface(object):
                             logger.warn('Unable to populate the pull-list. Not continuing at this time (will try again in abit)')
 
             if all([w_results is None, generateonly is False]):
-                return serve_template(templatename="weeklypull.html", title="Weekly Pull", weeklyresults=weeklyresults, pullfilter=True, weekfold=weekinfo['week_folder'], wantedcount=0, weekinfo=weekinfo)
+                return _serve_spa_index()
 
             watchlibrary = helpers.listLibrary()
             issueLibrary = helpers.listIssues(weekinfo['weeknumber'], weekinfo['year'])
@@ -3234,10 +3251,7 @@ class WebInterface(object):
                             endresults.append(weekit)
                         weeklyresults = endresults
 
-            if week:
-                return serve_template(templatename="weeklypull.html", title="Weekly Pull", weeklyresults=weeklyresults, pullfilter=True, weekfold=weekinfo['week_folder'], wantedcount=wantedcount, weekinfo=weekinfo, auto_mass_add=helpers.checked(mylar.CONFIG.AUTO_MASS_ADD))
-            else:
-                return serve_template(templatename="weeklypull.html", title="Weekly Pull", weeklyresults=weeklyresults, pullfilter=True, weekfold=weekinfo['week_folder'], wantedcount=wantedcount, weekinfo=weekinfo, auto_mass_add=helpers.checked(mylar.CONFIG.AUTO_MASS_ADD))
+            return _serve_spa_index()
     pullist.exposed = True
 
     def removeautowant(self, comicname, release):
@@ -3281,7 +3295,7 @@ class WebInterface(object):
         pulldate = myDB.selectone("SELECT * from weekly").fetchone()
         if pulldate is None:
             raise cherrypy.HTTPRedirect("home")
-        return serve_template(templatename="weeklypull.html", title="Weekly Pull", weeklyresults=weeklyresults, pulldate=pulldate['SHIPDATE'], pullfilter=True)
+        return _serve_spa_index()
     filterpull.exposed = True
 
     def manualpull(self,weeknumber=None,year=None):
@@ -3487,7 +3501,7 @@ class WebInterface(object):
 
     def upcoming(self):
         upcomingdata = self.fly_me_to_the_moon()
-        return serve_template(templatename="upcoming.html", title="Upcoming", upcoming=upcomingdata['upcoming'], upcoming_count=upcomingdata['upcoming_count'], future_nodata_upcoming=upcomingdata['future_nodata_upcoming'], mismatched=upcomingdata['mismatched'], mismatched_count=upcomingdata['mismatched_count'])
+        return _serve_spa_index()
     upcoming.exposed = True
 
     def update_upcoming_filters(self):
@@ -4114,7 +4128,7 @@ class WebInterface(object):
 
             #logger.info('o_info: %s' % (resultlist))
 
-        return serve_template(templatename="queue_management.html", title="Queue Management", resultlist=resultlist) #activelist=activelist, resultlist=resultlist)
+        return _serve_spa_index()
     queueManage.exposed = True
 
     def queueManageIt(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
@@ -4300,7 +4314,7 @@ class WebInterface(object):
                                        'new':        renameiss['nfilename']})
 
             logger.info('resultlist: %s' % resultlist)
-        return serve_template(templatename="previewrename.html", title="Preview Renamer", resultlist=resultlist, file_format=file_format, comicid=comicidlist)
+        return _serve_spa_index()
     previewRename.exposed = True
 
     def manualRename(self, comicid):
@@ -4368,7 +4382,7 @@ class WebInterface(object):
     manualRename.exposed = True
 
     def searchScan(self, name):
-        return serve_template(templatename="searchfix.html", title="Manage", name=name)
+        return _serve_spa_index()
     searchScan.exposed = True
 
     def manage(self):
@@ -4442,7 +4456,7 @@ class WebInterface(object):
                             'status': status})
             jobresults = tmp
         queues = helpers.queue_info()
-        return serve_template(templatename="manage.html", title="Manage", mylarRoot=mylarRoot, jobs=jobresults, queues=queues, scan_info=scan_info)
+        return _serve_spa_index()
     manage.exposed = True
 
     def jobmanage(self, job, mode):
@@ -4540,7 +4554,7 @@ class WebInterface(object):
 
     def manageComics(self):
         comics = helpers.havetotals()
-        return serve_template(templatename="managecomics.html", title="Manage Comics", comics=comics)
+        return _serve_spa_index()
     manageComics.exposed = True
 
     def manageIssues(self, **kwargs):
@@ -4551,7 +4565,7 @@ class WebInterface(object):
             issues += myDB.select("SELECT * from annuals WHERE Status=? AND NOT Deleted", [status])
         else:
             issues = myDB.select("SELECT * from issues WHERE Status=?", [status])
-        return serve_template(templatename="manageissues.html", title="Manage " + str(status) + " Issues", issues=issues, status=status)
+        return _serve_spa_index()
     manageIssues.exposed = True
 
     def manageFailed(self):
@@ -4579,11 +4593,11 @@ class WebInterface(object):
                             "FileName":      f['NZBName'],
                             "DateFailed":    datefailed})
 
-        return serve_template(templatename="managefailed.html", title="Failed DB Management", failed=results)
+        return _serve_spa_index()
     manageFailed.exposed = True
 
     def cblimport(self):
-        return serve_template(templatename="cblimport.html", title="CBL Import")
+        return _serve_spa_index()
     cblimport.exposed = True
 
     def flushImports(self):
@@ -4800,7 +4814,7 @@ class WebInterface(object):
     checkGithub.exposed = True
 
     def history(self):
-        return serve_template(templatename="history.html", title="History")
+        return _serve_spa_index()
     history.exposed = True
 
     def loadhistory(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
@@ -4924,7 +4938,7 @@ class WebInterface(object):
                    "sent":  c_sent,
                    "total": (c_added + c_read + c_sent)}
 
-        return serve_template(templatename="readinglist.html", title="Reading Lists", issuelist=readlist, counts=counts)
+        return _serve_spa_index()
     readlist.exposed = True
 
     def clear_arcstatus(self, issuearcid=None):
@@ -4986,7 +5000,7 @@ class WebInterface(object):
                             "Total":            totalarc,
                             "CV_ArcID":         al['CV_ArcID']})
         if arcid is None:
-            return serve_template(templatename="storyarc.html", title="Story Arcs", arclist=arclist, delete_type=0)
+            return _serve_spa_index()
         else:
             return arclist[0]
     storyarc_main.exposed = True
@@ -5116,7 +5130,7 @@ class WebInterface(object):
             bannerheight= '280'
             spanyears = None
 
-        return serve_template(templatename=template, title="Detailed Arc list", readlist=arcinfo, storyarcname=StoryArcName, storyarcid=StoryArcID, cvarcid=cvarcid, sdir=sdir, arcdetail=arcdetail, storyarcbanner=storyarcbanner, bannerheight=bannerheight, bannerwidth=bannerwidth, spanyears=spanyears)
+        return _serve_spa_index()
     detailStoryArc.exposed = True
 
     def order_edit(self, **kwargs): #id, value):
@@ -6033,11 +6047,11 @@ class WebInterface(object):
     ReadMassCopy.exposed = True
 
     def logs(self, **kwargs):
-        return serve_template(templatename="logs.html", title="Log", lineList=mylar.LOGLIST, log_level=mylar.LOG_LEVEL)
+        return _serve_spa_index()
     logs.exposed = True
 
     def config_dump(self):
-        return serve_template(templatename="config_dump.html", title="Config Listing", lineList=mylar.CONFIG)
+        return _serve_spa_index()
     config_dump.exposed = True
 
     def clearLogs(self):
@@ -6268,14 +6282,14 @@ class WebInterface(object):
     MassWeeklyDownload.exposed = True
 
     def idirectory(self):
-        return serve_template(templatename="idirectory.html", title="Import a Directory")
+        return _serve_spa_index()
     idirectory.exposed = True
 
     def confirmResult(self, comicname, comicid):
         mode='series'
         sresults = mb.findComic(comicname, mode, None)
         type='comic'
-        return serve_template(templatename="searchresults.html", title='Import Results for: "' + comicname + '"', searchresults=sresults, type=type, imported='confirm', ogcname=comicid)
+        return _serve_spa_index()
     confirmResult.exposed = True
 
     def Check_ImportStatus(self):
@@ -6364,7 +6378,7 @@ class WebInterface(object):
                             "ImportDate":   x['ImportDate'],
                             "SRID":         x['SRID']})
 
-        return serve_template(templatename="importresults.html", title="Import Results", results=countit) #results, watchresults=watchresults)
+        return _serve_spa_index()
     importResults.exposed = True
 
     def ImportFilelisting(self, comicname, dynamicname, volume):
@@ -6874,7 +6888,7 @@ class WebInterface(object):
                     'filelisting':   files,
                     'srid':          SRID}
 
-        return serve_template(templatename="importresults_popup.html", title="results", searchtext=ComicName, searchresults=searchresults, imported=imported)
+        return _serve_spa_index()
 
     importresults_popup.exposed = True
 
@@ -7248,7 +7262,7 @@ class WebInterface(object):
                     "alphaindex": mylar.CONFIG.ALPHAINDEX,
                     "backup_on_start": helpers.checked(mylar.CONFIG.BACKUP_ON_START),
                }
-        return serve_template(templatename="config.html", title="Settings", config=config, comicinfo=comicinfo)
+        return _serve_spa_index()
     config.exposed = True
 
     def error_change(self, comicid, errorgcd, comicname, comicyear, imported=None, mogcname=None):
@@ -7838,21 +7852,20 @@ class WebInterface(object):
 
     def shutdown(self):
         mylar.SIGNAL = 'shutdown'
-        message = 'Shutting Down...'
-        return serve_template(templatename="shutdown.html", title="Shutting Down", message=message, timer=15)
-        return page
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_shutdown_html("Shutting Down", "Shutting Down...", timer=15)
     shutdown.exposed = True
 
     def restart(self):
         mylar.SIGNAL = 'restart'
-        message = 'Restarting...'
-        return serve_template(templatename="shutdown.html", title="Restarting", message=message, timer=30)
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_shutdown_html("Restarting", "Restarting...", timer=30)
     restart.exposed = True
 
     def update(self):
         mylar.SIGNAL = 'update'
-        message = 'Updating...<br/><small>Main screen will appear in 60s</small>'
-        return serve_template(templatename="shutdown.html", title="Updating", message=message, timer=30)
+        cherrypy.response.headers['Content-Type'] = 'text/html'
+        return _serve_shutdown_html("Updating", "Updating...<br/><small>Main screen will appear in 60s</small>", timer=30)
     update.exposed = True
 
     def getInfo(self, ComicID=None, IssueID=None):
@@ -9491,7 +9504,7 @@ class WebInterface(object):
     serieslisting.exposed=True
 
     def post_selections(self, foldername):
-        return serve_template(templatename="post_processing.html", title="Interactive Post-Processing", foldername=foldername)
+        return _serve_spa_index()
     post_selections.exposed = True
 
     def manageNotifs(self, session_id=None, modal=None, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):

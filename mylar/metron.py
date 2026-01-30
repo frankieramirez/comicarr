@@ -25,6 +25,9 @@ import mylar
 from mylar import logger
 from mylar.helpers import listLibrary
 
+# In-memory cache for series images to avoid repeated API calls
+_IMAGE_CACHE = {}  # {series_id: image_url}
+
 # Mapping from frontend sort values to Metron's ordering parameter
 SORT_MAPPING = {
     'year_desc': '-year_began',
@@ -268,3 +271,51 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
             return {'results': [], 'pagination': {'total': 0, 'limit': page_limit, 'offset': page_offset, 'returned': 0}}
         else:
             return []
+
+
+def get_series_image(series_id):
+    """
+    Fetch cover image URL for a series by getting its first issue.
+
+    Args:
+        series_id: Metron series ID
+
+    Returns:
+        Image URL string, or None if not available
+    """
+    global _IMAGE_CACHE
+
+    # Check cache first
+    if series_id in _IMAGE_CACHE:
+        logger.fdebug('[METRON] Image cache hit for series %s' % series_id)
+        return _IMAGE_CACHE[series_id]
+
+    api = mylar.METRON_API
+    if api is None:
+        logger.warn('[METRON] Metron API not initialized')
+        return None
+
+    try:
+        # Fetch issues for this series, limited to first issue
+        issues = api.issues_list({'series_id': series_id})
+        issues_list = list(issues)
+
+        if issues_list:
+            # Get the first issue's image
+            first_issue = issues_list[0]
+            image_url = first_issue.image if hasattr(first_issue, 'image') else None
+
+            if image_url:
+                # Cache the result
+                _IMAGE_CACHE[series_id] = image_url
+                logger.fdebug('[METRON] Fetched and cached image for series %s: %s' % (series_id, image_url))
+                return image_url
+
+        logger.fdebug('[METRON] No image found for series %s' % series_id)
+        # Cache None to avoid repeated lookups for series without images
+        _IMAGE_CACHE[series_id] = None
+        return None
+
+    except Exception as e:
+        logger.error('[METRON] Failed to fetch series image for %s: %s' % (series_id, e))
+        return None

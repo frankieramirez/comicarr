@@ -155,3 +155,18 @@ export async function checkSession(): Promise<SessionResponse> {
     return { success: true, authenticated: false };
   }
 }
+
+/**
+ * Get cover image URL for a Metron series (lazy loading)
+ */
+export async function getSeriesImage(seriesId: string): Promise<string | null> {
+  try {
+    const response = await apiCall<{ image: string | null }>("getSeriesImage", {
+      id: seriesId,
+    });
+    return response.image;
+  } catch (error) {
+    console.error("Failed to fetch series image:", error);
+    return null;
+  }
+}

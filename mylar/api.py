@@ -41,7 +41,7 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'refreshSeriesjson', 'seriesjsonListing', 'checkGlobalMessages',
             'listProviders', 'changeProvider', 'addProvider', 'delProvider',
             'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
-            'getConfig', 'setConfig']
+            'getConfig', 'setConfig', 'getSeriesImage']
 
 class Api(object):
 
@@ -2084,6 +2084,22 @@ class Api(object):
         except Exception as e:
             self.data = self._failureResponse('Failed to update configuration: %s' % str(e))
             logger.error('[API][setConfig] Error: %s' % e)
+
+    def _getSeriesImage(self, **kwargs):
+        """
+        Get cover image URL for a Metron series.
+        Used for lazy loading images in search results.
+        """
+        if 'id' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: id')
+            return
+
+        series_id = kwargs['id']
+
+        from mylar import metron
+        image_url = metron.get_series_image(series_id)
+
+        self.data = self._successResponse({'image': image_url})
 
 class REST(object):
 

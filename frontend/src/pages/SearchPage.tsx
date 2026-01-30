@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { getSeriesImage } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,51 @@ export default function SearchPage() {
   );
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
+
+  // State for lazy-loaded images
+  const [lazyImages, setLazyImages] = useState<Record<string, string>>({});
+
+  // Fetch images for visible results with placeholder images
+  const fetchImageForComic = useCallback(async (comicId: string) => {
+    // Don't fetch if already loaded or loading
+    if (lazyImages[comicId] !== undefined) return;
+
+    // Mark as loading (empty string)
+    setLazyImages((prev) => ({ ...prev, [comicId]: "" }));
+
+    const imageUrl = await getSeriesImage(comicId);
+    if (imageUrl) {
+      setLazyImages((prev) => ({ ...prev, [comicId]: imageUrl }));
+    }
+  }, [lazyImages]);
+
+  // Lazy load images for visible Metron results (those with placeholder images)
+  useEffect(() => {
+    if (isLoading || !searchResults.length) return;
+
+    // Fetch images for first 12 visible results that have placeholder images
+    searchResults.slice(0, 12).forEach((comic) => {
+      const comicId = comic.comicid ?? comic.id;
+      const hasPlaceholder =
+        !comic.image ||
+        comic.image === "cache/blankcover.jpg" ||
+        comic.image.includes("blankcover");
+
+      if (hasPlaceholder && comicId && !lazyImages[comicId]) {
+        fetchImageForComic(comicId);
+      }
+    });
+  }, [searchResults, isLoading, fetchImageForComic, lazyImages]);
+
+  // Merge lazy-loaded images into search results
+  const resultsWithImages = searchResults.map((comic) => {
+    const comicId = comic.comicid ?? comic.id;
+    const lazyImage = lazyImages[comicId];
+    if (lazyImage) {
+      return { ...comic, image: lazyImage };
+    }
+    return comic;
+  });
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -128,7 +174,7 @@ export default function SearchPage() {
       )}
 
       {/* No Results State */}
-      {!isLoading && !error && urlQuery && searchResults.length === 0 && (
+      {!isLoading && !error && urlQuery && resultsWithImages.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground text-lg">
             No results found for "{urlQuery}"
@@ -140,7 +186,7 @@ export default function SearchPage() {
       )}
 
       {/* Results Grid */}
-      {!isLoading && !error && searchResults.length > 0 && (
+      {!isLoading && !error && resultsWithImages.length > 0 && (
         <div>
           {/* Combined results count and sort control */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -177,7 +223,7 @@ export default function SearchPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            {searchResults.map((comic) => (
+            {resultsWithImages.map((comic) => (
               <ComicCard key={comic.comicid ?? comic.id} comic={comic} />
             ))}
           </div>

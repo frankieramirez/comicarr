@@ -133,8 +133,9 @@ class AuthController(object):
         # not needed or used for Mylar currently
 
     def get_loginform(self, username, msg="Enter login information", from_page="/"):
-        from mylar.webserve import serve_template
-        return serve_template(templatename="login.html", username=escape(username, True), title="Login", from_page=from_page)
+        """Serve the React SPA which handles login UI"""
+        from mylar.webserve import _serve_spa_index
+        return _serve_spa_index()
 
     @cherrypy.expose
     def login(self, current_username=None, current_password=None, remember_me='0', from_page="/"):
