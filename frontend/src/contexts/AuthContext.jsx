@@ -6,6 +6,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [apiKey, setApiKey] = useState(null);
+  const [sseKey, setSseKey] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -13,24 +14,32 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const verifySession = async () => {
       try {
-        // Check if API key exists in sessionStorage
+        // Check if API key and SSE key exist in sessionStorage
         const storedApiKey = sessionStorage.getItem('mylar_api_key');
+        const storedSseKey = sessionStorage.getItem('mylar_sse_key');
         if (storedApiKey) {
           setApiKey(storedApiKey);
+        }
+        if (storedSseKey) {
+          setSseKey(storedSseKey);
         }
 
         const result = await checkSession();
         if (result.authenticated && result.username) {
           setUser({ username: result.username });
         } else {
-          // Clear API key if session is invalid
+          // Clear API key and SSE key if session is invalid
           sessionStorage.removeItem('mylar_api_key');
+          sessionStorage.removeItem('mylar_sse_key');
           setApiKey(null);
+          setSseKey(null);
         }
       } catch (error) {
         console.error('Session verification failed:', error);
         sessionStorage.removeItem('mylar_api_key');
+        sessionStorage.removeItem('mylar_sse_key');
         setApiKey(null);
+        setSseKey(null);
       } finally {
         setIsLoading(false);
       }
@@ -46,13 +55,18 @@ export function AuthProvider({ children }) {
       if (result.success && result.username) {
         setUser({ username: result.username });
 
-        // Fetch API key after successful login
+        // Fetch API key and SSE key after successful login
         try {
           const apiKeyResult = await apiCall('getAPI', { username, password });
           if (apiKeyResult.apikey) {
             setApiKey(apiKeyResult.apikey);
             // Store API key in sessionStorage for persistence
             sessionStorage.setItem('mylar_api_key', apiKeyResult.apikey);
+          }
+          if (apiKeyResult.sse_key) {
+            setSseKey(apiKeyResult.sse_key);
+            // Store SSE key in sessionStorage for persistence
+            sessionStorage.setItem('mylar_sse_key', apiKeyResult.sse_key);
           }
         } catch (error) {
           console.error('Failed to fetch API key:', error);
@@ -77,13 +91,16 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       setApiKey(null);
+      setSseKey(null);
       sessionStorage.removeItem('mylar_api_key');
+      sessionStorage.removeItem('mylar_sse_key');
     }
   };
 
   const value = {
     user,
     apiKey,
+    sseKey,
     isAuthenticated: !!user,
     isLoading,
     isVerifying,

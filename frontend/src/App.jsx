@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/layout/Layout';
 import LoginPage from '@/pages/LoginPage';
@@ -11,6 +11,9 @@ import UpcomingPage from '@/pages/UpcomingPage';
 import WantedPage from '@/pages/WantedPage';
 import SettingsPage from '@/pages/SettingsPage';
 import { ToastProvider } from '@/components/ui/toast';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { useServerEvents } from '@/hooks/useServerEvents';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -23,38 +26,58 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * AppContent component - handles SSE connection and keyboard shortcuts
+ * Must be inside AuthProvider to access auth context
+ */
+function AppContent() {
+  const { apiKey, sseKey } = useAuth();
+
+  // Set up SSE connection when authenticated
+  useServerEvents(sseKey, !!(apiKey && sseKey));
+
+  // Set up global keyboard shortcuts
+  useKeyboardShortcuts();
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/series/:comicId" element={<SeriesDetailPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/upcoming" element={<UpcomingPage />} />
+                  <Route path="/wanted" element={<WantedPage />} />
+                  <Route path="/story-arcs" element={<div>Story Arcs page coming soon...</div>} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/series/:comicId" element={<SeriesDetailPage />} />
-                      <Route path="/search" element={<SearchPage />} />
-                      <Route path="/upcoming" element={<UpcomingPage />} />
-                      <Route path="/wanted" element={<WantedPage />} />
-                      <Route path="/story-arcs" element={<div>Story Arcs page coming soon...</div>} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-        </AuthProvider>
-      </ToastProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

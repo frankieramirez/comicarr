@@ -363,14 +363,14 @@ class Api(object):
         if mylar.CONFIG.ENCRYPT_PASSWORDS is True:
             if username == ht_user and all([ed_chk['status'] is True, ed_chk['password'] == password]):
                 self.data = self._successResponse(
-                    {'apikey': mylar.CONFIG.API_KEY}
+                    {'apikey': mylar.CONFIG.API_KEY, 'sse_key': mylar.SSE_KEY}
                 )
             else:
                 self.data = self._failureResponse('Incorrect username or password.')
         else:
             if username == ht_user and password == mylar.CONFIG.HTTP_PASSWORD:
                 self.data = self._successResponse(
-                    {'apikey': mylar.CONFIG.API_KEY}
+                    {'apikey': mylar.CONFIG.API_KEY, 'sse_key': mylar.SSE_KEY}
                 )
             else:
                 self.data = self._failureResponse('Incorrect username or password.')
