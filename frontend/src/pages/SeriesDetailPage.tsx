@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ChevronRight, Pause, Play, RefreshCw, Trash2, Home } from "lucide-react";
+import {
+  ChevronRight,
+  Pause,
+  Play,
+  RefreshCw,
+  Trash2,
+  Home,
+} from "lucide-react";
 import {
   useSeriesDetail,
   usePauseSeries,

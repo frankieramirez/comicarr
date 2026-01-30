@@ -46,7 +46,8 @@ export class ApiError extends Error {
   isRetryable: boolean;
 
   constructor(status: number, originalMessage?: string) {
-    const userMessage = HTTP_ERROR_MESSAGES[status] ||
+    const userMessage =
+      HTTP_ERROR_MESSAGES[status] ||
       `An unexpected error occurred (${status}). Please try again.`;
 
     super(originalMessage || userMessage);

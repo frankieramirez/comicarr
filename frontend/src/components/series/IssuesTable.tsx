@@ -58,7 +58,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       const status = (issue.status ?? issue.Status)?.toLowerCase();
       if (statusFilter === "other") {
         return !["wanted", "downloaded", "skipped", "snatched"].includes(
-          status || ""
+          status || "",
         );
       }
       return status === statusFilter;
@@ -185,8 +185,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       header: "Release Date",
       cell: ({ getValue }: CellContext<Issue, unknown>) => {
         const date = getValue() as string | undefined;
-        if (!date)
-          return <span className="text-muted-foreground/70">N/A</span>;
+        if (!date) return <span className="text-muted-foreground/70">N/A</span>;
         return <span className="text-sm">{date}</span>;
       },
     },
@@ -338,7 +337,9 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
             variant="outline"
             size="sm"
             onClick={handleWantAll}
-            disabled={bulkQueueMutation.isPending || filteredByStatus.length === 0}
+            disabled={
+              bulkQueueMutation.isPending || filteredByStatus.length === 0
+            }
           >
             <Download className="w-3 h-3 mr-1" />
             Want All
@@ -406,7 +407,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                           <span>
                             {flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                           </span>
                           {header.column.getCanSort() && (
@@ -439,7 +440,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </td>
                   ))}
@@ -460,7 +461,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
             {Math.min(
               (table.getState().pagination.pageIndex + 1) *
                 table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length
+              table.getFilteredRowModel().rows.length,
             )}{" "}
             of {table.getFilteredRowModel().rows.length} issues
             {globalFilter && ` (filtered from ${filteredByStatus.length})`}

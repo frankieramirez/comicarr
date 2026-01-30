@@ -24,7 +24,7 @@ export default function SettingsPage() {
     if (config && Object.keys(formData).length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync external data to local form state
       setFormData(config);
-       
+
       setOriginalData(config);
     }
   }, [config, formData]);

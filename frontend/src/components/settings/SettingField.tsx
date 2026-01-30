@@ -72,10 +72,7 @@ export function SettingField({
             onValueChange={onChange}
             disabled={readOnly}
           >
-            <SelectTrigger
-              id={fieldId}
-              className={readOnly ? "bg-muted" : ""}
-            >
+            <SelectTrigger id={fieldId} className={readOnly ? "bg-muted" : ""}>
               <SelectValue placeholder={placeholder || "Select..."} />
             </SelectTrigger>
             <SelectContent>
