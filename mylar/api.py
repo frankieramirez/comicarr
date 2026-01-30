@@ -297,15 +297,16 @@ class Api(object):
 
     def _selectForComics(self):
         return 'SELECT \
-            ComicID as id,\
-            ComicName as name,\
-            ComicImageURL as imageURL,\
-            Status as status,\
-            ComicPublisher as publisher,\
-            ComicYear as year,\
-            LatestIssue as latestIssue,\
-            Total as totalIssues,\
-            DetailURL as detailsURL\
+            ComicID as ComicID,\
+            ComicName as ComicName,\
+            ComicImageURL as ComicImage,\
+            Status as Status,\
+            ComicPublisher as ComicPublisher,\
+            ComicYear as ComicYear,\
+            LatestIssue as LatestIssue,\
+            Total as Total,\
+            Have as Have,\
+            DetailURL as DetailURL\
         FROM comics'
 
     def _selectForIssues(self):
@@ -1189,7 +1190,7 @@ class Api(object):
             else:
                 self.data = self._failureResponse('Failed to return a image')
 
-    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None):
+    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None, limit=None, offset=None, sort=None):
         # set defaults
         if type_ is None:
             type_ = 'comic'
@@ -1201,17 +1202,27 @@ class Api(object):
             self.data = self._failureResponse('Missing a Comic name')
             return
 
-        if type_ == 'comic' and mode == 'series':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'comic' and mode == 'pullseries':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'comic' and mode == 'want':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'story_arc':
-            searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc')
+        # Parse pagination parameters
+        parsed_limit = int(limit) if limit else None
+        parsed_offset = int(offset) if offset else None
 
-        searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
-        self.data = searchresults
+        if type_ == 'comic' and mode == 'series':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'comic' and mode == 'pullseries':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'comic' and mode == 'want':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'story_arc':
+            searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc', limit=parsed_limit, offset=parsed_offset, sort=sort)
+
+        # Handle both old format (list) and new format (dict with pagination)
+        if isinstance(searchresults, dict) and 'results' in searchresults:
+            # New format with pagination - don't sort here, respect server-side sort
+            self.data = searchresults
+        else:
+            # Legacy format (list) - apply sorting
+            searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
+            self.data = searchresults
 
     def _downloadIssue(self, id):
         if not id:
