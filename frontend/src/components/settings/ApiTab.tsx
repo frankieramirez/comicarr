@@ -41,7 +41,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
 
     setIsRegenerating(true);
     try {
-      const newApiKey = crypto.randomUUID();
+      const newApiKey = crypto.randomUUID().replace(/-/g, "");
       onChange("api_key", newApiKey);
       addToast({
         type: "success",

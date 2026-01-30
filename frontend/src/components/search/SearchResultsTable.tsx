@@ -266,7 +266,7 @@ export default function SearchResultsTable({
         enableSorting: false,
         cell: ({ row }: CellContext<SearchResult, unknown>) =>
           row.original.in_library ? (
-            <Badge variant="secondary">In Library</Badge>
+            <Badge variant="default">In Library</Badge>
           ) : null,
       },
       {
