@@ -6,7 +6,7 @@
 export interface SSEEventData {
   status?: "success" | "failure" | "mid-message-event";
   message?: string;
-  tables?: "both" | "tables" | "tabs";
+  tables?: "both" | "tables" | "tabs" | "None";
 }
 
 /** addbyid event data */
@@ -48,6 +48,9 @@ export interface SearchCompleteEventData extends SSEEventData {
 /** Generic message event data */
 export interface MessageEventData extends SSEEventData {
   type?: string;
+  comicid?: string;
+  comicname?: string;
+  seriesyear?: string;
 }
 
 /** Custom window event for comic-added */

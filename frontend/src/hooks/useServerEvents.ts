@@ -108,8 +108,13 @@ export function useServerEvents(
             );
           }
 
-          // Show success toast with series name (only for non-mid-message events)
-          if (data.comicname && data.status === "success" && data.tables) {
+          // Show success toast with series name (only when import is complete)
+          if (
+            data.comicname &&
+            data.status === "success" &&
+            data.tables &&
+            data.tables !== "None"
+          ) {
             addToast({
               type: "success",
               title: "Series Added",
@@ -260,6 +265,12 @@ export function useServerEvents(
           if (data.tables === "both") {
             queryClient.invalidateQueries({ queryKey: ["series"] });
             queryClient.invalidateQueries({ queryKey: ["wanted"] });
+            // Also invalidate specific series detail if we have comicid
+            if (data.comicid) {
+              queryClient.invalidateQueries({
+                queryKey: ["series", data.comicid],
+              });
+            }
           } else if (data.tables === "tables") {
             queryClient.invalidateQueries({ queryKey: ["series"] });
           } else if (data.tables === "tabs") {
@@ -268,9 +279,34 @@ export function useServerEvents(
             queryClient.invalidateQueries();
           }
 
+          // Dispatch custom event for ComicCard to handle navigation
+          // (handles case where addbyid events come through generic message channel)
+          if (
+            data.comicid &&
+            (data.status === "success" || data.status === "failure") &&
+            data.tables &&
+            data.tables !== "None"
+          ) {
+            window.dispatchEvent(
+              new CustomEvent("comic-added", { detail: JSON.stringify(data) }),
+            );
+          }
+
           // Show toast notification based on status
           if (data.message) {
-            if (data.status === "success") {
+            // Show specific "Series Added" toast for comic-added events
+            if (
+              data.comicname &&
+              data.status === "success" &&
+              data.tables &&
+              data.tables !== "None"
+            ) {
+              addToast({
+                type: "success",
+                title: "Series Added",
+                description: `${data.comicname} (${data.seriesyear || "Unknown"}) has been added successfully.`,
+              });
+            } else if (data.status === "success") {
               addToast({
                 type: "success",
                 title: "Success",
