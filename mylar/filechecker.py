@@ -358,6 +358,37 @@ class FileChecker(object):
         #the remaining strings should be the series title and/or issue title if present (has to be detected properly)
         modseries = modfilename
 
+        # Manga-specific chapter/volume detection patterns
+        # Common manga naming formats:
+        # [Group] Title - c001 (v01).cbz
+        # Title Chapter 001.cbz
+        # Title Vol.01 Ch.001.cbz
+        # Title - Vol. 01 Ch. 001.cbz
+        # Title v01 c001.cbz
+        manga_chapter = None
+        manga_volume = None
+
+        # Pattern: c001, c1, ch001, ch.001, chapter001, chapter 001
+        manga_chapter_match = re.search(r'(?:ch(?:apter)?\.?\s*|c)(\d+(?:\.\d+)?)', modfilename, re.IGNORECASE)
+        if manga_chapter_match:
+            manga_chapter = manga_chapter_match.group(1)
+            logger.fdebug('[MANGA] Chapter detected: %s' % manga_chapter)
+
+        # Pattern: v01, vol01, vol.01, volume01, volume 01
+        manga_volume_match = re.search(r'(?:v(?:ol(?:ume)?)?\.?\s*)(\d+)', modfilename, re.IGNORECASE)
+        if manga_volume_match:
+            manga_volume = manga_volume_match.group(1)
+            logger.fdebug('[MANGA] Volume detected: %s' % manga_volume)
+
+        # Detect scanlation group pattern: [Group Name]
+        scanlation_group_match = re.search(r'^\s*\[([^\]]+)\]', modfilename)
+        if scanlation_group_match:
+            if scangroup is None:
+                scangroup = scanlation_group_match.group(1)
+                logger.fdebug('[MANGA] Scanlation group detected: %s' % scangroup)
+            # Remove the group tag from modfilename for cleaner series name extraction
+            modfilename = re.sub(r'^\s*\[[^\]]+\]\s*', '', modfilename).strip()
+
         #try and remove /remember unicode character strings here (multiline ones get seperated/removed in below regex)
         pat = re.compile('[\x00-\x7f]{3,}', re.UNICODE)
         replack = pat.sub('XCV', modfilename)
@@ -471,6 +502,11 @@ class FileChecker(object):
         lastissue_position = 0
         lastmod_position = 0
         booktype = 'issue'
+
+        # Set booktype to manga if manga chapter pattern was detected
+        if manga_chapter is not None:
+            booktype = 'manga'
+            logger.fdebug('[MANGA] Detected manga chapter format, booktype set to manga')
 
         file_length = 0
         validcountchk = False
@@ -1351,6 +1387,11 @@ class FileChecker(object):
                             'reading_order':       None}
 
         if self.justparse:
+            # For manga, use chapter as issue number if not already detected
+            final_issue_number = issue_number
+            if manga_chapter is not None and (issue_number is None or booktype == 'manga'):
+                final_issue_number = manga_chapter
+
             return {'parse_status':           'success',
                     'type':                   re.sub('\.','', filetype).strip(),
                     'sub':                    path_list,
@@ -1362,12 +1403,19 @@ class FileChecker(object):
                     'alt_series':             alt_series,
                     'alt_issue':              alt_issue,
                     'dynamic_name':           self.dynamic_replace(series_name)['mod_seriesname'],
-                    'series_volume':          issue_volume,
+                    'series_volume':          issue_volume if manga_volume is None else 'v%s' % manga_volume,
                     'issue_year':             issue_year,
-                    'issue_number':           issue_number,
+                    'issue_number':           final_issue_number,
                     'scangroup':              scangroup,
                     'booktype':               booktype,
-                    'reading_order':          reading_order}
+                    'reading_order':          reading_order,
+                    'manga_chapter':          manga_chapter,
+                    'manga_volume':           manga_volume}
+
+        # For manga, use chapter as issue number if not already detected
+        final_issue_number = issue_number
+        if manga_chapter is not None and (issue_number is None or booktype == 'manga'):
+            final_issue_number = manga_chapter
 
         series_info = {}
         series_info = {'sub':                    path_list,
@@ -1379,11 +1427,13 @@ class FileChecker(object):
                        'issueid':                issueid,
                        'alt_series':             alt_series,
                        'alt_issue':              alt_issue,
-                       'series_volume':          issue_volume,
+                       'series_volume':          issue_volume if manga_volume is None else 'v%s' % manga_volume,
                        'issue_year':             issue_year,
-                       'issue_number':           issue_number,
+                       'issue_number':           final_issue_number,
                        'scangroup':              scangroup,
-                       'booktype':               booktype}
+                       'booktype':               booktype,
+                       'manga_chapter':          manga_chapter,
+                       'manga_volume':           manga_volume}
 
         return self.matchIT(series_info)
 
