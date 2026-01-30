@@ -3,14 +3,15 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import prettier from 'eslint-config-prettier'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import tseslint from 'typescript-eslint'
 
-export default defineConfig([
-  globalIgnores(['dist']),
+export default tseslint.config(
+  { ignores: ['dist'] },
   {
-    files: ['**/*.{js,jsx,ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
+      ...tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
       prettier,
@@ -19,13 +20,18 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
-        sourceType: 'module',
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
+      ],
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true, allowExportNames: ['useAuth', 'useTheme', 'useToast', 'useSidebar'] },
+      ],
     },
   },
-])
+)

@@ -19,12 +19,15 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [originalData, setOriginalData] = useState<Record<string, unknown>>({});
 
+  // Initialize form data when config is loaded
   useEffect(() => {
-    if (config) {
+    if (config && Object.keys(formData).length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync external data to local form state
       setFormData(config);
+       
       setOriginalData(config);
     }
-  }, [config]);
+  }, [config, formData]);
 
   const isDirty = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(originalData);

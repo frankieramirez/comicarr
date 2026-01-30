@@ -18,6 +18,27 @@ import StatusBadge from "@/components/StatusBadge";
 import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
 import type { UpcomingIssue } from "@/types";
 
+function CoverCell({ comicId }: { comicId: string | undefined }) {
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+      {!imageError && comicId ? (
+        <img
+          src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-muted-foreground/70 text-xs">
+          N/A
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface UpcomingTableProps {
   issues?: UpcomingIssue[];
   onSelectionChange?: (selectedIds: string[]) => void;
@@ -68,27 +89,9 @@ export default function UpcomingTable({
     {
       accessorKey: "cover",
       header: "",
-      cell: ({ row }: CellContext<UpcomingIssue, unknown>) => {
-        const [imageError, setImageError] = useState(false);
-        const comicId = row.original.ComicID;
-
-        return (
-          <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-            {!imageError && comicId ? (
-              <img
-                src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground/70 text-xs">
-                N/A
-              </div>
-            )}
-          </div>
-        );
-      },
+      cell: ({ row }: CellContext<UpcomingIssue, unknown>) => (
+        <CoverCell comicId={row.original.ComicID} />
+      ),
       size: 60,
     },
     {

@@ -11,10 +11,7 @@ import type {
   MessageEventData,
 } from "@/types";
 
-interface UseServerEventsReturn {
-  // Could expose connection state here if needed
-  // isConnected: boolean;
-}
+type UseServerEventsReturn = object;
 
 /**
  * Hook to manage Server-Sent Events (SSE) connection for real-time updates
@@ -99,9 +96,12 @@ export function useServerEvents(
           }
 
           // Dispatch custom event for ComicCard to handle navigation
+          // Only dispatch when import is complete (tables is truthy and not 'None')
           if (
             data.comicid &&
-            (data.status === "success" || data.status === "failure")
+            (data.status === "success" || data.status === "failure") &&
+            data.tables &&
+            data.tables !== "None"
           ) {
             window.dispatchEvent(
               new CustomEvent("comic-added", { detail: JSON.stringify(data) }),
@@ -308,8 +308,5 @@ export function useServerEvents(
     };
   }, [sseKey, enabled, queryClient, addToast]);
 
-  return {
-    // Could expose connection state here if needed
-    // isConnected: eventSourceRef.current?.readyState === EventSource.OPEN
-  };
+  return {};
 }

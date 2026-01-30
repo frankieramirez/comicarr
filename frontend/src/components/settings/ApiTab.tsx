@@ -22,7 +22,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
         type: "success",
         message: "API key copied to clipboard",
       });
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         message: "Failed to copy API key",
@@ -47,7 +47,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
         type: "success",
         message: "API key regenerated. Remember to save your changes!",
       });
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         message: "Failed to regenerate API key",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Get parameters from URL
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "start_year:desc"; // ComicVine API format
+
+  // Initialize search query from URL parameter
+  const [searchQuery, setSearchQuery] = useState(urlQuery);
 
   // Map frontend sort values to ComicVine API format
   const sortMapping: Record<string, string> = {
@@ -43,13 +45,6 @@ export default function SearchPage() {
   );
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
-
-  // Initialize search query from URL on mount
-  useEffect(() => {
-    if (urlQuery) {
-      setSearchQuery(urlQuery);
-    }
-  }, []);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
