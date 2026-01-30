@@ -82,13 +82,30 @@ export default function SearchPage() {
     });
   }, [searchResults, isLoading, fetchImageForComic, lazyImages]);
 
+  // Check if an image URL is a placeholder that shouldn't be displayed
+  const isPlaceholderImage = (url: string | null | undefined): boolean => {
+    if (!url) return true;
+    return url === "cache/blankcover.jpg" || url.includes("blankcover");
+  };
+
   // Merge lazy-loaded images into search results
+  // Replace placeholder URLs with null to prevent broken image display
   const resultsWithImages = searchResults.map((comic) => {
     const comicId = comic.comicid ?? comic.id;
     const lazyImage = lazyImages[comicId];
+
+    // If we have a loaded lazy image, use it
     if (lazyImage) {
       return { ...comic, image: lazyImage };
     }
+
+    // If original image is a placeholder, set to null to show "No Cover" instead of broken image
+    if (isPlaceholderImage(comic.image)) {
+      // Check if we're currently loading this image
+      const isLoading = lazyImages[comicId] === "";
+      return { ...comic, image: null, isLoadingImage: isLoading };
+    }
+
     return comic;
   });
 

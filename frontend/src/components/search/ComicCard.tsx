@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAddComic } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
 import type { SearchResult } from "@/types";
 
 interface ComicCardProps {
-  comic: SearchResult;
+  comic: SearchResult & { isLoadingImage?: boolean };
 }
 
 interface AddByIdEventDetail {
@@ -106,6 +107,8 @@ export default function ComicCard({ comic }: ComicCardProps) {
                 "https://via.placeholder.com/300x450?text=No+Cover";
             }}
           />
+        ) : comic.isLoadingImage ? (
+          <Skeleton className="w-full h-full" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
             No Cover

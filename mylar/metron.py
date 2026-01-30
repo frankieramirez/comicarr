@@ -306,10 +306,12 @@ def get_series_image(series_id):
             image_url = first_issue.image if hasattr(first_issue, 'image') else None
 
             if image_url:
+                # Convert to string if it's a URL object
+                image_url_str = str(image_url)
                 # Cache the result
-                _IMAGE_CACHE[series_id] = image_url
-                logger.fdebug('[METRON] Fetched and cached image for series %s: %s' % (series_id, image_url))
-                return image_url
+                _IMAGE_CACHE[series_id] = image_url_str
+                logger.fdebug('[METRON] Fetched and cached image for series %s: %s' % (series_id, image_url_str))
+                return image_url_str
 
         logger.fdebug('[METRON] No image found for series %s' % series_id)
         # Cache None to avoid repeated lookups for series without images
