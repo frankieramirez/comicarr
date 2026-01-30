@@ -476,7 +476,7 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     Args:
         manga_id: MangaDex manga UUID (without md- prefix)
         languages: List of language codes to filter by (defaults to config)
-        limit: Number of chapters per request (max 500)
+        limit: Number of chapters per request (max 100)
         offset: Offset for pagination
 
     Returns:
@@ -494,7 +494,7 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     params = {
         'manga': manga_id,
         'translatedLanguage[]': languages,
-        'limit': min(limit, 500),
+        'limit': min(limit, 100),  # MangaDex chapter endpoint max is 100
         'offset': offset,
         'order[chapter]': 'asc',
         'includes[]': ['scanlation_group']
@@ -555,13 +555,54 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     }
 
 
-def get_all_chapters(manga_id, languages=None):
+def get_manga_aggregate(manga_id, languages=None):
+    """
+    Get aggregate chapter/volume info for a manga (includes unavailable chapters).
+
+    This endpoint returns ALL chapter numbers even if they don't have uploads,
+    which is useful for tracking series like Naruto where most chapters are
+    licensed and not available on MangaDex.
+
+    Args:
+        manga_id: MangaDex manga UUID (with or without md- prefix)
+        languages: List of language codes to filter by
+
+    Returns:
+        dict with volume/chapter structure
+    """
+    # Remove md- prefix if present
+    if manga_id.startswith('md-'):
+        manga_id = manga_id[3:]
+
+    if languages is None:
+        languages = _get_languages()
+
+    logger.info('[MANGADEX] Fetching aggregate for manga: %s' % manga_id)
+
+    params = {
+        'translatedLanguage[]': languages,
+    }
+
+    data = _make_request(f'/manga/{manga_id}/aggregate', params=params)
+
+    if not data or data.get('result') != 'ok':
+        logger.error('[MANGADEX] Failed to fetch aggregate for manga %s' % manga_id)
+        return {'volumes': {}}
+
+    return data
+
+
+def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     """
     Get all chapters for a manga (handles pagination automatically).
+
+    When include_unavailable=True, generates entries for ALL chapters up to
+    lastChapter from manga metadata, even if they don't have uploads.
 
     Args:
         manga_id: MangaDex manga UUID (without md- prefix)
         languages: List of language codes to filter by
+        include_unavailable: If True, include chapters without uploads
 
     Returns:
         List of all chapters
@@ -571,21 +612,22 @@ def get_all_chapters(manga_id, languages=None):
         manga_id = manga_id[3:]
 
     # Check cache first
-    cache_key = f"{manga_id}:{','.join(languages or _get_languages())}"
+    cache_key = f"{manga_id}:{','.join(languages or _get_languages())}:{include_unavailable}"
     if cache_key in _CHAPTER_CACHE:
         cache_entry = _CHAPTER_CACHE[cache_key]
         if time.time() - cache_entry['timestamp'] < CACHE_TTL:
             logger.fdebug('[MANGADEX] Cache hit for chapters of manga %s' % manga_id)
             return cache_entry['data']
 
-    all_chapters = []
+    # First, get available chapters with full metadata (filtered by language)
+    available_chapters = []
     offset = 0
-    limit = 500
+    limit = 100  # MangaDex chapter endpoint max is 100
 
     while True:
         result = get_manga_chapters(manga_id, languages=languages, limit=limit, offset=offset)
         chapters = result.get('chapters', [])
-        all_chapters.extend(chapters)
+        available_chapters.extend(chapters)
 
         pagination = result.get('pagination', {})
         total = pagination.get('total', 0)
@@ -595,13 +637,75 @@ def get_all_chapters(manga_id, languages=None):
 
         offset += limit
 
+    # Create a map of available chapters by chapter number
+    available_map = {}
+    for ch in available_chapters:
+        ch_num = ch.get('chapter')
+        if ch_num is not None:
+            available_map[str(ch_num)] = ch
+
+    all_chapters = list(available_chapters)
+
+    # If requested, add unavailable chapters based on manga's lastChapter metadata
+    if include_unavailable:
+        # Get manga details to find total chapter count
+        manga_details = get_manga_details(manga_id)
+        last_chapter_str = manga_details.get('last_chapter')
+
+        if last_chapter_str:
+            try:
+                last_chapter = int(float(last_chapter_str))
+                logger.info('[MANGADEX] Manga has %d total chapters (lastChapter from metadata)' % last_chapter)
+
+                # Generate placeholder entries for all chapters from 1 to lastChapter
+                for ch_num in range(1, last_chapter + 1):
+                    ch_num_str = str(ch_num)
+                    # Skip if we already have this chapter
+                    if ch_num_str in available_map:
+                        continue
+
+                    # Create a placeholder entry for unavailable chapter
+                    all_chapters.append({
+                        'id': f'unavailable-{manga_id}-{ch_num}',
+                        'chapter': ch_num_str,
+                        'volume': None,
+                        'title': None,
+                        'language': 'en',
+                        'pages': 0,
+                        'publish_at': None,
+                        'created_at': None,
+                        'updated_at': None,
+                        'scanlation_group': None,
+                        'external_url': None,
+                        'unavailable': True,  # Flag to indicate no upload available
+                    })
+            except (ValueError, TypeError) as e:
+                logger.warning('[MANGADEX] Could not parse lastChapter "%s": %s' % (last_chapter_str, e))
+
+    # Sort chapters by chapter number
+    def sort_key(ch):
+        ch_num = ch.get('chapter')
+        if ch_num is None:
+            return float('inf')
+        try:
+            return float(ch_num)
+        except (ValueError, TypeError):
+            return float('inf')
+
+    all_chapters.sort(key=sort_key)
+
     # Cache the result
     _CHAPTER_CACHE[cache_key] = {
         'data': all_chapters,
         'timestamp': time.time()
     }
 
-    logger.info('[MANGADEX] Retrieved total of %d chapters for manga %s' % (len(all_chapters), manga_id))
+    logger.info('[MANGADEX] Retrieved total of %d chapters (%d available, %d unavailable) for manga %s' % (
+        len(all_chapters),
+        len(available_chapters),
+        len(all_chapters) - len(available_chapters),
+        manga_id
+    ))
     return all_chapters
 
 
