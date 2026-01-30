@@ -38,70 +38,61 @@ export default function ComicCard({ comic }) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+    <div className="bg-card border-card-border card-shadow hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full">
       {/* Cover Image */}
-      <div className="aspect-[2/3] bg-gray-100 relative">
+      <div className="aspect-[2/3] bg-muted relative overflow-hidden flex-shrink-0">
         {comic.image ? (
           <img
             src={comic.image}
             alt={comic.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
             onError={(e) => {
               e.target.src = 'https://via.placeholder.com/300x450?text=No+Cover';
             }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
             No Cover
           </div>
         )}
       </div>
 
       {/* Comic Info */}
-      <div className="p-4 space-y-3">
-        <div>
-          <h3 className="font-semibold text-lg line-clamp-2">{comic.name}</h3>
+      <div className="p-3 flex flex-col flex-grow">
+        <div className="flex-grow">
+          <h3 className="font-semibold text-sm line-clamp-2 leading-tight">{comic.name}</h3>
           {comic.comicyear && (
-            <p className="text-sm text-gray-600">({comic.comicyear})</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{comic.comicyear}</p>
           )}
         </div>
 
-        {comic.publisher && (
-          <p className="text-sm text-gray-500">
-            <span className="font-medium">Publisher:</span> {comic.publisher}
-          </p>
+        {(comic.publisher || comic.issues) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+            {comic.publisher && <span className="truncate">{comic.publisher}</span>}
+            {comic.publisher && comic.issues && <span>·</span>}
+            {comic.issues && <span>{comic.issues} issues</span>}
+          </div>
         )}
 
-        {comic.issues && (
-          <p className="text-sm text-gray-500">
-            <span className="font-medium">Issues:</span> {comic.issues}
-          </p>
-        )}
-
-        {comic.description && (
-          <p className="text-xs text-gray-500 line-clamp-3">
-            {comic.description}
-          </p>
-        )}
-
-        {/* Add Button */}
+        {/* Add Button - Always at bottom */}
         <Button
           onClick={handleAddComic}
           disabled={addComicMutation.isPending || isAdded}
-          className="w-full"
+          className="w-full h-8 text-xs mt-3"
           variant={isAdded ? 'outline' : 'default'}
+          size="sm"
         >
           {addComicMutation.isPending ? (
             'Adding...'
           ) : isAdded ? (
             <>
-              <Check className="w-4 h-4 mr-2" />
+              <Check className="w-3 h-3 mr-1" />
               Added
             </>
           ) : (
             <>
-              <Plus className="w-4 h-4 mr-2" />
-              Add to Library
+              <Plus className="w-3 h-3 mr-1" />
+              Add
             </>
           )}
         </Button>
