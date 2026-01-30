@@ -116,7 +116,9 @@ function Toast({
       {icons[type]}
       <div className="flex-1">
         {title && <div className="font-medium text-sm">{title}</div>}
-        {content && <div className="text-sm text-muted-foreground mt-1">{content}</div>}
+        {content && (
+          <div className="text-sm text-muted-foreground mt-1">{content}</div>
+        )}
       </div>
       <button
         onClick={onClose}

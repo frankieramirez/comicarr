@@ -31,7 +31,11 @@ export default function SearchPage() {
   const apiSort = sortMapping[urlSort] || urlSort;
 
   // Use server-side pagination
-  const { data, isLoading, error } = useSearchComics(urlQuery, urlPage, apiSort);
+  const { data, isLoading, error } = useSearchComics(
+    urlQuery,
+    urlPage,
+    apiSort,
+  );
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
 
@@ -96,8 +100,8 @@ export default function SearchPage() {
             "Searching..."
           ) : (
             <>
-              Showing {startIndex}-{endIndex} of {pagination?.total || 0} results
-              for "{urlQuery}"
+              Showing {startIndex}-{endIndex} of {pagination?.total || 0}{" "}
+              results for "{urlQuery}"
             </>
           )}
         </p>

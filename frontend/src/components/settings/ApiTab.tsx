@@ -138,7 +138,9 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           label="Use Metron for Search"
           type="checkbox"
           checked={formData.use_metron_search as boolean | undefined}
-          onChange={(checked) => onChange("use_metron_search", checked as boolean)}
+          onChange={(checked) =>
+            onChange("use_metron_search", checked as boolean)
+          }
           helpText="Use Metron API instead of Comic Vine for search results"
         />
         <SettingField

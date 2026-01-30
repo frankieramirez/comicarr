@@ -24,7 +24,10 @@ export default function ErrorDisplay({
   // Determine icon based on error type
   const getIcon = () => {
     if (error instanceof Error) {
-      if (error.message.includes("fetch") || error.message.includes("network")) {
+      if (
+        error.message.includes("fetch") ||
+        error.message.includes("network")
+      ) {
         return <WifiOff className="w-8 h-8 text-[var(--status-error)]" />;
       }
       const httpMatch = error.message.match(/status: (\d+)/);

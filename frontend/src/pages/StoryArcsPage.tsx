@@ -9,9 +9,7 @@ export default function StoryArcsPage() {
           <BookMarked className="w-16 h-16 text-muted-foreground" />
         </div>
 
-        <h1 className="text-3xl font-bold text-foreground mb-4">
-          Story Arcs
-        </h1>
+        <h1 className="text-3xl font-bold text-foreground mb-4">Story Arcs</h1>
 
         <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
           Track your favorite story arcs that span across multiple series and

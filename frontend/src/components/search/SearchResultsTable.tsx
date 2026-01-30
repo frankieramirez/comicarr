@@ -76,7 +76,7 @@ const SORT_COLUMN_MAP: Record<string, { asc: string; desc: string }> = {
 // Get current sort state for a column
 function getColumnSort(
   columnId: string,
-  currentSort: string
+  currentSort: string,
 ): "asc" | "desc" | false {
   const mapping = SORT_COLUMN_MAP[columnId];
   if (!mapping) return false;
@@ -280,7 +280,7 @@ export default function SearchResultsTable({
         ),
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -324,7 +324,7 @@ export default function SearchResultsTable({
                           <span>
                             {flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                           </span>
                           {isSortable && (
