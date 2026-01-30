@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { SettingGroup } from './SettingGroup';
-import { SettingField } from './SettingField';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/toast';
-import { Copy, RefreshCw } from 'lucide-react';
+import { useState } from "react";
+import { SettingGroup } from "./SettingGroup";
+import { SettingField } from "./SettingField";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { Copy, RefreshCw } from "lucide-react";
 
 interface ApiTabProps {
   config: Record<string, unknown>;
@@ -17,36 +17,40 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
 
   const handleCopyApiKey = async () => {
     try {
-      await navigator.clipboard.writeText(config.api_key as string ?? '');
+      await navigator.clipboard.writeText((config.api_key as string) ?? "");
       addToast({
-        type: 'success',
-        message: 'API key copied to clipboard',
+        type: "success",
+        message: "API key copied to clipboard",
       });
     } catch (error) {
       addToast({
-        type: 'error',
-        message: 'Failed to copy API key',
+        type: "error",
+        message: "Failed to copy API key",
       });
     }
   };
 
   const handleRegenerateApiKey = async () => {
-    if (!confirm('Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.')) {
+    if (
+      !confirm(
+        "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.",
+      )
+    ) {
       return;
     }
 
     setIsRegenerating(true);
     try {
       const newApiKey = crypto.randomUUID();
-      onChange('api_key', newApiKey);
+      onChange("api_key", newApiKey);
       addToast({
-        type: 'success',
-        message: 'API key regenerated. Remember to save your changes!',
+        type: "success",
+        message: "API key regenerated. Remember to save your changes!",
       });
     } catch (error) {
       addToast({
-        type: 'error',
-        message: 'Failed to regenerate API key',
+        type: "error",
+        message: "Failed to regenerate API key",
       });
     } finally {
       setIsRegenerating(false);
@@ -64,7 +68,9 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           <div className="flex space-x-2">
             <input
               type="text"
-              value={(formData.api_key as string) || (config.api_key as string) || ''}
+              value={
+                (formData.api_key as string) || (config.api_key as string) || ""
+              }
               readOnly
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-background font-mono text-sm"
             />
@@ -85,7 +91,9 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
               disabled={isRegenerating}
               title="Regenerate API key"
             >
-              <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -102,7 +110,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           label="Comic Vine API Key"
           value={formData.comicvine_api as string | undefined}
           type="text"
-          onChange={(value) => onChange('comicvine_api', value as string)}
+          onChange={(value) => onChange("comicvine_api", value as string)}
           placeholder="Enter your 40-character Comic Vine API key"
           helpText="Get your API key from https://comicvine.gamespot.com/api/"
         />
@@ -110,14 +118,14 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           label="Verify SSL"
           type="checkbox"
           checked={formData.cv_verify as boolean | undefined}
-          onChange={(checked) => onChange('cv_verify', checked as boolean)}
+          onChange={(checked) => onChange("cv_verify", checked as boolean)}
           helpText="Verify SSL certificates when connecting to Comic Vine"
         />
         <SettingField
           label="Comic Vine Only"
           type="checkbox"
           checked={formData.cv_only as boolean | undefined}
-          onChange={(checked) => onChange('cv_only', checked as boolean)}
+          onChange={(checked) => onChange("cv_only", checked as boolean)}
           helpText="Use only Comic Vine for metadata (ignore local cache)"
         />
       </SettingGroup>

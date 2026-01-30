@@ -3,10 +3,16 @@
  */
 
 /** Comic series status */
-export type SeriesStatus = 'Active' | 'Paused' | 'Ended' | 'Loading' | 'Error';
+export type SeriesStatus = "Active" | "Paused" | "Ended" | "Loading" | "Error";
 
 /** Issue status */
-export type IssueStatus = 'Downloaded' | 'Wanted' | 'Skipped' | 'Snatched' | 'Archived' | 'Failed';
+export type IssueStatus =
+  | "Downloaded"
+  | "Wanted"
+  | "Skipped"
+  | "Snatched"
+  | "Archived"
+  | "Failed";
 
 /** Comic series entity from getIndex/getComic */
 export interface Comic {
@@ -80,7 +86,7 @@ export interface WantedIssue extends Issue {
 }
 
 /** Upcoming issue */
-export interface UpcomingIssue extends Omit<Issue, 'Status'> {
+export interface UpcomingIssue extends Omit<Issue, "Status"> {
   ReleaseComicID?: string;
   ReleaseComicName?: string;
   IssueNumber?: string;

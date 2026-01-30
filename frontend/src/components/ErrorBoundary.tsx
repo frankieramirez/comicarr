@@ -1,5 +1,5 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
+import React from "react";
+import { Button } from "@/components/ui/button";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -15,7 +15,10 @@ interface ErrorBoundaryState {
  * Error Boundary component to catch React errors and prevent app crashes
  * Must be a class component as error boundaries require componentDidCatch
  */
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -28,7 +31,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error details to console
-    console.error('Error Boundary caught an error:', error, errorInfo);
+    console.error("Error Boundary caught an error:", error, errorInfo);
     this.setState({
       error: error,
       errorInfo: errorInfo,
@@ -61,7 +64,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                   </summary>
                   <pre className="mt-2 text-xs overflow-auto">
                     {this.state.error.toString()}
-                    {'\n\n'}
+                    {"\n\n"}
                     {this.state.errorInfo?.componentStack}
                   </pre>
                 </details>

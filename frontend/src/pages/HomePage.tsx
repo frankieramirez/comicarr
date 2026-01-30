@@ -1,8 +1,8 @@
-import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import { useSeries } from '@/hooks/useSeries';
-import SeriesTable from '@/components/series/SeriesTable';
-import { Button } from '@/components/ui/button';
+import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { useSeries } from "@/hooks/useSeries";
+import SeriesTable from "@/components/series/SeriesTable";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const { data: series = [], isLoading, error } = useSeries();

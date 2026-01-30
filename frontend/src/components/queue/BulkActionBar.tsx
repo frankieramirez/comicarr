@@ -1,5 +1,5 @@
-import { Download, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Download, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -9,14 +9,20 @@ interface BulkActionBarProps {
   isLoading?: boolean;
 }
 
-export default function BulkActionBar({ selectedCount, onMarkWanted, onSkip, onClear, isLoading }: BulkActionBarProps) {
+export default function BulkActionBar({
+  selectedCount,
+  onMarkWanted,
+  onSkip,
+  onClear,
+  isLoading,
+}: BulkActionBarProps) {
   if (selectedCount === 0) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="text-sm font-medium">
-          {selectedCount} issue{selectedCount !== 1 ? 's' : ''} selected
+          {selectedCount} issue{selectedCount !== 1 ? "s" : ""} selected
         </div>
         <div className="flex items-center space-x-2">
           {onMarkWanted && (

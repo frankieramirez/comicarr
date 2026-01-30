@@ -1,16 +1,20 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
-import { useWanted, useForceSearch, useBulkUnqueueIssues } from '@/hooks/useQueue';
-import { useToast } from '@/components/ui/toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import WantedTable from '@/components/queue/WantedTable';
-import BulkActionBar from '@/components/queue/BulkActionBar';
+import { useState } from "react";
+import { Search } from "lucide-react";
+import {
+  useWanted,
+  useForceSearch,
+  useBulkUnqueueIssues,
+} from "@/hooks/useQueue";
+import { useToast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import WantedTable from "@/components/queue/WantedTable";
+import BulkActionBar from "@/components/queue/BulkActionBar";
 
 export default function WantedPage() {
   const [page, setPage] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const limit = 50;
   const offset = page * limit;
@@ -28,7 +32,7 @@ export default function WantedPage() {
     ? issues.filter(
         (issue) =>
           issue.ComicName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          issue.Issue_Number?.toLowerCase().includes(searchQuery.toLowerCase())
+          issue.Issue_Number?.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : issues;
 
@@ -36,30 +40,30 @@ export default function WantedPage() {
     try {
       await bulkUnqueueMutation.mutateAsync(selectedIds);
       addToast({
-        type: 'success',
-        message: `${selectedIds.length} issue${selectedIds.length !== 1 ? 's' : ''} skipped`,
+        type: "success",
+        message: `${selectedIds.length} issue${selectedIds.length !== 1 ? "s" : ""} skipped`,
       });
       setSelectedIds([]);
     } catch (err) {
       addToast({
-        type: 'error',
-        message: `Failed to skip issues: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        type: "error",
+        message: `Failed to skip issues: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
 
   const handleForceSearch = async () => {
-    if (window.confirm('Manual search may take several minutes. Continue?')) {
+    if (window.confirm("Manual search may take several minutes. Continue?")) {
       try {
         await forceSearchMutation.mutateAsync();
         addToast({
-          type: 'info',
-          message: 'Search started for all wanted issues',
+          type: "info",
+          message: "Search started for all wanted issues",
         });
       } catch (err) {
         addToast({
-          type: 'error',
-          message: `Failed to start search: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          type: "error",
+          message: `Failed to start search: ${err instanceof Error ? err.message : "Unknown error"}`,
         });
       }
     }
@@ -85,7 +89,7 @@ export default function WantedPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Wanted Issues</h1>
         <p className="text-gray-600">
           {pagination?.total || issues.length} wanted issue
-          {(pagination?.total || issues.length) !== 1 ? 's' : ''} in queue
+          {(pagination?.total || issues.length) !== 1 ? "s" : ""} in queue
         </p>
       </div>
 
@@ -96,7 +100,10 @@ export default function WantedPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-md"
         />
-        <Button onClick={handleForceSearch} disabled={forceSearchMutation.isPending}>
+        <Button
+          onClick={handleForceSearch}
+          disabled={forceSearchMutation.isPending}
+        >
           <Search className="w-4 h-4 mr-2" />
           Force Search All
         </Button>

@@ -1,13 +1,20 @@
-import React from 'react';
+import React from "react";
 
-export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface CheckboxProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "type"
+> {
   indeterminate?: boolean;
 }
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ checked, onChange, disabled, className = '', indeterminate, ...props }, ref) => {
+  (
+    { checked, onChange, disabled, className = "", indeterminate, ...props },
+    ref,
+  ) => {
     const internalRef = React.useRef<HTMLInputElement>(null);
-    const combinedRef = (ref as React.RefObject<HTMLInputElement>) || internalRef;
+    const combinedRef =
+      (ref as React.RefObject<HTMLInputElement>) || internalRef;
 
     React.useEffect(() => {
       if (combinedRef.current) {
@@ -32,7 +39,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         {...props}
       />
     );
-  }
+  },
 );
 
-Checkbox.displayName = 'Checkbox';
+Checkbox.displayName = "Checkbox";

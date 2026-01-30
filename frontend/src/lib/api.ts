@@ -3,10 +3,15 @@
  * Handles all API calls to the Mylar4 backend
  */
 
-import type { ApiParams, LoginResponse, LogoutResponse, SessionResponse } from '@/types';
+import type {
+  ApiParams,
+  LoginResponse,
+  LogoutResponse,
+  SessionResponse,
+} from "@/types";
 
-const API_BASE = '/api';
-const AUTH_BASE = '/auth';
+const API_BASE = "/api";
+const AUTH_BASE = "/auth";
 
 interface ApiResponseData {
   success?: boolean;
@@ -19,15 +24,18 @@ interface ApiResponseData {
 /**
  * Make an API call to Mylar4
  */
-export async function apiCall<T = unknown>(cmd: string, params: ApiParams = {}): Promise<T> {
+export async function apiCall<T = unknown>(
+  cmd: string,
+  params: ApiParams = {},
+): Promise<T> {
   const url = new URL(API_BASE, window.location.origin);
-  url.searchParams.set('cmd', cmd);
+  url.searchParams.set("cmd", cmd);
 
   // Add API key from sessionStorage (except for getAPI command)
-  if (cmd !== 'getAPI') {
-    const apiKey = sessionStorage.getItem('mylar_api_key');
+  if (cmd !== "getAPI") {
+    const apiKey = sessionStorage.getItem("mylar_api_key");
     if (apiKey) {
-      url.searchParams.set('apikey', apiKey);
+      url.searchParams.set("apikey", apiKey);
     }
   }
 
@@ -40,7 +48,7 @@ export async function apiCall<T = unknown>(cmd: string, params: ApiParams = {}):
 
   try {
     const response = await fetch(url, {
-      credentials: 'include', // Send session cookies
+      credentials: "include", // Send session cookies
     });
 
     if (!response.ok) {
@@ -51,12 +59,12 @@ export async function apiCall<T = unknown>(cmd: string, params: ApiParams = {}):
 
     // Mylar4 API returns {success: true/false, data: {...}, error: {...}}
     if (data.success === false) {
-      throw new Error(data.error?.message || 'API call failed');
+      throw new Error(data.error?.message || "API call failed");
     }
 
     return (data.data ?? data) as T;
   } catch (error) {
-    console.error('API call failed:', { cmd, params, error });
+    console.error("API call failed:", { cmd, params, error });
     throw error;
   }
 }
@@ -64,20 +72,23 @@ export async function apiCall<T = unknown>(cmd: string, params: ApiParams = {}):
 /**
  * Login with username and password
  */
-export async function login(username: string, password: string): Promise<LoginResponse> {
+export async function login(
+  username: string,
+  password: string,
+): Promise<LoginResponse> {
   try {
     const url = new URL(`${AUTH_BASE}/login_json`, window.location.origin);
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         username,
         password,
       }),
-      credentials: 'include', // Receive session cookies
+      credentials: "include", // Receive session cookies
     });
 
     if (!response.ok) {
@@ -87,8 +98,11 @@ export async function login(username: string, password: string): Promise<LoginRe
     const data: LoginResponse = await response.json();
     return data;
   } catch (error) {
-    console.error('Login failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    console.error("Login failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -100,8 +114,8 @@ export async function logout(): Promise<LogoutResponse> {
     const url = new URL(`${AUTH_BASE}/logout_json`, window.location.origin);
 
     const response = await fetch(url, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -111,8 +125,11 @@ export async function logout(): Promise<LogoutResponse> {
     const data: LogoutResponse = await response.json();
     return data;
   } catch (error) {
-    console.error('Logout failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    console.error("Logout failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -124,7 +141,7 @@ export async function checkSession(): Promise<SessionResponse> {
     const url = new URL(`${AUTH_BASE}/check_session`, window.location.origin);
 
     const response = await fetch(url, {
-      credentials: 'include',
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -134,7 +151,7 @@ export async function checkSession(): Promise<SessionResponse> {
     const data: SessionResponse = await response.json();
     return data;
   } catch (error) {
-    console.error('Session check failed:', error);
+    console.error("Session check failed:", error);
     return { success: true, authenticated: false };
   }
 }

@@ -55,23 +55,26 @@ export interface ApiKeyResponse {
 
 /** API command names */
 export type ApiCommand =
-  | 'getAPI'
-  | 'getIndex'
-  | 'getComic'
-  | 'getConfig'
-  | 'setConfig'
-  | 'findComic'
-  | 'addComic'
-  | 'delComic'
-  | 'pauseComic'
-  | 'resumeComic'
-  | 'refreshComic'
-  | 'queueIssue'
-  | 'unqueueIssue'
-  | 'getWanted'
-  | 'getUpcoming'
-  | 'forceSearch'
-  | 'checkGlobalMessages';
+  | "getAPI"
+  | "getIndex"
+  | "getComic"
+  | "getConfig"
+  | "setConfig"
+  | "findComic"
+  | "addComic"
+  | "delComic"
+  | "pauseComic"
+  | "resumeComic"
+  | "refreshComic"
+  | "queueIssue"
+  | "unqueueIssue"
+  | "getWanted"
+  | "getUpcoming"
+  | "forceSearch"
+  | "checkGlobalMessages";
 
 /** API call parameters */
-export type ApiParams = Record<string, string | number | boolean | undefined | null>;
+export type ApiParams = Record<
+  string,
+  string | number | boolean | undefined | null
+>;

@@ -1,5 +1,5 @@
-import { SettingGroup } from './SettingGroup';
-import { SettingField } from './SettingField';
+import { SettingGroup } from "./SettingGroup";
+import { SettingField } from "./SettingField";
 
 interface InterfaceTabProps {
   config: Record<string, unknown>;
@@ -7,10 +7,14 @@ interface InterfaceTabProps {
   onChange: (key: string, value: string | boolean | number) => void;
 }
 
-export function InterfaceTab({ config, formData, onChange }: InterfaceTabProps) {
+export function InterfaceTab({
+  config,
+  formData,
+  onChange,
+}: InterfaceTabProps) {
   const interfaceOptions = [
-    { value: 'carbon', label: 'Carbon (Modern)' },
-    { value: 'default', label: 'Default (Classic)' },
+    { value: "carbon", label: "Carbon (Modern)" },
+    { value: "default", label: "Default (Classic)" },
   ];
 
   return (
@@ -51,14 +55,14 @@ export function InterfaceTab({ config, formData, onChange }: InterfaceTabProps) 
           value={formData.interface as string | undefined}
           type="select"
           options={interfaceOptions}
-          onChange={(value) => onChange('interface', value as string)}
+          onChange={(value) => onChange("interface", value as string)}
           helpText="Choose your preferred interface theme"
         />
         <SettingField
           label="Launch Browser"
           type="checkbox"
           checked={formData.launch_browser as boolean | undefined}
-          onChange={(checked) => onChange('launch_browser', checked as boolean)}
+          onChange={(checked) => onChange("launch_browser", checked as boolean)}
           helpText="Automatically open browser when Mylar starts"
         />
       </SettingGroup>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -10,21 +10,26 @@ import {
   CellContext,
   HeaderContext,
   Updater,
-} from '@tanstack/react-table';
-import { Download, X, ChevronUp, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import StatusBadge from '@/components/StatusBadge';
-import { useQueueIssue, useUnqueueIssue } from '@/hooks/useSeries';
-import type { UpcomingIssue } from '@/types';
+} from "@tanstack/react-table";
+import { Download, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import StatusBadge from "@/components/StatusBadge";
+import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
+import type { UpcomingIssue } from "@/types";
 
 interface UpcomingTableProps {
   issues?: UpcomingIssue[];
   onSelectionChange?: (selectedIds: string[]) => void;
 }
 
-export default function UpcomingTable({ issues = [], onSelectionChange }: UpcomingTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'IssueDate', desc: false }]);
+export default function UpcomingTable({
+  issues = [],
+  onSelectionChange,
+}: UpcomingTableProps) {
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "IssueDate", desc: false },
+  ]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
@@ -41,11 +46,13 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
 
   const columns: ColumnDef<UpcomingIssue>[] = [
     {
-      id: 'select',
+      id: "select",
       header: ({ table }: HeaderContext<UpcomingIssue, unknown>) => (
         <Checkbox
           checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+          indeterminate={
+            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          }
           onChange={table.getToggleAllRowsSelectedHandler()}
         />
       ),
@@ -59,8 +66,8 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
       size: 40,
     },
     {
-      accessorKey: 'cover',
-      header: '',
+      accessorKey: "cover",
+      header: "",
       cell: ({ row }: CellContext<UpcomingIssue, unknown>) => {
         const [imageError, setImageError] = useState(false);
         const comicId = row.original.ComicID;
@@ -69,7 +76,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
           <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
             {!imageError && comicId ? (
               <img
-                src={`/api?apikey=${localStorage.getItem('apiKey')}&cmd=getComic&id=${comicId}`}
+                src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
                 alt=""
                 className="w-full h-full object-cover"
                 onError={() => setImageError(true)}
@@ -85,27 +92,31 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
       size: 60,
     },
     {
-      accessorKey: 'ComicName',
-      header: 'Series',
+      accessorKey: "ComicName",
+      header: "Series",
       cell: ({ row }: CellContext<UpcomingIssue, unknown>) => (
         <div>
           <div className="font-medium">{row.original.ComicName}</div>
           {row.original.ComicYear && (
-            <div className="text-sm text-muted-foreground">({row.original.ComicYear})</div>
+            <div className="text-sm text-muted-foreground">
+              ({row.original.ComicYear})
+            </div>
           )}
         </div>
       ),
     },
     {
-      accessorKey: 'IssueNumber',
-      header: '#',
+      accessorKey: "IssueNumber",
+      header: "#",
       cell: ({ getValue }: CellContext<UpcomingIssue, unknown>) => (
-        <span className="font-mono text-sm">{(getValue() as string) || 'N/A'}</span>
+        <span className="font-mono text-sm">
+          {(getValue() as string) || "N/A"}
+        </span>
       ),
     },
     {
-      accessorKey: 'IssueName',
-      header: 'Issue Name',
+      accessorKey: "IssueName",
+      header: "Issue Name",
       cell: ({ getValue }: CellContext<UpcomingIssue, unknown>) => {
         const name = getValue() as string | undefined;
         return name ? (
@@ -116,8 +127,8 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
       },
     },
     {
-      accessorKey: 'IssueDate',
-      header: 'Release Date',
+      accessorKey: "IssueDate",
+      header: "Release Date",
       cell: ({ getValue }: CellContext<UpcomingIssue, unknown>) => {
         const date = getValue() as string | undefined;
         if (!date) return <span className="text-muted-foreground/70">N/A</span>;
@@ -125,22 +136,24 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
       },
     },
     {
-      accessorKey: 'Status',
-      header: 'Status',
-      cell: ({ getValue }: CellContext<UpcomingIssue, unknown>) => <StatusBadge status={getValue() as string} />,
+      accessorKey: "Status",
+      header: "Status",
+      cell: ({ getValue }: CellContext<UpcomingIssue, unknown>) => (
+        <StatusBadge status={getValue() as string} />
+      ),
     },
     {
-      id: 'actions',
-      header: 'Actions',
+      id: "actions",
+      header: "Actions",
       cell: ({ row }: CellContext<UpcomingIssue, unknown>) => {
         const status = row.original.Status?.toLowerCase();
         const issueId = row.original.IssueID;
 
         return (
           <div className="flex items-center space-x-2">
-            {status === 'wanted' || status === 'skipped' ? (
+            {status === "wanted" || status === "skipped" ? (
               <>
-                {status === 'wanted' && (
+                {status === "wanted" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -152,7 +165,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
                     Skip
                   </Button>
                 )}
-                {status === 'skipped' && (
+                {status === "skipped" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -165,7 +178,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
                   </Button>
                 )}
               </>
-            ) : status !== 'downloaded' && status !== 'snatched' ? (
+            ) : status !== "downloaded" && status !== "snatched" ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -195,8 +208,11 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
       setRowSelection(updater);
       // Notify parent of selection changes
       if (onSelectionChange) {
-        const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
-        const selectedIds = Object.keys(newSelection).map((index) => issues[parseInt(index)]?.IssueID).filter(Boolean) as string[];
+        const newSelection =
+          typeof updater === "function" ? updater(rowSelection) : updater;
+        const selectedIds = Object.keys(newSelection)
+          .map((index) => issues[parseInt(index)]?.IssueID)
+          .filter(Boolean) as string[];
         onSelectionChange(selectedIds);
       }
     },
@@ -230,23 +246,27 @@ export default function UpcomingTable({ issues = [], onSelectionChange }: Upcomi
                       <div
                         className={
                           header.column.getCanSort()
-                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
-                            : ''
+                            ? "flex items-center space-x-1 cursor-pointer select-none hover:text-foreground"
+                            : ""
                         }
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         <span>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
                         </span>
-                        {header.column.getCanSort() && header.column.getIsSorted() && (
-                          <span className="text-muted-foreground/70">
-                            {header.column.getIsSorted() === 'asc' ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </span>
-                        )}
+                        {header.column.getCanSort() &&
+                          header.column.getIsSorted() && (
+                            <span className="text-muted-foreground/70">
+                              {header.column.getIsSorted() === "asc" ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </span>
+                          )}
                       </div>
                     )}
                   </th>

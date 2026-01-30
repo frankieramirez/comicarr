@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
 import {
-  ArrowLeft,
-  Pause,
-  Play,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react';
-import { useSeriesDetail, usePauseSeries, useResumeSeries, useRefreshSeries, useDeleteSeries } from '@/hooks/useSeries';
-import { Button } from '@/components/ui/button';
-import StatusBadge from '@/components/StatusBadge';
-import IssuesTable from '@/components/series/IssuesTable';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { Comic } from '@/types';
+  useSeriesDetail,
+  usePauseSeries,
+  useResumeSeries,
+  useRefreshSeries,
+  useDeleteSeries,
+} from "@/hooks/useSeries";
+import { Button } from "@/components/ui/button";
+import StatusBadge from "@/components/StatusBadge";
+import IssuesTable from "@/components/series/IssuesTable";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Comic } from "@/types";
 
 export default function SeriesDetailPage() {
   const { comicId } = useParams<{ comicId: string }>();
@@ -45,7 +45,9 @@ export default function SeriesDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-red-600 text-lg">Failed to load series</p>
-        <p className="text-muted-foreground text-sm mt-2">{error?.message || 'Series not found'}</p>
+        <p className="text-muted-foreground text-sm mt-2">
+          {error?.message || "Series not found"}
+        </p>
         <Link to="/" className="mt-4 inline-block">
           <Button variant="outline">Back to Series</Button>
         </Link>
@@ -53,9 +55,11 @@ export default function SeriesDetailPage() {
     );
   }
 
-  const comic: Comic = Array.isArray(seriesData.comic) ? seriesData.comic[0] : seriesData.comic;
+  const comic: Comic = Array.isArray(seriesData.comic)
+    ? seriesData.comic[0]
+    : seriesData.comic;
   const issues = seriesData.issues || [];
-  const isPaused = comic.Status?.toLowerCase() === 'paused';
+  const isPaused = comic.Status?.toLowerCase() === "paused";
 
   const handlePauseResume = async () => {
     if (!comicId) return;
@@ -74,7 +78,7 @@ export default function SeriesDetailPage() {
   const handleDelete = async () => {
     if (!comicId) return;
     await deleteMutation.mutateAsync(comicId);
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -101,7 +105,8 @@ export default function SeriesDetailPage() {
                   alt={comic.ComicName}
                   className="w-48 h-auto rounded shadow-lg"
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    e.currentTarget.src = 'https://via.placeholder.com/300x450?text=No+Cover';
+                    e.currentTarget.src =
+                      "https://via.placeholder.com/300x450?text=No+Cover";
                   }}
                 />
               </div>
@@ -112,9 +117,13 @@ export default function SeriesDetailPage() {
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold text-foreground">{comic.ComicName}</h1>
+                    <h1 className="text-3xl font-bold text-foreground">
+                      {comic.ComicName}
+                    </h1>
                     {comic.ComicYear && (
-                      <p className="text-lg text-muted-foreground mt-1">({comic.ComicYear})</p>
+                      <p className="text-lg text-muted-foreground mt-1">
+                        ({comic.ComicYear})
+                      </p>
                     )}
                   </div>
                   <StatusBadge status={comic.Status} />
@@ -122,14 +131,17 @@ export default function SeriesDetailPage() {
 
                 {comic.ComicPublisher && (
                   <p className="text-muted-foreground mt-2">
-                    <span className="font-medium">Publisher:</span> {comic.ComicPublisher}
+                    <span className="font-medium">Publisher:</span>{" "}
+                    {comic.ComicPublisher}
                   </p>
                 )}
               </div>
 
               {comic.Description && (
                 <div>
-                  <h3 className="font-medium text-foreground mb-2">Description</h3>
+                  <h3 className="font-medium text-foreground mb-2">
+                    Description
+                  </h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">
                     {comic.Description}
                   </p>
@@ -138,12 +150,18 @@ export default function SeriesDetailPage() {
 
               <div className="flex items-center space-x-4 text-sm">
                 <div>
-                  <span className="font-medium text-foreground">Total Issues:</span>{' '}
-                  <span className="text-muted-foreground">{comic.Total || 0}</span>
+                  <span className="font-medium text-foreground">
+                    Total Issues:
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    {comic.Total || 0}
+                  </span>
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Have:</span>{' '}
-                  <span className="text-muted-foreground">{comic.Have || 0}</span>
+                  <span className="font-medium text-foreground">Have:</span>{" "}
+                  <span className="text-muted-foreground">
+                    {comic.Have || 0}
+                  </span>
                 </div>
               </div>
 
@@ -174,7 +192,9 @@ export default function SeriesDetailPage() {
                   variant="outline"
                   size="sm"
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${refreshMutation.isPending ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </Button>
 
@@ -189,7 +209,9 @@ export default function SeriesDetailPage() {
                   </Button>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-red-600 font-medium">Confirm delete?</span>
+                    <span className="text-sm text-red-600 font-medium">
+                      Confirm delete?
+                    </span>
                     <Button
                       onClick={handleDelete}
                       disabled={deleteMutation.isPending}

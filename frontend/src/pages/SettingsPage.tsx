@@ -1,15 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useConfig, useUpdateConfig } from '@/hooks/useConfig';
-import { useToast } from '@/components/ui/toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { GeneralTab } from '@/components/settings/GeneralTab';
-import { InterfaceTab } from '@/components/settings/InterfaceTab';
-import { ApiTab } from '@/components/settings/ApiTab';
-import { SearchTab } from '@/components/settings/SearchTab';
-import { DownloadClientsTab } from '@/components/settings/DownloadClientsTab';
-import { SaveButton } from '@/components/settings/SaveButton';
-import { Settings } from 'lucide-react';
+import { useState, useEffect, useMemo } from "react";
+import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
+import { useToast } from "@/components/ui/toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { GeneralTab } from "@/components/settings/GeneralTab";
+import { InterfaceTab } from "@/components/settings/InterfaceTab";
+import { ApiTab } from "@/components/settings/ApiTab";
+import { SearchTab } from "@/components/settings/SearchTab";
+import { DownloadClientsTab } from "@/components/settings/DownloadClientsTab";
+import { SaveButton } from "@/components/settings/SaveButton";
+import { Settings } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: config, isLoading, error } = useConfig();
@@ -34,7 +34,9 @@ export default function SettingsPage() {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const validateForm = (data: Record<string, unknown>): Record<string, string> => {
+  const validateForm = (
+    data: Record<string, unknown>,
+  ): Record<string, string> => {
     const errors: Record<string, string> = {};
     const comicvineApi = data.comicvine_api as string | undefined;
     const minsize = data.minsize as string | number | undefined;
@@ -42,16 +44,16 @@ export default function SettingsPage() {
 
     // Validate Comic Vine API key (should be 40 characters if provided)
     if (comicvineApi && comicvineApi.length !== 40) {
-      errors.comicvine_api = 'Comic Vine API key must be 40 characters';
+      errors.comicvine_api = "Comic Vine API key must be 40 characters";
     }
 
     // Validate min/max size
     if (data.use_minsize && (!minsize || parseInt(String(minsize)) <= 0)) {
-      errors.minsize = 'Minimum size must be a positive number';
+      errors.minsize = "Minimum size must be a positive number";
     }
 
     if (data.use_maxsize && (!maxsize || parseInt(String(maxsize)) <= 0)) {
-      errors.maxsize = 'Maximum size must be a positive number';
+      errors.maxsize = "Maximum size must be a positive number";
     }
 
     // Validate min < max if both are enabled
@@ -60,7 +62,7 @@ export default function SettingsPage() {
       data.use_maxsize &&
       parseInt(String(minsize)) >= parseInt(String(maxsize))
     ) {
-      errors.minsize = 'Minimum size must be less than maximum size';
+      errors.minsize = "Minimum size must be less than maximum size";
     }
 
     return errors;
@@ -71,7 +73,7 @@ export default function SettingsPage() {
     if (Object.keys(errors).length > 0) {
       const errorMessage = Object.values(errors)[0];
       addToast({
-        type: 'error',
+        type: "error",
         message: `Validation error: ${errorMessage}`,
       });
       return;
@@ -80,14 +82,14 @@ export default function SettingsPage() {
     try {
       await updateConfigMutation.mutateAsync(formData);
       addToast({
-        type: 'success',
-        message: 'Settings saved successfully',
+        type: "success",
+        message: "Settings saved successfully",
       });
       setOriginalData(formData);
     } catch (err) {
       addToast({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to save settings',
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to save settings",
       });
     }
   };
@@ -95,8 +97,8 @@ export default function SettingsPage() {
   const handleCancel = () => {
     setFormData(originalData);
     addToast({
-      type: 'info',
-      message: 'Changes discarded',
+      type: "info",
+      message: "Changes discarded",
     });
   };
 
@@ -119,9 +121,11 @@ export default function SettingsPage() {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-red-900 font-semibold mb-2">Error Loading Settings</h3>
+          <h3 className="text-red-900 font-semibold mb-2">
+            Error Loading Settings
+          </h3>
           <p className="text-red-700 text-sm">
-            {error.message || 'Failed to load configuration. Please try again.'}
+            {error.message || "Failed to load configuration. Please try again."}
           </p>
         </div>
       </div>

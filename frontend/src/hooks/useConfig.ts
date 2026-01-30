@@ -1,13 +1,19 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from '@tanstack/react-query';
-import { apiCall } from '@/lib/api';
-import { useToast } from '@/components/ui/toast';
-import type { Config, ConfigUpdate } from '@/types';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type UseQueryResult,
+  type UseMutationResult,
+} from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import type { Config, ConfigUpdate } from "@/types";
 
 export function useConfig(): UseQueryResult<Config> {
   return useQuery({
-    queryKey: ['config'],
+    queryKey: ["config"],
     queryFn: async () => {
-      const data = await apiCall<Config>('getConfig');
+      const data = await apiCall<Config>("getConfig");
       return data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -15,23 +21,33 @@ export function useConfig(): UseQueryResult<Config> {
   });
 }
 
-export function useUpdateConfig(): UseMutationResult<unknown, Error, ConfigUpdate> {
+export function useUpdateConfig(): UseMutationResult<
+  unknown,
+  Error,
+  ConfigUpdate
+> {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
   return useMutation({
     mutationFn: async (configData: ConfigUpdate) => {
-      const data = await apiCall('setConfig', configData as Record<string, string | number | boolean | undefined | null>);
+      const data = await apiCall(
+        "setConfig",
+        configData as Record<
+          string,
+          string | number | boolean | undefined | null
+        >,
+      );
       return data;
     },
     onSuccess: () => {
       // Invalidate and refetch config
-      queryClient.invalidateQueries({ queryKey: ['config'] });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
     },
     onError: (error: Error) => {
       addToast({
-        type: 'error',
-        message: error.message || 'Failed to update configuration',
+        type: "error",
+        message: error.message || "Failed to update configuration",
       });
     },
   });
@@ -53,14 +69,14 @@ export function useGenerateApiKey(): UseMutationResult<string, Error, void> {
     },
     onSuccess: () => {
       addToast({
-        type: 'success',
-        message: 'API key regenerated successfully',
+        type: "success",
+        message: "API key regenerated successfully",
       });
     },
     onError: (error: Error) => {
       addToast({
-        type: 'error',
-        message: error.message || 'Failed to regenerate API key',
+        type: "error",
+        message: error.message || "Failed to regenerate API key",
       });
     },
   });

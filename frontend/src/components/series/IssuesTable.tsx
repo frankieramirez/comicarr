@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,19 +7,21 @@ import {
   ColumnDef,
   SortingState,
   CellContext,
-} from '@tanstack/react-table';
-import { Download, X, ChevronUp, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import StatusBadge from '@/components/StatusBadge';
-import { useQueueIssue, useUnqueueIssue } from '@/hooks/useSeries';
-import type { Issue } from '@/types';
+} from "@tanstack/react-table";
+import { Download, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import StatusBadge from "@/components/StatusBadge";
+import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
+import type { Issue } from "@/types";
 
 interface IssuesTableProps {
   issues?: Issue[];
 }
 
 export default function IssuesTable({ issues = [] }: IssuesTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'number', desc: false }]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "number", desc: false },
+  ]);
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
 
@@ -35,27 +37,31 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
 
   const columns: ColumnDef<Issue>[] = [
     {
-      accessorKey: 'number',
-      header: '#',
+      accessorKey: "number",
+      header: "#",
       cell: ({ getValue }: CellContext<Issue, unknown>) => (
-        <span className="font-mono text-sm">{(getValue() as string) || 'N/A'}</span>
+        <span className="font-mono text-sm">
+          {(getValue() as string) || "N/A"}
+        </span>
       ),
     },
     {
-      accessorKey: 'name',
-      header: 'Issue Name',
+      accessorKey: "name",
+      header: "Issue Name",
       cell: ({ row }: CellContext<Issue, unknown>) => (
         <div>
           <div className="font-medium">{row.original.number}</div>
           {row.original.name && (
-            <div className="text-sm text-muted-foreground">{row.original.name}</div>
+            <div className="text-sm text-muted-foreground">
+              {row.original.name}
+            </div>
           )}
         </div>
       ),
     },
     {
-      accessorKey: 'releaseDate',
-      header: 'Release Date',
+      accessorKey: "releaseDate",
+      header: "Release Date",
       cell: ({ getValue }: CellContext<Issue, unknown>) => {
         const date = getValue() as string | undefined;
         if (!date) return <span className="text-muted-foreground/70">N/A</span>;
@@ -63,22 +69,26 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
       },
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ getValue }: CellContext<Issue, unknown>) => <StatusBadge status={getValue() as string} />,
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ getValue }: CellContext<Issue, unknown>) => (
+        <StatusBadge status={getValue() as string} />
+      ),
     },
     {
-      id: 'actions',
-      header: 'Actions',
+      id: "actions",
+      header: "Actions",
       cell: ({ row }: CellContext<Issue, unknown>) => {
-        const status = (row.original.status ?? row.original.Status)?.toLowerCase();
+        const status = (
+          row.original.status ?? row.original.Status
+        )?.toLowerCase();
         const issueId = row.original.id ?? row.original.IssueID;
 
         return (
           <div className="flex items-center space-x-2">
-            {status === 'wanted' || status === 'skipped' ? (
+            {status === "wanted" || status === "skipped" ? (
               <>
-                {status === 'wanted' && issueId && (
+                {status === "wanted" && issueId && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -90,7 +100,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                     Skip
                   </Button>
                 )}
-                {status === 'skipped' && issueId && (
+                {status === "skipped" && issueId && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -103,7 +113,7 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                   </Button>
                 )}
               </>
-            ) : status !== 'downloaded' && status !== 'snatched' && issueId ? (
+            ) : status !== "downloaded" && status !== "snatched" && issueId ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -156,23 +166,27 @@ export default function IssuesTable({ issues = [] }: IssuesTableProps) {
                       <div
                         className={
                           header.column.getCanSort()
-                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
-                            : ''
+                            ? "flex items-center space-x-1 cursor-pointer select-none hover:text-foreground"
+                            : ""
                         }
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         <span>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
                         </span>
-                        {header.column.getCanSort() && header.column.getIsSorted() && (
-                          <span className="text-muted-foreground">
-                            {header.column.getIsSorted() === 'asc' ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </span>
-                        )}
+                        {header.column.getCanSort() &&
+                          header.column.getIsSorted() && (
+                            <span className="text-muted-foreground">
+                              {header.column.getIsSorted() === "asc" ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </span>
+                          )}
                       </div>
                     )}
                   </th>

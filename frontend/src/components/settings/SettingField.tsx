@@ -1,13 +1,13 @@
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 interface SelectOption {
   value: string | number;
@@ -18,7 +18,7 @@ interface SettingFieldProps {
   label: string;
   value?: string | number;
   onChange?: (value: string | boolean) => void;
-  type?: 'text' | 'password' | 'number' | 'checkbox' | 'select';
+  type?: "text" | "password" | "number" | "checkbox" | "select";
   readOnly?: boolean;
   helpText?: string;
   error?: string;
@@ -31,7 +31,7 @@ export function SettingField({
   label,
   value,
   onChange = () => {},
-  type = 'text',
+  type = "text",
   readOnly = false,
   helpText,
   error,
@@ -39,10 +39,10 @@ export function SettingField({
   checked,
   placeholder,
 }: SettingFieldProps) {
-  const fieldId = `field-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
   const renderField = () => {
-    if (type === 'checkbox') {
+    if (type === "checkbox") {
       return (
         <div className="flex items-center space-x-2">
           <Checkbox
@@ -51,14 +51,17 @@ export function SettingField({
             onChange={(e) => onChange(e.target.checked)}
             disabled={readOnly}
           />
-          <Label htmlFor={fieldId} className="text-sm font-medium cursor-pointer">
+          <Label
+            htmlFor={fieldId}
+            className="text-sm font-medium cursor-pointer"
+          >
             {label}
           </Label>
         </div>
       );
     }
 
-    if (type === 'select') {
+    if (type === "select") {
       return (
         <div className="space-y-2">
           <Label htmlFor={fieldId} className="text-sm font-medium">
@@ -69,8 +72,11 @@ export function SettingField({
             onValueChange={onChange}
             disabled={readOnly}
           >
-            <SelectTrigger id={fieldId} className={readOnly ? 'bg-gray-50' : ''}>
-              <SelectValue placeholder={placeholder || 'Select...'} />
+            <SelectTrigger
+              id={fieldId}
+              className={readOnly ? "bg-gray-50" : ""}
+            >
+              <SelectValue placeholder={placeholder || "Select..."} />
             </SelectTrigger>
             <SelectContent>
               {options.map((option) => (
@@ -92,11 +98,11 @@ export function SettingField({
         <Input
           id={fieldId}
           type={type}
-          value={value || ''}
+          value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           readOnly={readOnly}
           placeholder={placeholder}
-          className={readOnly ? 'bg-gray-50' : ''}
+          className={readOnly ? "bg-gray-50" : ""}
         />
       </div>
     );
@@ -105,12 +111,8 @@ export function SettingField({
   return (
     <div className="space-y-1">
       {renderField()}
-      {helpText && (
-        <p className="text-xs text-muted-foreground">{helpText}</p>
-      )}
-      {error && (
-        <p className="text-xs text-red-600">{error}</p>
-      )}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

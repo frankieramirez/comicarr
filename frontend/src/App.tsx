@@ -1,20 +1,20 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import Layout from '@/components/layout/Layout';
-import LoginPage from '@/pages/LoginPage';
-import HomePage from '@/pages/HomePage';
-import SeriesDetailPage from '@/pages/SeriesDetailPage';
-import SearchPage from '@/pages/SearchPage';
-import UpcomingPage from '@/pages/UpcomingPage';
-import WantedPage from '@/pages/WantedPage';
-import SettingsPage from '@/pages/SettingsPage';
-import { ToastProvider } from '@/components/ui/toast';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import { useServerEvents } from '@/hooks/useServerEvents';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Layout from "@/components/layout/Layout";
+import LoginPage from "@/pages/LoginPage";
+import HomePage from "@/pages/HomePage";
+import SeriesDetailPage from "@/pages/SeriesDetailPage";
+import SearchPage from "@/pages/SearchPage";
+import UpcomingPage from "@/pages/UpcomingPage";
+import WantedPage from "@/pages/WantedPage";
+import SettingsPage from "@/pages/SettingsPage";
+import { ToastProvider } from "@/components/ui/toast";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { useServerEvents } from "@/hooks/useServerEvents";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -51,11 +51,17 @@ function AppContent() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/series/:comicId" element={<SeriesDetailPage />} />
+                  <Route
+                    path="/series/:comicId"
+                    element={<SeriesDetailPage />}
+                  />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/upcoming" element={<UpcomingPage />} />
                   <Route path="/wanted" element={<WantedPage />} />
-                  <Route path="/story-arcs" element={<div>Story Arcs page coming soon...</div>} />
+                  <Route
+                    path="/story-arcs"
+                    element={<div>Story Arcs page coming soon...</div>}
+                  />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

@@ -1,36 +1,46 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useSearchComics } from '@/hooks/useSearch';
-import ComicCard from '@/components/search/ComicCard';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Search as SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useSearchComics } from "@/hooks/useSearch";
+import ComicCard from "@/components/search/ComicCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get parameters from URL
-  const urlQuery = searchParams.get('q') || '';
-  const urlPage = parseInt(searchParams.get('page') || '1') || 1;
-  const urlSort = searchParams.get('sort') || 'start_year:desc';  // ComicVine API format
+  const urlQuery = searchParams.get("q") || "";
+  const urlPage = parseInt(searchParams.get("page") || "1") || 1;
+  const urlSort = searchParams.get("sort") || "start_year:desc"; // ComicVine API format
 
   // Map frontend sort values to ComicVine API format
   const sortMapping: Record<string, string> = {
-    'year_desc': 'start_year:desc',
-    'year_asc': 'start_year:asc',
-    'issues_desc': 'count_of_issues:desc',
-    'issues_asc': 'count_of_issues:asc',
-    'name_asc': 'name:asc',
-    'name_desc': 'name:desc',
+    year_desc: "start_year:desc",
+    year_asc: "start_year:asc",
+    issues_desc: "count_of_issues:desc",
+    issues_asc: "count_of_issues:asc",
+    name_asc: "name:asc",
+    name_desc: "name:desc",
   };
 
   const apiSort = sortMapping[urlSort] || urlSort;
 
   // Use server-side pagination
-  const { data, isLoading, error } = useSearchComics(urlQuery, urlPage, apiSort);
+  const { data, isLoading, error } = useSearchComics(
+    urlQuery,
+    urlPage,
+    apiSort,
+  );
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
 
@@ -44,7 +54,7 @@ export default function SearchPage() {
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim().length > 2) {
-      setSearchParams({ q: searchQuery.trim(), page: '1', sort: urlSort });
+      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort });
     }
   };
 
@@ -52,20 +62,24 @@ export default function SearchPage() {
     const params: Record<string, string> = Object.fromEntries(searchParams);
     params.page = newPage.toString();
     setSearchParams(params);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSortChange = (value: string) => {
     const params: Record<string, string> = Object.fromEntries(searchParams);
     params.sort = value;
-    params.page = '1'; // Reset to page 1 when sort changes
+    params.page = "1"; // Reset to page 1 when sort changes
     setSearchParams(params);
   };
 
   // Calculate pagination info from server metadata
-  const totalPages = pagination ? Math.ceil(pagination.total / pagination.limit) : 0;
+  const totalPages = pagination
+    ? Math.ceil(pagination.total / pagination.limit)
+    : 0;
   const startIndex = pagination ? pagination.offset + 1 : 0;
-  const endIndex = pagination ? pagination.offset + (pagination.returned ?? 0) : 0;
+  const endIndex = pagination
+    ? pagination.offset + (pagination.returned ?? 0)
+    : 0;
 
   return (
     <div className="space-y-4 page-transition">
@@ -121,7 +135,9 @@ export default function SearchPage() {
       {/* No Results State */}
       {!isLoading && !error && urlQuery && searchResults.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">No results found for "{urlQuery}"</p>
+          <p className="text-muted-foreground text-lg">
+            No results found for "{urlQuery}"
+          </p>
           <p className="text-gray-400 text-sm mt-2">
             Try a different search term or check your spelling.
           </p>
@@ -134,7 +150,8 @@ export default function SearchPage() {
           {/* Combined results count and sort control */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <p className="text-gray-600 dark:text-gray-400">
-              Showing {startIndex}-{endIndex} of {pagination?.total || 0} result{pagination?.total !== 1 ? 's' : ''} for "{urlQuery}"
+              Showing {startIndex}-{endIndex} of {pagination?.total || 0} result
+              {pagination?.total !== 1 ? "s" : ""} for "{urlQuery}"
             </p>
 
             <div className="flex items-center gap-2">
@@ -142,14 +159,21 @@ export default function SearchPage() {
                 Sort by:
               </span>
               <Select value={urlSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-48" aria-label="Sort search results">
+                <SelectTrigger
+                  className="w-48"
+                  aria-label="Sort search results"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="year_desc">Year (Newest First)</SelectItem>
                   <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
-                  <SelectItem value="issues_desc">Issue Count (Most First)</SelectItem>
-                  <SelectItem value="issues_asc">Issue Count (Least First)</SelectItem>
+                  <SelectItem value="issues_desc">
+                    Issue Count (Most First)
+                  </SelectItem>
+                  <SelectItem value="issues_asc">
+                    Issue Count (Least First)
+                  </SelectItem>
                   <SelectItem value="name_asc">Name (A-Z)</SelectItem>
                   <SelectItem value="name_desc">Name (Z-A)</SelectItem>
                 </SelectContent>
@@ -196,7 +220,9 @@ export default function SearchPage() {
       {!urlQuery && (
         <div className="text-center py-12">
           <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-muted-foreground text-lg">Enter a search term to find comics</p>
+          <p className="text-muted-foreground text-lg">
+            Enter a search term to find comics
+          </p>
           <p className="text-gray-400 text-sm mt-2">
             Search requires at least 3 characters
           </p>
