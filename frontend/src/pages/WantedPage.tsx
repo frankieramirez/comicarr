@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import WantedTable from "@/components/queue/WantedTable";
 import BulkActionBar from "@/components/queue/BulkActionBar";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 
 export default function WantedPage() {
   const [page, setPage] = useState(0);
@@ -118,9 +119,11 @@ export default function WantedPage() {
       )}
 
       {error && (
-        <div className="text-destructive bg-[var(--status-error-bg)] border border-[var(--status-error)] rounded-lg p-4">
-          Error loading wanted issues: {error.message}
-        </div>
+        <ErrorDisplay
+          error={error}
+          title="Unable to load wanted issues"
+          onRetry={() => window.location.reload()}
+        />
       )}
 
       {!isLoading && !error && (

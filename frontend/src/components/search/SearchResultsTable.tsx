@@ -14,12 +14,45 @@ import {
   Plus,
   Check,
   Loader2,
+  ImageOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAddComic } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
 import type { SearchResult } from "@/types";
+
+// Lazy-loaded cover thumbnail component
+function CoverThumbnail({ comic }: { comic: SearchResult }) {
+  const [imageError, setImageError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Try different image sources
+  const imageUrl = comic.comicthumb || comic.image || comic.comicimage;
+
+  if (!imageUrl || imageError) {
+    return (
+      <div className="w-10 h-14 bg-muted rounded flex items-center justify-center flex-shrink-0">
+        <ImageOff className="w-4 h-4 text-muted-foreground/50" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
+      <img
+        src={imageUrl}
+        alt={comic.name}
+        className={`w-full h-full object-cover transition-opacity duration-200 ${
+          isLoaded ? "opacity-100" : "opacity-0"
+        }`}
+        loading="lazy"
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
 
 interface SearchResultsTableProps {
   results: SearchResult[];
@@ -186,6 +219,15 @@ export default function SearchResultsTable({
 
   const columns = useMemo<ColumnDef<SearchResult>[]>(
     () => [
+      {
+        id: "cover",
+        header: "",
+        enableSorting: false,
+        size: 50,
+        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+          <CoverThumbnail comic={row.original} />
+        ),
+      },
       {
         id: "series",
         accessorKey: "name",

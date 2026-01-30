@@ -16,6 +16,7 @@ import { X, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/ui/EmptyState";
 import { useUnqueueIssue } from "@/hooks/useSeries";
 import type { WantedIssue, PaginationMeta } from "@/types";
 
@@ -211,11 +212,7 @@ export default function WantedTable({
   });
 
   if (issues.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No wanted issues in queue.
-      </div>
-    );
+    return <EmptyState variant="wanted" />;
   }
 
   return (

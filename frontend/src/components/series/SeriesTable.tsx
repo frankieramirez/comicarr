@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Comic } from "@/types";
 
 interface SeriesTableProps {
@@ -145,16 +146,7 @@ export default function SeriesTable({
   }
 
   if (data.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground text-lg">
-          No series in your library yet.
-        </p>
-        <p className="text-muted-foreground/70 text-sm mt-2">
-          Use the search page to add comics to your library.
-        </p>
-      </div>
-    );
+    return <EmptyState variant="library" />;
   }
 
   return (

@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import UpcomingTable from "@/components/queue/UpcomingTable";
 import FilterBar from "@/components/queue/FilterBar";
 import BulkActionBar from "@/components/queue/BulkActionBar";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import EmptyState from "@/components/ui/EmptyState";
 
 export default function UpcomingPage() {
   const [includeDownloaded, setIncludeDownloaded] = useState(false);
@@ -118,12 +120,18 @@ export default function UpcomingPage() {
       )}
 
       {error && (
-        <div className="text-destructive bg-[var(--status-error-bg)] border border-[var(--status-error)] rounded-lg p-4">
-          Error loading upcoming releases: {error.message}
-        </div>
+        <ErrorDisplay
+          error={error}
+          title="Unable to load upcoming releases"
+          onRetry={() => refetch()}
+        />
       )}
 
-      {!isLoading && !error && (
+      {!isLoading && !error && issues.length === 0 && (
+        <EmptyState variant="upcoming" />
+      )}
+
+      {!isLoading && !error && issues.length > 0 && (
         <UpcomingTable issues={issues} onSelectionChange={setSelectedIds} />
       )}
 

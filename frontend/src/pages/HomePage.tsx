@@ -3,16 +3,18 @@ import { Plus } from "lucide-react";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
 import { Button } from "@/components/ui/button";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 
 export default function HomePage() {
   const { data: series = [], isLoading, error } = useSeries();
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 text-lg">Failed to load series</p>
-        <p className="text-muted-foreground text-sm mt-2">{error.message}</p>
-      </div>
+      <ErrorDisplay
+        error={error}
+        title="Unable to load your library"
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 

@@ -22,6 +22,87 @@ interface ApiResponseData {
 }
 
 /**
+ * User-friendly error messages for common HTTP status codes
+ */
+const HTTP_ERROR_MESSAGES: Record<number, string> = {
+  400: "The request was invalid. Please check your input and try again.",
+  401: "Your session has expired. Please log in again.",
+  403: "You don't have permission to perform this action.",
+  404: "The requested resource was not found.",
+  408: "The request timed out. Please try again.",
+  429: "Too many requests. Please wait a moment and try again.",
+  500: "The server encountered an error. Please try again later.",
+  502: "Unable to reach the server. Please check your connection.",
+  503: "The service is temporarily unavailable. Please try again later.",
+  504: "The server took too long to respond. Please try again.",
+};
+
+/**
+ * API Error class with user-friendly messages
+ */
+export class ApiError extends Error {
+  status: number;
+  userMessage: string;
+  isRetryable: boolean;
+
+  constructor(status: number, originalMessage?: string) {
+    const userMessage = HTTP_ERROR_MESSAGES[status] ||
+      `An unexpected error occurred (${status}). Please try again.`;
+
+    super(originalMessage || userMessage);
+    this.name = "ApiError";
+    this.status = status;
+    this.userMessage = userMessage;
+    // 5xx errors and timeouts are typically retryable
+    this.isRetryable = status >= 500 || status === 408 || status === 429;
+  }
+}
+
+/**
+ * Get a user-friendly error message from any error
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.userMessage;
+  }
+  if (error instanceof Error) {
+    // Check for network errors
+    if (error.message.includes("fetch") || error.message.includes("network")) {
+      return "Unable to connect to the server. Please check your internet connection.";
+    }
+    // Check for HTTP error pattern
+    const httpMatch = error.message.match(/HTTP error! status: (\d+)/);
+    if (httpMatch) {
+      const status = parseInt(httpMatch[1], 10);
+      return HTTP_ERROR_MESSAGES[status] || error.message;
+    }
+    return error.message;
+  }
+  return "An unexpected error occurred. Please try again.";
+}
+
+/**
+ * Check if an error is retryable
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.isRetryable;
+  }
+  if (error instanceof Error) {
+    const httpMatch = error.message.match(/HTTP error! status: (\d+)/);
+    if (httpMatch) {
+      const status = parseInt(httpMatch[1], 10);
+      return status >= 500 || status === 408 || status === 429;
+    }
+    // Network errors are typically retryable
+    if (error.message.includes("fetch") || error.message.includes("network")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Make an API call to Mylar4
  */
 export async function apiCall<T = unknown>(
@@ -52,7 +133,7 @@ export async function apiCall<T = unknown>(
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new ApiError(response.status);
     }
 
     const data: ApiResponseData = await response.json();
