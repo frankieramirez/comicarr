@@ -72,7 +72,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
                 (formData.api_key as string) || (config.api_key as string) || ""
               }
               readOnly
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-background font-mono text-sm"
+              className="flex-1 px-3 py-2 border border-input rounded-md bg-background font-mono text-sm"
             />
             <Button
               type="button"

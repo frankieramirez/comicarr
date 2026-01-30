@@ -116,11 +116,11 @@ function Toast({
       {icons[type]}
       <div className="flex-1">
         {title && <div className="font-medium text-sm">{title}</div>}
-        {content && <div className="text-sm text-gray-600 mt-1">{content}</div>}
+        {content && <div className="text-sm text-muted-foreground mt-1">{content}</div>}
       </div>
       <button
         onClick={onClose}
-        className="text-gray-400 hover:text-gray-600 transition-colors"
+        className="text-muted-foreground hover:text-foreground transition-colors"
       >
         <X className="w-4 h-4" />
       </button>

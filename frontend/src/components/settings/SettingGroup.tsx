@@ -11,7 +11,7 @@ export function SettingGroup({
 }: SettingGroupProps) {
   return (
     <fieldset className="border border-card-border rounded-lg p-4 mb-6">
-      <legend className="text-sm font-semibold text-gray-900 px-2">
+      <legend className="text-sm font-semibold text-foreground px-2">
         {title}
       </legend>
       {description && (

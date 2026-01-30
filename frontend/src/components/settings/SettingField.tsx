@@ -74,7 +74,7 @@ export function SettingField({
           >
             <SelectTrigger
               id={fieldId}
-              className={readOnly ? "bg-gray-50" : ""}
+              className={readOnly ? "bg-muted" : ""}
             >
               <SelectValue placeholder={placeholder || "Select..."} />
             </SelectTrigger>
@@ -102,7 +102,7 @@ export function SettingField({
           onChange={(e) => onChange(e.target.value)}
           readOnly={readOnly}
           placeholder={placeholder}
-          className={readOnly ? "bg-gray-50" : ""}
+          className={readOnly ? "bg-muted" : ""}
         />
       </div>
     );
@@ -112,7 +112,7 @@ export function SettingField({
     <div className="space-y-1">
       {renderField()}
       {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

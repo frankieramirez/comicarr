@@ -120,11 +120,11 @@ export default function SettingsPage() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-red-900 font-semibold mb-2">
+        <div className="bg-[var(--status-error-bg)] border border-[var(--status-error)] rounded-lg p-4">
+          <h3 className="text-destructive font-semibold mb-2">
             Error Loading Settings
           </h3>
-          <p className="text-red-700 text-sm">
+          <p className="text-destructive text-sm">
             {error.message || "Failed to load configuration. Please try again."}
           </p>
         </div>
@@ -136,10 +136,10 @@ export default function SettingsPage() {
     <div className="p-6 page-transition">
       <div className="mb-6">
         <div className="flex items-center space-x-3 mb-2">
-          <Settings className="h-6 w-6 text-gray-700" />
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <Settings className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Configure Mylar preferences and integrations
         </p>
       </div>
