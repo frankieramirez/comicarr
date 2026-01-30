@@ -19,8 +19,8 @@ export const Checkbox = React.forwardRef(
         onChange={onChange}
         disabled={disabled}
         className={`
-          h-4 w-4 rounded border-gray-300 text-blue-600
-          focus:ring-2 focus:ring-blue-500 focus:ring-offset-0
+          h-4 w-4 rounded border-input text-primary
+          focus:ring-2 focus:ring-primary focus:ring-offset-0
           disabled:cursor-not-allowed disabled:opacity-50
           cursor-pointer
           ${className}

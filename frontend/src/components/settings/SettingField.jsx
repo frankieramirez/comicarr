@@ -88,7 +88,7 @@ export function SettingField({
     <div className="space-y-1">
       {renderField()}
       {helpText && (
-        <p className="text-xs text-gray-500">{helpText}</p>
+        <p className="text-xs text-muted-foreground">{helpText}</p>
       )}
       {error && (
         <p className="text-xs text-red-600">{error}</p>

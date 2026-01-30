@@ -80,7 +80,7 @@ export default function WantedPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-6 page-transition">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Wanted Issues</h1>
         <p className="text-gray-600">

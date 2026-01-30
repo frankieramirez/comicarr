@@ -63,7 +63,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground/70 text-xs">
                 N/A
               </div>
             )}
@@ -79,7 +79,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
         <div>
           <div className="font-medium">{row.original.ComicName}</div>
           {row.original.ComicYear && (
-            <div className="text-sm text-gray-500">({row.original.ComicYear})</div>
+            <div className="text-sm text-muted-foreground">({row.original.ComicYear})</div>
           )}
         </div>
       ),
@@ -97,9 +97,9 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
       cell: ({ getValue }) => {
         const name = getValue();
         return name ? (
-          <span className="text-sm text-gray-700">{name}</span>
+          <span className="text-sm text-foreground">{name}</span>
         ) : (
-          <span className="text-sm text-gray-400">N/A</span>
+          <span className="text-sm text-muted-foreground/70">N/A</span>
         );
       },
     },
@@ -108,7 +108,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
       header: 'Release Date',
       cell: ({ getValue }) => {
         const date = getValue();
-        if (!date) return <span className="text-gray-400">N/A</span>;
+        if (!date) return <span className="text-muted-foreground/70">N/A</span>;
         return <span className="text-sm">{date}</span>;
       },
     },
@@ -196,29 +196,29 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
 
   if (issues.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         No upcoming releases this week.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+    <div className="rounded-lg border border-card-border overflow-hidden bg-card">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-muted/50 border-b border-card-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                   >
                     {header.isPlaceholder ? null : (
                       <div
                         className={
                           header.column.getCanSort()
-                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-gray-700'
+                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
                             : ''
                         }
                         onClick={header.column.getToggleSortingHandler()}
@@ -227,7 +227,7 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
                           {flexRender(header.column.columnDef.header, header.getContext())}
                         </span>
                         {header.column.getCanSort() && header.column.getIsSorted() && (
-                          <span className="text-gray-400">
+                          <span className="text-muted-foreground/70">
                             {header.column.getIsSorted() === 'asc' ? (
                               <ChevronUp className="w-4 h-4" />
                             ) : (
@@ -242,9 +242,9 @@ export default function UpcomingTable({ issues = [], onSelectionChange }) {
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-card divide-y divide-card-border">
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={row.id} className="hover:bg-muted/50 transition-colors">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

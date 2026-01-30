@@ -40,7 +40,7 @@ export default function IssuesTable({ issues = [] }) {
         <div>
           <div className="font-medium">{row.original.Issue_Number}</div>
           {row.original.IssueName && (
-            <div className="text-sm text-gray-500">{row.original.IssueName}</div>
+            <div className="text-sm text-muted-foreground">{row.original.IssueName}</div>
           )}
         </div>
       ),
@@ -50,7 +50,7 @@ export default function IssuesTable({ issues = [] }) {
       header: 'Release Date',
       cell: ({ getValue }) => {
         const date = getValue();
-        if (!date) return <span className="text-gray-400">N/A</span>;
+        if (!date) return <span className="text-muted-foreground/70">N/A</span>;
         return <span className="text-sm">{date}</span>;
       },
     },
@@ -126,29 +126,29 @@ export default function IssuesTable({ issues = [] }) {
 
   if (issues.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         No issues found for this series.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-      <div className="overflow-x-auto">
+    <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
+      <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-muted/50 border-card-border backdrop-blur-sm border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                   >
                     {header.isPlaceholder ? null : (
                       <div
                         className={
                           header.column.getCanSort()
-                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-gray-700'
+                            ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
                             : ''
                         }
                         onClick={header.column.getToggleSortingHandler()}
@@ -157,7 +157,7 @@ export default function IssuesTable({ issues = [] }) {
                           {flexRender(header.column.columnDef.header, header.getContext())}
                         </span>
                         {header.column.getCanSort() && header.column.getIsSorted() && (
-                          <span className="text-gray-400">
+                          <span className="text-muted-foreground">
                             {header.column.getIsSorted() === 'asc' ? (
                               <ChevronUp className="w-4 h-4" />
                             ) : (
@@ -172,9 +172,9 @@ export default function IssuesTable({ issues = [] }) {
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-card divide-y divide-card-border">
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={row.id} className="hover:bg-accent/50 transition-colors">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

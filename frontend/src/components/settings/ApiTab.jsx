@@ -60,7 +60,7 @@ export function ApiTab({ config, formData, onChange, onRegenerateApiKey }) {
               type="text"
               value={formData.api_key || config.api_key || ''}
               readOnly
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-background font-mono text-sm"
             />
             <Button
               type="button"
@@ -82,7 +82,7 @@ export function ApiTab({ config, formData, onChange, onRegenerateApiKey }) {
               <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Use this key in API requests and integrations
           </p>
         </div>

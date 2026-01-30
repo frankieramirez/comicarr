@@ -11,13 +11,13 @@ export default function HomePage() {
     return (
       <div className="text-center py-12">
         <p className="text-red-600 text-lg">Failed to load series</p>
-        <p className="text-gray-500 text-sm mt-2">{error.message}</p>
+        <p className="text-muted-foreground text-sm mt-2">{error.message}</p>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="page-transition">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">My Series</h1>
         <Link to="/search">

@@ -31,10 +31,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md card-shadow">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl text-center">Mylar3</CardTitle>
+          <CardTitle className="text-3xl text-center font-bold">
+            <span className="gradient-brand">Mylar4</span>
+          </CardTitle>
           <CardDescription className="text-center">
             Sign in to your account
           </CardDescription>

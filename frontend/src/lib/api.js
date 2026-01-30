@@ -1,13 +1,13 @@
 /**
- * Mylar3 API Client
- * Handles all API calls to the Mylar3 backend
+ * Mylar4 API Client
+ * Handles all API calls to the Mylar4 backend
  */
 
 const API_BASE = '/api';
 const AUTH_BASE = '/auth';
 
 /**
- * Make an API call to Mylar3
+ * Make an API call to Mylar4
  * @param {string} cmd - The API command (e.g., 'getIndex', 'getComic')
  * @param {Object} params - Additional parameters for the API call
  * @returns {Promise<any>} The API response data
@@ -42,7 +42,7 @@ export async function apiCall(cmd, params = {}) {
 
     const data = await response.json();
 
-    // Mylar3 API returns {success: true/false, data: {...}, error: {...}}
+    // Mylar4 API returns {success: true/false, data: {...}, error: {...}}
     if (data.success === false) {
       throw new Error(data.error?.message || 'API call failed');
     }

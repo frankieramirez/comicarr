@@ -3,21 +3,21 @@ import { cn } from "@/lib/utils"
 
 const Badge = React.forwardRef(({ className, variant = "default", ...props }, ref) => {
   const variants = {
-    default: "bg-gray-100 text-gray-800",
-    active: "bg-green-100 text-green-800",
-    paused: "bg-yellow-100 text-yellow-800",
-    ended: "bg-gray-100 text-gray-600",
-    error: "bg-red-100 text-red-800",
-    wanted: "bg-blue-100 text-blue-800",
-    downloaded: "bg-green-100 text-green-800",
-    skipped: "bg-gray-100 text-gray-600",
+    default: "bg-muted text-muted-foreground",
+    active: "bg-[var(--status-active-bg)] text-[var(--status-active)]",
+    paused: "bg-[var(--status-paused-bg)] text-[var(--status-paused)]",
+    ended: "bg-[var(--status-ended-bg)] text-[var(--status-ended)]",
+    error: "bg-[var(--status-error-bg)] text-[var(--status-error)]",
+    wanted: "bg-[var(--status-wanted-bg)] text-[var(--status-wanted)]",
+    downloaded: "bg-[var(--status-downloaded-bg)] text-[var(--status-downloaded)]",
+    skipped: "bg-[var(--status-skipped-bg)] text-[var(--status-skipped)]",
   }
 
   return (
     <span
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all hover:scale-105",
         variants[variant],
         className
       )}

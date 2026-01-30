@@ -53,7 +53,7 @@ export default function SeriesDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-red-600 text-lg">Failed to load series</p>
-        <p className="text-gray-500 text-sm mt-2">{error?.message || 'Series not found'}</p>
+        <p className="text-muted-foreground text-sm mt-2">{error?.message || 'Series not found'}</p>
         <Link to="/" className="mt-4 inline-block">
           <Button variant="outline">Back to Series</Button>
         </Link>
@@ -83,7 +83,7 @@ export default function SeriesDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-transition">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Link to="/">
@@ -95,7 +95,7 @@ export default function SeriesDetailPage() {
       </div>
 
       {/* Series Info */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-card-border overflow-hidden">
         <div className="p-6">
           <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
             {/* Cover Image */}

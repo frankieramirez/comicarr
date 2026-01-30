@@ -75,13 +75,16 @@ export default function SeriesTable({ data = [], isLoading }) {
 
           return (
             <div className="flex items-center space-x-2">
-              <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-blue-600 h-full rounded-full transition-all"
-                  style={{ width: `${percentage}%` }}
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${percentage}%`,
+                    background: 'var(--gradient-brand)'
+                  }}
                 />
               </div>
-              <span className="text-xs text-gray-600 min-w-[3rem]">{percentage}%</span>
+              <span className="text-xs text-muted-foreground min-w-[3rem]">{percentage}%</span>
             </div>
           );
         },
@@ -124,8 +127,8 @@ export default function SeriesTable({ data = [], isLoading }) {
   if (data.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">No series in your library yet.</p>
-        <p className="text-gray-400 text-sm mt-2">
+        <p className="text-muted-foreground text-lg">No series in your library yet.</p>
+        <p className="text-muted-foreground/70 text-sm mt-2">
           Use the search page to add comics to your library.
         </p>
       </div>
@@ -142,28 +145,28 @@ export default function SeriesTable({ data = [], isLoading }) {
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-sm"
         />
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} series
         </span>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-        <div className="overflow-x-auto">
+      <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted/50 border-card-border backdrop-blur-sm border-b">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                     >
                       {header.isPlaceholder ? null : (
                         <div
                           className={
                             header.column.getCanSort()
-                              ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-gray-700'
+                              ? 'flex items-center space-x-1 cursor-pointer select-none hover:text-foreground'
                               : ''
                           }
                           onClick={header.column.getToggleSortingHandler()}
@@ -188,12 +191,12 @@ export default function SeriesTable({ data = [], isLoading }) {
                 </tr>
               ))}
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-card-border">
               {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/series/${row.original.ComicID}`)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="hover:bg-accent/50 cursor-pointer transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap">

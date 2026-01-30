@@ -46,15 +46,15 @@ export function useToast() {
 
 function Toast({ id, type = "info", title, description, message, onClose }) {
   const icons = {
-    success: <CheckCircle className="w-5 h-5 text-green-600" />,
-    error: <AlertCircle className="w-5 h-5 text-red-600" />,
-    info: <Info className="w-5 h-5 text-blue-600" />,
+    success: <CheckCircle className="w-5 h-5" style={{ color: 'var(--status-active)' }} />,
+    error: <AlertCircle className="w-5 h-5" style={{ color: 'var(--status-error)' }} />,
+    info: <Info className="w-5 h-5" style={{ color: 'var(--info)' }} />,
   }
 
   const styles = {
-    success: "bg-green-50 border-green-200",
-    error: "bg-red-50 border-red-200",
-    info: "bg-blue-50 border-blue-200",
+    success: "bg-[var(--status-active-bg)] border-[var(--status-active)]",
+    error: "bg-[var(--status-error-bg)] border-[var(--status-error)]",
+    info: "bg-[var(--status-wanted-bg)] border-[var(--info)]",
   }
 
   // Support both 'message' and 'description' for backwards compatibility

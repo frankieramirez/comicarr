@@ -30,7 +30,7 @@ export function DownloadClientsTab({ config }) {
             </div>
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="bg-background border border-card-border rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-5 w-5 text-gray-600 mt-0.5" />
               <div>
