@@ -40,7 +40,8 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'getComicInfo', 'getIssueInfo', 'getArt', 'downloadIssue', 'regenerateCovers',
             'refreshSeriesjson', 'seriesjsonListing', 'checkGlobalMessages',
             'listProviders', 'changeProvider', 'addProvider', 'delProvider',
-            'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries']
+            'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
+            'getConfig', 'setConfig', 'getSeriesImage']
 
 class Api(object):
 
@@ -296,15 +297,16 @@ class Api(object):
 
     def _selectForComics(self):
         return 'SELECT \
-            ComicID as id,\
-            ComicName as name,\
-            ComicImageURL as imageURL,\
-            Status as status,\
-            ComicPublisher as publisher,\
-            ComicYear as year,\
-            LatestIssue as latestIssue,\
-            Total as totalIssues,\
-            DetailURL as detailsURL\
+            ComicID as ComicID,\
+            ComicName as ComicName,\
+            ComicImageURL as ComicImage,\
+            Status as Status,\
+            ComicPublisher as ComicPublisher,\
+            ComicYear as ComicYear,\
+            LatestIssue as LatestIssue,\
+            Total as Total,\
+            Have as Have,\
+            DetailURL as DetailURL\
         FROM comics'
 
     def _selectForIssues(self):
@@ -362,14 +364,14 @@ class Api(object):
         if mylar.CONFIG.ENCRYPT_PASSWORDS is True:
             if username == ht_user and all([ed_chk['status'] is True, ed_chk['password'] == password]):
                 self.data = self._successResponse(
-                    {'apikey': mylar.CONFIG.API_KEY}
+                    {'apikey': mylar.CONFIG.API_KEY, 'sse_key': mylar.SSE_KEY}
                 )
             else:
                 self.data = self._failureResponse('Incorrect username or password.')
         else:
             if username == ht_user and password == mylar.CONFIG.HTTP_PASSWORD:
                 self.data = self._successResponse(
-                    {'apikey': mylar.CONFIG.API_KEY}
+                    {'apikey': mylar.CONFIG.API_KEY, 'sse_key': mylar.SSE_KEY}
                 )
             else:
                 self.data = self._failureResponse('Incorrect username or password.')
@@ -1188,7 +1190,7 @@ class Api(object):
             else:
                 self.data = self._failureResponse('Failed to return a image')
 
-    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None):
+    def _findComic(self, name, issue=None, type_=None, mode=None, serinfo=None, limit=None, offset=None, sort=None):
         # set defaults
         if type_ is None:
             type_ = 'comic'
@@ -1200,17 +1202,35 @@ class Api(object):
             self.data = self._failureResponse('Missing a Comic name')
             return
 
-        if type_ == 'comic' and mode == 'series':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'comic' and mode == 'pullseries':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'comic' and mode == 'want':
-            searchresults = mb.findComic(name, mode, issue=issue)
-        elif type_ == 'story_arc':
-            searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc')
+        # Parse pagination parameters
+        parsed_limit = int(limit) if limit else None
+        parsed_offset = int(offset) if offset else None
 
-        searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
-        self.data = searchresults
+        if type_ == 'comic' and mode == 'series':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'comic' and mode == 'pullseries':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'comic' and mode == 'want':
+            searchresults = mb.findComic(name, mode, issue=issue, limit=parsed_limit, offset=parsed_offset, sort=sort)
+        elif type_ == 'story_arc':
+            searchresults = mb.findComic(name, mode, issue=None, search_type='story_arc', limit=parsed_limit, offset=parsed_offset, sort=sort)
+
+        # Transform haveit field to in_library boolean for frontend
+        def add_in_library(comic):
+            # haveit is either "No" (not in library) or a dict (in library)
+            comic['in_library'] = comic.get('haveit') != "No"
+            return comic
+
+        # Handle both old format (list) and new format (dict with pagination)
+        if isinstance(searchresults, dict) and 'results' in searchresults:
+            # New format with pagination - don't sort here, respect server-side sort
+            searchresults['results'] = [add_in_library(c) for c in searchresults['results']]
+            self.data = searchresults
+        else:
+            # Legacy format (list) - apply sorting
+            searchresults = sorted(searchresults, key=itemgetter('comicyear', 'issues'), reverse=True)
+            searchresults = [add_in_library(c) for c in searchresults]
+            self.data = searchresults
 
     def _downloadIssue(self, id):
         if not id:
@@ -1946,6 +1966,140 @@ class Api(object):
                 self.data = self._successResponse('Successfully changed %s for %s provider %s [prov_id:%s]' % (change_match, providertype, providername, prov_id))
                 logger.fdebug('[API][changeProvider] %s' % self.data)
         return
+
+    def _getConfig(self, **kwargs):
+        """
+        Get safe configuration values for frontend settings page.
+        Returns filtered dict of ~20 config values that are safe to expose.
+        """
+        # Map download client integers to readable labels
+        nzb_downloader_map = {
+            0: 'SABnzbd',
+            1: 'NZBGet',
+            2: 'Blackhole',
+            3: 'None'
+        }
+        torrent_downloader_map = {
+            0: 'Watch Folder',
+            1: 'uTorrent',
+            2: 'rTorrent',
+            3: 'Transmission',
+            4: 'Deluge',
+            5: 'qBittorrent'
+        }
+
+        config_data = {
+            # General (read-only paths)
+            'comic_dir': mylar.CONFIG.COMIC_DIR,
+            'destination_dir': mylar.CONFIG.DESTINATION_DIR,
+            'cache_dir': mylar.CONFIG.CACHE_DIR,
+            'log_dir': mylar.CONFIG.LOG_DIR,
+
+            # Interface
+            'http_host': mylar.CONFIG.HTTP_HOST,
+            'http_port': mylar.CONFIG.HTTP_PORT,
+            'http_username': mylar.CONFIG.HTTP_USERNAME,
+            'launch_browser': mylar.CONFIG.LAUNCH_BROWSER,
+            'interface': mylar.CONFIG.INTERFACE,
+
+            # API
+            'api_key': mylar.CONFIG.API_KEY,
+
+            # Comic Vine
+            'comicvine_api': mylar.CONFIG.COMICVINE_API,
+            'cv_verify': mylar.CONFIG.CV_VERIFY,
+            'cv_only': mylar.CONFIG.CV_ONLY,
+
+            # Metron
+            'metron_username': mylar.CONFIG.METRON_USERNAME,
+            'metron_password': mylar.CONFIG.METRON_PASSWORD,
+            'use_metron_search': mylar.CONFIG.USE_METRON_SEARCH,
+
+            # Search
+            'preferred_quality': mylar.CONFIG.PREFERRED_QUALITY,
+            'use_minsize': mylar.CONFIG.USE_MINSIZE,
+            'minsize': mylar.CONFIG.MINSIZE,
+            'use_maxsize': mylar.CONFIG.USE_MAXSIZE,
+            'maxsize': mylar.CONFIG.MAXSIZE,
+
+            # Download Clients (read-only labels)
+            'nzb_downloader': mylar.CONFIG.NZB_DOWNLOADER,
+            'nzb_downloader_label': nzb_downloader_map.get(mylar.CONFIG.NZB_DOWNLOADER, 'Unknown'),
+            'torrent_downloader': mylar.CONFIG.TORRENT_DOWNLOADER,
+            'torrent_downloader_label': torrent_downloader_map.get(mylar.CONFIG.TORRENT_DOWNLOADER, 'Unknown')
+        }
+
+        self.data = self._successResponse(config_data)
+
+    def _setConfig(self, **kwargs):
+        """
+        Update configuration values from frontend settings page.
+        Only allows whitelisted safe config values to be updated.
+        """
+        logger.info('[API][setConfig] Received kwargs: %s' % list(kwargs.keys()))
+        # Whitelist of allowed config keys
+        allowed_keys = [
+            'api_key',
+            'launch_browser',
+            'interface',
+            'comicvine_api',
+            'cv_verify',
+            'cv_only',
+            'metron_username',
+            'metron_password',
+            'use_metron_search',
+            'preferred_quality',
+            'use_minsize',
+            'minsize',
+            'use_maxsize',
+            'maxsize'
+        ]
+
+        # Filter kwargs to only allowed keys
+        filtered_kwargs = {}
+        for key, value in kwargs.items():
+            if key in allowed_keys:
+                filtered_kwargs[key] = value
+
+        if not filtered_kwargs:
+            self.data = self._failureResponse('No valid configuration keys provided')
+            return
+
+        try:
+            # Update config using existing process_kwargs method
+            mylar.CONFIG.process_kwargs(filtered_kwargs)
+
+            # Persist to config.ini
+            mylar.CONFIG.writeconfig()
+
+            # Check if Metron settings changed and reinitialize if needed
+            metron_keys = {'metron_username', 'metron_password', 'use_metron_search'}
+            if metron_keys.intersection(filtered_kwargs.keys()):
+                from mylar import metron
+                metron.reinitialize_metron_api()
+                logger.info('[API][setConfig] Metron API reinitialized due to config change')
+
+            self.data = self._successResponse('Configuration updated successfully')
+            logger.info('[API][setConfig] Updated config keys: %s' % list(filtered_kwargs.keys()))
+        except Exception as e:
+            self.data = self._failureResponse('Failed to update configuration: %s' % str(e))
+            logger.error('[API][setConfig] Error: %s' % e)
+
+    def _getSeriesImage(self, **kwargs):
+        """
+        Get cover image URL for a Metron series.
+        Used for lazy loading images in search results.
+        """
+        if 'id' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: id')
+            return
+
+        series_id = kwargs['id']
+
+        from mylar import metron
+        image_url = metron.get_series_image(series_id)
+
+        self.data = self._successResponse({'image': image_url})
 
 class REST(object):
 

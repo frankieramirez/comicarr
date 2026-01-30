@@ -1,51 +1,124 @@
-## ![Mylar Logo](https://github.com/mylar3/mylar3/blob/master/data/images/mylarlogo.png) Mylar3
+# Mylar4
 
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/mylar3/mylar3?color=blue&label=current%20release&sort=semver)](https://github.com/mylar3/mylar3/releases)
-[![Docker Pulls](https://img.shields.io/docker/pulls/linuxserver/mylar3)](https://hub.docker.com/r/linuxserver/mylar3)
+A modern comic book manager with an automated downloader, rebuilt with a React 19 frontend.
 
-[![Discord](https://img.shields.io/discord/826493118106697758?label=Discord&color=blue)](https://discord.gg/6UG94R7E8T)
+Mylar4 is a fork of [Mylar3](https://github.com/mylar3/mylar3) that replaces the legacy Mako template UI with a modern React-based interface while preserving the powerful backend functionality for managing your comic book collection.
 
-Mylar is an automated Comic Book (cbr/cbz) downloader program for use with NZB and torrents.
+## What's New in Mylar4
 
-Mylar allows you to create a watchlist of series that it monitors for various things (new issues, updated information, etc). It will grab, sort, and rename downloaded issues.
-It will also allow you to monitor weekly pull-lists for items belonging to said watchlisted series to download, as well as being able to monitor and maintain story-arcs.
-
-## Installation
-Install it via git clone or via [Docker](https://hub.docker.com/r/linuxserver/mylar3)
-
-## Documentation
-Check out our [website](https://mylarcomics.com) for documentation!
-
-## Support & Discussion
-Please try to limit Github issues to bugs & enhancement requests ONLY
-- [Github](https://github.com/mylar3/mylar3/issues) (Bug & Feature requests only)
-- [Forums](https://forum.mylarcomics.com)
-
-## Live Support / Conversation
-- [Discord](https://discord.gg/6UG94R7E8T)
-- [IRC](https://web.libera.chat/?channels=#mylar)
+- **Modern React 19 Frontend** - Responsive, fast UI built with React 19, TanStack Query, and Tailwind CSS
+- **Metron API Integration** - Enhanced comic search with Metron database support alongside Comic Vine
+- **Real-time Updates** - Server-Sent Events for live status updates without page refreshes
+- **Dark/Light Themes** - Native theme support with system preference detection
+- **Improved UX** - Data tables with sorting/filtering, better error handling, and cleaner navigation
 
 ## Features
-- Abliity to be run on various OS' (windows, linux, macOS, Raspberry Pi, etc)
-- Support for SABnzbd, NZBGet and various torrent clients (as well as Blackhole)
-- Multiple newznabs support, as well including a raw indexer and direct download being available
-- Ability to see upcoming new releases for a particular week and take action on them if required
-- View pullists up to 4 weeks in advance, or several months prior
-- TPB's and GN's are both supported as far as monitoring and post-processing (not import atm)
-- Can scan your existing library and download any missing issues
-- Failed download handling will download a new issue if one fails
+
+### Library Management
+- Monitor comic series and automatically download new issues
+- Scan existing libraries and identify missing issues
+- Support for CBR/CBZ formats, TPBs, and graphic novels
 - Configurable file and folder renaming
-- Metatagging of issues via modified version of the awesome ComicTagger 
-- Will automatically meta-tag downloaded issues either during (post-processing) or after (manual post-processing)
-- Generation of series.json files which contain series information for 3rd party applications
-- Notification on snatches / downloads using various notif applications
-- Ability to track story arc issues belonging to specific arcs, as well as various options pertaining to the arc
+- Automatic metadata tagging via ComicTagger
 
-...
-AND SO MUCH MORE!
+### Downloading
+- Support for SABnzbd, NZBGet, and torrent clients (qBittorrent, Deluge, Transmission, rTorrent)
+- Multiple newznab indexer support
+- Direct download support (Mega, MediaFire, Pixeldrain)
+- Failed download handling with automatic retries
 
-## Contributing
-If you wish to help out, please see our website: [contributing](https://mylarcomics.com/docs/contributing)
- 
-<p align="center">This project exists thanks to all the people who contribute - whether by code, assisting others or financial donations.</br> 
-To all those who have contributed, we thank you for your support.</p>
+### Organization
+- Weekly pull list monitoring up to 4 weeks ahead
+- Story arc tracking and management
+- Series.json generation for third-party applications
+- Notifications via various services (Pushover, Telegram, etc.)
+
+## Installation
+
+### Docker (Recommended)
+
+```bash
+docker build -t mylar4 .
+docker run -d \
+  --name mylar4 \
+  -p 8090:8090 \
+  -v /path/to/config:/config \
+  -v /path/to/comics:/comics \
+  -v /path/to/downloads:/downloads \
+  mylar4
+```
+
+### Manual Installation
+
+**Requirements:**
+- Python 3.8.1+
+- Node.js 18+
+
+**Steps:**
+
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/mylar4.git
+cd mylar4
+```
+
+2. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Build the frontend:
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+4. Run the application:
+```bash
+python3 Mylar.py --nolaunch
+```
+
+5. Access the web interface at `http://localhost:8090`
+
+### Development Mode
+
+For frontend development with hot reload:
+
+```bash
+# Terminal 1: Run the backend
+python3 Mylar.py --nolaunch
+
+# Terminal 2: Run the frontend dev server
+cd frontend
+npm run dev
+```
+
+The Vite dev server proxies API requests to the backend automatically.
+
+## Configuration
+
+On first run, navigate to Settings to configure:
+
+1. **Comic Vine API Key** - Required for metadata lookups
+2. **Metron Credentials** - Optional, for enhanced search
+3. **Download Clients** - Configure SABnzbd, NZBGet, or torrent clients
+4. **Indexers** - Add your newznab indexers
+5. **Paths** - Set your comic library and download locations
+
+## Screenshots
+
+*Screenshots coming soon*
+
+## Attribution
+
+Mylar4 is built on the foundation of [Mylar3](https://github.com/mylar3/mylar3), created by the Mylar3 team. The original project provides the robust backend for comic management, downloading, and post-processing.
+
+## Support
+
+- [GitHub Issues](https://github.com/your-username/mylar4/issues) - Bug reports and feature requests
+
+## License
+
+This project is a fork of Mylar3 and maintains the same license terms.

@@ -1986,14 +1986,14 @@ def listLibrary(comicid=None):
     myDB = db.DBConnection()
     if comicid is None:
         if mylar.CONFIG.ANNUALS_ON is True:
-            list = myDB.select("SELECT a.comicid, b.releasecomicid, a.status FROM Comics AS a LEFT JOIN annuals AS b on a.comicid=b.comicid group by a.comicid")
+            list = myDB.select("SELECT a.comicid, b.releasecomicid, a.status, a.comicname, a.comicyear FROM Comics AS a LEFT JOIN annuals AS b on a.comicid=b.comicid group by a.comicid")
         else:
-            list = myDB.select("SELECT comicid, status FROM Comics group by comicid")
+            list = myDB.select("SELECT comicid, status, comicname, comicyear FROM Comics group by comicid")
     else:
         if mylar.CONFIG.ANNUALS_ON is True:
-            list = myDB.select("SELECT a.comicid, b.releasecomicid, a.status FROM Comics AS a LEFT JOIN annuals AS b on a.comicid=b.comicid WHERE a.comicid=? group by a.comicid", [re.sub('4050-', '', comicid).strip()])
+            list = myDB.select("SELECT a.comicid, b.releasecomicid, a.status, a.comicname, a.comicyear FROM Comics AS a LEFT JOIN annuals AS b on a.comicid=b.comicid WHERE a.comicid=? group by a.comicid", [re.sub('4050-', '', comicid).strip()])
         else:
-            list = myDB.select("SELECT comicid, status FROM Comics WHERE comicid=? group by comicid", [re.sub('4050-', '', comicid).strip()])
+            list = myDB.select("SELECT comicid, status, comicname, comicyear FROM Comics WHERE comicid=? group by comicid", [re.sub('4050-', '', comicid).strip()])
 
     for row in list:
         library[row['ComicID']] = {'comicid':        row['ComicID'],
@@ -2002,6 +2002,17 @@ def listLibrary(comicid=None):
             if row['ReleaseComicID'] is not None:
                 library[row['ReleaseComicID']] = {'comicid':   row['ComicID'],
                                                   'status':    row['Status']}
+        except:
+            pass
+        # Also index by normalized (name, year) for cross-provider matching
+        try:
+            name = row['ComicName']
+            year = row['ComicYear']
+            if name and year:
+                # Normalize name: lowercase and strip whitespace
+                name_key = 'name:' + name.lower().strip() + ':' + str(year).strip()
+                library[name_key] = {'comicid':   row['ComicID'],
+                                     'status':    row['Status']}
         except:
             pass
 

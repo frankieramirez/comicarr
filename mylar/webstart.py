@@ -73,30 +73,24 @@ def initialize(options):
     logger.info("Starting Mylar on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
     cherrypy.config.update(options_dict)
 
+    # Serve the new React frontend from frontend/dist/
+    frontend_dist = os.path.join(mylar.PROG_DIR, 'frontend', 'dist')
+
     conf = {
         '/': {
-            'tools.staticdir.root': os.path.join(mylar.PROG_DIR, 'data'),
+            'tools.staticdir.root': frontend_dist,
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': '',
+            'tools.staticdir.index': 'index.html',
             'tools.proxy.on': True  # pay attention to X-Forwarded-Proto header
         },
-        '/interfaces': {
+        '/assets': {
             'tools.staticdir.on': True,
-            'tools.staticdir.dir': "interfaces"
-        },
-        '/images': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "images"
-        },
-        '/css': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "css"
-        },
-        '/js': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': "js"
+            'tools.staticdir.dir': 'assets'
         },
         '/favicon.ico': {
             'tools.staticfile.on': True,
-            'tools.staticfile.filename': os.path.join(mylar.PROG_DIR, 'data', 'images','favicon.ico')
+            'tools.staticfile.filename': os.path.join(frontend_dist, 'favicon.ico')
         },
         '/cache': {
             'tools.staticdir.on': True,
@@ -129,8 +123,8 @@ def initialize(options):
                 # using the @require() decorator on the methods in webserve.py
                 'auth.require': []
             })
-            # exempt api, login page and static elements from authentication requirements
-            for i in ('/api', '/auth/login', '/css', '/images', '/js', 'favicon.ico'):
+            # exempt api, login page, json auth endpoints and static assets from authentication requirements
+            for i in ('/api', '/auth/login', '/auth/login_json', '/auth/logout_json', '/auth/check_session', '/assets', '/favicon.ico'):
                 if i in conf:
                     conf[i].update({'tools.auth.on': False})
                 else:

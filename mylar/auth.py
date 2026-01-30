@@ -133,8 +133,9 @@ class AuthController(object):
         # not needed or used for Mylar currently
 
     def get_loginform(self, username, msg="Enter login information", from_page="/"):
-        from mylar.webserve import serve_template
-        return serve_template(templatename="login.html", username=escape(username, True), title="Login", from_page=from_page)
+        """Serve the React SPA which handles login UI"""
+        from mylar.webserve import _serve_spa_index
+        return _serve_spa_index()
 
     @cherrypy.expose
     def login(self, current_username=None, current_password=None, remember_me='0', from_page="/"):
@@ -166,9 +167,46 @@ class AuthController(object):
         sess = cherrypy.session
         username = sess.get(SESSION_KEY, None)
         sess[SESSION_KEY] = None
-        return self.get_loginform("", from_page=from_page)
         if username:
             cherrypy.request.login = None
             self.on_logout(username)
-            raise cherrypy.HTTPRedirect(from_page or mylar.CONFIG.HTTP_ROOT)
+        return self.get_loginform("", from_page=from_page)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def login_json(self, username=None, password=None):
+        """JSON-based login endpoint for React frontend"""
+        if username is None or password is None:
+            return {'success': False, 'error': 'Missing username or password'}
+
+        error_msg = check_credentials(username, password)
+        if error_msg:
+            return {'success': False, 'error': error_msg}
+
+        # Successful login - create session
+        cherrypy.session.regenerate()
+        cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
+        self.on_login(username)
+        return {'success': True, 'username': username}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def logout_json(self):
+        """JSON-based logout endpoint for React frontend"""
+        sess = cherrypy.session
+        username = sess.get(SESSION_KEY, None)
+        sess[SESSION_KEY] = None
+        if username:
+            cherrypy.request.login = None
+            self.on_logout(username)
+        return {'success': True}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def check_session(self):
+        """Check if user has a valid session"""
+        username = cherrypy.session.get(SESSION_KEY, None)
+        if username:
+            return {'success': True, 'authenticated': True, 'username': username}
+        return {'success': True, 'authenticated': False}
 

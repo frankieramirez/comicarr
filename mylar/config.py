@@ -168,6 +168,10 @@ _CONFIG_DEFINITIONS = OrderedDict({
     'CV_MAX_PARALLEL_REQUESTS': (int, 'CV', 3),
     'IMPRINT_MAPPING_TYPE': (str, 'CV', 'CV'),  # either 'CV' for ComicVine or 'JSON' for imprints.json to choose which naming to use for imprints
 
+    'METRON_USERNAME': (str, 'Metron', None),
+    'METRON_PASSWORD': (str, 'Metron', None),
+    'USE_METRON_SEARCH': (bool, 'Metron', False),
+
     'LOG_DIR' : (str, 'Logs', None),
     'MAX_LOGSIZE' : (int, 'Logs', 10000000),
     'MAX_LOGFILES': (int, 'Logs', 5),
