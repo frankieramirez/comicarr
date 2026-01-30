@@ -142,52 +142,51 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
         })
 
         # mokkari returns a SeriesList object with iteration support
+        # BaseSeries fields: id, year_began, issue_count, volume, modified, display_name
+        # Convert to list first to avoid iterator issues
+        results_list = list(results)
+        total_results = len(results_list)
         comiclist = []
-        total_results = getattr(results, 'count', 0) if hasattr(results, 'count') else len(list(results))
 
-        for series in results:
+        for series in results_list:
             # Map Metron fields to Mylar format
             metron_id = str(series.id) if hasattr(series, 'id') else None
 
             if metron_id is None:
                 continue
 
-            # Get publisher name
+            # Get display_name and parse it (format: "Series Name (Year)")
+            display_name = series.display_name if hasattr(series, 'display_name') else 'Unknown'
+            # Extract series name by removing the year suffix if present
+            series_name = display_name
+            if display_name and '(' in display_name:
+                series_name = display_name.rsplit('(', 1)[0].strip()
+
+            # Get year
+            start_year = str(series.year_began) if hasattr(series, 'year_began') and series.year_began else '0000'
+            issue_count = series.issue_count if hasattr(series, 'issue_count') and series.issue_count else 0
+            volume = series.volume if hasattr(series, 'volume') and series.volume else None
+
+            # Note: BaseSeries doesn't include publisher, image, cv_id, desc, series_type
+            # These would require fetching full series details via api.series(id)
+            # For search results, we use defaults
             publisher = 'Unknown'
-            if hasattr(series, 'publisher') and series.publisher:
-                publisher = series.publisher.name if hasattr(series.publisher, 'name') else str(series.publisher)
-
-            # Get cover image URL
             cover_url = 'cache/blankcover.jpg'
-            if hasattr(series, 'image') and series.image:
-                cover_url = str(series.image)
-
-            # Get CV ID if available (for ComicTagger compatibility)
-            cv_id = None
-            if hasattr(series, 'cv_id') and series.cv_id:
-                cv_id = str(series.cv_id)
+            cv_id = None  # Not available in list results
 
             # Check if we already have this series
             haveit = 'No'
             # Check by Metron ID first
             if metron_id in comicLibrary:
                 haveit = comicLibrary[metron_id]
-            # Also check by CV ID if available
-            elif cv_id and cv_id in comicLibrary:
-                haveit = comicLibrary[cv_id]
             # Fallback: check by name and year for cross-provider matching
             else:
-                series_name = series.name if hasattr(series, 'name') else None
-                series_year = str(series.year_began) if hasattr(series, 'year_began') and series.year_began else None
-                if series_name and series_year:
-                    name_key = 'name:' + series_name.lower().strip() + ':' + series_year.strip()
+                if series_name and start_year:
+                    name_key = 'name:' + series_name.lower().strip() + ':' + start_year.strip()
                     if name_key in comicLibrary:
                         haveit = comicLibrary[name_key]
 
             # Build year range for filtering (similar to CV logic)
-            start_year = str(series.year_began) if hasattr(series, 'year_began') and series.year_began else '0000'
-            issue_count = series.issue_count if hasattr(series, 'issue_count') else 0
-
             yearRange = [start_year]
             if start_year.isdigit():
                 possible_years = int(start_year) + (issue_count // 12) + 1
@@ -201,23 +200,23 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
                     continue
 
             comiclist.append({
-                'name': series.name if hasattr(series, 'name') else 'Unknown',
+                'name': series_name,
                 'comicyear': start_year,
                 'comicid': metron_id,  # Use Metron ID as primary
-                'cv_comicid': cv_id,   # Store CV ID separately for ComicTagger
-                'url': series.resource_url if hasattr(series, 'resource_url') else None,
+                'cv_comicid': cv_id,   # Not available in list results
+                'url': 'https://metron.cloud/series/%s/' % metron_id,
                 'issues': str(issue_count),
                 'comicimage': cover_url,
                 'comicthumb': cover_url,
                 'publisher': publisher,
-                'description': series.desc if hasattr(series, 'desc') else 'None',
-                'deck': None,  # Metron doesn't have deck field
-                'type': series.series_type.name if hasattr(series, 'series_type') and series.series_type else None,
+                'description': 'None',  # Not available in list results
+                'deck': None,
+                'type': None,  # Not available in list results
                 'haveit': haveit,
                 'lastissueid': None,
                 'firstissueid': None,
-                'volume': series.volume if hasattr(series, 'volume') else None,
-                'imprint': None,  # Would need additional API call
+                'volume': volume,
+                'imprint': None,
                 'seriesrange': yearRange,
             })
 
@@ -245,7 +244,7 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
 
         # Return with pagination metadata if limit was provided
         if limit is not None:
-            return {
+            result = {
                 'results': comiclist,
                 'pagination': {
                     'total': total_results,
@@ -256,7 +255,9 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
             }
         else:
             # Legacy format: just return the list
-            return comiclist
+            result = comiclist
+
+        return result
 
     except Exception as e:
         logger.error('[METRON] Search failed: %s' % e)
