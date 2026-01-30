@@ -129,6 +129,34 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           helpText="Use only Comic Vine for metadata (ignore local cache)"
         />
       </SettingGroup>
+
+      <SettingGroup
+        title="Metron"
+        description="Use Metron API for comic search (fixes sorting issues)"
+      >
+        <SettingField
+          label="Use Metron for Search"
+          type="checkbox"
+          checked={formData.use_metron_search as boolean | undefined}
+          onChange={(checked) => onChange("use_metron_search", checked as boolean)}
+          helpText="Use Metron API instead of Comic Vine for search results"
+        />
+        <SettingField
+          label="Metron Username"
+          value={formData.metron_username as string | undefined}
+          type="text"
+          onChange={(value) => onChange("metron_username", value as string)}
+          placeholder="Your Metron username"
+          helpText="Register at https://metron.cloud"
+        />
+        <SettingField
+          label="Metron Password"
+          value={formData.metron_password as string | undefined}
+          type="password"
+          onChange={(value) => onChange("metron_password", value as string)}
+          placeholder="Your Metron password"
+        />
+      </SettingGroup>
     </div>
   );
 }

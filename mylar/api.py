@@ -2072,6 +2072,13 @@ class Api(object):
             # Persist to config.ini
             mylar.CONFIG.writeconfig()
 
+            # Check if Metron settings changed and reinitialize if needed
+            metron_keys = {'metron_username', 'metron_password', 'use_metron_search'}
+            if metron_keys.intersection(filtered_kwargs.keys()):
+                from mylar import metron
+                metron.reinitialize_metron_api()
+                logger.info('[API][setConfig] Metron API reinitialized due to config change')
+
             self.data = self._successResponse('Configuration updated successfully')
             logger.info('[API][setConfig] Updated config keys: %s' % list(filtered_kwargs.keys()))
         except Exception as e:

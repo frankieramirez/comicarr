@@ -175,6 +175,7 @@ CV_HEADERS = None
 CV_SESSION = None
 CV_RATE_LIMITER = None
 CV_CACHE = None
+METRON_API = None
 CV_TIMEOUT = 30
 CVURL = None
 EXPURL = None
@@ -435,6 +436,28 @@ def initialize(config_file):
                 logger.info('ComicVine cache initialized at: %s' % cache_db_path)
 
         initialize_cv_session()
+
+        # Initialize Metron API session if configured
+        def initialize_metron_session():
+            """Initialize Metron API session using mokkari"""
+            global METRON_API
+            if METRON_API is None and CONFIG.USE_METRON_SEARCH:
+                if CONFIG.METRON_USERNAME and CONFIG.METRON_PASSWORD:
+                    try:
+                        from mylar import metron
+                        METRON_API = metron.initialize_metron_api()
+                        if METRON_API:
+                            logger.info('Metron API session initialized successfully')
+                        else:
+                            logger.warn('Metron API initialization returned None - check credentials')
+                    except ImportError as e:
+                        logger.warn('Failed to import mokkari library for Metron API: %s' % e)
+                    except Exception as e:
+                        logger.error('Failed to initialize Metron API: %s' % e)
+                else:
+                    logger.fdebug('Metron search enabled but credentials not configured')
+
+        initialize_metron_session()
 
         # set the current week for the pull-list
         todaydate = datetime.datetime.today()

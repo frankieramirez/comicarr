@@ -298,6 +298,26 @@
                                 </div>
                          </fieldset>
                         <fieldset>
+                                <legend>Metron</legend>
+                                <div class="row">
+                                    <div class="row checkbox">
+                                        <input id="use_metron_search" type="checkbox" name="use_metron_search" value="1" ${config['use_metron_search']} /><label>Use Metron for Search</label>
+                                    </div>
+                                    <small>Use Metron API instead of ComicVine for comic search (fixes sorting issues)</small>
+                                    <div id="metronoptions">
+                                       <div class="row">
+                                          <label>Metron Username</label>
+                                          <input type="text" placeholder="None" name="metron_username" id="metron_username" value="${config['metron_username'] or ''}" title="Your Metron account username" size="30">
+                                          <small>Register at <a href="https://metron.cloud" target="_blank">metron.cloud</a></small>
+                                      </div>
+                                       <div class="row">
+                                          <label>Metron Password</label>
+                                          <input type="password" placeholder="None" name="metron_password" id="metron_password" value="${config['metron_password'] or ''}" title="Your Metron account password" size="30">
+                                      </div>
+                                    </div>
+                                </div>
+                         </fieldset>
+                        <fieldset>
                                 <legend>OPDS</legend><span id="opds_url" style="position:relative;top:-35px;right:20px;float:right;display:hidden;margin-bottom:-25px;"></span>
                                 <div class="row">
                                     <div class="row_checkbox">
@@ -1998,6 +2018,25 @@
                         else
                         {
                                 $("#apioptions").slideUp();
+                        }
+                });
+                if ($("#use_metron_search").is(":checked"))
+                        {
+                                $("#metronoptions").show();
+                        }
+                else
+                        {
+                                $("#metronoptions").hide();
+                        }
+
+                $("#use_metron_search").click(function(){
+                        if ($("#use_metron_search").is(":checked"))
+                        {
+                                $("#metronoptions").slideDown();
+                        }
+                        else
+                        {
+                                $("#metronoptions").slideUp();
                         }
                 });
                 if ($("#opds_enable").is(":checked"))
