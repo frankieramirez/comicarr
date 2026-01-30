@@ -1,18 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { getSeriesImage } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSearchComics } from "@/hooks/useSearch";
-import ComicCard from "@/components/search/ComicCard";
+import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SearchPage() {
@@ -21,7 +13,7 @@ export default function SearchPage() {
   // Get parameters from URL
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
-  const urlSort = searchParams.get("sort") || "start_year:desc"; // ComicVine API format
+  const urlSort = searchParams.get("sort") || "year_desc";
 
   // Initialize search query from URL parameter
   const [searchQuery, setSearchQuery] = useState(urlQuery);
@@ -39,75 +31,9 @@ export default function SearchPage() {
   const apiSort = sortMapping[urlSort] || urlSort;
 
   // Use server-side pagination
-  const { data, isLoading, error } = useSearchComics(
-    urlQuery,
-    urlPage,
-    apiSort,
-  );
+  const { data, isLoading, error } = useSearchComics(urlQuery, urlPage, apiSort);
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
-
-  // State for lazy-loaded images
-  const [lazyImages, setLazyImages] = useState<Record<string, string>>({});
-
-  // Fetch images for visible results with placeholder images
-  const fetchImageForComic = useCallback(async (comicId: string) => {
-    // Don't fetch if already loaded or loading
-    if (lazyImages[comicId] !== undefined) return;
-
-    // Mark as loading (empty string)
-    setLazyImages((prev) => ({ ...prev, [comicId]: "" }));
-
-    const imageUrl = await getSeriesImage(comicId);
-    if (imageUrl) {
-      setLazyImages((prev) => ({ ...prev, [comicId]: imageUrl }));
-    }
-  }, [lazyImages]);
-
-  // Lazy load images for visible Metron results (those with placeholder images)
-  useEffect(() => {
-    if (isLoading || !searchResults.length) return;
-
-    // Fetch images for first 12 visible results that have placeholder images
-    searchResults.slice(0, 12).forEach((comic) => {
-      const comicId = comic.comicid ?? comic.id;
-      const hasPlaceholder =
-        !comic.image ||
-        comic.image === "cache/blankcover.jpg" ||
-        comic.image.includes("blankcover");
-
-      if (hasPlaceholder && comicId && !lazyImages[comicId]) {
-        fetchImageForComic(comicId);
-      }
-    });
-  }, [searchResults, isLoading, fetchImageForComic, lazyImages]);
-
-  // Check if an image URL is a placeholder that shouldn't be displayed
-  const isPlaceholderImage = (url: string | null | undefined): boolean => {
-    if (!url) return true;
-    return url === "cache/blankcover.jpg" || url.includes("blankcover");
-  };
-
-  // Merge lazy-loaded images into search results
-  // Replace placeholder URLs with null to prevent broken image display
-  const resultsWithImages = searchResults.map((comic) => {
-    const comicId = comic.comicid ?? comic.id;
-    const lazyImage = lazyImages[comicId];
-
-    // If we have a loaded lazy image, use it
-    if (lazyImage) {
-      return { ...comic, image: lazyImage };
-    }
-
-    // If original image is a placeholder, set to null to show "No Cover" instead of broken image
-    if (isPlaceholderImage(comic.image)) {
-      // Check if we're currently loading this image
-      const isLoading = lazyImages[comicId] === "";
-      return { ...comic, image: null, isLoadingImage: isLoading };
-    }
-
-    return comic;
-  });
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -167,16 +93,16 @@ export default function SearchPage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="flex flex-col h-full">
-              <Skeleton className="aspect-[2/3] w-full flex-shrink-0" />
-              <div className="p-3 flex flex-col flex-grow">
-                <Skeleton className="h-3.5 w-full mb-1" />
-                <Skeleton className="h-3 w-1/3 mb-2" />
-                <Skeleton className="h-3 w-2/3 mb-3" />
-                <Skeleton className="h-8 w-full mt-auto" />
-              </div>
+        <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
+          <div className="bg-muted/50 px-6 py-3 border-b border-card-border">
+            <Skeleton className="h-4 w-full max-w-md" />
+          </div>
+          {[...Array(10)].map((_, i) => (
+            <div
+              key={i}
+              className="px-6 py-4 border-b border-card-border last:border-0"
+            >
+              <Skeleton className="h-6 w-full" />
             </div>
           ))}
         </div>
@@ -191,7 +117,7 @@ export default function SearchPage() {
       )}
 
       {/* No Results State */}
-      {!isLoading && !error && urlQuery && resultsWithImages.length === 0 && (
+      {!isLoading && !error && urlQuery && searchResults.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground text-lg">
             No results found for "{urlQuery}"
@@ -202,48 +128,22 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Results Grid */}
-      {!isLoading && !error && resultsWithImages.length > 0 && (
+      {/* Results Table */}
+      {!isLoading && !error && searchResults.length > 0 && (
         <div>
-          {/* Combined results count and sort control */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          {/* Results count */}
+          <div className="mb-4">
             <p className="text-gray-600 dark:text-gray-400">
               Showing {startIndex}-{endIndex} of {pagination?.total || 0} result
               {pagination?.total !== 1 ? "s" : ""} for "{urlQuery}"
             </p>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Sort by:
-              </span>
-              <Select value={urlSort} onValueChange={handleSortChange}>
-                <SelectTrigger
-                  className="w-48"
-                  aria-label="Sort search results"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="year_desc">Year (Newest First)</SelectItem>
-                  <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
-                  <SelectItem value="issues_desc">
-                    Issue Count (Most First)
-                  </SelectItem>
-                  <SelectItem value="issues_asc">
-                    Issue Count (Least First)
-                  </SelectItem>
-                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
-                  <SelectItem value="name_desc">Name (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            {resultsWithImages.map((comic) => (
-              <ComicCard key={comic.comicid ?? comic.id} comic={comic} />
-            ))}
-          </div>
+          <SearchResultsTable
+            results={searchResults}
+            currentSort={urlSort}
+            onSortChange={handleSortChange}
+          />
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
