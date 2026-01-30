@@ -44,7 +44,7 @@ export function useToast() {
   return context
 }
 
-function Toast({ id, type = "info", title, description, onClose }) {
+function Toast({ id, type = "info", title, description, message, onClose }) {
   const icons = {
     success: <CheckCircle className="w-5 h-5 text-green-600" />,
     error: <AlertCircle className="w-5 h-5 text-red-600" />,
@@ -57,6 +57,9 @@ function Toast({ id, type = "info", title, description, onClose }) {
     info: "bg-blue-50 border-blue-200",
   }
 
+  // Support both 'message' and 'description' for backwards compatibility
+  const content = message || description
+
   return (
     <div
       className={cn(
@@ -67,7 +70,7 @@ function Toast({ id, type = "info", title, description, onClose }) {
       {icons[type]}
       <div className="flex-1">
         {title && <div className="font-medium text-sm">{title}</div>}
-        {description && <div className="text-sm text-gray-600 mt-1">{description}</div>}
+        {content && <div className="text-sm text-gray-600 mt-1">{content}</div>}
       </div>
       <button
         onClick={onClose}

@@ -40,7 +40,8 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'getComicInfo', 'getIssueInfo', 'getArt', 'downloadIssue', 'regenerateCovers',
             'refreshSeriesjson', 'seriesjsonListing', 'checkGlobalMessages',
             'listProviders', 'changeProvider', 'addProvider', 'delProvider',
-            'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries']
+            'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
+            'getConfig', 'setConfig']
 
 class Api(object):
 
@@ -1946,6 +1947,108 @@ class Api(object):
                 self.data = self._successResponse('Successfully changed %s for %s provider %s [prov_id:%s]' % (change_match, providertype, providername, prov_id))
                 logger.fdebug('[API][changeProvider] %s' % self.data)
         return
+
+    def _getConfig(self, **kwargs):
+        """
+        Get safe configuration values for frontend settings page.
+        Returns filtered dict of ~20 config values that are safe to expose.
+        """
+        # Map download client integers to readable labels
+        nzb_downloader_map = {
+            0: 'SABnzbd',
+            1: 'NZBGet',
+            2: 'Blackhole',
+            3: 'None'
+        }
+        torrent_downloader_map = {
+            0: 'Watch Folder',
+            1: 'uTorrent',
+            2: 'rTorrent',
+            3: 'Transmission',
+            4: 'Deluge',
+            5: 'qBittorrent'
+        }
+
+        config_data = {
+            # General (read-only paths)
+            'comic_dir': mylar.CONFIG.COMIC_DIR,
+            'destination_dir': mylar.CONFIG.DESTINATION_DIR,
+            'cache_dir': mylar.CONFIG.CACHE_DIR,
+            'log_dir': mylar.CONFIG.LOG_DIR,
+
+            # Interface
+            'http_host': mylar.CONFIG.HTTP_HOST,
+            'http_port': mylar.CONFIG.HTTP_PORT,
+            'http_username': mylar.CONFIG.HTTP_USERNAME,
+            'launch_browser': mylar.CONFIG.LAUNCH_BROWSER,
+            'interface': mylar.CONFIG.INTERFACE,
+
+            # API
+            'api_key': mylar.CONFIG.API_KEY,
+
+            # Comic Vine
+            'comicvine_api': mylar.CONFIG.COMICVINE_API,
+            'cv_verify': mylar.CONFIG.CV_VERIFY,
+            'cv_only': mylar.CONFIG.CV_ONLY,
+
+            # Search
+            'preferred_quality': mylar.CONFIG.PREFERRED_QUALITY,
+            'use_minsize': mylar.CONFIG.USE_MINSIZE,
+            'minsize': mylar.CONFIG.MINSIZE,
+            'use_maxsize': mylar.CONFIG.USE_MAXSIZE,
+            'maxsize': mylar.CONFIG.MAXSIZE,
+
+            # Download Clients (read-only labels)
+            'nzb_downloader': mylar.CONFIG.NZB_DOWNLOADER,
+            'nzb_downloader_label': nzb_downloader_map.get(mylar.CONFIG.NZB_DOWNLOADER, 'Unknown'),
+            'torrent_downloader': mylar.CONFIG.TORRENT_DOWNLOADER,
+            'torrent_downloader_label': torrent_downloader_map.get(mylar.CONFIG.TORRENT_DOWNLOADER, 'Unknown')
+        }
+
+        self.data = self._successResponse(config_data)
+
+    def _setConfig(self, **kwargs):
+        """
+        Update configuration values from frontend settings page.
+        Only allows whitelisted safe config values to be updated.
+        """
+        # Whitelist of allowed config keys
+        allowed_keys = [
+            'api_key',
+            'launch_browser',
+            'interface',
+            'comicvine_api',
+            'cv_verify',
+            'cv_only',
+            'preferred_quality',
+            'use_minsize',
+            'minsize',
+            'use_maxsize',
+            'maxsize'
+        ]
+
+        # Filter kwargs to only allowed keys
+        filtered_kwargs = {}
+        for key, value in kwargs.items():
+            if key in allowed_keys:
+                filtered_kwargs[key] = value
+
+        if not filtered_kwargs:
+            self.data = self._failureResponse('No valid configuration keys provided')
+            return
+
+        try:
+            # Update config using existing process_kwargs method
+            mylar.CONFIG.process_kwargs(filtered_kwargs)
+
+            # Persist to config.ini
+            mylar.CONFIG.writeconfig()
+
+            self.data = self._successResponse('Configuration updated successfully')
+            logger.info('[API][setConfig] Updated config keys: %s' % list(filtered_kwargs.keys()))
+        except Exception as e:
+            self.data = self._failureResponse('Failed to update configuration: %s' % str(e))
+            logger.error('[API][setConfig] Error: %s' % e)
 
 class REST(object):
 
