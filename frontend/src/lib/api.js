@@ -16,6 +16,14 @@ export async function apiCall(cmd, params = {}) {
   const url = new URL(API_BASE, window.location.origin);
   url.searchParams.set('cmd', cmd);
 
+  // Add API key from sessionStorage (except for getAPI command)
+  if (cmd !== 'getAPI') {
+    const apiKey = sessionStorage.getItem('mylar_api_key');
+    if (apiKey) {
+      url.searchParams.set('apikey', apiKey);
+    }
+  }
+
   // Add additional parameters
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
