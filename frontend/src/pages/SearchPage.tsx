@@ -67,33 +67,45 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-4 page-transition">
-      {/* Header with search form */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:gap-6">
-        <h1 className="text-3xl font-bold mb-3 lg:mb-0 lg:whitespace-nowrap">
-          Search Comics
-        </h1>
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-2xl">
-          <Input
-            type="text"
-            placeholder="Enter comic name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={searchQuery.trim().length < 3}
-            className="flex items-center"
-          >
-            <SearchIcon className="w-4 h-4 mr-2" />
-            Search
-          </Button>
-        </form>
-      </div>
+      {/* Page Title */}
+      <h1 className="text-3xl font-bold">Search Comics</h1>
+
+      {/* Search Form */}
+      <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
+        <Input
+          type="text"
+          placeholder="Enter comic name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1"
+        />
+        <Button
+          type="submit"
+          disabled={searchQuery.trim().length < 3}
+          className="flex items-center"
+        >
+          <SearchIcon className="w-4 h-4 mr-2" />
+          Search
+        </Button>
+      </form>
+
+      {/* Results count */}
+      {urlQuery && (pagination || isLoading) && (
+        <p className="text-muted-foreground">
+          {isLoading ? (
+            "Searching..."
+          ) : (
+            <>
+              Showing {startIndex}-{endIndex} of {pagination?.total || 0} results
+              for "{urlQuery}"
+            </>
+          )}
+        </p>
+      )}
 
       {/* Loading State */}
       {isLoading && (
-        <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
+        <div className="rounded-lg border border-card-border bg-card card-shadow overflow-hidden">
           <div className="bg-muted/50 px-6 py-3 border-b border-card-border">
             <Skeleton className="h-4 w-full max-w-md" />
           </div>
@@ -131,14 +143,6 @@ export default function SearchPage() {
       {/* Results Table */}
       {!isLoading && !error && searchResults.length > 0 && (
         <div>
-          {/* Results count */}
-          <div className="mb-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              Showing {startIndex}-{endIndex} of {pagination?.total || 0} result
-              {pagination?.total !== 1 ? "s" : ""} for "{urlQuery}"
-            </p>
-          </div>
-
           <SearchResultsTable
             results={searchResults}
             currentSort={urlSort}
@@ -147,7 +151,7 @@ export default function SearchPage() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-card-border">
               <Button
                 variant="outline"
                 onClick={() => handlePageChange(urlPage - 1)}
@@ -157,7 +161,7 @@ export default function SearchPage() {
                 Previous
               </Button>
 
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-muted-foreground">
                 Page {urlPage} of {totalPages}
               </span>
 

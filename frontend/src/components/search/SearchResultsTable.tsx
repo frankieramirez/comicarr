@@ -35,8 +35,8 @@ interface AddByIdEventDetail {
 
 // Map column IDs to API sort values
 const SORT_COLUMN_MAP: Record<string, { asc: string; desc: string }> = {
-  name: { asc: "name_asc", desc: "name_desc" },
-  comicyear: { asc: "year_asc", desc: "year_desc" },
+  series: { asc: "name_asc", desc: "name_desc" },
+  year: { asc: "year_asc", desc: "year_desc" },
   issues: { asc: "issues_asc", desc: "issues_desc" },
 };
 
@@ -128,31 +128,37 @@ function ActionCell({ comic }: { comic: SearchResult }) {
     }
   };
 
+  // Already in library - show disabled "Added" button
+  if (isAdded) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <Check className="w-3 h-3 mr-1" />
+        Added
+      </Button>
+    );
+  }
+
+  // Processing state
+  if (isProcessing) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        Processing...
+      </Button>
+    );
+  }
+
+  // Default - Add button with primary outline style
   return (
     <Button
       onClick={handleAddComic}
-      disabled={addComicMutation.isPending || isAdded || isProcessing}
-      variant={isAdded ? "outline" : "default"}
+      disabled={addComicMutation.isPending}
+      variant="outline"
       size="sm"
+      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
     >
-      {isProcessing ? (
-        <>
-          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-          Processing...
-        </>
-      ) : addComicMutation.isPending ? (
-        "Adding..."
-      ) : isAdded ? (
-        <>
-          <Check className="w-3 h-3 mr-1" />
-          Added
-        </>
-      ) : (
-        <>
-          <Plus className="w-3 h-3 mr-1" />
-          Add
-        </>
-      )}
+      <Plus className="w-3 h-3 mr-1" />
+      {addComicMutation.isPending ? "Adding..." : "Add"}
     </Button>
   );
 }
@@ -168,8 +174,10 @@ export default function SearchResultsTable({
     if (!mapping) return;
 
     const currentState = getColumnSort(columnId, currentSort);
-    // Toggle: none -> asc -> desc -> asc
-    if (currentState === false || currentState === "desc") {
+    // Toggle: none -> desc -> asc -> desc (default to desc first for year)
+    if (currentState === false) {
+      onSortChange(mapping.desc);
+    } else if (currentState === "desc") {
       onSortChange(mapping.asc);
     } else {
       onSortChange(mapping.desc);
@@ -179,7 +187,7 @@ export default function SearchResultsTable({
   const columns = useMemo<ColumnDef<SearchResult>[]>(
     () => [
       {
-        id: "name",
+        id: "series",
         accessorKey: "name",
         header: "Series",
         cell: ({ row }: CellContext<SearchResult, unknown>) => (
@@ -194,11 +202,11 @@ export default function SearchResultsTable({
         ),
       },
       {
-        id: "comicyear",
+        id: "year",
         accessorKey: "comicyear",
         header: "Year",
         cell: ({ getValue }: CellContext<SearchResult, unknown>) => (
-          <span className="text-sm">{(getValue() as string) || "—"}</span>
+          <span>{(getValue() as string) || "—"}</span>
         ),
       },
       {
@@ -207,11 +215,7 @@ export default function SearchResultsTable({
         header: "Issues",
         cell: ({ row }: CellContext<SearchResult, unknown>) => {
           const issues = row.original.issues ?? row.original.count_of_issues;
-          return (
-            <span className="text-sm">
-              {issues !== undefined ? issues : "—"}
-            </span>
-          );
+          return <span>{issues !== undefined ? issues : "—"}</span>;
         },
       },
       {
@@ -228,7 +232,9 @@ export default function SearchResultsTable({
         header: "",
         enableSorting: false,
         cell: ({ row }: CellContext<SearchResult, unknown>) => (
-          <ActionCell comic={row.original} />
+          <div className="text-right">
+            <ActionCell comic={row.original} />
+          </div>
         ),
       },
     ],
@@ -243,10 +249,10 @@ export default function SearchResultsTable({
   });
 
   return (
-    <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
+    <div className="rounded-lg border border-card-border bg-card card-shadow overflow-hidden">
       <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full">
-          <thead className="bg-muted/50 border-card-border backdrop-blur-sm border-b">
+          <thead className="bg-muted/50 border-b border-card-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -264,7 +270,7 @@ export default function SearchResultsTable({
                         <div
                           className={
                             isSortable
-                              ? "flex items-center space-x-1 cursor-pointer select-none hover:text-foreground"
+                              ? "flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
                               : ""
                           }
                           onClick={
@@ -280,7 +286,7 @@ export default function SearchResultsTable({
                             )}
                           </span>
                           {isSortable && (
-                            <span className="text-gray-400">
+                            <span>
                               {sortState === "asc" ? (
                                 <ChevronUp className="w-4 h-4" />
                               ) : sortState === "desc" ? (
@@ -298,12 +304,9 @@ export default function SearchResultsTable({
               </tr>
             ))}
           </thead>
-          <tbody className="bg-card divide-y divide-card-border">
+          <tbody className="divide-y divide-card-border">
             {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="hover:bg-accent/50 transition-colors"
-              >
+              <tr key={row.id} className="hover:bg-accent/50 transition-colors">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
