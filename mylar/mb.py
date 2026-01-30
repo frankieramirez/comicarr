@@ -53,7 +53,7 @@ if platform.python_version() == '2.7.6':
     http.client.HTTPConnection._http_vsn = 10
     http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
 
-def pullsearch(comicapi, comicquery, offset, search_type):
+def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None):
 
     cnt = 1
     for x in comicquery:
@@ -63,7 +63,13 @@ def pullsearch(comicapi, comicquery, offset, search_type):
            filterline+= ',name:%s' % x
        cnt+=1
 
-    PULLURL = mylar.CVURL + str(search_type) + 's?api_key=' + str(comicapi) + '&filter=name:' + filterline + '&field_list=id,name,start_year,site_detail_url,count_of_issues,image,publisher,deck,description,first_issue,last_issue&format=xml&sort=date_last_updated:desc&offset=' + str(offset) # 2012/22/02 - CVAPI flipped back to offset instead of page
+    # Build sort parameter - use provided sort or default
+    sort_param = sort if sort else 'date_last_updated:desc'
+
+    # Build limit parameter - use provided limit or default to 100
+    limit_param = limit if limit else 100
+
+    PULLURL = mylar.CVURL + str(search_type) + 's?api_key=' + str(comicapi) + '&filter=name:' + filterline + '&field_list=id,name,start_year,site_detail_url,count_of_issues,image,publisher,deck,description,first_issue,last_issue&format=xml&limit=' + str(limit_param) + '&sort=' + sort_param + '&offset=' + str(offset) # 2012/22/02 - CVAPI flipped back to offset instead of page
 
     #all these imports are standard on most modern python implementations
     #logger.info('MB.PULLURL:' + PULLURL)
@@ -96,10 +102,10 @@ def pullsearch(comicapi, comicquery, offset, search_type):
     else:
         return dom
 
-def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=False):
+def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=False, limit=None, offset=None, sort=None):
     import time
     search_start_time = time.time()
-    logger.info('[SEARCH PERFORMANCE] Starting search for: %s' % name)
+    logger.info('[SEARCH PERFORMANCE] Starting search for: %s (limit=%s, offset=%s, sort=%s)' % (name, limit, offset, sort))
 
     #with mb_lock:
     comicResults = None
@@ -148,62 +154,88 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
     if search_type is None:
         search_type = 'volume'
 
-    #let's find out how many results we get from the query...
-    searched = pullsearch(comicapi, comicquery, 0, search_type)
-    if searched is None:
-        return False
-    totalResults = searched.getElementsByTagName('number_of_total_results')[0].firstChild.wholeText
-    logger.fdebug("there are " + str(totalResults) + " search results...")
-    if not totalResults:
-        return False
-    if int(totalResults) > 1000:
-        logger.warn('Search returned more than 1000 hits [' + str(totalResults) + ']. Only displaying first 1000 results - use more specifics or the exact ComicID if required.')
-        totalResults = 1000
+    # Determine pagination strategy based on whether limit/offset are provided
+    if limit is not None:
+        # Server-side pagination mode: fetch only the requested page
+        page_offset = offset if offset is not None else 0
+        page_limit = min(limit, 100)  # ComicVine API max is 100 per request
 
-    # Calculate pages needed (100 results per page)
-    pages_needed = (int(totalResults) + 99) // 100
+        logger.info('[PAGINATION] Fetching single page: limit=%d, offset=%d' % (page_limit, page_offset))
+        searched = pullsearch(comicapi, comicquery, page_offset, search_type, sort=sort, limit=page_limit)
+        if searched is None:
+            return {'results': [], 'pagination': {'total': 0, 'limit': page_limit, 'offset': page_offset, 'returned': 0}}
 
-    # Fetch all pages - either in parallel or sequentially
-    all_pages = []
-    if mylar.CONFIG.CV_PARALLEL_PAGINATION and pages_needed > 1:
-        parallel_start = time.time()
-        logger.info('[PARALLEL] Fetching %d pages in parallel (max %d workers)' % (pages_needed, mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS))
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        totalResults = searched.getElementsByTagName('number_of_total_results')[0].firstChild.wholeText
+        logger.fdebug("there are " + str(totalResults) + " total search results")
 
-        # Start with first page already fetched
-        all_pages = [(0, searched)]
+        if not totalResults:
+            return {'results': [], 'pagination': {'total': 0, 'limit': page_limit, 'offset': page_offset, 'returned': 0}}
 
-        # Fetch remaining pages in parallel
-        with ThreadPoolExecutor(max_workers=min(mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS, pages_needed - 1)) as executor:
-            # Submit remaining pages
-            futures = {
-                executor.submit(pullsearch, comicapi, comicquery, offset * 100, search_type): offset
-                for offset in range(1, pages_needed)
-            }
+        # For pagination mode, we only fetch the single requested page
+        all_pages = [(0, searched)]  # Use 0 as page index since we're only fetching one page
+        totalResults_int = int(totalResults)
 
-            # Collect results as they complete
-            for future in as_completed(futures):
-                offset = futures[future]
-                try:
-                    result = future.result()
-                    if result:
-                        all_pages.append((offset, result))
-                except Exception as e:
-                    logger.error('[PARALLEL] Error fetching page %d: %s' % (offset, e))
-
-        # Sort pages by offset to maintain order
-        all_pages.sort(key=lambda x: x[0])
-        parallel_duration = time.time() - parallel_start
-        logger.info('[PARALLEL] Fetched %d/%d pages successfully in %.2f seconds' % (len(all_pages), pages_needed, parallel_duration))
     else:
-        # Sequential fetching (original behavior)
-        countResults = 0
-        while (countResults < int(totalResults)):
-            if countResults > 0:
-                searched = pullsearch(comicapi, comicquery, countResults, search_type)
-            if searched:
-                all_pages.append((countResults // 100, searched))
-            countResults = countResults + 100
+        # Legacy mode: fetch all results up to 1000 (backward compatibility)
+        logger.info('[LEGACY] Fetching all results (no pagination parameters)')
+        searched = pullsearch(comicapi, comicquery, 0, search_type, sort=sort)
+        if searched is None:
+            return False
+
+        totalResults = searched.getElementsByTagName('number_of_total_results')[0].firstChild.wholeText
+        logger.fdebug("there are " + str(totalResults) + " search results...")
+        if not totalResults:
+            return False
+        if int(totalResults) > 1000:
+            logger.warn('Search returned more than 1000 hits [' + str(totalResults) + ']. Only displaying first 1000 results - use more specifics or the exact ComicID if required.')
+            totalResults = 1000
+
+        totalResults_int = int(totalResults)
+
+        # Calculate pages needed (100 results per page)
+        pages_needed = (totalResults_int + 99) // 100
+
+        # Fetch all pages - either in parallel or sequentially
+        all_pages = []
+        if mylar.CONFIG.CV_PARALLEL_PAGINATION and pages_needed > 1:
+            parallel_start = time.time()
+            logger.info('[PARALLEL] Fetching %d pages in parallel (max %d workers)' % (pages_needed, mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS))
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            # Start with first page already fetched
+            all_pages = [(0, searched)]
+
+            # Fetch remaining pages in parallel
+            with ThreadPoolExecutor(max_workers=min(mylar.CONFIG.CV_MAX_PARALLEL_REQUESTS, pages_needed - 1)) as executor:
+                # Submit remaining pages
+                futures = {
+                    executor.submit(pullsearch, comicapi, comicquery, offset_val * 100, search_type, sort=sort): offset_val
+                    for offset_val in range(1, pages_needed)
+                }
+
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    offset_val = futures[future]
+                    try:
+                        result = future.result()
+                        if result:
+                            all_pages.append((offset_val, result))
+                    except Exception as e:
+                        logger.error('[PARALLEL] Error fetching page %d: %s' % (offset_val, e))
+
+            # Sort pages by offset to maintain order
+            all_pages.sort(key=lambda x: x[0])
+            parallel_duration = time.time() - parallel_start
+            logger.info('[PARALLEL] Fetched %d/%d pages successfully in %.2f seconds' % (len(all_pages), pages_needed, parallel_duration))
+        else:
+            # Sequential fetching (original behavior)
+            countResults = 0
+            while (countResults < totalResults_int):
+                if countResults > 0:
+                    searched = pullsearch(comicapi, comicquery, countResults, search_type, sort=sort)
+                if searched:
+                    all_pages.append((countResults // 100, searched))
+                countResults = countResults + 100
 
     # Process all pages
     for offset, searched in all_pages:
@@ -567,7 +599,21 @@ def findComic(name, mode, issue, limityear=None, search_type=None, annual_check=
 
     search_duration = time.time() - search_start_time
     logger.info('[SEARCH PERFORMANCE] Search completed in %.2f seconds (%d results)' % (search_duration, len(comiclist)))
-    return comiclist
+
+    # Return with pagination metadata if limit was provided, otherwise return legacy format
+    if limit is not None:
+        return {
+            'results': comiclist,
+            'pagination': {
+                'total': totalResults_int,
+                'limit': limit,
+                'offset': page_offset,  # Use page_offset instead of offset
+                'returned': len(comiclist)
+            }
+        }
+    else:
+        # Legacy format: just return the list
+        return comiclist
 
 def storyarcinfo(xmlid):
 

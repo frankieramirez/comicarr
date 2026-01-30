@@ -1,23 +1,71 @@
-import { useState } from 'react';
-import { Search as SearchIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search as SearchIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSearchComics } from '@/hooks/useSearch';
 import ComicCard from '@/components/search/ComicCard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeQuery, setActiveQuery] = useState('');
 
-  const { data: searchResults = [], isLoading, error } = useSearchComics(activeQuery);
+  // Get parameters from URL
+  const urlQuery = searchParams.get('q') || '';
+  const urlPage = parseInt(searchParams.get('page')) || 1;
+  const urlSort = searchParams.get('sort') || 'start_year:desc';  // ComicVine API format
+
+  // Map frontend sort values to ComicVine API format
+  const sortMapping = {
+    'year_desc': 'start_year:desc',
+    'year_asc': 'start_year:asc',
+    'issues_desc': 'count_of_issues:desc',
+    'issues_asc': 'count_of_issues:asc',
+    'name_asc': 'name:asc',
+    'name_desc': 'name:desc',
+  };
+
+  const apiSort = sortMapping[urlSort] || urlSort;
+
+  // Use server-side pagination
+  const { data, isLoading, error } = useSearchComics(urlQuery, urlPage, apiSort);
+  const searchResults = data?.results || [];
+  const pagination = data?.pagination;
+
+  // Initialize search query from URL on mount
+  useEffect(() => {
+    if (urlQuery) {
+      setSearchQuery(urlQuery);
+    }
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim().length > 2) {
-      setActiveQuery(searchQuery.trim());
+      setSearchParams({ q: searchQuery.trim(), page: '1', sort: urlSort });
     }
   };
+
+  const handlePageChange = (newPage) => {
+    const params = Object.fromEntries(searchParams);
+    params.page = newPage.toString();
+    setSearchParams(params);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSortChange = (value) => {
+    const params = Object.fromEntries(searchParams);
+    params.sort = value;
+    params.page = '1'; // Reset to page 1 when sort changes
+    setSearchParams(params);
+  };
+
+  // Calculate pagination info from server metadata
+  const totalPages = pagination ? Math.ceil(pagination.total / pagination.limit) : 0;
+  const startIndex = pagination ? pagination.offset + 1 : 0;
+  const endIndex = pagination ? pagination.offset + pagination.returned : 0;
 
   return (
     <div className="space-y-6 page-transition">
@@ -47,7 +95,36 @@ export default function SearchPage() {
         </Button>
       </form>
 
-      {/* Search Results */}
+      {/* Sort - Only show if we have results */}
+      {!isLoading && !error && urlQuery && searchResults.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 max-w-xs">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Sort by
+              </label>
+              <Select
+                value={urlSort}
+                onValueChange={handleSortChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="year_desc">Year (Newest First)</SelectItem>
+                  <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
+                  <SelectItem value="issues_desc">Issue Count (Most First)</SelectItem>
+                  <SelectItem value="issues_asc">Issue Count (Least First)</SelectItem>
+                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name_desc">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {[...Array(12)].map((_, i) => (
@@ -64,6 +141,7 @@ export default function SearchPage() {
         </div>
       )}
 
+      {/* Error State */}
       {error && (
         <div className="text-center py-12">
           <p className="text-red-600 text-lg">Search failed</p>
@@ -71,29 +149,59 @@ export default function SearchPage() {
         </div>
       )}
 
-      {!isLoading && !error && activeQuery && searchResults.length === 0 && (
+      {/* No Results State */}
+      {!isLoading && !error && urlQuery && searchResults.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">No results found for "{activeQuery}"</p>
+          <p className="text-muted-foreground text-lg">No results found for "{urlQuery}"</p>
           <p className="text-gray-400 text-sm mt-2">
             Try a different search term or check your spelling.
           </p>
         </div>
       )}
 
+      {/* Results Grid */}
       {!isLoading && !error && searchResults.length > 0 && (
         <div>
-          <p className="text-gray-600 mb-4">
-            Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{activeQuery}"
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Showing {startIndex}-{endIndex} of {pagination?.total || 0} result{pagination?.total !== 1 ? 's' : ''} for "{urlQuery}"
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
             {searchResults.map((comic) => (
               <ComicCard key={comic.comicid} comic={comic} />
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={() => handlePageChange(urlPage - 1)}
+                disabled={urlPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                Previous
+              </Button>
+
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Page {urlPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                onClick={() => handlePageChange(urlPage + 1)}
+                disabled={urlPage >= totalPages}
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {!activeQuery && (
+      {/* Empty State - No Search Yet */}
+      {!urlQuery && (
         <div className="text-center py-12">
           <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-muted-foreground text-lg">Enter a search term to find comics</p>
