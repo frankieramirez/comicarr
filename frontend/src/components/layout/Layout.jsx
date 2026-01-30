@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import ThemeToggle from '@/components/ThemeToggle';
 import {
   Home,
   Search,
@@ -9,6 +10,7 @@ import {
   Settings,
   LogOut,
   BookMarked,
+  MessageSquare,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -38,43 +40,47 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Top Navigation */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <nav className="glass-nav sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               {/* Logo */}
-              <Link to="/" className="flex items-center px-2 text-xl font-bold text-blue-600">
-                Mylar3
+              <Link to="/" className="flex items-center px-2 space-x-2 group">
+                <MessageSquare className="w-6 h-6 text-primary" />
+                <span className="text-xl font-bold gradient-brand hover:scale-105 transition-transform">
+                  Mylar4
+                </span>
               </Link>
 
               {/* Navigation Links */}
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-2">
+              <div className="hidden sm:ml-8 sm:flex sm:space-x-1">
                 {navItems.map(({ path, label, icon: Icon }) => (
                   <Link
                     key={path}
                     to={path}
-                    className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                       isActive(path)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'text-primary bg-primary/10'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                     }`}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
+                    <Icon className="w-4 h-4 mr-2 opacity-80" />
                     {label}
                   </Link>
                 ))}
               </div>
             </div>
 
-            {/* Right side - Logout */}
-            <div className="flex items-center">
+            {/* Right side - Theme Toggle & Logout */}
+            <div className="flex items-center space-x-1">
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="flex items-center"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
@@ -84,19 +90,19 @@ export default function Layout({ children }) {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="sm:hidden border-t border-gray-200">
-          <div className="flex overflow-x-auto">
+        <div className="sm:hidden border-t border-border/50">
+          <div className="flex overflow-x-auto scrollbar-hide">
             {navItems.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
                 to={path}
-                className={`flex-1 flex flex-col items-center px-3 py-2 text-xs font-medium ${
+                className={`flex-1 flex flex-col items-center px-3 py-3 text-xs font-medium whitespace-nowrap transition-colors ${
                   isActive(path)
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground'
                 }`}
               >
-                <Icon className="w-5 h-5 mb-1" />
+                <Icon className="w-5 h-5 mb-1 opacity-80" />
                 {label}
               </Link>
             ))}
