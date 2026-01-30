@@ -55,12 +55,12 @@ export default function Layout({ children }) {
               </Link>
 
               {/* Navigation Links */}
-              <div className="hidden sm:ml-8 sm:flex sm:space-x-1">
+              <div className="hidden sm:ml-8 sm:flex sm:items-center sm:space-x-1 sm:py-2">
                 {navItems.map(({ path, label, icon: Icon }) => (
                   <Link
                     key={path}
                     to={path}
-                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    className={`inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                       isActive(path)
                         ? 'text-primary bg-primary/10'
                         : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
