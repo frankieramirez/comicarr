@@ -11,12 +11,7 @@ import {
   SortingState,
   CellContext,
 } from "@tanstack/react-table";
-import {
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  BookOpen,
-} from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
