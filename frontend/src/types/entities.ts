@@ -144,7 +144,7 @@ export interface MangaChapter {
 
 /** Extended Comic interface with manga support */
 export interface ComicOrManga extends Comic {
-  ContentType?: ContentType;
+  ContentType?: ContentType | null;
   ReadingDirection?: ReadingDirection;
   MetadataSource?: string | null;
   ExternalID?: string | null;
