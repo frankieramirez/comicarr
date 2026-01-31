@@ -1207,8 +1207,12 @@ class Api(object):
             return
 
         # Parse pagination parameters
-        parsed_limit = int(limit) if limit else None
-        parsed_offset = int(offset) if offset else None
+        try:
+            parsed_limit = int(limit) if limit else None
+            parsed_offset = int(offset) if offset else None
+        except ValueError:
+            self.data = self._failureResponse('Invalid pagination parameters: limit and offset must be integers')
+            return
 
         # Handle manga search via content_type parameter
         if content_type == 'manga':
@@ -2140,8 +2144,12 @@ class Api(object):
             return
 
         # Parse pagination parameters
-        parsed_limit = int(limit) if limit else None
-        parsed_offset = int(offset) if offset else None
+        try:
+            parsed_limit = int(limit) if limit else None
+            parsed_offset = int(offset) if offset else None
+        except ValueError:
+            self.data = self._failureResponse('Invalid pagination parameters: limit and offset must be integers')
+            return
 
         from mylar import mangadex
         searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
