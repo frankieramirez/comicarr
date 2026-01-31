@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, ChevronLeft, ChevronRight, BookOpen, Book } from "lucide-react";
+import { Search as SearchIcon, ChevronLeft, ChevronRight, BookOpen, Book, Library } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
+import { useUnifiedSearch } from "@/hooks/useUnifiedSearch";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ContentType } from "@/types/entities";
+
+type SearchMode = "all" | ContentType;
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,11 +18,11 @@ export default function SearchPage() {
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "year_desc";
-  const urlContentType = (searchParams.get("type") as ContentType) || "comic";
+  const urlSearchMode = (searchParams.get("type") as SearchMode) || "all";
 
   // Initialize search query from URL parameter
   const [searchQuery, setSearchQuery] = useState(urlQuery);
-  const [contentType, setContentType] = useState<ContentType>(urlContentType);
+  const [searchMode, setSearchMode] = useState<SearchMode>(urlSearchMode);
 
   // Map frontend sort values to ComicVine API format (for comics)
   const comicSortMapping: Record<string, string> = {
@@ -42,41 +45,55 @@ export default function SearchPage() {
     follows: "follows",
   };
 
-  const apiSort = contentType === "manga"
-    ? mangaSortMapping[urlSort] || "relevance"
-    : comicSortMapping[urlSort] || urlSort;
+  const comicApiSort = comicSortMapping[urlSort] || urlSort;
+  const mangaApiSort = mangaSortMapping[urlSort] || "relevance";
 
-  // Use server-side pagination for comics
+  // Use unified search for "all" mode
+  const unifiedSearch = useUnifiedSearch(
+    searchMode === "all" ? urlQuery : "",
+    urlPage,
+    comicApiSort,
+    mangaApiSort,
+  );
+
+  // Use comic search for comic-only mode
   const comicSearch = useSearchComics(
-    contentType === "comic" ? urlQuery : "",
+    searchMode === "comic" ? urlQuery : "",
     urlPage,
-    apiSort,
+    comicApiSort,
   );
 
-  // Use server-side pagination for manga
+  // Use manga search for manga-only mode
   const mangaSearch = useSearchManga(
-    contentType === "manga" ? urlQuery : "",
+    searchMode === "manga" ? urlQuery : "",
     urlPage,
-    apiSort,
+    mangaApiSort,
   );
 
-  // Select the active search based on content type
-  const { data, isLoading, error } = contentType === "manga" ? mangaSearch : comicSearch;
+  // Select the active search based on search mode
+  const activeSearch = searchMode === "all"
+    ? unifiedSearch
+    : searchMode === "manga"
+      ? mangaSearch
+      : comicSearch;
+
+  const { data, isLoading, error } = activeSearch;
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim().length > 2) {
-      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort, type: contentType });
+      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort, type: searchMode });
     }
   };
 
-  const handleContentTypeChange = (newType: ContentType) => {
-    setContentType(newType);
-    // If there's a query, re-search with new content type
+  const handleSearchModeChange = (newMode: SearchMode) => {
+    setSearchMode(newMode);
+    // If there's a query, re-search with new mode
     if (urlQuery) {
-      setSearchParams({ q: urlQuery, page: "1", sort: newType === "manga" ? "relevance" : urlSort, type: newType });
+      const newSort = newMode === "manga" ? "relevance" : urlSort;
+      setSearchParams({ q: urlQuery, page: "1", sort: newSort, type: newMode });
     }
   };
 
@@ -103,24 +120,44 @@ export default function SearchPage() {
     ? pagination.offset + (pagination.returned ?? 0)
     : 0;
 
+  // Get title based on search mode
+  const getTitle = () => {
+    switch (searchMode) {
+      case "all":
+        return "Search All";
+      case "manga":
+        return "Search Manga";
+      default:
+        return "Search Comics";
+    }
+  };
+
   return (
     <div className="space-y-4 page-transition">
       {/* Page Title */}
-      <h1 className="text-3xl font-bold">Search {contentType === "manga" ? "Manga" : "Comics"}</h1>
+      <h1 className="text-3xl font-bold">{getTitle()}</h1>
 
       {/* Content Type Toggle */}
       <div className="flex gap-2">
         <Button
-          variant={contentType === "comic" ? "default" : "outline"}
-          onClick={() => handleContentTypeChange("comic")}
+          variant={searchMode === "all" ? "default" : "outline"}
+          onClick={() => handleSearchModeChange("all")}
+          className="flex items-center"
+        >
+          <Library className="w-4 h-4 mr-2" />
+          All
+        </Button>
+        <Button
+          variant={searchMode === "comic" ? "default" : "outline"}
+          onClick={() => handleSearchModeChange("comic")}
           className="flex items-center"
         >
           <Book className="w-4 h-4 mr-2" />
           Comics
         </Button>
         <Button
-          variant={contentType === "manga" ? "default" : "outline"}
-          onClick={() => handleContentTypeChange("manga")}
+          variant={searchMode === "manga" ? "default" : "outline"}
+          onClick={() => handleSearchModeChange("manga")}
           className="flex items-center"
         >
           <BookOpen className="w-4 h-4 mr-2" />
@@ -132,7 +169,7 @@ export default function SearchPage() {
       <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
         <Input
           type="text"
-          placeholder={`Enter ${contentType === "manga" ? "manga" : "comic"} name...`}
+          placeholder={`Enter ${searchMode === "all" ? "comic or manga" : searchMode} name...`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1"
@@ -156,6 +193,11 @@ export default function SearchPage() {
             <>
               Showing {startIndex}-{endIndex} of {pagination?.total || 0}{" "}
               results for "{urlQuery}"
+              {searchMode === "all" && unifiedSearch.data && (
+                <span className="text-xs ml-2">
+                  ({unifiedSearch.comicSearch.data?.pagination?.total || 0} comics, {unifiedSearch.mangaSearch.data?.pagination?.total || 0} manga)
+                </span>
+              )}
             </>
           )}
         </p>
@@ -205,7 +247,8 @@ export default function SearchPage() {
             results={searchResults}
             currentSort={urlSort}
             onSortChange={handleSortChange}
-            contentType={contentType}
+            contentType={searchMode === "all" ? undefined : searchMode}
+            showTypeColumn={searchMode === "all"}
           />
 
           {/* Pagination Controls */}
@@ -242,7 +285,7 @@ export default function SearchPage() {
         <div className="text-center py-12">
           <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-muted-foreground text-lg">
-            Enter a search term to find {contentType === "manga" ? "manga" : "comics"}
+            Enter a search term to find {searchMode === "all" ? "comics and manga" : searchMode === "manga" ? "manga" : "comics"}
           </p>
           <p className="text-gray-400 text-sm mt-2">
             Search requires at least 3 characters

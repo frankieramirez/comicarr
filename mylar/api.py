@@ -307,7 +307,8 @@ class Api(object):
             LatestIssue as LatestIssue,\
             Total as Total,\
             Have as Have,\
-            DetailURL as DetailURL\
+            DetailURL as DetailURL,\
+            ContentType as ContentType\
         FROM comics'
 
     def _selectForIssues(self):
@@ -319,7 +320,9 @@ class Api(object):
             ReleaseDate as releaseDate,\
             IssueDate as issueDate,\
             Status as status,\
-            ComicName as comicName\
+            ComicName as comicName,\
+            ChapterNumber as chapterNumber,\
+            VolumeNumber as volumeNumber\
         FROM issues'
 
     def _selectForAnnuals(self):

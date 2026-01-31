@@ -31,6 +31,7 @@ export type {
   MangaChapter,
   ComicOrManga,
   IssueOrChapter,
+  VolumeGroup,
 } from "./entities";
 
 // Auth types
