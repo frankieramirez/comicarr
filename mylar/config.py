@@ -172,6 +172,10 @@ _CONFIG_DEFINITIONS = OrderedDict({
     'METRON_PASSWORD': (str, 'Metron', None),
     'USE_METRON_SEARCH': (bool, 'Metron', False),
 
+    'MANGADEX_ENABLED': (bool, 'MangaDex', False),
+    'MANGADEX_LANGUAGES': (str, 'MangaDex', 'en'),
+    'MANGADEX_CONTENT_RATING': (str, 'MangaDex', 'safe,suggestive'),
+
     'LOG_DIR' : (str, 'Logs', None),
     'MAX_LOGSIZE' : (int, 'Logs', 10000000),
     'MAX_LOGFILES': (int, 'Logs', 5),

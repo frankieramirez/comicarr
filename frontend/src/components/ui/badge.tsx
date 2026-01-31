@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 
 type BadgeVariant =
   | "default"
+  | "secondary"
+  | "outline"
   | "active"
   | "paused"
   | "ended"
@@ -19,6 +21,8 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variants: Record<BadgeVariant, string> = {
       default: "bg-muted text-muted-foreground",
+      secondary: "bg-secondary text-secondary-foreground",
+      outline: "border border-input bg-background text-foreground",
       active: "bg-[var(--status-active-bg)] text-[var(--status-active)]",
       paused: "bg-[var(--status-paused-bg)] text-[var(--status-paused)]",
       ended: "bg-[var(--status-ended-bg)] text-[var(--status-ended)]",

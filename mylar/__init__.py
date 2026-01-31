@@ -1153,6 +1153,28 @@ def dbcheck():
     except sqlite3.OperationalError:
         c.execute('ALTER TABLE comics ADD COLUMN cv_removed INT')
 
+    # -- Manga Support Columns --
+
+    try:
+        c.execute('SELECT ContentType from comics')
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE comics ADD COLUMN ContentType TEXT DEFAULT 'comic'")
+
+    try:
+        c.execute('SELECT ReadingDirection from comics')
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE comics ADD COLUMN ReadingDirection TEXT DEFAULT 'ltr'")
+
+    try:
+        c.execute('SELECT MetadataSource from comics')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE comics ADD COLUMN MetadataSource TEXT')
+
+    try:
+        c.execute('SELECT ExternalID from comics')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE comics ADD COLUMN ExternalID TEXT')
+
     try:
         c.execute('SELECT DynamicComicName from comics')
         if CONFIG.DYNAMIC_UPDATE < 3:
@@ -1204,6 +1226,18 @@ def dbcheck():
         c.execute('SELECT forced_file from issues')
     except sqlite3.OperationalError:
         c.execute('ALTER TABLE issues ADD COLUMN forced_file INT')
+
+    # -- Manga Support Columns for Issues --
+
+    try:
+        c.execute('SELECT ChapterNumber from issues')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE issues ADD COLUMN ChapterNumber TEXT')
+
+    try:
+        c.execute('SELECT VolumeNumber from issues')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE issues ADD COLUMN VolumeNumber TEXT')
 
     ## -- ImportResults Table --
 

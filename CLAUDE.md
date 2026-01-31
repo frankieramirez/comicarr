@@ -45,6 +45,7 @@ python3 Mylar.py maintenance --carepackage  # Generate debug package
 - `search.py` - Comic search orchestration across multiple providers (~4,300 lines)
 - `PostProcessor.py` - Download post-processing, file validation, renaming (~3,600 lines)
 - `cv.py` - Comic Vine API integration for metadata
+- `mangadex.py` - MangaDex API integration for metadata
 - `importer.py` - Library scanning and import functionality
 - `rsscheck.py` - RSS feed monitoring for new releases
 - `weeklypull.py` - Weekly pull list management

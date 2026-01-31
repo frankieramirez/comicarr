@@ -34,6 +34,7 @@ export interface Comic {
   ForceContinuing?: boolean;
   AlternateSearch?: string | null;
   ComicVersion?: string | null;
+  ContentType?: ContentType | null;
 }
 
 /** Issue entity */
@@ -52,6 +53,9 @@ export interface Issue {
   ImageURL?: string | null;
   ImageURL_ALT?: string | null;
   Int_IssueNumber?: number | null;
+  // Chapter/Volume fields for manga support
+  chapterNumber?: string | null;
+  volumeNumber?: string | null;
   // Alternative property names used in some API responses
   id?: string;
   number?: string;
@@ -101,4 +105,62 @@ export interface SeriesDetail {
   comic: Comic[] | Comic;
   issues: Issue[];
   annuals?: Issue[];
+}
+
+/** Content type for comic/manga distinction */
+export type ContentType = "comic" | "manga";
+
+/** Reading direction for manga */
+export type ReadingDirection = "ltr" | "rtl";
+
+/** Manga search result with manga-specific fields */
+export interface MangaSearchResult extends SearchResult {
+  content_type: "manga";
+  reading_direction: ReadingDirection;
+  metadata_source: "mangadex";
+  external_id?: string;
+  status?: "ongoing" | "completed" | "hiatus" | "cancelled" | "unknown";
+  content_rating?: "safe" | "suggestive" | "erotica" | "pornographic";
+}
+
+/** Manga chapter (equivalent to Issue for manga) */
+export interface MangaChapter {
+  id: string;
+  chapter: string | null;
+  volume: string | null;
+  title: string | null;
+  language: string;
+  pages: number;
+  publish_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  scanlation_group: string | null;
+  external_url: string | null;
+  // Mapped to Mylar issue structure
+  issue_number: string | null;
+  issue_name: string | null;
+  release_date: string | null;
+}
+
+/** Extended Comic interface with manga support */
+export interface ComicOrManga extends Comic {
+  ContentType?: ContentType | null;
+  ReadingDirection?: ReadingDirection;
+  MetadataSource?: string | null;
+  ExternalID?: string | null;
+}
+
+/** Extended Issue interface with manga chapter support */
+export interface IssueOrChapter extends Issue {
+  ChapterNumber?: string | null;
+  VolumeNumber?: string | null;
+}
+
+/** Volume group for chapters/volumes view */
+export interface VolumeGroup {
+  volume: string;
+  chapters: IssueOrChapter[];
+  status: "Complete" | "Partial" | "Missing";
+  downloadedCount: number;
+  totalCount: number;
 }

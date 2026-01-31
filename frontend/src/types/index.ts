@@ -25,6 +25,13 @@ export type {
   WantedIssue,
   UpcomingIssue,
   SeriesDetail,
+  ContentType,
+  ReadingDirection,
+  MangaSearchResult,
+  MangaChapter,
+  ComicOrManga,
+  IssueOrChapter,
+  VolumeGroup,
 } from "./entities";
 
 // Auth types

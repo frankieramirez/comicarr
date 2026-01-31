@@ -15,15 +15,22 @@ import {
   Check,
   Loader2,
   ImageOff,
+  Book,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAddComic } from "@/hooks/useSearch";
+import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
-import type { SearchResult } from "@/types";
+import type { SearchResult, ContentType } from "@/types";
+
+// Extended search result with content_type for unified search
+interface ExtendedSearchResult extends SearchResult {
+  content_type?: ContentType;
+}
 
 // Lazy-loaded cover thumbnail component
-function CoverThumbnail({ comic }: { comic: SearchResult }) {
+function CoverThumbnail({ comic }: { comic: ExtendedSearchResult }) {
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -55,9 +62,11 @@ function CoverThumbnail({ comic }: { comic: SearchResult }) {
 }
 
 interface SearchResultsTableProps {
-  results: SearchResult[];
+  results: ExtendedSearchResult[];
   currentSort: string;
   onSortChange: (sort: string) => void;
+  contentType?: ContentType;
+  showTypeColumn?: boolean;
 }
 
 interface AddByIdEventDetail {
@@ -85,14 +94,44 @@ function getColumnSort(
   return false;
 }
 
+// Type badge component
+function TypeBadge({ contentType }: { contentType: ContentType }) {
+  if (contentType === "manga") {
+    return (
+      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+        <BookOpen className="w-3 h-3 mr-1" />
+        Manga
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-xs px-1.5 py-0">
+      <Book className="w-3 h-3 mr-1" />
+      Comic
+    </Badge>
+  );
+}
+
 // Action cell component to handle add-to-library logic
-function ActionCell({ comic }: { comic: SearchResult }) {
+function ActionCell({
+  comic,
+  contentType = "comic",
+}: {
+  comic: ExtendedSearchResult;
+  contentType?: ContentType;
+}) {
   const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
+  const addMangaMutation = useAddManga();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const comicIdRef = useRef<string | null>(null);
+
+  // Use content_type from result if available (for unified search), otherwise use prop
+  const effectiveContentType = comic.content_type || contentType;
+  const isManga = effectiveContentType === "manga";
+  const itemLabel = isManga ? "Manga" : "Comic";
 
   // Listen for SSE events when a comic is being added
   useEffect(() => {
@@ -138,14 +177,18 @@ function ActionCell({ comic }: { comic: SearchResult }) {
     e.stopPropagation();
 
     try {
-      comicIdRef.current = comic.comicid ?? null;
+      comicIdRef.current = comic.comicid ?? comic.id ?? null;
       setIsProcessing(true);
 
-      await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      if (isManga) {
+        await addMangaMutation.mutateAsync(comic.comicid ?? comic.id);
+      } else {
+        await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      }
       setIsAdded(true);
       addToast({
         type: "success",
-        title: "Adding Comic...",
+        title: `Adding ${itemLabel}...`,
         description: `${comic.name} is being added to your library. Please wait...`,
         duration: 5000,
       });
@@ -155,7 +198,7 @@ function ActionCell({ comic }: { comic: SearchResult }) {
       comicIdRef.current = null;
       addToast({
         type: "error",
-        title: "Failed to Add Comic",
+        title: `Failed to Add ${itemLabel}`,
         description: err instanceof Error ? err.message : "Unknown error",
       });
     }
@@ -182,16 +225,19 @@ function ActionCell({ comic }: { comic: SearchResult }) {
   }
 
   // Default - Add button with primary outline style
+  const isPending = isManga
+    ? addMangaMutation.isPending
+    : addComicMutation.isPending;
   return (
     <Button
       onClick={handleAddComic}
-      disabled={addComicMutation.isPending}
+      disabled={isPending}
       variant="outline"
       size="sm"
       className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
     >
       <Plus className="w-3 h-3 mr-1" />
-      {addComicMutation.isPending ? "Adding..." : "Add"}
+      {isPending ? "Adding..." : "Add"}
     </Button>
   );
 }
@@ -200,7 +246,16 @@ export default function SearchResultsTable({
   results,
   currentSort,
   onSortChange,
+  contentType = "comic",
+  showTypeColumn = false,
 }: SearchResultsTableProps) {
+  const isManga = contentType === "manga";
+  const issuesLabel = showTypeColumn
+    ? "Issues/Ch."
+    : isManga
+      ? "Chapters"
+      : "Issues";
+
   // Handle column header click for sorting
   const handleSortClick = (columnId: string) => {
     const mapping = SORT_COLUMN_MAP[columnId];
@@ -217,14 +272,14 @@ export default function SearchResultsTable({
     }
   };
 
-  const columns = useMemo<ColumnDef<SearchResult>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<ExtendedSearchResult>[]>(() => {
+    const cols: ColumnDef<ExtendedSearchResult>[] = [
       {
         id: "cover",
         header: "",
         enableSorting: false,
         size: 50,
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
           <CoverThumbnail comic={row.original} />
         ),
       },
@@ -232,7 +287,7 @@ export default function SearchResultsTable({
         id: "series",
         accessorKey: "name",
         header: "Series",
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
             {row.original.comicyear && (
@@ -243,19 +298,34 @@ export default function SearchResultsTable({
           </div>
         ),
       },
+    ];
+
+    // Add type column when showing unified results
+    if (showTypeColumn) {
+      cols.push({
+        id: "type",
+        header: "Type",
+        enableSorting: false,
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
+          <TypeBadge contentType={row.original.content_type || "comic"} />
+        ),
+      });
+    }
+
+    cols.push(
       {
         id: "year",
         accessorKey: "comicyear",
         header: "Year",
-        cell: ({ getValue }: CellContext<SearchResult, unknown>) => (
+        cell: ({ getValue }: CellContext<ExtendedSearchResult, unknown>) => (
           <span>{(getValue() as string) || "—"}</span>
         ),
       },
       {
         id: "issues",
         accessorKey: "issues",
-        header: "Issues",
-        cell: ({ row }: CellContext<SearchResult, unknown>) => {
+        header: issuesLabel,
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => {
           const issues = row.original.issues ?? row.original.count_of_issues;
           return <span>{issues !== undefined ? issues : "—"}</span>;
         },
@@ -264,7 +334,7 @@ export default function SearchResultsTable({
         id: "status",
         header: "Status",
         enableSorting: false,
-        cell: ({ row }: CellContext<SearchResult, unknown>) =>
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) =>
           row.original.in_library ? (
             <Badge variant="default">In Library</Badge>
           ) : null,
@@ -273,15 +343,19 @@ export default function SearchResultsTable({
         id: "actions",
         header: "",
         enableSorting: false,
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
           <div className="text-right">
-            <ActionCell comic={row.original} />
+            <ActionCell
+              comic={row.original}
+              contentType={row.original.content_type || contentType}
+            />
           </div>
         ),
       },
-    ],
-    [],
-  );
+    );
+
+    return cols;
+  }, [contentType, issuesLabel, showTypeColumn]);
 
   const table = useReactTable({
     data: results,
