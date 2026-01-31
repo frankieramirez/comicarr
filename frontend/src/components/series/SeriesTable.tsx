@@ -1,5 +1,5 @@
 import { useState, useMemo, SyntheticEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,12 +11,18 @@ import {
   SortingState,
   CellContext,
 } from "@tanstack/react-table";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, Book, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import SeriesFilters, {
+  type TypeFilter,
+  type ProgressFilter,
+  type StatusFilter,
+} from "./SeriesFilters";
 import type { Comic } from "@/types";
 
 interface SeriesTableProps {
@@ -24,19 +30,107 @@ interface SeriesTableProps {
   isLoading?: boolean;
 }
 
+// Helper to calculate progress percentage
+function getProgressPercentage(comic: Comic): number {
+  const total = parseInt(String(comic.Total)) || 0;
+  const have = parseInt(String(comic.Have)) || 0;
+  return total > 0 ? Math.round((have / total) * 100) : 0;
+}
+
+// Helper to get progress category
+function getProgressCategory(comic: Comic): "0" | "partial" | "100" {
+  const percentage = getProgressPercentage(comic);
+  if (percentage === 0) return "0";
+  if (percentage === 100) return "100";
+  return "partial";
+}
+
 export default function SeriesTable({
   data = [],
   isLoading,
 }: SeriesTableProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+
+  // Get filters from URL params
+  const typeFilter = (searchParams.get("type") as TypeFilter) || "all";
+  const progressFilter = (searchParams.get("progress") as ProgressFilter) || "all";
+  const statusFilter = (searchParams.get("status") as StatusFilter) || "all";
+
+  // Update URL params when filters change
+  const updateFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value === "all") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const counts = {
+      type: { all: data.length, comic: 0, manga: 0 } as Record<TypeFilter, number>,
+      progress: { all: data.length, "0": 0, partial: 0, "100": 0 } as Record<ProgressFilter, number>,
+      status: { all: data.length, Active: 0, Paused: 0, Ended: 0 } as Record<StatusFilter, number>,
+    };
+
+    data.forEach((comic) => {
+      // Type counts
+      const contentType = comic.ContentType?.toLowerCase();
+      if (contentType === "manga") {
+        counts.type.manga++;
+      } else {
+        counts.type.comic++;
+      }
+
+      // Progress counts
+      const progressCategory = getProgressCategory(comic);
+      counts.progress[progressCategory]++;
+
+      // Status counts
+      const status = comic.Status;
+      if (status === "Active" || status === "Paused" || status === "Ended") {
+        counts.status[status]++;
+      }
+    });
+
+    return counts;
+  }, [data]);
+
+  // Filter data based on selected filters
+  const filteredData = useMemo(() => {
+    return data.filter((comic) => {
+      // Type filter
+      if (typeFilter !== "all") {
+        const contentType = comic.ContentType?.toLowerCase();
+        if (typeFilter === "manga" && contentType !== "manga") return false;
+        if (typeFilter === "comic" && contentType === "manga") return false;
+      }
+
+      // Progress filter
+      if (progressFilter !== "all") {
+        const progressCategory = getProgressCategory(comic);
+        if (progressCategory !== progressFilter) return false;
+      }
+
+      // Status filter
+      if (statusFilter !== "all") {
+        if (comic.Status !== statusFilter) return false;
+      }
+
+      return true;
+    });
+  }, [data, typeFilter, progressFilter, statusFilter]);
 
   const columns = useMemo<ColumnDef<Comic>[]>(
     () => [
       {
         accessorKey: "ComicName",
-        header: "Comic",
+        header: "Series",
         cell: ({ row }: CellContext<Comic, unknown>) => (
           <div className="flex items-center space-x-3">
             {row.original.ComicImage && (
@@ -50,7 +144,15 @@ export default function SeriesTable({
               />
             )}
             <div>
-              <div className="font-medium">{row.original.ComicName}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{row.original.ComicName}</span>
+                {row.original.ContentType?.toLowerCase() === "manga" ? (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    <BookOpen className="w-3 h-3 mr-1" />
+                    Manga
+                  </Badge>
+                ) : null}
+              </div>
               {row.original.ComicYear && (
                 <div className="text-sm text-gray-500">
                   ({row.original.ComicYear})
@@ -88,9 +190,7 @@ export default function SeriesTable({
         id: "progress",
         header: "Progress",
         cell: ({ row }: CellContext<Comic, unknown>) => {
-          const total = parseInt(String(row.original.Total)) || 0;
-          const have = parseInt(String(row.original.Have)) || 0;
-          const percentage = total > 0 ? Math.round((have / total) * 100) : 0;
+          const percentage = getProgressPercentage(row.original);
 
           return (
             <div className="flex items-center space-x-2">
@@ -115,7 +215,7 @@ export default function SeriesTable({
   );
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     state: {
       sorting,
@@ -151,17 +251,30 @@ export default function SeriesTable({
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <Input
-          placeholder="Search series..."
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
+      {/* Filters & Search Row */}
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <SeriesFilters
+          typeFilter={typeFilter}
+          progressFilter={progressFilter}
+          statusFilter={statusFilter}
+          onTypeChange={(value) => updateFilter("type", value)}
+          onProgressChange={(value) => updateFilter("progress", value)}
+          onStatusChange={(value) => updateFilter("status", value)}
+          counts={filterCounts}
         />
-        <span className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} series
-        </span>
+
+        {/* Search */}
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search series..."
+            value={globalFilter ?? ""}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="w-[200px]"
+          />
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {table.getFilteredRowModel().rows.length} series
+          </span>
+        </div>
       </div>
 
       {/* Table */}

@@ -34,6 +34,7 @@ export interface Comic {
   ForceContinuing?: boolean;
   AlternateSearch?: string | null;
   ComicVersion?: string | null;
+  ContentType?: ContentType | null;
 }
 
 /** Issue entity */
@@ -52,6 +53,9 @@ export interface Issue {
   ImageURL?: string | null;
   ImageURL_ALT?: string | null;
   Int_IssueNumber?: number | null;
+  // Chapter/Volume fields for manga support
+  chapterNumber?: string | null;
+  volumeNumber?: string | null;
   // Alternative property names used in some API responses
   id?: string;
   number?: string;
@@ -150,4 +154,13 @@ export interface ComicOrManga extends Comic {
 export interface IssueOrChapter extends Issue {
   ChapterNumber?: string | null;
   VolumeNumber?: string | null;
+}
+
+/** Volume group for chapters/volumes view */
+export interface VolumeGroup {
+  volume: string;
+  chapters: IssueOrChapter[];
+  status: "Complete" | "Partial" | "Missing";
+  downloadedCount: number;
+  totalCount: number;
 }
