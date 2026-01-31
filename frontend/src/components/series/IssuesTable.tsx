@@ -421,6 +421,8 @@ export default function IssuesTable({
       itemLabelCapitalized,
       queueIssueMutation.isPending,
       unqueueIssueMutation.isPending,
+      handleQueueIssue,
+      handleUnqueueIssue,
     ],
   );
 
@@ -534,7 +536,7 @@ export default function IssuesTable({
         },
       },
     ],
-    [bulkQueueMutation.isPending],
+    [bulkQueueMutation.isPending, handleWantVolume],
   );
 
   // Status counts for filter badges
@@ -858,9 +860,8 @@ export default function IssuesTable({
               </thead>
               <tbody className="bg-card divide-y divide-card-border">
                 {volumesTable.getRowModel().rows.map((row) => (
-                  <>
+                  <React.Fragment key={row.id}>
                     <tr
-                      key={row.id}
                       className="hover:bg-accent/50 transition-colors cursor-pointer"
                       onClick={() => row.toggleExpanded()}
                     >
@@ -878,7 +879,7 @@ export default function IssuesTable({
                     </tr>
                     {row.getIsExpanded() &&
                       renderExpandedChapters(row.original)}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

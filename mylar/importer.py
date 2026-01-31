@@ -927,9 +927,26 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
             issue_count += 1
 
             # Track latest chapter
-            if latest_chapter is None or float(chapter_num) > float(latest_chapter):
-                latest_chapter = chapter_num
-                latest_date = release_date
+            try:
+                chapter_float = float(chapter_num)
+                if latest_chapter is None:
+                    latest_chapter = chapter_num
+                    latest_date = release_date
+                else:
+                    try:
+                        if chapter_float > float(latest_chapter):
+                            latest_chapter = chapter_num
+                            latest_date = release_date
+                    except ValueError:
+                        # latest_chapter is non-numeric, update anyway
+                        latest_chapter = chapter_num
+                        latest_date = release_date
+            except ValueError:
+                # chapter_num is non-numeric (e.g., "oneshot", "special", "prologue")
+                # Skip numeric comparison but still track if it's the first chapter
+                if latest_chapter is None:
+                    latest_chapter = chapter_num
+                    latest_date = release_date
 
         # Update comic with issue count and latest info
         update_values = {
