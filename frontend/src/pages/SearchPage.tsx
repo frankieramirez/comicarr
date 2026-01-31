@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, ChevronLeft, ChevronRight, BookOpen, Book, Library } from "lucide-react";
+import {
+  Search as SearchIcon,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Book,
+  Library,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
@@ -71,11 +78,12 @@ export default function SearchPage() {
   );
 
   // Select the active search based on search mode
-  const activeSearch = searchMode === "all"
-    ? unifiedSearch
-    : searchMode === "manga"
-      ? mangaSearch
-      : comicSearch;
+  const activeSearch =
+    searchMode === "all"
+      ? unifiedSearch
+      : searchMode === "manga"
+        ? mangaSearch
+        : comicSearch;
 
   const { data, isLoading, error } = activeSearch;
   const searchResults = data?.results || [];
@@ -84,7 +92,12 @@ export default function SearchPage() {
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim().length > 2) {
-      setSearchParams({ q: searchQuery.trim(), page: "1", sort: urlSort, type: searchMode });
+      setSearchParams({
+        q: searchQuery.trim(),
+        page: "1",
+        sort: urlSort,
+        type: searchMode,
+      });
     }
   };
 
@@ -195,7 +208,10 @@ export default function SearchPage() {
               results for "{urlQuery}"
               {searchMode === "all" && unifiedSearch.data && (
                 <span className="text-xs ml-2">
-                  ({unifiedSearch.comicSearch.data?.pagination?.total || 0} comics, {unifiedSearch.mangaSearch.data?.pagination?.total || 0} manga)
+                  ({unifiedSearch.comicSearch.data?.pagination?.total || 0}{" "}
+                  comics,{" "}
+                  {unifiedSearch.mangaSearch.data?.pagination?.total || 0}{" "}
+                  manga)
                 </span>
               )}
             </>
@@ -285,7 +301,12 @@ export default function SearchPage() {
         <div className="text-center py-12">
           <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-muted-foreground text-lg">
-            Enter a search term to find {searchMode === "all" ? "comics and manga" : searchMode === "manga" ? "manga" : "comics"}
+            Enter a search term to find{" "}
+            {searchMode === "all"
+              ? "comics and manga"
+              : searchMode === "manga"
+                ? "manga"
+                : "comics"}
           </p>
           <p className="text-gray-400 text-sm mt-2">
             Search requires at least 3 characters

@@ -11,7 +11,13 @@ import {
   SortingState,
   CellContext,
 } from "@tanstack/react-table";
-import { ChevronUp, ChevronDown, ChevronsUpDown, Book, BookOpen } from "lucide-react";
+import {
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  Book,
+  BookOpen,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +62,8 @@ export default function SeriesTable({
 
   // Get filters from URL params
   const typeFilter = (searchParams.get("type") as TypeFilter) || "all";
-  const progressFilter = (searchParams.get("progress") as ProgressFilter) || "all";
+  const progressFilter =
+    (searchParams.get("progress") as ProgressFilter) || "all";
   const statusFilter = (searchParams.get("status") as StatusFilter) || "all";
 
   // Update URL params when filters change
@@ -73,9 +80,18 @@ export default function SeriesTable({
   // Calculate filter counts
   const filterCounts = useMemo(() => {
     const counts = {
-      type: { all: data.length, comic: 0, manga: 0 } as Record<TypeFilter, number>,
-      progress: { all: data.length, "0": 0, partial: 0, "100": 0 } as Record<ProgressFilter, number>,
-      status: { all: data.length, Active: 0, Paused: 0, Ended: 0 } as Record<StatusFilter, number>,
+      type: { all: data.length, comic: 0, manga: 0 } as Record<
+        TypeFilter,
+        number
+      >,
+      progress: { all: data.length, "0": 0, partial: 0, "100": 0 } as Record<
+        ProgressFilter,
+        number
+      >,
+      status: { all: data.length, Active: 0, Paused: 0, Ended: 0 } as Record<
+        StatusFilter,
+        number
+      >,
     };
 
     data.forEach((comic) => {

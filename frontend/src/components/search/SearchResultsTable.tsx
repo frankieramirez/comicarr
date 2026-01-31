@@ -113,7 +113,13 @@ function TypeBadge({ contentType }: { contentType: ContentType }) {
 }
 
 // Action cell component to handle add-to-library logic
-function ActionCell({ comic, contentType = "comic" }: { comic: ExtendedSearchResult; contentType?: ContentType }) {
+function ActionCell({
+  comic,
+  contentType = "comic",
+}: {
+  comic: ExtendedSearchResult;
+  contentType?: ContentType;
+}) {
   const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
@@ -219,7 +225,9 @@ function ActionCell({ comic, contentType = "comic" }: { comic: ExtendedSearchRes
   }
 
   // Default - Add button with primary outline style
-  const isPending = isManga ? addMangaMutation.isPending : addComicMutation.isPending;
+  const isPending = isManga
+    ? addMangaMutation.isPending
+    : addComicMutation.isPending;
   return (
     <Button
       onClick={handleAddComic}
@@ -242,7 +250,11 @@ export default function SearchResultsTable({
   showTypeColumn = false,
 }: SearchResultsTableProps) {
   const isManga = contentType === "manga";
-  const issuesLabel = showTypeColumn ? "Issues/Ch." : isManga ? "Chapters" : "Issues";
+  const issuesLabel = showTypeColumn
+    ? "Issues/Ch."
+    : isManga
+      ? "Chapters"
+      : "Issues";
 
   // Handle column header click for sorting
   const handleSortClick = (columnId: string) => {

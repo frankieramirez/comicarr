@@ -73,7 +73,7 @@ function groupByVolume(issues: Issue[]): VolumeGroup[] {
 
   sortedVolumes.forEach(([volumeNum, chapters]) => {
     const downloadedCount = chapters.filter(
-      (ch) => (ch.status ?? ch.Status)?.toLowerCase() === "downloaded"
+      (ch) => (ch.status ?? ch.Status)?.toLowerCase() === "downloaded",
     ).length;
     const totalCount = chapters.length;
 
@@ -100,7 +100,7 @@ function groupByVolume(issues: Issue[]): VolumeGroup[] {
   // Add issues without volume at the end
   if (noVolumeIssues.length > 0) {
     const downloadedCount = noVolumeIssues.filter(
-      (ch) => (ch.status ?? ch.Status)?.toLowerCase() === "downloaded"
+      (ch) => (ch.status ?? ch.Status)?.toLowerCase() === "downloaded",
     ).length;
 
     volumes.push({
@@ -110,7 +110,12 @@ function groupByVolume(issues: Issue[]): VolumeGroup[] {
         const numB = parseFloat(b.chapterNumber || b.number || "0") || 0;
         return numA - numB;
       }),
-      status: downloadedCount === noVolumeIssues.length ? "Complete" : downloadedCount > 0 ? "Partial" : "Missing",
+      status:
+        downloadedCount === noVolumeIssues.length
+          ? "Complete"
+          : downloadedCount > 0
+            ? "Partial"
+            : "Missing",
       downloadedCount,
       totalCount: noVolumeIssues.length,
     });
@@ -138,7 +143,10 @@ function getChapterRange(chapters: Issue[]): string {
   return `Ch. ${first}–${last}`;
 }
 
-export default function IssuesTable({ issues = [], isManga = false }: IssuesTableProps) {
+export default function IssuesTable({
+  issues = [],
+  isManga = false,
+}: IssuesTableProps) {
   // Dynamic labels based on content type
   const itemLabel = isManga ? "chapter" : "issue";
   const itemLabelPlural = isManga ? "chapters" : "issues";
@@ -273,240 +281,262 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
   };
 
   // Chapters view columns
-  const chapterColumns: ColumnDef<Issue>[] = useMemo(() => [
-    {
-      id: "select",
-      header: ({ table }: HeaderContext<Issue, unknown>) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={
-            table.getIsSomePageRowsSelected() &&
-            !table.getIsAllPageRowsSelected()
-          }
-          onChange={table.getToggleAllPageRowsSelectedHandler()}
-        />
-      ),
-      cell: ({ row }: CellContext<Issue, unknown>) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
-        />
-      ),
-      size: 40,
-      enableSorting: false,
-    },
-    {
-      accessorKey: "number",
-      header: "#",
-      cell: ({ getValue }: CellContext<Issue, unknown>) => (
-        <span className="font-mono text-sm">
-          {(getValue() as string) || "N/A"}
-        </span>
-      ),
-    },
-    // Show volume column if manga has volume data
-    ...(isManga && hasVolumeData ? [{
-      id: "volume",
-      accessorKey: "volumeNumber",
-      header: "Vol",
-      cell: ({ row }: CellContext<Issue, unknown>) => (
-        <span className="font-mono text-sm text-muted-foreground">
-          {row.original.volumeNumber || "—"}
-        </span>
-      ),
-    }] : []),
-    {
-      accessorKey: "name",
-      header: `${itemLabelCapitalized} Name`,
-      cell: ({ row }: CellContext<Issue, unknown>) => (
-        <div>
-          <div className="font-medium">{row.original.number}</div>
-          {row.original.name && (
-            <div className="text-sm text-muted-foreground">
-              {row.original.name}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "releaseDate",
-      header: "Release Date",
-      cell: ({ getValue }: CellContext<Issue, unknown>) => {
-        const date = getValue() as string | undefined;
-        if (!date) return <span className="text-muted-foreground/70">N/A</span>;
-        return <span className="text-sm">{date}</span>;
+  const chapterColumns: ColumnDef<Issue>[] = useMemo(
+    () => [
+      {
+        id: "select",
+        header: ({ table }: HeaderContext<Issue, unknown>) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            indeterminate={
+              table.getIsSomePageRowsSelected() &&
+              !table.getIsAllPageRowsSelected()
+            }
+            onChange={table.getToggleAllPageRowsSelectedHandler()}
+          />
+        ),
+        cell: ({ row }: CellContext<Issue, unknown>) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+          />
+        ),
+        size: 40,
+        enableSorting: false,
       },
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }: CellContext<Issue, unknown>) => (
-        <StatusBadge status={row.original.status ?? row.original.Status} />
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }: CellContext<Issue, unknown>) => {
-        const status = (
-          row.original.status ?? row.original.Status
-        )?.toLowerCase();
-        const issueId = row.original.id ?? row.original.IssueID;
-
-        return (
-          <div className="flex items-center space-x-2">
-            {status === "wanted" || status === "skipped" ? (
-              <>
-                {status === "wanted" && issueId && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => handleUnqueueIssue(e, issueId)}
-                    disabled={unqueueIssueMutation.isPending}
-                    className="text-xs"
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    Skip
-                  </Button>
-                )}
-                {status === "skipped" && issueId && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => handleQueueIssue(e, issueId)}
-                    disabled={queueIssueMutation.isPending}
-                    className="text-xs"
-                  >
-                    <Download className="w-3 h-3 mr-1" />
-                    Want
-                  </Button>
-                )}
-              </>
-            ) : status !== "downloaded" && status !== "snatched" && issueId ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => handleQueueIssue(e, issueId)}
-                disabled={queueIssueMutation.isPending}
-                className="text-xs"
-              >
-                <Download className="w-3 h-3 mr-1" />
-                Want
-              </Button>
-            ) : null}
+      {
+        accessorKey: "number",
+        header: "#",
+        cell: ({ getValue }: CellContext<Issue, unknown>) => (
+          <span className="font-mono text-sm">
+            {(getValue() as string) || "N/A"}
+          </span>
+        ),
+      },
+      // Show volume column if manga has volume data
+      ...(isManga && hasVolumeData
+        ? [
+            {
+              id: "volume",
+              accessorKey: "volumeNumber",
+              header: "Vol",
+              cell: ({ row }: CellContext<Issue, unknown>) => (
+                <span className="font-mono text-sm text-muted-foreground">
+                  {row.original.volumeNumber || "—"}
+                </span>
+              ),
+            },
+          ]
+        : []),
+      {
+        accessorKey: "name",
+        header: `${itemLabelCapitalized} Name`,
+        cell: ({ row }: CellContext<Issue, unknown>) => (
+          <div>
+            <div className="font-medium">{row.original.number}</div>
+            {row.original.name && (
+              <div className="text-sm text-muted-foreground">
+                {row.original.name}
+              </div>
+            )}
           </div>
-        );
+        ),
       },
-    },
-  ], [isManga, hasVolumeData, itemLabelCapitalized, queueIssueMutation.isPending, unqueueIssueMutation.isPending]);
+      {
+        accessorKey: "releaseDate",
+        header: "Release Date",
+        cell: ({ getValue }: CellContext<Issue, unknown>) => {
+          const date = getValue() as string | undefined;
+          if (!date)
+            return <span className="text-muted-foreground/70">N/A</span>;
+          return <span className="text-sm">{date}</span>;
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }: CellContext<Issue, unknown>) => (
+          <StatusBadge status={row.original.status ?? row.original.Status} />
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }: CellContext<Issue, unknown>) => {
+          const status = (
+            row.original.status ?? row.original.Status
+          )?.toLowerCase();
+          const issueId = row.original.id ?? row.original.IssueID;
+
+          return (
+            <div className="flex items-center space-x-2">
+              {status === "wanted" || status === "skipped" ? (
+                <>
+                  {status === "wanted" && issueId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => handleUnqueueIssue(e, issueId)}
+                      disabled={unqueueIssueMutation.isPending}
+                      className="text-xs"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Skip
+                    </Button>
+                  )}
+                  {status === "skipped" && issueId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => handleQueueIssue(e, issueId)}
+                      disabled={queueIssueMutation.isPending}
+                      className="text-xs"
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Want
+                    </Button>
+                  )}
+                </>
+              ) : status !== "downloaded" &&
+                status !== "snatched" &&
+                issueId ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => handleQueueIssue(e, issueId)}
+                  disabled={queueIssueMutation.isPending}
+                  className="text-xs"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Want
+                </Button>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [
+      isManga,
+      hasVolumeData,
+      itemLabelCapitalized,
+      queueIssueMutation.isPending,
+      unqueueIssueMutation.isPending,
+    ],
+  );
 
   // Volume view columns
-  const volumeColumns: ColumnDef<VolumeGroup>[] = useMemo(() => [
-    {
-      id: "expander",
-      header: "",
-      cell: ({ row }: CellContext<VolumeGroup, unknown>) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => row.toggleExpanded()}
-          className="p-1 h-6 w-6"
-        >
-          <ChevronRight
-            className={`w-4 h-4 transition-transform ${row.getIsExpanded() ? "rotate-90" : ""}`}
-          />
-        </Button>
-      ),
-      size: 40,
-    },
-    {
-      accessorKey: "volume",
-      header: "Volume",
-      cell: ({ getValue }: CellContext<VolumeGroup, unknown>) => (
-        <span className="font-medium">Vol. {getValue() as string}</span>
-      ),
-    },
-    {
-      id: "chapters",
-      header: "Chapters",
-      cell: ({ row }: CellContext<VolumeGroup, unknown>) => (
-        <span className="text-sm text-muted-foreground">
-          {getChapterRange(row.original.chapters)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
-        const { status } = row.original;
-        return (
-          <Badge
-            variant={
-              status === "Complete"
-                ? "default"
-                : status === "Partial"
-                  ? "secondary"
-                  : "outline"
-            }
-          >
-            {status}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: "progress",
-      header: "Progress",
-      cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
-        const { downloadedCount, totalCount } = row.original;
-        const percentage = totalCount > 0 ? Math.round((downloadedCount / totalCount) * 100) : 0;
-
-        return (
-          <div className="flex items-center space-x-2">
-            <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden min-w-[60px]">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${percentage}%`,
-                  background: "var(--gradient-brand)",
-                }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground min-w-[4rem]">
-              {downloadedCount}/{totalCount}
-            </span>
-          </div>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
-        const hasWantable = row.original.chapters.some((ch) => {
-          const status = (ch.status ?? ch.Status)?.toLowerCase();
-          return status !== "downloaded" && status !== "snatched";
-        });
-
-        if (!hasWantable) return null;
-
-        return (
+  const volumeColumns: ColumnDef<VolumeGroup>[] = useMemo(
+    () => [
+      {
+        id: "expander",
+        header: "",
+        cell: ({ row }: CellContext<VolumeGroup, unknown>) => (
           <Button
+            variant="ghost"
             size="sm"
-            variant="outline"
-            onClick={() => handleWantVolume(row.original)}
-            disabled={bulkQueueMutation.isPending}
-            className="text-xs"
+            onClick={() => row.toggleExpanded()}
+            className="p-1 h-6 w-6"
           >
-            <Download className="w-3 h-3 mr-1" />
-            Want All
+            <ChevronRight
+              className={`w-4 h-4 transition-transform ${row.getIsExpanded() ? "rotate-90" : ""}`}
+            />
           </Button>
-        );
+        ),
+        size: 40,
       },
-    },
-  ], [bulkQueueMutation.isPending]);
+      {
+        accessorKey: "volume",
+        header: "Volume",
+        cell: ({ getValue }: CellContext<VolumeGroup, unknown>) => (
+          <span className="font-medium">Vol. {getValue() as string}</span>
+        ),
+      },
+      {
+        id: "chapters",
+        header: "Chapters",
+        cell: ({ row }: CellContext<VolumeGroup, unknown>) => (
+          <span className="text-sm text-muted-foreground">
+            {getChapterRange(row.original.chapters)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
+          const { status } = row.original;
+          return (
+            <Badge
+              variant={
+                status === "Complete"
+                  ? "default"
+                  : status === "Partial"
+                    ? "secondary"
+                    : "outline"
+              }
+            >
+              {status}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "progress",
+        header: "Progress",
+        cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
+          const { downloadedCount, totalCount } = row.original;
+          const percentage =
+            totalCount > 0
+              ? Math.round((downloadedCount / totalCount) * 100)
+              : 0;
+
+          return (
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden min-w-[60px]">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${percentage}%`,
+                    background: "var(--gradient-brand)",
+                  }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground min-w-[4rem]">
+                {downloadedCount}/{totalCount}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: CellContext<VolumeGroup, unknown>) => {
+          const hasWantable = row.original.chapters.some((ch) => {
+            const status = (ch.status ?? ch.Status)?.toLowerCase();
+            return status !== "downloaded" && status !== "snatched";
+          });
+
+          if (!hasWantable) return null;
+
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleWantVolume(row.original)}
+              disabled={bulkQueueMutation.isPending}
+              className="text-xs"
+            >
+              <Download className="w-3 h-3 mr-1" />
+              Want All
+            </Button>
+          );
+        },
+      },
+    ],
+    [bulkQueueMutation.isPending],
+  );
 
   // Status counts for filter badges
   const statusCounts = useMemo(() => {
@@ -567,7 +597,9 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
           <table className="w-full">
             <tbody>
               {volume.chapters.map((chapter) => {
-                const status = (chapter.status ?? chapter.Status)?.toLowerCase();
+                const status = (
+                  chapter.status ?? chapter.Status
+                )?.toLowerCase();
                 const issueId = chapter.id ?? chapter.IssueID;
 
                 return (
@@ -588,18 +620,20 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
                     </td>
                     <td className="px-6 py-2"></td>
                     <td className="px-6 py-2">
-                      {status !== "downloaded" && status !== "snatched" && issueId && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => handleQueueIssue(e, issueId)}
-                          disabled={queueIssueMutation.isPending}
-                          className="text-xs h-6"
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          Want
-                        </Button>
-                      )}
+                      {status !== "downloaded" &&
+                        status !== "snatched" &&
+                        issueId && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => handleQueueIssue(e, issueId)}
+                            disabled={queueIssueMutation.isPending}
+                            className="text-xs h-6"
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            Want
+                          </Button>
+                        )}
                     </td>
                   </tr>
                 );
@@ -701,7 +735,9 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
       {viewMode === "chapters" && selectedIssueIds.length > 0 && (
         <div className="flex items-center gap-4 px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
           <span className="text-sm font-medium">
-            {selectedIssueIds.length} {selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel} selected
+            {selectedIssueIds.length}{" "}
+            {selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel}{" "}
+            selected
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -830,7 +866,10 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
                       onClick={() => row.toggleExpanded()}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
+                        <td
+                          key={cell.id}
+                          className="px-6 py-4 whitespace-nowrap"
+                        >
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -838,7 +877,8 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
                         </td>
                       ))}
                     </tr>
-                    {row.getIsExpanded() && renderExpandedChapters(row.original)}
+                    {row.getIsExpanded() &&
+                      renderExpandedChapters(row.original)}
                   </>
                 ))}
               </tbody>
@@ -860,7 +900,8 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
                   chaptersTable.getState().pagination.pageSize,
                 chaptersTable.getFilteredRowModel().rows.length,
               )}{" "}
-              of {chaptersTable.getFilteredRowModel().rows.length} {itemLabelPlural}
+              of {chaptersTable.getFilteredRowModel().rows.length}{" "}
+              {itemLabelPlural}
               {globalFilter && ` (filtered from ${filteredByStatus.length})`}
             </div>
             <div className="flex items-center space-x-2">
@@ -892,7 +933,8 @@ export default function IssuesTable({ issues = [], isManga = false }: IssuesTabl
         {viewMode === "volumes" && (
           <div className="border-t border-card-border px-6 py-3 bg-muted/50">
             <div className="text-sm text-muted-foreground">
-              {volumeGroups.length} volumes • {issues.length} total {itemLabelPlural}
+              {volumeGroups.length} volumes • {issues.length} total{" "}
+              {itemLabelPlural}
             </div>
           </div>
         )}
