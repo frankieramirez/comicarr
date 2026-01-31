@@ -15,7 +15,6 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
-  Book,
   BookOpen,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
