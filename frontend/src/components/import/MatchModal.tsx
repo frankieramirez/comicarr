@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Search, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,29 +13,17 @@ interface MatchModalProps {
   isMatching?: boolean;
 }
 
-export default function MatchModal({
-  isOpen,
-  onClose,
+// Inner component that resets when importGroup changes
+function MatchModalContent({
   importGroup,
+  onClose,
   onMatch,
   isMatching = false,
-}: MatchModalProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+}: Omit<MatchModalProps, "isOpen">) {
+  // Initialize search query from importGroup - this will reset when the key changes
+  const initialQuery = importGroup?.ComicName || "";
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedComic, setSelectedComic] = useState<SearchResult | null>(null);
-
-  // Initialize search query with the import group's comic name
-  useEffect(() => {
-    if (importGroup?.ComicName) {
-      setSearchQuery(importGroup.ComicName);
-    }
-  }, [importGroup]);
-
-  // Reset selection when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setSelectedComic(null);
-    }
-  }, [isOpen]);
 
   const {
     data: searchData,
@@ -50,8 +38,6 @@ export default function MatchModal({
       onMatch(comicId, comicName);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -207,5 +193,32 @@ export default function MatchModal({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MatchModal({
+  isOpen,
+  onClose,
+  importGroup,
+  onMatch,
+  isMatching = false,
+}: MatchModalProps) {
+  // Generate a unique key based on importGroup to reset internal state when it changes
+  const modalKey = useMemo(() => {
+    if (!importGroup) return "closed";
+    return `${importGroup.DynamicName}-${importGroup.Volume || "null"}-${isOpen}`;
+  }, [importGroup, isOpen]);
+
+  if (!isOpen) return null;
+
+  // Using key prop to reset the inner component's state when importGroup changes
+  return (
+    <MatchModalContent
+      key={modalKey}
+      importGroup={importGroup}
+      onClose={onClose}
+      onMatch={onMatch}
+      isMatching={isMatching}
+    />
   );
 }
