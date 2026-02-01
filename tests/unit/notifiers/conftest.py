@@ -25,6 +25,10 @@ def mock_notifier_config(monkeypatch):
     """
     import mylar
 
+    # Mock LOG_LEVEL to prevent TypeError in logger.py
+    # The logger checks `mylar.LOG_LEVEL > 0` which fails if LOG_LEVEL is None
+    monkeypatch.setattr(mylar, "LOG_LEVEL", 1)
+
     config = MagicMock()
 
     # PROWL settings
