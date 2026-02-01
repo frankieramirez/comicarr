@@ -3916,6 +3916,16 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             sent_to=sent_to,
             prov=nzbprov,
         )
+    if mylar.CONFIG.MATRIX_ENABLED and mylar.CONFIG.MATRIX_ONSNATCH:
+        logger.info("Sending Matrix notification")
+        matrix = notifiers.MATRIX()
+        matrix.notify(
+            "Snatched",
+            snline,
+            snatched_nzb=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+        )
 
     return
 

@@ -7215,6 +7215,11 @@ class WebInterface(object):
                     "gotify_server_url": mylar.CONFIG.GOTIFY_SERVER_URL,
                     "gotify_token": mylar.CONFIG.GOTIFY_TOKEN,
                     "gotify_onsnatch": helpers.checked(mylar.CONFIG.GOTIFY_ONSNATCH),
+                    "matrix_enabled": helpers.checked(mylar.CONFIG.MATRIX_ENABLED),
+                    "matrix_homeserver": mylar.CONFIG.MATRIX_HOMESERVER,
+                    "matrix_access_token": mylar.CONFIG.MATRIX_ACCESS_TOKEN,
+                    "matrix_room_id": mylar.CONFIG.MATRIX_ROOM_ID,
+                    "matrix_onsnatch": helpers.checked(mylar.CONFIG.MATRIX_ONSNATCH),
                     "enable_extra_scripts": helpers.checked(mylar.CONFIG.ENABLE_EXTRA_SCRIPTS),
                     "extra_scripts": mylar.CONFIG.EXTRA_SCRIPTS,
                     "enable_snatch_script": helpers.checked(mylar.CONFIG.ENABLE_SNATCH_SCRIPT),
@@ -7591,7 +7596,7 @@ class WebInterface(object):
                            'lowercase_filenames', 'autowant_upcoming', 'autowant_all', 'comic_cover_local', 'cover_folder_local', 'series_metadata_local', 'alternate_latest_series_covers', 'cvinfo', 'use_metron_search', 'snatchedtorrent_notify',
                            'prowl_enabled', 'prowl_onsnatch', 'pushover_enabled', 'pushover_onsnatch', 'pushover_image', 'mattermost_enabled', 'mattermost_onsnatch', 'boxcar_enabled',
                            'boxcar_onsnatch', 'pushbullet_enabled', 'pushbullet_onsnatch', 'telegram_enabled', 'telegram_onsnatch', 'telegram_image', 'discord_enabled', 'discord_onsnatch', 'slack_enabled', 'slack_onsnatch',
-                           'email_enabled', 'email_enc', 'email_ongrab', 'email_onpost', 'gotify_enabled', 'gotify_server_url', 'gotify_token', 'gotify_onsnatch', 'opds_enable', 'opds_authentication', 'opds_metainfo', 'opds_pagesize', 'enable_ddl',
+                           'email_enabled', 'email_enc', 'email_ongrab', 'email_onpost', 'gotify_enabled', 'gotify_server_url', 'gotify_token', 'gotify_onsnatch', 'matrix_enabled', 'matrix_onsnatch', 'opds_enable', 'opds_authentication', 'opds_metainfo', 'opds_pagesize', 'enable_ddl',
                            'enable_getcomics', 'enable_external_server', 'ddl_prefer_upscaled', 'deluge_pause'] #enable_public
 
         for checked_config in checked_configs:
@@ -8579,6 +8584,17 @@ class WebInterface(object):
             logger.warn('Test variables used [WEBHOOK_URL: %s][USERNAME: %s]' % (webhook_url, username))
             return "Error sending test message to Gotify"
     testgotify.exposed = True
+
+    def testmatrix(self, homeserver, access_token, room_id):
+        matrix = notifiers.MATRIX(test_homeserver=homeserver, test_access_token=access_token, test_room_id=room_id)
+        result = matrix.test_notify()
+
+        if result == True:
+            return "Successfully sent Matrix test - check to make sure it worked"
+        else:
+            logger.warn('Test variables used [HOMESERVER: %s][ROOM_ID: %s]' % (homeserver, room_id))
+            return "Error sending test message to Matrix"
+    testmatrix.exposed = True
 
     def testrtorrent(self, host, username, password, auth, verify, rpc_url):
         if verify == 'true':

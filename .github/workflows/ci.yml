@@ -2,12 +2,16 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
-  ci:
+  # ===========================================================================
+  # Frontend Lint & Build
+  # ===========================================================================
+  frontend-ci:
+    name: Frontend Lint & Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,3 +38,29 @@ jobs:
 
       - name: Build
         run: bun run build
+
+  # ===========================================================================
+  # Backend Lint
+  # ===========================================================================
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: pip install ruff
+
+      - name: Run ruff linter
+        run: ruff check mylar/ --output-format=github
+        continue-on-error: true # Don't fail CI on lint warnings initially
+
+      - name: Run ruff formatter check
+        run: ruff format --check mylar/
+        continue-on-error: true # Don't fail CI on format issues initially

@@ -264,6 +264,12 @@ _CONFIG_DEFINITIONS = OrderedDict({
     'GOTIFY_TOKEN': (str, 'GOTIFY', None),
     'GOTIFY_ONSNATCH': (bool, 'GOTIFY', False),
 
+    'MATRIX_ENABLED': (bool, 'MATRIX', False),
+    'MATRIX_HOMESERVER': (str, 'MATRIX', None),
+    'MATRIX_ACCESS_TOKEN': (str, 'MATRIX', None),
+    'MATRIX_ROOM_ID': (str, 'MATRIX', None),
+    'MATRIX_ONSNATCH': (bool, 'MATRIX', False),
+
     'POST_PROCESSING': (bool, 'PostProcess', True),
     'FILE_OPTS': (str, 'PostProcess', 'move'),
     'SNATCHEDTORRENT_NOTIFY': (bool, 'PostProcess', False),
