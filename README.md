@@ -97,6 +97,51 @@ npm run dev
 
 The Vite dev server proxies API requests to the backend automatically.
 
+## Project Structure
+
+### Entry Point
+`Mylar.py` - Validates Python version (≥3.8.1), checks dependencies, initializes configuration, starts the CherryPy web server with APScheduler for background tasks.
+
+### Core Package Structure (`mylar/`)
+
+**Web Layer:**
+- `webserve.py` - Main web UI controller (~9,700 lines), handles all page routes
+- `webstart.py` - CherryPy server initialization and configuration
+- `api.py` - REST API implementation (~1,900 lines), JSON responses at `/api?apikey=&cmd=`
+- `auth.py` - Authentication controller
+
+**Business Logic:**
+- `search.py` - Comic search orchestration across multiple providers (~4,300 lines)
+- `PostProcessor.py` - Download post-processing, file validation, renaming (~3,600 lines)
+- `cv.py` - Comic Vine API integration for metadata
+- `mangadex.py` - MangaDex API integration for metadata
+- `importer.py` - Library scanning and import functionality
+- `rsscheck.py` - RSS feed monitoring for new releases
+- `weeklypull.py` - Weekly pull list management
+
+**Configuration & Data:**
+- `config.py` - INI-based configuration management (~2,000 lines)
+- `__init__.py` - Global runtime state and initialization (~1,700 lines)
+- `db.py` - SQLite database connection handling
+- `helpers.py` - Utility functions (~5,000 lines)
+
+**Download Client Integrations:**
+- `downloaders/` - Direct download handlers (Mega, MediaFire, Pixeldrain)
+- `torrent/clients/` - Torrent client implementations (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
+- `nzbget.py`, `sabnzbd.py` - NZB client integrations
+
+### Web UI (`data/`)
+- `interfaces/` - Mako templates (default and carbon themes)
+- `js/`, `css/`, `images/` - Static assets
+
+### Third-Party Libraries (`lib/`)
+Contains bundled libraries including a modified ComicTagger fork and rarfile handling.
+
+### Post-Processing Scripts (`post-processing/`)
+Integration scripts for download clients:
+- `autoProcessComics.py` - Main post-processor entry point
+- `nzbget/`, `sabnzbd/`, `torrent-auto-snatch/` - Client-specific integrations
+
 ## Configuration
 
 On first run, navigate to Settings to configure:
