@@ -17,7 +17,7 @@ export default function ConfidenceBadge({
     );
   }
 
-  let variant: "default" | "secondary" | "destructive" | "outline" = "default";
+  const variant: "default" | "secondary" | "destructive" | "outline" = "default";
   let colorClass = "";
 
   if (confidence >= 80) {
