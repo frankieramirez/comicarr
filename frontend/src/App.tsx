@@ -12,6 +12,7 @@ import UpcomingPage from "@/pages/UpcomingPage";
 import WantedPage from "@/pages/WantedPage";
 import SettingsPage from "@/pages/SettingsPage";
 import StoryArcsPage from "@/pages/StoryArcsPage";
+import ImportPage from "@/pages/ImportPage";
 import { ToastProvider } from "@/components/ui/toast";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useServerEvents } from "@/hooks/useServerEvents";
@@ -60,6 +61,7 @@ function AppContent() {
                   <Route path="/upcoming" element={<UpcomingPage />} />
                   <Route path="/wanted" element={<WantedPage />} />
                   <Route path="/story-arcs" element={<StoryArcsPage />} />
+                  <Route path="/import" element={<ImportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

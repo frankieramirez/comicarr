@@ -1931,6 +1931,125 @@ class FileChecker(object):
 
         return dateline
 
+
+def calculate_match_confidence(parsed_info, comic_info):
+    """
+    Calculate a confidence score (0-100) for how well a parsed file matches a comic series.
+
+    Scoring breakdown:
+    - Series Name Match: 40 pts (fuzzy match)
+    - Year Match: 15 pts (exact or +/- 1 year)
+    - Volume Match: 15 pts (exact volume number)
+    - Issue Number: 15 pts (issue number extractable)
+    - Metadata: 10 pts (CBZ has ComicInfo.xml)
+    - Path Hints: 5 pts (series name in folder path)
+
+    Args:
+        parsed_info: Dict from FileChecker.parseit() with keys like:
+            - series_name, series_volume, issue_number, issue_year
+            - comiclocation, comicfilename
+        comic_info: Dict with comic series info from DB with keys like:
+            - ComicName, ComicYear, ComicID, Volume
+
+    Returns:
+        Integer confidence score from 0-100
+    """
+    import difflib
+
+    score = 0
+
+    # Normalize strings for comparison
+    def normalize(s):
+        if s is None:
+            return ''
+        s = str(s).lower().strip()
+        # Remove common punctuation and normalize spaces
+        s = re.sub(r'[^\w\s]', '', s)
+        s = re.sub(r'\s+', ' ', s)
+        return s
+
+    parsed_name = normalize(parsed_info.get('series_name') or parsed_info.get('ComicName'))
+    comic_name = normalize(comic_info.get('ComicName'))
+
+    # 1. Series Name Match (40 pts) - using sequence matcher for fuzzy matching
+    if parsed_name and comic_name:
+        ratio = difflib.SequenceMatcher(None, parsed_name, comic_name).ratio()
+        name_score = int(ratio * 40)
+        score += name_score
+        if mylar.CONFIG.FOLDER_SCAN_LOG_VERBOSE:
+            logger.fdebug('[CONFIDENCE] Name match: "%s" vs "%s" = %.2f (%d pts)' % (
+                parsed_name, comic_name, ratio, name_score))
+
+    # 2. Year Match (15 pts)
+    parsed_year = parsed_info.get('issue_year') or parsed_info.get('ComicYear')
+    comic_year = comic_info.get('ComicYear')
+
+    if parsed_year and comic_year:
+        try:
+            py = int(str(parsed_year)[:4])
+            cy = int(str(comic_year)[:4])
+            year_diff = abs(py - cy)
+            if year_diff == 0:
+                score += 15
+            elif year_diff == 1:
+                score += 10
+            elif year_diff <= 3:
+                score += 5
+        except (ValueError, TypeError):
+            pass
+
+    # 3. Volume Match (15 pts)
+    parsed_volume = parsed_info.get('series_volume') or parsed_info.get('Volume')
+    comic_volume = comic_info.get('Volume') or comic_info.get('ComicVersion')
+
+    if parsed_volume and comic_volume:
+        pv = normalize(str(parsed_volume)).replace('v', '').strip()
+        cv = normalize(str(comic_volume)).replace('v', '').strip()
+        if pv == cv:
+            score += 15
+        elif pv and cv:
+            # Partial match
+            try:
+                if int(pv) == int(cv):
+                    score += 15
+            except ValueError:
+                pass
+    elif not parsed_volume and not comic_volume:
+        # Both have no volume, considered a match
+        score += 10
+
+    # 4. Issue Number (15 pts)
+    parsed_issue = parsed_info.get('issue_number') or parsed_info.get('IssueNumber')
+    if parsed_issue and parsed_issue != 'None' and parsed_issue != '':
+        score += 15
+    elif parsed_issue is None or parsed_issue == 'None' or parsed_issue == '':
+        # Partial credit for at least having file parsed
+        score += 5
+
+    # 5. Metadata (10 pts) - Check if CBZ has ComicInfo.xml
+    comic_location = parsed_info.get('comiclocation') or parsed_info.get('ComicLocation')
+    comic_filename = parsed_info.get('comicfilename') or parsed_info.get('ComicFilename')
+
+    if comic_location and comic_filename:
+        full_path = os.path.join(comic_location, comic_filename)
+        if os.path.exists(full_path) and full_path.lower().endswith('.cbz'):
+            try:
+                import zipfile
+                with zipfile.ZipFile(full_path, 'r') as zf:
+                    if 'ComicInfo.xml' in zf.namelist():
+                        score += 10
+            except Exception:
+                pass
+
+    # 6. Path Hints (5 pts) - series name appears in folder path
+    if comic_location and comic_name:
+        path_lower = normalize(comic_location)
+        if comic_name in path_lower:
+            score += 5
+
+    return min(100, score)
+
+
 def validateAndCreateDirectory(dir, create=False, module=None, dmode=None):
     if module is None:
         module = ''

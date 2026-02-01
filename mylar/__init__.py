@@ -1306,6 +1306,36 @@ def dbcheck():
     except sqlite3.OperationalError:
         c.execute('ALTER TABLE importresults ADD COLUMN DynamicName TEXT')
 
+    try:
+        c.execute('SELECT MatchConfidence from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN MatchConfidence INTEGER')
+
+    try:
+        c.execute('SELECT SuggestedComicID from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN SuggestedComicID TEXT')
+
+    try:
+        c.execute('SELECT SuggestedComicName from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN SuggestedComicName TEXT')
+
+    try:
+        c.execute('SELECT SuggestedIssueID from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN SuggestedIssueID TEXT')
+
+    try:
+        c.execute('SELECT IgnoreFile from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN IgnoreFile INTEGER DEFAULT 0')
+
+    try:
+        c.execute('SELECT MatchSource from importresults')
+    except sqlite3.OperationalError:
+        c.execute('ALTER TABLE importresults ADD COLUMN MatchSource TEXT')
+
     ## -- Readlist Table --
 
     try:
