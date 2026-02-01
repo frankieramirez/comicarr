@@ -43,7 +43,8 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
             'getConfig', 'setConfig', 'getSeriesImage',
             'findManga', 'addManga', 'getMangaInfo',
-            'getImportPending', 'matchImport', 'ignoreImport', 'refreshImport', 'deleteImport']
+            'getImportPending', 'matchImport', 'ignoreImport', 'refreshImport', 'deleteImport',
+            'bulkMetatag']
 
 class Api(object):
 
@@ -1981,6 +1982,37 @@ class Api(object):
             else:
                 self.data = self._successResponse('Successfully changed %s for %s provider %s [prov_id:%s]' % (change_match, providertype, providername, prov_id))
                 logger.fdebug('[API][changeProvider] %s' % self.data)
+        return
+
+    def _bulkMetatag(self, **kwargs):
+        """
+        Bulk tag metadata for multiple issues.
+        Required: id (ComicID), issue_ids (comma-separated IssueIDs)
+        """
+        if 'id' not in kwargs:
+            self.data = self._failureResponse('Missing ComicID (field: id)')
+            return
+
+        if 'issue_ids' not in kwargs:
+            self.data = self._failureResponse('Missing issue IDs (field: issue_ids)')
+            return
+
+        comic_id = kwargs['id']
+        issue_ids_str = kwargs['issue_ids']
+
+        # Parse comma-separated issue IDs into a list
+        issue_ids = [iid.strip() for iid in issue_ids_str.split(',') if iid.strip()]
+
+        if len(issue_ids) == 0:
+            self.data = self._failureResponse('No valid issue IDs provided')
+            return
+
+        try:
+            result = webserve.WebInterface().bulk_metatag(comic_id, issue_ids)
+            self.data = self._successResponse('Bulk metatag started for %s issues' % len(issue_ids))
+        except Exception as e:
+            logger.error('[API][bulkMetatag] Error: %s' % e)
+            self.data = self._failureResponse('Failed to start bulk metatag: %s' % str(e))
         return
 
     def _getConfig(self, **kwargs):
