@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Mylar3 tasks. When in doubt, consult the actual codebase files rather than relying on general Python knowledge.**
+
 ## Project Overview
 
 Mylar3 is a Python 3 automated comic book (CBR/CBZ) downloader and library manager. It monitors comic series, downloads issues from NZB/torrent sources, handles post-processing with metadata tagging, and provides a web interface for management.
@@ -28,50 +30,53 @@ python3 Mylar.py maintenance --help
 python3 Mylar.py maintenance --carepackage  # Generate debug package
 ```
 
-## Architecture
+## Codebase Index
+[Mylar3 Code Index]|root: ./mylar
+|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{data/interfaces/:Mako templates}
 
-### Entry Point
-`Mylar.py` - Validates Python version (≥3.8.1), checks dependencies, initializes configuration, starts the CherryPy web server with APScheduler for background tasks.
+**IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
 
-### Core Package Structure (`mylar/`)
+## Anti-Patterns / What NOT to Do
 
-**Web Layer:**
-- `webserve.py` - Main web UI controller (~9,700 lines), handles all page routes
-- `webstart.py` - CherryPy server initialization and configuration
-- `api.py` - REST API implementation (~1,900 lines), JSON responses at `/api?apikey=&cmd=`
-- `auth.py` - Authentication controller
+- **Do NOT use type hints** - None exist in the codebase currently
+- **Do NOT use bare `except:` clauses** - Always catch `Exception as e`
+- **Do NOT use Black/PEP8 auto-formatters** - No enforced formatter in this project
+- **Do NOT use `bun` for frontend** - Use `npm` commands only
+- **Do NOT omit GPL license header** from new Python files
 
-**Business Logic:**
-- `search.py` - Comic search orchestration across multiple providers (~4,300 lines)
-- `PostProcessor.py` - Download post-processing, file validation, renaming (~3,600 lines)
-- `cv.py` - Comic Vine API integration for metadata
-- `mangadex.py` - MangaDex API integration for metadata
-- `importer.py` - Library scanning and import functionality
-- `rsscheck.py` - RSS feed monitoring for new releases
-- `weeklypull.py` - Weekly pull list management
+## Common Patterns
 
-**Configuration & Data:**
-- `config.py` - INI-based configuration management (~2,000 lines)
-- `__init__.py` - Global runtime state and initialization (~1,700 lines)
-- `db.py` - SQLite database connection handling
-- `helpers.py` - Utility functions (~5,000 lines)
+### Logging Pattern
+- Import: `from mylar import logger`
+- Usage: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
+- Always prefix with context in brackets
 
-**Download Client Integrations:**
-- `downloaders/` - Direct download handlers (Mega, MediaFire, Pixeldrain)
-- `torrent/clients/` - Torrent client implementations (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
-- `nzbget.py`, `sabnzbd.py` - NZB client integrations
+### Configuration Access
+- Import: `import mylar`
+- Usage: `mylar.CONFIG.option_name`
+- Global config object is initialized at startup
 
-### Web UI (`data/`)
-- `interfaces/` - Mako templates (default and carbon themes)
-- `js/`, `css/`, `images/` - Static assets
+### Database Queries
+- Import: `from mylar import db`
+- Usage: `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
+- Always use parameterized queries
 
-### Third-Party Libraries (`lib/`)
-Contains bundled libraries including a modified ComicTagger fork and rarfile handling.
+### Import Ordering
+1. Standard library imports
+2. Third-party imports
+3. Local imports: `from mylar import logger, helpers`
+4. Within packages use: `from . import logger`
 
-### Post-Processing Scripts (`post-processing/`)
-Integration scripts for download clients:
-- `autoProcessComics.py` - Main post-processor entry point
-- `nzbget/`, `sabnzbd/`, `torrent-auto-snatch/` - Client-specific integrations
+### License Header
+Always include GPL header in new Python files:
+```python
+#  This file is part of Mylar.
+#
+#  Mylar is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+```
 
 ## Key Patterns
 

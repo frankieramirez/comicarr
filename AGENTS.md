@@ -1,7 +1,17 @@
-# AGENTS.md - Coding Guidelines for Mylar3
+# AGENTS.md
+
+**IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Mylar3 tasks. When in doubt, consult the actual codebase files rather than relying on general Python knowledge.**
 
 ## Project Overview
+
 Mylar3 is a Python 3 automated comic book (CBR/CBZ) downloader and library manager with a React frontend.
+
+## Important Notes
+- Python 3.8.1+ required
+- `urllib3<2` version constraint exists
+- The app uses CherryPy as web server, Mako for templates
+- Frontend is React + Vite + Tailwind (separate build process)
+- Database is SQLite (file-based, no separate server needed)
 
 ## Build/Development Commands
 
@@ -44,6 +54,12 @@ npm run preview
 ### Testing
 - No formal test suite exists currently
 - Test files are located in `mylar/test.py` (appears to be for manual rTorrent testing)
+
+## Codebase Index
+[Mylar3 Code Index]|root: ./mylar
+|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{data/interfaces/:Mako templates}
+
+**IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
 
 ## Code Style Guidelines
 
@@ -95,13 +111,44 @@ npm run preview
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 ```
-- Add encoding declaration when needed: `# -*- coding: utf-8 -*-`
+- Add encoding declaration when needed: `# -*- coding: utf-8 -*-
 
 ### JavaScript/React Code Style (Frontend)
 - Located in `frontend/` directory
 - Uses Vite build system
 - Tailwind CSS for styling
 - ESLint for linting (configured in package.json)
+
+## Anti-Patterns / What NOT to Do
+
+- **Do NOT use type hints** - None exist in the codebase currently
+- **Do NOT use bare `except:` clauses** - Always catch `Exception as e`
+- **Do NOT use Black/PEP8 auto-formatters** - No enforced formatter in this project
+- **Do NOT use `bun` for frontend** - Use `npm` commands only
+- **Do NOT omit GPL license header** from new Python files
+
+## Common Patterns
+
+### Logging Pattern
+- Import: `from mylar import logger`
+- Usage: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
+- Always prefix with context in brackets
+
+### Configuration Access
+- Import: `import mylar`
+- Usage: `mylar.CONFIG.option_name`
+- Global config object is initialized at startup
+
+### Database Queries
+- Import: `from mylar import db`
+- Usage: `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
+- Always use parameterized queries
+
+### Import Ordering
+1. Standard library imports
+2. Third-party imports
+3. Local imports: `from mylar import logger, helpers`
+4. Within packages use: `from . import logger`
 
 ## Architecture Patterns
 
@@ -127,10 +174,3 @@ npm run preview
 2. For API: Add command in `api.py`
 3. For background tasks: Add to APScheduler in `__init__.py`
 4. For config options: Add to `_CONFIG_DEFINITIONS` in `config.py`
-
-## Important Notes
-- Python 3.8.1+ required
-- `urllib3<2` version constraint exists
-- The app uses CherryPy as web server, Mako for templates
-- Frontend is React + Vite + Tailwind (separate build process)
-- Database is SQLite (file-based, no separate server needed)
