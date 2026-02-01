@@ -164,3 +164,35 @@ export interface VolumeGroup {
   downloadedCount: number;
   totalCount: number;
 }
+
+/** Import file entity */
+export interface ImportFile {
+  impID: string;
+  ComicFilename: string;
+  ComicLocation: string;
+  IssueNumber: string | null;
+  ComicYear: string | null;
+  Status: string;
+  IgnoreFile: number;
+  MatchConfidence: number | null;
+  SuggestedComicID: string | null;
+  SuggestedComicName: string | null;
+  SuggestedIssueID: string | null;
+  MatchSource: string | null;
+}
+
+/** Import group (grouped by DynamicName + Volume) */
+export interface ImportGroup {
+  DynamicName: string;
+  ComicName: string;
+  Volume: string | null;
+  ComicYear: string | null;
+  FileCount: number;
+  Status: string;
+  SRID: string | null;
+  ComicID: string | null;
+  MatchConfidence: number | null;
+  SuggestedComicID: string | null;
+  SuggestedComicName: string | null;
+  files: ImportFile[];
+}

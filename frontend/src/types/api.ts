@@ -71,7 +71,12 @@ export type ApiCommand =
   | "getWanted"
   | "getUpcoming"
   | "forceSearch"
-  | "checkGlobalMessages";
+  | "checkGlobalMessages"
+  | "getImportPending"
+  | "matchImport"
+  | "ignoreImport"
+  | "refreshImport"
+  | "deleteImport";
 
 /** API call parameters */
 export type ApiParams = Record<

@@ -31,6 +31,7 @@ import {
   MessageSquare,
   Moon,
   Sun,
+  FolderInput,
 } from "lucide-react";
 
 export default function AppSidebar() {
@@ -67,6 +68,7 @@ export default function AppSidebar() {
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
     { path: "/story-arcs", label: "Story Arcs", icon: BookMarked },
+    { path: "/import", label: "Import", icon: FolderInput },
   ];
 
   const isActive = (path: string): boolean => {

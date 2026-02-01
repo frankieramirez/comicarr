@@ -42,7 +42,8 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'listProviders', 'changeProvider', 'addProvider', 'delProvider',
             'downloadNZB', 'getReadList', 'getStoryArc', 'addStoryArc', 'listAnnualSeries',
             'getConfig', 'setConfig', 'getSeriesImage',
-            'findManga', 'addManga', 'getMangaInfo']
+            'findManga', 'addManga', 'getMangaInfo',
+            'getImportPending', 'matchImport', 'ignoreImport', 'refreshImport', 'deleteImport']
 
 class Api(object):
 
@@ -2262,6 +2263,298 @@ class Api(object):
             response_data['total'] = db_manga['Total']
 
         self.data = self._successResponse(response_data)
+
+    def _getImportPending(self, **kwargs):
+        """
+        Get list of pending import files with suggested matches and confidence scores.
+
+        Parameters:
+            limit: Maximum number of results (optional, default 50)
+            offset: Offset for pagination (optional, default 0)
+            include_ignored: Include ignored files (optional, default 'false')
+
+        Returns:
+            List of import groups with files and pagination info
+        """
+        myDB = db.DBConnection()
+
+        limit = int(kwargs.get('limit', 50))
+        offset = int(kwargs.get('offset', 0))
+        include_ignored = kwargs.get('include_ignored', 'false').lower() == 'true'
+
+        # Build query for pending imports - group by DynamicName and Volume
+        if include_ignored:
+            base_query = """
+                SELECT *, COUNT(*) as FileCount
+                FROM importresults
+                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                  AND Status != 'Imported'
+                GROUP BY DynamicName, Volume
+                ORDER BY ComicName COLLATE NOCASE
+            """
+            count_query = """
+                SELECT COUNT(DISTINCT DynamicName || COALESCE(Volume, ''))
+                FROM importresults
+                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                  AND Status != 'Imported'
+            """
+        else:
+            base_query = """
+                SELECT *, COUNT(*) as FileCount
+                FROM importresults
+                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                  AND Status != 'Imported'
+                  AND (IgnoreFile IS NULL OR IgnoreFile = 0)
+                GROUP BY DynamicName, Volume
+                ORDER BY ComicName COLLATE NOCASE
+            """
+            count_query = """
+                SELECT COUNT(DISTINCT DynamicName || COALESCE(Volume, ''))
+                FROM importresults
+                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                  AND Status != 'Imported'
+                  AND (IgnoreFile IS NULL OR IgnoreFile = 0)
+            """
+
+        # Get total count
+        total_result = myDB.selectone(count_query).fetchone()
+        total = total_result[0] if total_result else 0
+
+        # Get paginated results
+        paginated_query = base_query + " LIMIT ? OFFSET ?"
+        results = myDB.select(paginated_query, [limit, offset])
+
+        imports = []
+        for result in results:
+            dynamic_name = result['DynamicName']
+            volume = result['Volume']
+
+            # Get all files for this group
+            if volume is None or volume == 'None':
+                files_query = """
+                    SELECT * FROM importresults
+                    WHERE DynamicName=? AND (Volume IS NULL OR Volume='None')
+                    AND (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                    AND Status != 'Imported'
+                """
+                if not include_ignored:
+                    files_query += " AND (IgnoreFile IS NULL OR IgnoreFile = 0)"
+                files = myDB.select(files_query, [dynamic_name])
+            else:
+                files_query = """
+                    SELECT * FROM importresults
+                    WHERE DynamicName=? AND Volume=?
+                    AND (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
+                    AND Status != 'Imported'
+                """
+                if not include_ignored:
+                    files_query += " AND (IgnoreFile IS NULL OR IgnoreFile = 0)"
+                files = myDB.select(files_query, [dynamic_name, volume])
+
+            file_list = []
+            for f in files:
+                file_list.append({
+                    'impID': f['impID'],
+                    'ComicFilename': f['ComicFilename'],
+                    'ComicLocation': f['ComicLocation'],
+                    'IssueNumber': f['IssueNumber'],
+                    'ComicYear': f['ComicYear'],
+                    'Status': f['Status'],
+                    'IgnoreFile': f['IgnoreFile'] or 0,
+                    'MatchConfidence': f['MatchConfidence'],
+                    'SuggestedComicID': f['SuggestedComicID'],
+                    'SuggestedComicName': f['SuggestedComicName'],
+                    'SuggestedIssueID': f['SuggestedIssueID'],
+                    'MatchSource': f['MatchSource']
+                })
+
+            # Calculate average confidence for the group
+            confidences = [f['MatchConfidence'] for f in file_list if f['MatchConfidence'] is not None]
+            avg_confidence = sum(confidences) // len(confidences) if confidences else None
+
+            imports.append({
+                'DynamicName': dynamic_name,
+                'ComicName': result['ComicName'],
+                'Volume': volume,
+                'ComicYear': result['ComicYear'],
+                'FileCount': result['FileCount'],
+                'Status': result['Status'],
+                'SRID': result['SRID'],
+                'ComicID': result['ComicID'],
+                'MatchConfidence': avg_confidence,
+                'SuggestedComicID': result['SuggestedComicID'],
+                'SuggestedComicName': result['SuggestedComicName'],
+                'files': file_list
+            })
+
+        self.data = self._successResponse({
+            'imports': imports,
+            'pagination': {
+                'total': total,
+                'limit': limit,
+                'offset': offset,
+                'has_more': (offset + limit) < total
+            }
+        })
+
+    def _matchImport(self, **kwargs):
+        """
+        Manually match import file(s) to a comic series.
+
+        Parameters:
+            imp_ids: Comma-separated list of import IDs to match (required)
+            comic_id: Comic ID to match to (required)
+            issue_id: Specific issue ID to match to (optional)
+
+        Returns:
+            Number of matched imports
+        """
+        if 'imp_ids' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: imp_ids')
+            return
+
+        if 'comic_id' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: comic_id')
+            return
+
+        imp_ids = kwargs['imp_ids'].split(',')
+        comic_id = kwargs['comic_id']
+        issue_id = kwargs.get('issue_id')
+
+        myDB = db.DBConnection()
+
+        # Get comic name for display
+        comic = myDB.selectone('SELECT ComicName FROM comics WHERE ComicID=?', [comic_id]).fetchone()
+        comic_name = comic['ComicName'] if comic else 'Unknown'
+
+        matched = 0
+        for imp_id in imp_ids:
+            imp_id = imp_id.strip()
+            if not imp_id:
+                continue
+
+            update_values = {
+                'ComicID': comic_id,
+                'SuggestedComicID': comic_id,
+                'SuggestedComicName': comic_name,
+                'MatchSource': 'manual',
+                'MatchConfidence': 100,
+                'WatchMatch': 'C' + comic_id
+            }
+
+            if issue_id:
+                update_values['IssueID'] = issue_id
+                update_values['SuggestedIssueID'] = issue_id
+
+            myDB.upsert('importresults', update_values, {'impID': imp_id})
+            matched += 1
+
+        self.data = self._successResponse({
+            'matched': matched,
+            'comic_id': comic_id,
+            'comic_name': comic_name
+        })
+
+    def _ignoreImport(self, **kwargs):
+        """
+        Mark import file(s) as ignored or unignored.
+
+        Parameters:
+            imp_ids: Comma-separated list of import IDs to update (required)
+            ignore: Whether to ignore (true) or unignore (false) (optional, default 'true')
+
+        Returns:
+            Number of updated imports
+        """
+        if 'imp_ids' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: imp_ids')
+            return
+
+        imp_ids = kwargs['imp_ids'].split(',')
+        ignore = kwargs.get('ignore', 'true').lower() == 'true'
+        ignore_value = 1 if ignore else 0
+
+        myDB = db.DBConnection()
+
+        updated = 0
+        for imp_id in imp_ids:
+            imp_id = imp_id.strip()
+            if not imp_id:
+                continue
+
+            myDB.upsert('importresults', {'IgnoreFile': ignore_value}, {'impID': imp_id})
+            updated += 1
+
+        self.data = self._successResponse({
+            'updated': updated,
+            'ignored': ignore
+        })
+
+    def _refreshImport(self, **kwargs):
+        """
+        Trigger a refresh of the import directory scan.
+
+        Returns:
+            Success message
+        """
+        import mylar
+        from mylar import librarysync
+
+        # Get import directory from config
+        import_dir = mylar.CONFIG.IMPORT_DIR if hasattr(mylar.CONFIG, 'IMPORT_DIR') else None
+
+        if not import_dir:
+            self.data = self._failureResponse('Import directory not configured')
+            return
+
+        # Queue import scan
+        try:
+            logger.info('[API][refreshImport] Starting import directory scan for: %s' % import_dir)
+            # Use existing import functionality - scanLibrary expects scan=path and queue=queue object
+            import_queue = queue.Queue()
+            threading.Thread(
+                target=librarysync.scanLibrary,
+                name="API-ImportScan",
+                args=[import_dir, import_queue]
+            ).start()
+
+            self.data = self._successResponse({
+                'message': 'Import scan started for: %s' % import_dir
+            })
+        except Exception as e:
+            logger.error('[API][refreshImport] Error: %s' % e)
+            self.data = self._failureResponse('Failed to start import scan: %s' % str(e))
+
+    def _deleteImport(self, **kwargs):
+        """
+        Delete import record(s) from the database.
+
+        Parameters:
+            imp_ids: Comma-separated list of import IDs to delete (required)
+
+        Returns:
+            Number of deleted imports
+        """
+        if 'imp_ids' not in kwargs:
+            self.data = self._failureResponse('Missing parameter: imp_ids')
+            return
+
+        imp_ids = kwargs['imp_ids'].split(',')
+
+        myDB = db.DBConnection()
+
+        deleted = 0
+        for imp_id in imp_ids:
+            imp_id = imp_id.strip()
+            if not imp_id:
+                continue
+
+            myDB.action('DELETE FROM importresults WHERE impID=?', [imp_id])
+            deleted += 1
+
+        self.data = self._successResponse({
+            'deleted': deleted
+        })
 
 
 class REST(object):
