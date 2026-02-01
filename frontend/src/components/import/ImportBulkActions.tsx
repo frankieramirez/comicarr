@@ -64,7 +64,12 @@ export default function ImportBulkActions({
             Delete
           </Button>
 
-          <Button size="sm" variant="ghost" onClick={onClear} disabled={isLoading}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onClear}
+            disabled={isLoading}
+          >
             <X className="w-4 h-4" />
           </Button>
         </div>

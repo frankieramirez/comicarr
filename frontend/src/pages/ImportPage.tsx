@@ -84,7 +84,10 @@ export default function ImportPage() {
 
   const handleBulkIgnore = async () => {
     try {
-      await ignoreImportMutation.mutateAsync({ impIds: selectedIds, ignore: true });
+      await ignoreImportMutation.mutateAsync({
+        impIds: selectedIds,
+        ignore: true,
+      });
       addToast({
         type: "success",
         message: `${selectedIds.length} file${selectedIds.length !== 1 ? "s" : ""} ignored`,
@@ -100,7 +103,10 @@ export default function ImportPage() {
 
   const handleBulkUnignore = async () => {
     try {
-      await ignoreImportMutation.mutateAsync({ impIds: selectedIds, ignore: false });
+      await ignoreImportMutation.mutateAsync({
+        impIds: selectedIds,
+        ignore: false,
+      });
       addToast({
         type: "success",
         message: `${selectedIds.length} file${selectedIds.length !== 1 ? "s" : ""} unignored`,
