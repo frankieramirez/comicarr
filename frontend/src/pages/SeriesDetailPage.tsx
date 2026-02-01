@@ -268,7 +268,7 @@ export default function SeriesDetailPage() {
       {/* Issues/Chapters */}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">{itemLabel}</h2>
-        <IssuesTable issues={issues} isManga={isManga} />
+        <IssuesTable issues={issues} isManga={isManga} comicId={comicId} />
       </div>
     </div>
   );

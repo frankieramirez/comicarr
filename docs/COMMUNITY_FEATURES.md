@@ -17,7 +17,7 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 | Interactive Import Mapping | #1337 | 2 | Large | ✅ Done |
 | iCal Calendar Feed | #1526 | - | Medium | |
 | Matrix Notifications | #1216 | - | Small | ✅ Done |
-| Bulk Metadata Actions UI | #1525 | 3 | Medium | |
+| Bulk Metadata Actions UI | #1525 | 3 | Medium | ✅ Done |
 
 ### Tier 2: Medium Impact
 
@@ -179,36 +179,35 @@ matrix_onsnatch = False
 
 ---
 
-### 4. Bulk Metadata Actions UI
-**Issue:** #1525 | **Priority:** High | **Effort:** Medium (1-2 days)
+### 4. Bulk Metadata Actions UI ✅ COMPLETED
+**Issue:** #1525 | **Priority:** High | **Effort:** Medium (1-2 days) | **Status:** IMPLEMENTED
 
 **Problem:** Currently you either re-tag an entire series (hitting API limits) or click one issue at a time. Users want to select multiple issues and tag them in bulk.
 
-**Implementation:**
+**Implementation Complete:**
 
 **Backend Changes:**
-- `mylar/api.py` - Add endpoint:
-  ```
-  POST /api/v2/issues/bulk-tag
-  Body: { "issue_ids": ["id1", "id2", ...] }
-  ```
+- `mylar/api.py` - Added `bulkMetatag` command that accepts:
+  - `id` (ComicID)
+  - `issue_ids` (comma-separated IssueIDs)
+  - Calls existing `webserve.WebInterface().bulk_metatag()` function
+  - Returns immediately while tagging runs in background thread
 
 **Frontend Changes:**
-- `SeriesDetailPage.jsx`:
-  - Add checkbox column to issues table
-  - Add "Select All" / "Select Untagged" buttons
-  - Add floating action bar when items selected:
-    - "Tag Selected" button
-    - "Mark Wanted" button
-    - "Skip Selected" button
-  - Show progress modal during bulk operation
-  - Toast notifications for success/failure
+- `frontend/src/hooks/useMetadata.ts` - New file with `useBulkMetatag()` React Query mutation
+- `frontend/src/components/series/IssuesTable.tsx`:
+  - Added `comicId` prop to component interface
+  - Added `Tags` icon import from lucide-react
+  - Added `handleBulkMetatag` handler function
+  - Added "Tag Metadata" button to bulk action bar
+- `frontend/src/pages/SeriesDetailPage.tsx` - Passes `comicId` prop to IssuesTable
 
-**Files to Modify:**
-- `mylar/api.py` - Add bulk-tag endpoint
-- `mylar/cmtagmylar.py` - Add batch tagging function
-- `frontend/src/pages/SeriesDetailPage.jsx` - Add selection UI
-- `frontend/src/components/series/BulkActionsBar.jsx` - New component
+**Features:**
+- Select multiple issues via existing checkbox selection
+- "Tag Metadata" button appears in bulk action bar alongside "Mark Wanted" and "Skip"
+- Toast notification confirms operation started
+- Backend handles rate limiting via existing `CV_BATCH_LIMIT_PROTECTION` check
+- Issues without physical files are automatically filtered out
 
 ---
 
@@ -472,7 +471,7 @@ matrix_onsnatch = False
 
 ### Phase 2: Medium Features (Week 2)
 - [ ] iCal Calendar Feed (1-2 days)
-- [ ] Bulk Metadata Actions UI (1-2 days)
+- [x] Bulk Metadata Actions UI (1-2 days) ✅ COMPLETED
 - [ ] Series Statistics Dashboard (1-2 days)
 
 ### Phase 3: Larger Features (Week 3-4)
@@ -522,11 +521,13 @@ These features from the issues were already found in the codebase:
 - Add to Google Calendar
 - Verify upcoming issues appear as events
 
-**Bulk Metadata:**
-- Select multiple untagged issues
-- Click "Tag Selected"
-- Verify progress modal shows
-- Verify all selected issues get tagged
+**Bulk Metadata:** ✅ IMPLEMENTED
+- Navigate to a series detail page
+- Select multiple issues using checkboxes
+- Verify "Tag Metadata" button appears in bulk action bar
+- Click "Tag Metadata" and verify toast notification appears
+- Check backend logs for tagging activity
+- Verify files have updated metadata after completion
 
 **Import Mapping:** ✅ IMPLEMENTED
 - Navigate to Import page via sidebar
