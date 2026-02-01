@@ -257,7 +257,10 @@ export default function IssuesTable({
       return;
     }
     try {
-      await bulkMetatagMutation.mutateAsync({ comicId, issueIds: selectedIssueIds });
+      await bulkMetatagMutation.mutateAsync({
+        comicId,
+        issueIds: selectedIssueIds,
+      });
       addToast({
         type: "success",
         message: `Tagging metadata for ${selectedIssueIds.length} ${selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel}`,
