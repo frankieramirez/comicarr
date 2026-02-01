@@ -8362,11 +8362,13 @@ class WebInterface(object):
         
         if not isinstance(IssueIDs, list):
             IssueIDs = [IssueIDs]
-        
-        issueList = ', '.join(IssueIDs)
-        groupinfo = myDB.select(f'SELECT IssueID, Location FROM issues WHERE ComicID={ComicID} and IssueID IN ({issueList}) and Location is not NULL')
+
+        # Use parameterized queries to prevent SQL injection
+        placeholders = ','.join(['?' for _ in IssueIDs])
+        query_params = [ComicID] + IssueIDs
+        groupinfo = myDB.select(f'SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN ({placeholders}) and Location is not NULL', query_params)
         if mylar.CONFIG.ANNUALS_ON:
-            groupinfo += myDB.select(f'SELECT IssueID, Location FROM annuals WHERE ComicID={ComicID} and IssueID IN ({issueList}) and Location is not NULL')
+            groupinfo += myDB.select(f'SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN ({placeholders}) and Location is not NULL', query_params)
 
         if len(groupinfo) == 0:
             logger.warn('No issues physically exist for me to (re)-tag.')

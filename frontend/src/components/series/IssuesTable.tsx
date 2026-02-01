@@ -25,6 +25,7 @@ import {
   List,
   Layers,
   ChevronRight,
+  Tags,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
 import { useBulkQueueIssues, useBulkUnqueueIssues } from "@/hooks/useQueue";
+import { useBulkMetatag } from "@/hooks/useMetadata";
 import { useToast } from "@/components/ui/toast";
 import type { Issue, VolumeGroup } from "@/types";
 
@@ -43,6 +45,7 @@ type ViewMode = "chapters" | "volumes";
 interface IssuesTableProps {
   issues?: Issue[];
   isManga?: boolean;
+  comicId?: string;
 }
 
 // Helper to group issues by volume
@@ -145,6 +148,7 @@ function getChapterRange(chapters: Issue[]): string {
 export default function IssuesTable({
   issues = [],
   isManga = false,
+  comicId,
 }: IssuesTableProps) {
   // Dynamic labels based on content type
   const itemLabel = isManga ? "chapter" : "issue";
@@ -164,6 +168,7 @@ export default function IssuesTable({
   const unqueueIssueMutation = useUnqueueIssue();
   const bulkQueueMutation = useBulkQueueIssues();
   const bulkUnqueueMutation = useBulkUnqueueIssues();
+  const bulkMetatagMutation = useBulkMetatag();
   const { addToast } = useToast();
 
   // Check if any issues have volume numbers (determines if volume view is available)
@@ -239,6 +244,32 @@ export default function IssuesTable({
       addToast({
         type: "error",
         message: `Failed to skip ${itemLabelPlural}: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
+    }
+  };
+
+  const handleBulkMetatag = async () => {
+    if (!comicId) {
+      addToast({
+        type: "error",
+        message: "Cannot tag metadata: missing series ID",
+      });
+      return;
+    }
+    try {
+      await bulkMetatagMutation.mutateAsync({
+        comicId,
+        issueIds: selectedIssueIds,
+      });
+      addToast({
+        type: "success",
+        message: `Tagging metadata for ${selectedIssueIds.length} ${selectedIssueIds.length !== 1 ? itemLabelPlural : itemLabel}`,
+      });
+      setRowSelection({});
+    } catch (err) {
+      addToast({
+        type: "error",
+        message: `Failed to tag metadata: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
@@ -757,6 +788,15 @@ export default function IssuesTable({
             >
               <X className="w-3 h-3 mr-1" />
               Skip
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkMetatag}
+              disabled={bulkMetatagMutation.isPending || !comicId}
+            >
+              <Tags className="w-3 h-3 mr-1" />
+              Tag Metadata
             </Button>
             <Button
               size="sm"
