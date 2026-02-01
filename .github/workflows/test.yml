@@ -1,0 +1,196 @@
+name: Test Suite
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  # ===========================================================================
+  # Backend Python Tests
+  # ===========================================================================
+  backend-tests:
+    name: Backend Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Note: Python 3.10+ required due to mokkari>=3.0.0 dependency
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unrar
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit -v --cov=mylar --cov-report=xml --cov-report=term-missing -m "not slow"
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration -v --cov=mylar --cov-append --cov-report=xml --cov-report=term-missing -m "not slow"
+        continue-on-error: true # Integration tests may have more dependencies
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.11' # Only upload once
+        with:
+          files: ./coverage.xml
+          flags: backend
+          name: backend-python-${{ matrix.python-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ===========================================================================
+  # Frontend Tests
+  # ===========================================================================
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run linting
+        run: bun run lint
+
+      - name: Run type checking
+        run: bun run typecheck
+
+      - name: Run unit and component tests
+        run: bun run test:run
+
+      - name: Run tests with coverage
+        run: bun run test:coverage
+        continue-on-error: true # Coverage may fail if no tests exist yet
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ===========================================================================
+  # E2E Tests (only on main branch pushes)
+  # ===========================================================================
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unrar
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: bunx playwright install --with-deps chromium
+
+      - name: Create test data directory
+        run: mkdir -p /tmp/mylar_test
+
+      - name: Start backend server
+        run: |
+          python Mylar.py --nolaunch --quiet --datadir /tmp/mylar_test &
+          echo $! > /tmp/mylar.pid
+        env:
+          MYLAR_PORT: 8090
+
+      - name: Wait for backend to be ready
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost:8090 > /dev/null 2>&1; do sleep 2; done'
+        continue-on-error: true
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: bun run test:e2e
+        continue-on-error: true # E2E tests may need more setup
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f /tmp/mylar.pid ]; then
+            kill $(cat /tmp/mylar.pid) || true
+          fi
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  # ===========================================================================
+  # Summary Job
+  # ===========================================================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.backend-tests.result }}" == "failure" ] || [ "${{ needs.frontend-tests.result }}" == "failure" ]; then
+            echo "Some tests failed!"
+            exit 1
+          fi
+          echo "All tests passed!"

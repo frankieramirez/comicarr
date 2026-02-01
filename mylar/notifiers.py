@@ -796,3 +796,61 @@ class GOTIFY:
 
     def test_notify(self):
         return self.notify('Test Message', 'Release the Ninjas!')
+
+class MATRIX:
+    def __init__(self, test_homeserver=None, test_access_token=None, test_room_id=None):
+        if all([test_homeserver is None, test_access_token is None, test_room_id is None]):
+            self.homeserver = mylar.CONFIG.MATRIX_HOMESERVER
+            self.access_token = mylar.CONFIG.MATRIX_ACCESS_TOKEN
+            self.room_id = mylar.CONFIG.MATRIX_ROOM_ID
+            self.test = False
+        else:
+            self.homeserver = test_homeserver
+            self.access_token = test_access_token
+            self.room_id = test_room_id
+            self.test = True
+
+    def notify(self, text, attachment_text, snatched_nzb=None, prov=None, sent_to=None, module=None):
+        if module is None:
+            module = ''
+        module += '[NOTIFIER]'
+
+        if 'snatched' in attachment_text.lower():
+            snatched_text = '%s: %s' % (attachment_text, snatched_nzb)
+            if all([sent_to is not None, prov is not None]):
+                snatched_text += ' from %s and %s' % (prov, sent_to)
+            elif sent_to is None:
+                snatched_text += ' from %s' % prov
+            attachment_text = snatched_text
+
+        # Matrix Client-Server API endpoint for sending messages
+        # Using a transaction ID based on timestamp for idempotency
+        txn_id = str(int(time.time() * 1000))
+        url = f"{self.homeserver.rstrip('/')}/_matrix/client/r0/rooms/{self.room_id}/send/m.room.message/{txn_id}"
+
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "msgtype": "m.text",
+            "body": attachment_text
+        }
+
+        sent_successfuly = True
+        try:
+            response = requests.put(url, json=payload, headers=headers, verify=True)
+            if response.status_code not in [200, 201]:
+                logger.info(module + ' Could not send notification to Matrix (homeserver=%s, room=%s). Response: [%s] %s' % (self.homeserver, self.room_id, response.status_code, response.text))
+                sent_successfuly = False
+            else:
+                logger.info(module + " Matrix notification sent.")
+        except Exception as e:
+            logger.info(module + ' Matrix notify failed: ' + str(e))
+            sent_successfuly = False
+
+        return sent_successfuly
+
+    def test_notify(self):
+        return self.notify('Test Message', 'Release the Ninjas!')

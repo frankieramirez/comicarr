@@ -3560,6 +3560,10 @@ class PostProcessor(object):
                 gotify = notifiers.GOTIFY()
                 metadata = { 'series':series, 'issue': issuenumOG, 'year': issueyear, 'issueid': issueid }
                 gotify.notify("Download and Postprocessing completed", prline2, module=module, imageFile=imageFile, metadata=metadata)
+
+            if mylar.CONFIG.MATRIX_ENABLED:
+                matrix = notifiers.MATRIX()
+                matrix.notify("Download and Postprocessing completed", prline2, module=module)
         except Exception as e:
             logger.warn('[NOTIFICATION] Unable to send notification: %s' % e)
 
