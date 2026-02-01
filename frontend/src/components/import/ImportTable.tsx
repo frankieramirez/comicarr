@@ -33,7 +33,10 @@ function FileRow({ file }: { file: ImportFile }) {
   return (
     <div className="flex items-center gap-4 py-2 px-6 text-sm bg-muted/30 border-t border-card-border">
       <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-8" />
-      <span className="font-mono text-xs truncate flex-1" title={file.ComicFilename}>
+      <span
+        className="font-mono text-xs truncate flex-1"
+        title={file.ComicFilename}
+      >
         {file.ComicFilename}
       </span>
       {file.IssueNumber && (
@@ -145,7 +148,9 @@ export default function ImportTable({
         const suggestedId = row.original.SuggestedComicID;
 
         if (!suggestedName) {
-          return <span className="text-muted-foreground/70">No match found</span>;
+          return (
+            <span className="text-muted-foreground/70">No match found</span>
+          );
         }
 
         return (
