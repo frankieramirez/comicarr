@@ -30,11 +30,11 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 
 ### Tier 3: UX Improvements
 
-| Feature | GitHub Issue | Votes | Effort |
-|---------|--------------|-------|--------|
-| Visual Feedback When Adding Series | #1210 | - | Small |
-| Return to Scroll Position | #1613 | 1 | Small |
-| Advanced Search Filters | #1736 | - | Medium |
+| Feature | GitHub Issue | Votes | Effort | Status |
+|---------|--------------|-------|--------|--------|
+| Visual Feedback When Adding Series | #1210 | - | Small | ✅ Done |
+| Return to Scroll Position | #1613 | 1 | Small | |
+| Advanced Search Filters | #1736 | - | Medium | |
 
 ### Tier 4: Infrastructure (Long-term)
 
@@ -386,26 +386,28 @@ matrix_onsnatch = False
 
 ---
 
-### 9. Visual Feedback When Adding Series
-**Issue:** #1210 | **Priority:** Low | **Effort:** Small (0.5 day)
+### 9. Visual Feedback When Adding Series ✅ COMPLETED
+**Issue:** #1210 | **Priority:** Low | **Effort:** Small (0.5 day) | **Status:** IMPLEMENTED
 
 **Problem:** In search results, there's no visual indicator for which series you've already clicked "Add".
 
-**Implementation:**
+**Implementation Complete:**
 
 **Frontend Changes:**
-- `SearchPage.jsx`:
-  - Track added series IDs in local state
-  - After successful add, update state and show visual feedback
-  - Options:
-    - Change row background color to light blue/green
-    - Replace "Add" button with checkmark icon
-    - Show "Added" badge
-  - Persist state during session (cleared on new search)
+- `frontend/src/components/search/SearchResultsTable.tsx`:
+  - `isAdded` state tracks when a comic has been added
+  - Shows disabled "Added" button with Check icon when added
+  - Shows "Processing..." with spinner while adding
+  - Shows "In Library" badge for series already in library
+  - Toast notifications for success/failure feedback
 
-**Files to Modify:**
-- `frontend/src/pages/SearchPage.jsx` - Add selection tracking
-- `frontend/src/components/search/ComicCard.jsx` - Add visual states
+- `frontend/src/components/search/ComicCard.tsx`:
+  - `isAdded` state initialized from `comic.in_library`
+  - Button changes appearance based on state:
+    - Default: "Add" with Plus icon
+    - Processing: "Processing..." with Loader2 spinner
+    - Added: "Added" with Check icon (disabled, outline variant)
+  - Toast notifications provide user feedback
 
 ---
 
@@ -464,7 +466,7 @@ matrix_onsnatch = False
 
 ### Phase 1: Quick Wins (Week 1)
 - [x] Matrix Notifications (0.5 day) ✅ COMPLETED
-- [ ] Visual Feedback When Adding (0.5 day)
+- [x] Visual Feedback When Adding (0.5 day) ✅ COMPLETED
 - [ ] Return to Scroll Position (0.5 day)
 - [ ] DDL Queue Stuck Notifications (0.5 day)
 
@@ -501,6 +503,7 @@ These features from the issues were already found in the codebase:
 | Duplicate detection | ✅ Done | `DUPECONSTRAINT` |
 | 10 notification types | ✅ Done | `notifiers.py` |
 | Matrix notifications | ✅ Done | `MATRIX_ENABLED`, `MATRIX_HOMESERVER`, `MATRIX_ACCESS_TOKEN`, `MATRIX_ROOM_ID` |
+| Visual Feedback When Adding | ✅ Done | `SearchResultsTable.tsx`, `ComicCard.tsx` - isAdded state, Check icon, In Library badge |
 
 ---
 
