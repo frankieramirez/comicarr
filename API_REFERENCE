@@ -73,3 +73,33 @@ addStoryArc&id=$arcid&issues=$issues (add a comma delimited list of CV issue IDs
                                       Appended in order to the end of the reading order)
 addStoryArc&storyarcname=$name&issues=$issues (create a new story arc and add a comma delimited list of CV issue IDs
                                                to it.)
+
+--- Import Management ---
+
+getImportPending[&limit=$limit][&offset=$offset][&include_ignored=true|false]
+    (List pending/unmatched import files grouped by series.
+     Returns: imports array with DynamicName, ComicName, Volume, FileCount, MatchConfidence,
+              SuggestedComicID, SuggestedComicName, files array with individual file details.
+     Pagination: total, limit, offset, has_more)
+
+matchImport&imp_ids=$ids&comic_id=$comicid[&issue_id=$issueid]
+    (Manually match import file(s) to a comic series.
+     imp_ids: comma-separated list of import IDs
+     comic_id: Comic ID to match to
+     issue_id: optional specific issue ID
+     Returns: matched count, comic_id, comic_name)
+
+ignoreImport&imp_ids=$ids[&ignore=true|false]
+    (Mark import file(s) as ignored or unignored.
+     imp_ids: comma-separated list of import IDs
+     ignore: true to ignore, false to unignore (default: true)
+     Returns: updated count, ignored status)
+
+refreshImport
+    (Trigger a re-scan of the import directory.
+     Returns: message with import path)
+
+deleteImport&imp_ids=$ids
+    (Delete import record(s) from the database. Does not delete actual files.
+     imp_ids: comma-separated list of import IDs
+     Returns: deleted count)

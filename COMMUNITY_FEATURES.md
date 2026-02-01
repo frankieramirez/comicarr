@@ -14,7 +14,7 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 
 | Feature | GitHub Issue | Votes | Effort | Status |
 |---------|--------------|-------|--------|--------|
-| Interactive Import Mapping | #1337 | 2 | Large | |
+| Interactive Import Mapping | #1337 | 2 | Large | ✅ Done |
 | iCal Calendar Feed | #1526 | - | Medium | |
 | Matrix Notifications | #1216 | - | Small | ✅ Done |
 | Bulk Metadata Actions UI | #1525 | 3 | Medium | |
@@ -46,44 +46,58 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 
 ## Detailed Implementation Plans
 
-### 1. Interactive Import Mapping Screen
-**Issue:** #1337 | **Priority:** High | **Effort:** Large (3-5 days)
+### 1. Interactive Import Mapping Screen ✅ COMPLETED
+**Issue:** #1337 | **Priority:** High | **Effort:** Large (3-5 days) | **Status:** IMPLEMENTED
 
 **Problem:** When importing comics, Mylar often can't match files automatically. Users have to enable debug mode to find the root cause. Sonarr/Radarr have interactive import screens where users can manually map unrecognized files.
 
-**Implementation:**
+**Implementation Complete:**
 
 **Backend Changes:**
-- `mylar/api.py` - Add new endpoints:
+- `mylar/__init__.py` - Added 6 new columns to `importresults` table:
+  - `MatchConfidence` (INTEGER) - 0-100 confidence score
+  - `SuggestedComicID` (TEXT) - Best match comic ID
+  - `SuggestedComicName` (TEXT) - Best match display name
+  - `SuggestedIssueID` (TEXT) - Best issue match
+  - `IgnoreFile` (INTEGER DEFAULT 0) - 1 = ignored
+  - `MatchSource` (TEXT) - 'auto', 'manual', or 'metadata'
+
+- `mylar/api.py` - Added 5 new API commands:
   ```
-  GET  /api/v2/import/pending     - List unmatched files with suggested matches
-  POST /api/v2/import/match       - Manually match file to series/issue
-  POST /api/v2/import/ignore      - Mark file to ignore
-  POST /api/v2/import/refresh     - Re-scan import directory
+  getImportPending   - List unmatched files with pagination
+  matchImport        - Manually match file(s) to series
+  ignoreImport       - Mark file(s) as ignored
+  refreshImport      - Re-scan import directory
+  deleteImport       - Remove import record(s)
   ```
-- `mylar/importer.py` - Add functions to:
-  - Store pending imports in database with match confidence scores
-  - Support manual matching override
-  - Track ignored files
+
+- `mylar/filechecker.py` - Added `calculate_match_confidence()` function with scoring:
+  - Series Name Match: 40 pts (fuzzy matching)
+  - Year Match: 15 pts
+  - Volume Match: 15 pts
+  - Issue Number: 15 pts
+  - Metadata: 10 pts (CBZ with ComicInfo.xml)
+  - Path Hints: 5 pts
 
 **Frontend Changes:**
-- New page: `ImportPage.jsx`
-- Components:
-  - `PendingImportTable.jsx` - List of unmatched files
-  - `MatchModal.jsx` - Search and select correct series/issue
-  - `ImportActions.jsx` - Bulk actions (import all, ignore selected)
-- Features:
-  - Show file name, detected series name, confidence score
-  - Highlight low-confidence matches in yellow/red
-  - Search modal to find correct series
-  - Preview what metadata will be applied
+- New page: `frontend/src/pages/ImportPage.tsx`
+- New components in `frontend/src/components/import/`:
+  - `ImportTable.tsx` - Expandable table showing import groups and files
+  - `MatchModal.tsx` - Search modal to find correct series
+  - `ImportBulkActions.tsx` - Floating action bar for selections
+  - `ConfidenceBadge.tsx` - Color-coded confidence scores
+- New hook: `frontend/src/hooks/useImport.ts` - React Query mutations
+- Updated: `App.tsx` with `/import` route
+- Updated: `AppSidebar.tsx` with Import nav item
 
-**Files to Modify:**
-- `mylar/api.py` - Add v2 import endpoints
-- `mylar/importer.py` - Add pending import tracking
-- `mylar/db.py` - Add pending_imports table
-- `frontend/src/pages/ImportPage.jsx` - New page
-- `frontend/src/components/import/` - New components
+**Features:**
+- View pending imports grouped by series with confidence scores
+- Expand rows to see individual files
+- Color-coded confidence badges (green >80%, yellow 50-80%, red <50%)
+- Manual matching via series search modal
+- Bulk ignore/delete actions
+- Show/hide ignored files toggle
+- Re-scan import directory button
 
 ---
 
@@ -462,7 +476,7 @@ matrix_onsnatch = False
 ### Phase 3: Larger Features (Week 3-4)
 - [ ] Auto-Watch Keywords (1-2 days)
 - [ ] Advanced Search Filters (1-2 days)
-- [ ] Interactive Import Mapping (3-5 days)
+- [x] Interactive Import Mapping (3-5 days) ✅ COMPLETED
 
 ### Phase 4: Major Integration (Future)
 - [ ] SLSKD Download Source (3-4 days)
@@ -478,6 +492,7 @@ These features from the issues were already found in the codebase:
 |---------|--------|-----------------|
 | Metron metadata | ✅ Done | `metron.py`, `USE_METRON_SEARCH` |
 | MangaDex integration | ✅ Done | `mangadex.py`, `MANGADEX_ENABLED` |
+| Interactive Import Mapping | ✅ Done | `/import` page, `getImportPending` API |
 | Write metadata on import | ✅ Done | `IMP_METADATA` config |
 | Failed download handling | ✅ Done | `Failed.py` |
 | Proxy support | ✅ Done | `ENABLE_PROXY`, `HTTP_PROXY` |
@@ -510,12 +525,17 @@ These features from the issues were already found in the codebase:
 - Verify progress modal shows
 - Verify all selected issues get tagged
 
-**Import Mapping:**
-- Place unrecognized files in import folder
-- Navigate to Import page
-- Verify pending items are listed
-- Manually match a file
-- Verify file gets imported correctly
+**Import Mapping:** ✅ IMPLEMENTED
+- Navigate to Import page via sidebar
+- Verify pending imports display in grouped table
+- Expand a group to see individual files
+- Verify confidence badges are color-coded
+- Click "Match" on a group to open search modal
+- Search and select correct series
+- Verify match applied and group updates
+- Select multiple groups and use bulk ignore
+- Toggle "Show Ignored" to verify they reappear
+- Click "Scan Import Directory" to re-scan
 
 ---
 
