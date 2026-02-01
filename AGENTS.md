@@ -1,16 +1,16 @@
 # AGENTS.md
 
-**IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Mylar3 tasks. When in doubt, consult the actual codebase files rather than relying on general Python knowledge.**
+**IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Comicarr tasks. When in doubt, consult the actual codebase files rather than relying on general Python knowledge.**
 
 ## Project Overview
 
-Mylar3 is a Python 3 automated comic book (CBR/CBZ) downloader and library manager with a React frontend.
+Comicarr is a Python 3 automated comic book (CBR/CBZ) downloader and library manager with a React frontend. It is built on the foundation of Mylar3 with a completely rebuilt React 19 frontend and performance improvements.
 
 ## Important Notes
 - Python 3.8.1+ required
 - `urllib3<2` version constraint exists
-- The app uses CherryPy as web server, Mako for templates
-- Frontend is React + Vite + Tailwind (separate build process)
+- The app uses CherryPy as web server, Mako for templates (legacy), React for modern frontend
+- Frontend is React 19 + Vite + Tailwind (separate build process)
 - Database is SQLite (file-based, no separate server needed)
 
 ## Build/Development Commands
@@ -21,17 +21,17 @@ Mylar3 is a Python 3 automated comic book (CBR/CBZ) downloader and library manag
 pip install -r requirements.txt
 
 # Run the application (default port 8090)
-python3 Mylar.py
+python3 Comicarr.py
 
 # Run with options
-python3 Mylar.py --nolaunch          # Don't auto-open browser
-python3 Mylar.py --quiet             # Suppress console output
-python3 Mylar.py --port 8080         # Custom port
-python3 Mylar.py --datadir /path     # Custom data directory
+python3 Comicarr.py --nolaunch          # Don't auto-open browser
+python3 Comicarr.py --quiet             # Suppress console output
+python3 Comicarr.py --port 8080         # Custom port
+python3 Comicarr.py --datadir /path     # Custom data directory
 
 # Maintenance mode (no GUI)
-python3 Mylar.py maintenance --help
-python3 Mylar.py maintenance --carepackage  # Generate debug package
+python3 Comicarr.py maintenance --help
+python3 Comicarr.py maintenance --carepackage  # Generate debug package
 ```
 
 ### React Frontend
@@ -56,8 +56,8 @@ npm run preview
 - Test files are located in `mylar/test.py` (appears to be for manual rTorrent testing)
 
 ## Codebase Index
-[Mylar3 Code Index]|root: ./mylar
-|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{data/interfaces/:Mako templates}
+[Comicarr Code Index]|root: ./mylar
+|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{frontend/src/:React 19 components}
 
 **IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
 
@@ -100,18 +100,6 @@ npm run preview
 - Always prefix log messages with context: `[MODULE-CONTEXT] message`
 - Use fdebug for detailed debug output
 - Example: `logger.fdebug('[API-delComic] Comic Location (%s) successfully deleted' % location)`
-
-#### Documentation
-- Include GPL license header in all Python files:
-```python
-#  This file is part of Mylar.
-#
-#  Mylar is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-```
-- Add encoding declaration when needed: `# -*- coding: utf-8 -*-
 
 ### JavaScript/React Code Style (Frontend)
 - Located in `frontend/` directory

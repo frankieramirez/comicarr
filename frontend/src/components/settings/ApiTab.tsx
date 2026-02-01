@@ -60,8 +60,8 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Mylar API Key"
-        description="This key is used to authenticate API requests to Mylar"
+        title="Comicarr API Key"
+        description="This key is used to authenticate API requests to Comicarr"
       >
         <div className="space-y-2">
           <label className="text-sm font-medium">API Key</label>

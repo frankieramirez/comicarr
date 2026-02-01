@@ -63,7 +63,7 @@ export function InterfaceTab({
           type="checkbox"
           checked={formData.launch_browser as boolean | undefined}
           onChange={(checked) => onChange("launch_browser", checked as boolean)}
-          helpText="Automatically open browser when Mylar starts"
+          helpText="Automatically open browser when Comicarr starts"
         />
       </SettingGroup>
     </div>

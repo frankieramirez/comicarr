@@ -21,7 +21,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem("mylar4-theme");
+    const saved = localStorage.getItem("comicarr-theme");
     if (saved === "light" || saved === "dark") return saved;
 
     return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -33,7 +33,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const root = document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(theme);
-    localStorage.setItem("mylar4-theme", theme);
+    localStorage.setItem("comicarr-theme", theme);
   }, [theme]);
 
   const toggleTheme = () => {

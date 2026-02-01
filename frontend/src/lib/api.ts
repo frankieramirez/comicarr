@@ -1,6 +1,6 @@
 /**
- * Mylar4 API Client
- * Handles all API calls to the Mylar4 backend
+ * Comicarr API Client
+ * Handles all API calls to the Comicarr backend
  */
 
 import type {
@@ -104,7 +104,7 @@ export function isRetryableError(error: unknown): boolean {
 }
 
 /**
- * Make an API call to Mylar4
+ * Make an API call to Comicarr
  */
 export async function apiCall<T = unknown>(
   cmd: string,
@@ -115,7 +115,7 @@ export async function apiCall<T = unknown>(
 
   // Add API key from sessionStorage (except for getAPI command)
   if (cmd !== "getAPI") {
-    const apiKey = sessionStorage.getItem("mylar_api_key");
+    const apiKey = sessionStorage.getItem("comicarr_api_key");
     if (apiKey) {
       url.searchParams.set("apikey", apiKey);
     }
@@ -139,7 +139,7 @@ export async function apiCall<T = unknown>(
 
     const data: ApiResponseData = await response.json();
 
-    // Mylar4 API returns {success: true/false, data: {...}, error: {...}}
+    // Comicarr API returns {success: true/false, data: {...}, error: {...}}
     if (data.success === false) {
       throw new Error(data.error?.message || "API call failed");
     }

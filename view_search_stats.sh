@@ -1,7 +1,7 @@
 #!/bin/bash
 # View search performance statistics from logs
 
-echo "=== Mylar3 Search Performance Statistics ==="
+echo "=== Comicarr Search Performance Statistics ==="
 echo ""
 
 # Find the log file
@@ -46,3 +46,4 @@ echo "  Story arcs lazy loaded: $lazy_loads"
 
 echo ""
 echo "To monitor in real-time, run: ./monitor_performance.sh"
+echo ""

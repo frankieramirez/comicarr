@@ -58,7 +58,7 @@ export default function LoginPage() {
             <BookOpen className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-4xl font-bold mb-2">
-            <span className="gradient-brand">Mylar</span>
+            <span className="gradient-brand">Comicarr</span>
           </h1>
           <p className="text-muted-foreground">
             Your comic book library manager

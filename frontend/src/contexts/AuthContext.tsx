@@ -31,8 +31,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const verifySession = async () => {
       try {
         // Check if API key and SSE key exist in sessionStorage
-        const storedApiKey = sessionStorage.getItem("mylar_api_key");
-        const storedSseKey = sessionStorage.getItem("mylar_sse_key");
+        const storedApiKey = sessionStorage.getItem("comicarr_api_key");
+        const storedSseKey = sessionStorage.getItem("comicarr_sse_key");
         if (storedApiKey) {
           setApiKey(storedApiKey);
         }
@@ -45,15 +45,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser({ username: result.username });
         } else {
           // Clear API key and SSE key if session is invalid
-          sessionStorage.removeItem("mylar_api_key");
-          sessionStorage.removeItem("mylar_sse_key");
+          sessionStorage.removeItem("comicarr_api_key");
+          sessionStorage.removeItem("comicarr_sse_key");
           setApiKey(null);
           setSseKey(null);
         }
       } catch (error) {
         console.error("Session verification failed:", error);
-        sessionStorage.removeItem("mylar_api_key");
-        sessionStorage.removeItem("mylar_sse_key");
+        sessionStorage.removeItem("comicarr_api_key");
+        sessionStorage.removeItem("comicarr_sse_key");
         setApiKey(null);
         setSseKey(null);
       } finally {
@@ -83,12 +83,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (apiKeyResult.apikey) {
             setApiKey(apiKeyResult.apikey);
             // Store API key in sessionStorage for persistence
-            sessionStorage.setItem("mylar_api_key", apiKeyResult.apikey);
+            sessionStorage.setItem("comicarr_api_key", apiKeyResult.apikey);
           }
           if (apiKeyResult.sse_key) {
             setSseKey(apiKeyResult.sse_key);
             // Store SSE key in sessionStorage for persistence
-            sessionStorage.setItem("mylar_sse_key", apiKeyResult.sse_key);
+            sessionStorage.setItem("comicarr_sse_key", apiKeyResult.sse_key);
           }
         } catch (error) {
           console.error("Failed to fetch API key:", error);
@@ -117,8 +117,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setApiKey(null);
       setSseKey(null);
-      sessionStorage.removeItem("mylar_api_key");
-      sessionStorage.removeItem("mylar_sse_key");
+      sessionStorage.removeItem("comicarr_api_key");
+      sessionStorage.removeItem("comicarr_sse_key");
     }
   };
 

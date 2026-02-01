@@ -91,7 +91,7 @@ def _serve_maintenance_html():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mylar - Maintenance Mode</title>
+    <title>Comicarr - Maintenance Mode</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -125,7 +125,7 @@ def _serve_maintenance_html():
     <div class="container">
         <h1>Maintenance Mode</h1>
         <div class="spinner"></div>
-        <p>Mylar is performing database maintenance.<br>Please wait...</p>
+        <p>Comicarr is performing database maintenance.<br>Please wait...</p>
     </div>
 </body>
 </html>'''
@@ -139,7 +139,7 @@ def _serve_shutdown_html(title, message, timer=5):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="{timer}">
-    <title>Mylar - {title}</title>
+    <title>Comicarr - {title}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -6906,13 +6906,13 @@ class WebInterface(object):
             desc = br[author_end+1:].strip()
             if len(desc) > 103:
                 desc = '<span title="%s">%s...</span>' % (desc, desc[:103])
-            if author != 'mylar3':
+            if author != 'comicarr':
                 pr_tag = True
                 dspline = '[%s][PR] %s {<span style="font-size:11px">%s/%s</span>}'
             else:
                 pr_tag = False
                 dspline = '[%s] %s {<span style="font-size:11px">%s/%s</span>}'
-            commit.append(dspline % ("<a href='https://github.com/mylar3/mylar3/commit/" + commitno + "'>"+commitno+"</a>", desc, time, author))
+            commit.append(dspline % ("<a href='https://github.com/frankieramirez/comicarr/commit/" + commitno + "'>"+commitno+"</a>", desc, time, author))
 
         return '<br />\n'.join(commit)
 

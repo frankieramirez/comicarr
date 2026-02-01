@@ -1,5 +1,5 @@
 #!/bin/bash
-# Performance monitoring script for Mylar3
+# Performance monitoring script for Comicarr
 # Shows search performance metrics in real-time
 
 # Find the most recently modified mylar log file
@@ -14,7 +14,7 @@ if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then
     exit 1
 fi
 
-echo "=== Mylar3 Performance Monitor ==="
+echo "=== Comicarr Performance Monitor ==="
 echo "Monitoring: $LOG_FILE"
 echo "Press Ctrl+C to stop"
 echo ""

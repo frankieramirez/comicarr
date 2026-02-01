@@ -13,7 +13,7 @@ export default function Layout({ children }: LayoutProps) {
         {/* Mobile header with trigger - only visible on mobile */}
         <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
-          <span className="text-lg font-bold gradient-brand">Mylar4</span>
+          <span className="text-lg font-bold gradient-brand">Comicarr</span>
         </header>
 
         {/* Main content area */}

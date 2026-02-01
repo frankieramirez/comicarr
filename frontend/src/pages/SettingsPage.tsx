@@ -143,7 +143,7 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         </div>
         <p className="text-muted-foreground">
-          Configure Mylar preferences and integrations
+          Configure Comicarr preferences and integrations
         </p>
       </div>
 

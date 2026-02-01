@@ -12,7 +12,7 @@ RUN apk add --no-cache \
     curl
 
 # Copy application code
-WORKDIR /app/mylar
+WORKDIR /app/comicarr
 COPY . .
 
 # Install Python dependencies
@@ -22,4 +22,4 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 VOLUME /config /comics /manga /downloads
 EXPOSE 8090
 
-CMD ["python3", "/app/mylar/Mylar.py", "--nolaunch", "--quiet", "--datadir", "/config/mylar"]
+CMD ["python3", "/app/comicarr/Comicarr.py", "--nolaunch", "--quiet", "--datadir", "/config/comicarr"]

@@ -60,7 +60,7 @@ class PROWL:
         http_handler = HTTPSConnection("api.prowlapp.com")
 
         data = {'apikey': mylar.CONFIG.PROWL_KEYS,
-                'application': 'Mylar',
+                'application': 'Comicarr',
                 'event': event,
                 'description': message.encode("utf-8"),
                 'priority': mylar.CONFIG.PROWL_PRIORITY}
@@ -526,9 +526,9 @@ class MATTERMOST:
         payload = {
             "text": attachment_text,
             "username": "Mylar",
-            "icon_url": "https://github.com/mylar3/mylar3/raw/master/data/images/mylarlogo.png",
-            "footer": "Powered by [Mylar](https://github.com/mylar3/mylar3)",
-            "footer_icon": "https://github.com/mylar3/mylar3/raw/master/data/images/mylarlogo.png",
+                "icon_url": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
+            "footer": "Powered by [Comicarr](https://github.com/frankieramirez/comicarr)",
+            "footer_icon": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
             "attachments": attachments
         }
         try:
@@ -567,8 +567,8 @@ class DISCORD:
         timestamp = str(datetime.utcnow())
 
         payload = {
-               "username": "Mylar",
-               "avatar_url": "https://github.com/mylar3/mylar3/raw/master/data/images/mylarlogo.png",
+               "username": "Comicarr",
+               "avatar_url": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
         }
         if self.test:
             payload["content"] = attachment_text

@@ -1,0 +1,14 @@
+services:
+  comicarr:
+    image: ghcr.io/frankieramirez/comicarr:latest
+    container_name: comicarr
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./config:/config
+      - /path/to/comics:/comics
+      - /path/to/downloads:/downloads
+    environment:
+      - PUID=1000
+      - PGID=1000
+    restart: unless-stopped

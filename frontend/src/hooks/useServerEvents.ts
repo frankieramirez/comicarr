@@ -187,7 +187,7 @@ export function useServerEvents(
             addToast({
               type: "success",
               title: "Up to Date",
-              description: "Mylar is up to date.",
+              description: "Comicarr is up to date.",
             });
           }
         } catch (error) {
