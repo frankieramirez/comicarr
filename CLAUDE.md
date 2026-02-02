@@ -13,8 +13,20 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 ## Running the Application
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (using uv - creates .venv automatically)
+uv sync
+
+# Install with dev dependencies
+uv sync --extra dev
+
+# Add a new dependency
+uv add <package>
+
+# Add a dev dependency
+uv add --optional dev <package>
+
+# Activate virtual environment
+source .venv/bin/activate
 
 # Run the application (default port 8090)
 python3 Comicarr.py
