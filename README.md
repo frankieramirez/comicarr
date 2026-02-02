@@ -43,8 +43,9 @@ docker-compose up -d
 ### Manual Installation
 
 **Requirements:**
-- Python 3.8.1+
+- Python 3.10+
 - Node.js 18+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 **Steps:**
 
@@ -56,6 +57,10 @@ cd comicarr
 
 2. Install Python dependencies:
 ```bash
+# Using uv (recommended - creates .venv automatically)
+uv sync
+
+# Or using pip
 pip install -r requirements.txt
 ```
 
@@ -69,6 +74,7 @@ cd ..
 
 4. Run the application:
 ```bash
+source .venv/bin/activate  # if using uv
 python3 Comicarr.py --nolaunch
 ```
 
