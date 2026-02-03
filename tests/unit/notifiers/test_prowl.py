@@ -62,7 +62,7 @@ class TestProwlNotify:
 
         assert "test_prowl_key" in body
         assert "Test+message" in body or "Test%20message" in body
-        assert "Mylar" in body  # Application name
+        assert "Comicarr" in body  # Application name
 
     def test_notify_disabled_returns_none(
         self, notifiers_module, mock_notifier_config, mock_https_connection

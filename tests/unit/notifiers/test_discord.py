@@ -53,7 +53,7 @@ class TestDiscordNotify:
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         assert request_body["content"] == "Test message"
-        assert request_body["username"] == "Mylar"
+        assert request_body["username"] == "Comicarr"
 
     @responses.activate
     def test_notify_snatched_with_embeds(self, notifiers_module, mock_notifier_config):
