@@ -3401,6 +3401,7 @@ def ddl_downloader(queue):
 
                 #logger.fdebug('mylar.ddl_queued: %s' % mylar.DDL_QUEUED)
                 mylar.DDL_QUEUED.remove(item['id'])
+                mylar.DDL_STUCK_NOTIFIED.discard(item['id'])
                 try:
                     link_type_failure.pop(item['id'])
                 except KeyError:
@@ -3448,10 +3449,12 @@ def ddl_downloader(queue):
                         #undo all snatched items, to previous status via item['id'] - this will be set to Skipped currently regardless of previous status
                         reverse_the_pack_snatch(item['id'], item['comicid'])
                         link_type_failure.pop(item['id'])
+                        mylar.DDL_STUCK_NOTIFIED.discard(item['id'])
                         ddl_cleanup(item['id'])
                 else:
                     logger.info('[Status: %s] Failed to download item from %s : %s ' % (ddzstat['success'], item['site'], ddzstat))
                     myDB.action('DELETE FROM ddl_info where id=?', [item['id']])
+                    mylar.DDL_STUCK_NOTIFIED.discard(item['id'])
                     mylar.search.FailedMark(item['issueid'], item['comicid'], item['id'], ddzstat['filename'], item['site'])
         else:
             time.sleep(5)
@@ -3465,6 +3468,123 @@ def ddl_cleanup(id):
        logger.fdebug('[HTML-cleanup] Unable to remove html used for item from html_cache folder.'
                      ' Manual removal required or set `cleanup_cache=True` in the config.ini to'
                      ' clean cache items on every startup. If this was a Retry - ignore this.')
+
+
+def ddl_health_check():
+    """
+    Check for stuck DDL downloads and send notifications.
+    A download is considered stuck if it has been in 'Downloading' status
+    for longer than DDL_STUCK_THRESHOLD minutes without progress.
+    """
+    if not mylar.CONFIG.DDL_STUCK_NOTIFY:
+        return
+
+    if not mylar.CONFIG.ENABLE_DDL:
+        return
+
+    myDB = db.DBConnection()
+
+    stuck_items = myDB.select(
+        "SELECT * FROM ddl_info WHERE status = 'Downloading'"
+    )
+
+    if not stuck_items:
+        return
+
+    threshold_minutes = mylar.CONFIG.DDL_STUCK_THRESHOLD
+    now = datetime.datetime.now()
+
+    for item in stuck_items:
+        if item['updated_date'] is None:
+            continue
+
+        try:
+            updated = datetime.datetime.strptime(
+                item['updated_date'], '%Y-%m-%d %H:%M'
+            )
+        except ValueError:
+            continue
+
+        age_minutes = (now - updated).total_seconds() / 60
+
+        if age_minutes > threshold_minutes:
+            if item['id'] in mylar.DDL_STUCK_NOTIFIED:
+                continue
+
+            logger.warn('[DDL-HEALTH] Download stuck for %d minutes: %s (%s)' % (
+                int(age_minutes), item['series'], item['id']
+            ))
+
+            notify_ddl_stuck(item, int(age_minutes))
+
+            mylar.DDL_STUCK_NOTIFIED.add(item['id'])
+
+
+def notify_ddl_stuck(item, age_minutes):
+    """
+    Send notifications for a stuck DDL download.
+    Follows the same notifier pattern as notify_snatch() in search.py.
+    """
+    from mylar import notifiers
+
+    stuck_name = '%s (%s)' % (item['series'], item['year'])
+    if item['issues']:
+        stuck_name += ' #%s' % item['issues']
+
+    subject = 'DDL Queue Stuck!'
+    message = '%s has been downloading for %d minutes without progress.' % (
+        stuck_name, age_minutes
+    )
+
+    if mylar.CONFIG.PROWL_ENABLED and mylar.CONFIG.PROWL_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Prowl notification')
+        prowl = notifiers.PROWL()
+        prowl.notify(message, subject)
+
+    if mylar.CONFIG.PUSHOVER_ENABLED and mylar.CONFIG.PUSHOVER_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Pushover notification')
+        pushover = notifiers.PUSHOVER()
+        pushover.notify(subject, message, None, 'DDL', 'Comicarr')
+
+    if mylar.CONFIG.BOXCAR_ENABLED and mylar.CONFIG.BOXCAR_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Boxcar notification')
+        boxcar = notifiers.BOXCAR()
+        boxcar.notify(snatched_nzb=stuck_name, sent_to='DDL', snline=subject)
+
+    if mylar.CONFIG.PUSHBULLET_ENABLED and mylar.CONFIG.PUSHBULLET_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Pushbullet notification')
+        pushbullet = notifiers.PUSHBULLET()
+        pushbullet.notify(snline=subject, snatched=stuck_name, sent_to='DDL', prov='DDL', method='POST')
+
+    if mylar.CONFIG.TELEGRAM_ENABLED and mylar.CONFIG.TELEGRAM_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Telegram notification')
+        telegram = notifiers.TELEGRAM()
+        telegram.notify('%s - %s' % (subject, message))
+
+    if mylar.CONFIG.SLACK_ENABLED and mylar.CONFIG.SLACK_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Slack notification')
+        slack = notifiers.SLACK()
+        slack.notify('DDL Stuck', subject, snatched_nzb=stuck_name, sent_to='DDL', prov='DDL')
+
+    if mylar.CONFIG.DISCORD_ENABLED and mylar.CONFIG.DISCORD_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Discord notification')
+        discord = notifiers.DISCORD()
+        discord.notify('DDL Stuck', subject, snatched_nzb=stuck_name, sent_to='DDL', prov='DDL')
+
+    if mylar.CONFIG.EMAIL_ENABLED and mylar.CONFIG.EMAIL_ONGRAB:
+        logger.info('[DDL-HEALTH] Sending email notification')
+        email = notifiers.EMAIL()
+        email.notify(message, 'Comicarr - DDL Queue Stuck', module='[DDL-HEALTH]')
+
+    if mylar.CONFIG.GOTIFY_ENABLED and mylar.CONFIG.GOTIFY_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Gotify notification')
+        gotify = notifiers.GOTIFY()
+        gotify.notify('DDL Stuck', subject, snatched_nzb=stuck_name, sent_to='DDL', prov='DDL')
+
+    if mylar.CONFIG.MATRIX_ENABLED and mylar.CONFIG.MATRIX_ONSNATCH:
+        logger.info('[DDL-HEALTH] Sending Matrix notification')
+        matrix = notifiers.MATRIX()
+        matrix.notify('DDL Stuck', subject, snatched_nzb=stuck_name, sent_to='DDL', prov='DDL')
 
 
 def postprocess_main(queue):
