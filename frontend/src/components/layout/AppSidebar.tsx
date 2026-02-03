@@ -92,7 +92,9 @@ export default function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/" onClick={handleNavClick}>
                 <MessageSquare className="w-6 h-6 text-primary" />
-                <span className="text-xl font-bold gradient-brand">Comicarr</span>
+                <span className="text-xl font-bold gradient-brand">
+                  Comicarr
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
