@@ -72,7 +72,7 @@ class TestMattermostNotify:
         assert result is True
         request_body = json.loads(responses.calls[0].request.body)
         assert request_body["username"] == "Mylar"
-        assert "mylarlogo" in request_body["icon_url"]
+        assert "comicarrlogo" in request_body["icon_url"]
         assert "Powered by" in request_body["footer"]
 
     @responses.activate

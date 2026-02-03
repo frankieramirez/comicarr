@@ -134,7 +134,7 @@ describe("API Client", () => {
     });
 
     it("should include API key from sessionStorage", async () => {
-      sessionStorage.setItem("mylar_api_key", "test_api_key_123");
+      sessionStorage.setItem("comicarr_api_key", "test_api_key_123");
 
       // Use a custom handler to verify the apikey parameter
       let capturedUrl: URL | null = null;
@@ -152,7 +152,7 @@ describe("API Client", () => {
     });
 
     it("should not include API key for getAPI command", async () => {
-      sessionStorage.setItem("mylar_api_key", "test_api_key_123");
+      sessionStorage.setItem("comicarr_api_key", "test_api_key_123");
 
       let capturedUrl: URL | null = null;
       server.use(
