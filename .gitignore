@@ -36,3 +36,6 @@ frontend/dist/
 .coverage.*
 htmlcov/
 coverage.xml
+
+# Hypothesis testing cache
+.hypothesis/
