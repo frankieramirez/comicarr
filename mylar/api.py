@@ -44,7 +44,7 @@ cmd_list = ['getIndex', 'getComic', 'getUpcoming', 'getWanted', 'getHistory',
             'getConfig', 'setConfig', 'getSeriesImage',
             'findManga', 'addManga', 'getMangaInfo',
             'getImportPending', 'matchImport', 'ignoreImport', 'refreshImport', 'deleteImport',
-            'bulkMetatag']
+            'bulkMetatag', 'getCalendar']
 
 class Api(object):
 
@@ -507,6 +507,205 @@ class Api(object):
             "SELECT w.COMIC AS ComicName, w.ISSUE AS IssueNumber, w.ComicID, w.IssueID, w.SHIPDATE AS IssueDate, w.STATUS AS Status, c.ComicName AS DisplayComicName \
             FROM weekly w JOIN comics c ON w.ComicID = c.ComicID WHERE w.COMIC IS NOT NULL AND w.ISSUE IS NOT NULL AND \
             SUBSTR('0' || w.weeknumber, -2) = '" + week + "' AND w.year = '" + year + "' AND " + select_status_clause + " ORDER BY c.ComicSortName")
+        return
+
+    def _getCalendar(self, **kwargs):
+        """
+        Generate an iCal calendar feed for upcoming comic releases.
+
+        Parameters:
+            days: Number of days to include (default: CALENDAR_DEFAULT_DAYS config, max: 365)
+            status: Filter by status - wanted, snatched, downloaded, all (default: wanted)
+            include_annuals: Include annual issues - y/n (default: y if ANNUALS_ON)
+            include_storyarcs: Include story arc issues - y/n (default: config setting)
+        """
+        # Parse parameters
+        default_days = mylar.CONFIG.CALENDAR_DEFAULT_DAYS if mylar.CONFIG.CALENDAR_DEFAULT_DAYS else 90
+        days = min(int(kwargs.get('days', default_days)), 365)
+        status_filter = kwargs.get('status', 'wanted').lower()
+        include_annuals = kwargs.get('include_annuals', 'y' if mylar.CONFIG.ANNUALS_ON else 'n').upper() == 'Y'
+        include_storyarcs = kwargs.get('include_storyarcs', 'y' if mylar.CONFIG.UPCOMING_STORYARCS else 'n').upper() == 'Y'
+
+        myDB = db.DBConnection()
+
+        # Calculate date range
+        today = datetime.date.today()
+        end_date = today + datetime.timedelta(days=days)
+        today_str = today.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
+
+        # Build status clause
+        if status_filter == 'all':
+            status_clause = "1=1"
+        elif status_filter == 'snatched':
+            status_clause = "b.Status = 'Snatched'"
+        elif status_filter == 'downloaded':
+            status_clause = "b.Status = 'Downloaded'"
+        else:
+            status_clause = "b.Status = 'Wanted'"
+
+        events = []
+
+        # Query main issues
+        issues_query = """
+            SELECT a.ComicName, a.ComicYear, a.ComicPublisher, b.Issue_Number,
+                   b.IssueName, b.ReleaseDate, b.IssueDate, b.IssueID, b.ComicID, b.Status
+            FROM comics a
+            INNER JOIN issues b ON a.ComicID = b.ComicID
+            WHERE %s
+            AND b.ReleaseDate IS NOT NULL
+            AND b.ReleaseDate != ''
+            AND b.ReleaseDate >= ?
+            AND b.ReleaseDate <= ?
+            ORDER BY b.ReleaseDate
+        """ % status_clause
+
+        issues = myDB.select(issues_query, [today_str, end_date_str])
+        for issue in issues:
+            events.append({
+                'comic_name': issue['ComicName'],
+                'comic_year': issue['ComicYear'],
+                'publisher': issue['ComicPublisher'],
+                'issue_number': issue['Issue_Number'],
+                'issue_name': issue['IssueName'],
+                'release_date': issue['ReleaseDate'],
+                'issue_id': issue['IssueID'],
+                'comic_id': issue['ComicID'],
+                'status': issue['Status'],
+                'type': 'issue'
+            })
+
+        # Query annuals if enabled
+        if include_annuals:
+            annuals_query = """
+                SELECT a.ComicName, a.ComicYear, a.ComicPublisher, b.Issue_Number,
+                       b.IssueName, b.ReleaseDate, b.IssueDate, b.IssueID, b.ComicID,
+                       b.ReleaseComicName, b.Status
+                FROM comics a
+                INNER JOIN annuals b ON a.ComicID = b.ComicID
+                WHERE NOT b.Deleted
+                AND %s
+                AND b.ReleaseDate IS NOT NULL
+                AND b.ReleaseDate != ''
+                AND b.ReleaseDate >= ?
+                AND b.ReleaseDate <= ?
+                ORDER BY b.ReleaseDate
+            """ % status_clause.replace('b.Status', 'b.Status')
+
+            annuals = myDB.select(annuals_query, [today_str, end_date_str])
+            for annual in annuals:
+                events.append({
+                    'comic_name': annual['ReleaseComicName'] or annual['ComicName'],
+                    'comic_year': annual['ComicYear'],
+                    'publisher': annual['ComicPublisher'],
+                    'issue_number': annual['Issue_Number'],
+                    'issue_name': annual['IssueName'],
+                    'release_date': annual['ReleaseDate'],
+                    'issue_id': annual['IssueID'],
+                    'comic_id': annual['ComicID'],
+                    'status': annual['Status'],
+                    'type': 'annual'
+                })
+
+        # Query story arcs if enabled
+        if include_storyarcs:
+            storyarcs_query = """
+                SELECT ComicName, IssueNumber, IssueName, ReleaseDate, IssueID,
+                       ComicID, Storyarc, Status
+                FROM storyarcs
+                WHERE %s
+                AND ReleaseDate IS NOT NULL
+                AND ReleaseDate != ''
+                AND ReleaseDate >= ?
+                AND ReleaseDate <= ?
+                ORDER BY ReleaseDate
+            """ % status_clause.replace('b.Status', 'Status')
+
+            storyarcs = myDB.select(storyarcs_query, [today_str, end_date_str])
+            for arc in storyarcs:
+                events.append({
+                    'comic_name': arc['ComicName'],
+                    'comic_year': None,
+                    'publisher': None,
+                    'issue_number': arc['IssueNumber'],
+                    'issue_name': arc['IssueName'],
+                    'release_date': arc['ReleaseDate'],
+                    'issue_id': arc['IssueID'],
+                    'comic_id': arc['ComicID'],
+                    'status': arc['Status'],
+                    'type': 'storyarc',
+                    'storyarc': arc['Storyarc']
+                })
+
+        # Generate iCal output
+        ical_lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Comicarr//Comic Release Calendar//EN',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'X-WR-CALNAME:Comicarr Releases',
+            'X-WR-TIMEZONE:UTC'
+        ]
+
+        for event in events:
+            release_date = event['release_date']
+            if not release_date:
+                continue
+
+            # Parse and format date (YYYYMMDD format for all-day events)
+            try:
+                dt = datetime.datetime.strptime(release_date, '%Y-%m-%d')
+                dtstart = dt.strftime('%Y%m%d')
+                dtend = (dt + datetime.timedelta(days=1)).strftime('%Y%m%d')
+            except ValueError:
+                continue
+
+            # Build event summary
+            issue_num = event['issue_number'] or '1'
+            summary = '%s #%s' % (event['comic_name'], issue_num)
+            if event['type'] == 'annual':
+                summary = '%s (Annual)' % summary
+            elif event['type'] == 'storyarc':
+                summary = '%s [%s]' % (summary, event.get('storyarc', 'Story Arc'))
+
+            # Build description
+            desc_parts = []
+            if event['issue_name']:
+                desc_parts.append('Title: %s' % event['issue_name'])
+            if event['publisher']:
+                desc_parts.append('Publisher: %s' % event['publisher'])
+            if event['comic_year']:
+                desc_parts.append('Series Year: %s' % event['comic_year'])
+            desc_parts.append('Status: %s' % event['status'])
+            description = '\\n'.join(desc_parts)
+
+            # Create unique ID
+            uid = '%s-%s@comicarr' % (event['issue_id'], event['type'])
+
+            # Escape special characters for iCal
+            summary = summary.replace(',', '\\,').replace(';', '\\;')
+            description = description.replace(',', '\\,').replace(';', '\\;')
+
+            ical_lines.extend([
+                'BEGIN:VEVENT',
+                'DTSTART;VALUE=DATE:%s' % dtstart,
+                'DTEND;VALUE=DATE:%s' % dtend,
+                'SUMMARY:%s' % summary,
+                'DESCRIPTION:%s' % description,
+                'UID:%s' % uid,
+                'STATUS:CONFIRMED',
+                'TRANSP:TRANSPARENT',
+                'END:VEVENT'
+            ])
+
+        ical_lines.append('END:VCALENDAR')
+
+        # Set response headers for iCal
+        cherrypy.response.headers['Content-Type'] = 'text/calendar; charset=utf-8'
+        cherrypy.response.headers['Content-Disposition'] = 'attachment; filename="comicarr-releases.ics"'
+
+        self.data = '\r\n'.join(ical_lines)
         return
 
     def _getWanted(self, **kwargs):

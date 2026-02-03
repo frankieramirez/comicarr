@@ -149,6 +149,7 @@ _CONFIG_DEFINITIONS = OrderedDict({
 
     'API_ENABLED' : (bool, 'API', False),
     'API_KEY' : (str, 'API', None),
+    'CALENDAR_DEFAULT_DAYS': (int, 'API', 90),
 
     'CVAPI_RATE' : (int, 'CV', 2),
     'COMICVINE_API': (str, 'CV', None),
