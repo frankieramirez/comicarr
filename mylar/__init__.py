@@ -214,6 +214,8 @@ ISSUE_WATCH_LIST = queue.Queue()
 MASS_REFRESH = None
 REFRESH_QUEUE = queue.Queue()
 DDL_QUEUED = []
+DDL_STUCK_NOTIFIED = set()
+DDL_HEALTH_SCHEDULER = None
 PACK_ISSUEIDS_DONT_QUEUE = {}
 EXT_SERVER = False
 SEARCH_TIER_DATE = None
@@ -313,7 +315,7 @@ def initialize(config_file):
                MONITOR_SCHEDULER, SEARCH_SCHEDULER, RSS_SCHEDULER, WEEKLY_SCHEDULER, VERSION_SCHEDULER, UPDATER_SCHEDULER, START_UP, \
                SCHED_RSS_LAST, SCHED_WEEKLY_LAST, SCHED_MONITOR_LAST, SCHED_SEARCH_LAST, SCHED_VERSION_LAST, SCHED_DBUPDATE_LAST, COMICINFO, SEARCH_TIER_DATE, \
                BACKENDSTATUS_CV, BACKENDSTATUS_WS, PROVIDER_STATUS, EXT_IP, ISSUE_EXCEPTIONS, PROVIDER_START_ID, GLOBAL_MESSAGES, CHECK_FOLDER_CACHE, FOLDER_CACHE, SESSION_ID, \
-               MAINTENANCE_UPDATE, MAINTENANCE_DB_COUNT, MAINTENANCE_DB_TOTAL, UPDATE_VALUE, REQS, IMPRINT_MAPPING, GC_URL, PACK_ISSUEIDS_DONT_QUEUE, DDL_QUEUED, EXT_SERVER
+               MAINTENANCE_UPDATE, MAINTENANCE_DB_COUNT, MAINTENANCE_DB_TOTAL, UPDATE_VALUE, REQS, IMPRINT_MAPPING, GC_URL, PACK_ISSUEIDS_DONT_QUEUE, DDL_QUEUED, DDL_STUCK_NOTIFIED, DDL_HEALTH_SCHEDULER, EXT_SERVER
 
         cc = mylar.config.Config(config_file)
         CONFIG = cc.read(startup=True)
@@ -707,6 +709,14 @@ def start():
 
             if CONFIG.ENABLE_DDL is True:
                 queue_schedule('ddl_queue', 'start')
+                if CONFIG.DDL_STUCK_NOTIFY is True:
+                    DDL_HEALTH_SCHEDULER = SCHED.add_job(
+                        func=helpers.ddl_health_check,
+                        id='ddl_health',
+                        name='DDL Health Check',
+                        trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DDL_STUCK_CHECK_INTERVAL), timezone='UTC')
+                    )
+                    logger.info('[DDL-HEALTH] DDL health check enabled, running every %s minutes' % CONFIG.DDL_STUCK_CHECK_INTERVAL)
 
             helpers.latestdate_fix()
 
