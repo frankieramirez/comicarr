@@ -7,8 +7,10 @@ services:
     volumes:
       - ./config:/config
       - /path/to/comics:/comics
+      - /path/to/manga:/manga
       - /path/to/downloads:/downloads
     environment:
       - PUID=1000
       - PGID=1000
+      - TZ=Etc/UTC
     restart: unless-stopped
