@@ -7,8 +7,22 @@ __pycache__
 .env
 .venv
 venv
-*.md
-!requirements.txt
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# Frontend (rebuilt in Docker stage 1)
+frontend/node_modules
+frontend/dist
+
+# CI/IDE/OS
+.github
+.idea
+.nova
+.DS_Store
+
+# Data files (runtime only)
+*.db
+config.ini
+cache/
+logs/

@@ -38,6 +38,8 @@ jobs:
             ghcr.io/frankieramirez/comicarr:latest
             ghcr.io/frankieramirez/comicarr:${{ steps.version.outputs.VERSION }}
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
