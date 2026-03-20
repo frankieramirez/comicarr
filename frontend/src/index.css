@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap");
 
 @plugin "tailwindcss-animate";
 
@@ -6,16 +7,15 @@
 
 :root {
   font-family:
+    "Inter",
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
     sans-serif;
   --radius: 0.625rem;
+  --font-mono: "DM Mono", ui-monospace, monospace;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
@@ -122,59 +122,71 @@ body {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --font-mono: var(--font-mono);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.77 0.16 70);
-  --primary-foreground: oklch(0.28 0.07 46);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.88 0.15 92);
-  --chart-2: oklch(0.77 0.16 70);
-  --chart-3: oklch(0.67 0.16 58);
-  --chart-4: oklch(0.56 0.15 49);
-  --chart-5: oklch(0.47 0.12 46);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.77 0.16 70);
-  --sidebar-primary-foreground: oklch(0.28 0.07 46);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --background: #0a0a0b;
+  --foreground: #ffffff;
+  --card: #141417;
+  --card-foreground: #ffffff;
+  --popover: #141417;
+  --popover-foreground: #ffffff;
+  --primary: #ff5c00;
+  --primary-foreground: #ffffff;
+  --secondary: #1a1a1d;
+  --secondary-foreground: #adadb0;
+  --muted: #1a1a1d;
+  --muted-foreground: #8b8b90;
+  --accent: #1a1a1d;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --border: #1f1f23;
+  --input: #1a1a1d;
+  --ring: #ff5c00;
+  --chart-1: #ff8a4c;
+  --chart-2: #ff5c00;
+  --chart-3: #22c55e;
+  --chart-4: #adadb0;
+  --chart-5: #6b6b70;
+  --sidebar: #141417;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ff5c00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1a1d;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1f1f23;
+  --sidebar-ring: #ff5c00;
+
+  /* Surface layers */
+  --surface-deep: #111113;
+  --surface-elevated: #1a1a1d;
+  --border-elevated: #2a2a2e;
+  --text-tertiary: #8b8b90;
+  --text-muted: #6b6b70;
+  --text-disabled: #4a4a4e;
 
   /* Status Badges - Dark Mode */
-  --status-active: oklch(0.7 0.18 145);
-  --status-active-bg: oklch(0.25 0.08 145);
-  --status-wanted: oklch(0.75 0.2 265);
-  --status-wanted-bg: oklch(0.25 0.1 265);
-  --status-downloaded: oklch(0.7 0.18 145);
-  --status-downloaded-bg: oklch(0.25 0.08 145);
-  --status-paused: oklch(0.8 0.16 85);
-  --status-paused-bg: oklch(0.28 0.08 85);
-  --status-ended: oklch(0.65 0.05 280);
-  --status-ended-bg: oklch(0.22 0.02 280);
-  --status-error: oklch(0.75 0.22 25);
-  --status-error-bg: oklch(0.28 0.1 25);
-  --status-skipped: oklch(0.7 0.05 280);
-  --status-skipped-bg: oklch(0.22 0.02 280);
+  --status-active: #22c55e;
+  --status-active-bg: #22c55e18;
+  --status-wanted: #ff5c00;
+  --status-wanted-bg: #ff5c0018;
+  --status-downloaded: #22c55e;
+  --status-downloaded-bg: #22c55e18;
+  --status-paused: #8b8b90;
+  --status-paused-bg: #6b6b7018;
+  --status-ended: #8b8b90;
+  --status-ended-bg: #6b6b7018;
+  --status-error: #ef4444;
+  --status-error-bg: #ef444418;
+  --status-skipped: #6b6b70;
+  --status-skipped-bg: #6b6b7018;
 
   /* Effects */
-  --glassmorphism-bg: oklch(0.18 0.01 280 / 85%);
+  --glassmorphism-bg: rgba(10, 10, 11, 0.85);
+
+  /* Gradient */
+  --gradient-brand: linear-gradient(135deg, #ff5c00, #ff8a4c);
 }
 
 @layer base {
