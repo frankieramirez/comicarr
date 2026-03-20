@@ -28,7 +28,7 @@ import {
   Settings,
   LogOut,
   BookMarked,
-  MessageSquare,
+  BookOpen,
   Moon,
   Sun,
   FolderInput,
@@ -90,10 +90,12 @@ export default function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/" onClick={handleNavClick}>
-                <MessageSquare className="w-6 h-6 text-primary" />
-                <span className="text-xl font-bold gradient-brand">
-                  Comicarr
+              <Link to="/" onClick={handleNavClick} className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-b from-[#FF5C00] to-[#FF8A4C]">
+                  <BookOpen className="w-[18px] h-[18px] text-white" />
+                </div>
+                <span className="text-lg font-semibold tracking-[3px] text-foreground" style={{ fontFamily: "var(--font-mono, 'DM Mono', monospace)" }}>
+                  COMICARR
                 </span>
               </Link>
             </SidebarMenuButton>
