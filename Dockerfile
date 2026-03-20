@@ -12,11 +12,10 @@ FROM python:3.11-alpine
 # Install system dependencies
 RUN apk add --no-cache \
     git \
-    unrar \
+    7zip \
     su-exec \
     curl \
     tzdata \
-    # Build deps for pip packages (removed after install)
     && apk add --no-cache --virtual .build-deps \
     build-base \
     libffi-dev \
