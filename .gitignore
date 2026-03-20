@@ -39,3 +39,13 @@ coverage.xml
 
 # Hypothesis testing cache
 .hypothesis/
+
+# Local binaries & archives
+nvim-macos-x86_64/
+nvim-macos-x86_64.tar.gz
+
+# Generated images
+images/generated-*.png
+
+# Claude agents/skills cache
+.agents/
