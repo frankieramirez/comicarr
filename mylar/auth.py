@@ -247,27 +247,20 @@ class AuthController(object):
             if len(password) < 8:
                 return {'success': False, 'error': 'Password must be at least 8 characters'}
 
-            # Save credentials to config
-            mylar.CONFIG.HTTP_USERNAME = username
-            # Encrypt the password if encryption is enabled, matching check_credentials behavior
-            if mylar.CONFIG.ENCRYPT_PASSWORDS:
-                edc = encrypted.Encryptor(password)
-                ed_result = edc.encrypt_it()
-                if ed_result['status'] is True:
-                    mylar.CONFIG.HTTP_PASSWORD = ed_result['password']
-                else:
-                    mylar.CONFIG.HTTP_PASSWORD = password
-            else:
-                mylar.CONFIG.HTTP_PASSWORD = password
-            mylar.CONFIG.AUTHENTICATION = 2  # Form-based auth
+            # Save credentials via process_kwargs (handles ConfigParser sync)
+            mylar.CONFIG.process_kwargs({
+                'http_username': username,
+                'http_password': password,
+                'authentication': 2,  # Form-based auth
+            })
             mylar.CONFIG.writeconfig()
             mylar.CONFIG.configure(update=True, startup=False)
 
             logger.info('[AUTH-SETUP] Initial credentials configured for user: %s' % username)
 
-            # Create session for the new user
-            cherrypy.session.regenerate()
-            cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
+            # CherryPy sessions are configured at mount time based on whether auth
+            # is set. A server restart is needed for login/sessions to work.
+            mylar.SIGNAL = 'restart'
 
-            return {'success': True, 'username': username}
+            return {'success': True, 'username': username, 'needs_restart': True}
 

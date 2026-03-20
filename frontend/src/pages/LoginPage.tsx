@@ -36,14 +36,32 @@ function SetupForm() {
     try {
       const result = await setupCredentials(username, password);
       if (result.success) {
-        // Force a full reload so the app picks up the new auth config
-        window.location.href = "/";
+        // Server is restarting to enable auth sessions.
+        // Poll until it's back, then redirect to login.
+        setError("");
+        const pollUntilReady = async () => {
+          for (let i = 0; i < 30; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            try {
+              const resp = await fetch("/auth/check_setup");
+              if (resp.ok) {
+                window.location.href = "/";
+                return;
+              }
+            } catch {
+              // Server still restarting
+            }
+          }
+          // Fallback after 60s
+          window.location.href = "/";
+        };
+        pollUntilReady();
       } else {
         setError(result.error || "Setup failed");
+        setIsSubmitting(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Setup failed");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -134,10 +152,10 @@ function SetupForm() {
           className="w-full h-11 text-base font-medium"
           disabled={isSubmitting}
         >
-          {isSubmitting ? (
+          {isSubmitting && !error ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
+              {username ? "Restarting server..." : "Creating account..."}
             </>
           ) : (
             "Create Account"
