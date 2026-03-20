@@ -40,13 +40,13 @@ class SABnzbd(object):
 
         try:
             if chkstatus is True:
-                sendit = requests.get(self.sab_url, params=self.params, verify=False)
+                sendit = requests.get(self.sab_url, params=self.params, verify=False, timeout=30)
             else:
                 tmp_apikey = self.params.pop('apikey')
                 logger.fdebug('parameters set to %s' % self.params)
                 self.params['apikey'] = tmp_apikey
                 logger.fdebug('sending now to %s' % self.sab_url)
-                sendit = requests.post(self.sab_url, data=self.params, verify=False)
+                sendit = requests.post(self.sab_url, data=self.params, verify=False, timeout=30)
         except Exception as e:
             logger.warn('Failed to send to client. Error returned: %s' % e)
             return {'status': False}
@@ -87,7 +87,7 @@ class SABnzbd(object):
             logger.fdebug('[SAB-QUEUE] parameters set to %s' % self.params)
             self.params['queue']['apikey'] = tmp_apikey
             time.sleep(5)   #pause 5 seconds before monitoring just so it hits the queue
-            h = requests.get(self.sab_url, params=self.params['queue'], verify=False)
+            h = requests.get(self.sab_url, params=self.params['queue'], verify=False, timeout=30)
         except Exception as e:
             logger.fdebug('uh-oh: %s' % e)
             return self.historycheck(self.params)
@@ -121,7 +121,7 @@ class SABnzbd(object):
                         logger.fdebug('unable to pop nzo_id - possibly already done/finished/does not exist')
                         no_findie = True
                     tmp_queue['nzo_ids'] = self.params['nzo_id'] # if it pops, still there - make sure we put it back
-                    queue_resp = requests.get(self.sab_url, params=tmp_queue, verify=False)
+                    queue_resp = requests.get(self.sab_url, params=tmp_queue, verify=False, timeout=30)
                     queueresponse = queue_resp.json()
                     try:
                         queueinfo = queueresponse['queue']['slots'][0]
@@ -176,7 +176,7 @@ class SABnzbd(object):
                 logger.warn('[SABNZBD-VERSION-CHECK] Exception encountered trying to compare installed version [%s] to [%s]. Setting history length to last 200 items. (error: %s)' % (mylar.CONFIG.SAB_VERSION, min_sab ,e))
                 hist_params['limit'] = 200
 
-        hist = requests.get(self.sab_url, params=hist_params, verify=False)
+        hist = requests.get(self.sab_url, params=hist_params, verify=False, timeout=30)
         historyresponse = hist.json()
         #logger.info(historyresponse)
         histqueue = historyresponse['history']
@@ -328,7 +328,7 @@ class SABnzbd(object):
                 hist_params['del_files'] = 1
 
             try:
-                rh = requests.get(self.sab_url, params=hist_params, verify=False)
+                rh = requests.get(self.sab_url, params=hist_params, verify=False, timeout=30)
                 rhistory = rh.json()
             except Exception as e:
                 logger.warn('[Sabnzbd Completed History Removal] Unable to remove item - error returned: %s' % e)

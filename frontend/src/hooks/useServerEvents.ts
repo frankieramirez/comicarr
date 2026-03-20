@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import type {
@@ -11,7 +11,10 @@ import type {
   MessageEventData,
 } from "@/types";
 
-type UseServerEventsReturn = object;
+type UseServerEventsReturn = {
+  isConnected: boolean;
+  isReconnecting: boolean;
+};
 
 /**
  * Hook to manage Server-Sent Events (SSE) connection for real-time updates
@@ -22,11 +25,14 @@ export function useServerEvents(
 ): UseServerEventsReturn {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const reconnectDelayRef = useRef(1000); // Start with 1 second
+  const hasConnectedRef = useRef(false); // Track if we've connected before
 
   useEffect(() => {
     if (!enabled || !sseKey) {
@@ -51,12 +57,31 @@ export function useServerEvents(
 
       evtSource.onopen = () => {
         console.log("[SSE] Connection established");
-        reconnectDelayRef.current = 1000; // Reset reconnect delay on successful connection
+        setIsConnected(true);
+        setIsReconnecting(false);
+
+        // Only verify session on reconnect, not initial connection
+        if (hasConnectedRef.current) {
+          fetch('/auth/check_session')
+            .then(r => r.json())
+            .then(data => {
+              if (!data.authenticated) {
+                evtSource.close();
+                window.location.href = '/login';
+              }
+            })
+            .catch(() => {});
+        }
+
+        hasConnectedRef.current = true;
+        reconnectDelayRef.current = 1000;
       };
 
       evtSource.onerror = () => {
         console.error("[SSE] Connection error");
         evtSource.close();
+        setIsConnected(false);
+        setIsReconnecting(true);
 
         // Attempt to reconnect with exponential backoff
         if (isMounted) {
@@ -274,9 +299,9 @@ export function useServerEvents(
           } else if (data.tables === "tables") {
             queryClient.invalidateQueries({ queryKey: ["series"] });
           } else if (data.tables === "tabs") {
-            // Invalidate current page queries
-            // This is a generic invalidation - could be more specific based on current page
-            queryClient.invalidateQueries();
+            queryClient.invalidateQueries({ queryKey: ["series"] });
+            queryClient.invalidateQueries({ queryKey: ["wanted"] });
+            queryClient.invalidateQueries({ queryKey: ["upcoming"] });
           }
 
           // Dispatch custom event for ComicCard to handle navigation
@@ -344,5 +369,5 @@ export function useServerEvents(
     };
   }, [sseKey, enabled, queryClient, addToast]);
 
-  return {};
+  return { isConnected, isReconnecting };
 }

@@ -981,6 +981,8 @@ def dbcheck():
     c.execute('PRAGMA journal_mode = WAL')
     c.execute('PRAGMA synchronous = NORMAL')
     c.execute('PRAGMA cache_size = -64000')  # 64MB cache
+    # busy_timeout, foreign_keys, synchronous, mmap_size, journal_size_limit
+    # are set per-connection in db.py ConnectionPool.get_connection()
 
     #add in the late players to the game....
 

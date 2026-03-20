@@ -239,6 +239,53 @@ export async function checkSession(): Promise<SessionResponse> {
 }
 
 /**
+ * Check if initial setup is needed (no credentials configured)
+ */
+export async function checkSetup(): Promise<{ needs_setup: boolean }> {
+  try {
+    const url = new URL(`${AUTH_BASE}/check_setup`, window.location.origin);
+    const response = await fetch(url, { credentials: "include" });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Setup check failed:", error);
+    return { needs_setup: false };
+  }
+}
+
+/**
+ * Set up initial credentials (first-run only)
+ */
+export async function setupCredentials(
+  username: string,
+  password: string,
+): Promise<{ success: boolean; error?: string; username?: string }> {
+  try {
+    const url = new URL(`${AUTH_BASE}/setup`, window.location.origin);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ username, password }),
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Setup failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Get cover image URL for a Metron series (lazy loading)
  */
 export async function getSeriesImage(seriesId: string): Promise<string | null> {

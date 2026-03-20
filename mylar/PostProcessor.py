@@ -1004,7 +1004,8 @@ class PostProcessor(object):
                             if not issuechk:
                                 try:
                                     logger.fdebug('%s No corresponding issue #%s found for %s' % (module, temploc, cs['ComicID']))
-                                except:
+                                except Exception as e:
+                                    logger.fdebug('[PP] Error logging issue info: %s' % e)
                                     continue
                                 #check the last refresh date of the series, and if > than an hr try again:
                                 c_date = cs['LastUpdated']
@@ -1022,8 +1023,8 @@ class PostProcessor(object):
                                 try:
                                     updater.dbUpdate([cs['ComicID']])
                                     logger.fdebug('%s Succssfully refreshed series - now re-querying against new data for issue #%s.' % (module, temploc))
-                                except:
-                                    logger.error('%s %s failed to update comic.' % (module, cs['ComicName']))
+                                except Exception as e:
+                                    logger.error('%s %s failed to update comic: %s' % (module, cs['ComicName'], e))
                                     continue
 
                                 if annchk == 'yes':
@@ -1049,7 +1050,7 @@ class PostProcessor(object):
                                         else:
                                             monthval = isc['ReleaseDate']
                                             watch_issueyear = isc['ReleaseDate'][:4]
-                                    except:
+                                    except (ValueError, TypeError, KeyError) as e:
                                         monthval = isc['ReleaseDate']
                                         watch_issueyear = isc['ReleaseDate'][:4]
 
@@ -1061,7 +1062,7 @@ class PostProcessor(object):
                                         else:
                                             monthval = isc['IssueDate']
                                             watch_issueyear = isc['IssueDate'][:4]
-                                    except:
+                                    except (ValueError, TypeError, KeyError) as e:
                                         monthval = isc['IssueDate']
                                         watch_issueyear = isc['IssueDate'][:4]
 
@@ -1481,7 +1482,8 @@ class PostProcessor(object):
                                     if issuechk is None:
                                         try:
                                             logger.fdebug('%s No corresponding issue # found for %s' % (module, v[i]['WatchValues']['ComicID']))
-                                        except:
+                                        except Exception as e:
+                                            logger.fdebug('[PP] Error logging arc issue info: %s' % e)
                                             continue
                                     else:
                                         for isc in issuechk:
@@ -1495,7 +1497,7 @@ class PostProcessor(object):
                                                     else:
                                                         monthval = isc['ReleaseDate']
                                                         arc_issueyear = isc['ReleaseDate'][:4]
-                                                except:
+                                                except (ValueError, TypeError, KeyError) as e:
                                                     monthval = isc['ReleaseDate']
                                                     arc_issueyear = isc['ReleaseDate'][:4]
 
@@ -1507,7 +1509,7 @@ class PostProcessor(object):
                                                     else:
                                                         monthval = isc['IssueDate']
                                                         arc_issueyear = isc['IssueDate'][:4]
-                                                except:
+                                                except (ValueError, TypeError, KeyError) as e:
                                                     monthval = isc['IssueDate']
                                                     arc_issueyear = isc['IssueDate'][:4]
 
@@ -2004,8 +2006,8 @@ class PostProcessor(object):
 
                         try:
                             self.sendnotify(ml['ComicName'], issueyear=ml['IssueYear'], issuenumOG=ml['IssueNumber'], annchk=annchk, module=module, imageFile=imageFile, issueid=issueid)
-                        except:
-                            pass
+                        except Exception as e:
+                            logger.error('[PP] Failed to send notification: %s' % e)
 
             if (all([self.nzb_name != 'Manual Run', self.apicall is False]) or (self.oneoffinlist is True or all([self.issuearcid is not None, self.issueid is None]))) and not self.nzb_name.startswith('0-Day'): # and all([self.issueid is None, self.comicid is None, self.apicall is False]):
                 ppinfo = []
@@ -2228,8 +2230,9 @@ class PostProcessor(object):
                                 time.sleep(max(time.time() - ctime, 0))
                             else:
                                 break
-                        except:
+                        except (OSError, IOError) as e:
                             #file is no longer present in location / can't be accessed.
+                            logger.fdebug('[PP] File no longer accessible: %s' % e)
                             break
 
                     dupthis = helpers.duplicate_filecheck(ml['ComicLocation'], ComicID=comicid, IssueID=issueid)
@@ -2619,8 +2622,8 @@ class PostProcessor(object):
 
                     try:
                         self.sendnotify(comicname, issueyear=None, issuenumOG=issuenumber, annchk=annchk, module=module, imageFile=imageFile, issueid=issueid)
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.error('[PP] Failed to send notification: %s' % e)
 
                     self.valreturn.append({"self.log": self.log,
                                                "mode": 'stop'})
@@ -2630,7 +2633,7 @@ class PostProcessor(object):
                 else:
                     try:
                         len(manual_arclist)
-                    except:
+                    except (TypeError, NameError) as e:
                         manual_arclist = []
 
                     if tinfo['comiclocation'] is None:
@@ -2691,8 +2694,9 @@ class PostProcessor(object):
                             waiting = True
                         else:
                             break
-                    except:
+                    except (OSError, IOError) as e:
                         #file is no longer present in location / can't be accessed.
+                        logger.fdebug('[PP] File no longer accessible: %s' % e)
                         break
 
                 dupthis = helpers.duplicate_filecheck(ml['ComicLocation'], ComicID=comicid, IssueID=issueid)
@@ -3010,8 +3014,8 @@ class PostProcessor(object):
                     if odir is None:
                         logger.fdebug('%s No root folder set.' % module)
                         odir = self.nzb_folder
-                except:
-                    logger.error('%s unable to set root folder. Forcing it due to some error above most likely.' % module)
+                except Exception as e:
+                    logger.error('%s unable to set root folder. Forcing it due to some error above most likely: %s' % (module, e))
                     if os.path.isfile(self.nzb_folder) and self.nzb_folder.lower().endswith(self.extensions):
                         import ntpath
                         odir, ofilename = ntpath.split(self.nzb_folder)

@@ -1,28 +1,20 @@
-.git
-.gitignore
-__pycache__
+.git/
+.venv/
+frontend/node_modules/
+nvim-macos-x86_64/
+nvim-macos-x86_64.tar.gz
 *.pyc
-*.pyo
-*.egg-info
+__pycache__/
+.agents/
+.claude/
+docs/
+tests/
+.github/
 .env
-.venv
-venv
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Frontend (rebuilt in Docker stage 1)
-frontend/node_modules
-frontend/dist
-
-# CI/IDE/OS
-.github
-.idea
-.nova
-.DS_Store
-
-# Data files (runtime only)
 *.db
 config.ini
 cache/
 logs/
+.DS_Store
+Dockerfile
+docker-compose.yml
