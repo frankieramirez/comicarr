@@ -82,10 +82,11 @@ class ConnectionPool:
             )
             conn.row_factory = sqlite3.Row
 
-            # Set PRAGMAs on every new connection
-            conn.execute('PRAGMA busy_timeout = 5000')
+            # Set PRAGMAs on every new connection (per-connection state)
+            conn.execute('PRAGMA busy_timeout = 15000')  # 15s wait on locked DB
             conn.execute('PRAGMA foreign_keys = ON')
-            conn.execute('PRAGMA mmap_size = 134217728')  # 128MB memory-mapped I/O
+            conn.execute('PRAGMA synchronous = NORMAL')  # WAL-safe, faster writes
+            conn.execute('PRAGMA mmap_size = 67108864')  # 64MB memory-mapped I/O
             conn.execute('PRAGMA journal_size_limit = 67108864')  # 64MB WAL journal limit
 
             _thread_local.connections[filename] = conn
@@ -132,35 +133,6 @@ def dbFilename(filename="mylar.db"):
 
     return os.path.join(mylar.DATA_DIR, filename)
 
-class WriteOnly:
-    # DEPRECATED: Dead code. The queue path in upsert (lines below) is commented out
-    # and this worker is never actively used. Kept for reference only.
-
-    def __init__(self):
-        t = threading.Thread(target=self.worker, name="DB-WRITER")
-        t.daemon = True
-        t.start()
-        logger.fdebug('Thread WriteOnly initialized.')
-
-    def worker(self):
-        myDB = DBConnection()
-        #this should be in it's own thread somewhere, constantly polling the queue and sending them to the writer.
-        logger.fdebug('worker started.')
-        while True:
-            thisthread = threading.current_thread().name
-            if not mylarQueue.empty():
-    # Rename the main thread
-                logger.fdebug('[' + str(thisthread) + '] queue is not empty yet...')
-                (QtableName, QvalueDict, QkeyDict) = mylarQueue.get(block=True, timeout=None)
-                logger.fdebug('[REQUEUE] Table: ' + str(QtableName) + ' values: ' + str(QvalueDict) + ' keys: ' + str(QkeyDict))
-                sqlResult = myDB.upsert(QtableName, QvalueDict, QkeyDict)
-                if sqlResult:
-                    mylarQueue.task_done()
-                    return sqlResult
-            else:
-                time.sleep(1)
-                #logger.fdebug('[' + str(thisthread) + '] sleeping until active.')
-
 class DBConnection:
 
     def __init__(self, filename="mylar.db"):
@@ -172,39 +144,33 @@ class DBConnection:
 
     def fetch(self, query, args=None):
         # No lock needed for reads — WAL mode handles read concurrency
-        if True:
+        if query == None:
+            return
 
-            if query == None:
-                return
+        sqlResult = None
+        attempt = 0
 
-            sqlResult = None
-            attempt = 0
-
-            while attempt < 5:
-                try:
-                    if args == None:
-                        #logger.fdebug("[FETCH] : " + query)
-                        cursor = self.connection.cursor()
-                        sqlResult = cursor.execute(query)
-                    else:
-                        #logger.fdebug("[FETCH] : " + query + " with args " + str(args))
-                        cursor = self.connection.cursor()
-                        sqlResult = cursor.execute(query, args)
-                    # get out of the connection attempt loop since we were successful
-                    break
-                except sqlite3.OperationalError as e:
-                    if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
-                        logger.warn('Database Error: %s' % e)
-                        attempt += 1
-                        time.sleep(1)
-                    else:
-                        logger.warn('DB error: %s' % e)
-                        raise
-                except sqlite3.DatabaseError as e:
-                    logger.error('Fatal error executing query: %s' % e)
+        while attempt < 5:
+            try:
+                cursor = self.connection.cursor()
+                if args == None:
+                    sqlResult = cursor.execute(query)
+                else:
+                    sqlResult = cursor.execute(query, args)
+                break
+            except sqlite3.OperationalError as e:
+                if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
+                    logger.warn('Database Error: %s' % e)
+                    attempt += 1
+                    time.sleep(1)
+                else:
+                    logger.warn('DB error: %s' % e)
                     raise
+            except sqlite3.DatabaseError as e:
+                logger.error('Fatal error executing query: %s' % e)
+                raise
 
-            return sqlResult
+        return sqlResult
 
 
 
@@ -261,32 +227,34 @@ class DBConnection:
 
 
     def upsert(self, tableName, valueDict, keyDict):
-        # Atomic upsert using INSERT ... ON CONFLICT DO UPDATE
-        # Replaces the old UPDATE-then-check-total_changes-then-INSERT pattern
-        # which had a TOCTOU race condition.
+        # Atomic UPDATE-then-INSERT holding db_lock across both operations.
+        # Uses cursor.rowcount (statement-scoped) instead of total_changes
+        # (connection-scoped) to avoid the TOCTOU race condition.
 
-        all_keys = list(keyDict.keys()) + list(valueDict.keys())
-        all_values = list(keyDict.values()) + list(valueDict.values())
+        with db_lock:
+            genParams = lambda myDict: [x + " = ?" for x in list(myDict.keys())]
 
-        # Build the column list and placeholders
-        columns = ', '.join(all_keys)
-        placeholders = ', '.join(['?'] * len(all_keys))
+            update_query = "UPDATE " + tableName + " SET " + ", ".join(genParams(valueDict)) + " WHERE " + " AND ".join(genParams(keyDict))
+            update_values = list(valueDict.values()) + list(keyDict.values())
 
-        # Build the ON CONFLICT UPDATE clause (only update value columns, not key columns)
-        update_clause = ', '.join(['%s = excluded.%s' % (k, k) for k in valueDict.keys()])
-        conflict_keys = ', '.join(keyDict.keys())
+            attempt = 0
+            while attempt < 5:
+                try:
+                    cursor = self.connection.execute(update_query, update_values)
 
-        query = 'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(%s) DO UPDATE SET %s' % (
-            tableName, columns, placeholders, conflict_keys, update_clause
-        )
+                    if cursor.rowcount == 0:
+                        insert_query = "INSERT INTO " + tableName + " (" + ", ".join(list(valueDict.keys()) + list(keyDict.keys())) + ")" + \
+                                    " VALUES (" + ", ".join(["?"] * len(list(valueDict.keys()) + list(keyDict.keys()))) + ")"
+                        self.connection.execute(insert_query, list(valueDict.values()) + list(keyDict.values()))
 
-        self.action(query, all_values)
-
-
-        #else:
-        #    logger.info('[' + str(thisthread) + '] db is currently locked for writing. Queuing this action until it is free')
-        #    logger.info('Table: ' + str(tableName) + ' Values: ' + str(valueDict) + ' Keys: ' + str(keyDict))
-        #    self.queue.put( (tableName, valueDict, keyDict) )
-        #    #assuming this is coming in from a seperate thread, so loop it until it's free to write.
-        #    #self.queuesend()
+                    self.connection.commit()
+                    break
+                except sqlite3.OperationalError as e:
+                    if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
+                        logger.warn('Database Error: %s' % e)
+                        attempt += 1
+                        time.sleep(1)
+                    else:
+                        logger.error('Database error executing %s :: %s' % (update_query, e))
+                        raise
 

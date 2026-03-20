@@ -981,10 +981,8 @@ def dbcheck():
     c.execute('PRAGMA journal_mode = WAL')
     c.execute('PRAGMA synchronous = NORMAL')
     c.execute('PRAGMA cache_size = -64000')  # 64MB cache
-    c.execute('PRAGMA busy_timeout = 5000')
-    c.execute('PRAGMA foreign_keys = ON')
-    c.execute('PRAGMA mmap_size = 134217728')  # 128MB memory-mapped I/O
-    c.execute('PRAGMA journal_size_limit = 67108864')  # 64MB WAL journal limit
+    # busy_timeout, foreign_keys, synchronous, mmap_size, journal_size_limit
+    # are set per-connection in db.py ConnectionPool.get_connection()
 
     #add in the late players to the game....
 

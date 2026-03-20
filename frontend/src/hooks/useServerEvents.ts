@@ -32,6 +32,7 @@ export function useServerEvents(
     null,
   );
   const reconnectDelayRef = useRef(1000); // Start with 1 second
+  const hasConnectedRef = useRef(false); // Track if we've connected before
 
   useEffect(() => {
     if (!enabled || !sseKey) {
@@ -56,19 +57,24 @@ export function useServerEvents(
 
       evtSource.onopen = () => {
         console.log("[SSE] Connection established");
-        reconnectDelayRef.current = 1000; // Reset reconnect delay on successful connection
         setIsConnected(true);
         setIsReconnecting(false);
-        // Verify session is still valid after reconnect
-        fetch('/auth/check_session')
-          .then(r => r.json())
-          .then(data => {
-            if (!data.authenticated) {
-              evtSource.close();
-              window.location.href = '/login';
-            }
-          })
-          .catch(() => {}); // Ignore errors, SSE will reconnect if needed
+
+        // Only verify session on reconnect, not initial connection
+        if (hasConnectedRef.current) {
+          fetch('/auth/check_session')
+            .then(r => r.json())
+            .then(data => {
+              if (!data.authenticated) {
+                evtSource.close();
+                window.location.href = '/login';
+              }
+            })
+            .catch(() => {});
+        }
+
+        hasConnectedRef.current = true;
+        reconnectDelayRef.current = 1000;
       };
 
       evtSource.onerror = () => {

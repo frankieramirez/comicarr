@@ -100,9 +100,9 @@ class Api(object):
         cherrypy.response.headers['Content-Type'] = self.headers
         return json.dumps(response)
 
-    def _resultsFromQuery(self, query):
+    def _resultsFromQuery(self, query, args=None):
         myDB = db.DBConnection()
-        rows = myDB.select(query)
+        rows = myDB.select(query, args)
 
         results = []
 
