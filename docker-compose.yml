@@ -10,7 +10,9 @@ services:
       - /path/to/manga:/manga
       - /path/to/downloads:/downloads
     environment:
+      # Synology NAS defaults: PUID=1026, PGID=100
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-    restart: unless-stopped
+    restart: always
+    stop_grace_period: 30s

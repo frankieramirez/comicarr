@@ -345,12 +345,12 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
     #so this can get really buggered, really fast.
     try:
        tracks = dom.getElementsByTagName('issue')
-    except:
-       logger.error('Unable to add / refresh the series due to inablity to retrieve data from ComicVine. You might want to try abit later and/or make sure ComicVine is up.')
+    except (AttributeError, IndexError) as e:
+       logger.error('Unable to add / refresh the series due to inablity to retrieve data from ComicVine. You might want to try abit later and/or make sure ComicVine is up: %s' % e)
        return
     try:
         cntit = dom.getElementsByTagName('count_of_issues')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         cntit = len(tracks)
     trackcnt = len(tracks)
     logger.fdebug("number of issues I counted: " + str(trackcnt))
@@ -379,8 +379,8 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
                 try:
                     comic['ComicName'] = dom.getElementsByTagName('name')[n].firstChild.wholeText
                     comic['ComicName'] = comic['ComicName'].strip()
-                except:
-                    logger.error('There was a problem retrieving the given data from ComicVine. Ensure that www.comicvine.com is accessible AND that you have provided your OWN ComicVine API key.')
+                except (AttributeError, IndexError) as e:
+                    logger.error('There was a problem retrieving the given data from ComicVine. Ensure that www.comicvine.com is accessible AND that you have provided your OWN ComicVine API key: %s' % e)
                     return
 
             elif dom.getElementsByTagName('name')[n].parentNode.nodeName == 'publisher':
@@ -390,15 +390,15 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
                     logger.error('error encountered: %s' % e)
                     comic['ComicPublisher'] = "Unknown"
             n += 1
-    except:
-        logger.warn('Something went wrong retrieving from ComicVine. Ensure your API is up-to-date and that comicvine is accessible')
+    except (AttributeError, IndexError) as e:
+        logger.warn('Something went wrong retrieving from ComicVine. Ensure your API is up-to-date and that comicvine is accessible: %s' % e)
         return
 
     comic['FirstIssueID'] = dom.getElementsByTagName('id')[0].firstChild.wholeText
 
     try:
         comic['ComicYear'] = dom.getElementsByTagName('start_year')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         comic['ComicYear'] = '0000'
 
     #safety check, cause you known, dufus'...
@@ -417,7 +417,7 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         desclinks = desc_soup.findAll('a')
         comic_desc = drophtml(descchunk)
     #    desdeck +=1
-    except:
+    except (AttributeError, IndexError) as e:
         comic_desc = 'None'
 
     #sometimes the deck has volume labels
@@ -425,7 +425,7 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         deckchunk = dom.getElementsByTagName('deck')[0].firstChild.wholeText
         comic_deck = deckchunk
     #    desdeck +=1
-    except:
+    except (AttributeError, IndexError) as e:
         comic_deck = 'None'
 
     givb = get_imprint_volume_and_booktype(series, comic['ComicYear'], comic['ComicPublisher'], comic['FirstIssueID'], comic_desc, comic_deck)
@@ -439,7 +439,7 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
 
     try:
         comic['ComicURL'] = dom.getElementsByTagName('site_detail_url')[trackcnt].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         #this should never be an exception. If it is, it's probably due to CV timing out - so let's sleep for abit then retry.
         logger.warn('Unable to retrieve URL for volume. This is usually due to a timeout to CV, or going over the API. Retrying again in 10s.')
         time.sleep(10)
@@ -453,7 +453,7 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         if comic['Aliases'][-2:] == '##':
             comic['Aliases'] = comic['Aliases'][:-2]
         #logger.fdebug('Aliases: ' + str(aliases))
-    except:
+    except (AttributeError, IndexError) as e:
         comic['Aliases'] = 'None'
 
 
@@ -543,25 +543,25 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
 
     try:
         comic['ComicImage'] = dom.getElementsByTagName('super_url')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         try:
             comic['ComicImage'] = dom.getElementByTagName('original_url')[0].firstChild.wholeText
-        except:
+        except (AttributeError, IndexError) as e:
             comic['ComicImage'] = 'None'
 
     try:
         comic['ComicImageALT'] = dom.getElementsByTagName('small_url')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         comic['ComicImageALT'] = 'None'
 
     try:
         comic['ComicImageThumbnail'] = dom.getElementsByTagName('icon_url')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         comic['ComicImageThumbnail'] = 'None'
 
     try:
         comic['ComicThumbURL'] = dom.getElementsByTagName('thumb_url')[0].firstChild.wholeText
-    except:
+    except (AttributeError, IndexError) as e:
         comic['ComicThumbURL'] = 'None'
 
     #logger.info('comic: %s' % comic)
@@ -610,10 +610,10 @@ def GetIssuesInfo(comicid, dom, arcid=None):
                     elif subtrack.getElementsByTagName('name')[tot].parentNode.nodeName == 'issue':
                         try:
                             tempissue['Issue_Name'] = subtrack.getElementsByTagName('name')[tot].firstChild.wholeText
-                        except:
+                        except (AttributeError, IndexError) as e:
                             tempissue['Issue_Name'] = None
                     tot += 1
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['ComicName'] = 'None'
 
             try:
@@ -625,20 +625,20 @@ def GetIssuesInfo(comicid, dom, arcid=None):
                     elif subtrack.getElementsByTagName('id')[idt].parentNode.nodeName == 'issue':
                         tempissue['Issue_ID'] = subtrack.getElementsByTagName('id')[idt].firstChild.wholeText
                     idt += 1
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['Issue_Name'] = 'None'
 
             try:
                 tempissue['CoverDate'] = subtrack.getElementsByTagName('cover_date')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['CoverDate'] = '0000-00-00'
             try:
                 tempissue['StoreDate'] = subtrack.getElementsByTagName('store_date')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['StoreDate'] = '0000-00-00'
             try:
                 digital_desc = subtrack.getElementsByTagName('description')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['DigitalDate'] = '0000-00-00'
             else:
                 tempissue['DigitalDate'] = '0000-00-00'
@@ -651,7 +651,7 @@ def GetIssuesInfo(comicid, dom, arcid=None):
                         tempissue['DigitalDate'] = vlddate
             try:
                 tempissue['Issue_Number'] = subtrack.getElementsByTagName('issue_number')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 logger.fdebug('No Issue Number available - Trade Paperbacks, Graphic Novels and Compendiums are not supported as of yet.')
             else:
                 tempissue['Issue_Number'] = tempissue['Issue_Number'].strip()
@@ -659,12 +659,12 @@ def GetIssuesInfo(comicid, dom, arcid=None):
                     tempissue['Issue_Number'] = re.sub('Issue #', '', tempissue['Issue_Number']).strip()
             try:
                 tempissue['ComicImage'] = subtrack.getElementsByTagName('small_url')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['ComicImage'] = 'None'
 
             try:
                 tempissue['ComicImageALT'] = subtrack.getElementsByTagName('medium_url')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 tempissue['ComicImageALT'] = 'None'
 
             if arcid is None:
@@ -706,7 +706,7 @@ def Getissue(issueid, dom, rtype):
     if any([rtype == 'firstissue', rtype == 'imprints_first']):
         try:
             first_year = dom.getElementsByTagName('cover_date')[0].firstChild.wholeText
-        except:
+        except (AttributeError, IndexError) as e:
             first_year = '0000'
             if rtype == 'firstissue':
                 return first_year
@@ -721,7 +721,7 @@ def Getissue(issueid, dom, rtype):
         else:
             try:
                 store_year = dom.getElementsByTagName('store_date')[0].firstChild.wholeText
-            except:
+            except (AttributeError, IndexError) as e:
                 store_year = '0000'
                 return {'store_date': store_year, 'cover_date': first_year}
 
@@ -732,11 +732,11 @@ def Getissue(issueid, dom, rtype):
     else:
         try:
             image = dom.getElementsByTagName('super_url')[0].firstChild.wholeText
-        except:
+        except (AttributeError, IndexError) as e:
             image = None
         try:
             image_alt = dom.getElementsByTagName('small_url')[0].firstChild.wholeText
-        except:
+        except (AttributeError, IndexError) as e:
             image_alt = None
 
         return {'image':     image,
@@ -758,8 +758,8 @@ def GetSeriesYears(dom):
                 if dm.getElementsByTagName('id')[idc].parentNode.nodeName == 'volume':
                     tempseries['ComicID'] = dm.getElementsByTagName('id')[idc].firstChild.wholeText
                 idc+=1
-        except:
-            logger.warn('There was a problem retrieving a comicid for a series within the arc. This will have to manually corrected most likely.')
+        except (AttributeError, IndexError) as e:
+            logger.warn('There was a problem retrieving a comicid for a series within the arc. This will have to manually corrected most likely: %s' % e)
             tempseries['ComicID'] = 'None'
 
         tempseries['Series'] = 'None'
@@ -774,13 +774,13 @@ def GetSeriesYears(dom):
                 elif dm.getElementsByTagName('name')[namesc].parentNode.nodeName == 'publisher':
                     tempseries['Publisher'] = dm.getElementsByTagName('name')[namesc].firstChild.wholeText
                 namesc+=1
-        except:
-            logger.warn('There was a problem retrieving a Series Name or Publisher for a series within the arc. This will have to manually corrected.')
+        except (AttributeError, IndexError) as e:
+            logger.warn('There was a problem retrieving a Series Name or Publisher for a series within the arc. This will have to manually corrected: %s' % e)
 
         try:
             tempseries['SeriesYear'] = dm.getElementsByTagName('start_year')[0].firstChild.wholeText
-        except:
-            logger.warn('There was a problem retrieving the start year for a particular series within the story arc.')
+        except (AttributeError, IndexError) as e:
+            logger.warn('There was a problem retrieving the start year for a particular series within the story arc: %s' % e)
             tempseries['SeriesYear'] = '0000'
 
         #cause you know, dufus'...
@@ -796,7 +796,7 @@ def GetSeriesYears(dom):
             desclinks = desc_soup.findAll('a')
             comic_desc = drophtml(descchunk)
             desdeck +=1
-        except:
+        except (AttributeError, IndexError) as e:
             comic_desc = 'None'
 
         #sometimes the deck has volume labels
@@ -804,7 +804,7 @@ def GetSeriesYears(dom):
             deckchunk = dm.getElementsByTagName('deck')[0].firstChild.wholeText
             comic_deck = deckchunk
             desdeck +=1
-        except:
+        except (AttributeError, IndexError) as e:
             comic_deck = 'None'
 
         #comic['ComicDescription'] = comic_desc
@@ -815,7 +815,7 @@ def GetSeriesYears(dom):
             if tempseries['Aliases'][-2:] == '##':
                 tempseries['Aliases'] = tempseries['Aliases'][:-2]
             #logger.fdebug('Aliases: ' + str(aliases))
-        except:
+        except (AttributeError, IndexError) as e:
             tempseries['Aliases'] = 'None'
 
         tempseries['Volume'] = 'None' #noversion'
@@ -1014,7 +1014,7 @@ def GetSeriesYears(dom):
                             volume_found = ledigit
                             #tempseries['Volume'] = ledigit
                             logger.fdebug("Volume information found! Adding to series record : volume %s" % volume_found)
-                    except:
+                    except (IndexError, ValueError) as e:
                         pass
 
                     i += 1
@@ -1085,7 +1085,7 @@ def GetImportList(results):
                 elif implist.getElementsByTagName('id')[idt].parentNode.nodeName == 'issue':
                     tempseries['IssueID'] = implist.getElementsByTagName('id')[idt].firstChild.wholeText
                 idt += 1
-        except:
+        except (AttributeError, IndexError) as e:
             tempseries['ComicID'] = None
 
         try:
@@ -1098,15 +1098,15 @@ def GetImportList(results):
                 elif implist.getElementsByTagName('name')[tot].parentNode.nodeName == 'issue':
                     try:
                         tempseries['Issue_Name'] = implist.getElementsByTagName('name')[tot].firstChild.wholeText
-                    except:
+                    except (AttributeError, IndexError) as e:
                         tempseries['Issue_Name'] = None
                 tot += 1
-        except:
+        except (AttributeError, IndexError) as e:
             tempseries['ComicName'] = 'None'
 
         try:
             tempseries['Issue_Number'] = implist.getElementsByTagName('issue_number')[0].firstChild.wholeText
-        except:
+        except (AttributeError, IndexError) as e:
             logger.fdebug('No Issue Number available - Trade Paperbacks, Graphic Novels and Compendiums are not supported as of yet.')
         else:
             if 'Issue #' in tempseries['Issue_Number']:
@@ -1301,14 +1301,14 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
         else:
             comic_desc = description
         desdeck +=1
-    except:
+    except (AttributeError, TypeError) as e:
         comic_desc = 'None'
 
     #sometimes the deck has volume labels
     try:
         comic_deck = deck.strip()
         desdeck +=1
-    except:
+    except (AttributeError, TypeError) as e:
         comic_deck = 'None'
 
     comic['ComicDescription'] = comic_desc
@@ -1446,7 +1446,7 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
                             comic['ComicVersion'] = ledigit
                             logger.fdebug("Volume information found! Adding to series record : volume " + comic['ComicVersion'])
                             break
-                except:
+                except (IndexError, ValueError) as e:
                     pass
 
 

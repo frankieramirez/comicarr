@@ -26,6 +26,7 @@ from html import escape
 #from datetime import datetime, timedelta
 import urllib.request, urllib.parse, urllib.error
 import re
+import threading
 import mylar
 from mylar import logger, encrypted
 
@@ -160,7 +161,13 @@ class AuthController(object):
             #cherrypy.session[SESSION_KEY] = {'user':    cherrypy.request.login,
             #                                 'expiry':  expiry}
             self.on_login(current_username)
-            raise cherrypy.HTTPRedirect(from_page or mylar.CONFIG.HTTP_ROOT)
+            # Validate from_page is a safe relative path to prevent open redirect
+            redirect_to = mylar.CONFIG.HTTP_ROOT
+            if from_page:
+                safe_page = from_page.strip()
+                if safe_page.startswith('/') and not safe_page.startswith('//') and '://' not in safe_page and '\\' not in safe_page:
+                    redirect_to = safe_page
+            raise cherrypy.HTTPRedirect(redirect_to)
 
     @cherrypy.expose
     def logout(self, from_page="/"):
@@ -209,4 +216,51 @@ class AuthController(object):
         if username:
             return {'success': True, 'authenticated': True, 'username': username}
         return {'success': True, 'authenticated': False}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def check_setup(self):
+        """Check if initial setup is needed (no credentials configured)."""
+        needs_setup = not mylar.CONFIG.HTTP_USERNAME or not mylar.CONFIG.HTTP_PASSWORD
+        return {'success': True, 'needs_setup': needs_setup}
+
+    _setup_lock = threading.Lock()
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def setup(self, username=None, password=None):
+        """First-run credential setup. Only works if no auth is configured."""
+        # Restrict to POST only to prevent CSRF via GET
+        if cherrypy.request.method != 'POST':
+            cherrypy.response.status = 405
+            return {'success': False, 'error': 'Method not allowed'}
+
+        # Serialize setup attempts to prevent race condition
+        with self._setup_lock:
+            # Only allow setup if no credentials are configured
+            if mylar.CONFIG.HTTP_USERNAME and mylar.CONFIG.HTTP_PASSWORD:
+                return {'success': False, 'error': 'Credentials already configured'}
+
+            if not username or not password:
+                return {'success': False, 'error': 'Username and password required'}
+
+            if len(password) < 8:
+                return {'success': False, 'error': 'Password must be at least 8 characters'}
+
+            # Save credentials via process_kwargs (handles ConfigParser sync)
+            mylar.CONFIG.process_kwargs({
+                'http_username': username,
+                'http_password': password,
+                'authentication': 2,  # Form-based auth
+            })
+            mylar.CONFIG.writeconfig()
+            mylar.CONFIG.configure(update=True, startup=False)
+
+            logger.info('[AUTH-SETUP] Initial credentials configured for user: %s' % username)
+
+            # CherryPy sessions are configured at mount time based on whether auth
+            # is set. A server restart is needed for login/sessions to work.
+            mylar.SIGNAL = 'restart'
+
+            return {'success': True, 'username': username, 'needs_restart': True}
 
