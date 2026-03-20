@@ -76,65 +76,17 @@ class Api(object):
         return json.dumps(response)
 
     def _eventStreamResponse(self, results):
-        #data = 'retry: 200\ndata: ' + str( self.prog_output) + '\n\n'
-        #response = {
-        #    'success': True,
-        #    'data': results
-        #}
-        #{'status': mylar.GLOBAL_MESSAGES['status'], 'comicid': mylar.GLOBAL_MESSAGES['comicid'], 'tables': mylar.GLOBAL_MESSAGES['tables'], 'message': mylar.GLOBAL_MESSAGES['message']}
-        #logger.info('global_message: %s' % (results,))
         if results['status'] is not None:
-            if results['event'] == 'addbyid':
-                try:
-                    if results['seriesyear']:
-                        data = '\nevent: addbyid\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '",\ndata: "comicname": "' + results['comicname'] + '",\ndata: "seriesyear": "' + results['seriesyear'] + '"\ndata: }\n\n'
-                    else:
-                        data = '\nevent: addbyid\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '",\ndata: "comicname": "' + results['comicname'] + '",\ndata: "seriesyear": "' + results['seriesyear'] + '"\ndata: }\n\n'
-                except Exception as e:
-                    #logger.warn('error: %s' % e)
-                    data = '\nevent: addbyid\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '"\ndata: }\n\n'
-            elif results['event'] == 'scheduler_message':
-                try:
-                    data = '\nevent: scheduler_message\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-                except Exception:
-                    data = '\nevent: scheduler_message\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-            elif results['event'] == 'config_check':
-                try:
-                    data = '\nevent: config_check\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-                except Exception:
-                    data = '\nevent: config_check\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-            elif results['event'] == 'shutdown':
-                try:
-                    data = '\nevent: shutdown\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-                except Exception:
-                    data = '\nevent: shutdown\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-            elif results['event'] == 'check_update':
-                try:
-                    data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "current_version": "' + results['current_version'] + '",\ndata: "latest_version": "' + results['latest_version'] + '",\ndata: "commits_behind": "' + results['commits_behind'] + '",\ndata: "docker": "' + results['docker'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-                except Exception as e:
-                    data = '\nevent: check_update\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-            elif results['event'] == 'search_progress':
-                try:
-                    data = '\nevent: search_progress\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '"\ndata: }\n\n'
-                except Exception as e:
-                    logger.error('[SSE] Error formatting search_progress event: %s' % e)
-                    data = '\nevent: search_progress\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
-            elif results['event'] == 'search_complete':
-                try:
-                    data = '\nevent: search_complete\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "search_id": "' + str(results['search_id']) + '",\ndata: "message": "' + results['message'] + '",\ndata: "result_count": "' + str(results['result_count']) + '"\ndata: }\n\n'
-                except Exception as e:
-                    logger.error('[SSE] Error formatting search_complete event: %s' % e)
-                    data = '\nevent: search_complete\ndata: {\ndata: "status": "error",\ndata: "message": "Event formatting error"\ndata: }\n\n'
-            else:
-                try:
-                    data = '\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '",\ndata: "comicname": "' + results['comicname'] + '",\ndata: "seriesyear": "' + results['seriesyear'] + '"\ndata: }\n\n'
-                except Exception as e:
-                    #logger.warn('data_error: %s' % e)
-                    data = '\ndata: {\ndata: "status": "' + results['status'] + '",\ndata: "comicid": "' + results['comicid']+ '",\ndata: "message": "' + results['message'] + '",\ndata: "tables": "' + results['tables'] + '"\ndata: }\n\n'
+            event_name = results.get('event', '')
+            # Build payload dict from results, excluding the 'event' key
+            payload = {k: str(v) for k, v in results.items() if k != 'event' and v is not None}
 
-            #data = 'retry: 5000\ndata: '+str(results['message'])+'\n\n' # + str(results['message']) + '\n\n'
+            if event_name:
+                data = '\nevent: %s\ndata: %s\n\n' % (event_name, json.dumps(payload))
+            else:
+                data = '\ndata: %s\n\n' % json.dumps(payload)
         else:
-            data = '\ndata: \n\n' #'data: END-OF-STREAM\n\n'
+            data = '\ndata: \n\n'
         cherrypy.response.headers['Content-Type'] = 'text/event-stream'
         cherrypy.response.headers['Cache-Control'] = 'no-cache'
         cherrypy.response.headers['Connection'] = 'keep-alive'
@@ -159,19 +111,16 @@ class Api(object):
 
         return results
 
-    def _paginatedResultsFromQuery(self, query, limit=None, offset=None):
+    def _paginatedResultsFromQuery(self, query, limit=None, offset=None, args=None):
         """
         Execute a query with optional pagination support.
-
-        Args:
-            query: Base SQL query (should not include LIMIT/OFFSET)
-            limit: Maximum number of results to return (None = all)
-            offset: Number of results to skip (default 0)
 
         Returns:
             dict with 'results', 'total', 'limit', 'offset', 'has_more'
         """
         myDB = db.DBConnection()
+        if args is None:
+            args = []
 
         # Get total count first (for pagination metadata)
         # Extract the FROM clause to build a count query
@@ -183,17 +132,20 @@ class Api(object):
         if from_pos != -1:
             count_query = 'SELECT COUNT(*)' + count_query[from_pos:]
 
-        total_rows = myDB.select(count_query)
+        total_rows = myDB.select(count_query, args)
         total = total_rows[0][0] if total_rows else 0
 
-        # Apply pagination to original query
+        # Apply pagination to original query using parameterized queries
         paginated_query = query
+        paginated_args = list(args)
         if limit is not None:
-            paginated_query += f' LIMIT {int(limit)}'
-            if offset is not None and offset > 0:
-                paginated_query += f' OFFSET {int(offset)}'
+            paginated_query += ' LIMIT ?'
+            paginated_args.append(int(limit))
+            if offset is not None and int(offset) > 0:
+                paginated_query += ' OFFSET ?'
+                paginated_args.append(int(offset))
 
-        rows = myDB.select(paginated_query)
+        rows = myDB.select(paginated_query, paginated_args)
         results = []
         for row in rows:
             results.append(dict(list(zip(list(row.keys()), row))))
@@ -259,12 +211,21 @@ class Api(object):
                 self.data = self._failureResponse('API key not generated correctly')
                 return
 
-        if kwargs['cmd'] not in cmd_list or (kwargs['cmd'] == 'checkGlobalMessags' and all([kwargs['apikey'] != mylar.SSE_KEY, self.apiktype != 'sse'])):
+        if kwargs['cmd'] not in cmd_list:
             self.data = self._failureResponse('Unknown command: %s' % kwargs['cmd'])
             return
-        else:
-            self.cmd = kwargs.pop('cmd')
 
+        # Enforce SSE key scope: SSE keys can only access checkGlobalMessages
+        if self.apitype == 'sse' and kwargs['cmd'] != 'checkGlobalMessages':
+            self.data = self._failureResponse('SSE key can only access checkGlobalMessages')
+            return
+
+        # Enforce download key scope: download keys can only access downloadIssue/downloadNZB
+        if self.apitype == 'download' and kwargs['cmd'] not in ('downloadIssue', 'downloadNZB'):
+            self.data = self._failureResponse('Download key can only access download commands')
+            return
+
+        self.cmd = kwargs.pop('cmd')
         self.kwargs = kwargs
         self.data = 'OK'
 
@@ -287,7 +248,6 @@ class Api(object):
                         return self.data
                     else:
                         cherrypy.response.headers['Content-Type'] = "application/json"
-                        cherrypy.response.headers['Access-Control-Allow-Origin'] = '*'
                         return json.dumps(self.data)
             else:
                 self.callback = self.kwargs['callback']
@@ -431,24 +391,20 @@ class Api(object):
         else:
             self.id = kwargs['id']
 
-        comicQuery = '{select} WHERE ComicID="{id}" ORDER BY ComicSortName COLLATE NOCASE'.format(
-            select = self._selectForComics(),
-            id = self.id
-        )
-        comic = self._resultsFromQuery(comicQuery)
+        myDB = db.DBConnection()
 
-        issuesQuery = '{select} WHERE ComicID="{id}" ORDER BY Int_IssueNumber DESC'.format(
-            select = self._selectForIssues(),
-            id = self.id
-        )
-        issues = self._resultsFromQuery(issuesQuery)
+        comicQuery = self._selectForComics() + ' WHERE ComicID=? ORDER BY ComicSortName COLLATE NOCASE'
+        comic_rows = myDB.select(comicQuery, [self.id])
+        comic = [dict(zip(row.keys(), row)) for row in comic_rows]
+
+        issuesQuery = self._selectForIssues() + ' WHERE ComicID=? ORDER BY Int_IssueNumber DESC'
+        issues_rows = myDB.select(issuesQuery, [self.id])
+        issues = [dict(zip(row.keys(), row)) for row in issues_rows]
 
         if mylar.CONFIG.ANNUALS_ON:
-            annualsQuery = '{select} WHERE ComicID="{id}"'.format(
-                select = self._selectForAnnuals(),
-                id = self.id
-            )
-            annuals = self._resultsFromQuery(annualsQuery)
+            annualsQuery = self._selectForAnnuals() + ' WHERE ComicID=?'
+            annuals_rows = myDB.select(annualsQuery, [self.id])
+            annuals = [dict(zip(row.keys(), row)) for row in annuals_rows]
         else:
             annuals = []
 
@@ -503,10 +459,12 @@ class Api(object):
             week = today.strftime('%U')
             year = today.strftime('%Y')
 
-        self.data = self._resultsFromQuery(
-            "SELECT w.COMIC AS ComicName, w.ISSUE AS IssueNumber, w.ComicID, w.IssueID, w.SHIPDATE AS IssueDate, w.STATUS AS Status, c.ComicName AS DisplayComicName \
+        myDB = db.DBConnection()
+        upcoming_query = "SELECT w.COMIC AS ComicName, w.ISSUE AS IssueNumber, w.ComicID, w.IssueID, w.SHIPDATE AS IssueDate, w.STATUS AS Status, c.ComicName AS DisplayComicName \
             FROM weekly w JOIN comics c ON w.ComicID = c.ComicID WHERE w.COMIC IS NOT NULL AND w.ISSUE IS NOT NULL AND \
-            SUBSTR('0' || w.weeknumber, -2) = '" + week + "' AND w.year = '" + year + "' AND " + select_status_clause + " ORDER BY c.ComicSortName")
+            SUBSTR('0' || w.weeknumber, -2) = ? AND w.year = ? AND " + select_status_clause + " ORDER BY c.ComicSortName"
+        rows = myDB.select(upcoming_query, [week, year])
+        self.data = [dict(zip(row.keys(), row)) for row in rows]
         return
 
     def _getCalendar(self, **kwargs):
@@ -782,15 +740,15 @@ class Api(object):
 
         try:
             myDB = db.DBConnection()
-            delchk = myDB.selectone('SELECT ComicName, ComicYear, ComicLocation FROM comics where ComicID="' + self.id + '"').fetchone()
+            delchk = myDB.selectone('SELECT ComicName, ComicYear, ComicLocation FROM comics where ComicID=?', [self.id]).fetchone()
             if not delchk:
                 logger.error('ComicID %s not found in watchlist.' %  self.id)
                 self.data = self._failureResponse('ComicID %s not found in watchlist.' % self.id)
                 return
             logger.fdebug('Deletion request received for %s (%s) [%s]' % (delchk['ComicName'], delchk['ComicYear'], self.id))
-            myDB.action('DELETE from comics WHERE ComicID="' + self.id + '"')
-            myDB.action('DELETE from issues WHERE ComicID="' + self.id + '"')
-            myDB.action('DELETE from upcoming WHERE ComicID="' + self.id + '"')
+            myDB.action('DELETE from comics WHERE ComicID=?', [self.id])
+            myDB.action('DELETE from issues WHERE ComicID=?', [self.id])
+            myDB.action('DELETE from upcoming WHERE ComicID=?', [self.id])
             if directory_del is True:
                 if os.path.exists(delchk['ComicLocation']):
                     shutil.rmtree(delchk['ComicLocation'])
@@ -932,7 +890,7 @@ class Api(object):
             if comicid.startswith('4050-'):
                 comicid = re.sub('4050-', '', comicid).strip()
 
-            chkdb = myDB.selectone('SELECT ComicName, ComicYear FROM comics WHERE ComicID="' + comicid + '"').fetchone()
+            chkdb = myDB.selectone('SELECT ComicName, ComicYear FROM comics WHERE ComicID=?', [comicid]).fetchone()
             if not chkdb:
                 notfound.append({'comicid': comicid})
             else:
@@ -993,7 +951,7 @@ class Api(object):
             booktype = booktype.lower()
 
         myDB = db.DBConnection()
-        btresp = myDB.selectone('SELECT ComicName, ComicYear, Type, Corrected_Type FROM Comics WHERE ComicID="' + self.id +'"').fetchone()
+        btresp = myDB.selectone('SELECT ComicName, ComicYear, Type, Corrected_Type FROM Comics WHERE ComicID=?', [self.id]).fetchone()
         if not btresp:
             self.data = self._failureResponse('Unable to locate ComicID %s within watchlist' % self.id)
             return
@@ -1321,11 +1279,10 @@ class Api(object):
         else:
             self.id = kwargs['id']
 
-        query = '{select} WHERE ComicID = {comic_id}'.format(
-            select=self._selectForComics(),
-            comic_id=self.id
-        )
-        results = self._resultsFromQuery(query)
+        myDB = db.DBConnection()
+        query = self._selectForComics() + ' WHERE ComicID=?'
+        rows = myDB.select(query, [self.id])
+        results = [dict(zip(row.keys(), row)) for row in rows]
         if len(results) == 1:
             self.data = self._successResponse(
                 results
@@ -1340,11 +1297,10 @@ class Api(object):
         else:
             self.id = kwargs['id']
 
-        query = '{select} WHERE IssueID = {issue_id}'.format(
-            select=self._selectForIssues(),
-            issue_id=self.id
-        )
-        results = self._resultsFromQuery(query)
+        myDB = db.DBConnection()
+        query = self._selectForIssues() + ' WHERE IssueID=?'
+        rows = myDB.select(query, [self.id])
+        results = [dict(zip(row.keys(), row)) for row in rows]
         if len(results) == 1:
             self.data = self._successResponse(
                 results
@@ -1371,7 +1327,9 @@ class Api(object):
                 return
         else:
             # If we cant find the image, lets check the db for a url.
-            comic = self._resultsFromQuery('SELECT * from comics WHERE ComicID="' + self.id + '"')
+            myDB = db.DBConnection()
+            comic_rows = myDB.select('SELECT * from comics WHERE ComicID=?', [self.id])
+            comic = [dict(zip(row.keys(), row)) for row in comic_rows]
 
             # Try every img url in the db
             try:
@@ -1455,7 +1413,9 @@ class Api(object):
 
         self.id = id
         # Fetch a list of dicts from issues table
-        i = self._resultsFromQuery('SELECT * from issues WHERE issueID="' + self.id + '"')
+        myDB = db.DBConnection()
+        i_rows = myDB.select('SELECT * from issues WHERE issueID=?', [self.id])
+        i = [dict(zip(row.keys(), row)) for row in i_rows]
 
         if not len(i):
             self.data = self._failureResponse('Couldnt find a issue with issueID %s' % self.id)
@@ -1469,7 +1429,8 @@ class Api(object):
         # Check the issue is downloaded
         if issuelocation is not None:
             # Find the comic location
-            comic = self._resultsFromQuery('SELECT * from comics WHERE comicID="' + issue['ComicID'] + '"')[0]
+            comic_rows = myDB.select('SELECT * from comics WHERE comicID=?', [issue['ComicID']])
+            comic = dict(zip(comic_rows[0].keys(), comic_rows[0]))
             comiclocation = comic.get('ComicLocation')
             f = os.path.join(comiclocation, issuelocation)
             if not os.path.isfile(f):
@@ -1516,8 +1477,10 @@ class Api(object):
                 self.data = self._resultsFromQuery('SELECT StoryArcID, StoryArc, MAX(ReadingOrder) AS HighestOrder from storyarcs GROUP BY StoryArcID ORDER BY StoryArc')
         else:
             self.id = kwargs['id']
-            self.data = self._resultsFromQuery('SELECT StoryArc, ReadingOrder, ComicID, ComicName, IssueNumber, IssueID, \
-                                            IssueDate, IssueName, IssuePublisher from storyarcs WHERE StoryArcID="' + self.id + '" ORDER BY ReadingOrder')
+            myDB = db.DBConnection()
+            rows = myDB.select('SELECT StoryArc, ReadingOrder, ComicID, ComicName, IssueNumber, IssueID, \
+                                            IssueDate, IssueName, IssuePublisher from storyarcs WHERE StoryArcID=? ORDER BY ReadingOrder', [self.id])
+            self.data = [dict(zip(row.keys(), row)) for row in rows]
         return
 
     def _addStoryArc(self, **kwargs):
@@ -1531,7 +1494,9 @@ class Api(object):
                 storyarcname = kwargs.pop('storyarcname')
         else:
             self.id = kwargs.pop('id')
-            arc = self._resultsFromQuery('SELECT * from storyarcs WHERE StoryArcID="' + self.id + '" ORDER by ReadingOrder')
+            myDB = db.DBConnection()
+            arc_rows = myDB.select('SELECT * from storyarcs WHERE StoryArcID=? ORDER by ReadingOrder', [self.id])
+            arc = [dict(zip(row.keys(), row)) for row in arc_rows]
             storyarcname = arc[0]['StoryArc']
             issuecount = len(arc)
         if not 'issues' in kwargs and not 'arclist' in kwargs:
@@ -2299,7 +2264,60 @@ class Api(object):
             'use_minsize',
             'minsize',
             'use_maxsize',
-            'maxsize'
+            'maxsize',
+            # General paths
+            'comic_dir',
+            'destination_dir',
+            'multiple_dest_dirs',
+            'create_folders',
+            # SABnzbd
+            'sab_host',
+            'sab_username',
+            'sab_password',
+            'sab_apikey',
+            'sab_category',
+            'sab_priority',
+            'sab_directory',
+            'sab_to_mylar',
+            'sab_client_post_processing',
+            'sab_remove_completed',
+            'sab_remove_failed',
+            # NZBGet
+            'nzbget_host',
+            'nzbget_port',
+            'nzbget_username',
+            'nzbget_password',
+            'nzbget_priority',
+            'nzbget_category',
+            'nzbget_directory',
+            'nzbget_client_post_processing',
+            # qBittorrent
+            'qbittorrent_host',
+            'qbittorrent_username',
+            'qbittorrent_password',
+            'qbittorrent_label',
+            'qbittorrent_folder',
+            'qbittorrent_loadaction',
+            # Transmission
+            'transmission_host',
+            'transmission_username',
+            'transmission_password',
+            'transmission_directory',
+            # Deluge
+            'deluge_host',
+            'deluge_username',
+            'deluge_password',
+            'deluge_label',
+            # Download client selection
+            'nzb_downloader',
+            'torrent_downloader',
+            # Post-processing
+            'post_processing',
+            'file_opts',
+            'enable_meta',
+            'rename_files',
+            'folder_format',
+            'file_format',
         ]
 
         # Filter kwargs to only allowed keys
@@ -2318,6 +2336,9 @@ class Api(object):
 
             # Persist to config.ini
             mylar.CONFIG.writeconfig()
+
+            # Apply config changes at runtime (without this, changes only persist to disk)
+            mylar.CONFIG.configure(update=True, startup=False)
 
             # Check if Metron settings changed and reinitialize if needed
             metron_keys = {'metron_username', 'metron_password', 'use_metron_search'}

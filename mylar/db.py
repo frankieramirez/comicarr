@@ -81,6 +81,13 @@ class ConnectionPool:
                 check_same_thread=False
             )
             conn.row_factory = sqlite3.Row
+
+            # Set PRAGMAs on every new connection
+            conn.execute('PRAGMA busy_timeout = 5000')
+            conn.execute('PRAGMA foreign_keys = ON')
+            conn.execute('PRAGMA mmap_size = 134217728')  # 128MB memory-mapped I/O
+            conn.execute('PRAGMA journal_size_limit = 67108864')  # 64MB WAL journal limit
+
             _thread_local.connections[filename] = conn
 
             # Track for cleanup
@@ -126,6 +133,8 @@ def dbFilename(filename="mylar.db"):
     return os.path.join(mylar.DATA_DIR, filename)
 
 class WriteOnly:
+    # DEPRECATED: Dead code. The queue path in upsert (lines below) is commented out
+    # and this worker is never actively used. Kept for reference only.
 
     def __init__(self):
         t = threading.Thread(target=self.worker, name="DB-WRITER")
@@ -162,8 +171,8 @@ class DBConnection:
         self.queue = mylarQueue
 
     def fetch(self, query, args=None):
-
-        with db_lock:
+        # No lock needed for reads — WAL mode handles read concurrency
+        if True:
 
             if query == None:
                 return
@@ -252,20 +261,26 @@ class DBConnection:
 
 
     def upsert(self, tableName, valueDict, keyDict):
-        thisthread = threading.current_thread().name
+        # Atomic upsert using INSERT ... ON CONFLICT DO UPDATE
+        # Replaces the old UPDATE-then-check-total_changes-then-INSERT pattern
+        # which had a TOCTOU race condition.
 
-        changesBefore = self.connection.total_changes
+        all_keys = list(keyDict.keys()) + list(valueDict.keys())
+        all_values = list(keyDict.values()) + list(valueDict.values())
 
-        genParams = lambda myDict: [x + " = ?" for x in list(myDict.keys())]
+        # Build the column list and placeholders
+        columns = ', '.join(all_keys)
+        placeholders = ', '.join(['?'] * len(all_keys))
 
-        query = "UPDATE " + tableName + " SET " + ", ".join(genParams(valueDict)) + " WHERE " + " AND ".join(genParams(keyDict))
+        # Build the ON CONFLICT UPDATE clause (only update value columns, not key columns)
+        update_clause = ', '.join(['%s = excluded.%s' % (k, k) for k in valueDict.keys()])
+        conflict_keys = ', '.join(keyDict.keys())
 
-        self.action(query, list(valueDict.values()) + list(keyDict.values()))
+        query = 'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(%s) DO UPDATE SET %s' % (
+            tableName, columns, placeholders, conflict_keys, update_clause
+        )
 
-        if self.connection.total_changes == changesBefore:
-            query = "INSERT INTO " +tableName +" (" + ", ".join(list(valueDict.keys()) + list(keyDict.keys())) + ")" + \
-                        " VALUES (" + ", ".join(["?"] * len(list(valueDict.keys()) + list(keyDict.keys()))) + ")"
-            self.action(query, list(valueDict.values()) + list(keyDict.values()))
+        self.action(query, all_values)
 
 
         #else:

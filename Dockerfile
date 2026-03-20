@@ -1,10 +1,10 @@
 # Stage 1: Build frontend
-FROM oven/bun:latest AS frontend-build
+FROM node:22-alpine AS frontend-build
 WORKDIR /build
-COPY frontend/package.json frontend/bun.lock ./
-RUN bun install --frozen-lockfile
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 COPY frontend/ .
-RUN bun run build
+RUN npm run build
 
 # Stage 2: Final image
 FROM python:3.11-alpine
@@ -23,16 +23,17 @@ RUN apk add --no-cache \
     zlib-dev \
     jpeg-dev
 
-# Copy application code
+# Install Python dependencies first for layer caching
 WORKDIR /app/comicarr
+COPY requirements.txt pyproject.toml ./
+RUN pip3 install --no-cache-dir -r requirements.txt \
+    && apk del .build-deps
+
+# Copy application code
 COPY . .
 
 # Copy built frontend from stage 1
 COPY --from=frontend-build /build/dist /app/comicarr/frontend/dist
-
-# Install Python dependencies and remove build deps
-RUN pip3 install --no-cache-dir -r requirements.txt \
-    && apk del .build-deps
 
 # Make entrypoint executable
 RUN chmod +x /app/comicarr/docker/entrypoint.sh
@@ -42,5 +43,7 @@ EXPOSE 8090
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -sf http://localhost:8090/auth/check_session || exit 1
+
+STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["/app/comicarr/docker/entrypoint.sh"]

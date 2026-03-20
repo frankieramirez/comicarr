@@ -52,7 +52,7 @@ def initialize(options):
     options_dict = {
         'server.socket_port': options['http_port'],
         'server.socket_host': options['http_host'],
-        'server.thread_pool': 50,
+        'server.thread_pool': 15,
         'tools.encode.on': True,
         'tools.encode.encoding': 'utf-8',
         'tools.encode.text_only': False,
@@ -124,7 +124,7 @@ def initialize(options):
                 'auth.require': []
             })
             # exempt api, login page, json auth endpoints and static assets from authentication requirements
-            for i in ('/api', '/auth/login', '/auth/login_json', '/auth/logout_json', '/auth/check_session', '/assets', '/favicon.ico'):
+            for i in ('/api', '/auth/login', '/auth/login_json', '/auth/logout_json', '/auth/check_session', '/auth/check_setup', '/auth/setup', '/assets', '/favicon.ico'):
                 if i in conf:
                     conf[i].update({'tools.auth.on': False})
                 else:
@@ -180,6 +180,6 @@ def initialize(options):
     except Exception as e:
         logger.error('[ERROR] %s' % e)
         print('Failed to start on port: %i. Is something else running?' % (options['http_port']))
-        sys.exit(0)
+        sys.exit(1)
 
     cherrypy.server.wait()

@@ -16,6 +16,7 @@ import {
   useRefreshSeries,
   useDeleteSeries,
 } from "@/hooks/useSeries";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/StatusBadge";
 import IssuesTable from "@/components/series/IssuesTable";
@@ -27,6 +28,7 @@ export default function SeriesDetailPage() {
   const { comicId } = useParams<{ comicId: string }>();
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { addToast } = useToast();
 
   const { data: seriesData, isLoading, error } = useSeriesDetail(comicId);
   const pauseMutation = usePauseSeries();
@@ -76,22 +78,46 @@ export default function SeriesDetailPage() {
 
   const handlePauseResume = async () => {
     if (!comicId) return;
-    if (isPaused) {
-      await resumeMutation.mutateAsync(comicId);
-    } else {
-      await pauseMutation.mutateAsync(comicId);
+    try {
+      if (isPaused) {
+        await resumeMutation.mutateAsync(comicId);
+      } else {
+        await pauseMutation.mutateAsync(comicId);
+      }
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: `Failed to ${isPaused ? "resume" : "pause"} series`,
+      });
     }
   };
 
   const handleRefresh = async () => {
     if (!comicId) return;
-    await refreshMutation.mutateAsync(comicId);
+    try {
+      await refreshMutation.mutateAsync(comicId);
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to refresh series",
+      });
+    }
   };
 
   const handleDelete = async () => {
     if (!comicId) return;
-    await deleteMutation.mutateAsync(comicId);
-    navigate("/");
+    try {
+      await deleteMutation.mutateAsync(comicId);
+      navigate("/");
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to delete series",
+      });
+    }
   };
 
   return (

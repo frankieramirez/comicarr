@@ -15,6 +15,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   isVerifying: boolean;
+  needsSetup: boolean;
   login: (
     username: string,
     password: string,

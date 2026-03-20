@@ -160,7 +160,11 @@ class AuthController(object):
             #cherrypy.session[SESSION_KEY] = {'user':    cherrypy.request.login,
             #                                 'expiry':  expiry}
             self.on_login(current_username)
-            raise cherrypy.HTTPRedirect(from_page or mylar.CONFIG.HTTP_ROOT)
+            # Validate from_page is a relative path to prevent open redirect
+            redirect_to = mylar.CONFIG.HTTP_ROOT
+            if from_page and not from_page.startswith('//') and not re.match(r'https?://', from_page):
+                redirect_to = from_page
+            raise cherrypy.HTTPRedirect(redirect_to)
 
     @cherrypy.expose
     def logout(self, from_page="/"):
@@ -209,4 +213,40 @@ class AuthController(object):
         if username:
             return {'success': True, 'authenticated': True, 'username': username}
         return {'success': True, 'authenticated': False}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def check_setup(self):
+        """Check if initial setup is needed (no credentials configured)."""
+        needs_setup = not mylar.CONFIG.HTTP_USERNAME or not mylar.CONFIG.HTTP_PASSWORD
+        return {'success': True, 'needs_setup': needs_setup}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def setup(self, username=None, password=None):
+        """First-run credential setup. Only works if no auth is configured."""
+        # Only allow setup if no credentials are configured
+        if mylar.CONFIG.HTTP_USERNAME and mylar.CONFIG.HTTP_PASSWORD:
+            return {'success': False, 'error': 'Credentials already configured'}
+
+        if not username or not password:
+            return {'success': False, 'error': 'Username and password required'}
+
+        if len(password) < 8:
+            return {'success': False, 'error': 'Password must be at least 8 characters'}
+
+        # Save credentials to config
+        mylar.CONFIG.HTTP_USERNAME = username
+        mylar.CONFIG.HTTP_PASSWORD = password
+        mylar.CONFIG.AUTHENTICATION = 2  # Form-based auth
+        mylar.CONFIG.writeconfig()
+        mylar.CONFIG.configure(update=True, startup=False)
+
+        logger.info('[AUTH-SETUP] Initial credentials configured for user: %s' % username)
+
+        # Create session for the new user
+        cherrypy.session.regenerate()
+        cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
+
+        return {'success': True, 'username': username}
 

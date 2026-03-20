@@ -41,7 +41,7 @@ export default function StoryArcsPage() {
         </div>
 
         <a
-          href="https://github.com/mylar3/mylar3/issues"
+          href="https://github.com/frankieramirez/comicarr/issues"
           target="_blank"
           rel="noopener noreferrer"
         >

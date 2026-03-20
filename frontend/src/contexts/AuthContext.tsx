@@ -9,6 +9,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   checkSession,
+  checkSetup,
   apiCall,
 } from "@/lib/api";
 import type { User, AuthContextValue, ApiKeyResponse } from "@/types";
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [sseKey, setSseKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   // Check session on mount and restore API key from sessionStorage
   useEffect(() => {
@@ -38,6 +40,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         if (storedSseKey) {
           setSseKey(storedSseKey);
+        }
+
+        // Check if first-run setup is needed
+        const setupResult = await checkSetup();
+        if (setupResult.needs_setup) {
+          setNeedsSetup(true);
+          setIsLoading(false);
+          return;
         }
 
         const result = await checkSession();
@@ -129,6 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     isLoading,
     isVerifying,
+    needsSetup,
     login,
     logout,
   };
