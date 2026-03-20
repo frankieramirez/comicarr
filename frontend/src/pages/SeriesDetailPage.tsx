@@ -84,7 +84,7 @@ export default function SeriesDetailPage() {
       } else {
         await pauseMutation.mutateAsync(comicId);
       }
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
@@ -97,7 +97,7 @@ export default function SeriesDetailPage() {
     if (!comicId) return;
     try {
       await refreshMutation.mutateAsync(comicId);
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
@@ -111,7 +111,7 @@ export default function SeriesDetailPage() {
     try {
       await deleteMutation.mutateAsync(comicId);
       navigate("/");
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
