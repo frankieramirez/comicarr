@@ -170,13 +170,20 @@ export default function SeriesDetailPage() {
                 </h1>
                 <div className="flex items-center gap-4 text-sm">
                   {comic.ComicYear && (
-                    <span className="text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>{comic.ComicYear}</span>
+                    <span
+                      className="text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      {comic.ComicYear}
+                    </span>
                   )}
                   {comic.ComicYear && comic.ComicPublisher && (
                     <span className="w-1 h-1 rounded-full bg-[var(--text-disabled,#4A4A4E)]" />
                   )}
                   {comic.ComicPublisher && (
-                    <span className="text-muted-foreground">{comic.ComicPublisher}</span>
+                    <span className="text-muted-foreground">
+                      {comic.ComicPublisher}
+                    </span>
                   )}
                   <StatusBadge status={comic.Status} />
                 </div>
@@ -196,18 +203,42 @@ export default function SeriesDetailPage() {
                   </Badge>
                 )}
                 <div className="flex flex-col gap-1">
-                  <span className="text-[32px] font-medium text-foreground" style={{ fontFamily: "var(--font-mono)" }}>{comic.Total || 0}</span>
-                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">Total {itemLabel}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[32px] font-medium text-primary" style={{ fontFamily: "var(--font-mono)" }}>{comic.Have || 0}</span>
-                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">Downloaded</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[32px] font-medium text-[#22C55E]" style={{ fontFamily: "var(--font-mono)" }}>
-                    {(comic.Total || 0) > 0 ? Math.round(((comic.Have || 0) / (comic.Total || 1)) * 100) : 0}%
+                  <span
+                    className="text-[32px] font-medium text-foreground"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {comic.Total || 0}
                   </span>
-                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">Complete</span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Total {itemLabel}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-[32px] font-medium text-primary"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {comic.Have || 0}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Downloaded
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-[32px] font-medium text-[#22C55E]"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {(comic.Total || 0) > 0
+                      ? Math.round(
+                          ((comic.Have || 0) / (comic.Total || 1)) * 100,
+                        )
+                      : 0}
+                    %
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Complete
+                  </span>
                 </div>
               </div>
 

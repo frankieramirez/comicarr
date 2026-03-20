@@ -97,7 +97,10 @@ export default function StatusBadge({
   };
 
   return (
-    <Badge variant={config.variant} className="gap-1.5 rounded-full px-2.5 py-1">
+    <Badge
+      variant={config.variant}
+      className="gap-1.5 rounded-full px-2.5 py-1"
+    >
       {showIcon && (
         <span
           className="inline-block w-1.5 h-1.5 rounded-full"

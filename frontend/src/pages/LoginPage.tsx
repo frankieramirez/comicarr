@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Loader2, AlertCircle, User, Lock, ShieldCheck, ArrowRight } from "lucide-react";
+import {
+  BookOpen,
+  Loader2,
+  AlertCircle,
+  User,
+  Lock,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { setupCredentials } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -288,7 +296,10 @@ export default function LoginPage() {
           <div className="flex items-center justify-center w-[72px] h-[72px] rounded-2xl bg-gradient-to-b from-[#FF5C00] to-[#FF8A4C] shadow-lg shadow-[#FF5C00]/20">
             <BookOpen className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-[32px] font-semibold tracking-[4px] text-white" style={{ fontFamily: "var(--font-mono, 'DM Mono', monospace)" }}>
+          <h1
+            className="text-[32px] font-semibold tracking-[4px] text-white"
+            style={{ fontFamily: "var(--font-mono, 'DM Mono', monospace)" }}
+          >
             COMICARR
           </h1>
           <p className="text-[#8B8B90] text-sm">

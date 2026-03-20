@@ -6,8 +6,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   --radius: 0.625rem;
   --font-mono: "DM Mono", ui-monospace, monospace;
 
@@ -120,67 +126,67 @@ body {
 }
 
 .dark {
-  --background: #0A0A0B;
-  --foreground: #FFFFFF;
+  --background: #0a0a0b;
+  --foreground: #ffffff;
   --card: #141417;
-  --card-foreground: #FFFFFF;
+  --card-foreground: #ffffff;
   --popover: #141417;
-  --popover-foreground: #FFFFFF;
-  --primary: #FF5C00;
-  --primary-foreground: #FFFFFF;
-  --secondary: #1A1A1D;
-  --secondary-foreground: #ADADB0;
-  --muted: #1A1A1D;
-  --muted-foreground: #8B8B90;
-  --accent: #1A1A1D;
-  --accent-foreground: #FFFFFF;
-  --destructive: #EF4444;
-  --border: #1F1F23;
-  --input: #1A1A1D;
-  --ring: #FF5C00;
-  --chart-1: #FF8A4C;
-  --chart-2: #FF5C00;
-  --chart-3: #22C55E;
-  --chart-4: #ADADB0;
-  --chart-5: #6B6B70;
+  --popover-foreground: #ffffff;
+  --primary: #ff5c00;
+  --primary-foreground: #ffffff;
+  --secondary: #1a1a1d;
+  --secondary-foreground: #adadb0;
+  --muted: #1a1a1d;
+  --muted-foreground: #8b8b90;
+  --accent: #1a1a1d;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --border: #1f1f23;
+  --input: #1a1a1d;
+  --ring: #ff5c00;
+  --chart-1: #ff8a4c;
+  --chart-2: #ff5c00;
+  --chart-3: #22c55e;
+  --chart-4: #adadb0;
+  --chart-5: #6b6b70;
   --sidebar: #141417;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #FF5C00;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1A1A1D;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #1F1F23;
-  --sidebar-ring: #FF5C00;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ff5c00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1a1d;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1f1f23;
+  --sidebar-ring: #ff5c00;
 
   /* Surface layers */
   --surface-deep: #111113;
-  --surface-elevated: #1A1A1D;
-  --border-elevated: #2A2A2E;
-  --text-tertiary: #8B8B90;
-  --text-muted: #6B6B70;
-  --text-disabled: #4A4A4E;
+  --surface-elevated: #1a1a1d;
+  --border-elevated: #2a2a2e;
+  --text-tertiary: #8b8b90;
+  --text-muted: #6b6b70;
+  --text-disabled: #4a4a4e;
 
   /* Status Badges - Dark Mode */
-  --status-active: #22C55E;
-  --status-active-bg: #22C55E18;
-  --status-wanted: #FF5C00;
-  --status-wanted-bg: #FF5C0018;
-  --status-downloaded: #22C55E;
-  --status-downloaded-bg: #22C55E18;
-  --status-paused: #8B8B90;
-  --status-paused-bg: #6B6B7018;
-  --status-ended: #8B8B90;
-  --status-ended-bg: #6B6B7018;
-  --status-error: #EF4444;
-  --status-error-bg: #EF444418;
-  --status-skipped: #6B6B70;
-  --status-skipped-bg: #6B6B7018;
+  --status-active: #22c55e;
+  --status-active-bg: #22c55e18;
+  --status-wanted: #ff5c00;
+  --status-wanted-bg: #ff5c0018;
+  --status-downloaded: #22c55e;
+  --status-downloaded-bg: #22c55e18;
+  --status-paused: #8b8b90;
+  --status-paused-bg: #6b6b7018;
+  --status-ended: #8b8b90;
+  --status-ended-bg: #6b6b7018;
+  --status-error: #ef4444;
+  --status-error-bg: #ef444418;
+  --status-skipped: #6b6b70;
+  --status-skipped-bg: #6b6b7018;
 
   /* Effects */
   --glassmorphism-bg: rgba(10, 10, 11, 0.85);
 
   /* Gradient */
-  --gradient-brand: linear-gradient(135deg, #FF5C00, #FF8A4C);
+  --gradient-brand: linear-gradient(135deg, #ff5c00, #ff8a4c);
 }
 
 @layer base {

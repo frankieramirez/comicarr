@@ -23,7 +23,9 @@ export default function HomePage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight">My Series</h1>
-          <p className="text-sm text-muted-foreground mt-1">{series.length} series in your library</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {series.length} series in your library
+          </p>
         </div>
         <Link to="/search">
           <Button className="flex items-center gap-2 bg-gradient-to-r from-[#FF5C00] to-[#FF8A4C] hover:from-[#FF6A1A] hover:to-[#FF9560] text-white border-0 h-10 px-5 rounded-lg">
