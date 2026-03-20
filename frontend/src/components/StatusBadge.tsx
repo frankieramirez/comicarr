@@ -1,13 +1,3 @@
-import {
-  Check,
-  Clock,
-  MinusCircle,
-  Play,
-  Pause,
-  CircleDot,
-  Download,
-  Archive,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type BadgeVariant =
@@ -22,7 +12,8 @@ type BadgeVariant =
 interface StatusConfig {
   variant: BadgeVariant;
   label: string;
-  icon?: React.ReactNode;
+  dotColor: string;
+  glowColor: string;
 }
 
 interface StatusBadgeProps {
@@ -31,7 +22,7 @@ interface StatusBadgeProps {
 }
 
 /**
- * StatusBadge component to display series or issue status with optional icons
+ * StatusBadge component with luminous dot indicators
  */
 export default function StatusBadge({
   status,
@@ -41,66 +32,84 @@ export default function StatusBadge({
 
   const normalizedStatus = status.toLowerCase();
 
-  // Map status to badge variants with icons
   const statusMap: Record<string, StatusConfig> = {
     active: {
       variant: "active",
       label: "Active",
-      icon: <Play className="w-3 h-3" />,
+      dotColor: "var(--status-active)",
+      glowColor: "var(--status-active)",
     },
     paused: {
       variant: "paused",
       label: "Paused",
-      icon: <Pause className="w-3 h-3" />,
+      dotColor: "var(--status-paused)",
+      glowColor: "var(--status-paused)",
     },
     ended: {
       variant: "ended",
       label: "Ended",
-      icon: <CircleDot className="w-3 h-3" />,
+      dotColor: "var(--status-ended)",
+      glowColor: "var(--status-ended)",
     },
     loading: {
       variant: "default",
       label: "Loading",
-      icon: <Clock className="w-3 h-3" />,
+      dotColor: "var(--muted-foreground)",
+      glowColor: "var(--muted-foreground)",
     },
-
-    // Issue statuses
     downloaded: {
       variant: "downloaded",
       label: "Downloaded",
-      icon: <Check className="w-3 h-3" />,
+      dotColor: "var(--status-downloaded)",
+      glowColor: "var(--status-downloaded)",
     },
     wanted: {
       variant: "wanted",
       label: "Wanted",
-      icon: <Download className="w-3 h-3" />,
+      dotColor: "var(--status-wanted)",
+      glowColor: "var(--status-wanted)",
     },
     skipped: {
       variant: "skipped",
       label: "Skipped",
-      icon: <MinusCircle className="w-3 h-3" />,
+      dotColor: "var(--status-skipped)",
+      glowColor: "var(--status-skipped)",
     },
     snatched: {
       variant: "active",
       label: "Snatched",
-      icon: <Download className="w-3 h-3" />,
+      dotColor: "var(--status-active)",
+      glowColor: "var(--status-active)",
     },
     archived: {
       variant: "default",
       label: "Archived",
-      icon: <Archive className="w-3 h-3" />,
+      dotColor: "var(--muted-foreground)",
+      glowColor: "var(--muted-foreground)",
     },
   };
 
   const config = statusMap[normalizedStatus] || {
     variant: "default" as BadgeVariant,
     label: status,
-    icon: null,
+    dotColor: "var(--muted-foreground)",
+    glowColor: "var(--muted-foreground)",
   };
 
   return (
-    <Badge variant={config.variant} className="gap-1">
-      {showIcon && config.icon}
+    <Badge
+      variant={config.variant}
+      className="gap-1.5 rounded-full px-2.5 py-1"
+    >
+      {showIcon && (
+        <span
+          className="inline-block w-1.5 h-1.5 rounded-full"
+          style={{
+            backgroundColor: config.dotColor,
+            boxShadow: `0 0 8px 2px color-mix(in srgb, ${config.glowColor} 50%, transparent)`,
+          }}
+        />
+      )}
       {config.label}
     </Badge>
   );

@@ -190,9 +190,15 @@ export default function SeriesTable({
         accessorKey: "Total",
         header: "Issues",
         cell: ({ row }: CellContext<Comic, unknown>) => (
-          <div className="text-center">
+          <div
+            className="text-center"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
             <span className="font-medium">{row.original.Have || 0}</span>
-            <span className="text-gray-500"> / {row.original.Total || 0}</span>
+            <span className="text-muted-foreground">
+              {" "}
+              / {row.original.Total || 0}
+            </span>
           </div>
         ),
       },
@@ -203,17 +209,17 @@ export default function SeriesTable({
           const percentage = getProgressPercentage(row.original);
 
           return (
-            <div className="flex items-center space-x-2">
-              <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-20 bg-border rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${percentage}%`,
-                    background: "var(--gradient-brand)",
-                  }}
+                  className="h-full rounded-full transition-all bg-gradient-to-r from-[#FF5C00] to-[#FF8A4C]"
+                  style={{ width: `${percentage}%` }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground min-w-[3rem]">
+              <span
+                className="text-xs text-muted-foreground min-w-[3rem]"
+                style={{ fontFamily: "var(--font-mono)" }}
+              >
                 {percentage}%
               </span>
             </div>

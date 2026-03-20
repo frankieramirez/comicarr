@@ -62,12 +62,12 @@ export function useServerEvents(
 
         // Only verify session on reconnect, not initial connection
         if (hasConnectedRef.current) {
-          fetch('/auth/check_session')
-            .then(r => r.json())
-            .then(data => {
+          fetch("/auth/check_session")
+            .then((r) => r.json())
+            .then((data) => {
               if (!data.authenticated) {
                 evtSource.close();
-                window.location.href = '/login';
+                window.location.href = "/login";
               }
             })
             .catch(() => {});

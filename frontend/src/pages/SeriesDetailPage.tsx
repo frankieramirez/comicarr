@@ -84,7 +84,7 @@ export default function SeriesDetailPage() {
       } else {
         await pauseMutation.mutateAsync(comicId);
       }
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
@@ -97,7 +97,7 @@ export default function SeriesDetailPage() {
     if (!comicId) return;
     try {
       await refreshMutation.mutateAsync(comicId);
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
@@ -111,7 +111,7 @@ export default function SeriesDetailPage() {
     try {
       await deleteMutation.mutateAsync(comicId);
       navigate("/");
-    } catch (error) {
+    } catch {
       addToast({
         type: "error",
         title: "Error",
@@ -144,16 +144,16 @@ export default function SeriesDetailPage() {
       </nav>
 
       {/* Series Info */}
-      <div className="bg-card rounded-lg card-shadow border border-card-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="p-6">
-          <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+          <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-7">
             {/* Cover Image */}
             {comic.ComicImage && (
               <div className="flex-shrink-0">
                 <img
                   src={comic.ComicImage}
                   alt={comic.ComicName}
-                  className="w-48 h-auto rounded shadow-lg"
+                  className="w-[200px] h-auto rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                     e.currentTarget.src =
                       "https://via.placeholder.com/300x450?text=No+Cover";
@@ -163,66 +163,87 @@ export default function SeriesDetailPage() {
             )}
 
             {/* Series Details */}
-            <div className="flex-1 space-y-4">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold text-foreground">
-                      {comic.ComicName}
-                    </h1>
-                    {comic.ComicYear && (
-                      <p className="text-lg text-muted-foreground mt-1">
-                        ({comic.ComicYear})
-                      </p>
-                    )}
-                  </div>
+            <div className="flex-1 space-y-5">
+              <div className="space-y-2">
+                <h1 className="text-[32px] font-bold tracking-tight text-foreground">
+                  {comic.ComicName}
+                </h1>
+                <div className="flex items-center gap-4 text-sm">
+                  {comic.ComicYear && (
+                    <span
+                      className="text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      {comic.ComicYear}
+                    </span>
+                  )}
+                  {comic.ComicYear && comic.ComicPublisher && (
+                    <span className="w-1 h-1 rounded-full bg-[var(--text-disabled,#4A4A4E)]" />
+                  )}
+                  {comic.ComicPublisher && (
+                    <span className="text-muted-foreground">
+                      {comic.ComicPublisher}
+                    </span>
+                  )}
                   <StatusBadge status={comic.Status} />
                 </div>
-
-                {comic.ComicPublisher && (
-                  <p className="text-muted-foreground mt-2">
-                    <span className="font-medium">Publisher:</span>{" "}
-                    {comic.ComicPublisher}
-                  </p>
-                )}
               </div>
 
               {comic.Description && (
-                <div>
-                  <h3 className="font-medium text-foreground mb-2">
-                    Description
-                  </h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {comic.Description}
-                  </p>
-                </div>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {comic.Description}
+                </p>
               )}
 
-              <div className="flex items-center space-x-4 text-sm">
+              <div className="flex items-center gap-8">
                 {isManga && (
                   <Badge variant="default" className="flex items-center gap-1">
                     <BookOpen className="w-3 h-3" />
                     Manga
                   </Badge>
                 )}
-                <div>
-                  <span className="font-medium text-foreground">
-                    Total {itemLabel}:
-                  </span>{" "}
-                  <span className="text-muted-foreground">
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-[32px] font-medium text-foreground"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
                     {comic.Total || 0}
                   </span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Total {itemLabel}
+                  </span>
                 </div>
-                <div>
-                  <span className="font-medium text-foreground">Have:</span>{" "}
-                  <span className="text-muted-foreground">
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-[32px] font-medium text-primary"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
                     {comic.Have || 0}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Downloaded
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-[32px] font-medium text-[#22C55E]"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {(comic.Total || 0) > 0
+                      ? Math.round(
+                          ((comic.Have || 0) / (comic.Total || 1)) * 100,
+                        )
+                      : 0}
+                    %
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-muted,#6B6B70)] tracking-wider">
+                    Complete
                   </span>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex flex-wrap items-center gap-2 pt-4">
+              <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Button
                   onClick={handlePauseResume}
                   disabled={pauseMutation.isPending || resumeMutation.isPending}
