@@ -1,48 +1,28 @@
-# Stage 1: Build frontend
-FROM node:22-alpine AS frontend-build
-WORKDIR /build
-COPY frontend/package.json frontend/package-lock.json ./
+# Stage 1: Frontend build
+FROM node:22-slim AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
 RUN npm ci
-COPY frontend/ .
+COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Final image
-FROM python:3.11-alpine
-
-# Install system dependencies
-RUN apk add --no-cache \
-    git \
-    7zip \
-    su-exec \
-    curl \
-    tzdata \
-    && apk add --no-cache --virtual .build-deps \
-    build-base \
-    libffi-dev \
-    zlib-dev \
-    jpeg-dev
-
-# Install Python dependencies first for layer caching
-WORKDIR /app/comicarr
-COPY requirements.txt pyproject.toml ./
-RUN pip3 install --no-cache-dir -r requirements.txt \
-    && apk del .build-deps
-
-# Copy application code
+# Stage 2: Backend build
+FROM python:3.12-slim AS backend-build
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+WORKDIR /app
+COPY pyproject.toml uv.lock* ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --compile-bytecode
 COPY . .
 
-# Copy built frontend from stage 1
-COPY --from=frontend-build /build/dist /app/comicarr/frontend/dist
-
-# Make entrypoint executable
-RUN chmod +x /app/comicarr/docker/entrypoint.sh
-
-VOLUME /config /comics /manga /downloads
+# Stage 3: Runtime
+FROM python:3.12-slim AS runtime
+WORKDIR /opt/comicarr
+RUN useradd --uid 1001 --create-home comicarr
+COPY --from=backend-build /app /opt/comicarr
+COPY --from=frontend-build /app/frontend/dist /opt/comicarr/frontend/dist
+USER comicarr
 EXPOSE 8090
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -sf http://localhost:8090/auth/check_session || exit 1
-
-STOPSIGNAL SIGTERM
-
-ENTRYPOINT ["/app/comicarr/docker/entrypoint.sh"]
+VOLUME ["/config", "/comics"]
+ENTRYPOINT ["python", "Comicarr.py"]
+CMD ["--nolaunch", "--datadir", "/config"]

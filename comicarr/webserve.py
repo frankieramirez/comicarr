@@ -67,7 +67,7 @@ from comicarr import (
     parseit,
     postprocessor,
     readinglist,
-    req_test,
+    dependency_check,
     sabparse,
     search,
     series_metadata,
@@ -9717,7 +9717,7 @@ class WebInterface(object):
     addMissingSeriesFromArc.exposed = True
 
     def return_checks(self):
-        r = comicarr.req_test.Req()
+        r = comicarr.dependency_check.Req()
         r.check_config_values()
 
         return json.dumps(comicarr.REQS)

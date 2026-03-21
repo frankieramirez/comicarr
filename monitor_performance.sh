@@ -2,11 +2,11 @@
 # Performance monitoring script for Comicarr
 # Shows search performance metrics in real-time
 
-# Find the most recently modified mylar log file
-LOG_FILE=$(ls -t /tmp/mylar*.log 2>/dev/null | head -1)
+# Find the most recently modified comicarr log file
+LOG_FILE=$(ls -t /tmp/comicarr*.log 2>/dev/null | head -1)
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then
     # Fallback to find the actual log file
-    LOG_FILE=$(find /Users/f/Projects/@self-host/mylar3 -name "mylar.log" -type f 2>/dev/null | head -1)
+    LOG_FILE=$(find /Users/f/Projects/@self-host/comicarr -name "comicarr.log" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then

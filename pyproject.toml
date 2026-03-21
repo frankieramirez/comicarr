@@ -74,8 +74,8 @@ filterwarnings = [
 branch = true
 source = ["comicarr"]
 omit = [
-    "comicarr/test.py",
-    "comicarr/req_test.py",
+    "comicarr/rtorrent_test_client.py",
+    "comicarr/dependency_check.py",
     "lib/*",
 ]
 

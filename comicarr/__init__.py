@@ -506,6 +506,7 @@ def initialize(config_file):
                 logger.info('[IMPRINT_LOADS] No data for publisher imprints locally. Retrieving up-to-date listing')
 
             if update_imprints is True:
+                # TODO: Host on Comicarr domain
                 req_pub = requests.get('https://mylar3.github.io/publisher_imprints/imprints.json', verify=True)
                 try:
                     json_pub = req_pub.json()

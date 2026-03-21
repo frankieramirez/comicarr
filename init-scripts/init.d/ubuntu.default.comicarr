@@ -1,0 +1,21 @@
+##    This is an example config file for use with running as a daemon on ubuntu.
+##        ( you can just make a blank file with the required lines as well )
+##
+##                  Edit & Copy this file to /etc/default/comicarr
+##   Otherwise default comicarr options are used (all default options are stated below)
+##
+###     ADD THE REQUIRED OPTIONS ON INDIVIDUAL LINES BELOW THE 'END OF' ..(ie. COMICARR_USER=evil)
+###
+##                                         .:[CONFIG OPTIONS]:.
+##
+### COMICARR_USER=         #$RUN_AS, username to run comicarr under, the default is comicarr
+### COMICARR_HOME=         #$APP_PATH, the location of Comicarr.py, the default is /opt/comicarr
+### COMICARR_DATA=         #$DATA_DIR, the location of comicarr.db, cache, logs, the default is /opt/comicarr
+### COMICARR_PIDFILE       #$PIDFILE, the location of the pidfile, the default is /var/run/comicarr/comicarr.pid
+### PYTHON_BIN=         #$DAEMON, the location of the python binary, the default is /usr/bin/python
+### COMICARR_OPTS=         #$EXTRA_DAEMON_OPTS, extra cli option for comicarr, i.e. " --config=/home/comicarr/config.ini"
+### SSD_OPTS=           #$EXTRA_SSD_OPTS, extra start-stop-daemon option like " --group=users"
+### COMICARR_PORT=         #$PORT_OPTS, hardcoded port for the webserver, overrides value in config.ini
+##
+##                                                 END OF..
+##########################################################################################################3

@@ -1,9 +1,9 @@
-Instructions on setting up mylar3 as a systemd service that will run on startup/via systemctl commands...
+Instructions on setting up Comicarr as a systemd service that will run on startup/via systemctl commands...
 
-1 - copy the mylar.service to /lib/systemd/system/mylar.service
-2 - edit the /lib/systemd/system/mylar.service file (change user, group, python path, and mylar location to user-specific requirements)
-3 - create a symbolic link to it:  ln -s /lib/systemd/system/mylar.service /etc/systemd/system/mylar.service
+1 - copy the comicarr.service to /lib/systemd/system/comicarr.service
+2 - edit the /lib/systemd/system/comicarr.service file (change user, group, python path, and comicarr location to user-specific requirements)
+3 - create a symbolic link to it:  ln -s /lib/systemd/system/comicarr.service /etc/systemd/system/comicarr.service
 4 - make systemd aware of new services:  sudo systemctl daemon-reload
-5 - set mylar3 to auto-start on startup: sudo systemctl enable mylar
-6 - start mylar3 up:                     sudo systemctl start mylar
-7 - to check to see if running/status:   sudo systemctl status mylar
+5 - set comicarr to auto-start on startup: sudo systemctl enable comicarr
+6 - start comicarr up:                     sudo systemctl start comicarr
+7 - to check to see if running/status:   sudo systemctl status comicarr

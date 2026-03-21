@@ -5,9 +5,9 @@ echo "=== Comicarr Search Performance Statistics ==="
 echo ""
 
 # Find the log file
-LOG_FILE=$(ls -t /tmp/mylar*.log 2>/dev/null | head -1)
+LOG_FILE=$(ls -t /tmp/comicarr*.log 2>/dev/null | head -1)
 if [ -z "$LOG_FILE" ]; then
-    LOG_FILE=$(find /Users/f/Projects/@self-host/mylar3 -name "mylar.log" -type f 2>/dev/null | head -1)
+    LOG_FILE=$(find /Users/f/Projects/@self-host/comicarr -name "comicarr.log" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then

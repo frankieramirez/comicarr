@@ -2978,8 +2978,8 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
        snatch_status = 'MONITOR ERROR'
     else:
         if comicarr.USE_RTORRENT:
-            from . import test
-            rp = test.RTorrent()
+            from . import rtorrent_test_client
+            rp = rtorrent_test_client.RTorrent()
             torrent_info = rp.main(torrent_hash, check=True)
         elif comicarr.USE_DELUGE:
             #need to set the connect here as well....
