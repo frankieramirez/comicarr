@@ -30,8 +30,9 @@ export function useUnifiedSearch(
   // Combine loading states
   const isLoading = comicSearch.isLoading || mangaSearch.isLoading;
 
-  // Combine errors (prioritize comic error if both fail)
-  const error = comicSearch.error || mangaSearch.error;
+  // Only error if BOTH sources fail — show partial results if one succeeds
+  const error =
+    comicSearch.error && mangaSearch.error ? comicSearch.error : null;
 
   // Merge and interleave results
   const data = useMemo<UnifiedSearchResponse | undefined>(() => {
