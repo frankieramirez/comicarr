@@ -1,1 +1,1 @@
-# Integration tests for Mylar3
+# Integration tests for Comicarr

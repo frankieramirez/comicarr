@@ -60,7 +60,7 @@ def mock_notifier_config(monkeypatch):
 
     # EMAIL settings
     config.EMAIL_ENABLED = True
-    config.EMAIL_FROM = "mylar@example.com"
+    config.EMAIL_FROM = "comicarr@example.com"
     config.EMAIL_TO = "user@example.com"
     config.EMAIL_SERVER = "smtp.example.com"
     config.EMAIL_PORT = 587
@@ -180,7 +180,7 @@ def download_notification_data():
     return {
         "prline": "Spider-Man (2020)",
         "prline2": "Issue 001 downloaded successfully",
-        "snline": "Mylar Notification",
+        "snline": "Comicarr Notification",
     }
 
 

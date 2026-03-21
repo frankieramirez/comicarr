@@ -2429,13 +2429,14 @@ def create_https_certificates(ssl_cert, ssl_key):
     cacert = createCertificate(careq, (careq, cakey), serial, (0, 60 * 60 * 24 * 365 * 10)) # ten years
 
     pkey = createKeyPair(TYPE_RSA, 2048)
-    req = createCertRequest(pkey, CN="Mylar")
+    req = createCertRequest(pkey, CN="Comicarr")
     cert = createCertificate(req, (cacert, cakey), serial, (0, 60 * 60 * 24 * 365 * 10)) # ten years
 
     # Save the key and certificate to disk
     try:
         with open(ssl_key, "w") as fp:
             fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+        os.chmod(ssl_key, 0o600)
         with open(ssl_cert, "w") as fp:
             fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
     except IOError as e:

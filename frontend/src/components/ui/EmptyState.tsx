@@ -55,7 +55,7 @@ const VARIANT_CONFIGS: Record<
     icon: ListTodo,
     title: "No wanted issues",
     description:
-      "Mark issues as wanted from your series to see them here. Mylar will automatically search for them.",
+      "Mark issues as wanted from your series to see them here. Comicarr will automatically search for them.",
   },
   upcoming: {
     icon: Calendar,

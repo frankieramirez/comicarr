@@ -1,5 +1,5 @@
 # This script was initially based from Manders2600 Script with the use of the awesome ComicTagger.
-# Modified, so Mylar just can pass in relevant information instead of querying CV for it to do it's magic.
+# Modified, so Comicarr just can pass in relevant information instead of querying CV for it to do it's magic.
 
 
 import os, errno
@@ -31,7 +31,7 @@ def run(dirName, nzbName=None, issueid=None, comversion=None, manual=None, filen
     comictagger_cmd = os.path.join(comicarr.CMTAGGER_PATH, 'comictagger.py')
     logger.fdebug('ComicTagger Path location for internal comictagger.py set to : ' + comictagger_cmd)
 
-    # Force mylar to use cmtagger_path = comicarr.PROG_DIR to force the use of the included lib.
+    # Force comicarr to use cmtagger_path = comicarr.PROG_DIR to force the use of the included lib.
 
     logger.fdebug(module + ' Filename is : ' + filename)
 
@@ -79,7 +79,7 @@ def run(dirName, nzbName=None, issueid=None, comversion=None, manual=None, filen
     logger.fdebug(module + ' downloadpath : ' + downloadpath)
     logger.fdebug(module + ' sabnzbdscriptpath : ' + sabnzbdscriptpath)
     logger.fdebug(module + ' comicpath : ' + comicpath)
-    logger.fdebug(module + ' Running the ComicTagger Add-on for Mylar')
+    logger.fdebug(module + ' Running the ComicTagger Add-on for Comicarr')
 
 
     ##set up default comictagger options here.
@@ -140,7 +140,7 @@ def run(dirName, nzbName=None, issueid=None, comversion=None, manual=None, filen
         ct_check = subprocess.check_output([sys.executable, comictagger_cmd, "--version"], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         #logger.warn(module + "[WARNING] "command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
-        logger.warn(module + '[WARNING] Make sure that you are using the comictagger included with Mylar.')
+        logger.warn(module + '[WARNING] Make sure that you are using the comictagger included with Comicarr.')
         tidyup(filepath, new_filepath, new_folder, manualmeta)
         return "fail"
 
@@ -293,7 +293,7 @@ def run(dirName, nzbName=None, issueid=None, comversion=None, manual=None, filen
                 else:
                     logger.fdebug('out: %s' % (out,))
                     logger.fdebug('filename: %s' % (filename,))
-                    cbz_message = 'Failed to convert cbr to cbz - check permissions on folder %s and/or the location where Mylar is trying to tag the files from.' % comicarr.CONFIG.CACHE_DIR
+                    cbz_message = 'Failed to convert cbr to cbz - check permissions on folder %s and/or the location where Comicarr is trying to tag the files from.' % comicarr.CONFIG.CACHE_DIR
                     logger.warn('%s[COMIC-TAGGER][CBR-TO-CBZ]%s' % (module, cbz_message))
                     sendnotify('Error - %s' % (cbz_message), filename, module)
                     tidyup(og_filepath, new_filepath, new_folder, manualmeta)
@@ -349,13 +349,13 @@ def sendnotify(message, filename, module):
 
     prline = filename
 
-    prline2 = 'Mylar metatagging error: ' + message + ' File: ' + prline
+    prline2 = 'Comicarr metatagging error: ' + message + ' File: ' + prline
 
     try:
         if comicarr.CONFIG.PROWL_ENABLED:
             pushmessage = prline
             prowl = notifiers.PROWL()
-            prowl.notify(pushmessage, "Mylar metatagging error: ", module=module)
+            prowl.notify(pushmessage, "Comicarr metatagging error: ", module=module)
 
         if comicarr.CONFIG.PUSHOVER_ENABLED:
             pushover = notifiers.PUSHOVER()
@@ -375,11 +375,11 @@ def sendnotify(message, filename, module):
 
         if comicarr.CONFIG.SLACK_ENABLED:
             slack = notifiers.SLACK()
-            slack.notify("Mylar metatagging error: ", prline2, module=module)
+            slack.notify("Comicarr metatagging error: ", prline2, module=module)
 
         if comicarr.CONFIG.MATTERMOST_ENABLED:
             mattermost = notifiers.MATTERMOST()
-            mattermost.notify("Mylar metatagging error: ", prline2, module=module)
+            mattermost.notify("Comicarr metatagging error: ", prline2, module=module)
 
         if comicarr.CONFIG.DISCORD_ENABLED:
             discord = notifiers.DISCORD()
@@ -388,15 +388,15 @@ def sendnotify(message, filename, module):
         if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONPOST:
             logger.info("Sending email notification")
             email = notifiers.EMAIL()
-            email.notify(prline2, "Mylar metatagging error: ", module=module)
+            email.notify(prline2, "Comicarr metatagging error: ", module=module)
 
         if comicarr.CONFIG.GOTIFY_ENABLED:
             gotify = notifiers.GOTIFY()
-            gotify.notify("Mylar metatagging error: ", prline2, module=module)
+            gotify.notify("Comicarr metatagging error: ", prline2, module=module)
 
         if comicarr.CONFIG.MATRIX_ENABLED:
             matrix = notifiers.MATRIX()
-            matrix.notify("Mylar metatagging error: ", prline2, module=module)
+            matrix.notify("Comicarr metatagging error: ", prline2, module=module)
     except Exception as e:
         logger.warn('[NOTIFICATION] Unable to send notification: %s' % e)
 

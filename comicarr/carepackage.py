@@ -92,7 +92,7 @@ class carePackage(object):
     def loaders(self):
         self.cleaned_config()
         vers_vals = versioncheck.versionload(cli_values=self.pass_thru_vals, carepackage_call=True)
-        self.filename = os.path.join(self.log_dir, 'MylarRunningEnvironment.txt')
+        self.filename = os.path.join(self.log_dir, 'ComicarrRunningEnvironment.txt')
         logger.info('vers_vals: %s' % (vers_vals,))
         # set the stage for the filename
         if not vers_vals:
@@ -126,7 +126,7 @@ class carePackage(object):
         if vers_vals['current_release_name']:
             f.write("release name: %s\n" % (vers_vals['current_release_name']))
         f.write("-------------------------\n")
-        f.write("\nMylar host information:\n")
+        f.write("\nComicarr host information:\n")
         match = re.search('Windows', platform.system(), re.IGNORECASE)
         if match:
             objline = ['systeminfo']
@@ -146,7 +146,7 @@ class carePackage(object):
             if all([hiline is not None, hiline != '', hiline != r'\n']):
                 f.write("%s\n" % hiline)
 
-        f.write("\n\nMylar python information:\n")
+        f.write("\n\nComicarr python information:\n")
         pyloc = sys.executable
         pi = subprocess.run([pyloc, '-V'],
             capture_output=True,
@@ -164,12 +164,13 @@ class carePackage(object):
         except Exception as e:
             logger.warn('Unable to retrieve current pip listing. Usually this is due to pip being referenced as something other than pip3')
 
-        f.write("\n\nMylar running environment:\n")
+        f.write("\n\nComicarr running environment:\n")
+        SECRET_PATTERNS = ['KEY', 'SECRET', 'PASSWORD', 'TOKEN', 'API', 'CREDENTIAL', 'SSH', 'LS_COLORS']
         for param in list(os.environ.keys()):
-            if all(['SSH' not in param, 'LS_COLORS' not in param]):
+            if not any(pat in param.upper() for pat in SECRET_PATTERNS):
                 f.write("%20s = %s\n" % (param,os.environ[param]))
 
-        f.write("\n\nMylar git status:\n")
+        f.write("\n\nComicarr git status:\n")
         try:
             cmd = [['git', '--version'],['git', 'status']]
             for c in cmd:

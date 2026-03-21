@@ -389,7 +389,7 @@ def initialize(config_file):
                     try:
                         shutil.move(src, dst)
                     except (OSError, IOError):
-                        logger.error('Unable to rename file...shutdown Mylar and go to ' + src.encode('utf-8') + ' and rename the _lxml.py file to lxml.py')
+                        logger.error('Unable to rename file...shutdown Comicarr and go to ' + src.encode('utf-8') + ' and rename the _lxml.py file to lxml.py')
                         logger.error('NOT doing this will result in errors when adding / refreshing a series')
                 else:
                     logger.info('Synology Parsing Fix already implemented. No changes required at this time.')
@@ -1878,20 +1878,20 @@ def shutdown(restart=False, update=False, maintenance=False):
         halt()
 
     if not restart and not update:
-        logger.info('Mylar is shutting down...')
+        logger.info('Comicarr is shutting down...')
     if update:
-        logger.info('Mylar is updating...')
+        logger.info('Comicarr is updating...')
         try:
             versioncheck.update()
         except Exception as e:
-            logger.warn('Mylar failed to update: %s. Restarting.' % e)
+            logger.warn('Comicarr failed to update: %s. Restarting.' % e)
 
     if CREATEPID:
         logger.info('Removing pidfile %s' % PIDFILE)
         os.remove(PIDFILE)
 
     if restart:
-        logger.info('Mylar is restarting...')
+        logger.info('Comicarr is restarting...')
         popen_list = [sys.executable, FULL_PATH]
         if 'maintenance' not in ARGS:
             popen_list += ARGS
@@ -1903,7 +1903,7 @@ def shutdown(restart=False, update=False, maintenance=False):
                 else:
                     break
             popen_list.extend(plist)
-        logger.info('Restarting Mylar with ' + str(popen_list))
+        logger.info('Restarting Comicarr with ' + str(popen_list))
         os.execv(sys.executable, popen_list)
 
     os._exit(0)

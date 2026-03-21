@@ -17,9 +17,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-#####################################
-## Stolen from Sick-Beard's db.py  ##
-#####################################
+##################################################
+## Database connection handler (based on Sick-Beard) ##
+##################################################
 
 
 

@@ -73,7 +73,7 @@ def initialize(options):
     else:
         protocol = "http"
 
-    logger.info("[MAINTENANCE-MODE] Starting Mylar in maintenance mode on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
+    logger.info("[MAINTENANCE-MODE] Starting Comicarr in maintenance mode on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
     cherrypy.config.update(options_dict)
 
     # Maintenance mode serves a simple inline HTML page, so minimal static config needed
@@ -127,7 +127,7 @@ def initialize(options):
         elif options['authentication'] == 1:
             conf['/'].update({
                         'tools.auth_basic.on': True,
-                        'tools.auth_basic.realm': 'Mylar',
+                        'tools.auth_basic.realm': 'Comicarr',
                         'tools.auth_basic.checkpassword':  cherrypy.lib.auth_basic.checkpassword_dict(
                                 {options['http_username']: options['http_password']})
                     })

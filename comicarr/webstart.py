@@ -63,6 +63,11 @@ def initialize(options):
         'tools.decode.on': True,
         'log.screen': options['cherrypy_logging'],
         'engine.autoreload.on': False,
+        'tools.response_headers.on': True,
+        'tools.response_headers.headers': [
+            ('X-Content-Type-Options', 'nosniff'),
+            ('X-Frame-Options', 'DENY'),
+        ],
     }
 
     if enable_https:
@@ -74,7 +79,7 @@ def initialize(options):
     else:
         protocol = "http"
 
-    logger.info("Starting Mylar on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
+    logger.info("Starting Comicarr on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
     cherrypy.config.update(options_dict)
 
     # Serve the new React frontend from frontend/dist/
@@ -136,7 +141,7 @@ def initialize(options):
         elif options['authentication'] == 1:
             conf['/'].update({
                         'tools.auth_basic.on': True,
-                        'tools.auth_basic.realm': 'Mylar',
+                        'tools.auth_basic.realm': 'Comicarr',
                         'tools.auth_basic.checkpassword':  cherrypy.lib.auth_basic.checkpassword_dict(
                                 {options['http_username']: options['http_password']})
                     })
@@ -160,7 +165,7 @@ def initialize(options):
             user_list[options['http_username']] = options['http_password']
         conf['/opds'] = {'tools.auth.on': False,
                          'tools.auth_basic.on': True,
-                         'tools.auth_basic.realm': 'Mylar OPDS',
+                         'tools.auth_basic.realm': 'Comicarr OPDS',
                          'tools.auth_basic.checkpassword': cherrypy.lib.auth_basic.checkpassword_dict(user_list)}
     else:
         conf['/opds'] = {'tools.auth_basic.on': False, 'tools.auth.on': False}

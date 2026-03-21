@@ -33,7 +33,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 
-# This was obviously all taken from headphones with great appreciation :)
+# Notification handlers (originally based on Headphones)
 
 class PROWL:
 
@@ -132,7 +132,7 @@ class PUSHOVER:
         if snatched_nzb:
             if snatched_nzb[-1] == '\.': 
                 snatched_nzb = snatched_nzb[:-1]
-            message = "Mylar has snatched: " + snatched_nzb + " from " + prov + " and " + sent_to
+            message = "Comicarr has snatched: " + snatched_nzb + " from " + prov + " and " + sent_to
 
         data = {'token': comicarr.CONFIG.PUSHOVER_APIKEY,
                 'user': comicarr.CONFIG.PUSHOVER_USERKEY,
@@ -250,7 +250,7 @@ class BOXCAR:
         # if no username was given then use the one from the config
         if snatched_nzb:
             title = snline
-            message = "Mylar has snatched: " + snatched_nzb + " and " + sent_to
+            message = "Comicarr has snatched: " + snatched_nzb + " and " + sent_to
         else:
             title = prline
             message = prline2
@@ -294,7 +294,7 @@ class PUSHBULLET:
             if snatched:
                 if snatched[-1] == '.': snatched = snatched[:-1]
                 event = snline
-                message = "Mylar has snatched: " + snatched + " from " + prov + " and " + sent_to
+                message = "Comicarr has snatched: " + snatched + " from " + prov + " and " + sent_to
             else:
                 event = prline + ' complete!'
                 message = prline2
@@ -402,7 +402,7 @@ class EMAIL:
             msg['To'] = str(self.emailto)
             msg['Subject'] = subject
             msg['Date'] = formatdate()
-            msg['Message-ID'] = make_msgid('mylar')
+            msg['Message-ID'] = make_msgid('comicarr')
             msg.attach(MIMEText(message, 'plain'))
 
             if self.emailenc == 1:
@@ -426,7 +426,7 @@ class EMAIL:
         return sent_successfully
 
     def test_notify(self):
-        return self.notify('Test Message: With great power comes great responsibility.', 'Mylar notification - Test')
+        return self.notify('Test Message: With great power comes great responsibility.', 'Comicarr notification - Test')
 
 class SLACK:
     def __init__(self, test_webhook_url=None):
@@ -525,7 +525,7 @@ class MATTERMOST:
 
         payload = {
             "text": attachment_text,
-            "username": "Mylar",
+            "username": "Comicarr",
                 "icon_url": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
             "footer": "Powered by [Comicarr](https://github.com/frankieramirez/comicarr)",
             "footer_icon": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
@@ -599,7 +599,7 @@ class DISCORD:
                 payload["embeds"] = [
                         {
                             "author": {
-                               "name": "Grabbed by Mylar"
+                               "name": "Grabbed by Comicarr"
                             },
                             "description": attachment_text,
                             "color": 49151,
@@ -638,7 +638,7 @@ class DISCORD:
                 payload["embeds"] = [
                         {
                             "author": {
-                                "name": "Mylar Error"
+                                "name": "Comicarr Error"
                             },
                             "description": attachment_text,
                             "color": 16705372,
@@ -667,7 +667,7 @@ class DISCORD:
                     payload["embeds"] = [
                             {
                                 "author": {
-                                    "name": "Downloaded by Mylar"
+                                    "name": "Downloaded by Comicarr"
                                 },
                                 "description": "Issue downloaded!",
                                 "color": 32768,
@@ -694,7 +694,7 @@ class DISCORD:
                     payload["embeds"] = [
                             {
                                 "author": {
-                                    "name": "Downloaded by Mylar"
+                                    "name": "Downloaded by Comicarr"
                                 },
                                 "description": "Issue downloaded!",
                                 "color": 32768,

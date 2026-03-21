@@ -1,5 +1,5 @@
 """
-Unit tests for mylar/helpers.py utility functions.
+Unit tests for comicarr/helpers.py utility functions.
 
 These tests cover pure utility functions that don't require external dependencies.
 """
@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given, strategies as st, assume
 
 # Import the module under test
-# Note: Some imports may need mylar to be initialized, so we import inside tests
+# Note: Some imports may need comicarr to be initialized, so we import inside tests
 # when necessary to avoid import-time errors
 
 

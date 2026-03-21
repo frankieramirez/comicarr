@@ -3881,7 +3881,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
     if comicarr.CONFIG.TELEGRAM_ENABLED and comicarr.CONFIG.TELEGRAM_ONSNATCH:
         logger.info("Sending Telegram notification")
         telegram = notifiers.TELEGRAM()
-        telegram.notify("%s - %s - Mylar %s" % (snline, snatched_name, sent_to))
+        telegram.notify("%s - %s - Comicarr %s" % (snline, snatched_name, sent_to))
     if comicarr.CONFIG.SLACK_ENABLED and comicarr.CONFIG.SLACK_ONSNATCH:
         logger.info("Sending Slack notification")
         slack = notifiers.SLACK()
@@ -3907,7 +3907,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
         email = notifiers.EMAIL()
         email.notify(
             snline + " - " + snatched_name,
-            "Mylar notification - Snatch",
+            "Comicarr notification - Snatch",
             module="[SEARCH]",
         )
     if comicarr.CONFIG.GOTIFY_ENABLED and comicarr.CONFIG.GOTIFY_ONSNATCH:

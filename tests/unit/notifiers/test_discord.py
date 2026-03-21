@@ -66,7 +66,7 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -100,7 +100,7 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="MediaFire",
@@ -126,7 +126,7 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="TorrentLeech",
@@ -152,7 +152,7 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -183,7 +183,7 @@ class TestDiscordNotify:
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
-        assert embeds[0]["author"]["name"] == "Mylar Error"
+        assert embeds[0]["author"]["name"] == "Comicarr Error"
         # Error color should be different from success
         assert embeds[0]["color"] == 16705372
 
@@ -198,16 +198,16 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         # The format expects 41 characters prefix before series info
-        # "Mylar has downloaded and post-processed: " is exactly 41 chars
+        # "Comicarr has downloaded and post-processed: " is exactly 45 chars
         result = discord.notify(
-            text="Mylar Notification",
-            attachment_text="Mylar has downloaded and post-processed: Spider-Man 001",
+            text="Comicarr Notification",
+            attachment_text="Comicarr has downloaded and post-processed: Spider-Man 001",
         )
 
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
-        assert embeds[0]["author"]["name"] == "Downloaded by Mylar"
+        assert embeds[0]["author"]["name"] == "Downloaded by Comicarr"
         assert embeds[0]["color"] == 32768  # Green
 
     @responses.activate
@@ -223,8 +223,8 @@ class TestDiscordNotify:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
-            attachment_text="Mylar has downloaded and post-processed: Spider-Man 001",
+            text="Comicarr Notification",
+            attachment_text="Comicarr has downloaded and post-processed: Spider-Man 001",
             imageFile=sample_image_base64,
         )
 
@@ -250,7 +250,7 @@ class TestDiscordNotifyErrors:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -272,7 +272,7 @@ class TestDiscordNotifyErrors:
 
         discord = notifiers_module.DISCORD()
         result = discord.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -303,7 +303,7 @@ class TestDiscordNotifyErrors:
         # the code continues to check response.status_code which is unbound
         with pytest.raises(UnboundLocalError):
             discord.notify(
-                text="Mylar Notification",
+                text="Comicarr Notification",
                 attachment_text="Snatched",
                 snatched_nzb="Spider-Man 001",
                 prov="NZBGeek",

@@ -186,7 +186,7 @@ def check_stale_pidfile(pidfile):
 
 def main():
 
-    # Fixed paths to mylar
+    # Fixed paths to comicarr
     if hasattr(sys, 'frozen'):
         comicarr.FULL_PATH = os.path.abspath(sys.executable)
     else:
@@ -221,7 +221,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help='Increase console logging verbosity')
     parser.add_argument('-q', '--quiet', action='store_true', default=False, help='Turn off console logging')
     parser.add_argument('-d', '--daemon', action='store_true', default=False, help='Run as a daemon')
-    parser.add_argument('-p', '--port', type=int, default=0, help='Force mylar to run on a specified port')
+    parser.add_argument('-p', '--port', type=int, default=0, help='Force Comicarr to run on a specified port')
     parser.add_argument('-b', '--backup', nargs='?', const='both', help='Will automatically backup & keep the last 4 rolling copies.')
     parser.add_argument('-w', '--noweekly', action='store_true', default=False, help='Turn off weekly pull list check on startup (quicker boot sequence)')
     parser.add_argument('-iu', '--ignoreupdate', action='store_true', default=False, help='Do not update db if required (for problem bypass)')
@@ -233,10 +233,10 @@ def main():
 
     parser_maintenance = subparsers.add_parser('maintenance', help='Enter maintenance mode (no GUI). Additional commands are available (maintenance --help)')
     parser_maintenance.add_argument('-xj', '--exportjson', default=None, action='store', help='Export existing comicarr.db to json file') #, default=argparse.SUPPRESS)
-    parser_maintenance.add_argument('-id', '--importdatabase', default=None, action='store', help='Import a comicarr.db into current db') # , default=argparse.SUPPRESS)
+    parser_maintenance.add_argument('-id', '--importdatabase', default=None, action='store', help='Import a database into current db') # , default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-ij', '--importjson', default=None, action='store', help='Import a specified json file containing just {"ComicID": "XXXXX"} into current db') #, default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-st', '--importstatus', default=False, action='store_true', help='Provide current maintenance status') #, default=argparse.SUPPRESS)
-    parser_maintenance.add_argument('-u', '--update', default=False, action='store_true', help='force mylar to perform an update as if in GUI') #, default=argparse.SUPPRESS)
+    parser_maintenance.add_argument('-u', '--update', default=False, action='store_true', help='force Comicarr to perform an update as if in GUI') #, default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-fs', '--fixslashes', default=False, action='store_true', help='remove double-slashes from within paths in db') #, default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-cp', '--clearprovidertable', default=False, action='store_true', help='clear out the provider_searches table in db') #, default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-care', '--carepackage', default=False, action='store_true', help='generate a carepackage') #, default=argparse.SUPPRESS)
@@ -315,7 +315,7 @@ def main():
     if args_pidfile:
         comicarr.PIDFILE = str(args_pidfile)
 
-        # If the pidfile already exists, mylar may still be running, so exit
+        # If the pidfile already exists, comicarr may still be running, so exit
         if os.path.exists(comicarr.PIDFILE):
             if check_stale_pidfile(comicarr.PIDFILE):
                 os.unlink(comicarr.PIDFILE)
@@ -464,11 +464,11 @@ def main():
             logger.info('%s Initializing maintenance mode' % loggermode)
 
             if args_update is True:
-                logger.info('%s Attempting to update Mylar so things can work again...' % loggermode)
+                logger.info('%s Attempting to update Comicarr so things can work again...' % loggermode)
                 try:
                     comicarr.shutdown(restart=True, update=True, maintenance=True)
                 except Exception as e:
-                    sys.exit('%s Mylar failed to update: %s' % (loggermode, e))
+                    sys.exit('%s Comicarr failed to update: %s' % (loggermode, e))
 
             elif args_importdatabase:
                 #for attempted db import.
@@ -518,7 +518,7 @@ def main():
     # Force the http port if neccessary
     if args_port > 0:
         http_port = args_port
-        logger.info('Starting Mylar on forced port: %i' % http_port)
+        logger.info('Starting Comicarr on forced port: %i' % http_port)
     else:
         http_port = int(comicarr.CONFIG.HTTP_PORT)
 

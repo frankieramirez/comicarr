@@ -183,7 +183,7 @@ class TestMatrixNotify:
 
         matrix = notifiers_module.MATRIX()
         result = matrix.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",

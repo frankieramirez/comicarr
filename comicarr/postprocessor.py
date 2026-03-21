@@ -3522,7 +3522,7 @@ class PostProcessor(object):
                 prline = '%s %s' % (series, issuenumOG)
             else:
                 prline = '%s' % (series)
-        prline2 = 'Mylar has downloaded and post-processed: ' + prline
+        prline2 = 'Comicarr has downloaded and post-processed: ' + prline
 
         try:
             if comicarr.CONFIG.PROWL_ENABLED:
@@ -3562,7 +3562,7 @@ class PostProcessor(object):
             if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONPOST:
                 logger.info("Sending email notification")
                 email = notifiers.EMAIL()
-                email.notify(prline2, "Mylar notification - Processed", module=module)
+                email.notify(prline2, "Comicarr notification - Processed", module=module)
 
             if comicarr.CONFIG.GOTIFY_ENABLED:
                 gotify = notifiers.GOTIFY()

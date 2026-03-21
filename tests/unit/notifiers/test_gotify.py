@@ -40,7 +40,7 @@ class TestGotifyNotify:
         )
 
         gotify = notifiers_module.GOTIFY()
-        result = gotify.notify(text="Mylar", attachment_text="Test notification")
+        result = gotify.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is True
         assert len(responses.calls) == 1
@@ -75,7 +75,7 @@ class TestGotifyNotify:
 
         gotify = notifiers_module.GOTIFY()
         result = gotify.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -102,7 +102,7 @@ class TestGotifyNotify:
 
         gotify = notifiers_module.GOTIFY()
         result = gotify.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -128,7 +128,7 @@ class TestGotifyNotify:
 
         gotify = notifiers_module.GOTIFY()
         result = gotify.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             imageFile=sample_image_base64,
             metadata=gotify_metadata,
@@ -156,7 +156,7 @@ class TestGotifyNotify:
 
         gotify = notifiers_module.GOTIFY()
         result = gotify.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             imageFile=sample_image_base64,
             metadata=gotify_metadata,
@@ -181,7 +181,7 @@ class TestGotifyNotify:
 
         gotify = notifiers_module.GOTIFY()
         result = gotify.notify(
-            text="Mylar", attachment_text="Test notification", module="[TEST]"
+            text="Comicarr", attachment_text="Test notification", module="[TEST]"
         )
         assert result is True
 
@@ -202,7 +202,7 @@ class TestGotifyNotifyErrors:
         )
 
         gotify = notifiers_module.GOTIFY()
-        result = gotify.notify(text="Mylar", attachment_text="Test notification")
+        result = gotify.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is False
 
@@ -219,7 +219,7 @@ class TestGotifyNotifyErrors:
         )
 
         gotify = notifiers_module.GOTIFY()
-        result = gotify.notify(text="Mylar", attachment_text="Test notification")
+        result = gotify.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is False
 

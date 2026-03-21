@@ -21,7 +21,7 @@
 MangaDex API integration for manga search and metadata functionality.
 
 Uses the MangaDex API v5 to search for manga series and retrieve chapter information.
-Provides chapter-level tracking which aligns with Mylar's issue-level tracking model.
+Provides chapter-level tracking which aligns with Comicarr's issue-level tracking model.
 
 API Documentation: https://api.mangadex.org/docs/
 """
@@ -86,7 +86,7 @@ def _make_request(endpoint, params=None, method='GET'):
 
     url = f"{MANGADEX_API_BASE}{endpoint}"
     headers = {
-        'User-Agent': comicarr.CONFIG.CV_USER_AGENT if comicarr.CONFIG else 'Mylar3/1.0'
+        'User-Agent': comicarr.CONFIG.CV_USER_AGENT if comicarr.CONFIG else 'Comicarr/1.0'
     }
 
     try:
@@ -540,7 +540,7 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
             'updated_at': attributes.get('updatedAt'),
             'scanlation_group': group_name,
             'external_url': attributes.get('externalUrl'),
-            # Map to Mylar's issue structure
+            # Map to Comicarr's issue structure
             'issue_number': chapter_num,
             'issue_name': attributes.get('title') or f'Chapter {chapter_num}',
             'release_date': attributes.get('publishAt', '')[:10] if attributes.get('publishAt') else None,

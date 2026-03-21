@@ -132,7 +132,7 @@ class OPDS(object):
     def _root(self, **kwargs):
         myDB = db.DBConnection()
         feed = {}
-        feed['title'] = 'Mylar OPDS'
+        feed['title'] = 'Comicarr OPDS'
         currenturi = cherrypy.url()
         feed['id'] = re.sub('/', ':',  currenturi)
         feed['updated'] = comicarr.helpers.now()
@@ -236,7 +236,7 @@ class OPDS(object):
             index = int(kwargs['index'])
         myDB = db.DBConnection()
         feed = {}
-        feed['title'] = 'Mylar OPDS - Publishers'
+        feed['title'] = 'Comicarr OPDS - Publishers'
         feed['id'] = 'Publishers'
         feed['updated'] = comicarr.helpers.now()
         links = []
@@ -283,7 +283,7 @@ class OPDS(object):
             index = int(kwargs['index'])
         myDB = db.DBConnection()
         feed = {}
-        feed['title'] = 'Mylar OPDS - All Titles'
+        feed['title'] = 'Comicarr OPDS - All Titles'
         feed['id'] = 'AllTitles'
         feed['updated'] = comicarr.helpers.now()
         links = []
@@ -343,7 +343,7 @@ class OPDS(object):
                 )
         feed = {}
         pubname = '%s (%s)' % (escape(kwargs['pubid']),len(entries))
-        feed['title'] = 'Mylar OPDS - %s' % (pubname)
+        feed['title'] = 'Comicarr OPDS - %s' % (pubname)
         feed['id'] = 'publisher:%s' % escape(kwargs['pubid'])
         feed['updated'] = comicarr.helpers.now()
         links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -435,7 +435,7 @@ class OPDS(object):
 
         feed = {}
         comicname = '%s' % (escape(comic['ComicName']))
-        feed['title'] = 'Mylar OPDS - %s' % (comicname)
+        feed['title'] = 'Comicarr OPDS - %s' % (comicname)
         feed['id'] = escape('comic:%s (%s)' % (comic['ComicName'], comic['ComicYear']))
         feed['updated'] = comic['DateAdded']
         links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -479,7 +479,7 @@ class OPDS(object):
                             image = issuebook['ImageURL_ALT']
                             thumbnail = issuebook['ImageURL']
                         else:
-                            title = escape('%03d: %s #%s - %s (Added to Mylar %s, in stores %s)' % (index + number, issuebook['ComicName'], issuebook['Issue_Number'], issuebook['IssueName'], issuebook['DateAdded'], issuebook['ReleaseDate']))
+                            title = escape('%03d: %s #%s - %s (Added to Comicarr %s, in stores %s)' % (index + number, issuebook['ComicName'], issuebook['Issue_Number'], issuebook['IssueName'], issuebook['DateAdded'], issuebook['ReleaseDate']))
                             image = issuebook['ImageURL_ALT']
                             thumbnail = issuebook['ImageURL']
                     else:
@@ -521,7 +521,7 @@ class OPDS(object):
                         }
                     )
         feed = {}
-        feed['title'] = 'Mylar OPDS - New Arrivals'
+        feed['title'] = 'Comicarr OPDS - New Arrivals'
         feed['id'] = escape('New Arrivals')
         feed['updated'] = comicarr.helpers.now()
         links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -667,7 +667,7 @@ class OPDS(object):
                 }
             )
         feed = {}
-        feed['title'] = 'Mylar OPDS - Story Arcs'
+        feed['title'] = 'Comicarr OPDS - Story Arcs'
         feed['id'] = 'StoryArcs'
         feed['updated'] = comicarr.helpers.now()
         links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -732,7 +732,7 @@ class OPDS(object):
                     )
 
             feed = {}
-            feed['title'] = 'Mylar OPDS - One-Offs'
+            feed['title'] = 'Comicarr OPDS - One-Offs'
             feed['id'] = escape('OneOffs')
             feed['updated'] = comicarr.helpers.now()
             links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -829,7 +829,7 @@ class OPDS(object):
                     )
 
             feed = {}
-            feed['title'] = 'Mylar OPDS - ReadList'
+            feed['title'] = 'Comicarr OPDS - ReadList'
             feed['id'] = escape('ReadList')
             feed['updated'] = comicarr.helpers.now()
             links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))
@@ -948,7 +948,7 @@ class OPDS(object):
                     )
 
         feed = {}
-        feed['title'] = 'Mylar OPDS - %s' % escape(arcname)
+        feed['title'] = 'Comicarr OPDS - %s' % escape(arcname)
         feed['id'] = escape('storyarc:%s' % kwargs['arcid'])
         feed['updated'] = comicarr.helpers.now()
         links.append(getLink(href=self.opdsroot,type='application/atom+xml; profile=opds-catalog; kind=navigation', rel='start', title='Home'))

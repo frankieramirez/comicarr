@@ -2219,16 +2219,16 @@ class Api(object):
             'interface': comicarr.CONFIG.INTERFACE,
 
             # API
-            'api_key': comicarr.CONFIG.API_KEY,
+            'api_key': ('****' + comicarr.CONFIG.API_KEY[-4:]) if comicarr.CONFIG.API_KEY and len(comicarr.CONFIG.API_KEY) >= 4 else '****',
 
             # Comic Vine
-            'comicvine_api': comicarr.CONFIG.COMICVINE_API,
+            'comicvine_api': ('****' + comicarr.CONFIG.COMICVINE_API[-4:]) if comicarr.CONFIG.COMICVINE_API and len(comicarr.CONFIG.COMICVINE_API) >= 4 else '****',
             'cv_verify': comicarr.CONFIG.CV_VERIFY,
             'cv_only': comicarr.CONFIG.CV_ONLY,
 
             # Metron
             'metron_username': comicarr.CONFIG.METRON_USERNAME,
-            'metron_password': comicarr.CONFIG.METRON_PASSWORD,
+            'metron_password': ('****' + comicarr.CONFIG.METRON_PASSWORD[-4:]) if comicarr.CONFIG.METRON_PASSWORD and len(comicarr.CONFIG.METRON_PASSWORD) >= 4 else '****',
             'use_metron_search': comicarr.CONFIG.USE_METRON_SEARCH,
 
             # Search

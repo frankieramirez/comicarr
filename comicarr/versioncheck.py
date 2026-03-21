@@ -277,7 +277,7 @@ def getVersion(ptv):
                 logger.info('Branch detected & set to : ' + ptv['git_branch'])
                 return {'current_version': current_version, 'current_version_name': current_version_name, 'branch': ptv['git_branch'], 'current_release_name': current_release_name}
             else:
-                logger.warn('No branch specified within config - will attempt to poll version from mylar')
+                logger.warn('No branch specified within config - will attempt to poll version from comicarr')
                 try:
                     branch = version.MYLAR_VERSION
                     logger.info('Branch detected & set to : ' + branch)
@@ -334,14 +334,14 @@ def checkGithub(current_version=None):
                     if comicarr.CONFIG.AUTO_UPDATE is True:
                         comicarr.SIGNAL = 'update'
                 elif comicarr.COMMITS_BEHIND == 0:
-                    chk_message = 'Mylar is up to date'
+                    chk_message = 'Comicarr is up to date'
                 elif comicarr.COMMITS_BEHIND == -1:
-                    chk_message = 'You are running an unknown version of Mylar. Run the updater to identify your version'
+                    chk_message = 'You are running an unknown version of Comicarr. Run the updater to identify your version'
                 logger.info('[CHECK_GITHUB] %s' % chk_message)
                 rtnline = {'status': 'success', 'current_version': comicarr.CURRENT_VERSION, 'latest_version': comicarr.LATEST_VERSION, 'commits_behind': comicarr.COMMITS_BEHIND, 'message': chk_message}
                 comicarr.UPDATE_VALUE = json.dumps({'update_value': comicarr.COMMITS_BEHIND, 'docker': itype})
         else:
-            chk_message = 'You are running an unknown version of Mylar. Run the updater to identify your version'
+            chk_message = 'You are running an unknown version of Comicarr. Run the updater to identify your version'
             logger.info('[CHECK_GITHUB] %s' % chk_message)
             rtnline = {'status': 'failure', 'current_version': comicarr.CURRENT_VERSION, 'latest_version': comicarr.CURRENT_VERSION, 'commits_behind': -1, 'message': chk_message}
             comicarr.UPDATE_VALUE = json.dumps({'update_value': -1, 'docker': itype})
@@ -376,7 +376,7 @@ def update():
                 logger.info('Output: ' + str(output))
 
     elif comicarr.INSTALL_TYPE == 'docker':
-        logger.info('Docker updates via it\'s own mechanics. Updating docker via Mylar GUI not supported at this time.')
+        logger.info('Docker updates via it\'s own mechanics. Updating docker via Comicarr GUI not supported at this time.')
 
     else:
         tar_download_url = 'https://github.com/%s/mylar/tarball/%s' % (comicarr.CONFIG.GIT_USER, comicarr.CONFIG.GIT_BRANCH)
