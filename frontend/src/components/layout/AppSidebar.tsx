@@ -1,5 +1,6 @@
 import { useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import Logo from "@/components/Logo";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -28,7 +29,6 @@ import {
   Settings,
   LogOut,
   BookMarked,
-  BookOpen,
   Moon,
   Sun,
   FolderInput,
@@ -95,17 +95,7 @@ export default function AppSidebar() {
                 onClick={handleNavClick}
                 className="flex items-center gap-3"
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-b from-[#FF5C00] to-[#FF8A4C]">
-                  <BookOpen className="w-[18px] h-[18px] text-white" />
-                </div>
-                <span
-                  className="text-lg font-semibold tracking-[3px] text-foreground"
-                  style={{
-                    fontFamily: "var(--font-mono, 'DM Mono', monospace)",
-                  }}
-                >
-                  COMICARR
-                </span>
+                <Logo className="h-6 text-foreground" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

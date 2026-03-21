@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BookOpen,
   Loader2,
   AlertCircle,
   User,
@@ -10,6 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import Logo from "@/components/Logo";
 import { setupCredentials } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,15 +293,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[420px] relative z-10 bg-[#141417] rounded-2xl border border-[#1F1F23] shadow-[0_4px_40px_rgba(255,92,0,0.03)] px-10 py-12 flex flex-col items-center gap-8">
         {/* Brand section */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center justify-center w-[72px] h-[72px] rounded-2xl bg-gradient-to-b from-[#FF5C00] to-[#FF8A4C] shadow-lg shadow-[#FF5C00]/20">
-            <BookOpen className="w-9 h-9 text-white" />
-          </div>
-          <h1
-            className="text-[32px] font-semibold tracking-[4px] text-white"
-            style={{ fontFamily: "var(--font-mono, 'DM Mono', monospace)" }}
-          >
-            COMICARR
-          </h1>
+          <Logo className="h-10 text-white" />
           <p className="text-[#8B8B90] text-sm">
             {needsSetup
               ? "Welcome! Set up your account to get started."
