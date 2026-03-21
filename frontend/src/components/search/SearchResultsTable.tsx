@@ -15,8 +15,6 @@ import {
   Check,
   Loader2,
   ImageOff,
-  Book,
-  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,13 +22,8 @@ import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
 import type { SearchResult, ContentType } from "@/types";
 
-// Extended search result with content_type for unified search
-interface ExtendedSearchResult extends SearchResult {
-  content_type?: ContentType;
-}
-
 // Lazy-loaded cover thumbnail component
-function CoverThumbnail({ comic }: { comic: ExtendedSearchResult }) {
+function CoverThumbnail({ comic }: { comic: SearchResult }) {
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -62,11 +55,10 @@ function CoverThumbnail({ comic }: { comic: ExtendedSearchResult }) {
 }
 
 interface SearchResultsTableProps {
-  results: ExtendedSearchResult[];
+  results: SearchResult[];
   currentSort: string;
   onSortChange: (sort: string) => void;
-  contentType?: ContentType;
-  showTypeColumn?: boolean;
+  contentType: ContentType;
 }
 
 interface AddByIdEventDetail {
@@ -94,31 +86,13 @@ function getColumnSort(
   return false;
 }
 
-// Type badge component
-function TypeBadge({ contentType }: { contentType: ContentType }) {
-  if (contentType === "manga") {
-    return (
-      <Badge variant="secondary" className="text-xs px-1.5 py-0">
-        <BookOpen className="w-3 h-3 mr-1" />
-        Manga
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-xs px-1.5 py-0">
-      <Book className="w-3 h-3 mr-1" />
-      Comic
-    </Badge>
-  );
-}
-
 // Action cell component to handle add-to-library logic
 function ActionCell({
   comic,
-  contentType = "comic",
+  contentType,
 }: {
-  comic: ExtendedSearchResult;
-  contentType?: ContentType;
+  comic: SearchResult;
+  contentType: ContentType;
 }) {
   const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -128,9 +102,7 @@ function ActionCell({
   const navigate = useNavigate();
   const comicIdRef = useRef<string | null>(null);
 
-  // Use content_type from result if available (for unified search), otherwise use prop
-  const effectiveContentType = comic.content_type || contentType;
-  const isManga = effectiveContentType === "manga";
+  const isManga = contentType === "manga";
   const itemLabel = isManga ? "Manga" : "Comic";
 
   // Listen for SSE events when a comic is being added
@@ -246,15 +218,10 @@ export default function SearchResultsTable({
   results,
   currentSort,
   onSortChange,
-  contentType = "comic",
-  showTypeColumn = false,
+  contentType,
 }: SearchResultsTableProps) {
   const isManga = contentType === "manga";
-  const issuesLabel = showTypeColumn
-    ? "Issues/Ch."
-    : isManga
-      ? "Chapters"
-      : "Issues";
+  const issuesLabel = isManga ? "Chapters" : "Issues";
 
   // Handle column header click for sorting
   const handleSortClick = (columnId: string) => {
@@ -262,7 +229,6 @@ export default function SearchResultsTable({
     if (!mapping) return;
 
     const currentState = getColumnSort(columnId, currentSort);
-    // Toggle: none -> desc -> asc -> desc (default to desc first for year)
     if (currentState === false) {
       onSortChange(mapping.desc);
     } else if (currentState === "desc") {
@@ -272,14 +238,22 @@ export default function SearchResultsTable({
     }
   };
 
-  const columns = useMemo<ColumnDef<ExtendedSearchResult>[]>(() => {
-    const cols: ColumnDef<ExtendedSearchResult>[] = [
+  // Handle keyboard activation on sort headers
+  const handleSortKeyDown = (e: React.KeyboardEvent, columnId: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleSortClick(columnId);
+    }
+  };
+
+  const columns = useMemo<ColumnDef<SearchResult>[]>(
+    () => [
       {
         id: "cover",
         header: "",
         enableSorting: false,
         size: 50,
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
+        cell: ({ row }: CellContext<SearchResult, unknown>) => (
           <CoverThumbnail comic={row.original} />
         ),
       },
@@ -287,7 +261,7 @@ export default function SearchResultsTable({
         id: "series",
         accessorKey: "name",
         header: "Series",
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
+        cell: ({ row }: CellContext<SearchResult, unknown>) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
             {row.original.comicyear && (
@@ -298,43 +272,28 @@ export default function SearchResultsTable({
           </div>
         ),
       },
-    ];
-
-    // Add type column when showing unified results
-    if (showTypeColumn) {
-      cols.push({
-        id: "type",
-        header: "Type",
-        enableSorting: false,
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
-          <TypeBadge contentType={row.original.content_type || "comic"} />
-        ),
-      });
-    }
-
-    cols.push(
       {
         id: "year",
         accessorKey: "comicyear",
         header: "Year",
-        cell: ({ getValue }: CellContext<ExtendedSearchResult, unknown>) => (
-          <span>{(getValue() as string) || "—"}</span>
+        cell: ({ getValue }: CellContext<SearchResult, unknown>) => (
+          <span>{(getValue() as string) || "\u2014"}</span>
         ),
       },
       {
         id: "issues",
         accessorKey: "issues",
         header: issuesLabel,
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => {
+        cell: ({ row }: CellContext<SearchResult, unknown>) => {
           const issues = row.original.issues ?? row.original.count_of_issues;
-          return <span>{issues !== undefined ? issues : "—"}</span>;
+          return <span>{issues !== undefined ? issues : "\u2014"}</span>;
         },
       },
       {
         id: "status",
         header: "Status",
         enableSorting: false,
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) =>
+        cell: ({ row }: CellContext<SearchResult, unknown>) =>
           row.original.in_library ? (
             <Badge variant="default">In Library</Badge>
           ) : null,
@@ -343,25 +302,21 @@ export default function SearchResultsTable({
         id: "actions",
         header: "",
         enableSorting: false,
-        cell: ({ row }: CellContext<ExtendedSearchResult, unknown>) => (
+        cell: ({ row }: CellContext<SearchResult, unknown>) => (
           <div className="text-right">
-            <ActionCell
-              comic={row.original}
-              contentType={row.original.content_type || contentType}
-            />
+            <ActionCell comic={row.original} contentType={contentType} />
           </div>
         ),
       },
-    );
-
-    return cols;
-  }, [contentType, issuesLabel, showTypeColumn]);
+    ],
+    [contentType, issuesLabel],
+  );
 
   const table = useReactTable({
     data: results,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    manualSorting: true, // Server-side sorting
+    manualSorting: true,
   });
 
   return (
@@ -377,10 +332,19 @@ export default function SearchResultsTable({
                     ? getColumnSort(header.id, currentSort)
                     : false;
 
+                  // Map sort state to aria-sort value
+                  const ariaSort =
+                    sortState === "asc"
+                      ? ("ascending" as const)
+                      : sortState === "desc"
+                        ? ("descending" as const)
+                        : undefined;
+
                   return (
                     <th
                       key={header.id}
                       className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      aria-sort={ariaSort}
                     >
                       {header.isPlaceholder ? null : (
                         <div
@@ -389,9 +353,16 @@ export default function SearchResultsTable({
                               ? "flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
                               : ""
                           }
+                          role={isSortable ? "button" : undefined}
+                          tabIndex={isSortable ? 0 : undefined}
                           onClick={
                             isSortable
                               ? () => handleSortClick(header.id)
+                              : undefined
+                          }
+                          onKeyDown={
+                            isSortable
+                              ? (e) => handleSortKeyDown(e, header.id)
                               : undefined
                           }
                         >
