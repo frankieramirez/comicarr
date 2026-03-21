@@ -2079,9 +2079,12 @@ def validateAndCreateDirectory(dir, create=False, module=None, dmode=None):
                         else:
                             os.makedirs(dir.rstrip())
                     except OSError as e:
-                        if not s_perms:
-                            logger.warn('%s Unable to set permissions for : %s [%s]' % (module, dir, e))
-                        else:
+                        try:
+                            if not s_perms:
+                                logger.warn('%s Unable to set permissions for : %s [%s]' % (module, dir, e))
+                            else:
+                                logger.warn('%s Could not create directory: %s [%s]. Aborting' % (module, dir, e))
+                        except UnboundLocalError:
                             logger.warn('%s Could not create directory: %s [%s]. Aborting' % (module, dir, e))
                         return False
                     else:
