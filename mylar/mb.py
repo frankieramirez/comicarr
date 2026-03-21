@@ -63,13 +63,14 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
            filterline+= ',name:%s' % x
        cnt+=1
 
-    # Build sort parameter - use provided sort or default
-    sort_param = sort if sort else 'date_last_updated:desc'
+    # Build sort parameter - omit for relevance (API natural order is best proxy)
+    sort_param = sort if (sort and sort != 'relevance') else None
 
     # Build limit parameter - use provided limit or default to 100
     limit_param = limit if limit else 100
 
-    PULLURL = mylar.CVURL + str(search_type) + 's?api_key=' + str(comicapi) + '&filter=name:' + filterline + '&field_list=id,name,start_year,site_detail_url,count_of_issues,image,publisher,deck,description,first_issue,last_issue&format=xml&limit=' + str(limit_param) + '&sort=' + sort_param + '&offset=' + str(offset) # 2012/22/02 - CVAPI flipped back to offset instead of page
+    sort_segment = '&sort=' + sort_param if sort_param else ''
+    PULLURL = mylar.CVURL + str(search_type) + 's?api_key=' + str(comicapi) + '&filter=name:' + filterline + '&field_list=id,name,start_year,site_detail_url,count_of_issues,image,publisher,deck,description,first_issue,last_issue&format=xml&limit=' + str(limit_param) + sort_segment + '&offset=' + str(offset) # 2012/22/02 - CVAPI flipped back to offset instead of page
 
     #all these imports are standard on most modern python implementations
     #logger.info('MB.PULLURL:' + PULLURL)
