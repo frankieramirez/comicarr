@@ -1387,8 +1387,8 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
             return torrent_info
 
     elif comicarr.USE_RTORRENT:
-        from . import test
-        rp = test.RTorrent()
+        from . import rtorrent_test_client
+        rp = rtorrent_test_client.RTorrent()
 
         torrent_info = rp.main(filepath=filepath)
 

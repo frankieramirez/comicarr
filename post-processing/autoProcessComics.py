@@ -49,19 +49,19 @@ def processIssue(dirName, nzbName=None, failed=False, comicrn_version=None):
         print("Could not read configuration file: ", str(e))
         sys.exit(1)
 
-    host = config.get("Mylar", "host")
-    port = config.get("Mylar", "port")
-    apikey = config.get("Mylar", "apikey")
+    host = config.get("Comicarr", "host")
+    port = config.get("Comicarr", "port")
+    apikey = config.get("Comicarr", "apikey")
     if apikey is None:
-        print("No ApiKey has been set within Mylar to allow this script to run. This is NEW. Generate an API within Mylar, and make sure to enter the apikey value into the autoProcessComics.cfg file before re-running.")
+        print("No ApiKey has been set within Comicarr to allow this script to run. This is NEW. Generate an API within Comicarr, and make sure to enter the apikey value into the autoProcessComics.cfg file before re-running.")
         sys.exit(1)
     try:
-        ssl = int(config.get("Mylar", "ssl"))
+        ssl = int(config.get("Comicarr", "ssl"))
     except (configparser.NoOptionError, ValueError):
         ssl = 0
 
     try:
-        web_root = config.get("Mylar", "web_root")
+        web_root = config.get("Comicarr", "web_root")
     except configparser.NoOptionError:
         web_root = ""
 

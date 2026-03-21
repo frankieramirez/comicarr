@@ -125,7 +125,7 @@ def getVersion(ptv):
             cur_branch = output[opp:output.find('\n', opp+1)].strip()
 
             if cur_commit_hash.startswith('v') and ptv['check_github_on_startup'] is True:
-                url2 = 'https://api.github.com/repos/%s/mylar3/tags' % (ptv['git_user'])
+                url2 = 'https://api.github.com/repos/%s/comicarr/tags' % (ptv['git_user'])
                 try:
                     response = requests.get(url2, verify=True, auth=ptv['git_token'])
                     git = response.json()
@@ -140,7 +140,7 @@ def getVersion(ptv):
                                 cur_commit_hash = x['commit']['sha']
                                 break
                         logger.info('version_name: %s' % current_version_name)
-                        url3 = 'https://api.github.com/repos/%s/mylar3/releases/tags/%s' % (ptv['git_user'], current_version_name)
+                        url3 = 'https://api.github.com/repos/%s/comicarr/releases/tags/%s' % (ptv['git_user'], current_version_name)
                         #logger.fdebug('url3: %s' % url3)
                         try:
                             repochk = requests.get(url3, verify=True, auth=ptv['git_token'])
@@ -244,7 +244,7 @@ def getVersion(ptv):
         if current_version_name is not None and current_release_name is None and branch == 'master':
             # only master has tags - so if not master, no need to check at all.
             # and comicarr.CONFIG.CHECK_GITHUB_ON_STARTUP is True:
-            url2 = 'https://api.github.com/repos/%s/mylar3/releases/tags/%s' % (ptv['git_user'], current_version_name)
+            url2 = 'https://api.github.com/repos/%s/comicarr/releases/tags/%s' % (ptv['git_user'], current_version_name)
             try:
                 response = requests.get(url2, verify=True, auth=comicarr.CONFIG.GIT_TOKEN)
                 git = response.json()
@@ -279,7 +279,7 @@ def getVersion(ptv):
             else:
                 logger.warn('No branch specified within config - will attempt to poll version from comicarr')
                 try:
-                    branch = version.MYLAR_VERSION
+                    branch = version.COMICARR_VERSION
                     logger.info('Branch detected & set to : ' + branch)
                 except:
                     branch = 'master'
@@ -299,14 +299,14 @@ def checkGithub(current_version=None):
         itype = 'false'
 
     # Get the latest commit available from github
-    url = 'https://api.github.com/repos/%s/mylar3/commits/%s' % (comicarr.CONFIG.GIT_USER, comicarr.CONFIG.GIT_BRANCH)
+    url = 'https://api.github.com/repos/%s/comicarr/commits/%s' % (comicarr.CONFIG.GIT_USER, comicarr.CONFIG.GIT_BRANCH)
     try:
         response = requests.get(url, verify=True, auth=comicarr.CONFIG.GIT_TOKEN)
         git = response.json()
         comicarr.LATEST_VERSION = git['sha']
     except Exception as e:
         if 'sha' in str(e):
-            le_message = 'Updater will only work with the mylar3 repo branches'
+            le_message = 'Updater will only work with the comicarr repo branches'
         else:
             le_message = 'Could not get latest commit from github'
         logger.warn('[ERROR] %s . Error returned: %s' % (le_message, e))
@@ -317,7 +317,7 @@ def checkGithub(current_version=None):
         # See how many commits behind we are
         if current_version is not None:
             logger.fdebug('Comparing currently installed version [%s] with latest github version [%s]' % (current_version, comicarr.LATEST_VERSION))
-            url = 'https://api.github.com/repos/%s/mylar3/compare/%s...%s' % (comicarr.CONFIG.GIT_USER, current_version, comicarr.LATEST_VERSION)
+            url = 'https://api.github.com/repos/%s/comicarr/compare/%s...%s' % (comicarr.CONFIG.GIT_USER, current_version, comicarr.LATEST_VERSION)
 
             try:
                 response = requests.get(url, verify=True, auth=comicarr.CONFIG.GIT_TOKEN)
@@ -379,7 +379,7 @@ def update():
         logger.info('Docker updates via it\'s own mechanics. Updating docker via Comicarr GUI not supported at this time.')
 
     else:
-        tar_download_url = 'https://github.com/%s/mylar/tarball/%s' % (comicarr.CONFIG.GIT_USER, comicarr.CONFIG.GIT_BRANCH)
+        tar_download_url = 'https://github.com/%s/comicarr/tarball/%s' % (comicarr.CONFIG.GIT_USER, comicarr.CONFIG.GIT_BRANCH)
         update_dir = os.path.join(comicarr.PROG_DIR, 'update')
 
         try:
