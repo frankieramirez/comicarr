@@ -9,7 +9,7 @@ class TestMattermostInit:
     """Test MATTERMOST initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         mattermost = notifiers_module.MATTERMOST()
 
         assert mattermost.webhook_url == "https://mattermost.example.com/hooks/test"

@@ -19,15 +19,15 @@ import pytest
 @pytest.fixture
 def mock_notifier_config(monkeypatch):
     """
-    Mock mylar.CONFIG with all notifier settings.
+    Mock comicarr.CONFIG with all notifier settings.
 
     Returns a mock CONFIG object that can be modified in individual tests.
     """
-    import mylar
+    import comicarr
 
     # Mock LOG_LEVEL to prevent TypeError in logger.py
-    # The logger checks `mylar.LOG_LEVEL > 0` which fails if LOG_LEVEL is None
-    monkeypatch.setattr(mylar, "LOG_LEVEL", 1)
+    # The logger checks `comicarr.LOG_LEVEL > 0` which fails if LOG_LEVEL is None
+    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
 
     config = MagicMock()
 
@@ -91,7 +91,7 @@ def mock_notifier_config(monkeypatch):
     config.MATRIX_ACCESS_TOKEN = "test_matrix_token"
     config.MATRIX_ROOM_ID = "!test_room:example.com"
 
-    monkeypatch.setattr(mylar, "CONFIG", config)
+    monkeypatch.setattr(comicarr, "CONFIG", config)
 
     return config
 
@@ -115,7 +115,7 @@ def mock_https_connection(mocker):
     mock_conn.getresponse.return_value = mock_response
 
     mock_class = mocker.patch(
-        "mylar.notifiers.HTTPSConnection", return_value=mock_conn
+        "comicarr.notifiers.HTTPSConnection", return_value=mock_conn
     )
 
     return {"class": mock_class, "connection": mock_conn, "response": mock_response}
@@ -142,8 +142,8 @@ def mock_smtp(mocker):
 
     Returns mocks for both SMTP classes.
     """
-    mock_smtp_class = mocker.patch("mylar.notifiers.smtplib.SMTP")
-    mock_smtp_ssl_class = mocker.patch("mylar.notifiers.smtplib.SMTP_SSL")
+    mock_smtp_class = mocker.patch("comicarr.notifiers.smtplib.SMTP")
+    mock_smtp_ssl_class = mocker.patch("comicarr.notifiers.smtplib.SMTP_SSL")
 
     mock_smtp_instance = MagicMock()
     mock_smtp_ssl_instance = MagicMock()
@@ -269,8 +269,8 @@ def notifiers_module(mock_notifier_config):
     """
     Import and return the notifiers module with mocked config.
 
-    This ensures mylar.CONFIG is properly mocked before importing notifiers.
+    This ensures comicarr.CONFIG is properly mocked before importing notifiers.
     """
-    from mylar import notifiers
+    from comicarr import notifiers
 
     return notifiers

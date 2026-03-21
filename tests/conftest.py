@@ -85,7 +85,7 @@ def temp_db(tmp_path) -> str:
 
     Returns the path to the database file.
     """
-    db_path = tmp_path / "test_mylar.db"
+    db_path = tmp_path / "test_comicarr.db"
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
@@ -238,9 +238,9 @@ def mock_db_connection(temp_db):
     """
     Create a mock database connection using the temp database.
 
-    This patches mylar.db.DBConnection to use the temp database.
+    This patches comicarr.db.DBConnection to use the temp database.
     """
-    with patch("mylar.db.DBConnection") as mock_class:
+    with patch("comicarr.db.DBConnection") as mock_class:
         # Create a real connection to the temp db
         conn = sqlite3.connect(temp_db)
         conn.row_factory = sqlite3.Row
@@ -304,13 +304,13 @@ def mock_mylar_globals(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    # Import mylar and patch globals
-    import mylar
+    # Import comicarr and patch globals
+    import comicarr
 
-    monkeypatch.setattr(mylar, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(mylar, "PROG_DIR", str(tmp_path))
-    monkeypatch.setattr(mylar, "CACHE_DIR", str(cache_dir))
-    monkeypatch.setattr(mylar, "LOG_DIR", str(log_dir))
+    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
+    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(comicarr, "CACHE_DIR", str(cache_dir))
+    monkeypatch.setattr(comicarr, "LOG_DIR", str(log_dir))
 
     return {
         "data_dir": data_dir,

@@ -1,4 +1,4 @@
-mylar.db
+comicarr.db
 config.ini
 *.py[co]
 .idea
@@ -22,7 +22,7 @@ venv/
 
 # Runtime database files
 cv_cache.db
-.mylar_maintenance.db
+.comicarr_maintenance.db
 *.db-shm
 *.db-wal
 

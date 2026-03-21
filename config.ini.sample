@@ -1,0 +1,41 @@
+# Comicarr Configuration File
+# Copy this file to config.ini and update the values below.
+# Lines starting with # are comments.
+
+[General]
+config_version = 15
+launch_browser = False
+
+[Interface]
+http_port = 8090
+http_host = 0.0.0.0
+http_username = YOUR_USERNAME_HERE
+http_password = YOUR_PASSWORD_HERE
+authentication = 0
+
+[API]
+api_key = YOUR_API_KEY_HERE
+
+[CV]
+comicvine_api = YOUR_COMICVINE_API_KEY_HERE
+
+[Metron]
+metron_user = YOUR_METRON_USERNAME_HERE
+metron_password = YOUR_METRON_PASSWORD_HERE
+
+[SABnzbd]
+sab_host =
+sab_username =
+sab_password =
+sab_apikey =
+sab_category =
+
+[NZBGet]
+nzbget_host =
+nzbget_port = 6789
+nzbget_username =
+nzbget_password =
+nzbget_category =
+
+[Torrents]
+enable_torrents = False
