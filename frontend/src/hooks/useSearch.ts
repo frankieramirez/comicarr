@@ -33,7 +33,7 @@ type RawSearchResponse =
 export function useSearchComics(
   query: string,
   page = 1,
-  sortBy = "start_year:desc",
+  sortBy: string | null = null,
   options: Partial<
     UseQueryOptions<RawSearchResponse, Error, SearchResponse>
   > = {},
@@ -41,15 +41,19 @@ export function useSearchComics(
   const limit = 50; // Results per page
   const offset = (page - 1) * limit;
 
+  // Build query params - omit sort for relevance (null)
+  const params: Record<string, string> = {
+    name: query,
+    limit: limit.toString(),
+    offset: offset.toString(),
+  };
+  if (sortBy) {
+    params.sort = sortBy;
+  }
+
   return useQuery({
     queryKey: ["search", query, page, sortBy], // Include page and sort in cache key
-    queryFn: () =>
-      apiCall<RawSearchResponse>("findComic", {
-        name: query,
-        limit: limit.toString(),
-        offset: offset.toString(),
-        sort: sortBy,
-      }),
+    queryFn: () => apiCall<RawSearchResponse>("findComic", params),
     // Transform backend field names to match frontend expectations
     // Backend can return either:
     // - Old format: array of comics

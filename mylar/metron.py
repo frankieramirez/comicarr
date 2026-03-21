@@ -38,6 +38,7 @@ SORT_MAPPING = {
     'name_desc': '-name',
     'date_last_updated:desc': '-modified',  # CV default sort
     'date_last_updated:asc': 'modified',
+    'relevance': None,  # Use Metron's natural order for relevance
     None: '-year_began',  # Default to newest first
 }
 
