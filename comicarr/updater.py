@@ -25,8 +25,43 @@ import shlex
 import sys
 import time
 
+from sqlalchemy import bindparam, func, select, text, update
+
 import comicarr
 from comicarr import db, filechecker, helpers, logger
+from comicarr.tables import (
+    annuals,
+    comics,
+    issues,
+    jobhistory,
+    nzblog,
+    oneoffhistory,
+    snatched,
+    storyarcs,
+    upcoming,
+    weekly,
+)
+
+
+# ---------------------------------------------------------------------------
+# Module-level query helpers
+# ---------------------------------------------------------------------------
+
+def _select_all(stmt):
+    """Execute a select statement and return all rows as a list of dicts."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        return [dict(row._mapping) for row in result]
+
+
+def _select_one(stmt):
+    """Execute a select statement and return the first row as a dict, or None."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        row = result.first()
+        if row is None:
+            return None
+        return dict(row._mapping)
 
 
 def addvialist(queue):
@@ -105,16 +140,30 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
     if comicarr.IMPORTLOCK:
         logger.info("Import is currently running - deferring this until the next scheduled run sequence.")
         return
-    myDB = db.DBConnection()
     if ComicIDList is None:
         if comicarr.CONFIG.UPDATE_ENDED:
             logger.info(
                 "Updating only Continuing Series (option enabled) - this might cause problems with the pull-list matching for rebooted series"
             )
             comiclist = []
-            completelist = myDB.select(
-                'SELECT LatestDate, ComicPublished, ForceContinuing, NewPublish, LastUpdated, ComicID, ComicName, Corrected_SeriesYear, Corrected_Type, ComicYear, Status from comics WHERE Status="Active" or Status="Loading" order by LastUpdated DESC, LatestDate ASC'
+            stmt = (
+                select(
+                    comics.c.LatestDate,
+                    comics.c.ComicPublished,
+                    comics.c.ForceContinuing,
+                    comics.c.NewPublish,
+                    comics.c.LastUpdated,
+                    comics.c.ComicID,
+                    comics.c.ComicName,
+                    comics.c.Corrected_SeriesYear,
+                    comics.c.Corrected_Type,
+                    comics.c.ComicYear,
+                    comics.c.Status,
+                )
+                .where((comics.c.Status == "Active") | (comics.c.Status == "Loading"))
+                .order_by(comics.c.LastUpdated.desc(), comics.c.LatestDate.asc())
             )
+            completelist = _select_all(stmt)
             for comlist in completelist:
                 if comlist["LatestDate"] is None:
                     recentstatus = "Loading"
@@ -156,17 +205,39 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     )
 
         else:
-            comiclist = myDB.select(
-                'SELECT LatestDate, LastUpdated, ComicID, ComicName, ComicYear, Corrected_SeriesYear, Corrected_Type, Status from comics WHERE Status="Active" or Status="Loading" order by LastUpdated DESC, latestDate ASC'
+            stmt = (
+                select(
+                    comics.c.LatestDate,
+                    comics.c.LastUpdated,
+                    comics.c.ComicID,
+                    comics.c.ComicName,
+                    comics.c.ComicYear,
+                    comics.c.Corrected_SeriesYear,
+                    comics.c.Corrected_Type,
+                    comics.c.Status,
+                )
+                .where((comics.c.Status == "Active") | (comics.c.Status == "Loading"))
+                .order_by(comics.c.LastUpdated.desc(), comics.c.LatestDate.asc())
             )
+            comiclist = _select_all(stmt)
     else:
         comiclist = []
         comiclisting = ComicIDList
         for cl in comiclisting:
-            comiclist += myDB.select(
-                "SELECT ComicID, ComicName, ComicYear, Corrected_SeriesYear, Corrected_Type, LastUpdated, Status from comics WHERE ComicID=? order by LastUpdated DESC, LatestDate ASC",
-                [cl],
+            stmt = (
+                select(
+                    comics.c.ComicID,
+                    comics.c.ComicName,
+                    comics.c.ComicYear,
+                    comics.c.Corrected_SeriesYear,
+                    comics.c.Corrected_Type,
+                    comics.c.LastUpdated,
+                    comics.c.Status,
+                )
+                .where(comics.c.ComicID == cl)
+                .order_by(comics.c.LastUpdated.desc(), comics.c.LatestDate.asc())
             )
+            comiclist += _select_all(stmt)
 
     if all([sched is False, calledfrom is None]):
         logger.info("Starting update for %i active comics" % len(comiclist))
@@ -230,7 +301,10 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
 
         mismatch = "no"
         if not comicarr.CONFIG.CV_ONLY or ComicID[:1] == "G":
-            CV_EXcomicid = myDB.selectone("SELECT * from exceptions WHERE ComicID=?", [ComicID]).fetchone()
+            # "exceptions" table is not in tables.py -- use text()
+            CV_EXcomicid = _select_one(
+                text("SELECT * from exceptions WHERE ComicID=:cid").bindparams(cid=ComicID)
+            )
             if CV_EXcomicid is None:
                 pass
             else:
@@ -248,9 +322,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                 logger.fdebug("CV_OneTimer option enabled...")
                 # in order to update to JUST CV_ONLY, we need to delete the issues for a given series so it's a clea$
                 logger.fdebug("Gathering the status of all issues for the series.")
-                issues = myDB.select("SELECT * FROM issues WHERE ComicID=?", [ComicID])
+                iss_list = _select_all(
+                    select(issues).where(issues.c.ComicID == ComicID)
+                )
 
-                if not issues:
+                if not iss_list:
                     # if issues are None it's probably a bad refresh/maxed out API that resulted in the issue data
                     # getting wiped out and not refreshed. Setting whack=True will force a complete refresh.
                     logger.fdebug("No issue data available. This is Whack.")
@@ -274,7 +350,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                 if comicarr.CONFIG.ANNUALS_ON:
                     # now we load the annuals into memory to pass through to importer when refreshing so that it can
                     # refresh even the manually added annuals.
-                    annual_load = myDB.select("SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted", [ComicID])
+                    annual_load = _select_all(
+                        select(annuals).where(
+                            (annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1)
+                        )
+                    )
                     logger.fdebug("checking annual db")
                     for annthis in annual_load:
                         if not any(d["ReleaseComicID"] == annthis["ReleaseComicID"] for d in annload):
@@ -289,17 +369,19 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                                 }
                             )
                             # print 'added annual'
-                    issues += annual_load  # myDB.select('SELECT * FROM annuals WHERE ComicID=?', [ComicID])
+                    iss_list += annual_load
                 # store the issues' status for a given comicid, after deleting and readding, flip the status back to$
                 # logger.fdebug("Deleting all issue data.")
                 # myDB.action('DELETE FROM issues WHERE ComicID=?', [ComicID])
                 # myDB.action('DELETE FROM annuals WHERE ComicID=?', [ComicID])
                 logger.fdebug("Refreshing the series and pulling in new data using only CV.")
 
-                lastissuedate = myDB.selectone(
-                    "SELECT IssueDate, ReleaseDate FROM issues WHERE ComicID=? ORDER BY IssueDate DESC LIMIT 1",
-                    [ComicID],
-                ).fetchone()
+                lastissuedate = _select_one(
+                    select(issues.c.IssueDate, issues.c.ReleaseDate)
+                    .where(issues.c.ComicID == ComicID)
+                    .order_by(issues.c.IssueDate.desc())
+                    .limit(1)
+                )
                 if not lastissuedate:
                     last_issuedate = "0000-00-00"  # set it to make sure every new issue gets autowanted if enabled.
                 else:
@@ -314,8 +396,9 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     if chkstatus["status"] == "complete":
                         # delete the data here if it's all valid.
                         logger.fdebug("Deleting all old issue data to make sure new data is clean...")
-                        myDB.action("DELETE FROM issues WHERE ComicID=?", [ComicID])
-                        myDB.action("DELETE FROM annuals WHERE ComicID=?", [ComicID])
+                        with db.get_engine().begin() as conn:
+                            conn.execute(issues.delete().where(issues.c.ComicID == ComicID))
+                            conn.execute(annuals.delete().where(annuals.c.ComicID == ComicID))
                         comicarr.importer.issue_collection(
                             chkstatus["issuedata"], nostatus="True", serieslast_updated=lastupdated
                         )
@@ -336,11 +419,15 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         }
                         return
 
-                    issues_new = myDB.select("SELECT * FROM issues WHERE ComicID=?", [ComicID])
+                    issues_new = _select_all(
+                        select(issues).where(issues.c.ComicID == ComicID)
+                    )
                     ann_list = []
                     # reload the annuals here.
                     if comicarr.CONFIG.ANNUALS_ON:
-                        annuals_list = myDB.select("SELECT * FROM annuals WHERE ComicID=?", [ComicID])
+                        annuals_list = _select_all(
+                            select(annuals).where(annuals.c.ComicID == ComicID)
+                        )
                         ann_list += annuals_list
                         issues_new += annuals_list
 
@@ -352,7 +439,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     fndissue = []
                     nowdate = datetime.datetime.now()
                     now_week = datetime.datetime.strftime(nowdate, "%Y%U")
-                    for issue in issues:
+                    for issue in iss_list:
                         for issuenew in issues_new:
                             # logger.fdebug(str(issue['Issue_Number']) + ' - issuenew:' + str(issuenew['IssueID']) + ' : ' + str(issuenew['Status']))
                             # logger.fdebug(str(issue['Issue_Number']) + ' - issue:' + str(issue['IssueID']) + ' : ' + str(issue['Status']))
@@ -476,10 +563,10 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                                                 + " #: "
                                                 + str(issue["Issue_Number"])
                                             )
-                                            myDB.upsert("Annuals", newVAL, ctrlVAL)
+                                            db.upsert("Annuals", newVAL, ctrlVAL)
                                         else:
                                             # logger.fdebug('#' + str(issue['Issue_Number']) + ' writing issuedata: ' + str(newVAL))
-                                            myDB.upsert("Issues", newVAL, ctrlVAL)
+                                            db.upsert("Issues", newVAL, ctrlVAL)
                                         fndissue.append({"IssueID": issue["IssueID"]})
                                         icount += 1
                                         break
@@ -496,7 +583,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         + " issues."
                     )
 
-                    issuesnew = myDB.select("SELECT * FROM issues WHERE ComicID=? AND Status is NULL", [ComicID])
+                    issuesnew = _select_all(
+                        select(issues).where(
+                            (issues.c.ComicID == ComicID) & (issues.c.Status == None)  # noqa: E711
+                        )
+                    )
 
                     newiss = []
 
@@ -548,7 +639,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         newiss.append({"IssueID": iss["IssueID"], "Status": newstatus, "Annual": False})
 
                     if comicarr.CONFIG.ANNUALS_ON:
-                        annualsnew = myDB.select("SELECT * FROM annuals WHERE ComicID=? AND Status is NULL", [ComicID])
+                        annualsnew = _select_all(
+                            select(annuals).where(
+                                (annuals.c.ComicID == ComicID) & (annuals.c.Status == None)  # noqa: E711
+                            )
+                        )
 
                         for ann in annualsnew:
                             if iss["ReleaseDate"] == "0000-00-00":
@@ -605,9 +700,9 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                             newVAL = {"Status": newi["Status"]}
                             # logger.fdebug('writing issuedata: ' + str(newVAL))
                             if newi["Annual"]:
-                                myDB.upsert("Annuals", newVAL, ctrlVAL)
+                                db.upsert("Annuals", newVAL, ctrlVAL)
                             else:
-                                myDB.upsert("Issues", newVAL, ctrlVAL)
+                                db.upsert("Issues", newVAL, ctrlVAL)
 
                     logger.info(
                         "I have added " + str(len(newiss)) + " new issues for this series that were not present before."
@@ -657,15 +752,16 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
 def latest_update(ComicID, LatestIssue, LatestDate, ReleaseComicID=None):
     # here we add to comics.latest
     logger.fdebug(str(ComicID) + " - updating latest_date to : " + str(LatestDate))
-    myDB = db.DBConnection()
     cid = ComicID
     if comicarr.CONFIG.ANNUALS_ON:
         logger.fdebug("checking for releasecomicid %s reference in annuals table" % ReleaseComicID)
-        db_check = myDB.selectone("SELECT ComicID from Annuals WHERE ReleaseComicID=?", [ReleaseComicID]).fetchone()
+        db_check = _select_one(
+            select(annuals.c.ComicID).where(annuals.c.ReleaseComicID == ReleaseComicID)
+        )
         if not db_check:
             logger.fdebug("Annual has not been added yet to series")
         else:
-            cid = db_check[0]
+            cid = db_check["ComicID"]
             logger.fdebug("ReleaseComicID found of %s linking to series %s" % (ReleaseComicID, cid))
             if cid != ComicID:
                 cid = ComicID
@@ -677,7 +773,7 @@ def latest_update(ComicID, LatestIssue, LatestDate, ReleaseComicID=None):
         "intLatestIssue": helpers.issuedigits(LatestIssue),
         "LatestDate": str(LatestDate),
     }
-    myDB.upsert("comics", newlatestDict, latestCTRLValueDict)
+    db.upsert("comics", newlatestDict, latestCTRLValueDict)
 
 
 def upcoming_update(
@@ -692,7 +788,6 @@ def upcoming_update(
     releasecomicid=None,
 ):
     # here we add to upcoming table...
-    myDB = db.DBConnection()
     dspComicName = ComicName  # to make sure that the word 'annual' will be displayed on screen
     if "annual" in ComicName.lower():
         year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", ComicName, flags=re.I)
@@ -716,7 +811,9 @@ def upcoming_update(
     # let's refresh the series here just to make sure if an issue is available/not.
 
     if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
-        lastupdatechk = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+        lastupdatechk = _select_one(
+            select(comics).where(comics.c.ComicID == ComicID)
+        )
         if lastupdatechk is None:
             pullupd = "yes"
         else:
@@ -750,23 +847,29 @@ def upcoming_update(
     if any(["annual" in ComicName.lower(), "special" in ComicName.lower()]):
         if comicarr.CONFIG.ANNUALS_ON:
             logger.info("checking: " + str(ComicID) + " -- issue#: " + str(IssueNumber))
-            issuechk = myDB.selectone(
-                "SELECT * FROM annuals WHERE ReleaseComicID=? AND Issue_Number=?", [ComicID, IssueNumber]
-            ).fetchone()
+            issuechk = _select_one(
+                select(annuals).where(
+                    (annuals.c.ReleaseComicID == ComicID) & (annuals.c.Issue_Number == IssueNumber)
+                )
+            )
         else:
             logger.fdebug(
                 "Non-standard issue detected (annual/special/etc), but Annual Integration is not enabled. Ignoring result."
             )
             return
     else:
-        issuechk = myDB.selectone(
-            "SELECT * FROM issues WHERE ComicID=? AND Issue_Number=?", [ComicID, IssueNumber]
-        ).fetchone()
+        issuechk = _select_one(
+            select(issues).where(
+                (issues.c.ComicID == ComicID) & (issues.c.Issue_Number == IssueNumber)
+            )
+        )
     if issuechk is None and altissuenumber is not None:
         logger.info("altissuenumber is : " + str(altissuenumber))
-        issuechk = myDB.selectone(
-            "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [ComicID, helpers.issuedigits(altissuenumber)]
-        ).fetchone()
+        issuechk = _select_one(
+            select(issues).where(
+                (issues.c.ComicID == ComicID) & (issues.c.Int_IssueNumber == helpers.issuedigits(altissuenumber))
+            )
+        )
 
     if issuechk is not None:
         if issuechk["Issue_Number"] == IssueNumber or issuechk["Issue_Number"] == altissuenumber:
@@ -804,7 +907,7 @@ def upcoming_update(
                 if issuechk["Status"] == "Wanted":
                     control = {"IssueID": issuechk["IssueID"]}
                     newchk = {"Status": "Skipped"}
-                    myDB.upsert("issues", newchk, control)
+                    db.upsert("issues", newchk, control)
                 return {"Status": "incorrect_match", "ComicID": ComicID, "IssueID": issuechk["IssueID"]}
                 # return 'incorrect_match'
             else:
@@ -829,10 +932,11 @@ def upcoming_update(
                         "Comic series has an incorrect total count. Forcily refreshing series to ensure data is current."
                     )
                     dbUpdate([ComicID])
-                    issuechk = myDB.selectone(
-                        "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?",
-                        [ComicID, helpers.issuedigits(IssueNumber)],
-                    ).fetchone()
+                    issuechk = _select_one(
+                        select(issues).where(
+                            (issues.c.ComicID == ComicID) & (issues.c.Int_IssueNumber == helpers.issuedigits(IssueNumber))
+                        )
+                    )
                     if issuechk["Status"] != og_status and (
                         issuechk["Status"] != "Downloaded"
                         or issuechk["Status"] != "Archived"
@@ -904,19 +1008,21 @@ def upcoming_update(
                     + " not present in listings to mark for download...updating comic and adding to Upcoming Wanted Releases."
                 )
                 # we need to either decrease the total issue count, OR indicate that an issue is upcoming.
-                upco_results = myDB.select("SELECT COUNT(*) FROM UPCOMING WHERE ComicID=?", [ComicID])
-                upco_iss = upco_results[0][0]
+                upco_results = _select_one(
+                    select(func.count()).select_from(upcoming).where(upcoming.c.ComicID == ComicID)
+                )
+                upco_iss = list(upco_results.values())[0] if upco_results else 0
                 # logger.info("upco_iss: " + str(upco_iss))
                 if int(upco_iss) > 0:
                     # logger.info("There is " + str(upco_iss) + " of " + str(ComicName) + " that's not accounted for")
                     newKey = {"ComicID": ComicID}
                     newVal = {"not_updated_db": str(upco_iss)}
-                    myDB.upsert("comics", newVal, newKey)
+                    db.upsert("comics", newVal, newKey)
                 elif int(upco_iss) <= 0 and lastupdatechk["not_updated_db"]:
                     # if not_updated_db has a value, and upco_iss is > 0, let's zero it back out cause it's updated now.
                     newKey = {"ComicID": ComicID}
                     newVal = {"not_updated_db": ""}
-                    myDB.upsert("comics", newVal, newKey)
+                    db.upsert("comics", newVal, newKey)
 
                 if hours > 5 or forcecheck == "yes":
                     pullupd = "yes"
@@ -949,9 +1055,18 @@ def upcoming_update(
         else:
             # if futurepull is not None, let's just update the status and ComicID
             # NOTE: THIS IS CREATING EMPTY ENTRIES IN THE FUTURE TABLE. ???
-            nKey = {"ComicID": ComicID}
-            nVal = {"Status": "Wanted"}
-            myDB.upsert("future", nVal, nKey)
+            # "future" table is not in tables.py -- use text()
+            with db.get_engine().begin() as conn:
+                # Attempt update first, then insert if no rows affected
+                result = conn.execute(
+                    text("UPDATE future SET Status=:status WHERE ComicID=:cid"),
+                    {"status": "Wanted", "cid": ComicID},
+                )
+                if result.rowcount == 0:
+                    conn.execute(
+                        text("INSERT INTO future (ComicID, Status) VALUES (:cid, :status)"),
+                        {"cid": ComicID, "status": "Wanted"},
+                    )
             return
 
     if comicarr.CONFIG.AUTOWANT_UPCOMING:
@@ -972,7 +1087,7 @@ def upcoming_update(
             logger.fdebug("...Already have issue - keeping existing status of : " + og_status)
 
     if issuechk is None:
-        myDB.upsert("upcoming", newValue, controlValue)
+        db.upsert("upcoming", newValue, controlValue)
         logger.fdebug("updating Pull-list to reflect status.")
         downstats = {"Status": newValue["Status"], "ComicID": ComicID, "IssueID": None}
         return downstats
@@ -993,7 +1108,7 @@ def upcoming_update(
                 "updating date in upcoming table to : " + str(newValue["IssueDate"]) + "[" + newValue["Status"] + "]"
             )
             logger.fdebug("ComicID:" + str(controlValue))
-            myDB.upsert("upcoming", dateVal, controlValue)
+            db.upsert("upcoming", dateVal, controlValue)
             logger.fdebug(
                 "Temporarily putting the Issue Date for "
                 + str(issuechk["Issue_Number"])
@@ -1005,9 +1120,9 @@ def upcoming_update(
             # else: comicarr.importer.addComictoDB(ComicID,mismatch,pullupd='yes')
 
         if any(["annual" in ComicName.lower(), "special" in ComicName.lower()]):
-            myDB.upsert("annuals", values, control)
+            db.upsert("annuals", values, control)
         else:
-            myDB.upsert("issues", values, control)
+            db.upsert("issues", values, control)
 
         if any(
             [
@@ -1057,14 +1172,17 @@ def weekly_update(ComicName, IssueNumber, CStatus, CID, weeknumber, year, altiss
     # here we update status of weekly table...
     # added Issue to stop false hits on series' that have multiple releases in a week
     # added CStatus to update status flags on Pullist screen
-    myDB = db.DBConnection()
-    issuecheck = myDB.selectone(
-        "SELECT * FROM weekly WHERE COMIC=? AND ISSUE=? and WEEKNUMBER=? AND YEAR=?",
-        [ComicName, IssueNumber, int(weeknumber), year],
-    ).fetchone()
+    issuecheck = _select_one(
+        select(weekly).where(
+            (weekly.c.COMIC == ComicName)
+            & (weekly.c.ISSUE == IssueNumber)
+            & (weekly.c.weeknumber == int(weeknumber))
+            & (weekly.c.year == year)
+        )
+    )
 
     if issuecheck is not None:
-        controlValue = {"COMIC": str(ComicName), "ISSUE": str(IssueNumber), "WEEKNUMBER": int(weeknumber), "YEAR": year}
+        controlValue = {"COMIC": str(ComicName), "ISSUE": str(IssueNumber), "weeknumber": int(weeknumber), "year": year}
 
         logger.info("controlValue:" + str(controlValue))
         try:
@@ -1092,7 +1210,7 @@ def weekly_update(ComicName, IssueNumber, CStatus, CID, weeknumber, year, altiss
 
         logger.info("newValue:" + str(newValue))
 
-        myDB.upsert("weekly", newValue, controlValue)
+        db.upsert("weekly", newValue, controlValue)
 
 
 def newpullcheck(ComicName, ComicID, issue=None):
@@ -1113,15 +1231,12 @@ def newpullcheck(ComicName, ComicID, issue=None):
 def no_searchresults(ComicID):
     # when there's a mismatch between CV & GCD - let's change the status to
     # something other than 'Loaded'
-    myDB = db.DBConnection()
     controlValue = {"ComicID": ComicID}
     newValue = {"Status": "Error", "LatestDate": "Error", "LatestIssue": "Error"}
-    myDB.upsert("comics", newValue, controlValue)
+    db.upsert("comics", newValue, controlValue)
 
 
 def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, prov=None, alt_nzbname=None, oneoff=False):
-    myDB = db.DBConnection()
-
     newValue = {"NZBName": NZBName}
 
     if SARC:
@@ -1146,7 +1261,7 @@ def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, pro
         IssueID = comicarr.CONFIG.HIGHCOUNT
         # comicarr.config_write()
 
-    controlValue = {"IssueID": IssueID, "Provider": prov}
+    controlValue = {"IssueID": IssueID, "PROVIDER": prov}
 
     if id:
         logger.info("setting the nzbid for this download grabbed by " + prov + " in the nzblog to : " + str(id))
@@ -1159,16 +1274,25 @@ def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, pro
         newValue["AltNZBName"] = alt_nzbname
 
     # check if it exists already in the log.
-    chkd = myDB.selectone("SELECT * FROM nzblog WHERE IssueID=? and Provider=?", [IssueID, prov]).fetchone()
+    chkd = _select_one(
+        select(nzblog).where(
+            (nzblog.c.IssueID == IssueID) & (nzblog.c.PROVIDER == prov)
+        )
+    )
     if chkd is None:
         pass
     else:
         altnames = chkd["AltNZBName"]
         if any([altnames is None, altnames == ""]):
             # we need to wipe the entry so we can re-update with the alt-nzbname if required
-            myDB.action("DELETE FROM nzblog WHERE IssueID=? and Provider=?", [IssueID, prov])
+            with db.get_engine().begin() as conn:
+                conn.execute(
+                    nzblog.delete().where(
+                        (nzblog.c.IssueID == IssueID) & (nzblog.c.PROVIDER == prov)
+                    )
+                )
             logger.fdebug("Deleted stale entry from nzblog for IssueID: " + str(IssueID) + " [" + prov + "]")
-    myDB.upsert("nzblog", newValue, controlValue)
+    db.upsert("nzblog", newValue, controlValue)
 
 
 def foundsearch(
@@ -1197,7 +1321,6 @@ def foundsearch(
         module = ""
     module += "[UPDATER]"
 
-    myDB = db.DBConnection()
     modcomicname = False
 
     logger.fdebug(module + " comicid: " + str(ComicID))
@@ -1205,26 +1328,36 @@ def foundsearch(
     seriesyear = None
     if mode != "pullwant":
         if mode != "story_arc":
-            comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+            comic = _select_one(
+                select(comics).where(comics.c.ComicID == ComicID)
+            )
             ComicName = comic["ComicName"]
             seriesyear = comic["ComicYear"]
             if mode == "want_ann":
-                issue = myDB.selectone("SELECT * FROM annuals WHERE IssueID=?", [IssueID]).fetchone()
+                issue = _select_one(
+                    select(annuals).where(annuals.c.IssueID == IssueID)
+                )
                 if ComicName != issue["ReleaseComicName"] + " Annual":
                     ComicName = issue["ReleaseComicName"]
                     modcomicname = True
             else:
-                issue = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [IssueID]).fetchone()
+                issue = _select_one(
+                    select(issues).where(issues.c.IssueID == IssueID)
+                )
             issue["IssueDate"][:4]
             IssueNum = issue["Issue_Number"]
 
         else:
-            issue = myDB.selectone("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID]).fetchone()
+            issue = _select_one(
+                select(storyarcs).where(storyarcs.c.IssueArcID == IssueArcID)
+            )
             ComicName = issue["ComicName"]
             issue["IssueYEAR"]
             IssueNum = issue["IssueNumber"]
     else:
-        oneinfo = myDB.selectone("SELECT * FROM weekly WHERE IssueID=?", [IssueID]).fetchone()
+        oneinfo = _select_one(
+            select(weekly).where(weekly.c.IssueID == IssueID)
+        )
         if oneinfo is None:
             ComicName = comicname
             IssueNum = issuenumber
@@ -1242,18 +1375,18 @@ def foundsearch(
         if mode == "story_arc":
             cValue = {"IssueArcID": IssueArcID}
             snatchedupdate = {"IssueArcID": IssueArcID}
-            myDB.upsert("storyarcs", newValue, cValue)
+            db.upsert("storyarcs", newValue, cValue)
             # update the snatched DB
             snatchedupdate = {"IssueID": IssueArcID, "Status": "Snatched", "Provider": provider}
 
         else:
             if mode == "want_ann":
                 controlValue = {"IssueID": IssueID}
-                myDB.upsert("annuals", newValue, controlValue)
+                db.upsert("annuals", newValue, controlValue)
             else:
                 controlValue = {"IssueID": IssueID}
                 if mode != "pullwant":
-                    myDB.upsert("issues", newValue, controlValue)
+                    db.upsert("issues", newValue, controlValue)
 
             # update the snatched DB
             snatchedupdate = {"IssueID": IssueID, "Status": "Snatched", "Provider": provider}
@@ -1269,7 +1402,7 @@ def foundsearch(
                 "Hash": hash,
             }
 
-            myDB.upsert("snatched", newsnatchValues, snatchedupdate)
+            db.upsert("snatched", newsnatchValues, snatchedupdate)
 
         elif mode != "pullwant":
             if modcomicname:
@@ -1289,7 +1422,7 @@ def foundsearch(
                 "Hash": hash,
             }
 
-            myDB.upsert("snatched", newsnatchValues, snatchedupdate)
+            db.upsert("snatched", newsnatchValues, snatchedupdate)
 
         else:
             # updating snatched table with one-off is abit difficult due to lack of complete information in some instances
@@ -1305,18 +1438,22 @@ def foundsearch(
                 "Hash": hash,
             }
 
-            myDB.upsert("snatched", newsnatchValues, snatchedupdate)
+            db.upsert("snatched", newsnatchValues, snatchedupdate)
 
         # this will update the weeklypull list immediately after snatching to reflect the new status.
         # -is ugly, should be linked directly to other table (IssueID should be populated in weekly pull at this point hopefully).
-        chkit = myDB.selectone("SELECT * FROM weekly WHERE ComicID=? AND IssueID=?", [ComicID, IssueID]).fetchone()
+        chkit = _select_one(
+            select(weekly).where(
+                (weekly.c.ComicID == ComicID) & (weekly.c.IssueID == IssueID)
+            )
+        )
 
         if chkit is not None:
             comicname = chkit["COMIC"]
             issue = chkit["ISSUE"]
 
             ctlVal = {"ComicID": ComicID, "IssueID": IssueID}
-            myDB.upsert("weekly", newValue, ctlVal)
+            db.upsert("weekly", newValue, ctlVal)
 
             newValue["IssueNumber"] = issue
             newValue["ComicName"] = comicname
@@ -1331,7 +1468,7 @@ def foundsearch(
                 except:
                     pass
 
-            myDB.upsert("oneoffhistory", newValue, ctlVal)
+            db.upsert("oneoffhistory", newValue, ctlVal)
 
         global_line = "Successfully snatched %s #%s" % (ComicName, IssueNum)
         if IssueNum is None:
@@ -1368,25 +1505,29 @@ def foundsearch(
             "Status": downstatus,
             "crc": crc,
         }
-        myDB.upsert("snatched", newsnatchValues, snatchedupdate)
+        db.upsert("snatched", newsnatchValues, snatchedupdate)
 
         if mode == "story_arc":
             cValue = {"IssueArcID": IssueArcID}
             nValue = {"Status": "Downloaded"}
-            myDB.upsert("storyarcs", nValue, cValue)
+            db.upsert("storyarcs", nValue, cValue)
 
         elif mode != "pullwant":
             controlValue = {"IssueID": IssueID}
             newValue = {"Status": "Downloaded"}
             if mode == "want_ann":
-                myDB.upsert("annuals", newValue, controlValue)
+                db.upsert("annuals", newValue, controlValue)
             else:
-                myDB.upsert("issues", newValue, controlValue)
+                db.upsert("issues", newValue, controlValue)
 
         # this will update the weeklypull list immediately after post-processing to reflect the new status.
-        chkit = myDB.selectone(
-            "SELECT * FROM weekly WHERE ComicID=? AND IssueID=? AND Status='Snatched'", [ComicID, IssueID]
-        ).fetchone()
+        chkit = _select_one(
+            select(weekly).where(
+                (weekly.c.ComicID == ComicID)
+                & (weekly.c.IssueID == IssueID)
+                & (weekly.c.STATUS == "Snatched")
+            )
+        )
 
         if chkit is not None:
             comicname = chkit["COMIC"]
@@ -1394,7 +1535,7 @@ def foundsearch(
 
             ctlVal = {"ComicID": ComicID, "IssueID": IssueID}
             newVal = {"Status": "Downloaded"}
-            myDB.upsert("weekly", newVal, ctlVal)
+            db.upsert("weekly", newVal, ctlVal)
 
             newVal["IssueNumber"] = issue
             newVal["ComicName"] = comicname
@@ -1402,7 +1543,7 @@ def foundsearch(
             if pullinfo is not None:
                 newVal["weeknumber"] = pullinfo["weeknumber"]
                 newVal["year"] = pullinfo["year"]
-            myDB.upsert("oneoffhistory", newVal, ctlVal)
+            db.upsert("oneoffhistory", newVal, ctlVal)
 
         logger.info(
             "%s Updating Status (%s) now completed for %s issue: %s" % (module, downstatus, ComicName, IssueNum)
@@ -1414,9 +1555,10 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     if module is None:
         module = ""
     module += "[FILE-RESCAN]"
-    myDB = db.DBConnection()
     # file check to see if issue exists
-    rescan = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+    rescan = _select_one(
+        select(comics).where(comics.c.ComicID == ComicID)
+    )
     if rescan["AlternateSearch"] is not None:
         altnames = rescan["AlternateSearch"] + "##"
     else:
@@ -1456,7 +1598,11 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     else:
         booktype = "Print"
 
-    annscan = myDB.select("SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted", [ComicID])
+    annscan = _select_all(
+        select(annuals).where(
+            (annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1)
+        )
+    )
     if annscan is None:
         pass
     else:
@@ -1539,8 +1685,10 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     fcb = []
     fc = {}
 
-    is_cnt = myDB.select("SELECT COUNT(*) FROM issues WHERE ComicID=?", [ComicID])
-    iscnt = is_cnt[0][0]
+    is_cnt = _select_one(
+        select(func.count()).select_from(issues).where(issues.c.ComicID == ComicID)
+    )
+    iscnt = list(is_cnt.values())[0] if is_cnt else 0
 
     for ca in fca:
         i = 0
@@ -1586,8 +1734,12 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     havefiles = 0
     if comicarr.CONFIG.ANNUALS_ON:
-        an_cnt = myDB.select("SELECT COUNT(*) FROM annuals WHERE ComicID=? AND NOT Deleted", [ComicID])
-        anncnt = an_cnt[0][0]
+        an_cnt = _select_one(
+            select(func.count()).select_from(annuals).where(
+                (annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1)
+            )
+        )
+        anncnt = list(an_cnt.values())[0] if an_cnt else 0
     else:
         anncnt = 0
     fccnt = comiccnt  # int(fc['comiccount'])
@@ -1597,8 +1749,11 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     annualdupechk = []
     mc_issue = []
     mc_issuenumber = []
-    multiple_check = myDB.select(
-        "SELECT * FROM issues WHERE ComicID=? GROUP BY Int_IssueNumber HAVING (COUNT(Int_IssueNumber) > 1)", [ComicID]
+    multiple_check = _select_all(
+        select(issues)
+        .where(issues.c.ComicID == ComicID)
+        .group_by(issues.c.Int_IssueNumber)
+        .having(func.count(issues.c.Int_IssueNumber) > 1)
     )
 
     if len(multiple_check) == 0:
@@ -1611,8 +1766,10 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     if mc_issuenumber is not None:
         for mciss in mc_issuenumber:
-            mchk = myDB.select(
-                "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [ComicID, mciss["Int_IssueNumber"]]
+            mchk = _select_all(
+                select(issues).where(
+                    (issues.c.ComicID == ComicID) & (issues.c.Int_IssueNumber == mciss["Int_IssueNumber"])
+                )
             )
             for mck in mchk:
                 mc_issue.append(
@@ -1627,9 +1784,11 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     mc_annualnumber = []
 
     if comicarr.CONFIG.ANNUALS_ON:
-        mult_ann_check = myDB.select(
-            "SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted GROUP BY Int_IssueNumber HAVING (COUNT(Int_IssueNumber) > 1)",
-            [ComicID],
+        mult_ann_check = _select_all(
+            select(annuals)
+            .where((annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1))
+            .group_by(annuals.c.Int_IssueNumber)
+            .having(func.count(annuals.c.Int_IssueNumber) > 1)
         )
 
         if len(mult_ann_check) == 0:
@@ -1646,9 +1805,12 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
         if mc_annualnumber is not None:
             for mcann in mc_annualnumber:
-                achk = myDB.select(
-                    "SELECT * FROM annuals WHERE ComicID=? AND Int_IssueNumber=? AND NOT Deleted",
-                    [ComicID, mcann["Int_IssueNumber"]],
+                achk = _select_all(
+                    select(annuals).where(
+                        (annuals.c.ComicID == ComicID)
+                        & (annuals.c.Int_IssueNumber == mcann["Int_IssueNumber"])
+                        & (annuals.c.Deleted != 1)
+                    )
                 )
                 for ack in achk:
                     mc_annual.append(
@@ -1671,7 +1833,9 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     d_annuals = []
     d_issues = []
 
-    reissues = myDB.select("SELECT * FROM issues WHERE ComicID=?", [ComicID])
+    reissues = _select_all(
+        select(issues).where(issues.c.ComicID == ComicID)
+    )
 
     a_start = datetime.datetime.now()
     while fn < fccnt:
@@ -1967,17 +2131,27 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                     + str(ANNComicID)
                     + " in case of duplicate numbering across volumes."
                 )
-                reannuals = myDB.select(
-                    "SELECT * FROM annuals WHERE ComicID=? AND ReleaseComicID=? AND NOT Deleted", [ComicID, ANNComicID]
+                reannuals = _select_all(
+                    select(annuals).where(
+                        (annuals.c.ComicID == ComicID)
+                        & (annuals.c.ReleaseComicID == ANNComicID)
+                        & (annuals.c.Deleted != 1)
+                    )
                 )
             else:
-                reannuals = myDB.select("SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted", [ComicID])
+                reannuals = _select_all(
+                    select(annuals).where(
+                        (annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1)
+                    )
+                )
                 ANNComicID = ComicID
 
             if len(reannuals) == 0:
                 # it's possible if annual integration is enabled, and an annual series is added directly to the wachlist,
                 # not as part of a series, that the above won't work since it's looking in the wrong table.
-                reannuals = myDB.select("SELECT * FROM issues WHERE ComicID=?", [ComicID])
+                reannuals = _select_all(
+                    select(issues).where(issues.c.ComicID == ComicID)
+                )
                 ANNComicID = None  # need to set this to None so we write to the issues table and not the annuals
 
             # annual inclusion here.
@@ -2240,11 +2414,11 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                     issStatus = "Downloaded"
 
                 if ANNComicID:
-                    d_annuals.append((issStatus, issSize, isslocation, iss_id))
+                    d_annuals.append({"Status": issStatus, "ComicSize": issSize, "Location": isslocation, "IssueID": iss_id})
                     annID_to_ignore.append(str(iss_id))
                     ANNComicID = None
                 else:
-                    d_issues.append((issStatus, issSize, isslocation, iss_id))
+                    d_issues.append({"Status": issStatus, "ComicSize": issSize, "Location": isslocation, "IssueID": iss_id})
                     issID_to_ignore.append(str(iss_id))
             else:
                 ANNComicID = None
@@ -2253,17 +2427,41 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     b_start = datetime.datetime.now()
     try:
-        myDB.action("UPDATE issues SET Status=?, ComicSize=?, Location=? WHERE IssueID=?", d_issues, executemany=True)
-        if d_annuals:
-            myDB.action(
-                "UPDATE annuals SET Status=?, ComicSize=?, Location=? WHERE IssueID=?", d_annuals, executemany=True
+        # Batch update issues using SQLAlchemy Core conn.execute(stmt, list_of_dicts)
+        if d_issues:
+            stmt = (
+                update(issues)
+                .where(issues.c.IssueID == bindparam("IssueID"))
+                .values(
+                    Status=bindparam("Status"),
+                    ComicSize=bindparam("ComicSize"),
+                    Location=bindparam("Location"),
+                )
             )
+            with db.get_engine().begin() as conn:
+                conn.execute(stmt, d_issues)
+        if d_annuals:
+            stmt = (
+                update(annuals)
+                .where(annuals.c.IssueID == bindparam("IssueID"))
+                .values(
+                    Status=bindparam("Status"),
+                    ComicSize=bindparam("ComicSize"),
+                    Location=bindparam("Location"),
+                )
+            )
+            with db.get_engine().begin() as conn:
+                conn.execute(stmt, d_annuals)
     except Exception as e:
         logger.warn("Error updating: %s" % e)
     logger.fdebug("[haves] issue_status_writing took %s" % (datetime.datetime.now() - b_start))
 
     # if this far, forced_file is true and the file didn't parse properly due to w/e reason, we need to force the filename to link to the given issueid.
-    reforce = myDB.select("SELECT * FROM issues WHERE ComicID=? AND forced_file = 1", [ComicID])
+    reforce = _select_all(
+        select(issues).where(
+            (issues.c.ComicID == ComicID) & (issues.c.forced_file == 1)
+        )
+    )
     if reforce is not None:
         for rfc in reforce:
             logger.fdebug(
@@ -2286,7 +2484,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
             newValueDict = {"Location": rfc["Location"], "ComicSize": rfc["ComicSize"], "Status": issStatus}
 
-            myDB.upsert("issues", newValueDict, controlValueDict)
+            db.upsert("issues", newValueDict, controlValueDict)
 
     # here we need to change the status of the ones we DIDN'T FIND above since the loop only hits on FOUND issues.
     update_iss = []
@@ -2295,10 +2493,14 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     cnt = 0
     u_start = datetime.datetime.now()
     for genlist in helpers.chunker(issID_to_ignore, 200):
-        tmpsql = "SELECT * FROM issues WHERE ComicID=? AND IssueID not in ({seq})".format(
-            seq=",".join(["?"] * (len(genlist) - 1))
+        stmt = (
+            select(issues)
+            .where(
+                (issues.c.ComicID == genlist[0])
+                & (issues.c.IssueID.notin_(genlist[1:]))
+            )
         )
-        chkthis = myDB.select(tmpsql, genlist)
+        chkthis = _select_all(stmt)
         if chkthis is None:
             pass
         else:
@@ -2334,13 +2536,18 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                 #    issStatus = "Snatched"
                 # else:
                 #    issStatus = "Skipped"
-                update_iss.append((issStatus, chk["IssueID"]))
+                update_iss.append({"Status": issStatus, "IssueID": chk["IssueID"]})
 
     for genlist in helpers.chunker(annID_to_ignore, 200):
-        tmpsql = "SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted AND IssueID not in ({seq})".format(
-            seq=",".join(["?"] * (len(genlist) - 1))
+        stmt = (
+            select(annuals)
+            .where(
+                (annuals.c.ComicID == genlist[0])
+                & (annuals.c.Deleted != 1)
+                & (annuals.c.IssueID.notin_(genlist[1:]))
+            )
         )
-        chkthis = myDB.select(tmpsql, genlist)
+        chkthis = _select_all(stmt)
         if chkthis is None:
             pass
         else:
@@ -2366,7 +2573,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                         issStatus = "Archived"
                     else:
                         continue
-                update_ann.append((issStatus, chk["IssueID"]))
+                update_ann.append({"Status": issStatus, "IssueID": chk["IssueID"]})
 
     logger.fdebug("[nothaves] issue_status_generation_time_taken: %s" % (datetime.datetime.now() - u_start))
 
@@ -2374,9 +2581,21 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
         r_start = datetime.datetime.now()
         try:
             if len(update_iss) > 0:
-                myDB.action("UPDATE issues SET Status=? WHERE IssueID=?", update_iss, executemany=True)
+                stmt = (
+                    update(issues)
+                    .where(issues.c.IssueID == bindparam("IssueID"))
+                    .values(Status=bindparam("Status"))
+                )
+                with db.get_engine().begin() as conn:
+                    conn.execute(stmt, update_iss)
             if len(update_ann) > 0:
-                myDB.action("UPDATE annuals SET Status=? WHERE IssueID=?", update_ann, executemany=True)
+                stmt = (
+                    update(annuals)
+                    .where(annuals.c.IssueID == bindparam("IssueID"))
+                    .values(Status=bindparam("Status"))
+                )
+                with db.get_engine().begin() as conn:
+                    conn.execute(stmt, update_ann)
         except Exception as e:
             logger.warn("Error updating: %s" % e)
         logger.fdebug("[nothaves] issue_status_writing took %s" % (datetime.datetime.now() - r_start))
@@ -2391,14 +2610,22 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     arcanns = 0
     # if filechecker returns 0 files (it doesn't find any), but some issues have a status of 'Archived'
     # the loop below won't work...let's adjust :)
-    arcissues = myDB.select("SELECT count(*) FROM issues WHERE ComicID=? and Status='Archived'", [ComicID])
-    if int(arcissues[0][0]) > 0:
-        arcfiles = arcissues[0][0]
-    arcannuals = myDB.select(
-        "SELECT count(*) FROM annuals WHERE ComicID=? and Status='Archived' AND NOT Deleted", [ComicID]
+    arcissues_row = _select_one(
+        select(func.count()).select_from(issues).where(
+            (issues.c.ComicID == ComicID) & (issues.c.Status == "Archived")
+        )
     )
-    if int(arcannuals[0][0]) > 0:
-        arcanns = arcannuals[0][0]
+    arcissues_cnt = list(arcissues_row.values())[0] if arcissues_row else 0
+    if int(arcissues_cnt) > 0:
+        arcfiles = arcissues_cnt
+    arcannuals_row = _select_one(
+        select(func.count()).select_from(annuals).where(
+            (annuals.c.ComicID == ComicID) & (annuals.c.Status == "Archived") & (annuals.c.Deleted != 1)
+        )
+    )
+    arcannuals_cnt = list(arcannuals_row.values())[0] if arcannuals_row else 0
+    if int(arcannuals_cnt) > 0:
+        arcanns = arcannuals_cnt
 
     if havefiles == 0:
         if arcfiles > 0 or arcanns > 0:
@@ -2419,11 +2646,19 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     ignorecount = 0
     if comicarr.CONFIG.IGNORE_HAVETOTAL:  # if this is enabled, will increase Have total as if in Archived Status
-        ignoresi = myDB.select("SELECT count(*) FROM issues WHERE ComicID=? AND Status='Ignored'", [ComicID])
-        ignoresa = myDB.select(
-            "SELECT count(*) FROM annuals WHERE ComicID=? AND Status='Ignored' AND NOT Deleted", [ComicID]
+        ignoresi_row = _select_one(
+            select(func.count()).select_from(issues).where(
+                (issues.c.ComicID == ComicID) & (issues.c.Status == "Ignored")
+            )
         )
-        ignorecount = int(ignoresi[0][0]) + int(ignoresa[0][0])
+        ignoresa_row = _select_one(
+            select(func.count()).select_from(annuals).where(
+                (annuals.c.ComicID == ComicID) & (annuals.c.Status == "Ignored") & (annuals.c.Deleted != 1)
+            )
+        )
+        ignoresi = list(ignoresi_row.values())[0] if ignoresi_row else 0
+        ignoresa = list(ignoresa_row.values())[0] if ignoresa_row else 0
+        ignorecount = int(ignoresi) + int(ignoresa)
         if ignorecount > 0:
             havefiles = havefiles + ignorecount
             logger.fdebug(
@@ -2432,9 +2667,14 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     snatchedcount = 0
     if comicarr.CONFIG.SNATCHED_HAVETOTAL:  # if this is enabled, will increase Have total as if in Archived Status
-        snatches = myDB.select("SELECT count(*) FROM issues WHERE ComicID=? AND Status='Snatched'", [ComicID])
-        if int(snatches[0][0]) > 0:
-            snatchedcount = snatches[0][0]
+        snatches_row = _select_one(
+            select(func.count()).select_from(issues).where(
+                (issues.c.ComicID == ComicID) & (issues.c.Status == "Snatched")
+            )
+        )
+        snatches_cnt = list(snatches_row.values())[0] if snatches_row else 0
+        if int(snatches_cnt) > 0:
+            snatchedcount = snatches_cnt
             havefiles = havefiles + snatchedcount
             logger.fdebug(
                 "%s Adjusting have total to %s because of %s Snatched files." % (module, havefiles, snatchedcount)
@@ -2448,28 +2688,45 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     cnt = 0
     downchk = None
     for genlist in helpers.chunker(issID_to_ignore, 200):
-        tmpsql = (
-            "SELECT *, 0 as type FROM issues WHERE Status='Downloaded' and ComicID=? AND IssueID not in ({seq})".format(
-                seq=",".join(["?"] * (len(genlist) - 1))
+        stmt = (
+            select(issues)
+            .where(
+                (issues.c.Status == "Downloaded")
+                & (issues.c.ComicID == genlist[0])
+                & (issues.c.IssueID.notin_(genlist[1:]))
             )
         )
+        rows = _select_all(stmt)
+        # Add type=0 marker for issues
+        for r in rows:
+            r["type"] = 0
         if cnt == 0:
-            downchk = myDB.select(tmpsql, genlist)
+            downchk = rows
         else:
-            downchk += myDB.select(tmpsql, genlist)
+            downchk += rows
         cnt += 1
     # logger.info('downchklist: %s' % downchklist)
     # downannuals = "SELECT *, 1 as type FROM annuals WHERE Status='Downloaded' and ComicID=? AND NOT Deleted AND IssueID not in ({seq})".format(seq=','.join(['?'] *(len(issID_to_ignore) -1)))
     # downchk += myDB.select(downannuals, issID_to_ignore)
     cnt = 0
     for genlist in helpers.chunker(annID_to_ignore, 200):
-        annuals_sql = "SELECT *, 1 as type FROM annuals WHERE Status='Downloaded' and ComicID=? AND NOT Deleted AND IssueID not in ({seq})".format(
-            seq=",".join(["?"] * (len(genlist) - 1))
+        stmt = (
+            select(annuals)
+            .where(
+                (annuals.c.Status == "Downloaded")
+                & (annuals.c.ComicID == genlist[0])
+                & (annuals.c.Deleted != 1)
+                & (annuals.c.IssueID.notin_(genlist[1:]))
+            )
         )
+        rows = _select_all(stmt)
+        # Add type=1 marker for annuals
+        for r in rows:
+            r["type"] = 1
         if any([cnt == 0, downchk is None]):
-            downchk = myDB.select(annuals_sql, genlist)
+            downchk = rows
         else:
-            downchk += myDB.select(annuals_sql, genlist)
+            downchk += rows
         cnt += 1
 
     if downchk is None:
@@ -2491,7 +2748,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                 )
                 controlValue = {"IssueID": down["IssueID"]}
                 newValue = {"Status": "Archived"}
-                myDB.upsert(dtable, newValue, controlValue)
+                db.upsert(dtable, newValue, controlValue)
                 archivedissues += 1
             else:
                 tmp_location = [x["ComicLocation"] for x in fc["comiclist"] if x["ComicFilename"] == down["Location"]]
@@ -2504,7 +2761,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                         controlValue = {"IssueID": down["IssueID"]}
                         newValue = {"Status": "Archived"}
                         logger.info("[%s] %s : %s" % (dtable, newValue, controlValue))
-                        myDB.upsert(dtable, newValue, controlValue)
+                        db.upsert(dtable, newValue, controlValue)
                     except Exception as e:
                         logger.error("error: %s" % e)
                     archivedissues += 1
@@ -2520,11 +2777,19 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     combined_total = iscnt + anncnt
     if comicarr.CONFIG.IGNORE_TOTAL:
         # if this is enabled, will increase Have total as if in Archived Status
-        ignoresa = myDB.select("SELECT count(*) FROM issues WHERE ComicID=? AND Status='Ignored'", [ComicID])
-        ignoresb = myDB.select(
-            "SELECT count(*) FROM annuals WHERE ComicID=? AND Status='Ignored' AND NOT Deleted", [ComicID]
+        ignoresa_row = _select_one(
+            select(func.count()).select_from(issues).where(
+                (issues.c.ComicID == ComicID) & (issues.c.Status == "Ignored")
+            )
         )
-        ignorecnt = ignoresa[0][0] + ignoresb[0][0]
+        ignoresb_row = _select_one(
+            select(func.count()).select_from(annuals).where(
+                (annuals.c.ComicID == ComicID) & (annuals.c.Status == "Ignored") & (annuals.c.Deleted != 1)
+            )
+        )
+        ignoresa_cnt = list(ignoresa_row.values())[0] if ignoresa_row else 0
+        ignoresb_cnt = list(ignoresb_row.values())[0] if ignoresb_row else 0
+        ignorecnt = ignoresa_cnt + ignoresb_cnt
 
         if ignorecnt > 0:
             combined_total -= ignorecnt
@@ -2569,23 +2834,35 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 def totals(ComicID, havefiles=None, totalfiles=None, module=None, issueid=None, file=None, recheck=False):
     if module is None:
         module = "[FILE-RESCAN]"
-    myDB = db.DBConnection()
     filetable = "issues"
     if any([havefiles is None, havefiles == "+1"]):
         if havefiles is None:
-            hf = myDB.selectone("SELECT Have, Total FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+            hf = _select_one(
+                select(comics.c.Have, comics.c.Total).where(comics.c.ComicID == ComicID)
+            )
             havefiles = int(hf["Have"])
             totalfiles = int(hf["Total"])
         else:
-            hf = myDB.selectone(
-                "SELECT a.Have, a.Total, b.Status as IssStatus FROM comics AS a INNER JOIN issues as b ON a.ComicID=b.ComicID WHERE b.IssueID=?",
-                [issueid],
-            ).fetchone()
+            # JOIN issues -> comics
+            hf = _select_one(
+                select(
+                    comics.c.Have, comics.c.Total, issues.c.Status.label("IssStatus")
+                )
+                .select_from(
+                    comics.join(issues, comics.c.ComicID == issues.c.ComicID)
+                )
+                .where(issues.c.IssueID == issueid)
+            )
             if hf is None:
-                hf = myDB.selectone(
-                    "SELECT a.Have, a.Total, b.Status as IssStatus FROM comics AS a INNER JOIN annuals as b ON a.ComicID=b.ComicID WHERE b.IssueID=? AND NOT b.Deleted",
-                    [issueid],
-                ).fetchone()
+                hf = _select_one(
+                    select(
+                        comics.c.Have, comics.c.Total, annuals.c.Status.label("IssStatus")
+                    )
+                    .select_from(
+                        comics.join(annuals, comics.c.ComicID == annuals.c.ComicID)
+                    )
+                    .where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
+                )
                 filetable = "annuals"
             totalfiles = int(hf["Total"])
             logger.fdebug("totalfiles: %s" % totalfiles)
@@ -2614,11 +2891,11 @@ def totals(ComicID, havefiles=None, totalfiles=None, module=None, issueid=None, 
     controlValueStat = {"ComicID": ComicID}
     newValueStat = {"Have": havefiles, "Total": totalfiles, "FilesUpdated": helpers.now()}
 
-    myDB.upsert("comics", newValueStat, controlValueStat)
+    db.upsert("comics", newValueStat, controlValueStat)
     if file is not None:
         controlValueStat = {"IssueID": issueid, "ComicID": ComicID}
         newValueStat = {"ComicSize": os.path.getsize(file)}
-        myDB.upsert(filetable, newValueStat, controlValueStat)
+        db.upsert(filetable, newValueStat, controlValueStat)
 
 
 def watchlist_updater(calledfrom=None, sched=False):
@@ -2628,15 +2905,17 @@ def watchlist_updater(calledfrom=None, sched=False):
     # then be queued to be updated. This is to replace the 5 minute auto-updater
     # since that was very ineffecient.
 
-    myDB = db.DBConnection()
-
     last_date = None
     last_run = None
 
-    chk_time = myDB.selectone(
-        "SELECT prev_run_datetime, last_run_completed, last_date,"
-        " prev_run_timestamp from jobhistory WHERE JobName='DB Updater'"
-    ).fetchone()
+    chk_time = _select_one(
+        select(
+            jobhistory.c.prev_run_datetime,
+            jobhistory.c.last_run_completed,
+            jobhistory.c.last_date,
+            jobhistory.c.prev_run_timestamp,
+        ).where(jobhistory.c.JobName == "DB Updater")
+    )
 
     last_runtimestamp = None
     if chk_time:
@@ -2737,12 +3016,32 @@ def watchlist_updater(calledfrom=None, sched=False):
     library = {}
 
     if comicarr.CONFIG.ANNUALS_ON is True:
-        list = myDB.select(
-            "SELECT a.comicname, a.comicid, a.comicyear, b.releasecomicid, a.status, a.LastUpdated, a.Total FROM Comics AS a LEFT JOIN annuals AS b on a.comicid=b.comicid group by a.comicid"
+        ann_stmt = (
+            select(
+                comics.c.ComicName,
+                comics.c.ComicID,
+                comics.c.ComicYear,
+                annuals.c.ReleaseComicID,
+                comics.c.Status,
+                comics.c.LastUpdated,
+                comics.c.Total,
+            )
+            .select_from(
+                comics.outerjoin(annuals, comics.c.ComicID == annuals.c.ComicID)
+            )
+            .group_by(comics.c.ComicID)
         )
+        list_rows = _select_all(ann_stmt)
     else:
-        list = myDB.select(
-            "SELECT comicname, comicid, status, comicyear, LastUpdated, Total FROM Comics group by comicid"
+        list_rows = _select_all(
+            select(
+                comics.c.ComicName,
+                comics.c.ComicID,
+                comics.c.Status,
+                comics.c.ComicYear,
+                comics.c.LastUpdated,
+                comics.c.Total,
+            ).group_by(comics.c.ComicID)
         )
 
     # if a series failed to update for w/e reason, LastUpdated will be NULL and cause an error otherwise.
@@ -2750,7 +3049,7 @@ def watchlist_updater(calledfrom=None, sched=False):
     # other ID's that were updated recently by CV during the check.
     prev_failed_updates = []
     popthecheck = []
-    for row in list:
+    for row in list_rows:
         if row["ComicName"] is None and comicarr.CONFIG.ANNUALS_ON:
             logger.fdebug("Popping the check for: %s" % row["ComicID"])
             popthecheck.append(
@@ -2794,11 +3093,14 @@ def watchlist_updater(calledfrom=None, sched=False):
         # this will check to see if the releasecomicid is present on the annuals table (as it just got verified as being on the comics table) and if it is,
         # will not flag it for a previous failed update action (ie. refresh). The None values in the Comics table will get cleared out on next restart.
         for pc in popthecheck:
-            list = myDB.select(
-                "SELECT comicname, comicid, status FROM Annuals WHERE releasecomicid=? AND comicname is not NULL",
-                [pc["comicid"]],
-            ).fetchone()
-            if not list:
+            pc_row = _select_one(
+                select(annuals.c.ComicName, annuals.c.ComicID, annuals.c.Status)
+                .where(
+                    (annuals.c.ReleaseComicID == pc["comicid"])
+                    & (annuals.c.ComicName != None)  # noqa: E711
+                )
+            )
+            if not pc_row:
                 prev_failed_updates.append(
                     {"comicid": int(pc["comicid"]), "comicname": pc["comicname"], "seriesyear": pc["seriesyear"]}
                 )
@@ -2874,7 +3176,7 @@ def watchlist_updater(calledfrom=None, sched=False):
     # dbUpdate(to_check, calledfrom='updatedb')
 
     # update the last_date so that if it's large set, we'll keep on ramping it up.
-    myDB.upsert("jobhistory", {"last_date": loaddate_stamp}, {"jobName": "DB Updater"})
+    db.upsert("jobhistory", {"last_date": loaddate_stamp}, {"JobName": "DB Updater"})
     if loaddate_stamp is not None:
         logger.info(
             "[BACKFILL-UPDATE] [%s/%s] Setting last date update point temporarily to %s [%s]"
