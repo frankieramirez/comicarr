@@ -61,8 +61,6 @@ jobs:
 
       - name: Run ruff linter
         run: ruff check comicarr/ --output-format=github
-        continue-on-error: true # Don't fail CI on lint warnings initially
 
       - name: Run ruff formatter check
         run: ruff format --check comicarr/
-        continue-on-error: true # Don't fail CI on format issues initially

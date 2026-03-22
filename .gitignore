@@ -51,3 +51,15 @@ images/generated-*.png
 
 # Claude agents/skills cache
 .agents/
+.claude/
+AGENTS.md
+
+# Pencil design files
+*.pen
+
+# Environment files
+.env
+.env.*
+
+# Secure directory
+.secure/

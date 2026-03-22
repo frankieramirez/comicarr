@@ -7,7 +7,8 @@ echo ""
 # Find the log file
 LOG_FILE=$(ls -t /tmp/comicarr*.log 2>/dev/null | head -1)
 if [ -z "$LOG_FILE" ]; then
-    LOG_FILE=$(find /Users/f/Projects/@self-host/comicarr -name "comicarr.log" -type f 2>/dev/null | head -1)
+    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+    LOG_FILE=$(find "$SCRIPT_DIR" -name "comicarr.log" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then

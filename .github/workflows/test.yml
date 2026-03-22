@@ -49,15 +49,13 @@ jobs:
         continue-on-error: true # Integration tests may have more dependencies
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: matrix.python-version == '3.11' # Only upload once
         with:
           files: ./coverage.xml
           flags: backend
           name: backend-python-${{ matrix.python-version }}
           fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ===========================================================================
   # Frontend Tests
@@ -95,14 +93,12 @@ jobs:
         continue-on-error: true # Coverage may fail if no tests exist yet
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./frontend/coverage/lcov.info
           flags: frontend
           name: frontend
           fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ===========================================================================
   # E2E Tests (only on main branch pushes)

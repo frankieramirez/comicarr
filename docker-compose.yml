@@ -14,5 +14,5 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-    restart: always
+    restart: unless-stopped
     stop_grace_period: 30s
