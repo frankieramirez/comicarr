@@ -102,6 +102,8 @@ class WebViewer(object):
             cookie_set["cookie_comic"] = 0
             cookie_set["cookie_comic"]["path"] = cookie_path
             cookie_set["cookie_comic"]["max-age"] = cookie_maxage
+            cookie_set["cookie_comic"]["httponly"] = True
+            cookie_set["cookie_comic"]["samesite"] = "Strict"
             next_page = page_num + 1
             prev_page = page_num - 1
         else:

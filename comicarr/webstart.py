@@ -50,6 +50,37 @@ def _check_setup_gate():
 cherrypy.tools.setup_gate = cherrypy.Tool("before_handler", _check_setup_gate, priority=10)
 
 
+def _set_samesite_cookie():
+    """CherryPy tool: add SameSite=Strict to session cookies (not natively supported in CherryPy 18.x)."""
+    name = cherrypy.request.config.get("tools.sessions.name", "session_id")
+    cookie = cherrypy.serving.response.cookie
+    if name in cookie:
+        cookie[name]["samesite"] = "Strict"
+
+
+cherrypy.tools.samesite = cherrypy.Tool("before_finalize", _set_samesite_cookie, priority=60)
+
+
+_CSRF_EXEMPT_PREFIXES = ("/api", "/auth/login", "/auth/login_json", "/auth/setup")
+
+
+def _csrf_protect():
+    """CherryPy tool: require X-Requested-With header on state-changing requests.
+    Combined with SameSite=Strict cookies, this provides CSRF protection.
+    Cross-origin requests with custom headers trigger CORS preflight, which is rejected.
+    Exempt: /api (uses API key), /auth/login* (login form), /auth/setup (uses setup token)."""
+    if cherrypy.request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        path = cherrypy.request.path_info
+        for prefix in _CSRF_EXEMPT_PREFIXES:
+            if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+                return
+        if cherrypy.request.headers.get("X-Requested-With") != "ComicarrFrontend":
+            raise cherrypy.HTTPError(403, "CSRF validation failed")
+
+
+cherrypy.tools.csrf = cherrypy.Tool("before_handler", _csrf_protect, priority=20)
+
+
 def initialize(options):
 
     # HTTPS stuff stolen from sickbeard
@@ -70,6 +101,20 @@ def initialize(options):
             logger.warn("Disabled HTTPS because of missing certificate and key.")
             enable_https = False
 
+    # Build Content-Security-Policy header
+    csp = "; ".join([
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https://comicvine.gamespot.com",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'",
+    ])
+
     options_dict = {
         "server.socket_port": options["http_port"],
         "server.socket_host": options["http_host"],
@@ -81,10 +126,17 @@ def initialize(options):
         "log.screen": options["cherrypy_logging"],
         "engine.autoreload.on": False,
         "tools.setup_gate.on": True,
+        "tools.samesite.on": True,
+        "tools.csrf.on": True,
         "tools.response_headers.on": True,
         "tools.response_headers.headers": [
             ("X-Content-Type-Options", "nosniff"),
             ("X-Frame-Options", "DENY"),
+            ("Referrer-Policy", "strict-origin-when-cross-origin"),
+            ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
+            ("Cross-Origin-Opener-Policy", "same-origin"),
+            ("X-XSS-Protection", "0"),
+            ("Content-Security-Policy-Report-Only", csp),
         ],
     }
 
@@ -139,6 +191,8 @@ def initialize(options):
             conf["/"].update(
                 {
                     "tools.sessions.on": True,
+                    "tools.sessions.httponly": True,
+                    "tools.sessions.secure": enable_https,
                     "tools.auth.on": True,
                     "tools.sessions.timeout": options["login_timeout"],
                     "auth.forms_username": options["http_username"],

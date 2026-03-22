@@ -13,6 +13,11 @@ import type {
 const API_BASE = "/api";
 const AUTH_BASE = "/auth";
 
+/** Common headers for all requests — includes CSRF protection header */
+const COMMON_HEADERS: Record<string, string> = {
+  "X-Requested-With": "ComicarrFrontend",
+};
+
 interface ApiResponseData {
   success?: boolean;
   data?: unknown;
@@ -130,6 +135,7 @@ export async function apiCall<T = unknown>(
 
   try {
     const response = await fetch(url, {
+      headers: COMMON_HEADERS,
       credentials: "include", // Send session cookies
     });
 
@@ -164,6 +170,7 @@ export async function login(
     const response = await fetch(url, {
       method: "POST",
       headers: {
+        ...COMMON_HEADERS,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
@@ -197,6 +204,7 @@ export async function logout(): Promise<LogoutResponse> {
 
     const response = await fetch(url, {
       method: "POST",
+      headers: COMMON_HEADERS,
       credentials: "include",
     });
 
@@ -244,7 +252,10 @@ export async function checkSession(): Promise<SessionResponse> {
 export async function checkSetup(): Promise<{ needs_setup: boolean }> {
   try {
     const url = new URL(`${AUTH_BASE}/check_setup`, window.location.origin);
-    const response = await fetch(url, { credentials: "include" });
+    const response = await fetch(url, {
+      headers: COMMON_HEADERS,
+      credentials: "include",
+    });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -267,6 +278,7 @@ export async function setupCredentials(
     const response = await fetch(url, {
       method: "POST",
       headers: {
+        ...COMMON_HEADERS,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({ username, password }),
