@@ -41,13 +41,13 @@ class Maintenance(object):
         self.maintenance_fail = []
         self.db_version = 0
 
-    def sql_attachmylar(self):
-        self.connectmylar = sqlite3.connect(self.dbfile)
-        self.dbmylar = self.connectcomicarr.cursor()
+    def sql_attach_db(self):
+        self.connect_db = sqlite3.connect(self.dbfile)
+        self.db_cursor = self.connect_db.cursor()
 
-    def sql_closemylar(self):
-        self.connectcomicarr.commit()
-        self.dbcomicarr.close()
+    def sql_close_db(self):
+        self.connect_db.commit()
+        self.db_cursor.close()
 
     def sql_attach(self):
         self.conn = sqlite3.connect(self.maintenance_db)
@@ -66,14 +66,14 @@ class Maintenance(object):
         self.db_version = 0
         tmp_version = 0
 
-        self.sql_attachmylar()
-        self.dbcomicarr.execute('SELECT DatabaseVersion from mylar_info')
-        tmp_version = self.dbcomicarr.fetchone()
+        self.sql_attach_db()
+        self.db_cursor.execute('SELECT DatabaseVersion from mylar_info')
+        tmp_version = self.db_cursor.fetchone()
         if not tmp_version:
             self.db_version = 0
         else:
             self.db_version = tmp_version[0]
-        self.sql_closemylar()
+        self.sql_close_db()
 
         #self.sql_attach()
         #for vchk in self.db.execute('SELECT version, status from update_db'):
@@ -99,25 +99,25 @@ class Maintenance(object):
             # -- rssdb table - ComicName and Issue_Number added.
             # Values are generated based on existing data
 
-            self.sql_attachmylar()
+            self.sql_attach_db()
             try:
-                self.dbcomicarr.execute('SELECT Issue_Number from rssdb')
+                self.db_cursor.execute('SELECT Issue_Number from rssdb')
             except sqlite3.OperationalError:
-                self.dbcomicarr.execute('ALTER TABLE rssdb ADD COLUMN Issue_Number TEXT')
+                self.db_cursor.execute('ALTER TABLE rssdb ADD COLUMN Issue_Number TEXT')
                 if not any(d.get('mode', None) == 'rss update' for d in comicarr.MAINTENANCE_UPDATE):
                     comicarr.MAINTENANCE_UPDATE.append({'mode': 'rss update', 'resume': 0})
 
             try:
-                self.dbcomicarr.execute('SELECT ComicName from rssdb')
+                self.db_cursor.execute('SELECT ComicName from rssdb')
             except sqlite3.OperationalError:
-                self.dbcomicarr.execute('ALTER TABLE rssdb ADD COLUMN ComicName TEXT')
+                self.db_cursor.execute('ALTER TABLE rssdb ADD COLUMN ComicName TEXT')
                 if not any(d.get('mode', None) == 'rss update' for d in comicarr.MAINTENANCE_UPDATE):
                     comicarr.MAINTENANCE_UPDATE.append({'mode': 'rss update', 'resume': 0})
 
 
             if not any(d.get('mode', None) == 'rss update' for d in comicarr.MAINTENANCE_UPDATE):
                 try:
-                    number_check = self.dbcomicarr.execute('SELECT rowid from rssdb WHERE Issue_Number is NULL AND ComicName is NULL ORDER BY rowid ASC LIMIT 10')
+                    number_check = self.db_cursor.execute('SELECT rowid from rssdb WHERE Issue_Number is NULL AND ComicName is NULL ORDER BY rowid ASC LIMIT 10')
                     checked = number_check.fetchall()
                     if checked:
                         chk_cnt = 0
@@ -144,7 +144,7 @@ class Maintenance(object):
                         if self.db_version == 0:
                             logger.info('Updating database to v1 as no data is present to update')
                             try:
-                                self.dbcomicarr.execute("UPDATE mylar_info SET DatabaseVersion=? WHERE DatabaseVersion=?", (1, self.db_version))
+                                self.db_cursor.execute("UPDATE mylar_info SET DatabaseVersion=? WHERE DatabaseVersion=?", (1, self.db_version))
                             except Exception as e:
                                 print('error: %s' % e)
                             else:
@@ -152,7 +152,7 @@ class Maintenance(object):
                 except Exception as e:
                    logger.fdebug('[DB-CHECK-UPDATE] Checking DB for sequence containing NULL values did not complete. Ignoring this check.')
 
-            self.sql_closemylar()
+            self.sql_close_db()
         else:
             if not comicarr.MAINTENANCE_UPDATE:
                 logger.fdebug('[DB-CHECK-UPDATE] Nothing needs updating within dB.')
@@ -173,13 +173,13 @@ class Maintenance(object):
         self.sql_close()
 
     def database_import(self):
-        self.sql_attachmylar()
+        self.sql_attach_db()
 
-        comicidlist = self.dbcomicarr.execute('SELECT * FROM comics')
+        comicidlist = self.db_cursor.execute('SELECT * FROM comics')
         for i in comicidlist:
             self.comiclist.append(i['ComicID'])
 
-        self.sql_closemylar()
+        self.sql_close_db()
 
         self.importIT()
 
@@ -189,12 +189,12 @@ class Maintenance(object):
         self.importIT()
 
     def json_export(self):
-        self.sql_attachmylar()
+        self.sql_attach_db()
 
-        for i in self.dbcomicarr.execute('SELECT ComicID FROM comics'):
+        for i in self.db_cursor.execute('SELECT ComicID FROM comics'):
             self.comiclist.append({'ComicID': i[0]})
 
-        self.sql_closemylar()
+        self.sql_close_db()
 
         with open(self.outputfile, 'wb') as outfile:
             json.dump(self.comiclist, outfile)
@@ -202,9 +202,9 @@ class Maintenance(object):
         logger.info('[MAINTENANCE-MODE][%s] Successfully exported %s ComicID\'s to json file: %s' % (self.mode.upper(), len(self.comiclist), self.outputfile))
 
     def fix_slashes(self):
-        self.sql_attachmylar()
+        self.sql_attach_db()
 
-        for ct in self.dbcomicarr.execute("SELECT ComicID, ComicLocation FROM comics WHERE ComicLocation like ?", ['%' + os.sep.encode('unicode-escape') + os.sep.encode('unicode-escape') + '%']):
+        for ct in self.db_cursor.execute("SELECT ComicID, ComicLocation FROM comics WHERE ComicLocation like ?", ['%' + os.sep.encode('unicode-escape') + os.sep.encode('unicode-escape') + '%']):
             st = ct[1].find(os.sep.encode('unicode-escape')+os.sep.encode('unicode-escape'))
             if st != -1:
                 rootloc = ct[1][:st]
@@ -218,11 +218,11 @@ class Maintenance(object):
 
         for cm in self.comiclist:
             try:
-                self.dbcomicarr.execute("UPDATE comics SET ComicLocation=? WHERE ComicID=?", (cm['ComicLocation'], cm['ComicID']))
+                self.db_cursor.execute("UPDATE comics SET ComicLocation=? WHERE ComicID=?", (cm['ComicLocation'], cm['ComicID']))
             except Exception as e:
                 logger.warn('Unable to correct entry: [ComicID:%s] %s [%e]' % (cm['ComicLocation'], cm['ComicID'],e))
 
-        self.sql_closemylar()
+        self.sql_close_db()
 
         if len(self.comiclist) >0:
             logger.info('[MAINTENANCE-MODE][%s] Successfully fixed the path slashes for %s series' % (self.mode.upper(), len(self.comiclist)))
@@ -230,12 +230,12 @@ class Maintenance(object):
             logger.info('[MAINTENANCE-MODE][%s] No series found with incorrect slashes in the path' % self.mode.upper())
 
     def clear_provider_table(self):
-        self.sql_attachmylar()
+        self.sql_attach_db()
         # drop it
-        self.dbcomicarr.execute("DROP TABLE provider_searches")
+        self.db_cursor.execute("DROP TABLE provider_searches")
         # bring it back hot
-        self.dbcomicarr.execute("CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)")
-        self.sql_closemylar()
+        self.db_cursor.execute("CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)")
+        self.sql_close_db()
         comicarr.CONFIG.writeconfig(values={'clear_provider_table': False})
         logger.info('[MAINTENANCE-MODE][%s] Successfully cleared the provider_searches table' % (self.mode.upper()))
 
@@ -340,12 +340,12 @@ class Maintenance(object):
         self.sql_close()
         if statusinfo['status'] == 'complete':
             try:
-                self.sql_attachmylar()
+                self.sql_attach_db()
                 print('status_version: %s / db_version: %s' % (statusinfo['version'], self.db_version))
-                self.dbcomicarr.execute("UPDATE mylar_info SET DatabaseVersion=? WHERE DatabaseVersion=?", (statusinfo['version'], self.db_version))
+                self.db_cursor.execute("UPDATE mylar_info SET DatabaseVersion=? WHERE DatabaseVersion=?", (statusinfo['version'], self.db_version))
             except Exception as e:
                 print('error: %s' % e)
-            self.sql_closemylar()
+            self.sql_close_db()
 
 
     def toggle_logging(self, level):
@@ -451,16 +451,16 @@ class Maintenance(object):
                 self.toggle_logging(level=0)
 
                 if dmode['mode'] == 'rss update':
-                    self.sql_attachmylar()
+                    self.sql_attach_db()
 
-                    row_cnt = self.dbcomicarr.execute("SELECT COUNT(rowid) as count FROM rssdb")
+                    row_cnt = self.db_cursor.execute("SELECT COUNT(rowid) as count FROM rssdb")
                     rowcnt = row_cnt.fetchone()[0]
                     comicarr.MAINTENANCE_DB_TOTAL = rowcnt
 
                     if dmode['resume'] > 0:
-                        xt = self.dbcomicarr.execute("SELECT rowid, Title FROM rssdb WHERE rowid >= ? ORDER BY rowid ASC", [dmode['resume']])
+                        xt = self.db_cursor.execute("SELECT rowid, Title FROM rssdb WHERE rowid >= ? ORDER BY rowid ASC", [dmode['resume']])
                     else:
-                        xt = self.dbcomicarr.execute("SELECT rowid, Title FROM rssdb ORDER BY rowid ASC")
+                        xt = self.db_cursor.execute("SELECT rowid, Title FROM rssdb ORDER BY rowid ASC")
                     xlist = xt.fetchall()
 
                     comicarr.MAINTENANCE_DB_COUNT = 0
@@ -476,7 +476,7 @@ class Maintenance(object):
                             comicarr.MAINTENANCE_DB_COUNT = dmode['resume']
                     except Exception as e:
                         print('[ERROR:%s] - table resume location is not accureate. Starting from start, but this should go quick..' % e)
-                        xt = self.dbcomicarr.execute("SELECT rowid, Title FROM rssdb ORDER BY rowid ASC")
+                        xt = self.db_cursor.execute("SELECT rowid, Title FROM rssdb ORDER BY rowid ASC")
                         xlist = xt.fetchall()
                         dmode['resume'] = 0
 
@@ -488,8 +488,8 @@ class Maintenance(object):
                             #signal capture here since we can't do it as per normal
                             if any([comicarr.SIGNAL == 'shutdown', comicarr.SIGNAL == 'restart']):
                                 try:
-                                    self.dbcomicarr.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
-                                    self.sql_closemylar()
+                                    self.db_cursor.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
+                                    self.sql_close_db()
                                 except Exception as e:
                                     print('error: %s' % e)
                                 else:
@@ -545,8 +545,8 @@ class Maintenance(object):
                                     # write it out every 5000 records.
                                     try:
                                         logger.fdebug('resultlist: %s' % (resultlist,))
-                                        self.dbcomicarr.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
-                                        self.sql_closemylar()
+                                        self.db_cursor.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
+                                        self.sql_close_db()
                                         # update the update_db so if it has to resume it doesn't from the beginning or wrong point ( last 5000th write ).
                                         send_it = {'mode': dmode['mode'],
                                                    'version': self.db_version,
@@ -561,13 +561,13 @@ class Maintenance(object):
                                         return False
                                     else:
                                         logger.fdebug('reattaching')
-                                        self.sql_attachmylar()
+                                        self.sql_attach_db()
                                         resultlist = []
 
                         try:
                             if len(resultlist) > 0:
-                                self.dbcomicarr.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
-                                self.sql_closemylar()
+                                self.db_cursor.executemany("UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist))
+                                self.sql_close_db()
                         except Exception as e:
                             print('error: %s' % e)
                             return False
@@ -587,22 +587,22 @@ class Maintenance(object):
                             if delete_rows:
                                 # only do this on completion, or else the rowids will be different and it will mess up a rerun
                                 try:
-                                    self.sql_attachmylar()
+                                    self.sql_attach_db()
                                     print('[MAINTENANCE-MODE][DB-CONVERSION][CLEANUP] Removing %s invalid RSS entries from table...' % len(delete_rows))
-                                    self.dbcomicarr.executemany("DELETE FROM rssdb WHERE rowid=?", (delete_rows))
-                                    self.sql_closemylar()
+                                    self.db_cursor.executemany("DELETE FROM rssdb WHERE rowid=?", (delete_rows))
+                                    self.sql_close_db()
                                 except Exception as e:
                                     print('error: %s' % e)
                                 else:
-                                    self.sql_attachmylar()
+                                    self.sql_attach_db()
                                     print('[MAINTENANCE-MODE][DB-CONVERSION][CLEANUP] Cleaning up...')
-                                    self.dbcomicarr.execute("VACUUM");
+                                    self.db_cursor.execute("VACUUM");
                             else:
                                 print('[MAINTENANCE-MODE][DB-CONVERSION][CLEANUP] Cleaning up...')
-                                self.sql_attachmylar()
-                                self.dbcomicarr.execute("VACUUM");
+                                self.sql_attach_db()
+                                self.db_cursor.execute("VACUUM");
 
-                            self.sql_closemylar()
+                            self.sql_close_db()
 
                             #toggle back the logging level to what it was originally.
                             self.toggle_logging(level=prev_log_level)

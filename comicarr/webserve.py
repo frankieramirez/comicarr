@@ -221,14 +221,14 @@ class WebMaintenance(object):
     check_ActiveMaintenance.exposed = True
 
     def restart(self):
-        logger.info('[RESTART] Now Restarting Mylar...')
+        logger.info('[RESTART] Now Restarting Comicarr...')
         comicarr.SIGNAL = 'restart'
         cherrypy.response.headers['Content-Type'] = 'text/html'
         return _serve_shutdown_html("Restarting", "Restarting...", timer=5)
     restart.exposed = True
 
     def shutdown(self):
-        logger.info('[SHUTDOWN] Now Shutting down Mylar...')
+        logger.info('[SHUTDOWN] Now Shutting down Comicarr...')
         comicarr.SIGNAL = 'shutdown'
         cherrypy.response.headers['Content-Type'] = 'text/html'
         return _serve_shutdown_html("Shutting Down", "Shutting Down...", timer=5)
@@ -279,7 +279,7 @@ class WebInterface(object):
                      "go <a href='/config'>Configuration page/Web Interface/Comic Location</a></center>"
                      )
         elif not os.path.exists(comicarr.CONFIG.DESTINATION_DIR):
-            c_msg = ('<center>Comic Location cannot be accessed - the user running mylar needs full access to this directory.</br>'
+            c_msg = ('<center>Comic Location cannot be accessed - the user running comicarr needs full access to this directory.</br>'
                     )
         elif os.path.exists(comicarr.CONFIG.DESTINATION_DIR):
             test_file = os.path.join(comicarr.CONFIG.CACHE_DIR, '.test_file')
@@ -2216,7 +2216,7 @@ class WebInterface(object):
                         try:
                             shutil.rmtree(seriesdir)
                         except:
-                            logger.warn('Unable to remove directory after removing series from Mylar.')
+                            logger.warn('Unable to remove directory after removing series from Comicarr.')
                         else:
                             logger.info('Successfully removed directory: %s' % (seriesdir))
                     else:
@@ -4398,7 +4398,7 @@ class WebInterface(object):
                      'imp_paths': helpers.checked(comicarr.CONFIG.IMP_PATHS),
                      'imp_seriesfolders': helpers.checked(comicarr.CONFIG.IMP_SERIESFOLDERS)}
 
-        mylarRoot = comicarr.CONFIG.DESTINATION_DIR
+        comicRoot = comicarr.CONFIG.DESTINATION_DIR
         myDB = db.DBConnection()
         jobresults = myDB.select('SELECT DISTINCT * FROM jobhistory')
         if jobresults is not None:
@@ -6079,8 +6079,8 @@ class WebInterface(object):
             else:
                 logger.initLogger(console=not comicarr.QUIET, log_dir=comicarr.CONFIG.LOG_DIR, max_logsize=comicarr.CONFIG.MAX_LOGSIZE, max_logfiles=comicarr.CONFIG.MAX_LOGFILES, loglevel=comicarr.LOG_LEVEL)
         else:
-            logger.mylar_log.stopLogger()
-            logger.mylar_log.initLogger(loglevel=comicarr.LOG_LEVEL, log_dir=comicarr.CONFIG.LOG_DIR, max_logsize=comicarr.CONFIG.MAX_LOGSIZE, max_logfiles=comicarr.CONFIG.MAX_LOGFILES)
+            logger.comicarr_log.stopLogger()
+            logger.comicarr_log.initLogger(loglevel=comicarr.LOG_LEVEL, log_dir=comicarr.CONFIG.LOG_DIR, max_logsize=comicarr.CONFIG.MAX_LOGSIZE, max_logfiles=comicarr.CONFIG.MAX_LOGFILES)
 
         if level is not None:
             # this is for maintenance mode so that it returns without notice.
@@ -7941,7 +7941,7 @@ class WebInterface(object):
 
         response = ""
         for metric, items in q_metrics.items():
-            full_metric = f"mylar_queue_{metric}"
+            full_metric = f"comicarr_queue_{metric}"
             response += f"# TYPE {full_metric} gauge\n"
             for name, value in items.items():
                 response += '%s{queue="%s"} %s\n' % (full_metric, name, value)
@@ -8282,7 +8282,7 @@ class WebInterface(object):
 
             metaresponse = cmtag.run(dirName, issueid=issueid, filename=filename, comversion=vol_label, manualmeta=True, readingorder=readingorder, agerating=agerating)
         except ImportError:
-            logger.warn(module + ' comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within mylar/lib/comictaggerlib/ directory.')
+            logger.warn(module + ' comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within comicarr/lib/comictaggerlib/ directory.')
             metaresponse = "fail"
 
         if metaresponse == "fail":
@@ -8761,7 +8761,7 @@ class WebInterface(object):
         import rtorrent.lib.bencode as bencode
 
         # Open torrent file
-        torrent_file = open(os.path.join('/home/hero/mylar/cache', filepath), "rb")
+        torrent_file = open(os.path.join('/home/hero/comicarr/cache', filepath), "rb")
         metainfo = bencode.decode(torrent_file.read())
         info = metainfo['info']
         thehash = hashlib.sha1(bencode.encode(info)).hexdigest().upper()
@@ -9755,7 +9755,7 @@ class WebInterface(object):
                         try:
                             shutil.rmtree(seriesdir)
                         except:
-                            logger.warn('Unable to remove directory after removing series from Mylar.')
+                            logger.warn('Unable to remove directory after removing series from Comicarr.')
                             warnings += 1
                         else:
                             logger.info('Successfully removed directory: %s' % (seriesdir))

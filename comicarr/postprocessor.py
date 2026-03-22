@@ -133,7 +133,7 @@ class PostProcessor(object):
             if shell_cmd == '' or shell_cmd is None:
                 shell_cmd = '/bin/bash'
         else:
-            #forces mylar to use the executable that it was run with to run the extra script.
+            #forces comicarr to use the executable that it was run with to run the extra script.
             if comicarr.CONFIG.PRE_SHELL_LOCATION is not None:
                 if 'powershell' in os.path.basename(comicarr.CONFIG.PRE_SHELL_LOCATION.lower()):
                     shell_cmd = '%s -%s' % (comicarr.CONFIG.PRE_SHELL_LOCATION, 'File')
@@ -181,7 +181,7 @@ class PostProcessor(object):
                 shell_cmd = '/bin/bash'
         else:
             if comicarr.CONFIG.ES_SHELL_LOCATION is not None:
-                #forces mylar to use the executable that it was run with to run the extra script.
+                #forces comicarr to use the executable that it was run with to run the extra script.
                 if 'powershell' in os.path.basename(comicarr.CONFIG.ES_SHELL_LOCATION.lower()):
                     shell_cmd = '%s -%s' % (comicarr.CONFIG.ES_SHELL_LOCATION, 'File')
                 else:
@@ -276,7 +276,7 @@ class PostProcessor(object):
                     logger.fdebug('%s item to be deleted is file, not folder due to direct submission: %s' % (self.module, tmp_folder))
                     tmp_folder = os.path.split(tmp_folder)[0]
 
-                #if all([os.path.isdir(odir), self.nzb_folder != tmp_folder]) or any([odir.startswith('mylar_'),del_nzbdir is True]):
+                #if all([os.path.isdir(odir), self.nzb_folder != tmp_folder]) or any([odir.startswith('comicarr_'),del_nzbdir is True]):
                     # check to see if the directory is empty or not.
 
                 if all([comicarr.CONFIG.FILE_OPTS == 'move', self.nzb_name == 'Manual Run', tmp_folder != self.nzb_folder]):
@@ -1251,7 +1251,7 @@ class PostProcessor(object):
                                             datematch = "False"
 
                                     if datematch == "False" and all([watchmatch['issue_year'] is not None, watchmatch['issue_year'] != 'None', watch_issueyear is not None]):
-                                        #now we see if the issue year matches exactly to what we have within Mylar.
+                                        #now we see if the issue year matches exactly to what we have within Comicarr.
                                         if int(watch_issueyear) == int(watchmatch['issue_year']):
                                             logger.fdebug('%s[ISSUE-VERIFY][Issue Year MATCH] Issue Year of %s is a match to the year found in the filename of : %s' % (module, watch_issueyear, watchmatch['issue_year']))
                                             datematch = 'True'
@@ -1619,7 +1619,7 @@ class PostProcessor(object):
                                                         datematch = "False"
 
                                                 if datematch == "False" and all([arcmatch['issue_year'] is not None, arcmatch['issue_year'] != 'None', arc_issueyear is not None]):
-                                                    #now we see if the issue year matches exactly to what we have within Mylar.
+                                                    #now we see if the issue year matches exactly to what we have within Comicarr.
                                                     if int(arc_issueyear) == int(arcmatch['issue_year']):
                                                         logger.fdebug('%s[ARC ISSUE-VERIFY][Issue Year MATCH] Issue Year of %s is a match to the year found in the filename of : %s' % (module, arc_issueyear, arcmatch['issue_year']))
                                                         datematch = 'True'
@@ -1885,7 +1885,7 @@ class PostProcessor(object):
                                         from . import cmtag
                                         metaresponse = cmtag.run(self.nzb_folder, issueid=issueid, comversion=vol_label, filename=ofilename, readingorder=readingorder, agerating=None)
                                     except ImportError:
-                                        logger.warn('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within mylar/lib/comictaggerlib/' % module)
+                                        logger.warn('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within comicarr/lib/comictaggerlib/' % module)
                                         metaresponse = "fail"
 
                                     if metaresponse == "fail":
@@ -1977,8 +1977,8 @@ class PostProcessor(object):
                                 else:
                                     logger.fdebug('Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)' % os.path.basename(orig_filename))
                             #delete entry from nzblog table
-                            #if it was downloaded via mylar from the storyarc section, it will have an 'S' in the nzblog
-                            #if it was downloaded outside of mylar and/or not from the storyarc section, it will be a normal issueid in the nzblog
+                            #if it was downloaded via comicarr from the storyarc section, it will have an 'S' in the nzblog
+                            #if it was downloaded outside of comicarr and/or not from the storyarc section, it will be a normal issueid in the nzblog
                             #IssArcID = 'S' + str(ml['IssueArcID'])
                             myDB.action('DELETE from nzblog WHERE IssueID=? AND SARC=?', ['S' + str(ml['IssueArcID']),ml['StoryArc']])
                             myDB.action('DELETE from nzblog WHERE IssueID=? AND SARC=?', [ml['IssueArcID'],ml['StoryArc']])
@@ -2373,7 +2373,7 @@ class PostProcessor(object):
                         logger.info('%s [ONE-OFF POST-PROCESSING] One-off download detected. Post-processing as a non-watchlist item.' % module)
                         sandwich = None #arbitrarily set it to None just to force one-off downloading below.
                     else:
-                        logger.error('%s Unable to locate downloaded file as being initiated via Mylar. Attempting to parse the filename directly and process.' % module)
+                        logger.error('%s Unable to locate downloaded file as being initiated via Comicarr. Attempting to parse the filename directly and process.' % module)
                         self._log('Unable to locate downloaded file within items I have snatched. Attempting to parse the filename directly and process.')
                         self.valreturn.append({"self.log": self.log,
                                                "mode": 'outside'})
@@ -2502,7 +2502,7 @@ class PostProcessor(object):
                                 tmp_ppdir = os.path.join(odir, ofilename)
                             metaresponse = cmtag.run(location, issueid=issueid, comversion=vol_label, filename=tmp_ppdir, readingorder=readingorder, agerating=None)
                         except ImportError:
-                            logger.warn('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within mylar/lib/comictaggerlib/' % module)
+                            logger.warn('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within comicarr/lib/comictaggerlib/' % module)
                             metaresponse = "fail"
 
                         if metaresponse == "fail":
@@ -3100,7 +3100,7 @@ class PostProcessor(object):
                         pcheck = cmtag.run(self.nzb_folder, issueid=issueid, comversion=vol_label, manual="yes", filename=ml['ComicLocation'], readingorder=readingorder, agerating=agerating)
 
                 except ImportError:
-                    logger.fdebug('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within mylar/lib/comictaggerlib/' % module)
+                    logger.fdebug('%s comictaggerlib not found on system. Ensure the ENTIRE lib directory is located within comicarr/lib/comictaggerlib/' % module)
                     logger.fdebug('%s continuing with PostProcessing, but I am not using metadata.' % module)
                     pcheck = "fail"
 
@@ -3324,7 +3324,7 @@ class PostProcessor(object):
                         os.umask(0)
                         os.chmod(dst.rstrip(), permission)
                     except OSError:
-                        logger.error('%s Failed to change file permissions. Ensure that the user running Mylar has proper permissions to change permissions in : %s' % (module,  dst))
+                        logger.error('%s Failed to change file permissions. Ensure that the user running Comicarr has proper permissions to change permissions in : %s' % (module,  dst))
                         logger.fdebug('%s Continuing post-processing but unable to change file permissions in %s' % (module, dst))
 
             #let's reset the fileop to the original setting just in case it's a manual pp run

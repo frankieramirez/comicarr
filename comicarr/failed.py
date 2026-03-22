@@ -258,7 +258,7 @@ class FailedProcessor(object):
         myDB = db.DBConnection()
         # Querying on NZBName alone will result in all downloads regardless of provider.
         # This will make sure that the files being downloaded are different regardless of provider.
-        # Perhaps later improvement might be to break it down by provider so that Mylar will attempt to
+        # Perhaps later improvement might be to break it down by provider so that Comicarr will attempt to
         # download same issues on different providers (albeit it shouldn't matter, if it's broke it's broke).
         logger.info('prov  : ' + str(self.prov) + '[' + str(self.id) + ']')
         # if this is from nzbhydra, we need to rejig the id line so that the searchid is removed since it's always unique to the search.

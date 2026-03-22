@@ -63,7 +63,7 @@ def cbdb(comicnm, ComicYear):
             print(("CleanResultName: " + CleanResultName))
             if CleanResultName == CleanComicName or CleanResultName[3:] == CleanComicName or len(CleanComicName) == len(CleanResultName):
             #if resultName[n].lower() == helpers.cleanName(str(ComicName)).lower():
-                print(("i:" + str(i) + "...matched by name to Mylar!"))
+                print(("i:" + str(i) + "...matched by name to Comicarr!"))
                 print(("ComicYear: " + str(ComicYear) + ".. to ResultYear: " + str(resultYear)))
                 if resultYear.isdigit():
                     if int(resultYear) == int(ComicYear) or int(resultYear) == int(ComicYear) +1:

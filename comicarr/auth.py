@@ -131,11 +131,11 @@ class AuthController(object):
     def on_login(self, username):
         """Called on successful login"""
         logger.info('%s successfully logged on.' % username)
-        # not needed or used for Mylar currently
+        # not needed or used for Comicarr currently
 
     def on_logout(self, username):
         """Called on logout"""
-        # not needed or used for Mylar currently
+        # not needed or used for Comicarr currently
 
     def get_loginform(self, username, msg="Enter login information", from_page="/"):
         """Serve the React SPA which handles login UI"""

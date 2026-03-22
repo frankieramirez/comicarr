@@ -188,7 +188,7 @@ class NZBGet(object):
 
                     if double_pp is True:
                         logger.warn('%s has been detected as being active for this category & download. Completed Download Handling will NOT be performed due to this.' % double_type)
-                        logger.warn('Either disable Completed Download Handling for NZBGet within Mylar, or remove %s from your category script in NZBGet.' % double_type)
+                        logger.warn('Either disable Completed Download Handling for NZBGet within Comicarr, or remove %s from your category script in NZBGet.' % double_type)
                         return {'status': 'double-pp', 'failed': False}
 
                     logger.fdebug('status: %s' % queuedl[0]['Status'])
@@ -225,7 +225,7 @@ class NZBGet(object):
 
             if double_pp is True:
                 logger.warn('ComicRN has been detected as being active for this category & download. Completed Download Handling will NOT be performed due to this.')
-                logger.warn('Either disable Completed Download Handling for NZBGet within Mylar, or remove ComicRN from your category script in NZBGet.')
+                logger.warn('Either disable Completed Download Handling for NZBGet within Comicarr, or remove ComicRN from your category script in NZBGet.')
                 return {'status': 'double-pp', 'failed': False}
 
             if all(['SUCCESS' in hq[0]['Status'], (hq[0]['FileSizeMB']*.95) <= hq[0]['DownloadedSizeMB'] <= (hq[0]['FileSizeMB']*1.05)]):
@@ -234,7 +234,7 @@ class NZBGet(object):
                     destdir = hq[0]['DestDir']
                     logger.fdebug('location found @ %s' % destdir)
                 elif comicarr.CONFIG.NZBGET_DIRECTORY is None:
-                    logger.fdebug('Unable to locate path (%s) on the machine that is running Mylar. If Mylar and nzbget are on separate machines, you need to set a directory location that is accessible to both' % hq[0]['DestDir'])
+                    logger.fdebug('Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and nzbget are on separate machines, you need to set a directory location that is accessible to both' % hq[0]['DestDir'])
                     return {'status': 'file not found', 'failed': False}
 
             elif all(['COPY' in hq[0]['Status'], int(hq[0]['FileSizeMB']) > 0, hq[0]['DeleteStatus'] == 'COPY']):
@@ -293,7 +293,7 @@ class NZBGet(object):
                 if destdir is not None:
                     logger.fdebug('NZBGet Destination folder Successfully set via config to: %s' % destdir)
                 else:
-                    logger.fdebug('Unable to locate path (%s) on the machine that is running Mylar. If Mylar and nzbget are on separate machines, you need to set a directory location that is accessible to both' % hq[0]['DestDir'])
+                    logger.fdebug('Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and nzbget are on separate machines, you need to set a directory location that is accessible to both' % hq[0]['DestDir'])
                     return {'status': 'file not found', 'failed': False}
 
             if destdir is not None:

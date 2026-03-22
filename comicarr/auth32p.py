@@ -144,7 +144,7 @@ class info32p(object):
         feedinfo = []
 
         #if we've authenticated already via lses, we have the uid,authkey, passkeys.
-        #if using legacy mode, we've already parsed the info into Mylar.KEYS32P
+        #if using legacy mode, we've already parsed the info into Comicarr.KEYS32P
         try:
             if comicarr.CONFIG.MODE_32P is True:
                 #if authmode is enabled, attempt to signon and retrieve any custom notification feeds.

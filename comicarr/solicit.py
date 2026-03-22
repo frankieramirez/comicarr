@@ -167,9 +167,9 @@ def solicit(month, year):
 
     logger.fdebug('attempting to populate future upcoming...')
 
-    mylardb = os.path.join(comicarr.DATA_DIR, "comicarr.db")
+    dbfile = os.path.join(comicarr.DATA_DIR, "comicarr.db")
 
-    connection = sqlite3.connect(str(mylardb))
+    connection = sqlite3.connect(str(dbfile))
     cursor = connection.cursor()
 
     # we should extract the issues that are being watched, but no data is available yet ('Watch For' status)

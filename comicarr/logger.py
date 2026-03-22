@@ -158,29 +158,29 @@ if not LOG_LANG.startswith('en'):
             else:
                 logger.error(message, *args, **kwargs)
 
-    mylar_log = RotatingLogger('comicarr.log')
+    comicarr_log = RotatingLogger('comicarr.log')
     filename = 'comicarr.log'
 
     def debug(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 1:
-            mylar_log.log(message, 'DEBUG', *args, **kwargs)
+            comicarr_log.log(message, 'DEBUG', *args, **kwargs)
 
     def fdebug(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 1:
-            mylar_log.log(message, 'DEBUG', *args, **kwargs)
+            comicarr_log.log(message, 'DEBUG', *args, **kwargs)
 
     def info(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 0:
-            mylar_log.log(message, 'INFO', *args, **kwargs)
+            comicarr_log.log(message, 'INFO', *args, **kwargs)
 
     def warn(message, *args, **kwargs):
-        mylar_log.log(message, 'WARNING', *args, **kwargs)
+        comicarr_log.log(message, 'WARNING', *args, **kwargs)
 
     def error(message, *args, **kwargs):
-        mylar_log.log(message, 'ERROR', *args, **kwargs)
+        comicarr_log.log(message, 'ERROR', *args, **kwargs)
 
 else:
-    # Mylar logger
+    # Comicarr logger
     logger = logging.getLogger('comicarr')
 
     class LogListHandler(logging.Handler):
@@ -218,10 +218,10 @@ else:
                 max_logsize = 1000000 # 1 MB
 
         """
-        Setup logging for Mylar. It uses the logger instance with the name
-        'mylar'. Three log handlers are added:
+        Setup logging for Comicarr. It uses the logger instance with the name
+        'comicarr'. Three log handlers are added:
 
-        * RotatingFileHandler: for the file Mylar.log
+        * RotatingFileHandler: for the file comicarr.log
         * LogListHandler: for Web UI
         * StreamHandler: for console
         """

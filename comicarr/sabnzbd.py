@@ -114,7 +114,7 @@ class SABnzbd(object):
                 while any([str(queueinfo['status']) == 'Downloading', str(queueinfo['status']) == 'Idle', str(queueinfo['status']) == 'Queued']) and float(queueinfo['mbleft']) > 0:
                     #if 'comicrn' in queueinfo['script'].lower():
                     #    logger.warn('ComicRN has been detected as being active for this category & download. Completed Download Handling will NOT be performed due to this.')
-                    #    logger.warn('Either disable Completed Download Handling for SABnzbd within Mylar, or remove ComicRN from your category script in SABnzbd.')
+                    #    logger.warn('Either disable Completed Download Handling for SABnzbd within Comicarr, or remove ComicRN from your category script in SABnzbd.')
                     #    return {'status': 'double-pp', 'failed': False}
                     no_findie = False
                     tmp_queue = self.params['queue']
@@ -202,7 +202,7 @@ class SABnzbd(object):
                     logger.info('found matching completed item in history. Job has a status of %s' % hq['status'])
                     if 'comicrn' in hq['script'].lower():
                         logger.warn('ComicRN has been detected as being active for this category & download. Completed Download Handling will NOT be performed due to this.')
-                        logger.warn('Either disable Completed Download Handling for SABnzbd within Mylar, or remove ComicRN from your category script in SABnzbd.')
+                        logger.warn('Either disable Completed Download Handling for SABnzbd within Comicarr, or remove ComicRN from your category script in SABnzbd.')
                         self.remove_history(hq['nzo_id'], hq['status'])
                         return {'status': 'double-pp', 'failed': False}
 
@@ -230,11 +230,11 @@ class SABnzbd(object):
                             return {'status': 'file not found', 'failed': False}
                         else:
                             if new_path is None:
-                                logger.warn('[ERROR] Unable to remap the directory from SAB to Mylar\'s configuration.')
+                                logger.warn('[ERROR] Unable to remap the directory from SAB to Comicarr\'s configuration.')
                                 self.remove_history(hq['nzo_id'], hq['status'])
                                 return {'status': 'file not found', 'failed': False}
                             elif not os.path.isfile(new_path):
-                                logger.fdebug('[ERROR] Unable to locate path (%s) on the machine that is running Mylar. If Mylar and sabnzbd are on separate machines, you need to set a directory location that is accessible to both' % (new_path))
+                                logger.fdebug('[ERROR] Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and sabnzbd are on separate machines, you need to set a directory location that is accessible to both' % (new_path))
                                 self.remove_history(hq['nzo_id'], hq['status'])
                                 return {'status': 'file not found', 'failed': False}
 

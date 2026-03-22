@@ -558,7 +558,7 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
                     orig_filename = watch_the_list['OriginalFilename'] 
                     logger.fdebug('Orig. Location: ' + orig_comlocation)
                     logger.fdebug('Orig. Filename: ' + orig_filename)
-                    #before moving check to see if Rename to Mylar structure is enabled.
+                    #before moving check to see if Rename to Comicarr structure is enabled.
                     if comicarr.CONFIG.IMP_RENAME:
                         logger.fdebug('Renaming files according to configuration details : ' + str(comicarr.CONFIG.FILE_FORMAT))
                         renameit = helpers.rename_param(watch_comicid, watch_comicname, watch_comicyear, watch_comiciss)

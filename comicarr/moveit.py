@@ -30,7 +30,7 @@ def movefiles(comicid, comlocation, imported):
         for impr in impres:
             srcimp = impr['comiclocation']
             orig_filename = impr['comicfilename']
-            #before moving check to see if Rename to Mylar structure is enabled.
+            #before moving check to see if Rename to Comicarr structure is enabled.
             if comicarr.CONFIG.IMP_RENAME and comicarr.CONFIG.FILE_FORMAT != '':
                 logger.fdebug("Renaming files according to configuration details : " + str(comicarr.CONFIG.FILE_FORMAT))
                 renameit = helpers.rename_param(comicid, imported['ComicName'], impr['issuenumber'], orig_filename)

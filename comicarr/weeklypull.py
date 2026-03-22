@@ -110,7 +110,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                 logger.info('[PULL-LIST] Weekly Pull List successfully loaded with ' + str(chk_locg['count']) + ' issues.')
                 new_pullcheck(chk_locg['weeknumber'],chk_locg['year'])
             elif chk_locg['status'] == 'update_required':
-                logger.warn('[PULL-LIST] Your version of Mylar is not up-to-date. You MUST update before this works')
+                logger.warn('[PULL-LIST] Your version of Comicarr is not up-to-date. You MUST update before this works')
                 return {'status': 'failure'}
             else:
                 logger.warn('[PULL-LIST] Unable to retrieve weekly pull-list. Pull list for week %s, %s may be stale.' % (weeknumber_mod, year_mod))
@@ -124,10 +124,10 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         comicarr.PULLBYFILE = pull_the_file(newrl)
 
         #set newrl to a manual file to pull in against that particular file
-        #newrl = '/mylar/tmp/newreleases.txt'
+        #newrl = '/comicarr/tmp/newreleases.txt'
 
     #newtxtfile header info ("SHIPDATE\tPUBLISHER\tISSUE\tCOMIC\tEXTRA\tSTATUS\n")
-    #STATUS denotes default status to be applied to pulllist in Mylar (default = Skipped)
+    #STATUS denotes default status to be applied to pulllist in Comicarr (default = Skipped)
 
     if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         newfl = os.path.join(comicarr.CONFIG.CACHE_DIR, 'Clean-newreleases.txt')
@@ -471,7 +471,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
             weektmp = datetime.date.today()
         weeknumber = weektmp.strftime("%U")
 
-        logger.info("Populating the NEW Weekly Pull list into Mylar for week " + str(weeknumber))
+        logger.info("Populating the NEW Weekly Pull list into Comicarr for week " + str(weeknumber))
 
         myDB.action("drop table if exists weekly")
         myDB.action("CREATE TABLE IF NOT EXISTS weekly (SHIPDATE, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)")
@@ -1624,7 +1624,7 @@ def future_check():
     # this is the function that will check the futureupcoming table
     # for series that have yet to be released and have no CV data associated with it
     # ie. #1 issues would fall into this as there is no series data to poll against until it's released.
-    # Mylar will look for #1 issues, and in finding any will do the following:
+    # Comicarr will look for #1 issues, and in finding any will do the following:
     # - check comicvine to see if the series data has been released and / or issue data
     # - will automatically import the series (Add A Series) upon finding match
     # - will then proceed to mark the issue as Wanted, then remove from the futureupcoming table
