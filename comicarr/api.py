@@ -2282,7 +2282,7 @@ class Api(object):
             'sab_category',
             'sab_priority',
             'sab_directory',
-            'sab_to_mylar',
+            'sab_direct_unpack',
             'sab_client_post_processing',
             'sab_remove_completed',
             'sab_remove_failed',
@@ -2827,8 +2827,7 @@ class REST(object):
             req = cherrypy.request.headers
             logger.info('thekey: %s' % req)
             logger.info('url: %s' % cherrypy.url())
-            logger.info('comicarr.apikey: %s [%s]' % (comicarr.CONFIG.API_KEY, type(comicarr.CONFIG.API_KEY)))
-            logger.info('submitted.apikey: %s [%s]' % (req['Api-Key'], type(req['Api-Key'])))
+            logger.fdebug('apikey validation: match=%s' % (req.get('Api-Key') == str(comicarr.CONFIG.API_KEY)))
             if 'Api-Key' not in req or req['Api-Key'] != str(comicarr.CONFIG.API_KEY): #str(comicarr.API_KEY) or comicarr.API_KEY not in cherrypy.url():
                 logger.info('wrong APIKEY')
                 return 'api-key provided was either not present in auth header, or was incorrect.'
