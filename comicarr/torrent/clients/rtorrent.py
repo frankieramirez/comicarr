@@ -2,10 +2,10 @@ import os
 import re
 from urllib.parse import urlparse
 
+import comicarr
+from comicarr import helpers, logger
 from lib.rtorrent import RTorrent
 
-import comicarr
-from comicarr import logger, helpers
 
 class TorrentClient(object):
     def __init__(self):
@@ -28,32 +28,32 @@ class TorrentClient(object):
             return self.conn
 
         if not host:
-            return {'status': False, 'error': 'No host specified'}
+            return {"status": False, "error": "No host specified"}
 
         url = host
-        if host.startswith('https:'):
+        if host.startswith("https:"):
             ssl = True
         else:
-            if not host.startswith('http://'):
-                url = 'http://' + url
+            if not host.startswith("http://"):
+                url = "http://" + url
             ssl = False
 
-        #add on the slash ..
-        if not url.endswith('/'):
-            url += '/'
+        # add on the slash ..
+        if not url.endswith("/"):
+            url += "/"
 
-        url = helpers.cleanHost(host, protocol = True, ssl = ssl)
+        url = helpers.cleanHost(host, protocol=True, ssl=ssl)
 
         # Automatically add '+https' to 'httprpc' protocol if SSL is enabled
-        if ssl is True and url.startswith('httprpc://'):
-            url = url.replace('httprpc://', 'httprpc+https://')
-        if ssl is False and not url.startswith('http://'):
-           url = 'http://' + url
+        if ssl is True and url.startswith("httprpc://"):
+            url = url.replace("httprpc://", "httprpc+https://")
+        if ssl is False and not url.startswith("http://"):
+            url = "http://" + url
 
         parsed = urlparse(url)
 
         # rpc_url is only used on http/https scgi pass-through
-        if parsed.scheme in ['http', 'https'] and rpc_url is not None:
+        if parsed.scheme in ["http", "https"] and rpc_url is not None:
             url += rpc_url
 
         logger.fdebug(url)
@@ -61,68 +61,63 @@ class TorrentClient(object):
         if username and password:
             try:
                 # logger.debug('SECURE: username and password')
-                if parsed.scheme == 'https':
-                    newurl = url.replace('https://', 'https://%s:%s@' % (username, password))
-                elif parsed.scheme == 'http':
-                    newurl = url.replace('http://', 'http://%s:%s@' % (username, password))
+                if parsed.scheme == "https":
+                    url.replace("https://", "https://%s:%s@" % (username, password))
+                elif parsed.scheme == "http":
+                    url.replace("http://", "http://%s:%s@" % (username, password))
                 else:
-                    newurl = url
-                #logger.fdebug('NEWURL: %s' % newurl.replace(password, '[REDACTED]'))
-                authinfo = tuple(([auth, username, password]))
-                self.conn = RTorrent(
-                    url, authinfo,
-                    verify_server=True,
-                    verify_ssl=self.getVerifySsl(verify, ca_bundle)
-            )
+                    pass
+                # logger.fdebug('NEWURL: %s' % newurl.replace(password, '[REDACTED]'))
+                authinfo = (auth, username, password)
+                self.conn = RTorrent(url, authinfo, verify_server=True, verify_ssl=self.getVerifySsl(verify, ca_bundle))
             except Exception as err:
-                logger.error('Make sure you have the right protocol specified for the rtorrent host. Failed to connect to rTorrent - error: %s.' % err)
-                return {'status': False, 'error': err}
+                logger.error(
+                    "Make sure you have the right protocol specified for the rtorrent host. Failed to connect to rTorrent - error: %s."
+                    % err
+                )
+                return {"status": False, "error": err}
         else:
-            #logger.fdebug('NO username %s / NO password %s' % (username, password))
+            # logger.fdebug('NO username %s / NO password %s' % (username, password))
             try:
-                authinfo = tuple(([auth, username, password]))
-                self.conn = RTorrent(
-                    url, authinfo,
-                    verify_server=True,
-                    verify_ssl=self.getVerifySsl(verify, ca_bundle)
-            )
+                authinfo = (auth, username, password)
+                self.conn = RTorrent(url, authinfo, verify_server=True, verify_ssl=self.getVerifySsl(verify, ca_bundle))
             except Exception as err:
-                logger.error('Failed to connect to rTorrent: %s' % err)
-                return {'status': False, 'error': err}
+                logger.error("Failed to connect to rTorrent: %s" % err)
+                return {"status": False, "error": err}
 
         if test is True:
-            return {'status': True, 'version': self.conn.get_client_version()}
+            return {"status": True, "version": self.conn.get_client_version()}
         else:
             return self.conn
 
     def find_torrent(self, hash):
         return self.conn.find_torrent(hash)
 
-    def get_torrent (self, torrent):
+    def get_torrent(self, torrent):
         torrent_files = []
         torrent_directory = os.path.normpath(torrent.directory)
         try:
             for f in torrent.get_files():
                 if not os.path.normpath(f.path).startswith(torrent_directory):
-                    file_path = os.path.join(torrent_directory, f.path.lstrip('/'))
+                    file_path = os.path.join(torrent_directory, f.path.lstrip("/"))
                 else:
                     file_path = f.path
 
                 torrent_files.append(file_path)
 
             torrent_info = {
-                'hash': torrent.info_hash,
-                'name': torrent.name,
-                'label': torrent.get_custom1() if torrent.get_custom1() else '',
-                'folder': torrent_directory,
-                'completed': torrent.complete,
-                'files': torrent_files,
-                'upload_total': torrent.get_up_total(),
-                'download_total': torrent.get_down_total(),
-                'ratio': torrent.get_ratio(),
-                'total_filesize': torrent.get_size_bytes(),
-                'time_started': torrent.get_time_started()
-                }
+                "hash": torrent.info_hash,
+                "name": torrent.name,
+                "label": torrent.get_custom1() if torrent.get_custom1() else "",
+                "folder": torrent_directory,
+                "completed": torrent.complete,
+                "files": torrent_files,
+                "upload_total": torrent.get_up_total(),
+                "download_total": torrent.get_down_total(),
+                "ratio": torrent.get_ratio(),
+                "total_filesize": torrent.get_size_bytes(),
+                "time_started": torrent.get_time_started(),
+            }
 
         except Exception:
             raise
@@ -132,56 +127,56 @@ class TorrentClient(object):
     def load_torrent(self, filepath):
         start = bool(comicarr.CONFIG.RTORRENT_STARTONLOAD)
 
-        if filepath.startswith('magnet'):
-            logger.fdebug('torrent magnet link set to : ' + filepath)
-            torrent_hash = re.findall('urn:btih:([\w]{32,40})', filepath)[0].upper()
+        if filepath.startswith("magnet"):
+            logger.fdebug("torrent magnet link set to : " + filepath)
+            torrent_hash = re.findall(r"urn:btih:([\w]{32,40})", filepath)[0].upper()
             # Send request to rTorrent
             try:
-                #cannot verify_load magnet as it might take a very very long time for it to retrieve metadata
+                # cannot verify_load magnet as it might take a very very long time for it to retrieve metadata
                 torrent = self.conn.load_magnet(filepath, torrent_hash, verify_load=True)
                 if not torrent:
-                    logger.error('Unable to find the torrent, did it fail to load?')
+                    logger.error("Unable to find the torrent, did it fail to load?")
                     return False
             except Exception as err:
-                logger.error('Failed to send magnet to rTorrent: %s', err)
+                logger.error("Failed to send magnet to rTorrent: %s", err)
                 return False
             else:
-                logger.info('Torrent successfully loaded into rtorrent using magnet link as source.')
+                logger.info("Torrent successfully loaded into rtorrent using magnet link as source.")
         else:
-            logger.fdebug('filepath to torrent file set to : ' + filepath)
+            logger.fdebug("filepath to torrent file set to : " + filepath)
             try:
                 torrent = self.conn.load_torrent(filepath, verify_load=True)
                 if not torrent:
-                    logger.error('Unable to find the torrent, did it fail to load?')
+                    logger.error("Unable to find the torrent, did it fail to load?")
                     return False
             except Exception as err:
-                logger.error('Failed to send torrent to rTorrent: %s', err)
+                logger.error("Failed to send torrent to rTorrent: %s", err)
                 return False
 
-        #we can cherrypick the torrents here if required and if it's a pack (0day instance)
-        #torrent.get_files() will return list of files in torrent
-        #f.set_priority(0,1,2)
-        #for f in torrent.get_files():
+        # we can cherrypick the torrents here if required and if it's a pack (0day instance)
+        # torrent.get_files() will return list of files in torrent
+        # f.set_priority(0,1,2)
+        # for f in torrent.get_files():
         #    logger.info('torrent_get_files: %s' % f)
         #    f.set_priority(0)  #set them to not download just to see if this works...
-        #torrent.updated_priorities()
+        # torrent.updated_priorities()
 
         if comicarr.CONFIG.RTORRENT_LABEL is not None:
             torrent.set_custom(1, comicarr.CONFIG.RTORRENT_LABEL)
-            logger.fdebug('Setting label for torrent to : ' + comicarr.CONFIG.RTORRENT_LABEL)
+            logger.fdebug("Setting label for torrent to : " + comicarr.CONFIG.RTORRENT_LABEL)
 
         if comicarr.CONFIG.RTORRENT_DIRECTORY is not None:
             torrent.set_directory(comicarr.CONFIG.RTORRENT_DIRECTORY)
-            logger.fdebug('Setting directory for torrent to : ' + comicarr.CONFIG.RTORRENT_DIRECTORY)
+            logger.fdebug("Setting directory for torrent to : " + comicarr.CONFIG.RTORRENT_DIRECTORY)
 
-        logger.info('Successfully loaded torrent.')
+        logger.info("Successfully loaded torrent.")
 
-        #note that if set_directory is enabled, the torrent has to be started AFTER it's loaded or else it will give chunk errors and not seed
+        # note that if set_directory is enabled, the torrent has to be started AFTER it's loaded or else it will give chunk errors and not seed
         if start:
-            logger.info('[' + str(start) + '] Now starting torrent.')
+            logger.info("[" + str(start) + "] Now starting torrent.")
             torrent.start()
         else:
-            logger.info('[' + str(start) + '] Not starting torrent due to configuration setting.')
+            logger.info("[" + str(start) + "] Not starting torrent due to configuration setting.")
         return True
 
     def start_torrent(self, torrent):

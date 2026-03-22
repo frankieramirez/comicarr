@@ -9,8 +9,8 @@ It provides intelligent rate limiting that only sleeps when necessary, allowing 
 requests when tokens are available while maintaining the configured rate limit over time.
 """
 
-import time
 import threading
+import time
 
 
 class ComicVineRateLimiter:

@@ -17,13 +17,16 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
+import glob
 import os
-import glob, urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import simplejson as simplejson
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import helpers, logger
 
 
 class Cache(object):
@@ -43,9 +46,10 @@ class Cache(object):
     The basic format for art in the cache is <musicbrainzid>.<date>.<ext>
     and for info it is <musicbrainzid>.<date>.txt
     """
-    comicarr.CACHE_DIR = os.path.join(str(comicarr.PROG_DIR), 'cache/')
 
-    path_to_art_cache = os.path.join(comicarr.CACHE_DIR, 'artwork')
+    comicarr.CACHE_DIR = os.path.join(str(comicarr.PROG_DIR), "cache/")
+
+    path_to_art_cache = os.path.join(comicarr.CACHE_DIR, "artwork")
 
     id = None
     id_type = None  # 'comic' or 'issue' - set automatically depending on whether ComicID or IssueID is passed
@@ -66,18 +70,16 @@ class Cache(object):
 
     def _exists(self, type):
 
-        self.artwork_files = glob.glob(os.path.join(self.path_to_art_cache, self.id + '*'))
-        self.thumb_files = glob.glob(os.path.join(self.path_to_art_cache, 'T_' + self.id + '*'))
+        self.artwork_files = glob.glob(os.path.join(self.path_to_art_cache, self.id + "*"))
+        self.thumb_files = glob.glob(os.path.join(self.path_to_art_cache, "T_" + self.id + "*"))
 
-        if type == 'artwork':
-
+        if type == "artwork":
             if self.artwork_files:
                 return True
             else:
                 return False
 
-        elif type == 'thumb':
-
+        elif type == "thumb":
             if self.thumb_files:
                 return True
             else:
@@ -85,17 +87,16 @@ class Cache(object):
 
     def _get_age(self, date):
         # There's probably a better way to do this
-        split_date = date.split('-')
-        days_old = int(split_date[0]) *365 + int(split_date[1]) *30 + int(split_date[2])
+        split_date = date.split("-")
+        days_old = int(split_date[0]) * 365 + int(split_date[1]) * 30 + int(split_date[2])
 
         return days_old
-
 
     def _is_current(self, filename=None, date=None):
 
         if filename:
             base_filename = os.path.basename(filename)
-            date = base_filename.split('.')[1]
+            date = base_filename.split(".")[1]
 
         # Calculate how old the cached file is based on todays date & file date stamp
         # helpers.today() returns todays date in yyyy-mm-dd format
@@ -105,25 +106,25 @@ class Cache(object):
             return False
 
     def get_artwork_from_cache(self, ComicID=None, imageURL=None):
-        '''
+        """
         Pass a comicvine id to this function (either ComicID or IssueID)
-        '''
+        """
 
-        self.query_type = 'artwork'
+        self.query_type = "artwork"
 
         if ComicID:
             self.id = ComicID
-            self.id_type = 'comic'
+            self.id_type = "comic"
         else:
             self.id = IssueID
-            self.id_type = 'issue'
+            self.id_type = "issue"
 
-        if self._exists('artwork') and self._is_current(filename=self.artwork_files[0]):
+        if self._exists("artwork") and self._is_current(filename=self.artwork_files[0]):
             return self.artwork_files[0]
         else:
             # we already have the image for the comic in the sql db. Simply retrieve it, and save it.
             image_url = imageURL
-            logger.debug('Retrieving comic image from: ' + image_url)
+            logger.debug("Retrieving comic image from: " + image_url)
             try:
                 artwork = urllib.request.urlopen(image_url, timeout=20).read()
             except Exception as e:
@@ -131,31 +132,30 @@ class Cache(object):
                 artwork = None
 
             if artwork:
-
                 # Make sure the artwork dir exists:
                 if not os.path.isdir(self.path_to_art_cache):
                     try:
                         os.makedirs(self.path_to_art_cache)
                     except Exception as e:
-                        logger.error('Unable to create artwork cache dir. Error: ' + str(e))
+                        logger.error("Unable to create artwork cache dir. Error: " + str(e))
                         self.artwork_errors = True
                         self.artwork_url = image_url
-                #Delete the old stuff
+                # Delete the old stuff
                 for artwork_file in self.artwork_files:
                     try:
                         os.remove(artwork_file)
                     except:
-                        logger.error('Error deleting file from the cache: ' + artwork_file)
+                        logger.error("Error deleting file from the cache: " + artwork_file)
 
                 ext = os.path.splitext(image_url)[1]
 
-                artwork_path = os.path.join(self.path_to_art_cache, self.id + '.' + helpers.today() + ext)
+                artwork_path = os.path.join(self.path_to_art_cache, self.id + "." + helpers.today() + ext)
                 try:
-                    f = open(artwork_path, 'wb')
+                    f = open(artwork_path, "wb")
                     f.write(artwork)
                     f.close()
                 except Exception as e:
-                    logger.error('Unable to write to the cache dir: ' + str(e))
+                    logger.error("Unable to write to the cache dir: " + str(e))
                     self.artwork_errors = True
                     self.artwork_url = image_url
 
@@ -164,11 +164,11 @@ def getArtwork(ComicID=None, imageURL=None):
 
     c = Cache()
     artwork_path = c.get_artwork_from_cache(ComicID, imageURL)
-    logger.info('artwork path at : ' + str(artwork_path))
+    logger.info("artwork path at : " + str(artwork_path))
     if not artwork_path:
         return None
 
-    if artwork_path.startswith('http://'):
+    if artwork_path.startswith("http://"):
         return artwork_path
     else:
         artwork_file = os.path.basename(artwork_path)

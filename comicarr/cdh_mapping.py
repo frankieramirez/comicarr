@@ -17,36 +17,38 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import requests
 import pathlib
 import re
+
+import requests
 from packaging.version import parse as parse_version
+
 import comicarr
 from comicarr import logger
 
-class CDH_MAP(object):
 
+class CDH_MAP(object):
     def __init__(self, filepath, sab=False, nzbget=False, nzbget_server=None):
         self.sab = sab
         self.nzbget = nzbget
         if self.sab is True:
-            self.sab_url = comicarr.CONFIG.SAB_HOST + '/api'
+            self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
             self.apikey = comicarr.CONFIG.SAB_APIKEY
             dst_dir = comicarr.CONFIG.SAB_DIRECTORY
         else:
             dst_dir = comicarr.CONFIG.NZBGET_DIRECTORY
             self.server = nzbget_server
 
-        if comicarr.OS_DETECT == 'Windows':
+        if comicarr.OS_DETECT == "Windows":
             if pathlib.Path(dst_dir).is_absolute():
                 self.sab_dir = pathlib.PureWindowsPath(dst_dir)
             else:
                 self.sab_dir = pathlib.PurePosixPath(dst_dir)
             if pathlib.Path(filepath).is_absolute():
-                logger.fdebug('[CDH MAPPING] path is LOCAL to system')
+                logger.fdebug("[CDH MAPPING] path is LOCAL to system")
                 self.storage = pathlib.PureWindowsPath(filepath)
             else:
-                logger.fdebug('[CDH MAPPING] path is NOT LOCAL to system')
+                logger.fdebug("[CDH MAPPING] path is NOT LOCAL to system")
                 self.storage = pathlib.PurePosixPath(filepath)
         else:
             if pathlib.Path(dst_dir).is_absolute():
@@ -54,16 +56,17 @@ class CDH_MAP(object):
             else:
                 self.sab_dir = pathlib.PureWindowsPath(dst_dir)
             if pathlib.Path(filepath).is_absolute():
-                logger.fdebug('[CDH MAPPING] path is LOCAL to system')
+                logger.fdebug("[CDH MAPPING] path is LOCAL to system")
                 self.storage = pathlib.PurePosixPath(filepath)
             else:
-                logger.fdebug('[CDH MAPPING] path is NOT LOCAL to system')
+                logger.fdebug("[CDH MAPPING] path is NOT LOCAL to system")
                 self.storage = pathlib.PureWindowsPath(filepath)
 
         self.basedir = None
         self.subdir = False
         try:
             from requests.packages.urllib3 import disable_warnings
+
             disable_warnings()
         except:
             pass
@@ -71,46 +74,64 @@ class CDH_MAP(object):
     def the_sequence(self):
         if self.sab is True:
             self.completedir()
-            if any([comicarr.CONFIG.SAB_CATEGORY is None, comicarr.CONFIG.SAB_CATEGORY == 'None']):
+            if any([comicarr.CONFIG.SAB_CATEGORY is None, comicarr.CONFIG.SAB_CATEGORY == "None"]):
                 cat_dir = None
                 cat_name = None
             else:
                 self.cats()
-                cat_dir = self.cat['dir']
-                cat_name = self.cat['name']
+                cat_dir = self.cat["dir"]
+                cat_name = self.cat["name"]
 
             if cat_dir is None:
-                logger.fdebug('[CDH MAPPING] No category defined - using %s as the base download folder with no job folder creation' % self.cdir)
+                logger.fdebug(
+                    "[CDH MAPPING] No category defined - using %s as the base download folder with no job folder creation"
+                    % self.cdir
+                )
                 self.basedir = self.cdir
             else:
-                if cat_dir.endswith('*'):
-                    logger.fdebug('[CDH MAPPING][%s] category defined - no job folder creation defined - using %s as base download folder' % (cat_name, cat_dir))
+                if cat_dir.endswith("*"):
+                    logger.fdebug(
+                        "[CDH MAPPING][%s] category defined - no job folder creation defined - using %s as base download folder"
+                        % (cat_name, cat_dir)
+                    )
                     self.basedir = cat_dir[:-1]
                 else:
-                    logger.fdebug('[CDH MAPPING][%s] category defined - job folder creation defined - using %s as based download folder with sub folder creation' % (cat_name, cat_dir))
+                    logger.fdebug(
+                        "[CDH MAPPING][%s] category defined - job folder creation defined - using %s as based download folder with sub folder creation"
+                        % (cat_name, cat_dir)
+                    )
                     self.basedir = cat_dir
                     self.subdir = True
 
         else:
-            #query nzbget for categories and if path is different
+            # query nzbget for categories and if path is different
             self.send_nzbget()
-            cat_dir = self.cat['dir']
-            cat_name = self.cat['name']
+            cat_dir = self.cat["dir"]
+            cat_name = self.cat["name"]
             if cat_dir is None:
-                logger.fdebug('[CDH MAPPING] No category defined - using %s as the base download folder with no job folder creation' % self.cdir)
+                logger.fdebug(
+                    "[CDH MAPPING] No category defined - using %s as the base download folder with no job folder creation"
+                    % self.cdir
+                )
                 self.basedir = self.cdir
             else:
                 if self.subdir is False:
-                    logger.fdebug('[CDH MAPPING][%s] category defined - no job folder creation defined - using %s as base download folder' % (cat_name, self.cdir))
+                    logger.fdebug(
+                        "[CDH MAPPING][%s] category defined - no job folder creation defined - using %s as base download folder"
+                        % (cat_name, self.cdir)
+                    )
                     self.basedir = self.cdir
                 else:
-                    logger.fdebug('[CDH MAPPING][%s] category defined - job folder creation defined - using %s as based download folder with sub folder creation' % (cat_name, cat_dir))
+                    logger.fdebug(
+                        "[CDH MAPPING][%s] category defined - job folder creation defined - using %s as based download folder with sub folder creation"
+                        % (cat_name, cat_dir)
+                    )
                     self.basedir = cat_dir
 
-        logger.fdebug('[CDH MAPPING] Base directory for downloads set to: %s' % (self.basedir))
-        logger.fdebug('[CDH MAPPING] Downloaded file @: %s' % self.storage)
-        logger.fdebug('[CDH MAPPING] Destination root directory @: %s' % (self.sab_dir))
-        logger.fdebug('sub_dir: %s' % self.subdir)
+        logger.fdebug("[CDH MAPPING] Base directory for downloads set to: %s" % (self.basedir))
+        logger.fdebug("[CDH MAPPING] Downloaded file @: %s" % self.storage)
+        logger.fdebug("[CDH MAPPING] Destination root directory @: %s" % (self.sab_dir))
+        logger.fdebug("sub_dir: %s" % self.subdir)
         try:
             if self.subdir is False:
                 if cat_dir is None:
@@ -123,11 +144,11 @@ class CDH_MAP(object):
                 maindir = self.storage.parents[1]
                 file = self.storage.relative_to(maindir)
         except Exception as e:
-            logger.warn('cdh-error: %s' % (e,))
-        logger.fdebug('maindir: %s' % (maindir,))
-        logger.fdebug('file: %s' % (file,))
+            logger.warn("cdh-error: %s" % (e,))
+        logger.fdebug("maindir: %s" % (maindir,))
+        logger.fdebug("file: %s" % (file,))
         final_dst = self.sab_dir.joinpath(file)
-        logger.fdebug('final_dst: %s' % (final_dst,))
+        logger.fdebug("final_dst: %s" % (final_dst,))
         return final_dst
 
     def sendsab(self, params):
@@ -136,42 +157,41 @@ class CDH_MAP(object):
         return response
 
     def completedir(self):
-        min_sab = '3.4.0'
+        min_sab = "3.4.0"
         sab_vers = comicarr.CONFIG.SAB_VERSION
-        if 'beta' in sab_vers:
-            sab_vers = re.sub('[^0-9]', '', sab_vers)
+        if "beta" in sab_vers:
+            sab_vers = re.sub("[^0-9]", "", sab_vers)
             if len(sab_vers) > 3:
                 sab_vers = sab_vers[:-1]
         if parse_version(sab_vers) >= parse_version(min_sab):
-            sab_mode = 'status'
+            sab_mode = "status"
         else:
-            sab_mode = 'fullstatus'
-        params = {'mode': sab_mode,
-                  'apikey': self.apikey,
-                  'output': 'json'}
+            sab_mode = "fullstatus"
+        params = {"mode": sab_mode, "apikey": self.apikey, "output": "json"}
 
-        self.cdir = self.sendsab(params)['status']['completedir']
+        self.cdir = self.sendsab(params)["status"]["completedir"]
         logger.fdebug(self.cdir)
 
     def cats(self):
-        params =  {'mode': 'get_config',
-                   'section': 'categories',
-                   'keyword': comicarr.CONFIG.SAB_CATEGORY,
-                   'apikey': self.apikey,
-                   'output': 'json'}
-        cats = self.sendsab(params)['config']['categories']
+        params = {
+            "mode": "get_config",
+            "section": "categories",
+            "keyword": comicarr.CONFIG.SAB_CATEGORY,
+            "apikey": self.apikey,
+            "output": "json",
+        }
+        cats = self.sendsab(params)["config"]["categories"]
         cat_dir = None
-        cat_name= None
+        cat_name = None
         self.subdir = False
         for x in cats:
-            if x['name'] == comicarr.CONFIG.SAB_CATEGORY:
-                cat_dir = x['dir']
-                cat_name = x['name']
+            if x["name"] == comicarr.CONFIG.SAB_CATEGORY:
+                cat_dir = x["dir"]
+                cat_name = x["name"]
                 logger.fdebug(cat_dir)
                 break
 
-        self.cat = {'name': cat_name,
-                    'dir': cat_dir}
+        self.cat = {"name": cat_name, "dir": cat_dir}
 
     def send_nzbget(self):
         cinfo = self.server.config()
@@ -181,26 +201,25 @@ class CDH_MAP(object):
         self.subdir = False
         set_cat = comicarr.CONFIG.NZBGET_CATEGORY
         for item in cinfo:
-            if item['Name'] == 'DestDir':
-                self.cdir = item['Value']
-            if item['Name'] == 'AppendCategoryDir':
-                if item['Value'] == 'yes':
+            if item["Name"] == "DestDir":
+                self.cdir = item["Value"]
+            if item["Name"] == "AppendCategoryDir":
+                if item["Value"] == "yes":
                     self.subdir = True
                 else:
                     self.subdir = False
 
-            if 'Category' in item['Name'] and set_cat is not None:
-                if item['Value'].lower() == set_cat.lower():
-                    cat_number = re.sub(r'[^0-9]', '', item['Name']).strip()
-                    cat_name = item['Value']
+            if "Category" in item["Name"] and set_cat is not None:
+                if item["Value"].lower() == set_cat.lower():
+                    cat_number = re.sub(r"[^0-9]", "", item["Name"]).strip()
+                    cat_name = item["Value"]
 
                 if cat_number is not None:
-                    tmpcat = 'Category%s.DestDir' % cat_number
-                    if item['Name'] == tmpcat:
-                        cat_dir = item['Value']
+                    tmpcat = "Category%s.DestDir" % cat_number
+                    if item["Name"] == tmpcat:
+                        cat_dir = item["Value"]
                         break
                     else:
                         cat_number = None
 
-        self.cat = {'name': cat_name,
-                    'dir': cat_dir}
+        self.cat = {"name": cat_name, "dir": cat_dir}

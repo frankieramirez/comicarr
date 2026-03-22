@@ -108,9 +108,29 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "E701",  # multiple statements on one line (inherited)
+    "E721",  # type comparison using == instead of is (inherited)
+    "E722",  # bare except (inherited — to be fixed incrementally)
+    "F821",  # undefined name (inherited — needs careful review)
+    "B005",  # strip with multi-char (inherited)
+    "B007",  # unused loop variable (inherited)
     "B008",  # do not perform function calls in argument defaults
+    "B015",  # pointless comparison (inherited)
+    "B018",  # useless expression (inherited)
+    "B034",  # re.sub without flags (inherited)
+    "B904",  # raise without from (inherited)
     "C901",  # too complex
+    "F501",  # %-format invalid format string (inherited)
+    "F507",  # %-format mismatch (inherited)
+    "F509",  # %-format mismatch (inherited)
+    "F601",  # membership test with list (inherited)
+    "F811",  # redefined unused name (inherited)
+    "F823",  # undefined local (inherited)
+    "W191",  # indentation contains tabs (inherited)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B", "C4"]
+"comicarr/__init__.py" = ["F401"]  # re-exports used by other modules
+"comicarr/helpers.py" = ["E402"]   # conditional import at line 5189
+"comicarr/rsscheck.py" = ["F401"]  # urllib3 import for side effects

@@ -20,17 +20,15 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import os.path as osp
-import urllib
 import re
-import shutil
-import sys
+
 import requests
+
 import comicarr
-from comicarr import db, helpers, logger, search, search_filer
+from comicarr import db, helpers, logger
+
 
 class MediaFire(object):
-
     def __init__(self):
         self.dl_location = os.path.join(comicarr.CONFIG.DDL_LOCATION)
         self.headers = {
@@ -48,15 +46,9 @@ class MediaFire(object):
         url_origin = url
 
         while True:
-            t = self.session.get(
-                    url,
-                    verify=True,
-                    headers=self.headers,
-                    stream=True,
-                    timeout=(30,30)
-                )
+            t = self.session.get(url, verify=True, headers=self.headers, stream=True, timeout=(30, 30))
 
-            if 'Content-Disposition' in t.headers:
+            if "Content-Disposition" in t.headers:
                 # This is the file
                 break
 
@@ -64,86 +56,78 @@ class MediaFire(object):
             url = self.extractDownloadLink(t.text)
 
             if url is None:
-                #link no longer valid
-                return {"success": False, "filename": None, "path": None, "link_type_failure": 'GC-Media'}
+                # link no longer valid
+                return {"success": False, "filename": None, "path": None, "link_type_failure": "GC-Media"}
 
-        m = re.search(
-            'filename="(.*)"', t.headers['Content-Disposition']
-        )
+        m = re.search('filename="(.*)"', t.headers["Content-Disposition"])
         filename = m.groups()[0]
-        filename = filename.encode('iso8859').decode('utf-8')
+        filename = filename.encode("iso8859").decode("utf-8")
 
         file, ext = os.path.splitext(filename)
-        filename = '%s[__%s__]%s' % (file, issueid, ext)
+        filename = "%s[__%s__]%s" % (file, issueid, ext)
 
         try:
-            filesize = int(t.headers['Content-Length'])
+            filesize = int(t.headers["Content-Length"])
         except Exception:
             filesize = 0
 
-        fileinfo = {'filename': filename,
-                    'filesize': filesize}
+        fileinfo = {"filename": filename, "filesize": filesize}
 
-        logger.fdebug('Downloading...')
-        logger.fdebug('%s [%s bytes]' % (filename, filesize))
-        logger.fdebug('From: %s' % url_origin)
-        logger.fdebug('To: %s' % os.path.join(self.dl_location, filename))
+        logger.fdebug("Downloading...")
+        logger.fdebug("%s [%s bytes]" % (filename, filesize))
+        logger.fdebug("From: %s" % url_origin)
+        logger.fdebug("To: %s" % os.path.join(self.dl_location, filename))
 
         myDB = db.DBConnection()
         ## write the filename to the db for tracking purposes...
-        logger.fdebug('[Writing to db: %s' % (filename))
+        logger.fdebug("[Writing to db: %s" % (filename))
         myDB.upsert(
-            'ddl_info',
-            {'filename': str(filename), 'remote_filesize': str(filesize), 'size': helpers.human_size(filesize)},
-            {'id': id},
+            "ddl_info",
+            {"filename": str(filename), "remote_filesize": str(filesize), "size": helpers.human_size(filesize)},
+            {"id": id},
         )
         return self.mediafire_dl(url, id, fileinfo, issueid)
 
     def mediafire_dl(self, url, id, fileinfo, issueid):
-        filepath = os.path.join(self.dl_location, fileinfo['filename'])
+        filepath = os.path.join(self.dl_location, fileinfo["filename"])
 
         myDB = db.DBConnection()
         myDB.upsert(
-            'ddl_info',
-            {'tmp_filename': fileinfo['filename']},  # tmp_filename should be all that's needed to be updated at this point...
-            {'id': id},
+            "ddl_info",
+            {
+                "tmp_filename": fileinfo["filename"]
+            },  # tmp_filename should be all that's needed to be updated at this point...
+            {"id": id},
         )
 
         try:
-            response = self.session.get(
-                    url,
-                    verify=True,
-                    headers=self.headers,
-                    stream=True,
-                    timeout=(30,30)
-                )
+            response = self.session.get(url, verify=True, headers=self.headers, stream=True, timeout=(30, 30))
 
-            logger.fdebug('[MediaFire] now writing....')
-            with open(filepath, 'wb') as f:
+            logger.fdebug("[MediaFire] now writing....")
+            with open(filepath, "wb") as f:
                 for chunk in response.iter_content(chunk_size=4096):
                     if chunk:
                         f.write(chunk)
                         f.flush()
 
         except Exception as e:
-            logger.fdebug('[MediaFire][ERROR] %s' % e)
-            if 'EBLOCKED' in str(e):
-                logger.fdebug('[MediaFire] Content has been removed - we should move on to the next one at this point.')
-            return {"success": False, "filename": None, "path": None, "link_type_failure": 'GC-Media'}
+            logger.fdebug("[MediaFire][ERROR] %s" % e)
+            if "EBLOCKED" in str(e):
+                logger.fdebug("[MediaFire] Content has been removed - we should move on to the next one at this point.")
+            return {"success": False, "filename": None, "path": None, "link_type_failure": "GC-Media"}
 
         try:
             filesize = os.stat(filepath).st_size
         except FileNotFoundError:
             return {"success": false, "filenme": None, "path": None}
         else:
-            logger.fdebug('[MediaFire] download completed - downloaded %s / %s' % (filesize, fileinfo['filesize']))
+            logger.fdebug("[MediaFire] download completed - downloaded %s / %s" % (filesize, fileinfo["filesize"]))
 
-        logger.fdebug('[MediaFire] ddl_linked - filename: %s' % fileinfo['filename'])
+        logger.fdebug("[MediaFire] ddl_linked - filename: %s" % fileinfo["filename"])
 
-        file, ext = os.path.splitext(fileinfo['filename'])
-        if ext == '.zip':
+        file, ext = os.path.splitext(fileinfo["filename"])
+        if ext == ".zip":
             ggc = comicarr.getcomics.GC()
-            return ggc.zip_zip(id, str(filepath), fileinfo['filename'])
+            return ggc.zip_zip(id, str(filepath), fileinfo["filename"])
         else:
-            return {"success": True, "filename": fileinfo['filename'], "path": str(filepath)}
-
+            return {"success": True, "filename": fileinfo["filename"], "path": str(filepath)}

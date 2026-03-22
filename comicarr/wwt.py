@@ -17,66 +17,63 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import requests as requests
-from bs4 import BeautifulSoup, UnicodeDammit
-import urllib.parse
+import datetime
 import re
 import time
-import sys
-import datetime
-from datetime import timedelta
+import urllib.parse
+
 import cfscrape
+import requests as requests
+from bs4 import BeautifulSoup
 
 import comicarr
-from comicarr import logger, helpers
+from comicarr import helpers, logger
+
 
 class wwt(object):
-
     def __init__(self, name, issue):
         self.url = comicarr.WWTURL
-        self.query = name + ' ' + str(int(issue)) #'Batman White Knight'
-        logger.info('query set to : %s' % self.query)
+        self.query = name + " " + str(int(issue))  #'Batman White Knight'
+        logger.info("query set to : %s" % self.query)
         pass
 
     def wwt_connect(self):
         resultlist = None
-        params = {'c50': 1,
-                  'search': self.query,
-                  'cat': 132,
-                  'incldead': 0,
-                  'lang': 0}
+        params = {"c50": 1, "search": self.query, "cat": 132, "incldead": 0, "lang": 0}
 
         with cfscrape.create_scraper() as s:
-            newurl = self.url + 'torrents-search.php'
+            newurl = self.url + "torrents-search.php"
             if comicarr.WWT_CF_COOKIEVALUE is None:
-                cf_cookievalue, cf_user_agent = s.get_tokens(newurl, user_agent=comicarr.CV_HEADERS['User-Agent'])
+                cf_cookievalue, cf_user_agent = s.get_tokens(newurl, user_agent=comicarr.CV_HEADERS["User-Agent"])
                 comicarr.WWT_CF_COOKIEVALUE = cf_cookievalue
 
-            r = s.get(newurl, params=params, verify=True, cookies=comicarr.WWT_CF_COOKIEVALUE, headers=comicarr.CV_HEADERS)
+            r = s.get(
+                newurl, params=params, verify=True, cookies=comicarr.WWT_CF_COOKIEVALUE, headers=comicarr.CV_HEADERS
+            )
 
             if not r.status_code == 200:
                 return
-            logger.info('status code: %s' % r.status_code)
-            soup = BeautifulSoup(r.content, "html5lib") 
+            logger.info("status code: %s" % r.status_code)
+            soup = BeautifulSoup(r.content, "html5lib")
 
             resultpages = soup.find("p", {"align": "center"})
             try:
                 pagelist = resultpages.findAll("a")
             except:
-                logger.info('No results found for %s' % self.query)
+                logger.info("No results found for %s" % self.query)
                 return
 
             pages = []
             for p in pagelist:
-                if p['href'] not in pages:
-                    logger.fdebug('page: %s' % p['href'])
-                    pages.append(p['href'])
-            logger.fdebug('pages: %s' % (len(pages) + 1))
+                if p["href"] not in pages:
+                    logger.fdebug("page: %s" % p["href"])
+                    pages.append(p["href"])
+            logger.fdebug("pages: %s" % (len(pages) + 1))
 
             resultlist = self.wwt_data(soup)
             if pages:
                 for p in pages:
-                    time.sleep(5)  #5s delay btwn requests
+                    time.sleep(5)  # 5s delay btwn requests
                     newurl = self.url + str(p)
                     r = s.get(newurl, params=params, verify=True)
                     if not r.status_code == 200:
@@ -84,99 +81,103 @@ class wwt(object):
                     soup = BeautifulSoup(r.content, "html5lib")
                     resultlist += self.wwt_data(soup)
 
-            logger.fdebug('%s results: %s' % (len(resultlist), resultlist))
+            logger.fdebug("%s results: %s" % (len(resultlist), resultlist))
 
         res = {}
         if len(resultlist) >= 1:
-            res['entries'] = resultlist
+            res["entries"] = resultlist
         return res
 
     def wwt_data(self, data):
 
-            resultw = data.find("table", {"class": "w3-table w3-striped w3-bordered w3-card-4"})
-            resultp = resultw.findAll("tr")
+        resultw = data.find("table", {"class": "w3-table w3-striped w3-bordered w3-card-4"})
+        resultp = resultw.findAll("tr")
 
-            #final = []
-            results = []
-            for res in resultp:
-                if res.findNext(text=True) == 'Torrents Name':
-                    continue
-                title = res.find('a')
-                torrent = title['title']
-                try:
-                    for link in res.find_all('a', href=True):
-                        if link['href'].startswith('download.php'):
-                            linkurl = urllib.parse.parse_qs(urllib.parse.urlparse(link['href']).query)['id']
-                            #results = {'torrent':  torrent,
-                            #           'link':     link['href']}
-                            break
-                    for td in res.findAll('td'):
-                        try:
-                            seed = td.find("font", {"color": "green"})
-                            leech = td.find("font", {"color": "#ff0000"})
-                            value = td.findNext(text=True)
-                            if any(['MB' in value, 'GB' in value]):
-                                if 'MB' in value:
-                                    szform = 'MB'
-                                    sz = 'M'
-                                else:
-                                    szform = 'GB'
-                                    sz = 'G'
-                                size = helpers.human2bytes(str(re.sub(szform, '', value)).strip() + sz)
-                            elif seed is not None:
-                                seeders = value
-                                #results['seeders'] = seeders
-                            elif leech is not None:
-                                leechers = value
-                                #results['leechers'] = leechers
+        # final = []
+        results = []
+        for res in resultp:
+            if res.findNext(text=True) == "Torrents Name":
+                continue
+            title = res.find("a")
+            torrent = title["title"]
+            try:
+                for link in res.find_all("a", href=True):
+                    if link["href"].startswith("download.php"):
+                        linkurl = urllib.parse.parse_qs(urllib.parse.urlparse(link["href"]).query)["id"]
+                        # results = {'torrent':  torrent,
+                        #           'link':     link['href']}
+                        break
+                for td in res.findAll("td"):
+                    try:
+                        seed = td.find("font", {"color": "green"})
+                        leech = td.find("font", {"color": "#ff0000"})
+                        value = td.findNext(text=True)
+                        if any(["MB" in value, "GB" in value]):
+                            if "MB" in value:
+                                szform = "MB"
+                                sz = "M"
                             else:
-                                age = value
-                                #results['age'] = age
-                        except Exception as e:
-                            logger.warn('exception: %s' % e)
+                                szform = "GB"
+                                sz = "G"
+                            size = helpers.human2bytes(str(re.sub(szform, "", value)).strip() + sz)
+                        elif seed is not None:
+                            pass
+                            # results['seeders'] = seeders
+                        elif leech is not None:
+                            pass
+                            # results['leechers'] = leechers
+                        else:
+                            age = value
+                            # results['age'] = age
+                    except Exception as e:
+                        logger.warn("exception: %s" % e)
 
-                    logger.info('age: %s' % age)
-                    results.append({'title':    torrent,
-                                    'link':     ''.join(linkurl),
-                                    'pubdate':  self.string_to_delta(age),
-                                    'size':     size,
-                                    'site':     'WWT'})
-                    logger.info('results: %s' % results)
-                except Exception as e:
-                    logger.warn('Error: %s' % e)
-                    continue
-                #else:
-                #    final.append(results)
+                logger.info("age: %s" % age)
+                results.append(
+                    {
+                        "title": torrent,
+                        "link": "".join(linkurl),
+                        "pubdate": self.string_to_delta(age),
+                        "size": size,
+                        "site": "WWT",
+                    }
+                )
+                logger.info("results: %s" % results)
+            except Exception as e:
+                logger.warn("Error: %s" % e)
+                continue
+            # else:
+            #    final.append(results)
 
-            return results
+        return results
 
     def string_to_delta(self, relative):
-        #using simplistic year (no leap months are 30 days long.
-        #WARNING: 12 months != 1 year
-        logger.info('trying to remap date from %s' % relative)
-        unit_mapping = [('mic', 'microseconds', 1),
-                        ('millis', 'microseconds', 1000),
-                        ('sec', 'seconds', 1),
-                        ('mins', 'seconds', 60),
-                        ('hrs', 'seconds', 3600),
-                        ('day', 'days', 1),
-                        ('wk', 'days', 7),
-                        ('mon', 'days', 30),
-                        ('year', 'days', 365)]
+        # using simplistic year (no leap months are 30 days long.
+        # WARNING: 12 months != 1 year
+        logger.info("trying to remap date from %s" % relative)
+        unit_mapping = [
+            ("mic", "microseconds", 1),
+            ("millis", "microseconds", 1000),
+            ("sec", "seconds", 1),
+            ("mins", "seconds", 60),
+            ("hrs", "seconds", 3600),
+            ("day", "days", 1),
+            ("wk", "days", 7),
+            ("mon", "days", 30),
+            ("year", "days", 365),
+        ]
         try:
-            tokens = relative.lower().split(' ')
-            past = False
-            if tokens[-1] == 'ago':
-                past = True
-                tokens =  tokens[:-1]
-            elif tokens[0] == 'in':
+            tokens = relative.lower().split(" ")
+            if tokens[-1] == "ago":
+                tokens = tokens[:-1]
+            elif tokens[0] == "in":
                 tokens = tokens[1:]
 
-            units = dict(days = 0, seconds = 0, microseconds = 0)
-            #we should always get pairs, if not we let this die and throw an exception
+            units = {"days": 0, "seconds": 0, "microseconds": 0}
+            # we should always get pairs, if not we let this die and throw an exception
             while len(tokens) > 0:
                 value = tokens.pop(0)
-                if value == 'and':    #just skip this token
+                if value == "and":  # just skip this token
                     continue
                 else:
                     value = float(value)
@@ -185,9 +186,8 @@ class wwt(object):
                 for match, time_unit, time_constant in unit_mapping:
                     if unit.startswith(match):
                         units[time_unit] += value * time_constant
-            #print datetime.timedelta(**units), past
+            # print datetime.timedelta(**units), past
             val = datetime.datetime.now() - datetime.timedelta(**units)
-            return datetime.datetime.strftime(val, '%a, %d %b %Y %H:%M:%S')
+            return datetime.datetime.strftime(val, "%a, %d %b %Y %H:%M:%S")
         except Exception as e:
             raise ValueError("Don't know how to parse %s: %s" % (relative, e))
-

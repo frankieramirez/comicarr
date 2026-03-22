@@ -17,20 +17,20 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import sys
 import inspect
-import traceback
-import threading
-import platform
 import locale
+import logging
+import os
+import platform
+import sys
+import threading
+import traceback
+from logging import Formatter
+
 import comicarr
 from comicarr import helpers
-import logging
-from logging import getLogger, WARN, ERROR, INFO, DEBUG, StreamHandler, Formatter, Handler
 
-
-#setup logger for non-english (this doesnt carry thru, so check here too)
+# setup logger for non-english (this doesnt carry thru, so check here too)
 try:
     localeinfo = locale.getdefaultlocale()
     language = localeinfo[0]
@@ -38,19 +38,18 @@ try:
     if any([language is None, charset is None]):
         raise AttributeError
 except AttributeError:
-    #if it's set to None (ie. dockerized) - default to en_US.UTF-8.
+    # if it's set to None (ie. dockerized) - default to en_US.UTF-8.
     if language is None:
-        language = 'en_US'
+        language = "en_US"
     if charset is None:
-        charset = 'UTF-8'
+        charset = "UTF-8"
 
 LOG_LANG = language
 LOG_CHARSET = charset
 
-if not LOG_LANG.startswith('en'):
+if not LOG_LANG.startswith("en"):
     # Simple rotating log handler that uses RotatingFileHandler
     class RotatingLogger(object):
-
         def __init__(self, filename):
 
             self.filename = filename
@@ -58,7 +57,7 @@ if not LOG_LANG.startswith('en'):
             self.consolehandler = None
 
         def stopLogger(self):
-            lg = logging.getLogger('comicarr')
+            lg = logging.getLogger("comicarr")
             lg.removeHandler(self.filehandler)
             lg.removeHandler(self.consolehandler)
 
@@ -66,50 +65,50 @@ if not LOG_LANG.startswith('en'):
             if issubclass(exc_type, KeyboardInterrupt):
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
                 return
-            logger.exception('Uncaught Exception', excinfo=(exc_type, exc_value, exc_traceback))
+            logger.exception("Uncaught Exception", excinfo=(exc_type, exc_value, exc_traceback))
             sys.__excepthook__(exc_type, exc_value, None)
             return
 
         def initLogger(self, loglevel=1, log_dir=None, max_logsize=None, max_logfiles=None):
             import sys
+
             sys.excepthook = RotatingLogger.handle_exception
 
-            logging.getLogger('apscheduler.scheduler').setLevel(logging.WARN)
-            logging.getLogger('apscheduler.threadpool').setLevel(logging.WARN)
-            logging.getLogger('apscheduler.scheduler').propagate = False
-            logging.getLogger('apscheduler.threadpool').propagate = False
-            logging.getLogger('cherrypy').propagate = False
-            lg = logging.getLogger('comicarr')
+            logging.getLogger("apscheduler.scheduler").setLevel(logging.WARN)
+            logging.getLogger("apscheduler.threadpool").setLevel(logging.WARN)
+            logging.getLogger("apscheduler.scheduler").propagate = False
+            logging.getLogger("apscheduler.threadpool").propagate = False
+            logging.getLogger("cherrypy").propagate = False
+            lg = logging.getLogger("comicarr")
             lg.setLevel(logging.DEBUG)
 
             if log_dir is not None:
                 self.filename = os.path.join(log_dir, self.filename)
 
-                #concurrentLogHandler/0.8.7 (to deal with windows locks)
-                #since this only happens on windows boxes, if it's nix/mac use the default logger.
-                if comicarr.OS_DETECT == 'Windows':
-                    #set the path to the lib here - just to make sure it can detect cloghandler & portalocker.
+                # concurrentLogHandler/0.8.7 (to deal with windows locks)
+                # since this only happens on windows boxes, if it's nix/mac use the default logger.
+                if comicarr.OS_DETECT == "Windows":
+                    # set the path to the lib here - just to make sure it can detect cloghandler & portalocker.
                     import sys
-                    sys.path.append(os.path.join(comicarr.PROG_DIR, 'lib'))
+
+                    sys.path.append(os.path.join(comicarr.PROG_DIR, "lib"))
 
                     try:
                         from ConcurrentLogHandler.cloghandler import ConcurrentRotatingFileHandler as RFHandler
-                        comicarr.LOGTYPE = 'clog'
+
+                        comicarr.LOGTYPE = "clog"
                     except ImportError:
-                        comicarr.LOGTYPE = 'log'
+                        comicarr.LOGTYPE = "log"
                         from logging.handlers import RotatingFileHandler as RFHandler
                 else:
-                    comicarr.LOGTYPE = 'log'
+                    comicarr.LOGTYPE = "log"
                     from logging.handlers import RotatingFileHandler as RFHandler
 
-                filehandler = RFHandler(
-                    self.filename,
-                    maxBytes=max_logsize,
-                    backupCount=max_logfiles)
+                filehandler = RFHandler(self.filename, maxBytes=max_logsize, backupCount=max_logfiles)
 
                 filehandler.setLevel(logging.DEBUG)
 
-                fileformatter = logging.Formatter('%(asctime)s - %(levelname)-7s :: %(message)s', '%d-%b-%Y %H:%M:%S')
+                fileformatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(message)s", "%d-%b-%Y %H:%M:%S")
 
                 filehandler.setFormatter(fileformatter)
                 lg.addHandler(filehandler)
@@ -121,14 +120,14 @@ if not LOG_LANG.startswith('en'):
                     consolehandler.setLevel(logging.INFO)
                 if loglevel >= 2:
                     consolehandler.setLevel(logging.DEBUG)
-                consoleformatter = logging.Formatter('%(asctime)s - %(levelname)s :: %(message)s', '%d-%b-%Y %H:%M:%S')
+                consoleformatter = logging.Formatter("%(asctime)s - %(levelname)s :: %(message)s", "%d-%b-%Y %H:%M:%S")
                 consolehandler.setFormatter(consoleformatter)
                 lg.addHandler(consolehandler)
                 self.consolehandler = consolehandler
 
         @staticmethod
         def log(message, level, *args, **kwargs):
-            logger = logging.getLogger('comicarr')
+            logger = logging.getLogger("comicarr")
 
             threadname = threading.currentThread().getName()
 
@@ -143,45 +142,45 @@ if not LOG_LANG.startswith('en'):
                 method = ""
                 lineno = ""
 
-            if level != 'DEBUG' or comicarr.LOG_LEVEL >= 2:
+            if level != "DEBUG" or comicarr.LOG_LEVEL >= 2:
                 comicarr.LOGLIST.insert(0, (helpers.now(), message, level, threadname))
                 if len(comicarr.LOGLIST) > 2500:
                     del comicarr.LOGLIST[-1]
 
             message = "%s : %s:%s:%s : %s" % (threadname, program, method, lineno, message)
-            if level == 'DEBUG':
+            if level == "DEBUG":
                 logger.debug(message, *args, **kwargs)
-            elif level == 'INFO':
+            elif level == "INFO":
                 logger.info(message, *args, **kwargs)
-            elif level == 'WARNING':
+            elif level == "WARNING":
                 logger.warning(message, *args, **kwargs)
             else:
                 logger.error(message, *args, **kwargs)
 
-    comicarr_log = RotatingLogger('comicarr.log')
-    filename = 'comicarr.log'
+    comicarr_log = RotatingLogger("comicarr.log")
+    filename = "comicarr.log"
 
     def debug(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 1:
-            comicarr_log.log(message, 'DEBUG', *args, **kwargs)
+            comicarr_log.log(message, "DEBUG", *args, **kwargs)
 
     def fdebug(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 1:
-            comicarr_log.log(message, 'DEBUG', *args, **kwargs)
+            comicarr_log.log(message, "DEBUG", *args, **kwargs)
 
     def info(message, *args, **kwargs):
         if comicarr.LOG_LEVEL > 0:
-            comicarr_log.log(message, 'INFO', *args, **kwargs)
+            comicarr_log.log(message, "INFO", *args, **kwargs)
 
     def warn(message, *args, **kwargs):
-        comicarr_log.log(message, 'WARNING', *args, **kwargs)
+        comicarr_log.log(message, "WARNING", *args, **kwargs)
 
     def error(message, *args, **kwargs):
-        comicarr_log.log(message, 'ERROR', *args, **kwargs)
+        comicarr_log.log(message, "ERROR", *args, **kwargs)
 
 else:
     # Comicarr logger
-    logger = logging.getLogger('comicarr')
+    logger = logging.getLogger("comicarr")
 
     class LogListHandler(logging.Handler):
         """
@@ -194,28 +193,30 @@ else:
             comicarr.LOGLIST.insert(0, (helpers.now(), message, record.levelname, record.threadName))
 
     def initLogger(console=False, log_dir=False, init=False, loglevel=1, max_logsize=None, max_logfiles=5):
-        #concurrentLogHandler/0.8.7 (to deal with windows locks)
-        #since this only happens on windows boxes, if it's nix/mac use the default logger.
-        if platform.system() == 'Windows':
-            #set the path to the lib here - just to make sure it can detect cloghandler & portalocker.
+        # concurrentLogHandler/0.8.7 (to deal with windows locks)
+        # since this only happens on windows boxes, if it's nix/mac use the default logger.
+        if platform.system() == "Windows":
+            # set the path to the lib here - just to make sure it can detect cloghandler & portalocker.
             import sys
-            sys.path.append(os.path.join(comicarr.PROG_DIR, 'lib'))
+
+            sys.path.append(os.path.join(comicarr.PROG_DIR, "lib"))
 
             try:
                 from ConcurrentLogHandler.cloghandler import ConcurrentRotatingFileHandler as RFHandler
-                comicarr.LOGTYPE = 'clog'
+
+                comicarr.LOGTYPE = "clog"
             except ImportError:
-                comicarr.LOGTYPE = 'log'
+                comicarr.LOGTYPE = "log"
                 from logging.handlers import RotatingFileHandler as RFHandler
         else:
-            comicarr.LOGTYPE = 'log'
+            comicarr.LOGTYPE = "log"
             from logging.handlers import RotatingFileHandler as RFHandler
 
         if all([init is True, max_logsize is None]):
-            max_logsize = 1000000 #1 MB
+            max_logsize = 1000000  # 1 MB
         else:
             if max_logsize is None:
-                max_logsize = 1000000 # 1 MB
+                max_logsize = 1000000  # 1 MB
 
         """
         Setup logging for Comicarr. It uses the logger instance with the name
@@ -226,11 +227,11 @@ else:
         * StreamHandler: for console
         """
 
-        logging.getLogger('apscheduler.scheduler').setLevel(logging.WARN)
-        logging.getLogger('apscheduler.threadpool').setLevel(logging.WARN)
-        logging.getLogger('apscheduler.scheduler').propagate = False
-        logging.getLogger('apscheduler.threadpool').propagate = False
-        logging.getLogger('cherrypy').propagate = False
+        logging.getLogger("apscheduler.scheduler").setLevel(logging.WARN)
+        logging.getLogger("apscheduler.threadpool").setLevel(logging.WARN)
+        logging.getLogger("apscheduler.scheduler").propagate = False
+        logging.getLogger("apscheduler.threadpool").propagate = False
+        logging.getLogger("cherrypy").propagate = False
 
         # Close and remove old handlers. This is required to reinit the loggers
         # at runtime
@@ -249,9 +250,9 @@ else:
         if init is True:
             logger.setLevel(logging.INFO)
         else:
-            if loglevel == 1:  #normal
+            if loglevel == 1:  # normal
                 logger.setLevel(logging.INFO)
-            elif loglevel >= 2:   #verbose
+            elif loglevel >= 2:  # verbose
                 logger.setLevel(logging.DEBUG)
 
         # Add list logger
@@ -261,12 +262,15 @@ else:
 
         # Setup file logger
         if log_dir:
-            filename = os.path.join(log_dir, 'comicarr.log')
-            file_formatter = Formatter('%(asctime)s - %(levelname)-7s :: %(name)s.%(funcName)s.%(lineno)s : %(threadName)s : %(message)s', '%d-%b-%Y %H:%M:%S')
+            filename = os.path.join(log_dir, "comicarr.log")
+            file_formatter = Formatter(
+                "%(asctime)s - %(levelname)-7s :: %(name)s.%(funcName)s.%(lineno)s : %(threadName)s : %(message)s",
+                "%d-%b-%Y %H:%M:%S",
+            )
             file_handler = RFHandler(filename, "a", maxBytes=max_logsize, backupCount=max_logfiles)
-            if loglevel == 1:  #normal
+            if loglevel == 1:  # normal
                 file_handler.setLevel(logging.INFO)
-            elif loglevel >= 2:   #verbose
+            elif loglevel >= 2:  # verbose
                 file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(file_formatter)
 
@@ -274,12 +278,15 @@ else:
 
         # Setup console logger
         if console:
-            console_formatter = logging.Formatter('%(asctime)s - %(levelname)s :: %(name)s.%(funcName)s.%(lineno)s : %(threadName)s : %(message)s', '%d-%b-%Y %H:%M:%S')
+            console_formatter = logging.Formatter(
+                "%(asctime)s - %(levelname)s :: %(name)s.%(funcName)s.%(lineno)s : %(threadName)s : %(message)s",
+                "%d-%b-%Y %H:%M:%S",
+            )
             console_handler = logging.StreamHandler()
             console_handler.setFormatter(console_formatter)
-            if loglevel == 1:  #normal
+            if loglevel == 1:  # normal
                 console_handler.setLevel(logging.INFO)
-            elif loglevel >= 2:   #verbose
+            elif loglevel >= 2:  # verbose
                 console_handler.setLevel(logging.DEBUG)
 
             logger.addHandler(console_handler)
@@ -330,6 +337,7 @@ else:
                         raise
                     except:
                         excepthook(*sys.exc_info())
+
                 self.run = new_run
 
             # Monkey patch the run() by monkey patching the __init__ method

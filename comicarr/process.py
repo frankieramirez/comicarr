@@ -20,12 +20,24 @@
 
 import queue
 import threading
+
 import comicarr
+
 from . import logger
 
-class Process(object):
 
-    def __init__(self, nzb_name, nzb_folder, failed=False, issueid=None, comicid=None, apicall=False, ddl=False, download_info=None):
+class Process(object):
+    def __init__(
+        self,
+        nzb_name,
+        nzb_folder,
+        failed=False,
+        issueid=None,
+        comicid=None,
+        apicall=False,
+        ddl=False,
+        download_info=None,
+    ):
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
         self.failed = failed
@@ -36,17 +48,32 @@ class Process(object):
         self.download_info = download_info
 
     def post_process(self):
-        if self.failed == '0':
+        if self.failed == "0":
             self.failed = False
-        elif self.failed == '1':
+        elif self.failed == "1":
             self.failed = True
 
         ppqueue = queue.Queue()
         retry_outside = False
 
         if self.failed is False:
-            PostProcess = comicarr.postprocessor.PostProcessor(self.nzb_name, self.nzb_folder, self.issueid, queue=ppqueue, comicid=self.comicid, apicall=self.apicall, ddl=self.ddl)
-            if any([self.nzb_name == 'Manual Run', self.nzb_name == 'Manual+Run', self.apicall is True, self.issueid is not None]):
+            PostProcess = comicarr.postprocessor.PostProcessor(
+                self.nzb_name,
+                self.nzb_folder,
+                self.issueid,
+                queue=ppqueue,
+                comicid=self.comicid,
+                apicall=self.apicall,
+                ddl=self.ddl,
+            )
+            if any(
+                [
+                    self.nzb_name == "Manual Run",
+                    self.nzb_name == "Manual+Run",
+                    self.apicall is True,
+                    self.issueid is not None,
+                ]
+            ):
                 threading.Thread(target=PostProcess.Process).start()
             else:
                 thread_ = threading.Thread(target=PostProcess.Process, name="Post-Processing")
@@ -54,67 +81,76 @@ class Process(object):
                 thread_.join()
                 chk = ppqueue.get()
                 while True:
-                    if chk[0]['mode'] == 'fail':
-                        logger.info('Initiating Failed Download handling')
-                        if chk[0]['annchk'] == 'no':
-                            mode = 'want'
+                    if chk[0]["mode"] == "fail":
+                        logger.info("Initiating Failed Download handling")
+                        if chk[0]["annchk"] == "no":
+                            mode = "want"
                         else:
-                            mode = 'want_ann'
+                            mode = "want_ann"
                         self.failed = True
                         break
-                    elif chk[0]['mode'] == 'stop':
+                    elif chk[0]["mode"] == "stop":
                         break
-                    elif chk[0]['mode'] == 'outside':
+                    elif chk[0]["mode"] == "outside":
                         retry_outside = True
                         break
                     else:
-                        logger.error('mode is unsupported: ' + chk[0]['mode'])
+                        logger.error("mode is unsupported: " + chk[0]["mode"])
                         break
 
         if self.failed is True:
             if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
-                #drop the if-else continuation so we can drop down to this from the above if statement.
-                logger.info('Initiating Failed Download handling for this download.')
-                nzbid = self.download_info['id']
-                provider = self.download_info['provider']
-                FailProcess = comicarr.failed.FailedProcessor(nzb_name=self.nzb_name, nzb_folder=self.nzb_folder, queue=ppqueue, prov=provider, id=nzbid)
+                # drop the if-else continuation so we can drop down to this from the above if statement.
+                logger.info("Initiating Failed Download handling for this download.")
+                nzbid = self.download_info["id"]
+                provider = self.download_info["provider"]
+                FailProcess = comicarr.failed.FailedProcessor(
+                    nzb_name=self.nzb_name, nzb_folder=self.nzb_folder, queue=ppqueue, prov=provider, id=nzbid
+                )
                 thread_ = threading.Thread(target=FailProcess.Process, name="FAILED Post-Processing")
                 thread_.start()
                 thread_.join()
                 failchk = ppqueue.get()
-                if failchk[0]['mode'] == 'retry':
-                    logger.info('Attempting to return to search module with ' + str(failchk[0]['issueid']))
-                    if failchk[0]['annchk'] == 'no':
-                        mode = 'want'
+                if failchk[0]["mode"] == "retry":
+                    logger.info("Attempting to return to search module with " + str(failchk[0]["issueid"]))
+                    if failchk[0]["annchk"] == "no":
+                        mode = "want"
                     else:
-                        mode = 'want_ann'
+                        mode = "want_ann"
                     qq = comicarr.webserve.WebInterface()
-                    qt = qq.queueit(mode=mode, ComicName=failchk[0]['comicname'], ComicIssue=failchk[0]['issuenumber'], ComicID=failchk[0]['comicid'], IssueID=failchk[0]['issueid'], manualsearch=True)
-                elif failchk[0]['mode'] == 'stop':
+                    qq.queueit(
+                        mode=mode,
+                        ComicName=failchk[0]["comicname"],
+                        ComicIssue=failchk[0]["issuenumber"],
+                        ComicID=failchk[0]["comicid"],
+                        IssueID=failchk[0]["issueid"],
+                        manualsearch=True,
+                    )
+                elif failchk[0]["mode"] == "stop":
                     pass
                 else:
-                    logger.error('mode is unsupported: ' + failchk[0]['mode'])
+                    logger.error("mode is unsupported: " + failchk[0]["mode"])
             else:
-                logger.warn('Failed Download Handling is not enabled. Leaving Failed Download as-is.')
+                logger.warn("Failed Download Handling is not enabled. Leaving Failed Download as-is.")
 
         if retry_outside:
-            PostProcess = comicarr.postprocessor.PostProcessor('Manual Run', self.nzb_folder, queue=ppqueue)
+            PostProcess = comicarr.postprocessor.PostProcessor("Manual Run", self.nzb_folder, queue=ppqueue)
             thread_ = threading.Thread(target=PostProcess.Process, name="Post-Processing")
             thread_.start()
             thread_.join()
             chk = ppqueue.get()
             while True:
-                if chk[0]['mode'] == 'fail':
-                    logger.info('Initiating Failed Download handling')
-                    if chk[0]['annchk'] == 'no':
-                        mode = 'want'
+                if chk[0]["mode"] == "fail":
+                    logger.info("Initiating Failed Download handling")
+                    if chk[0]["annchk"] == "no":
+                        mode = "want"
                     else:
-                        mode = 'want_ann'
+                        mode = "want_ann"
                     self.failed = True
                     break
-                elif chk[0]['mode'] == 'stop':
+                elif chk[0]["mode"] == "stop":
                     break
                 else:
-                    logger.error('mode is unsupported: ' + chk[0]['mode'])
+                    logger.error("mode is unsupported: " + chk[0]["mode"])
                     break
         return

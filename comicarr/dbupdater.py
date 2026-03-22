@@ -18,19 +18,20 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import comicarr
+from comicarr import helpers, logger
 
-from comicarr import logger, helpers
+# import threading
 
-#import threading
 
-class dbUpdate():
+class dbUpdate:
     def __init__(self, sched):
         pass
 
     def run(self, sched):
-        logger.info('[DBUpdate] Updating Database.')
-        helpers.job_management(write=True, job='DB Updater', current_run=helpers.utctimestamp(), status='Running')
+        logger.info("[DBUpdate] Updating Database.")
+        helpers.job_management(write=True, job="DB Updater", current_run=helpers.utctimestamp(), status="Running")
         comicarr.updater.dbUpdate(sched=sched)
-        helpers.job_management(write=True, job='DB Updater', last_run_completed=helpers.utctimestamp(), status='Waiting')
+        helpers.job_management(
+            write=True, job="DB Updater", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        )

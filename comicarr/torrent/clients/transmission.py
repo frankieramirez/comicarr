@@ -1,7 +1,9 @@
 import os
+
+from transmissionrpc import Client
+
 import comicarr
 from comicarr import logger
-from transmissionrpc import Client
 
 
 class TorrentClient(object):
@@ -16,15 +18,11 @@ class TorrentClient(object):
             return False
         try:
             if username and password:
-                self.conn = Client(
-                    host,
-                    user=username,
-                    password=password
-                )
+                self.conn = Client(host, user=username, password=password)
             else:
                 self.conn = Client(host)
         except:
-            logger.error('Could not connect to %h' % host)
+            logger.error("Could not connect to %h" % host)
             return False
 
         return self.conn
@@ -33,7 +31,7 @@ class TorrentClient(object):
         try:
             return self.conn.get_torrent(hash)
         except KeyError:
-            logger.error('torrent %s does not exist')
+            logger.error("torrent %s does not exist")
             return False
 
     def get_torrent(self, torrent):
@@ -42,26 +40,25 @@ class TorrentClient(object):
         torrent_directory = os.path.normpath(torrent.downloadDir)
 
         for f in torrent.files().values():
-            if not os.path.normpath(f['name']).startswith(torrent_directory):
-                file_path = os.path.join(torrent_directory,
-                                         f['name'].lstrip('/'))
+            if not os.path.normpath(f["name"]).startswith(torrent_directory):
+                file_path = os.path.join(torrent_directory, f["name"].lstrip("/"))
             else:
-                file_path = f['name']
+                file_path = f["name"]
 
             torrent_files.append(file_path)
 
         torrent_info = {
-            'hash': torrent.hashString,
-            'name': torrent.name,
-            'folder': torrent.downloadDir,
-            'completed': torrent.progress == 100,
-            'label': 'None', ## labels not supported in transmission - for when it's in transmission
-            'files': torrent_files,
-            'upload_total': torrent.uploadedEver,
-            'download_total': torrent.downloadedEver,
-            'ratio': torrent.ratio,
-            'total_filesize': torrent.sizeWhenDone,
-            'time_started': torrent.date_started
+            "hash": torrent.hashString,
+            "name": torrent.name,
+            "folder": torrent.downloadDir,
+            "completed": torrent.progress == 100,
+            "label": "None",  ## labels not supported in transmission - for when it's in transmission
+            "files": torrent_files,
+            "upload_total": torrent.uploadedEver,
+            "download_total": torrent.downloadedEver,
+            "ratio": torrent.ratio,
+            "total_filesize": torrent.sizeWhenDone,
+            "time_started": torrent.date_started,
         }
         logger.debug(torrent_info)
         return torrent_info if torrent_info else False
@@ -73,16 +70,20 @@ class TorrentClient(object):
         return torrent.stop()
 
     def load_torrent(self, filepath):
-        if any([comicarr.CONFIG.TRANSMISSION_DIRECTORY is None, comicarr.CONFIG.TRANSMISSION_DIRECTORY == '', comicarr.CONFIG.TRANSMISSION_DIRECTORY == 'None']):
+        if any(
+            [
+                comicarr.CONFIG.TRANSMISSION_DIRECTORY is None,
+                comicarr.CONFIG.TRANSMISSION_DIRECTORY == "",
+                comicarr.CONFIG.TRANSMISSION_DIRECTORY == "None",
+            ]
+        ):
             down_dir = comicarr.CONFIG.CHECK_FOLDER
         else:
             down_dir = comicarr.CONFIG.TRANSMISSION_DIRECTORY
-        if filepath.startswith('magnet'):
-            torrent = self.conn.add_torrent('%s' % filepath,
-                                            download_dir=down_dir)
+        if filepath.startswith("magnet"):
+            torrent = self.conn.add_torrent("%s" % filepath, download_dir=down_dir)
         else:
-            torrent = self.conn.add_torrent('file://%s' % filepath,
-                                            download_dir=down_dir)
+            torrent = self.conn.add_torrent("file://%s" % filepath, download_dir=down_dir)
 
         torrent.start()
         return self.get_torrent(torrent)
@@ -91,8 +92,7 @@ class TorrentClient(object):
         deleted = []
         files = torrent.files()
         for file_item in files.values():
-            file_path = os.path.join(torrent.downloadDir,
-                                     file_item['name'])
+            file_path = os.path.join(torrent.downloadDir, file_item["name"])
             deleted.append(file_path)
 
         if len(files) > 1:
@@ -103,5 +103,5 @@ class TorrentClient(object):
         if self.conn.remove_torrent(torrent.hashString, delete_data=True):
             return deleted
         else:
-            logger.error('Unable to delete %s' % torrent.name)
+            logger.error("Unable to delete %s" % torrent.name)
             return []

@@ -22,14 +22,14 @@
 ##################################################
 
 
-
 import os
+import queue
 import sqlite3
 import threading
 import time
-import queue
 
 import comicarr
+
 from . import logger
 
 db_lock = threading.Lock()
@@ -67,31 +67,27 @@ class ConnectionPool:
         self._filename = "comicarr.db"
         self._connections = {}  # Track connections for cleanup
         self._conn_lock = threading.Lock()
-        logger.fdebug('ConnectionPool initialized.')
+        logger.fdebug("ConnectionPool initialized.")
 
     def get_connection(self, filename="comicarr.db"):
         """Get a connection for the current thread."""
         thread_id = threading.current_thread().ident
 
         # Check if this thread already has a connection
-        if not hasattr(_thread_local, 'connections'):
+        if not hasattr(_thread_local, "connections"):
             _thread_local.connections = {}
 
         if filename not in _thread_local.connections:
             # Create new connection for this thread
-            conn = sqlite3.connect(
-                dbFilename(filename),
-                timeout=20,
-                check_same_thread=False
-            )
+            conn = sqlite3.connect(dbFilename(filename), timeout=20, check_same_thread=False)
             conn.row_factory = sqlite3.Row
 
             # Set PRAGMAs on every new connection (per-connection state)
-            conn.execute('PRAGMA busy_timeout = 15000')  # 15s wait on locked DB
-            conn.execute('PRAGMA foreign_keys = ON')
-            conn.execute('PRAGMA synchronous = NORMAL')  # WAL-safe, faster writes
-            conn.execute('PRAGMA mmap_size = 67108864')  # 64MB memory-mapped I/O
-            conn.execute('PRAGMA journal_size_limit = 67108864')  # 64MB WAL journal limit
+            conn.execute("PRAGMA busy_timeout = 15000")  # 15s wait on locked DB
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA synchronous = NORMAL")  # WAL-safe, faster writes
+            conn.execute("PRAGMA mmap_size = 67108864")  # 64MB memory-mapped I/O
+            conn.execute("PRAGMA journal_size_limit = 67108864")  # 64MB WAL journal limit
 
             _thread_local.connections[filename] = conn
 
@@ -101,9 +97,7 @@ class ConnectionPool:
                     self._connections[thread_id] = {}
                 self._connections[thread_id][filename] = conn
 
-            logger.fdebug(
-                f'ConnectionPool: Created new connection for thread {thread_id}'
-            )
+            logger.fdebug(f"ConnectionPool: Created new connection for thread {thread_id}")
 
         return _thread_local.connections[filename]
 
@@ -111,14 +105,12 @@ class ConnectionPool:
         """Close all connections in the pool."""
         with self._conn_lock:
             for thread_id, conns in self._connections.items():
-                for filename, conn in conns.items():
+                for _filename, conn in conns.items():
                     try:
                         conn.close()
-                        logger.fdebug(
-                            f'ConnectionPool: Closed connection for thread {thread_id}'
-                        )
+                        logger.fdebug(f"ConnectionPool: Closed connection for thread {thread_id}")
                     except Exception as e:
-                        logger.warn(f'Error closing connection: {e}')
+                        logger.warn(f"Error closing connection: {e}")
             self._connections.clear()
 
 
@@ -133,12 +125,13 @@ def get_connection_pool():
         _connection_pool = ConnectionPool()
     return _connection_pool
 
+
 def dbFilename(filename="comicarr.db"):
 
     return os.path.join(comicarr.DATA_DIR, filename)
 
-class DBConnection:
 
+class DBConnection:
     def __init__(self, filename="comicarr.db"):
 
         self.filename = filename
@@ -148,7 +141,7 @@ class DBConnection:
 
     def fetch(self, query, args=None):
         # No lock needed for reads — WAL mode handles read concurrency
-        if query == None:
+        if query is None:
             return
 
         sqlResult = None
@@ -157,31 +150,29 @@ class DBConnection:
         while attempt < 5:
             try:
                 cursor = self.connection.cursor()
-                if args == None:
+                if args is None:
                     sqlResult = cursor.execute(query)
                 else:
                     sqlResult = cursor.execute(query, args)
                 break
             except sqlite3.OperationalError as e:
-                if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
-                    logger.warn('Database Error: %s' % e)
+                if any(["unable to open database file" in e.args[0], "database is locked" in e.args[0]]):
+                    logger.warn("Database Error: %s" % e)
                     attempt += 1
                     time.sleep(1)
                 else:
-                    logger.warn('DB error: %s' % e)
+                    logger.warn("DB error: %s" % e)
                     raise
             except sqlite3.DatabaseError as e:
-                logger.error('Fatal error executing query: %s' % e)
+                logger.error("Fatal error executing query: %s" % e)
                 raise
 
         return sqlResult
 
-
-
     def action(self, query, args=None, executemany=False):
 
         with db_lock:
-            if query == None:
+            if query is None:
                 return
 
             sqlResult = None
@@ -189,7 +180,7 @@ class DBConnection:
 
             while attempt < 5:
                 try:
-                    if args == None:
+                    if args is None:
                         if executemany is False:
                             sqlResult = self.connection.execute(query)
                         else:
@@ -202,13 +193,13 @@ class DBConnection:
                     self.connection.commit()
                     break
                 except sqlite3.OperationalError as e:
-                    if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
-                        logger.warn('Database Error: %s' % e)
-                        logger.warn('sqlresult: %s' %  query)
+                    if any(["unable to open database file" in e.args[0], "database is locked" in e.args[0]]):
+                        logger.warn("Database Error: %s" % e)
+                        logger.warn("sqlresult: %s" % query)
                         attempt += 1
                         time.sleep(1)
                     else:
-                        logger.error('Database error executing %s :: %s' % (query, e))
+                        logger.error("Database error executing %s :: %s" % (query, e))
                         raise
             return sqlResult
 
@@ -216,7 +207,7 @@ class DBConnection:
 
         sqlResults = self.fetch(query, args).fetchall()
 
-        if sqlResults == None:
+        if sqlResults is None:
             return []
 
         return sqlResults
@@ -224,11 +215,10 @@ class DBConnection:
     def selectone(self, query, args=None):
         sqlResults = self.fetch(query, args)
 
-        if sqlResults == None:
+        if sqlResults is None:
             return []
 
         return sqlResults
-
 
     def upsert(self, tableName, valueDict, keyDict):
         # Atomic UPDATE-then-INSERT holding db_lock across both operations.
@@ -236,9 +226,18 @@ class DBConnection:
         # (connection-scoped) to avoid the TOCTOU race condition.
 
         with db_lock:
-            genParams = lambda myDict: [x + " = ?" for x in list(myDict.keys())]
 
-            update_query = "UPDATE " + tableName + " SET " + ", ".join(genParams(valueDict)) + " WHERE " + " AND ".join(genParams(keyDict))
+            def genParams(myDict):
+                return [x + " = ?" for x in list(myDict.keys())]
+
+            update_query = (
+                "UPDATE "
+                + tableName
+                + " SET "
+                + ", ".join(genParams(valueDict))
+                + " WHERE "
+                + " AND ".join(genParams(keyDict))
+            )
             update_values = list(valueDict.values()) + list(keyDict.values())
 
             attempt = 0
@@ -247,18 +246,25 @@ class DBConnection:
                     cursor = self.connection.execute(update_query, update_values)
 
                     if cursor.rowcount == 0:
-                        insert_query = "INSERT INTO " + tableName + " (" + ", ".join(list(valueDict.keys()) + list(keyDict.keys())) + ")" + \
-                                    " VALUES (" + ", ".join(["?"] * len(list(valueDict.keys()) + list(keyDict.keys()))) + ")"
+                        insert_query = (
+                            "INSERT INTO "
+                            + tableName
+                            + " ("
+                            + ", ".join(list(valueDict.keys()) + list(keyDict.keys()))
+                            + ")"
+                            + " VALUES ("
+                            + ", ".join(["?"] * len(list(valueDict.keys()) + list(keyDict.keys())))
+                            + ")"
+                        )
                         self.connection.execute(insert_query, list(valueDict.values()) + list(keyDict.values()))
 
                     self.connection.commit()
                     break
                 except sqlite3.OperationalError as e:
-                    if any(['unable to open database file' in e.args[0], 'database is locked' in e.args[0]]):
-                        logger.warn('Database Error: %s' % e)
+                    if any(["unable to open database file" in e.args[0], "database is locked" in e.args[0]]):
+                        logger.warn("Database Error: %s" % e)
                         attempt += 1
                         time.sleep(1)
                     else:
-                        logger.error('Database error executing %s :: %s' % (update_query, e))
+                        logger.error("Database error executing %s :: %s" % (update_query, e))
                         raise
-

@@ -24,28 +24,31 @@
 # Session tool to be loaded.
 ###### from cherrypy/tools on github
 
-import cherrypy
-from cherrypy.lib.static import serve_file
-from html import escape
-#from datetime import datetime, timedelta
-import urllib.request, urllib.parse, urllib.error
-import re
 import threading
-import comicarr
-from comicarr import logger, encrypted
+import urllib.error
+import urllib.parse
 
-SESSION_KEY = '_cp_username'
+# from datetime import datetime, timedelta
+import urllib.request
+
+import cherrypy
+
+import comicarr
+from comicarr import encrypted, logger
+
+SESSION_KEY = "_cp_username"
+
 
 def check_credentials(username, password):
     """Verifies credentials for username and password.
     Returns None on success or a string describing the error on failure"""
     # Adapt to your needs
-    forms_user = cherrypy.request.config['auth.forms_username']
-    forms_pass = cherrypy.request.config['auth.forms_password']
+    forms_user = cherrypy.request.config["auth.forms_username"]
+    forms_pass = cherrypy.request.config["auth.forms_password"]
     edc = encrypted.Encryptor(forms_pass, logon=True)
     ed_chk = edc.decrypt_it()
     if comicarr.CONFIG.ENCRYPT_PASSWORDS is True:
-        if username == forms_user and all([ed_chk['status'] is True, ed_chk['password'] == password]):
+        if username == forms_user and all([ed_chk["status"] is True, ed_chk["password"] == password]):
             return None
         else:
             return "Incorrect username or password."
@@ -55,11 +58,12 @@ def check_credentials(username, password):
         else:
             return "Incorrect username or password."
 
+
 def check_auth(*args, **kwargs):
     """A tool that looks in config for 'auth.require'. If found and it
     is not None, a login is required and the entry is evaluated as a list of
     conditions that the user must fulfill"""
-    conditions = cherrypy.request.config.get('auth.require', None)
+    conditions = cherrypy.request.config.get("auth.require", None)
     get_params = urllib.parse.quote(cherrypy.request.request_line.split()[1])
     if conditions is not None:
         username = cherrypy.session.get(SESSION_KEY)
@@ -72,18 +76,22 @@ def check_auth(*args, **kwargs):
         else:
             raise cherrypy.HTTPRedirect(comicarr.CONFIG.HTTP_ROOT + "auth/login?from_page=%s" % get_params)
 
-cherrypy.tools.auth = cherrypy.Tool('before_handler', check_auth)
+
+cherrypy.tools.auth = cherrypy.Tool("before_handler", check_auth)
+
 
 def require(*conditions):
     """A decorator that appends conditions to the auth.require config
     variable."""
+
     def decorate(f):
-        if not hasattr(f, '_cp_config'):
-            f._cp_config = dict()
-        if 'auth.require' not in f._cp_config:
-            f._cp_config['auth.require'] = []
-        f._cp_config['auth.require'].extend(conditions)
+        if not hasattr(f, "_cp_config"):
+            f._cp_config = {}
+        if "auth.require" not in f._cp_config:
+            f._cp_config["auth.require"] = []
+        f._cp_config["auth.require"].extend(conditions)
         return f
+
     return decorate
 
 
@@ -94,43 +102,55 @@ def require(*conditions):
 #
 # Define those at will however suits the application.
 
+
 def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
-        return cherrypy.request.login == 'joe' and groupname == 'admin'
+        return cherrypy.request.login == "joe" and groupname == "admin"
+
     return check
+
 
 def name_is(reqd_username):
     return lambda: reqd_username == cherrypy.request.login
 
+
 # These might be handy
+
 
 def any_of(*conditions):
     """Returns True if any of the conditions match"""
+
     def check():
         for c in conditions:
             if c():
                 return True
         return False
+
     return check
+
 
 # By default all conditions are required, but this might still be
 # needed if you want to use it inside of an any_of(...) condition
 def all_of(*conditions):
     """Returns True if all of the conditions match"""
+
     def check():
         for c in conditions:
             if not c():
                 return False
         return True
+
     return check
 
+
 # Controller to provide login and logout actions
+
 
 class AuthController(object):
     def on_login(self, username):
         """Called on successful login"""
-        logger.info('%s successfully logged on.' % username)
+        logger.info("%s successfully logged on." % username)
         # not needed or used for Comicarr currently
 
     def on_logout(self, username):
@@ -140,10 +160,11 @@ class AuthController(object):
     def get_loginform(self, username, msg="Enter login information", from_page="/"):
         """Serve the React SPA which handles login UI"""
         from comicarr.webserve import _serve_spa_index
+
         return _serve_spa_index()
 
     @cherrypy.expose
-    def login(self, current_username=None, current_password=None, remember_me='0', from_page="/"):
+    def login(self, current_username=None, current_password=None, remember_me="0", from_page="/"):
         if current_username is None or current_password is None:
             return self.get_loginform("", from_page=from_page)
 
@@ -151,25 +172,30 @@ class AuthController(object):
         if error_msg:
             return self.get_loginform(current_username, error_msg, from_page)
         else:
-            #if all([from_page != "/", from_page != "//"]):
+            # if all([from_page != "/", from_page != "//"]):
             #    from_page = from_page
-            #if comicarr.OS_DETECT == 'Windows':
+            # if comicarr.OS_DETECT == 'Windows':
             #    if comicarr.CONFIG.HTTP_ROOT != "//":
             #        from_page = re.sub(comicarr.CONFIG.HTTP_ROOT, '', from_page,1).strip()
-            #else:
+            # else:
             #    #if comicarr.CONFIG.HTTP_ROOT != "/":
             #    from_page = re.sub(comicarr.CONFIG.HTTP_ROOT, '', from_page,1).strip()
             cherrypy.session.regenerate()
             cherrypy.session[SESSION_KEY] = cherrypy.request.login = current_username
-            #expiry = datetime.now() + (timedelta(days=30) if remember_me == '1' else timedelta(minutes=60))
-            #cherrypy.session[SESSION_KEY] = {'user':    cherrypy.request.login,
+            # expiry = datetime.now() + (timedelta(days=30) if remember_me == '1' else timedelta(minutes=60))
+            # cherrypy.session[SESSION_KEY] = {'user':    cherrypy.request.login,
             #                                 'expiry':  expiry}
             self.on_login(current_username)
             # Validate from_page is a safe relative path to prevent open redirect
             redirect_to = comicarr.CONFIG.HTTP_ROOT
             if from_page:
                 safe_page = from_page.strip()
-                if safe_page.startswith('/') and not safe_page.startswith('//') and '://' not in safe_page and '\\' not in safe_page:
+                if (
+                    safe_page.startswith("/")
+                    and not safe_page.startswith("//")
+                    and "://" not in safe_page
+                    and "\\" not in safe_page
+                ):
                     redirect_to = safe_page
             raise cherrypy.HTTPRedirect(redirect_to)
 
@@ -188,17 +214,17 @@ class AuthController(object):
     def login_json(self, username=None, password=None):
         """JSON-based login endpoint for React frontend"""
         if username is None or password is None:
-            return {'success': False, 'error': 'Missing username or password'}
+            return {"success": False, "error": "Missing username or password"}
 
         error_msg = check_credentials(username, password)
         if error_msg:
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
 
         # Successful login - create session
         cherrypy.session.regenerate()
         cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
         self.on_login(username)
-        return {'success': True, 'username': username}
+        return {"success": True, "username": username}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -210,7 +236,7 @@ class AuthController(object):
         if username:
             cherrypy.request.login = None
             self.on_logout(username)
-        return {'success': True}
+        return {"success": True}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -218,15 +244,15 @@ class AuthController(object):
         """Check if user has a valid session"""
         username = cherrypy.session.get(SESSION_KEY, None)
         if username:
-            return {'success': True, 'authenticated': True, 'username': username}
-        return {'success': True, 'authenticated': False}
+            return {"success": True, "authenticated": True, "username": username}
+        return {"success": True, "authenticated": False}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def check_setup(self):
         """Check if initial setup is needed (no credentials configured)."""
         needs_setup = not comicarr.CONFIG.HTTP_USERNAME or not comicarr.CONFIG.HTTP_PASSWORD
-        return {'success': True, 'needs_setup': needs_setup}
+        return {"success": True, "needs_setup": needs_setup}
 
     _setup_lock = threading.Lock()
 
@@ -235,36 +261,37 @@ class AuthController(object):
     def setup(self, username=None, password=None):
         """First-run credential setup. Only works if no auth is configured."""
         # Restrict to POST only to prevent CSRF via GET
-        if cherrypy.request.method != 'POST':
+        if cherrypy.request.method != "POST":
             cherrypy.response.status = 405
-            return {'success': False, 'error': 'Method not allowed'}
+            return {"success": False, "error": "Method not allowed"}
 
         # Serialize setup attempts to prevent race condition
         with self._setup_lock:
             # Only allow setup if no credentials are configured
             if comicarr.CONFIG.HTTP_USERNAME and comicarr.CONFIG.HTTP_PASSWORD:
-                return {'success': False, 'error': 'Credentials already configured'}
+                return {"success": False, "error": "Credentials already configured"}
 
             if not username or not password:
-                return {'success': False, 'error': 'Username and password required'}
+                return {"success": False, "error": "Username and password required"}
 
             if len(password) < 8:
-                return {'success': False, 'error': 'Password must be at least 8 characters'}
+                return {"success": False, "error": "Password must be at least 8 characters"}
 
             # Save credentials via process_kwargs (handles ConfigParser sync)
-            comicarr.CONFIG.process_kwargs({
-                'http_username': username,
-                'http_password': password,
-                'authentication': 2,  # Form-based auth
-            })
+            comicarr.CONFIG.process_kwargs(
+                {
+                    "http_username": username,
+                    "http_password": password,
+                    "authentication": 2,  # Form-based auth
+                }
+            )
             comicarr.CONFIG.writeconfig()
             comicarr.CONFIG.configure(update=True, startup=False)
 
-            logger.info('[AUTH-SETUP] Initial credentials configured for user: %s' % username)
+            logger.info("[AUTH-SETUP] Initial credentials configured for user: %s" % username)
 
             # CherryPy sessions are configured at mount time based on whether auth
             # is set. A server restart is needed for login/sessions to work.
-            comicarr.SIGNAL = 'restart'
+            comicarr.SIGNAL = "restart"
 
-            return {'success': True, 'username': username, 'needs_restart': True}
-
+            return {"success": True, "username": username, "needs_restart": True}

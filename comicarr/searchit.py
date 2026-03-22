@@ -18,21 +18,22 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import comicarr
+from comicarr import helpers, logger
 
-from comicarr import logger, helpers
 
-class CurrentSearcher():
+class CurrentSearcher:
     def __init__(self, **kwargs):
         pass
 
     def run(self):
 
-        logger.info('[SEARCH] Running Search for Wanted.')
-        helpers.job_management(write=True, job='Auto-Search', current_run=helpers.utctimestamp(), status='Running')
-        comicarr.SEARCH_STATUS = 'Running'
+        logger.info("[SEARCH] Running Search for Wanted.")
+        helpers.job_management(write=True, job="Auto-Search", current_run=helpers.utctimestamp(), status="Running")
+        comicarr.SEARCH_STATUS = "Running"
         comicarr.search.searchforissue()
-        helpers.job_management(write=True, job='Auto-Search', last_run_completed=helpers.utctimestamp(), status='Waiting')
-        #comicarr.SEARCH_STATUS = 'Waiting'
-        #comicarr.SCHED_SEARCH_LAST = helpers.now()
+        helpers.job_management(
+            write=True, job="Auto-Search", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        )
+        # comicarr.SEARCH_STATUS = 'Waiting'
+        # comicarr.SCHED_SEARCH_LAST = helpers.now()

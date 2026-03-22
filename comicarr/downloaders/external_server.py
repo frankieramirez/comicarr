@@ -1,2 +1,2 @@
-#placeholder
-EXT_SERVER=False
+# placeholder
+EXT_SERVER = False

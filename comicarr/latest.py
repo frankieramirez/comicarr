@@ -5,5 +5,5 @@ from comicarr import db
 
 def latestcheck():
 
-        myDB = db.DBConnection()
-        comics = myDB.select("SELECT * from comics WHERE LatestIssue = 'None'")
+    myDB = db.DBConnection()
+    myDB.select("SELECT * from comics WHERE LatestIssue = 'None'")

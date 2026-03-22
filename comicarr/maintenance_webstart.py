@@ -27,76 +27,75 @@ import portend as portend
 
 import comicarr
 from comicarr import logger
-from comicarr.webserve import WebMaintenance
 from comicarr.helpers import create_https_certificates
+from comicarr.webserve import WebMaintenance
+
 
 def initialize(options):
 
     # HTTPS stuff stolen from sickbeard
-    enable_https = options['enable_https']
-    https_cert = options['https_cert']
-    https_key = options['https_key']
-    https_chain = options['https_chain']
+    enable_https = options["enable_https"]
+    https_cert = options["https_cert"]
+    https_key = options["https_key"]
+    https_chain = options["https_chain"]
 
     if enable_https:
         # If either the HTTPS certificate or key do not exist, try to make
         # self-signed ones.
         if not (https_cert and os.path.exists(https_cert)) or not (https_key and os.path.exists(https_key)):
             if not create_https_certificates(https_cert, https_key):
-                logger.warn("Unable to create certificate and key. Disabling " \
-                    "HTTPS")
+                logger.warn("Unable to create certificate and key. Disabling HTTPS")
                 enable_https = False
 
         if not (os.path.exists(https_cert) and os.path.exists(https_key)):
-            logger.warn("Disabled HTTPS because of missing certificate and " \
-                "key.")
+            logger.warn("Disabled HTTPS because of missing certificate and key.")
             enable_https = False
 
     options_dict = {
-        'server.socket_port': options['http_port'],
-        'server.socket_host': options['http_host'],
-        'server.thread_pool': 10,
-        'tools.encode.on': True,
-        'tools.encode.encoding': 'utf-8',
-        'tools.encode.text_only': False,
-        'tools.decode.on': True,
-        'log.screen': False,
-        'engine.autoreload.on': False,
+        "server.socket_port": options["http_port"],
+        "server.socket_host": options["http_host"],
+        "server.thread_pool": 10,
+        "tools.encode.on": True,
+        "tools.encode.encoding": "utf-8",
+        "tools.encode.text_only": False,
+        "tools.decode.on": True,
+        "log.screen": False,
+        "engine.autoreload.on": False,
     }
 
     if enable_https:
-        options_dict['server.ssl_certificate'] = https_cert
-        options_dict['server.ssl_private_key'] = https_key
+        options_dict["server.ssl_certificate"] = https_cert
+        options_dict["server.ssl_private_key"] = https_key
         if https_chain:
-            options_dict['server.ssl_certificate_chain'] = https_chain
+            options_dict["server.ssl_certificate_chain"] = https_chain
         protocol = "https"
     else:
         protocol = "http"
 
-    logger.info("[MAINTENANCE-MODE] Starting Comicarr in maintenance mode on %s://%s:%d%s" % (protocol,options['http_host'], options['http_port'], options['http_root']))
+    logger.info(
+        "[MAINTENANCE-MODE] Starting Comicarr in maintenance mode on %s://%s:%d%s"
+        % (protocol, options["http_host"], options["http_port"], options["http_root"])
+    )
     cherrypy.config.update(options_dict)
 
     # Maintenance mode serves a simple inline HTML page, so minimal static config needed
-    frontend_dist = os.path.join(comicarr.PROG_DIR, 'frontend', 'dist')
+    frontend_dist = os.path.join(comicarr.PROG_DIR, "frontend", "dist")
 
     conf = {
-        '/': {
-            'tools.proxy.on': True  # pay attention to X-Forwarded-Proto header
+        "/": {
+            "tools.proxy.on": True  # pay attention to X-Forwarded-Proto header
         },
-        '/favicon.ico': {
-            'tools.staticfile.on': True,
-            'tools.staticfile.filename': os.path.join(frontend_dist, 'favicon.ico')
+        "/favicon.ico": {
+            "tools.staticfile.on": True,
+            "tools.staticfile.filename": os.path.join(frontend_dist, "favicon.ico"),
         },
-        '/cache': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': comicarr.CONFIG.CACHE_DIR
-        }
+        "/cache": {"tools.staticdir.on": True, "tools.staticdir.dir": comicarr.CONFIG.CACHE_DIR},
     }
 
-    if options['http_password'] is not None:
-        #userpassdict = dict(zip((options['http_username'].encode('utf-8'),), (options['http_password'].encode('utf-8'),)))
-        #get_ha1= cherrypy.lib.auth_digest.get_ha1_dict_plain(userpassdict)
-        if options['authentication'] == 2:
+    if options["http_password"] is not None:
+        # userpassdict = dict(zip((options['http_username'].encode('utf-8'),), (options['http_password'].encode('utf-8'),)))
+        # get_ha1= cherrypy.lib.auth_digest.get_ha1_dict_plain(userpassdict)
+        if options["authentication"] == 2:
             # Set up a sessions based login page instead of using basic auth,
             # using the credentials set for basic auth. Attempting to browse to
             # a restricted page without a session token will result in a
@@ -107,43 +106,49 @@ def initialize(options):
             # changed in the config.
             # Note - the following command doesn't actually work, see update statement 2 lines down
             # cherrypy.tools.sessions.timeout = options['login_timeout']
-            conf['/'].update({
-                'tools.sessions.on': True,
-                'tools.auth.on': True,
-                'tools.sessions.timeout': options['login_timeout'],
-                'auth.forms_username': options['http_username'],
-                'auth.forms_password': options['http_password'],
-                # Set all pages to require authentication.
-                # You can also set auth requirements on a per-method basis by
-                # using the @require() decorator on the methods in webserve.py
-                'auth.require': []
-            })
+            conf["/"].update(
+                {
+                    "tools.sessions.on": True,
+                    "tools.auth.on": True,
+                    "tools.sessions.timeout": options["login_timeout"],
+                    "auth.forms_username": options["http_username"],
+                    "auth.forms_password": options["http_password"],
+                    # Set all pages to require authentication.
+                    # You can also set auth requirements on a per-method basis by
+                    # using the @require() decorator on the methods in webserve.py
+                    "auth.require": [],
+                }
+            )
             # exempt api, login page and static elements from authentication requirements
-            for i in ('/api', '/auth/login', '/favicon.ico'):
+            for i in ("/api", "/auth/login", "/favicon.ico"):
                 if i in conf:
-                    conf[i].update({'tools.auth.on': False})
+                    conf[i].update({"tools.auth.on": False})
                 else:
-                    conf[i] = {'tools.auth.on': False}
-        elif options['authentication'] == 1:
-            conf['/'].update({
-                        'tools.auth_basic.on': True,
-                        'tools.auth_basic.realm': 'Comicarr',
-                        'tools.auth_basic.checkpassword':  cherrypy.lib.auth_basic.checkpassword_dict(
-                                {options['http_username']: options['http_password']})
-                    })
+                    conf[i] = {"tools.auth.on": False}
+        elif options["authentication"] == 1:
+            conf["/"].update(
+                {
+                    "tools.auth_basic.on": True,
+                    "tools.auth_basic.realm": "Comicarr",
+                    "tools.auth_basic.checkpassword": cherrypy.lib.auth_basic.checkpassword_dict(
+                        {options["http_username"]: options["http_password"]}
+                    ),
+                }
+            )
 
-    cherrypy.tree.mount(WebMaintenance(), str(options['http_root']), config = conf)
+    cherrypy.tree.mount(WebMaintenance(), str(options["http_root"]), config=conf)
 
     try:
-        portend.Checker().assert_free(options['http_host'], options['http_port'])
+        portend.Checker().assert_free(options["http_host"], options["http_port"])
         cherrypy.server.start()
     except Exception as e:
-        logger.error('[ERROR] %s' % e)
-        print('Failed to start on port: %i. Is something else running?' % (options['http_port']))
+        logger.error("[ERROR] %s" % e)
+        print("Failed to start on port: %i. Is something else running?" % (options["http_port"]))
         sys.exit(0)
 
     cherrypy.server.wait()
 
+
 def shutdown():
     cherrypy.engine.exit()
-    cherrypy.config.update({ 'server.shutdown_timeout': 1})
+    cherrypy.config.update({"server.shutdown_timeout": 1})

@@ -18,21 +18,21 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import comicarr
+from comicarr import helpers, logger, weeklypull
 
-from comicarr import logger, helpers, weeklypull
 
-class Weekly():
+class Weekly:
     def __init__(self):
         pass
 
     def run(self):
-        logger.info('[WEEKLY] Checking Weekly Pull-list for new releases/updates')
-        helpers.job_management(write=True, job='Weekly Pullist', current_run=helpers.utctimestamp(), status='Running')
-        comicarr.WEEKLY_STATUS = 'Running'
+        logger.info("[WEEKLY] Checking Weekly Pull-list for new releases/updates")
+        helpers.job_management(write=True, job="Weekly Pullist", current_run=helpers.utctimestamp(), status="Running")
+        comicarr.WEEKLY_STATUS = "Running"
         weeklypull.pullit()
         weeklypull.future_check()
-        helpers.job_management(write=True, job='Weekly Pullist', last_run_completed=helpers.utctimestamp(), status='Waiting')
-        #comicarr.WEEKLY_STATUS = 'Waiting'
-
+        helpers.job_management(
+            write=True, job="Weekly Pullist", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        )
+        # comicarr.WEEKLY_STATUS = 'Waiting'

@@ -18,21 +18,21 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import comicarr
+from comicarr import helpers, logger, versioncheck
 
-from comicarr import logger, helpers, versioncheck
 
-class CheckVersion():
+class CheckVersion:
     def __init__(self):
         pass
 
     def run(self, scheduled_job=True):
-        logger.info('[VersionCheck] Checking for new release on Github.')
-        helpers.job_management(write=True, job='Check Version', current_run=helpers.utctimestamp(), status='Running')
-        comicarr.VERSION_STATUS = 'Running'
+        logger.info("[VersionCheck] Checking for new release on Github.")
+        helpers.job_management(write=True, job="Check Version", current_run=helpers.utctimestamp(), status="Running")
+        comicarr.VERSION_STATUS = "Running"
         cc = versioncheck.checkGithub()
-        helpers.job_management(write=True, job='Check Version', last_run_completed=helpers.utctimestamp(), status='Waiting')
+        helpers.job_management(
+            write=True, job="Check Version", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        )
         if not scheduled_job:
             return cc
-
