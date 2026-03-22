@@ -569,7 +569,7 @@ def initialize(config_file):
                 comicarr.CONFIG.API_KEY = secrets.token_hex(16)
                 comicarr.CONFIG.API_ENABLED = True
                 comicarr.CONFIG.WRITE_THE_CONFIG = True
-                logger.info('[STARTUP] API key was not set - auto-generated a new API key')
+                logger.info("[STARTUP] API key was not set - auto-generated a new API key")
 
             from comicarr.downloaders import external_server as des
 
