@@ -61,7 +61,7 @@ def run(
         logger.fdebug("Filepath: %s" % filepath)
         logger.fdebug("Filename: %s" % filename)
         new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=comicarr.CONFIG.CACHE_DIR)  # prefix, suffix, dir
-        os.chmod(new_folder, 0o777)
+        os.chmod(new_folder, 0o755)
         logger.fdebug("New_Folder: %s" % new_folder)
         new_filepath = os.path.join(new_folder, filename)
         logger.fdebug("New_Filepath: %s" % new_filepath)

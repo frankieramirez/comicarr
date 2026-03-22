@@ -56,11 +56,13 @@ def runGit(args, ptv=None):
     for cur_git in git_locations:
         gitworked = False
 
-        cmd = "%s %s" % (cur_git, args)
+        import shlex
+
+        cmd_list = [cur_git] + shlex.split(args)
 
         try:
-            logger.debug("Trying to execute: %s with shell in %s" % (cmd, comicarr.PROG_DIR))
-            output = subprocess.run(cmd, text=True, capture_output=True, shell=True, cwd=comicarr.PROG_DIR)
+            logger.debug("Trying to execute: %s in %s" % (cmd_list, comicarr.PROG_DIR))
+            output = subprocess.run(cmd_list, text=True, capture_output=True, cwd=comicarr.PROG_DIR)
             logger.debug("Git output: %s" % output)
             gitworked = True
         except Exception as e:

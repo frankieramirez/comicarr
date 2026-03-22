@@ -908,17 +908,17 @@ class WebInterface(object):
             filters = []
 
         myDB = db.DBConnection()
-        sortcolumn = "b.Int_IssueNumber %s" % sSortDir_0
+        sort_dir = sSortDir_0.lower() if sSortDir_0.lower() in ("asc", "desc") else "desc"
+        sortcolumn = "b.Int_IssueNumber %s" % sort_dir
         if iSortCol_0 == "1":
-            sortcolumn = "b.Int_IssueNumber %s" % sSortDir_0
+            sortcolumn = "b.Int_IssueNumber %s" % sort_dir
         elif iSortCol_0 == "2":
-            sortcolumn = "b.IssueName %s" % sSortDir_0
+            sortcolumn = "b.IssueName %s" % sort_dir
         elif iSortCol_0 == "3":
-            sortcolumn = "b.ReleaseDate %s" % sSortDir_0
+            sortcolumn = "b.ReleaseDate %s" % sort_dir
         elif iSortCol_0 == "4":
-            sortcolumn = "b.Status %s" % sSortDir_0
+            sortcolumn = "b.Status %s" % sort_dir
 
-        # logger.info('sortcolumn: %s' % sortcolumn)
         queryline = (
             "SELECT a.ComicLocation as ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.ComicID = b.ComicID WHERE a.ComicID=? ORDER BY %s"
             % sortcolumn
@@ -2629,11 +2629,26 @@ class WebInterface(object):
             if delete_dir:  # comicarr.CONFIG.DELETE_REMOVE_DIR:
                 logger.fdebug("Remove directory on series removal enabled.")
                 if seriesdir is not None:
-                    if os.path.exists(seriesdir):
+                    # Path traversal protection: only allow rmtree within configured comic directories
+                    real_seriesdir = os.path.realpath(seriesdir)
+                    rmtree_allowed = False
+                    for root in [comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.COMIC_DIR]:
+                        if not root:
+                            continue
+                        real_root = os.path.realpath(root)
+                        try:
+                            if os.path.commonpath([real_root, real_seriesdir]) == real_root:
+                                rmtree_allowed = True
+                                break
+                        except ValueError:
+                            continue
+                    if not rmtree_allowed:
+                        logger.warn("[SECURITY] Blocked rmtree on path outside allowed directories: %s" % seriesdir)
+                    elif os.path.exists(seriesdir):
                         logger.fdebug("Attempting to remove the directory and contents of : " + seriesdir)
                         try:
                             shutil.rmtree(seriesdir)
-                        except:
+                        except Exception:
                             logger.warn("Unable to remove directory after removing series from Comicarr.")
                         else:
                             logger.info("Successfully removed directory: %s" % (seriesdir))
@@ -4262,14 +4277,16 @@ class WebInterface(object):
     def update_upcoming_filters(self):
         myDB = db.DBConnection()
 
-        statline = "Status='Wanted'"
+        stat_values = ["Wanted"]
         if comicarr.CONFIG.UPCOMING_SNATCHED is True:
-            statline += " OR Status='Snatched'"
+            stat_values.append("Snatched")
         if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
-            statline += " OR Status='Failed'"
+            stat_values.append("Failed")
+        stat_placeholders = ", ".join(["?" for _ in stat_values])
+        statline = "Status IN (%s)" % stat_placeholders
 
         iss_query = "SELECT ComicName, Status, ComicID, IssueID, DateAdded from issues WHERE %s" % statline
-        issues = myDB.select(iss_query)
+        issues = myDB.select(iss_query, stat_values)
 
         arcs = {}
         if comicarr.CONFIG.UPCOMING_STORYARCS is True:
@@ -4277,7 +4294,7 @@ class WebInterface(object):
                 "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, Status, ComicID, IssueID, DateAdded from storyarcs WHERE %s"
                 % statline
             )
-            arclist = myDB.select(arcs_query)
+            arclist = myDB.select(arcs_query, stat_values)
             for arc in arclist:
                 arcs[arc["IssueID"]] = {
                     "storyarc": arc["Storyarc"],
@@ -4305,7 +4322,7 @@ class WebInterface(object):
             # let's add the annuals to the wanted table so people can see them
             # ComicName wasn't present in db initially - added on startup chk now.
             annuals_query = "SELECT * FROM annuals WHERE NOT Deleted AND %s" % statline
-            annuals_list = myDB.select(annuals_query)
+            annuals_list = myDB.select(annuals_query, stat_values)
 
             issues += annuals_list
 
@@ -10735,9 +10752,11 @@ class WebInterface(object):
     blockProviders.exposed = True
 
     def viewSpecificLog(self, log_id):
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
+            return "Invalid log ID"
         logger.info("log_id: %s" % log_id)
         log_file = "specific_%s.log" % log_id
-        # because log_id = rowid, we don't need to check the db - just loo at the file.
         with open(os.path.join(comicarr.CONFIG.LOG_DIR, log_file)) as f:
             loglines = f.read()
             loglines = loglines.replace("\n", "</br>")
@@ -10746,6 +10765,9 @@ class WebInterface(object):
     viewSpecificLog.exposed = True
 
     def deleteSpecificLog(self, log_id=None, allspecific=None):
+        import re
+        if log_id is not None and not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
+            return json.dumps({"status": "error", "message": "Invalid log ID"})
         myDB = db.DBConnection()
         if all([allspecific is not None, log_id is None]):
             chk_specific = myDB.select("SELECT rowid FROM exceptions_log")
@@ -11541,6 +11563,23 @@ class WebInterface(object):
     ):
         if foldername is None or not os.path.exists(foldername):
             return json.dumps({"status": "fail", "message": "%s does not exist - please verify!" % (foldername)})
+
+        # Path traversal protection: restrict to configured comic directories
+        real_path = os.path.realpath(foldername)
+        allowed_roots = [comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.COMIC_DIR]
+        path_allowed = False
+        for root in allowed_roots:
+            if not root:
+                continue
+            real_root = os.path.realpath(root)
+            try:
+                if os.path.commonpath([real_root, real_path]) == real_root:
+                    path_allowed = True
+                    break
+            except ValueError:
+                continue
+        if not path_allowed:
+            return json.dumps({"status": "fail", "message": "Access denied: path outside allowed directories"})
 
         flc = filechecker.FileChecker(foldername, justparse=True, pp_mode=True)
         fl = flc.listFiles()

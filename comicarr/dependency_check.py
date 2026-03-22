@@ -226,7 +226,7 @@ class Req(object):
         for cmd in cmds:
             try:
                 logger.fdebug("Trying to execute: %s" % (cmd))
-                output = subprocess.run(cmd, text=True, capture_output=True, shell=True)
+                output = subprocess.run([cmd], text=True, capture_output=True)
                 # logger.fdebug('rar_check output: %s' % output)
                 itworked = True
             except Exception as e:

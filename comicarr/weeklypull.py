@@ -1616,17 +1616,12 @@ def mass_publishers(publishers, weeknumber, year):
         watchlist = myDB.select("SELECT * FROM weekly WHERE weeknumber=? and year=?", [weeknumber, year])
         comicarr.CONFIG.MASS_PUBLISHERS = []
     else:
-        cnt = 0
-        pblist = 'AND (publisher="%s"' % publishers[cnt]
         for pb in publishers:
-            if cnt > 0:
-                pblist += ' OR publisher="%s"' % pb
             pub_listing.append(pb)
-            cnt += 1
-        pblist += ")"
         comicarr.CONFIG.MASS_PUBLISHERS = json.loads(json.dumps(pub_listing))
-        query_line = "SELECT * FROM WEEKLY WHERE weeknumber=%s AND year=%s %s" % (weeknumber, year, pblist)
-        watchlist = myDB.select(query_line)
+        placeholders = ", ".join(["?" for _ in publishers])
+        query_line = "SELECT * FROM WEEKLY WHERE weeknumber=? AND year=? AND publisher IN (%s)" % placeholders
+        watchlist = myDB.select(query_line, [weeknumber, year] + list(publishers))
 
     comicarr.CONFIG.writeconfig(
         values={
