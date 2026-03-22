@@ -51,6 +51,24 @@ from comicarr.downloaders import mediafire, mega, pixeldrain
 from . import logger
 
 
+def is_path_within_allowed_dirs(path):
+    """Check if a path is within the configured comic directories.
+    Uses os.path.realpath + os.path.commonpath to prevent path traversal."""
+    import comicarr
+
+    real_path = os.path.realpath(path)
+    for root in [comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.COMIC_DIR]:
+        if not root:
+            continue
+        real_root = os.path.realpath(root)
+        try:
+            if os.path.commonpath([real_root, real_path]) == real_root:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def multikeysort(items, columns):
 
     comparers = [

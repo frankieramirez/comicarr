@@ -63,6 +63,17 @@ class LoginRateLimiter(object):
     def record_failure(self, ip):
         with self._lock:
             self._attempts[ip].append(time.monotonic())
+            # Evict stale entries if dict grows too large (IP spray defense)
+            if len(self._attempts) > 10000:
+                self._prune_stale()
+
+    def _prune_stale(self):
+        """Remove all expired entries. Called under lock."""
+        now = time.monotonic()
+        cutoff = now - self.lockout_seconds
+        stale_ips = [ip for ip, times in self._attempts.items() if not any(t > cutoff for t in times)]
+        for ip in stale_ips:
+            del self._attempts[ip]
 
     def record_success(self, ip):
         with self._lock:
@@ -85,7 +96,7 @@ def check_credentials(username, password):
     forms_user = cherrypy.request.config["auth.forms_username"]
     forms_pass = cherrypy.request.config["auth.forms_password"]
 
-    if username != forms_user:
+    if not hmac.compare_digest(username, forms_user):
         _rate_limiter.record_failure(ip)
         logger.info("[AUTH-AUDIT] Failed login attempt — invalid username from IP: %s" % ip)
         return "Incorrect username or password."
@@ -168,54 +179,6 @@ def require(*conditions):
 
     return decorate
 
-
-# Conditions are callables that return True
-# if the user fulfills the conditions they define, False otherwise
-#
-# They can access the current username as cherrypy.request.login
-#
-# Define those at will however suits the application.
-
-
-def member_of(groupname):
-    def check():
-        # replace with actual check if <username> is in <groupname>
-        return cherrypy.request.login == "joe" and groupname == "admin"
-
-    return check
-
-
-def name_is(reqd_username):
-    return lambda: reqd_username == cherrypy.request.login
-
-
-# These might be handy
-
-
-def any_of(*conditions):
-    """Returns True if any of the conditions match"""
-
-    def check():
-        for c in conditions:
-            if c():
-                return True
-        return False
-
-    return check
-
-
-# By default all conditions are required, but this might still be
-# needed if you want to use it inside of an any_of(...) condition
-def all_of(*conditions):
-    """Returns True if all of the conditions match"""
-
-    def check():
-        for c in conditions:
-            if not c():
-                return False
-        return True
-
-    return check
 
 
 # Controller to provide login and logout actions

@@ -72,7 +72,7 @@ def _csrf_protect():
     if cherrypy.request.method in ("POST", "PUT", "DELETE", "PATCH"):
         path = cherrypy.request.path_info
         for prefix in _CSRF_EXEMPT_PREFIXES:
-            if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+            if path == prefix or path.startswith(prefix + "/"):
                 return
         if cherrypy.request.headers.get("X-Requested-With") != "ComicarrFrontend":
             raise cherrypy.HTTPError(403, "CSRF validation failed")

@@ -67,12 +67,6 @@ def _get_fernet():
     return _fernet_instance
 
 
-def reset_fernet():
-    """Reset the cached Fernet instance (for testing or key rotation)."""
-    global _fernet_instance
-    _fernet_instance = None
-
-
 # --- bcrypt helpers for login passwords ---
 
 def hash_password(password):
@@ -112,6 +106,9 @@ def migrate_password(stored_password):
         # Old base64 encoding — decode to get plaintext
         try:
             decoded = base64.b64decode(stored_password[5:])
+            if len(decoded) <= 8:
+                logger.error("[ENCRYPTION] Base64 payload too short to contain password + salt")
+                return None
             plaintext = decoded[:-8].decode("utf-8")  # Strip 8-byte salt
         except Exception as e:
             logger.error("[ENCRYPTION] Failed to decode base64 password for migration: %s" % e)
@@ -130,7 +127,7 @@ class Encryptor(object):
 
     Handles migration from old base64 encoding (^~$z$ prefix) to Fernet (gAAAAA prefix).
     """
-    def __init__(self, password, chk_password=None, logon=False):
+    def __init__(self, password, logon=False):
         self.password = password
         self.logon = logon
 
@@ -138,8 +135,8 @@ class Encryptor(object):
         """Encrypt a plaintext credential with Fernet."""
         fernet = _get_fernet()
         if fernet is None:
-            logger.warn("[ENCRYPTION] Fernet not available — falling back to base64")
-            return self._legacy_encrypt()
+            logger.error("[ENCRYPTION] Fernet not available — cannot encrypt. Check SECURE_DIR and master.key.")
+            return {"status": False}
         try:
             token = fernet.encrypt(self.password.encode("utf-8"))
             return {"status": True, "password": token.decode("utf-8")}
@@ -175,22 +172,7 @@ class Encryptor(object):
                 logger.warn("Error when decrypting legacy password: %s" % e)
                 return {"status": False}
 
-        # Not encrypted — return as-is when logon is True (plaintext comparison path)
-        if self.logon:
-            return {"status": False}
-
-        if self.logon is False:
+        # Not encrypted — return failure
+        if not self.logon:
             logger.warn("Error not an encryption that I recognize.")
         return {"status": False}
-
-    def _legacy_encrypt(self):
-        """Fallback base64 encoding (used only if Fernet key is unavailable)."""
-        try:
-            salt = os.urandom(8)
-            salted_pass = base64.b64encode(b"%s%s" % (self.password.encode("utf-8"), salt))
-        except Exception as e:
-            logger.warn("Error when encrypting: %s" % e)
-            return {"status": False}
-        else:
-            fp = "%s%s" % ("^~$z$", salted_pass.decode("utf-8"))
-            return {"status": True, "password": fp}

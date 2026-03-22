@@ -2629,20 +2629,7 @@ class WebInterface(object):
             if delete_dir:  # comicarr.CONFIG.DELETE_REMOVE_DIR:
                 logger.fdebug("Remove directory on series removal enabled.")
                 if seriesdir is not None:
-                    # Path traversal protection: only allow rmtree within configured comic directories
-                    real_seriesdir = os.path.realpath(seriesdir)
-                    rmtree_allowed = False
-                    for root in [comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.COMIC_DIR]:
-                        if not root:
-                            continue
-                        real_root = os.path.realpath(root)
-                        try:
-                            if os.path.commonpath([real_root, real_seriesdir]) == real_root:
-                                rmtree_allowed = True
-                                break
-                        except ValueError:
-                            continue
-                    if not rmtree_allowed:
+                    if not helpers.is_path_within_allowed_dirs(seriesdir):
                         logger.warn("[SECURITY] Blocked rmtree on path outside allowed directories: %s" % seriesdir)
                     elif os.path.exists(seriesdir):
                         logger.fdebug("Attempting to remove the directory and contents of : " + seriesdir)
@@ -10752,20 +10739,19 @@ class WebInterface(object):
     blockProviders.exposed = True
 
     def viewSpecificLog(self, log_id):
-        import re
         if not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
             return "Invalid log ID"
         logger.info("log_id: %s" % log_id)
         log_file = "specific_%s.log" % log_id
         with open(os.path.join(comicarr.CONFIG.LOG_DIR, log_file)) as f:
             loglines = f.read()
-            loglines = loglines.replace("\n", "</br>")
+            import html
+            loglines = html.escape(loglines).replace("\n", "<br>")
         return loglines
 
     viewSpecificLog.exposed = True
 
     def deleteSpecificLog(self, log_id=None, allspecific=None):
-        import re
         if log_id is not None and not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
             return json.dumps({"status": "error", "message": "Invalid log ID"})
         myDB = db.DBConnection()
@@ -11564,21 +11550,7 @@ class WebInterface(object):
         if foldername is None or not os.path.exists(foldername):
             return json.dumps({"status": "fail", "message": "%s does not exist - please verify!" % (foldername)})
 
-        # Path traversal protection: restrict to configured comic directories
-        real_path = os.path.realpath(foldername)
-        allowed_roots = [comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.COMIC_DIR]
-        path_allowed = False
-        for root in allowed_roots:
-            if not root:
-                continue
-            real_root = os.path.realpath(root)
-            try:
-                if os.path.commonpath([real_root, real_path]) == real_root:
-                    path_allowed = True
-                    break
-            except ValueError:
-                continue
-        if not path_allowed:
+        if not helpers.is_path_within_allowed_dirs(foldername):
             return json.dumps({"status": "fail", "message": "Access denied: path outside allowed directories"})
 
         flc = filechecker.FileChecker(foldername, justparse=True, pp_mode=True)

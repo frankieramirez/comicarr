@@ -429,7 +429,7 @@ class Api(object):
 
         if verified:
             _rate_limiter.record_success(ip)
-            self.data = self._successResponse({"apikey": comicarr.CONFIG.API_KEY})
+            self.data = self._successResponse({"apikey": comicarr.CONFIG.API_KEY, "sse_key": comicarr.SSE_KEY})
         else:
             _rate_limiter.record_failure(ip)
             self.data = self._failureResponse("Incorrect username or password.")
