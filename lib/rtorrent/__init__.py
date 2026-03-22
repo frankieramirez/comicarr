@@ -1,3 +1,4 @@
+# Modified for Comicarr
 # Copyright (c) 2013 Chris Lucas, <chris@chrisjlucas.com>
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,7 +25,7 @@ import urllib
 import os.path
 import time
 import xmlrpc.client
-from mylar import logger
+from comicarr import logger
 from .connection import Connection
 from .common import find_torrent, join_uri, \
     update_uri, is_valid_port, convert_version_tuple_to_str

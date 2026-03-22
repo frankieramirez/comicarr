@@ -1,1 +1,1 @@
-# Unit tests for Mylar3
+# Unit tests for Comicarr

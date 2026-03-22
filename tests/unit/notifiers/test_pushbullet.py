@@ -9,7 +9,7 @@ class TestPushbulletInit:
     """Test PUSHBULLET initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         pushbullet = notifiers_module.PUSHBULLET()
 
         assert pushbullet.apikey == "test_pushbullet_apikey"
@@ -153,7 +153,7 @@ class TestPushbulletNotify:
     @responses.activate
     def test_notify_with_channel_tag(self, notifiers_module, mock_notifier_config):
         """Notification includes channel_tag when set."""
-        mock_notifier_config.PUSHBULLET_CHANNEL_TAG = "mylar_channel"
+        mock_notifier_config.PUSHBULLET_CHANNEL_TAG = "comicarr_channel"
 
         responses.add(
             responses.POST,
@@ -163,12 +163,12 @@ class TestPushbulletNotify:
         )
 
         pushbullet = notifiers_module.PUSHBULLET()
-        pushbullet.channel_tag = "mylar_channel"
+        pushbullet.channel_tag = "comicarr_channel"
         result = pushbullet.notify(prline="Test Comic", prline2="Issue downloaded")
 
         assert result["status"] is True
         request_body = json.loads(responses.calls[0].request.body)
-        assert request_body["channel_tag"] == "mylar_channel"
+        assert request_body["channel_tag"] == "comicarr_channel"
 
     @responses.activate
     def test_notify_module_appended(self, notifiers_module, mock_notifier_config):

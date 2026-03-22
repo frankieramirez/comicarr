@@ -1,39 +1,39 @@
 #!/bin/sh
 #
 ### BEGIN INIT INFO
-# Provides:          mylar
+# Provides:          comicarr
 # Required-Start:    $all
 # Required-Stop:     $all
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: starts Mylar
-# Description:       starts Mylar
+# Short-Description: starts Comicarr
+# Description:       starts Comicarr
 ### END INIT INFO
 
 # Source function library.
 . /etc/init.d/functions
 
-# Source SickBeard configuration
-if [ -f /etc/sysconfig/mylar ]; then
-        . /etc/sysconfig/mylar
+# Source Comicarr configuration
+if [ -f /etc/sysconfig/comicarr ]; then
+        . /etc/sysconfig/comicarr
 fi
 
-prog=mylar
+prog=comicarr
 lockfile=/var/lock/subsys/$prog
 
-## Edit user configuation in /etc/sysconfig/mylar to change
+## Edit user configuation in /etc/sysconfig/comicarr to change
 ## the defaults
-username=${MY_USER-mylar}
-homedir=${MY_HOME-/opt/mylar}
-datadir=${MY_DATA-/opt/mylar}
-pidfile=${MY_PIDFILE-/var/run/mylar/mylar.pid}
+username=${MY_USER-comicarr}
+homedir=${MY_HOME-/opt/comicarr}
+datadir=${MY_DATA-/opt/comicarr}
+pidfile=${MY_PIDFILE-/var/run/comicarr/comicarr.pid}
 nice=${MY_NICE-}
 ##
 
 pidpath=`dirname ${pidfile}`
 options=" --daemon --nolaunch --pidfile=${pidfile} --datadir=${datadir}"
 
-# create PID directory if not exist and ensure the SickBeard user can write to it
+# create PID directory if not exist and ensure the Comicarr user can write to it
 if [ ! -d $pidpath ]; then
         mkdir -p $pidpath
         chown $username $pidpath
@@ -47,7 +47,7 @@ fi
 start() {
         # Start daemon.
         echo -n $"Starting $prog: "
-        daemon --user=${username} --pidfile=${pidfile} ${nice} python ${homedir}/Mylar.py ${options}
+        daemon --user=${username} --pidfile=${pidfile} ${nice} python ${homedir}/Comicarr.py ${options}
         RETVAL=$?
         echo
         [ $RETVAL -eq 0 ] && touch $lockfile

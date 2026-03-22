@@ -2,9 +2,9 @@
 
 ## Overview
 
-This plan addresses the top feature requests from mylar3 GitHub issues that haven't been implemented yet. These features were identified by analyzing user votes, comment activity, and recurring themes.
+This plan addresses the top feature requests from the community GitHub issues that haven't been implemented yet. These features were identified by analyzing user votes, comment activity, and recurring themes.
 
-**Source:** https://github.com/mylar3/mylar3/issues
+**Source:** https://github.com/mylar3/mylar3/issues (original upstream)
 
 ---
 
@@ -49,12 +49,12 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 ### 1. Interactive Import Mapping Screen ✅ COMPLETED
 **Issue:** #1337 | **Priority:** High | **Effort:** Large (3-5 days) | **Status:** IMPLEMENTED
 
-**Problem:** When importing comics, Mylar often can't match files automatically. Users have to enable debug mode to find the root cause. Sonarr/Radarr have interactive import screens where users can manually map unrecognized files.
+**Problem:** When importing comics, Comicarr often can't match files automatically. Users have to enable debug mode to find the root cause. Sonarr/Radarr have interactive import screens where users can manually map unrecognized files.
 
 **Implementation Complete:**
 
 **Backend Changes:**
-- `mylar/__init__.py` - Added 6 new columns to `importresults` table:
+- `comicarr/__init__.py` - Added 6 new columns to `importresults` table:
   - `MatchConfidence` (INTEGER) - 0-100 confidence score
   - `SuggestedComicID` (TEXT) - Best match comic ID
   - `SuggestedComicName` (TEXT) - Best match display name
@@ -62,7 +62,7 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
   - `IgnoreFile` (INTEGER DEFAULT 0) - 1 = ignored
   - `MatchSource` (TEXT) - 'auto', 'manual', or 'metadata'
 
-- `mylar/api.py` - Added 5 new API commands:
+- `comicarr/api.py` - Added 5 new API commands:
   ```
   getImportPending   - List unmatched files with pagination
   matchImport        - Manually match file(s) to series
@@ -71,7 +71,7 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
   deleteImport       - Remove import record(s)
   ```
 
-- `mylar/filechecker.py` - Added `calculate_match_confidence()` function with scoring:
+- `comicarr/filechecker.py` - Added `calculate_match_confidence()` function with scoring:
   - Series Name Match: 40 pts (fuzzy matching)
   - Year Match: 15 pts
   - Volume Match: 15 pts
@@ -109,17 +109,17 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 **Implementation:**
 
 **Backend Changes:**
-- `mylar/api.py` - Add endpoint:
+- `comicarr/api.py` - Add endpoint:
   ```
   GET /api/v2/calendar.ics?apikey=...&weeks=4
   ```
-- Create `mylar/icalendar.py`:
+- Create `comicarr/icalendar.py`:
   ```python
   from icalendar import Calendar, Event
 
   def generate_ical_feed(weeks=4):
       cal = Calendar()
-      cal.add('prodid', '-//Mylar3//Comic Releases//EN')
+      cal.add('prodid', '-//Comicarr//Comic Releases//EN')
       cal.add('version', '2.0')
 
       upcoming = get_upcoming_issues(weeks)
@@ -143,8 +143,8 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
   - Instructions for adding to Google Calendar, etc.
 
 **Files to Modify:**
-- `mylar/api.py` - Add calendar endpoint
-- `mylar/icalendar.py` - New file
+- `comicarr/api.py` - Add calendar endpoint
+- `comicarr/icalendar.py` - New file
 - `requirements.txt` - Add icalendar package
 - `frontend/src/pages/SettingsPage.jsx` - Add calendar section
 
@@ -153,17 +153,17 @@ This plan addresses the top feature requests from mylar3 GitHub issues that have
 ### 3. Matrix Notifications ✅ COMPLETED
 **Issue:** #1216 | **Priority:** High | **Effort:** Small (0.5-1 day) | **Status:** IMPLEMENTED
 
-**Problem:** Matrix is a growing open-source chat platform. Other *arr apps support it, but Mylar doesn't.
+**Problem:** Matrix is a growing open-source chat platform. Other *arr apps support it, but Comicarr didn't previously.
 
 **Implementation Complete:**
 
 **Files Modified:**
-- `mylar/notifiers.py` - Added MATRIX class with notify() and test_notify() methods
-- `mylar/config.py` - Added MATRIX_ENABLED, MATRIX_HOMESERVER, MATRIX_ACCESS_TOKEN, MATRIX_ROOM_ID, MATRIX_ONSNATCH
-- `mylar/webserve.py` - Added getsettings entries, checked_configs, and testmatrix() endpoint
-- `mylar/search.py` - Added snatch notification call
-- `mylar/PostProcessor.py` - Added download notification call
-- `mylar/cmtagmylar.py` - Added error notification call
+- `comicarr/notifiers.py` - Added MATRIX class with notify() and test_notify() methods
+- `comicarr/config.py` - Added MATRIX_ENABLED, MATRIX_HOMESERVER, MATRIX_ACCESS_TOKEN, MATRIX_ROOM_ID, MATRIX_ONSNATCH
+- `comicarr/webserve.py` - Added getsettings entries, checked_configs, and testmatrix() endpoint
+- `comicarr/search.py` - Added snatch notification call
+- `comicarr/postprocessor.py` - Added download notification call
+- `comicarr/cmtag.py` - Added error notification call
 
 **Config Options:**
 ```ini
@@ -187,7 +187,7 @@ matrix_onsnatch = False
 **Implementation Complete:**
 
 **Backend Changes:**
-- `mylar/api.py` - Added `bulkMetatag` command that accepts:
+- `comicarr/api.py` - Added `bulkMetatag` command that accepts:
   - `id` (ComicID)
   - `issue_ids` (comma-separated IssueIDs)
   - Calls existing `webserve.WebInterface().bulk_metatag()` function
@@ -214,17 +214,17 @@ matrix_onsnatch = False
 ### 5. SLSKD (Soulseek) Download Source
 **Issue:** #1683 | **Priority:** Medium | **Effort:** Large (3-4 days)
 
-**Problem:** Soulseek has many comic collections shared by users. LazyLibrarian added SLSKD support, Mylar could benefit too.
+**Problem:** Soulseek has many comic collections shared by users. LazyLibrarian added SLSKD support, Comicarr could benefit too.
 
 **Implementation:**
 
 **Backend Changes:**
-- Create `mylar/downloaders/slskd.py`:
+- Create `comicarr/downloaders/slskd.py`:
   ```python
   class SLSKDDownloader:
       def __init__(self):
-          self.api_url = mylar.CONFIG.SLSKD_URL
-          self.api_key = mylar.CONFIG.SLSKD_API_KEY
+          self.api_url = comicarr.CONFIG.SLSKD_URL
+          self.api_key = comicarr.CONFIG.SLSKD_API_KEY
 
       def search(self, query):
           # POST /api/v0/searches
@@ -239,7 +239,7 @@ matrix_onsnatch = False
           pass
   ```
 
-- `mylar/config.py` - Add config:
+- `comicarr/config.py` - Add config:
   ```python
   SLSKD_ENABLED = False
   SLSKD_URL = ''
@@ -247,7 +247,7 @@ matrix_onsnatch = False
   SLSKD_PRIORITY = 3  # Order in search providers
   ```
 
-- `mylar/search.py` - Integrate SLSKD as search provider
+- `comicarr/search.py` - Integrate SLSKD as search provider
 
 **Frontend Changes:**
 - Settings → Download Clients: Add SLSKD section
@@ -257,9 +257,9 @@ matrix_onsnatch = False
   - Test connection button
 
 **Files to Modify:**
-- `mylar/downloaders/slskd.py` - New file
-- `mylar/config.py` - Add SLSKD config
-- `mylar/search.py` - Add SLSKD provider
+- `comicarr/downloaders/slskd.py` - New file
+- `comicarr/config.py` - Add SLSKD config
+- `comicarr/search.py` - Add SLSKD provider
 - `frontend/src/pages/SettingsPage.jsx` - Add SLSKD settings
 
 ---
@@ -272,7 +272,7 @@ matrix_onsnatch = False
 **Implementation:**
 
 **Backend Changes:**
-- `mylar/db.py` - Add `watch_keywords` table:
+- `comicarr/db.py` - Add `watch_keywords` table:
   ```sql
   CREATE TABLE watch_keywords (
       id INTEGER PRIMARY KEY,
@@ -284,14 +284,14 @@ matrix_onsnatch = False
   );
   ```
 
-- `mylar/api.py` - Add endpoints:
+- `comicarr/api.py` - Add endpoints:
   ```
   GET    /api/v2/watch-keywords
   POST   /api/v2/watch-keywords
   DELETE /api/v2/watch-keywords/{id}
   ```
 
-- `mylar/weeklypull.py` - Check keywords when processing weekly pull:
+- `comicarr/weeklypull.py` - Check keywords when processing weekly pull:
   ```python
   def check_keyword_matches(issue_title):
       keywords = get_watch_keywords()
@@ -311,9 +311,9 @@ matrix_onsnatch = False
   - Preview of recent matches
 
 **Files to Modify:**
-- `mylar/db.py` - Add watch_keywords table
-- `mylar/api.py` - Add keyword endpoints
-- `mylar/weeklypull.py` - Add keyword matching
+- `comicarr/db.py` - Add watch_keywords table
+- `comicarr/api.py` - Add keyword endpoints
+- `comicarr/weeklypull.py` - Add keyword matching
 - `frontend/src/pages/WatchKeywordsPage.jsx` - New page
 
 ---
@@ -326,13 +326,13 @@ matrix_onsnatch = False
 **Implementation:**
 
 **Backend Changes:**
-- `mylar/config.py` - Add config:
+- `comicarr/config.py` - Add config:
   ```python
   DDL_STUCK_NOTIFY = True
   DDL_STUCK_THRESHOLD = 30  # minutes
   ```
 
-- `mylar/__init__.py` - Add scheduler job:
+- `comicarr/__init__.py` - Add scheduler job:
   ```python
   def check_ddl_queue_health():
       oldest_pending = get_oldest_pending_ddl()
@@ -341,9 +341,9 @@ matrix_onsnatch = False
   ```
 
 **Files to Modify:**
-- `mylar/config.py` - Add stuck notification config
-- `mylar/__init__.py` - Add health check scheduler
-- `mylar/getcomics.py` - Add queue health check function
+- `comicarr/config.py` - Add stuck notification config
+- `comicarr/__init__.py` - Add health check scheduler
+- `comicarr/getcomics.py` - Add queue health check function
 
 ---
 
@@ -355,7 +355,7 @@ matrix_onsnatch = False
 **Implementation:**
 
 **Backend Changes:**
-- `mylar/api.py` - Add endpoint:
+- `comicarr/api.py` - Add endpoint:
   ```
   GET /api/v2/series/{id}/stats
   Response: {
@@ -378,8 +378,8 @@ matrix_onsnatch = False
   - "Scan for issues" button
 
 **Files to Modify:**
-- `mylar/api.py` - Add stats endpoint
-- `mylar/helpers.py` - Add stats calculation functions
+- `comicarr/api.py` - Add stats endpoint
+- `comicarr/helpers.py` - Add stats calculation functions
 - `frontend/src/pages/SeriesDetailPage.jsx` - Add stats panel
 - `frontend/src/components/series/SeriesStats.jsx` - New component
 

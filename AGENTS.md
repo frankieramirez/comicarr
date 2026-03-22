@@ -53,10 +53,10 @@ npm run preview
 
 ### Testing
 - No formal test suite exists currently
-- Test files are located in `mylar/test.py` (appears to be for manual rTorrent testing)
+- Test files are located in `comicarr/rtorrent_test_client.py` (for manual rTorrent testing)
 
 ## Codebase Index
-[Comicarr Code Index]|root: ./mylar
+[Comicarr Code Index]|root: ./comicarr
 |Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{frontend/src/:React 19 components}
 
 **IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
@@ -67,7 +67,7 @@ npm run preview
 
 #### Imports
 - Group imports: stdlib → third-party → local
-- Use absolute imports for mylar modules: `from mylar import logger, helpers`
+- Use absolute imports for comicarr modules: `from comicarr import logger, helpers`
 - Local imports use relative syntax within packages: `from . import logger`
 - Add `sys.path.insert(1, os.path.join(os.path.dirname(__file__), 'lib'))` for bundled libs
 
@@ -82,7 +82,7 @@ npm run preview
 - **Functions/Methods**: snake_case (e.g., `cleanName`, `latinToAscii`, `today`)
 - **Variables**: snake_case (e.g., `comic_id`, `file_path`)
 - **Constants**: UPPER_CASE (e.g., `CONFIG_VERSION`, `EXISTS_LARGER`)
-- **Module globals**: Often uppercase for config (e.g., `mylar.CONFIG`)
+- **Module globals**: Often uppercase for config (e.g., `comicarr.CONFIG`)
 
 #### Types
 - No type hints currently used in the codebase
@@ -95,7 +95,7 @@ npm run preview
 - Avoid bare `except:` clauses
 
 #### Logging
-- Use the custom logger module: `from mylar import logger`
+- Use the custom logger module: `from comicarr import logger`
 - Log levels: `logger.info()`, `logger.warn()`, `logger.error()`, `logger.fdebug()`
 - Always prefix log messages with context: `[MODULE-CONTEXT] message`
 - Use fdebug for detailed debug output
@@ -118,24 +118,24 @@ npm run preview
 ## Common Patterns
 
 ### Logging Pattern
-- Import: `from mylar import logger`
+- Import: `from comicarr import logger`
 - Usage: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
 - Always prefix with context in brackets
 
 ### Configuration Access
-- Import: `import mylar`
-- Usage: `mylar.CONFIG.option_name`
+- Import: `import comicarr`
+- Usage: `comicarr.CONFIG.option_name`
 - Global config object is initialized at startup
 
 ### Database Queries
-- Import: `from mylar import db`
+- Import: `from comicarr import db`
 - Usage: `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
 - Always use parameterized queries
 
 ### Import Ordering
 1. Standard library imports
 2. Third-party imports
-3. Local imports: `from mylar import logger, helpers`
+3. Local imports: `from comicarr import logger, helpers`
 4. Within packages use: `from . import logger`
 
 ## Architecture Patterns
@@ -148,9 +148,9 @@ npm run preview
 - **Scheduling**: APScheduler for background tasks
 
 ### Global State
-- Runtime config accessible via `mylar.CONFIG`
-- Global state in `mylar/__init__.py` (locks, queues, scheduler instances)
-- Use `mylar.LOGGER` for logging access
+- Runtime config accessible via `comicarr.CONFIG`
+- Global state in `comicarr/__init__.py` (locks, queues, scheduler instances)
+- Use `comicarr.LOGGER` for logging access
 
 ### Database Access
 - Use `DBConnection` class from `db.py`

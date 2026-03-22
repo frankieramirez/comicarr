@@ -1,1 +1,1 @@
-"""Tests for mylar.notifiers module."""
+"""Tests for comicarr.notifiers module."""

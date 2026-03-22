@@ -92,10 +92,10 @@ On first run:
 
 ```
 ├── Comicarr.py          # Main entry point
-├── mylar/               # Python backend package
+├── comicarr/            # Python backend package
 │   ├── webserve.py      # Web UI and API routes
 │   ├── search.py        # Search orchestration
-│   ├── PostProcessor.py # Download processing
+│   ├── postprocessor.py # Download processing
 │   └── ...
 ├── frontend/            # React frontend
 │   ├── src/

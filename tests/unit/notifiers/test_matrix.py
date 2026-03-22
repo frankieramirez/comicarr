@@ -10,7 +10,7 @@ class TestMatrixInit:
     """Test MATRIX initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         matrix = notifiers_module.MATRIX()
 
         assert matrix.homeserver == "https://matrix.example.com"
@@ -183,7 +183,7 @@ class TestMatrixNotify:
 
         matrix = notifiers_module.MATRIX()
         result = matrix.notify(
-            text="Mylar Notification",
+            text="Comicarr Notification",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",

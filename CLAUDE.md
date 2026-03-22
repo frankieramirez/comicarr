@@ -45,7 +45,7 @@ python3 Comicarr.py maintenance --carepackage  # Generate debug package
 ```
 
 ## Codebase Index
-[Comicarr Code Index]|root: ./mylar
+[Comicarr Code Index]|root: ./comicarr
 |Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{frontend/src/:React components}
 
 **IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
@@ -61,22 +61,22 @@ python3 Comicarr.py maintenance --carepackage  # Generate debug package
 ## Common Patterns
 
 ### Logging Pattern
-- Import: `from mylar import logger`
+- Import: `from comicarr import logger`
 - Usage: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
 - Always prefix with context in brackets
 
 ### Configuration Access
-- Import: `import mylar`
-- Usage: `mylar.CONFIG.option_name`
+- Import: `import comicarr`
+- Usage: `comicarr.CONFIG.option_name`
 - Global config object is initialized at startup
 
 ### Database Queries
-- Import: `from mylar import db`
+- Import: `from comicarr import db`
 - Usage: `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
 - Always use parameterized queries
 
 ### Import Ordering
 1. Standard library imports
 2. Third-party imports
-3. Local imports: `from mylar import logger, helpers`
+3. Local imports: `from comicarr import logger, helpers`
 4. Within packages use: `from . import logger`

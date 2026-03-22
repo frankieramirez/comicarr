@@ -1,5 +1,5 @@
 """
-Global pytest fixtures and configuration for Mylar3 tests.
+Global pytest fixtures and configuration for Comicarr tests.
 """
 
 import os
@@ -19,8 +19,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # =============================================================================
 # Mock Missing Optional Dependencies
 # =============================================================================
-# Mylar has many optional dependencies that may not be installed during testing.
-# We mock these at the module level before any mylar imports happen.
+# Comicarr has many optional dependencies that may not be installed during testing.
+# We mock these at the module level before any comicarr imports happen.
 
 # Create mock modules for optional dependencies
 MOCK_MODULES = [
@@ -81,16 +81,16 @@ def comic_files_dir(test_data_dir) -> Path:
 @pytest.fixture
 def temp_db(tmp_path) -> str:
     """
-    Create a temporary SQLite database with Mylar's schema.
+    Create a temporary SQLite database with Comicarr's schema.
 
     Returns the path to the database file.
     """
-    db_path = tmp_path / "test_mylar.db"
+    db_path = tmp_path / "test_comicarr.db"
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
-    # Create core tables matching Mylar's schema
+    # Create core tables matching Comicarr's schema
     cursor.executescript(
         """
         CREATE TABLE IF NOT EXISTS comics (
@@ -238,9 +238,9 @@ def mock_db_connection(temp_db):
     """
     Create a mock database connection using the temp database.
 
-    This patches mylar.db.DBConnection to use the temp database.
+    This patches comicarr.db.DBConnection to use the temp database.
     """
-    with patch("mylar.db.DBConnection") as mock_class:
+    with patch("comicarr.db.DBConnection") as mock_class:
         # Create a real connection to the temp db
         conn = sqlite3.connect(temp_db)
         conn.row_factory = sqlite3.Row
@@ -284,18 +284,18 @@ def mock_db_connection(temp_db):
 
 
 # =============================================================================
-# Mylar Configuration Fixtures
+# Comicarr Configuration Fixtures
 # =============================================================================
 
 
 @pytest.fixture
-def mock_mylar_globals(tmp_path, monkeypatch):
+def mock_comicarr_globals(tmp_path, monkeypatch):
     """
-    Mock mylar global configuration and paths.
+    Mock comicarr global configuration and paths.
 
     Sets up a clean test environment with temporary directories.
     """
-    data_dir = tmp_path / "mylar_data"
+    data_dir = tmp_path / "comicarr_data"
     data_dir.mkdir()
 
     cache_dir = tmp_path / "cache"
@@ -304,13 +304,13 @@ def mock_mylar_globals(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    # Import mylar and patch globals
-    import mylar
+    # Import comicarr and patch globals
+    import comicarr
 
-    monkeypatch.setattr(mylar, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(mylar, "PROG_DIR", str(tmp_path))
-    monkeypatch.setattr(mylar, "CACHE_DIR", str(cache_dir))
-    monkeypatch.setattr(mylar, "LOG_DIR", str(log_dir))
+    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
+    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(comicarr, "CACHE_DIR", str(cache_dir))
+    monkeypatch.setattr(comicarr, "LOG_DIR", str(log_dir))
 
     return {
         "data_dir": data_dir,
