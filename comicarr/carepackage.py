@@ -13,7 +13,6 @@ from collections import OrderedDict
 from operator import itemgetter
 
 from glob import glob
-import comicarr
 from comicarr import config, logger, encrypted, versioncheck
 import zipfile
 
