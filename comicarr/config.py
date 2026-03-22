@@ -1378,6 +1378,30 @@ class Config(object):
                 )
                 raise SystemExit(1)
 
+        # Startup security permission checks
+        if startup and not update:
+            try:
+                config_mode = os.stat(self._config_file).st_mode
+                if config_mode & 0o044:
+                    logger.warn(
+                        "[SECURITY] config.ini is world-readable (mode %o). "
+                        "Run: chmod 600 %s" % (config_mode & 0o777, self._config_file)
+                    )
+            except Exception:
+                pass
+
+            master_key_path = os.path.join(self.SECURE_DIR, "master.key")
+            if os.path.exists(master_key_path):
+                try:
+                    key_mode = os.stat(master_key_path).st_mode
+                    if key_mode & 0o044:
+                        logger.warn(
+                            "[SECURITY] master.key is world-readable (mode %o). "
+                            "Run: chmod 600 %s" % (key_mode & 0o777, master_key_path)
+                        )
+                except Exception:
+                    pass
+
         if not self.BACKUP_LOCATION:
             self.BACKUP_LOCATION = os.path.join(comicarr.DATA_DIR, "backup")
 

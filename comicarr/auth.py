@@ -87,6 +87,7 @@ def check_credentials(username, password):
 
     if username != forms_user:
         _rate_limiter.record_failure(ip)
+        logger.info("[AUTH-AUDIT] Failed login attempt — invalid username from IP: %s" % ip)
         return "Incorrect username or password."
 
     # Three-state password verification:
@@ -96,36 +97,39 @@ def check_credentials(username, password):
     if forms_pass and (forms_pass.startswith("$2b$") or forms_pass.startswith("$2a$")):
         if encrypted.verify_password(password, forms_pass):
             _rate_limiter.record_success(ip)
+            logger.info("[AUTH-AUDIT] Successful login for user '%s' from IP: %s" % (username, ip))
             return None
         else:
             _rate_limiter.record_failure(ip)
+            logger.info("[AUTH-AUDIT] Failed login attempt — wrong password for user '%s' from IP: %s" % (username, ip))
             return "Incorrect username or password."
     elif forms_pass and forms_pass.startswith("^~$z$"):
         edc = encrypted.Encryptor(forms_pass, logon=True)
         ed_chk = edc.decrypt_it()
         if ed_chk["status"] is True and ed_chk["password"] == password:
-            # Migrate to bcrypt on successful login
             new_hash = encrypted.hash_password(password)
             comicarr.CONFIG.process_kwargs({"http_password": new_hash})
             comicarr.CONFIG.writeconfig()
             logger.info("[AUTH] Password migrated from base64 to bcrypt")
             _rate_limiter.record_success(ip)
+            logger.info("[AUTH-AUDIT] Successful login for user '%s' from IP: %s" % (username, ip))
             return None
         else:
             _rate_limiter.record_failure(ip)
+            logger.info("[AUTH-AUDIT] Failed login attempt — wrong password for user '%s' from IP: %s" % (username, ip))
             return "Incorrect username or password."
     else:
-        # Plaintext password
         if password == forms_pass:
-            # Migrate to bcrypt on successful login
             new_hash = encrypted.hash_password(password)
             comicarr.CONFIG.process_kwargs({"http_password": new_hash})
             comicarr.CONFIG.writeconfig()
             logger.info("[AUTH] Password migrated from plaintext to bcrypt")
             _rate_limiter.record_success(ip)
+            logger.info("[AUTH-AUDIT] Successful login for user '%s' from IP: %s" % (username, ip))
             return None
         else:
             _rate_limiter.record_failure(ip)
+            logger.info("[AUTH-AUDIT] Failed login attempt — wrong password for user '%s' from IP: %s" % (username, ip))
             return "Incorrect username or password."
 
 
