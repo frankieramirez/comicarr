@@ -110,6 +110,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "BACKUP_ON_START": (bool, "General", False),
         "BACKUP_LOCATION": (str, "General", None),
         "BACKUP_RETENTION": (int, "General", 4),
+        "MIGRATION_DISMISSED": (bool, "General", False),
         "BACKFILL_LENGTH": (int, "General", 8),  # weeks
         "BACKFILL_TIMESPAN": (int, "General", 10),  # minutes
         "PROBLEM_DATES": (str, "General", []),

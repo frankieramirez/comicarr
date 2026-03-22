@@ -76,7 +76,11 @@ export type ApiCommand =
   | "matchImport"
   | "ignoreImport"
   | "refreshImport"
-  | "deleteImport";
+  | "deleteImport"
+  | "getStartupDiagnostics"
+  | "previewMigration"
+  | "startMigration"
+  | "getMigrationProgress";
 
 /** API call parameters */
 export type ApiParams = Record<

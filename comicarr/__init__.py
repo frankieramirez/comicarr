@@ -47,6 +47,7 @@ import comicarr.config
 from comicarr import (
     helpers,
     logger,
+    maintenance,
     postprocessor,
     rsscheckit,
     sabnzbd,
@@ -178,6 +179,13 @@ DB_FILE = None
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
+DB_EMPTY = False
+MIGRATION_IN_PROGRESS = False
+MIGRATION_STATUS = "idle"
+MIGRATION_CURRENT_TABLE = ""
+MIGRATION_TABLES_COMPLETE = 0
+MIGRATION_TABLES_TOTAL = 0
+MIGRATION_ERROR = None
 UMASK = None
 WANTED_TAB_OFF = False
 PULLNEW = None
@@ -464,6 +472,25 @@ def initialize(config_file):
         except Exception as e:
             logger.error("Cannot connect to the database: %s" % e)
         else:
+            # Check if database is empty and set startup flags
+            conn = None
+            try:
+                conn = sql_db()
+                row = conn.execute("SELECT COUNT(*) FROM comics").fetchone()
+                comic_count = row[0] if row else 0
+                if comic_count > 0:
+                    if comicarr.CONFIG.BACKUP_ON_START:
+                        backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
+                        retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
+                        maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+                else:
+                    comicarr.DB_EMPTY = True
+            except Exception as e:
+                logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
+            finally:
+                if conn:
+                    conn.close()
+
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
 
@@ -535,6 +562,14 @@ def initialize(config_file):
                 import secrets
 
                 comicarr.SSE_KEY = secrets.token_hex(16)
+
+            if not comicarr.CONFIG.API_KEY or len(comicarr.CONFIG.API_KEY) != 32:
+                import secrets
+
+                comicarr.CONFIG.API_KEY = secrets.token_hex(16)
+                comicarr.CONFIG.API_ENABLED = True
+                comicarr.CONFIG.WRITE_THE_CONFIG = True
+                logger.info("[STARTUP] API key was not set - auto-generated a new API key")
 
             from comicarr.downloaders import external_server as des
 

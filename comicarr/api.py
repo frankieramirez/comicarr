@@ -123,6 +123,10 @@ cmd_list = [
     "deleteImport",
     "bulkMetatag",
     "getCalendar",
+    "getStartupDiagnostics",
+    "previewMigration",
+    "startMigration",
+    "getMigrationProgress",
 ]
 
 
@@ -1396,6 +1400,72 @@ class Api(object):
     def _checkGithub(self, **kwargs):
         versioncheck.checkGithub()
         self._getVersion()
+
+    def _getStartupDiagnostics(self, **kwargs):
+        self.data = self._successResponse(
+            {
+                "db_empty": comicarr.DB_EMPTY,
+                "migration_dismissed": comicarr.CONFIG.MIGRATION_DISMISSED,
+            }
+        )
+
+    def _previewMigration(self, **kwargs):
+        if self.apitype != "normal":
+            self.data = self._failureResponse("Migration requires normal API key")
+            return
+
+        path = kwargs.get("path", "")
+        if not path:
+            self.data = self._failureResponse("path parameter is required")
+            return
+
+        from comicarr import migration
+
+        m = migration.Mylar3Migration(path)
+        result = m.validate()
+        if result.get("valid"):
+            self.data = self._successResponse(result)
+        else:
+            self.data = self._failureResponse("Invalid Mylar3 data path")
+
+    def _startMigration(self, **kwargs):
+        if self.apitype != "normal":
+            self.data = self._failureResponse("Migration requires normal API key")
+            return
+
+        path = kwargs.get("path", "")
+        if not path:
+            self.data = self._failureResponse("path parameter is required")
+            return
+
+        if comicarr.MIGRATION_IN_PROGRESS:
+            self.data = self._failureResponse("Migration already in progress")
+            return
+
+        from comicarr import migration
+
+        m = migration.Mylar3Migration(path)
+        # Validate synchronously before spawning thread
+        result = m.validate()
+        if not result.get("valid"):
+            self.data = self._failureResponse("Invalid Mylar3 data path")
+            return
+
+        t = threading.Thread(target=m.execute, name="MigrationThread")
+        t.daemon = True
+        t.start()
+        self.data = self._successResponse({"status": "started"})
+
+    def _getMigrationProgress(self, **kwargs):
+        self.data = self._successResponse(
+            {
+                "status": comicarr.MIGRATION_STATUS,
+                "current_table": comicarr.MIGRATION_CURRENT_TABLE,
+                "tables_complete": comicarr.MIGRATION_TABLES_COMPLETE,
+                "tables_total": comicarr.MIGRATION_TABLES_TOTAL,
+                "error": comicarr.MIGRATION_ERROR,
+            }
+        )
 
     def _shutdown(self, **kwargs):
         comicarr.SIGNAL = "shutdown"
