@@ -1,7 +1,7 @@
 ---
 title: "Prepare Repository for Public Release"
 type: feat
-status: active
+status: completed
 date: 2026-03-21
 ---
 
