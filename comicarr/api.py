@@ -123,6 +123,7 @@ cmd_list = [
     "deleteImport",
     "bulkMetatag",
     "getCalendar",
+    "getStartupDiagnostics",
 ]
 
 
@@ -1396,6 +1397,15 @@ class Api(object):
     def _checkGithub(self, **kwargs):
         versioncheck.checkGithub()
         self._getVersion()
+
+    def _getStartupDiagnostics(self, **kwargs):
+        self.data = self._successResponse(
+            {
+                "db_empty": comicarr.DB_EMPTY,
+                "migration_dismissed": comicarr.CONFIG.MIGRATION_DISMISSED,
+                "volume_warning": comicarr.VOLUME_MOUNT_WARNING,
+            }
+        )
 
     def _shutdown(self, **kwargs):
         comicarr.SIGNAL = "shutdown"

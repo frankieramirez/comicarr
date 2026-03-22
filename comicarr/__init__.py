@@ -20,6 +20,7 @@
 
 import csv
 import datetime
+import glob
 import itertools
 import json
 import locale
@@ -179,6 +180,14 @@ DB_FILE = None
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
+DB_EMPTY = False
+VOLUME_MOUNT_WARNING = False
+MIGRATION_IN_PROGRESS = False
+MIGRATION_STATUS = "idle"
+MIGRATION_CURRENT_TABLE = ""
+MIGRATION_TABLES_COMPLETE = 0
+MIGRATION_TABLES_TOTAL = 0
+MIGRATION_ERROR = None
 UMASK = None
 WANTED_TAB_OFF = False
 PULLNEW = None
@@ -465,17 +474,28 @@ def initialize(config_file):
         except Exception as e:
             logger.error("Cannot connect to the database: %s" % e)
         else:
-            # Auto-backup non-empty databases on startup (WAL-safe)
+            # Check if database is empty and set startup flags
             try:
                 conn = sql_db()
                 row = conn.execute("SELECT COUNT(*) FROM comics").fetchone()
                 conn.close()
-                if row and row[0] > 0:
+                comic_count = row[0] if row else 0
+                if comic_count > 0:
+                    # Auto-backup non-empty databases on startup (WAL-safe)
                     backup_dir = os.path.join(comicarr.DATA_DIR, 'backups')
                     retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
                     maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+                else:
+                    comicarr.DB_EMPTY = True
+                    # Volume mount diagnostic: empty DB but config artifacts exist
+                    has_config = os.path.isfile(os.path.join(comicarr.DATA_DIR, 'config.ini'))
+                    has_backups = bool(glob.glob(os.path.join(comicarr.DATA_DIR, '*.bak')) + glob.glob(os.path.join(comicarr.DATA_DIR, 'backups', '*.bak')))
+                    has_logs = os.path.isdir(os.path.join(comicarr.DATA_DIR, 'logs'))
+                    if has_config or has_backups or has_logs:
+                        comicarr.VOLUME_MOUNT_WARNING = True
+                        logger.warn('[STARTUP] Database is empty but config artifacts exist — possible volume mount misconfiguration')
             except Exception as e:
-                logger.warn('[STARTUP] Auto-backup skipped: %s' % e)
+                logger.warn('[STARTUP] Startup diagnostics skipped: %s' % e)
 
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
