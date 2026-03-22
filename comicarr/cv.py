@@ -1,4 +1,8 @@
-#  Copyright (C) 2012–2024 Mylar3 contributors#  Copyright (C) 2025–2026 Comicarr contributors##  This file is part of Comicarr.#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
+#  Copyright (C) 2012–2024 Mylar3 contributors
+#  Copyright (C) 2025–2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
 #
 #  Comicarr is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by

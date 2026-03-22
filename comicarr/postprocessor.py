@@ -350,7 +350,7 @@ class PostProcessor(object):
                             self._log('Failed to remove temporary directory: ' + tmp_folder)
                             logger.error('%s %s not empty. Skipping removal of directory - this will either be caught in further post-processing or it will have to be manually deleted.' % (self.module, tmp_folder))
 
-            if comicarr.CONFIG.ENABLE_META and all([os.path.isdir(odir), 'mylar_' in odir]):
+            if comicarr.CONFIG.ENABLE_META and all([os.path.isdir(odir), any(['mylar_' in odir, 'comicarr_' in odir])]):
                 #Regardless of the copy/move operation, we need to delete the files from within the cache directory, then remove the cache directory itself for the given issue.
                 #sometimes during a meta, it retains the cbr as well after conversion depending on settings. Make sure to delete too thus the 'walk'.
                 for filename in os.listdir(odir):

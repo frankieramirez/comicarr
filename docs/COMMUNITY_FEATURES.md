@@ -162,8 +162,8 @@ This plan addresses the top feature requests from the community GitHub issues th
 - `comicarr/config.py` - Added MATRIX_ENABLED, MATRIX_HOMESERVER, MATRIX_ACCESS_TOKEN, MATRIX_ROOM_ID, MATRIX_ONSNATCH
 - `comicarr/webserve.py` - Added getsettings entries, checked_configs, and testmatrix() endpoint
 - `comicarr/search.py` - Added snatch notification call
-- `comicarr/PostProcessor.py` - Added download notification call
-- `comicarr/cmtagmylar.py` - Added error notification call
+- `comicarr/postprocessor.py` - Added download notification call
+- `comicarr/cmtag.py` - Added error notification call
 
 **Config Options:**
 ```ini
