@@ -31,10 +31,12 @@ import cherrypy
 import simplejson as simplejson
 from cherrypy.lib.static import serve_download, serve_file, serve_fileobj
 from PIL import Image
+from sqlalchemy import select
 
 import comicarr
 from comicarr import db, helpers, logger, readinglist
 from comicarr.getimage import comic_pages, open_archive, page_count, scale_image
+from comicarr.tables import annuals, comics, issues, readlist, snatched, storyarcs
 from comicarr.webserve import serve_template
 
 cmd_list = [
@@ -128,20 +130,7 @@ class OPDS(object):
         cherrypy.response.headers["Content-Type"] = "text/xml"
         return error
 
-    def _dic_from_query(self, query, args=None):
-        myDB = db.DBConnection()
-        rows = myDB.select(query, args)
-
-        rows_as_dic = []
-
-        for row in rows:
-            row_as_dic = dict(list(zip(list(row.keys()), row, strict=False)))
-            rows_as_dic.append(row_as_dic)
-
-        return rows_as_dic
-
     def _root(self, **kwargs):
-        myDB = db.DBConnection()
         feed = {}
         feed["title"] = "Comicarr OPDS"
         currenturi = cherrypy.url()
@@ -168,7 +157,9 @@ class OPDS(object):
                 title="Search",
             )
         )
-        publishers = myDB.select("SELECT ComicPublisher from comics GROUP BY ComicPublisher")
+        with db.get_engine().connect() as conn:
+            stmt = select(comics.c.ComicPublisher).group_by(comics.c.ComicPublisher)
+            publishers = [dict(row._mapping) for row in conn.execute(stmt)]
         entries.append(
             {
                 "title": "Recent Additions",
@@ -193,9 +184,9 @@ class OPDS(object):
                     "rel": "subsection",
                 }
             )
-        comics = comicarr.helpers.havetotals()
+        comics_list = comicarr.helpers.havetotals()
         count = 0
-        for comic in comics:
+        for comic in comics_list:
             if comic["haveissues"] is not None and comic["haveissues"] > 0:
                 count += 1
         if count > -1:
@@ -224,7 +215,9 @@ class OPDS(object):
                     "rel": "subsection",
                 }
             )
-        readList = myDB.select("SELECT * from readlist")
+        with db.get_engine().connect() as conn:
+            stmt = select(readlist)
+            readList = [dict(row._mapping) for row in conn.execute(stmt)]
         if len(readList) > 0:
             entries.append(
                 {
@@ -260,7 +253,6 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         feed = {}
         feed["title"] = "Comicarr OPDS - Publishers"
         feed["id"] = "Publishers"
@@ -282,12 +274,14 @@ class OPDS(object):
                 rel="self",
             )
         )
-        publishers = myDB.select("SELECT ComicPublisher from comics GROUP BY ComicPublisher")
-        comics = comicarr.helpers.havetotals()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics.c.ComicPublisher).group_by(comics.c.ComicPublisher)
+            publishers = [dict(row._mapping) for row in conn.execute(stmt)]
+        comics_list = comicarr.helpers.havetotals()
         for publisher in publishers:
             lastupdated = "0000-00-00"
             totaltitles = 0
-            for comic in comics:
+            for comic in comics_list:
                 if comic["ComicPublisher"] == publisher["ComicPublisher"] and comic["haveissues"] > 0:
                     totaltitles += 1
                     if comic["DateAdded"] > lastupdated:
@@ -331,7 +325,6 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        db.DBConnection()
         feed = {}
         feed["title"] = "Comicarr OPDS - All Titles"
         feed["id"] = "AllTitles"
@@ -353,8 +346,8 @@ class OPDS(object):
                 rel="self",
             )
         )
-        comics = comicarr.helpers.havetotals()
-        for comic in comics:
+        comics_list = comicarr.helpers.havetotals()
+        for comic in comics_list:
             if comic["haveissues"] > 0:
                 entries.append(
                     {
@@ -395,7 +388,6 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        db.DBConnection()
         if "pubid" not in kwargs:
             self.data = self._error_with_message("No Publisher Provided")
             return
@@ -463,28 +455,34 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         if "comicid" not in kwargs:
             self.data = self._error_with_message("No ComicID Provided")
             return
         links = []
         entries = []
-        comic = myDB.selectone("SELECT * from comics where ComicID=?", (kwargs["comicid"],)).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics).where(comics.c.ComicID == kwargs["comicid"])
+            result = [dict(row._mapping) for row in conn.execute(stmt)]
+            comic = result[0] if result else None
         if not comic:
             self.data = self._error_with_message("Comic Not Found")
             return
-        issues = self._dic_from_query(
-            "SELECT * from issues WHERE ComicID=? order by Int_IssueNumber DESC", [kwargs["comicid"]]
-        )
+        with db.get_engine().connect() as conn:
+            stmt = select(issues).where(
+                issues.c.ComicID == kwargs["comicid"]
+            ).order_by(issues.c.Int_IssueNumber.desc())
+            issues_list = [dict(row._mapping) for row in conn.execute(stmt)]
         if comicarr.CONFIG.ANNUALS_ON:
-            annuals = self._dic_from_query("SELECT * FROM annuals WHERE ComicID=?", [kwargs["comicid"]])
+            with db.get_engine().connect() as conn:
+                stmt = select(annuals).where(annuals.c.ComicID == kwargs["comicid"])
+                annuals_list = [dict(row._mapping) for row in conn.execute(stmt)]
         else:
-            annuals = []
-        for annual in annuals:
-            issues.append(annual)
-        issues = [x for x in issues if x["Location"]]
-        if index <= len(issues):
-            subset = issues[index : (index + self.PAGE_SIZE)]
+            annuals_list = []
+        for annual in annuals_list:
+            issues_list.append(annual)
+        issues_list = [x for x in issues_list if x["Location"]]
+        if index <= len(issues_list):
+            subset = issues_list[index : (index + self.PAGE_SIZE)]
             for issue in subset:
                 if "DateAdded" in issue and issue["DateAdded"]:
                     updated = issue["DateAdded"]
@@ -561,7 +559,7 @@ class OPDS(object):
                 rel="self",
             )
         )
-        if len(issues) > (index + self.PAGE_SIZE):
+        if len(issues_list) > (index + self.PAGE_SIZE):
             links.append(
                 getLink(
                     href="%s?cmd=Comic&amp;comicid=%s&amp;index=%s"
@@ -589,20 +587,33 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         links = []
         entries = []
-        recents = self._dic_from_query(
-            'SELECT * from snatched WHERE Status = "Post-Processed" OR Status = "Downloaded" order by DateAdded DESC LIMIT 120'
-        )
+        with db.get_engine().connect() as conn:
+            stmt = (
+                select(snatched)
+                .where(snatched.c.Status.in_(["Post-Processed", "Downloaded"]))
+                .order_by(snatched.c.DateAdded.desc())
+                .limit(120)
+            )
+            recents = [dict(row._mapping) for row in conn.execute(stmt)]
         if index <= len(recents):
             number = 1
             subset = recents[index : (index + self.PAGE_SIZE)]
             for issue in subset:
-                issuebook = myDB.fetch("SELECT * from issues WHERE IssueID = ?", (issue["IssueID"],)).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(issues).where(issues.c.IssueID == issue["IssueID"])
+                    result = [dict(row._mapping) for row in conn.execute(stmt)]
+                    issuebook = result[0] if result else None
                 if not issuebook:
-                    issuebook = myDB.fetch("SELECT * from annuals WHERE IssueID = ?", (issue["IssueID"],)).fetchone()
-                comic = myDB.fetch("SELECT * from comics WHERE ComicID = ?", (issue["ComicID"],)).fetchone()
+                    with db.get_engine().connect() as conn:
+                        stmt = select(annuals).where(annuals.c.IssueID == issue["IssueID"])
+                        result = [dict(row._mapping) for row in conn.execute(stmt)]
+                        issuebook = result[0] if result else None
+                with db.get_engine().connect() as conn:
+                    stmt = select(comics).where(comics.c.ComicID == issue["ComicID"])
+                    result = [dict(row._mapping) for row in conn.execute(stmt)]
+                    comic = result[0] if result else None
                 updated = issue["DateAdded"]
                 image = None
                 thumbnail = None
@@ -794,18 +805,30 @@ class OPDS(object):
         if "issueid" not in kwargs:
             self.data = self._error_with_message("No ComicID Provided")
             return
-        myDB = db.DBConnection()
-        issue = myDB.selectone(
-            "SELECT * from storyarcs WHERE IssueID=? and Location IS NOT NULL", (kwargs["issueid"],)
-        ).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(storyarcs).where(
+                storyarcs.c.IssueID == kwargs["issueid"],
+                storyarcs.c.Location.isnot(None),
+            )
+            result = [dict(row._mapping) for row in conn.execute(stmt)]
+            issue = result[0] if result else None
         if not issue:
-            issue = myDB.selectone("SELECT * from issues WHERE IssueID=?", (kwargs["issueid"],)).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(issues).where(issues.c.IssueID == kwargs["issueid"])
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                issue = result[0] if result else None
             if not issue:
-                issue = myDB.selectone("SELECT * from annuals WHERE IssueID=?", (kwargs["issueid"],)).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(annuals).where(annuals.c.IssueID == kwargs["issueid"])
+                    result = [dict(row._mapping) for row in conn.execute(stmt)]
+                    issue = result[0] if result else None
                 if not issue:
                     self.data = self._error_with_message("Issue Not Found")
                     return
-            comic = myDB.selectone("SELECT * from comics WHERE ComicID=?", (issue["ComicID"],)).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(comics).where(comics.c.ComicID == issue["ComicID"])
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                comic = result[0] if result else None
             if not comic:
                 self.data = self._error_with_message("Comic Not Found in Watchlist")
                 return
@@ -822,16 +845,17 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         links = []
         entries = []
         arcs = []
-        storyArcs = comicarr.helpers.listStoryArcs()
-        for arc in storyArcs:
+        storyArcIds = comicarr.helpers.listStoryArcs()
+        for arc in storyArcIds:
             issuecount = 0
             arcname = ""
             updated = "0000-00-00"
-            arclist = myDB.select("SELECT * from storyarcs WHERE StoryArcID=?", (arc,))
+            with db.get_engine().connect() as conn:
+                stmt = select(storyarcs).where(storyarcs.c.StoryArcID == arc)
+                arclist = [dict(row._mapping) for row in conn.execute(stmt)]
             for issue in arclist:
                 if issue["Status"] == "Downloaded":
                     issuecount += 1
@@ -905,7 +929,7 @@ class OPDS(object):
         book = ""
         gbd = str(comicarr.CONFIG.GRABBAG_DIR + "/*")
         flist = glob.glob(gbd)
-        readlist = []
+        readlist_items = []
         for book in flist:
             issue = {}
             fileexists = True
@@ -920,10 +944,10 @@ class OPDS(object):
             if not os.path.isfile(issue["fileloc"]):
                 fileexists = False
             if fileexists:
-                readlist.append(issue)
-        if len(readlist) > 0:
-            if index <= len(readlist):
-                subset = readlist[index : (index + self.PAGE_SIZE)]
+                readlist_items.append(issue)
+        if len(readlist_items) > 0:
+            if index <= len(readlist_items):
+                subset = readlist_items[index : (index + self.PAGE_SIZE)]
                 for issue in subset:
                     metainfo = None
                     metainfo = [{"writer": None, "summary": ""}]
@@ -962,7 +986,7 @@ class OPDS(object):
                     rel="self",
                 )
             )
-            if len(readlist) > (index + self.PAGE_SIZE):
+            if len(readlist_items) > (index + self.PAGE_SIZE):
                 links.append(
                     getLink(
                         href="%s?cmd=OneOffs&amp;index=%s" % (self.opdsroot, index + self.PAGE_SIZE),
@@ -988,18 +1012,25 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         links = []
         entries = []
-        rlist = self._dic_from_query("SELECT * from readlist where status!='Read'")
-        readlist = []
+        with db.get_engine().connect() as conn:
+            stmt = select(readlist).where(readlist.c.Status != "Read")
+            rlist = [dict(row._mapping) for row in conn.execute(stmt)]
+        readlist_items = []
         for book in rlist:
             fileexists = False
             issue = {}
             issue["Title"] = "%s #%s" % (book["ComicName"], book["Issue_Number"])
             issue["IssueID"] = book["IssueID"]
-            comic = myDB.selectone("SELECT * from comics WHERE ComicID=?", (book["ComicID"],)).fetchone()
-            bookentry = myDB.selectone("SELECT * from issues WHERE IssueID=?", (book["IssueID"],)).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(comics).where(comics.c.ComicID == book["ComicID"])
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                comic = result[0] if result else None
+            with db.get_engine().connect() as conn:
+                stmt = select(issues).where(issues.c.IssueID == book["IssueID"])
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                bookentry = result[0] if result else None
             if bookentry:
                 if bookentry["Location"]:
                     fileexists = True
@@ -1012,7 +1043,10 @@ class OPDS(object):
                 else:
                     issue["updated"] = bookentry["IssueDate"]
             else:
-                annualentry = myDB.selectone("SELECT * from annuals WHERE IssueID=?", (book["IssueID"],)).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(annuals).where(annuals.c.IssueID == book["IssueID"])
+                    result = [dict(row._mapping) for row in conn.execute(stmt)]
+                    annualentry = result[0] if result else None
                 if annualentry:
                     if annualentry["Location"]:
                         fileexists = True
@@ -1024,10 +1058,10 @@ class OPDS(object):
             if not os.path.isfile(issue["fileloc"]):
                 fileexists = False
             if fileexists:
-                readlist.append(issue)
-        if len(readlist) > 0:
-            if index <= len(readlist):
-                subset = readlist[index : (index + self.PAGE_SIZE)]
+                readlist_items.append(issue)
+        if len(readlist_items) > 0:
+            if index <= len(readlist_items):
+                subset = readlist_items[index : (index + self.PAGE_SIZE)]
                 for issue in subset:
                     metainfo = None
                     if comicarr.CONFIG.OPDS_METAINFO:
@@ -1084,7 +1118,7 @@ class OPDS(object):
                     rel="self",
                 )
             )
-            if len(readlist) > (index + self.PAGE_SIZE):
+            if len(readlist_items) > (index + self.PAGE_SIZE):
                 links.append(
                     getLink(
                         href="%s?cmd=ReadList&amp;index=%s" % (self.opdsroot, index + self.PAGE_SIZE),
@@ -1110,15 +1144,18 @@ class OPDS(object):
         index = 0
         if "index" in kwargs:
             index = int(kwargs["index"])
-        myDB = db.DBConnection()
         if "arcid" not in kwargs:
             self.data = self._error_with_message("No ArcID Provided")
             return
         links = []
         entries = []
-        arclist = self._dic_from_query(
-            "SELECT * from storyarcs WHERE StoryArcID=? ORDER BY ReadingOrder", [kwargs["arcid"]]
-        )
+        with db.get_engine().connect() as conn:
+            stmt = (
+                select(storyarcs)
+                .where(storyarcs.c.StoryArcID == kwargs["arcid"])
+                .order_by(storyarcs.c.ReadingOrder)
+            )
+            arclist = [dict(row._mapping) for row in conn.execute(stmt)]
         newarclist = []
         arcname = ""
         for book in arclist:
@@ -1137,12 +1174,16 @@ class OPDS(object):
                 issue["thumbnail"] = None
                 issue["updated"] = book["IssueDate"]
             else:
-                bookentry = myDB.selectone("SELECT * from issues WHERE IssueID=?", (book["IssueID"],)).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(issues).where(issues.c.IssueID == book["IssueID"])
+                    result = [dict(row._mapping) for row in conn.execute(stmt)]
+                    bookentry = result[0] if result else None
                 if bookentry:
                     if bookentry["Location"]:
-                        comic = myDB.selectone(
-                            "SELECT * from comics WHERE ComicID=?", (bookentry["ComicID"],)
-                        ).fetchone()
+                        with db.get_engine().connect() as conn:
+                            stmt = select(comics).where(comics.c.ComicID == bookentry["ComicID"])
+                            result = [dict(row._mapping) for row in conn.execute(stmt)]
+                            comic = result[0] if result else None
                         fileexists = True
                         issue["fileloc"] = os.path.join(comic["ComicLocation"], bookentry["Location"])
                         issue["filename"] = bookentry["Location"]
@@ -1153,10 +1194,16 @@ class OPDS(object):
                     else:
                         issue["updated"] = bookentry["IssueDate"]
                 else:
-                    annualentry = myDB.selectone("SELECT * from annuals WHERE IssueID=?", (book["IssueID"],)).fetchone()
+                    with db.get_engine().connect() as conn:
+                        stmt = select(annuals).where(annuals.c.IssueID == book["IssueID"])
+                        result = [dict(row._mapping) for row in conn.execute(stmt)]
+                        annualentry = result[0] if result else None
                     if annualentry:
                         if annualentry["Location"]:
-                            comic = myDB.selectone("SELECT * from comics WHERE ComicID=?", (annualentry["ComicID"],))
+                            with db.get_engine().connect() as conn:
+                                stmt = select(comics).where(comics.c.ComicID == annualentry["ComicID"])
+                                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                                comic = result[0] if result else None
                             fileexists = True
                             issue["fileloc"] = os.path.join(comic["ComicLocation"], annualentry["Location"])
                             issue["filename"] = annualentry["Location"]

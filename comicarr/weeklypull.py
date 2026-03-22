@@ -24,38 +24,67 @@ import json
 import os
 import re
 import shutil
-import sqlite3
 import sys
 import time
 import traceback
 
+import sqlalchemy
+from sqlalchemy import delete, select, text
+
 import comicarr
 from comicarr import db, helpers, importer, locg, logger, mb, newpull, updater
+from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
+
+
+def _select_all(stmt):
+    """Execute a select statement and return all rows as a list of dicts."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        return [dict(row._mapping) for row in result]
+
+
+def _select_one(stmt):
+    """Execute a select statement and return the first row as a dict, or None."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        row = result.first()
+        if row is None:
+            return None
+        return dict(row._mapping)
 
 
 def pullit(forcecheck=None, weeknumber=None, year=None):
-    myDB = db.DBConnection()
     if weeknumber is None:
-        popit = myDB.select("SELECT count(*) FROM sqlite_master WHERE name='weekly' and type='table'")
-        if popit:
-            try:
-                pull_date = myDB.selectone("SELECT SHIPDATE from weekly").fetchone()
-                logger.info("Weekly pull list present - checking if it's up-to-date..")
-                if pull_date is None:
-                    pulldate = "00000000"
-                else:
-                    pulldate = pull_date["SHIPDATE"]
-            except (sqlite3.OperationalError, TypeError):
-                logger.info("Error Retrieving weekly pull list - attempting to adjust")
-                myDB.action("DROP TABLE weekly")
-                myDB.action(
-                    "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE TEXT, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
-                )
+        # Check if weekly table exists by attempting a query
+        try:
+            pull_date = _select_one(select(weekly.c.SHIPDATE))
+            logger.info("Weekly pull list present - checking if it's up-to-date..")
+            if pull_date is None:
                 pulldate = "00000000"
-                logger.fdebug("Table re-created, trying to populate")
-        else:
-            logger.info("No pullist found...I'm going to try and get a new list now.")
+            else:
+                pulldate = pull_date["SHIPDATE"]
+        except sqlalchemy.exc.OperationalError:
+            logger.info("Error Retrieving weekly pull list - attempting to adjust")
+            with db.get_engine().begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS weekly"))
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE TEXT, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
+                    )
+                )
             pulldate = "00000000"
+            logger.fdebug("Table re-created, trying to populate")
+        except TypeError:
+            logger.info("Error Retrieving weekly pull list - attempting to adjust")
+            with db.get_engine().begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS weekly"))
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE TEXT, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
+                    )
+                )
+            pulldate = "00000000"
+            logger.fdebug("Table re-created, trying to populate")
     else:
         pulldate = None
 
@@ -497,14 +526,18 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
             weektmp = datetime.date(*(int(s) for s in pulldate.split("-")))
         except TypeError:
             weektmp = datetime.date.today()
+
         weeknumber = weektmp.strftime("%U")
 
         logger.info("Populating the NEW Weekly Pull list into Comicarr for week " + str(weeknumber))
 
-        myDB.action("drop table if exists weekly")
-        myDB.action(
-            "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
-        )
+        with db.get_engine().begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS weekly"))
+            conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
+                )
+            )
 
         csvfile = open(newfl, "rb")
         creader = csv.reader(csvfile, delimiter="\t")
@@ -531,7 +564,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     "WEEKNUMBER": int(weeknumber),
                     "YEAR": comicarr.CURRENT_YEAR,
                 }
-                myDB.upsert("weekly", newValueDict, controlValueDict)
+                db.upsert("weekly", newValueDict, controlValueDict)
             except Exception:
                 # print ("Error - invald arguments...-skipping")
                 pass
@@ -552,8 +585,6 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
         logger.info("Checking the Weekly Releases list for comics I'm watching...")
     else:
         logger.info("Checking the Future Releases list for upcoming comics I am watching for...")
-
-    myDB = db.DBConnection()
 
     not_t = ["TP", "NA", "HC", "PI"]
 
@@ -577,27 +608,27 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
 
     if comic1off_name is None:
         # let's read in the comic.watchlist from the db here
-        # cur.execute("SELECT ComicID, ComicName_Filesafe, ComicYear, ComicPublisher, ComicPublished, LatestDate, ForceContinuing, AlternateSearch, LatestIssue from comics WHERE Status = 'Active'")
         weeklylist = []
-        comiclist = myDB.select("SELECT * FROM comics WHERE Status='Active'")
+        stmt = select(comics).where(comics.c.Status == "Active")
+        comiclist = _select_all(stmt)
         if comiclist is None:
             pass
         else:
-            for weekly in comiclist:
+            for weekly_item in comiclist:
                 # assign it.
                 weeklylist.append(
                     {
-                        "ComicName": weekly["ComicName"],
-                        "ComicID": weekly["ComicID"],
-                        "ComicName_Filesafe": weekly["ComicName_Filesafe"],
-                        "ComicYear": weekly["ComicYear"],
-                        "ComicPublisher": weekly["ComicPublisher"],
-                        "ComicPublished": weekly["ComicPublished"],
-                        "LatestDate": weekly["LatestDate"],
-                        "LatestIssue": weekly["LatestIssue"],
-                        "ForceContinuing": weekly["ForceContinuing"],
-                        "AlternateSearch": weekly["AlternateSearch"],
-                        "DynamicName": weekly["DynamicComicName"],
+                        "ComicName": weekly_item["ComicName"],
+                        "ComicID": weekly_item["ComicID"],
+                        "ComicName_Filesafe": weekly_item["ComicName_Filesafe"],
+                        "ComicYear": weekly_item["ComicYear"],
+                        "ComicPublisher": weekly_item["ComicPublisher"],
+                        "ComicPublished": weekly_item["ComicPublished"],
+                        "LatestDate": weekly_item["LatestDate"],
+                        "LatestIssue": weekly_item["LatestIssue"],
+                        "ForceContinuing": weekly_item["ForceContinuing"],
+                        "AlternateSearch": weekly_item["AlternateSearch"],
+                        "DynamicName": weekly_item["DynamicComicName"],
                     }
                 )
 
@@ -709,17 +740,27 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                 sqlsearch = "%" + dynamic_name + "%"
                 logger.fdebug("searchsql: " + sqlsearch)
                 if futurepull is None:
-                    weekly = myDB.select(
-                        "SELECT PUBLISHER, ISSUE, COMIC, EXTRA, SHIPDATE, DynamicName FROM weekly WHERE DynamicName LIKE (?) COLLATE NOCASE",
-                        [sqlsearch],
-                    )
+                    stmt = select(
+                        weekly.c.PUBLISHER,
+                        weekly.c.ISSUE,
+                        weekly.c.COMIC,
+                        weekly.c.EXTRA,
+                        weekly.c.SHIPDATE,
+                        weekly.c.DynamicName,
+                    ).where(weekly.c.DynamicName.ilike(sqlsearch))
+                    weekly_results = _select_all(stmt)
                 else:
-                    weekly = myDB.select(
-                        "SELECT PUBLISHER, ISSUE, COMIC, EXTRA, SHIPDATE FROM future WHERE COMIC LIKE (?) COLLATE NOCASE",
-                        [sqlsearch],
-                    )
-                # cur.execute('SELECT PUBLISHER, ISSUE, COMIC, EXTRA, SHIPDATE FROM weekly WHERE COMIC LIKE (?)', [lines[cnt]])
-                for week in weekly:
+                    # The 'future' table is a legacy table not in tables.py;
+                    # use raw text() for this query.
+                    with db.get_engine().connect() as conn:
+                        result = conn.execute(
+                            text(
+                                "SELECT PUBLISHER, ISSUE, COMIC, EXTRA, SHIPDATE FROM future WHERE COMIC LIKE :search COLLATE NOCASE"
+                            ),
+                            {"search": sqlsearch},
+                        )
+                        weekly_results = [dict(row._mapping) for row in result]
+                for week in weekly_results:
                     try:
                         if week is None:
                             break
@@ -975,35 +1016,35 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
     # the new pull method (ALT_PULL=2) already has the comicid & issueid (if available) present in the response that's polled by comicarr.
     # this should be as simple as checking if the comicid exists on the given watchlist, and if so mark it as Wanted in the Upcoming table
     # and then once the issueid is present, put it the Wanted table.
-    myDB = db.DBConnection()
     watchlist = []
     weeklylist = []
     pullist = helpers.listPull(weeknumber, pullyear)
     if comic1off_name:
-        comiclist = myDB.select("SELECT * FROM comics WHERE Status='Active' AND ComicID=?", [comic1off_id])
+        stmt = select(comics).where((comics.c.Status == "Active") & (comics.c.ComicID == comic1off_id))
     else:
-        comiclist = myDB.select("SELECT * FROM comics WHERE Status='Active'")
+        stmt = select(comics).where(comics.c.Status == "Active")
+    comiclist = _select_all(stmt)
 
     if comiclist is None:
         pass
     else:
-        for weekly in comiclist:
+        for weekly_item in comiclist:
             # assign it.
             watchlist.append(
                 {
-                    "ComicName": weekly["ComicName"],
-                    "ComicID": weekly["ComicID"],
-                    "ComicName_Filesafe": weekly["ComicName_Filesafe"],
-                    "ComicYear": weekly["ComicYear"],
-                    "ComicPublisher": weekly["ComicPublisher"],
-                    "ComicPublished": weekly["ComicPublished"],
-                    "LatestDate": weekly["LatestDate"],
-                    "LatestIssue": weekly["LatestIssue"],
-                    "BookType": weekly["Type"],
-                    "LastUpdated": weekly["LastUpdated"],
-                    "ForceContinuing": weekly["ForceContinuing"],
-                    "AlternateSearch": weekly["AlternateSearch"],
-                    "DynamicName": weekly["DynamicComicName"],
+                    "ComicName": weekly_item["ComicName"],
+                    "ComicID": weekly_item["ComicID"],
+                    "ComicName_Filesafe": weekly_item["ComicName_Filesafe"],
+                    "ComicYear": weekly_item["ComicYear"],
+                    "ComicPublisher": weekly_item["ComicPublisher"],
+                    "ComicPublished": weekly_item["ComicPublished"],
+                    "LatestDate": weekly_item["LatestDate"],
+                    "LatestIssue": weekly_item["LatestIssue"],
+                    "BookType": weekly_item["Type"],
+                    "LastUpdated": weekly_item["LastUpdated"],
+                    "ForceContinuing": weekly_item["ForceContinuing"],
+                    "AlternateSearch": weekly_item["AlternateSearch"],
+                    "DynamicName": weekly_item["DynamicComicName"],
                 }
             )
 
@@ -1070,7 +1111,10 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             altnames.append(alt["AlternateName"])
 
                     # pull in the annual IDs attached to the given series here for pinpoint accuracy.
-                    annualist = myDB.select("SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted", [watch["ComicID"]])
+                    stmt = select(annuals).where(
+                        (annuals.c.ComicID == watch["ComicID"]) & (annuals.c.Deleted != 1)
+                    )
+                    annualist = _select_all(stmt)
                     annual_ids = []
                     if annualist is None:
                         pass
@@ -1107,15 +1151,22 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
         if not comic1off_id:
             logger.fdebug("[WALKSOFTLY] You are watching for: " + str(len(weeklylist)) + " comics")
 
-        weekly = myDB.select(
-            "SELECT * from(SELECT a.comicid,IFNULL(a.Comic, b.ComicName) as ComicName,NULL as SeriesYear,a.rowid,a.issue,a.issueid,NULL as ComicPublisher,a.weeknumber,a.shipdate,a.dynamicname,a.annuallink,a.format FROM weekly as a INNER JOIN annuals as b ON b.releasecomicid = a.comicid WHERE weeknumber = ? AND year = ? UNION SELECT a.comicid,IFNULL(a.Comic, c.ComicName) as ComicName,c.ComicYear as SeriesYear,a.rowid,a.issue,a.issueid,c.ComicPublisher,a.weeknumber,a.shipdate,a.dynamicname,a.annuallink,a.format FROM weekly as a INNER JOIN comics as c ON c.comicid = a.comicid OR c.DynamicComicName = a.dynamicname OR a.annuallink = c.comicid WHERE weeknumber = ? AND year = ?  ) GROUP BY dynamicname",
-            [int(weeknumber), pullyear, int(weeknumber), pullyear],
-        )
+        # Complex join query -- kept as text() since it involves UNION, INNER JOIN, IFNULL, and GROUP BY
+        # that are impractical to express with SQLAlchemy Core without losing clarity.
+        with db.get_engine().connect() as conn:
+            result = conn.execute(
+                text(
+                    "SELECT * from(SELECT a.comicid,IFNULL(a.Comic, b.ComicName) as ComicName,NULL as SeriesYear,a.rowid,a.issue,a.issueid,NULL as ComicPublisher,a.weeknumber,a.shipdate,a.dynamicname,a.annuallink,a.format FROM weekly as a INNER JOIN annuals as b ON b.releasecomicid = a.comicid WHERE weeknumber = :wn1 AND year = :yr1 UNION SELECT a.comicid,IFNULL(a.Comic, c.ComicName) as ComicName,c.ComicYear as SeriesYear,a.rowid,a.issue,a.issueid,c.ComicPublisher,a.weeknumber,a.shipdate,a.dynamicname,a.annuallink,a.format FROM weekly as a INNER JOIN comics as c ON c.comicid = a.comicid OR c.DynamicComicName = a.dynamicname OR a.annuallink = c.comicid WHERE weeknumber = :wn2 AND year = :yr2  ) GROUP BY dynamicname"
+                ),
+                {"wn1": int(weeknumber), "yr1": pullyear, "wn2": int(weeknumber), "yr2": pullyear},
+            )
+            weekly_rows = [dict(row._mapping) for row in result]
+
         if comicarr.CONFIG.ANNUALS_ON is True:
             # Need to loop over the weekly section and check the name of the title against the ComicName in the annuals table
             # this is to pick up new #1 annuals that don't exist in the db yet, and won't until a refresh of the series happens.
             pass
-        for week in weekly:
+        for week in weekly_rows:
             try:
                 # logger.fdebug('week: %s [%s]' % (week['ComicName'], week['comicid']))
                 idmatch = None
@@ -1436,22 +1487,28 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             newValue["Status"] = "Skipped"
 
                     # setting this here regardless, as it will be a match for a watchlist hit at this point anyways - so link it here what's availalbe.
-                    myDB.upsert("weekly", newValue, controlValue)
+                    db.upsert("weekly", newValue, controlValue)
 
                     # if the issueid exists on the pull, but not in the series issue list, we need to forcibly refresh the series so it's in line
                     if mismatched is False and issueid:
                         logger.fdebug("issue id check passed.")
                         if annualidmatch and comicarr.CONFIG.ANNUALS_ON:
-                            isschk = myDB.selectone(
-                                "SELECT * FROM annuals where IssueID=? AND NOT Deleted", [issueid]
-                            ).fetchone()
+                            isschk = _select_one(
+                                select(annuals).where(
+                                    (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
+                                )
+                            )
                         else:
-                            isschk = myDB.selectone("SELECT * FROM issues where IssueID=?", [issueid]).fetchone()
+                            isschk = _select_one(
+                                select(issues).where(issues.c.IssueID == issueid)
+                            )
 
                         if isschk is None:
-                            isschk = myDB.selectone(
-                                "SELECT * FROM annuals where IssueID=? AND NOT Deleted", [issueid]
-                            ).fetchone()
+                            isschk = _select_one(
+                                select(annuals).where(
+                                    (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
+                                )
+                            )
                             if isschk is None:
                                 logger.fdebug("comicid_before: %s" % comicid)
                                 if release_the_id:
@@ -1543,14 +1600,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                     newStat = {"Status": "Wanted"}
                                     ctrlStat = {"IssueID": issueid}
                                     if all([annualidmatch, comicarr.CONFIG.ANNUALS_ON]):
-                                        myDB.upsert("annuals", newStat, ctrlStat)
+                                        db.upsert("annuals", newStat, ctrlStat)
                                     else:
-                                        myDB.upsert("issues", newStat, ctrlStat)
+                                        db.upsert("issues", newStat, ctrlStat)
                 else:
                     continue
-            #                    else:
-            #                        #if it's polling against a future week, don't update anything but the This Week table.
-            #                        updater.weekly_update(ComicName=comicname, IssueNumber=week['issue'], CStatus='Wanted', CID=comicid, weeknumber=weeknumber, year=pullyear, altissuenumber=None)
+                #                    else:
+                #                        #if it's polling against a future week, don't update anything but the This Week table.
+                #                        updater.weekly_update(ComicName=comicname, IssueNumber=week['issue'], CStatus='Wanted', CID=comicid, weeknumber=weeknumber, year=pullyear, altissuenumber=None)
 
             except Exception as err:
                 exc_type, exc_value, exc_tb = sys.exc_info()
@@ -1593,7 +1650,6 @@ def mass_publishers(publishers, weeknumber, year):
     watchlibrary = helpers.listLibrary()
     watch = []
 
-    myDB = db.DBConnection()
     pub_listing = []
     if type(publishers) == list and len(publishers) == 0:
         publishers = None
@@ -1613,15 +1669,21 @@ def mass_publishers(publishers, weeknumber, year):
         publishers = None
 
     if publishers is None:
-        watchlist = myDB.select("SELECT * FROM weekly WHERE weeknumber=? and year=?", [weeknumber, year])
+        stmt = select(weekly).where(
+            (weekly.c.weeknumber == weeknumber) & (weekly.c.year == year)
+        )
+        watchlist = _select_all(stmt)
         comicarr.CONFIG.MASS_PUBLISHERS = []
     else:
         for pb in publishers:
             pub_listing.append(pb)
         comicarr.CONFIG.MASS_PUBLISHERS = json.loads(json.dumps(pub_listing))
-        placeholders = ", ".join(["?" for _ in publishers])
-        query_line = "SELECT * FROM WEEKLY WHERE weeknumber=? AND year=? AND publisher IN (%s)" % placeholders
-        watchlist = myDB.select(query_line, [weeknumber, year] + list(publishers))
+        stmt = select(weekly).where(
+            (weekly.c.weeknumber == weeknumber)
+            & (weekly.c.year == year)
+            & (weekly.c.PUBLISHER.in_(publishers))
+        )
+        watchlist = _select_all(stmt)
 
     comicarr.CONFIG.writeconfig(
         values={
@@ -1634,10 +1696,10 @@ def mass_publishers(publishers, weeknumber, year):
         for wt in watchlist:
             if wt["ComicID"] not in watchlibrary and wt["ComicID"] is not None:
                 if {"comicid": wt["ComicID"], "comicname": wt["COMIC"]} not in comicarr.ADD_LIST.queue:
-                    if wt["Publisher"] in comicarr.CONFIG.IGNORED_PUBLISHERS:
+                    if wt["PUBLISHER"] in comicarr.CONFIG.IGNORED_PUBLISHERS:
                         logger.info(
                             "[SHIZZLE-WHIZZLE] %s is in your ignored_publishers list skipping %s either it's a configuration issue or a mismatch in the weekly pull-list"
-                            % (wt["Publisher"], wt["COMIC"])
+                            % (wt["PUBLISHER"], wt["COMIC"])
                         )
                         continue
                     watch.append({"comicid": wt["ComicID"], "comicname": wt["COMIC"], "seriesyear": wt["seriesyear"]})
@@ -1661,7 +1723,6 @@ def check(fname, txt):
 
 
 def loaditup(comicname, comicid, issue, chktype):
-    myDB = db.DBConnection()
     issue_number = helpers.issuedigits(issue)
     if chktype == "annual":
         typedisplay = "annual issue"
@@ -1674,9 +1735,13 @@ def loaditup(comicname, comicid, issue, chktype):
             + str(issue)
             + " to do comparitive issue analysis for pull-list"
         )
-        issueload = myDB.selectone(
-            "SELECT * FROM annuals WHERE ComicID=? AND Int_IssueNumber=? AND NOT Deleted", [comicid, issue_number]
-        ).fetchone()
+        issueload = _select_one(
+            select(annuals).where(
+                (annuals.c.ComicID == comicid)
+                & (annuals.c.Int_IssueNumber == issue_number)
+                & (annuals.c.Deleted != 1)
+            )
+        )
     else:
         typedisplay = "issue"
         logger.fdebug(
@@ -1688,9 +1753,11 @@ def loaditup(comicname, comicid, issue, chktype):
             + str(issue)
             + " to do comparitive issue analysis for pull-list"
         )
-        issueload = myDB.selectone(
-            "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [comicid, issue_number]
-        ).fetchone()
+        issueload = _select_one(
+            select(issues).where(
+                (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == issue_number)
+            )
+        )
 
     if issueload is None:
         logger.fdebug(
@@ -1800,12 +1867,19 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
     if module is None:
         module = ""
     module += "[WEEKLY-PULL]"
-    myDB = db.DBConnection()
 
     if issueid is None:
-        chkit = myDB.selectone("SELECT * FROM weekly WHERE ComicID=? AND ISSUE=?", [comicid, issuenum]).fetchone()
+        chkit = _select_one(
+            select(weekly).where(
+                (weekly.c.ComicID == comicid) & (weekly.c.ISSUE == issuenum)
+            )
+        )
     else:
-        chkit = myDB.selectone("SELECT * FROM weekly WHERE ComicID=? AND IssueID=?", [comicid, issueid]).fetchone()
+        chkit = _select_one(
+            select(weekly).where(
+                (weekly.c.ComicID == comicid) & (weekly.c.IssueID == issueid)
+            )
+        )
 
     if chkit is None:
         logger.fdebug(
@@ -1862,13 +1936,18 @@ def send2read(comicid, issueid, issuenum):
             module + " Send to Reading List enabled for new pulls. Adding to your readlist in the status of 'Added'"
         )
         if issueid is None:
-            chkthis = myDB.selectone(
-                "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [comicid, helpers.issuedigits(issuenum)]
-            ).fetchone()
-            annchk = myDB.selectone(
-                "SELECT * FROM annuals WHERE ComicID=? AND Int_IssueNumber=? AND NOT Deleted",
-                [comicid, helpers.issuedigits(issuenum)],
-            ).fetchone()
+            chkthis = _select_one(
+                select(issues).where(
+                    (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == helpers.issuedigits(issuenum))
+                )
+            )
+            annchk = _select_one(
+                select(annuals).where(
+                    (annuals.c.ComicID == comicid)
+                    & (annuals.c.Int_IssueNumber == helpers.issuedigits(issuenum))
+                    & (annuals.c.Deleted != 1)
+                )
+            )
             if chkthis is None and annchk is None:
                 logger.warn(module + " Unable to locate issue within your series watchlist.")
                 return
@@ -1922,9 +2001,11 @@ def future_check():
     # future to-do
     # specify whether you want to 'add a series (Watch For)' or 'mark an issue as a one-off download'.
     # currently the 'add series' option in the futurepulllist will attempt to add a series as per normal.
-    myDB = db.DBConnection()
-    chkfuture = myDB.select("SELECT * FROM futureupcoming WHERE IssueNumber='1' OR IssueNumber='0'")  # is not NULL")
-    if chkfuture is None:
+    stmt = select(futureupcoming).where(
+        (futureupcoming.c.IssueNumber == "1") | (futureupcoming.c.IssueNumber == "0")
+    )
+    chkfuture = _select_all(stmt)
+    if chkfuture is None or len(chkfuture) == 0:
         logger.info("There are not any series on your future-list that I consider to be a NEW series")
     else:
         cflist = []
@@ -2082,52 +2163,54 @@ def future_check():
                                 cid = pos_match["comicid"]
                                 matched = True
 
-                if matched:
-                    # we should probably load all additional issues for the series on the futureupcoming list that are marked as Wanted and then
-                    # throw them to the importer as a tuple, and once imported the import can run the additional search against them.
-                    # now we scan for additional issues of the same series on the upcoming list and mark them accordingly.
-                    chkthewanted = []
-                    chkwant = myDB.select(
-                        "SELECT * FROM futureupcoming WHERE ComicName=? AND IssueNumber != '1' AND Status='Wanted'",
-                        [ser["ComicName"]],
-                    )
-                    if chkwant is None:
-                        logger.info("No extra issues to mark at this time for " + ser["ComicName"])
-                    else:
-                        for chk in chkwant:
-                            chkthewanted.append(
-                                {
-                                    "ComicName": chk["ComicName"],
-                                    "IssueDate": chk["IssueDate"],
-                                    "IssueNumber": chk[
-                                        "IssueNumber"
-                                    ],  # this should be all #1's as the sql above limits the hits.
-                                    "Publisher": chk["Publisher"],
-                                    "Status": chk["Status"],
-                                }
+                    if matched:
+                        # we should probably load all additional issues for the series on the futureupcoming list that are marked as Wanted and then
+                        # throw them to the importer as a tuple, and once imported the import can run the additional search against them.
+                        # now we scan for additional issues of the same series on the upcoming list and mark them accordingly.
+                        chkthewanted = []
+                        stmt = select(futureupcoming).where(
+                            (futureupcoming.c.ComicName == ser["ComicName"])
+                            & (futureupcoming.c.IssueNumber != "1")
+                            & (futureupcoming.c.Status == "Wanted")
+                        )
+                        chkwant = _select_all(stmt)
+                        if chkwant is None or len(chkwant) == 0:
+                            logger.info("No extra issues to mark at this time for " + ser["ComicName"])
+                        else:
+                            for chk in chkwant:
+                                chkthewanted.append(
+                                    {
+                                        "ComicName": chk["ComicName"],
+                                        "IssueDate": chk["IssueDate"],
+                                        "IssueNumber": chk[
+                                            "IssueNumber"
+                                        ],  # this should be all #1's as the sql above limits the hits.
+                                        "Publisher": chk["Publisher"],
+                                        "Status": chk["Status"],
+                                    }
+                                )
+
+                            logger.info(
+                                "Marking "
+                                + str(len(chkthewanted))
+                                + " additional issues as Wanted from "
+                                + ser["ComicName"]
+                                + " series as requested."
                             )
 
+                        future_check_add(cid, ser, chkthewanted, theissdate)
+
+                    else:
                         logger.info(
-                            "Marking "
-                            + str(len(chkthewanted))
-                            + " additional issues as Wanted from "
+                            "No series information available as of yet for "
                             + ser["ComicName"]
-                            + " series as requested."
+                            + "[#"
+                            + str(ser["IssueNumber"])
+                            + "] ("
+                            + str(theissdate)
+                            + ")"
                         )
-
-                    future_check_add(cid, ser, chkthewanted, theissdate)
-
-                else:
-                    logger.info(
-                        "No series information available as of yet for "
-                        + ser["ComicName"]
-                        + "[#"
-                        + str(ser["IssueNumber"])
-                        + "] ("
-                        + str(theissdate)
-                        + ")"
-                    )
-                    continue
+                        continue
 
             logger.info("Finished attempting to auto-add new series.")
     return
@@ -2153,8 +2236,10 @@ def future_check_add(comicid, serinfo, chkthewanted=None, theissdate=None):
     if chktheadd != "Exists":
         logger.info("Sucessfully imported " + ser["ComicName"] + " (" + str(theissdate) + ")")
 
-    myDB = db.DBConnection()
-    myDB.action("DELETE from futureupcoming WHERE ComicName=?", [ser["ComicName"]])
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            delete(futureupcoming).where(futureupcoming.c.ComicName == ser["ComicName"])
+        )
     logger.info(
         "Removed " + ser["ComicName"] + " (" + str(theissdate) + ") from the future upcoming list as it is now added."
     )
