@@ -15,17 +15,19 @@ echo "  UMASK: ${UMASK}"
 echo "  TZ:    ${TZ:-not set}"
 echo "───────────────────────────────────"
 
-# Create group — use existing group if GID is already taken (e.g. Alpine's 'users' is GID 100)
+# Create group — use existing group if GID is already taken
 if ! getent group comicarr >/dev/null 2>&1; then
-    addgroup -g "${PGID}" comicarr 2>/dev/null || true
+    groupadd -g "${PGID}" comicarr 2>/dev/null || true
 fi
 # Resolve the actual group name for this GID (may be 'users' on Synology)
 GROUPNAME=$(getent group "${PGID}" | cut -d: -f1)
 GROUPNAME=${GROUPNAME:-comicarr}
 
-# Create user if it doesn't exist
+# Create or update user
 if ! getent passwd comicarr >/dev/null 2>&1; then
-    adduser -D -u "${PUID}" -G "${GROUPNAME}" -h /app/comicarr -s /bin/sh comicarr
+    useradd -u "${PUID}" -g "${GROUPNAME}" -d /opt/comicarr -s /bin/sh comicarr
+else
+    usermod -u "${PUID}" -g "${GROUPNAME}" comicarr 2>/dev/null || true
 fi
 
 # Handle timezone
@@ -49,12 +51,12 @@ fi
 # Verify write access to media volumes (warn only, do NOT chown)
 for dir in /comics /downloads /manga; do
     if [ -d "$dir" ]; then
-        if ! su-exec comicarr:"${GROUPNAME}" test -w "$dir"; then
+        if ! gosu comicarr test -w "$dir" 2>/dev/null; then
             echo "WARNING: ${dir} is not writable by comicarr (PUID=${PUID}/PGID=${PGID}). Fix host permissions."
         fi
     fi
 done
 
 # Drop privileges and exec the application
-exec su-exec comicarr:"${GROUPNAME}" python3 /app/comicarr/Comicarr.py \
+exec gosu comicarr python /opt/comicarr/Comicarr.py \
     --nolaunch --quiet --datadir /config/comicarr "$@"
