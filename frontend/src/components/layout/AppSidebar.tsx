@@ -139,7 +139,7 @@ export default function AppSidebar() {
       <SidebarSeparator />
 
       {/* Main Navigation */}
-      <SidebarContent className="pt-2">
+      <SidebarContent className="px-2 pt-2">
         <SidebarMenu>
           {navItems.map(({ path, label, icon: Icon }) => (
             <SidebarMenuItem key={path}>
@@ -161,7 +161,7 @@ export default function AppSidebar() {
       <SidebarSeparator />
 
       {/* Footer with Settings, Theme, and Logout */}
-      <SidebarFooter className="pb-4">
+      <SidebarFooter className="px-2 pb-4">
         <SidebarMenu>
           {/* Settings */}
           <SidebarMenuItem>
