@@ -29,6 +29,69 @@ import comicarr
 from comicarr import filechecker, helpers, importer, logger
 
 
+def auto_backup_db(source_path, dest_dir, retention=4):
+    """WAL-safe automatic database backup using SQLite Online Backup API.
+
+    Uses connection.backup() which handles WAL atomically without
+    requiring exclusive access. This is the only safe backup method
+    for WAL-mode databases (shutil.copy2 can produce corrupt backups
+    when WAL contains uncommitted pages).
+
+    Args:
+        source_path: path to the source database file
+        dest_dir: directory to store backups
+        retention: number of backups to keep (default: 4)
+    """
+    if not os.path.isfile(source_path):
+        logger.warn('[AUTO-BACKUP] Source database not found: %s' % source_path)
+        return False
+
+    try:
+        os.makedirs(dest_dir, exist_ok=True)
+    except OSError as e:
+        logger.error('[AUTO-BACKUP] Cannot create backup directory %s: %s' % (dest_dir, e))
+        return False
+
+    import time
+    timestamp = time.strftime('%Y%m%d_%H%M%S')
+    dest_path = os.path.join(dest_dir, 'comicarr.db.%s.bak' % timestamp)
+
+    try:
+        src_conn = sqlite3.connect(source_path)
+        dst_conn = sqlite3.connect(dest_path)
+        src_conn.backup(dst_conn)
+        dst_conn.close()
+        src_conn.close()
+    except Exception as e:
+        logger.error('[AUTO-BACKUP] Backup failed: %s' % e)
+        # Clean up partial backup
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except OSError:
+                pass
+        return False
+
+    # Verify backup file size is reasonable
+    source_size = os.path.getsize(source_path)
+    backup_size = os.path.getsize(dest_path)
+    if backup_size == 0 or backup_size < source_size * 0.5:
+        logger.warn('[AUTO-BACKUP] Backup file size (%d bytes) seems too small compared to source (%d bytes)' % (backup_size, source_size))
+
+    # Rotate old backups — keep only `retention` most recent
+    existing = sorted(glob.glob(os.path.join(dest_dir, 'comicarr.db.*.bak')))
+    while len(existing) > retention:
+        oldest = existing.pop(0)
+        try:
+            os.remove(oldest)
+            logger.fdebug('[AUTO-BACKUP] Removed old backup: %s' % os.path.basename(oldest))
+        except OSError as e:
+            logger.warn('[AUTO-BACKUP] Failed to remove old backup %s: %s' % (oldest, e))
+
+    logger.info('[AUTO-BACKUP] Database backed up to %s' % os.path.basename(dest_path))
+    return True
+
+
 class Maintenance(object):
     def __init__(self, mode, file=None, output=None):
         self.mode = mode

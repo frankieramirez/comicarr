@@ -47,6 +47,7 @@ import comicarr.config
 from comicarr import (
     helpers,
     logger,
+    maintenance,
     postprocessor,
     rsscheckit,
     sabnzbd,
@@ -464,6 +465,18 @@ def initialize(config_file):
         except Exception as e:
             logger.error("Cannot connect to the database: %s" % e)
         else:
+            # Auto-backup non-empty databases on startup (WAL-safe)
+            try:
+                conn = sql_db()
+                row = conn.execute("SELECT COUNT(*) FROM comics").fetchone()
+                conn.close()
+                if row and row[0] > 0:
+                    backup_dir = os.path.join(comicarr.DATA_DIR, 'backups')
+                    retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
+                    maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+            except Exception as e:
+                logger.warn('[STARTUP] Auto-backup skipped: %s' % e)
+
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
 
