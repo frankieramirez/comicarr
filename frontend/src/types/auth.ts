@@ -16,6 +16,8 @@ export interface AuthContextValue {
   isLoading: boolean;
   isVerifying: boolean;
   needsSetup: boolean;
+  needsMigration: boolean;
+  dismissMigration: () => void;
   login: (
     username: string,
     password: string,

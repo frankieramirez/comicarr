@@ -1,12 +1,15 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { MigrationWizard } from "@/components/migration/MigrationWizard";
+import Layout from "@/components/layout/Layout";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, needsMigration, dismissMigration } =
+    useAuth();
 
   // Show loading state while checking session
   if (isLoading) {
@@ -29,6 +32,17 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Gate: show migration wizard instead of children when DB is empty
+  if (needsMigration) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-4xl">
+          <MigrationWizard onDismiss={dismissMigration} />
+        </div>
+      </Layout>
+    );
   }
 
   return <>{children}</>;
