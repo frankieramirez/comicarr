@@ -19,6 +19,7 @@
 import configparser
 import contextlib
 import os
+import re
 import sqlite3
 import threading
 
@@ -26,8 +27,10 @@ import comicarr
 from comicarr import encrypted, logger, maintenance
 
 _migration_lock = threading.Lock()
+_SAFE_IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 # Tables to migrate, ordered by dependency
+# (ephemeral tables like searchresults, notifs, provider_searches are excluded)
 MIGRATABLE_TABLES = [
     "comics",
     "issues",
@@ -45,18 +48,6 @@ MIGRATABLE_TABLES = [
     "ref32p",
     "oneoffhistory",
     "jobhistory",
-]
-
-# Tables intentionally skipped (ephemeral/cache data)
-SKIPPED_TABLES = [
-    "searchresults",
-    "manualresults",
-    "tmp_searches",
-    "notifs",
-    "exceptions_log",
-    "provider_searches",
-    "importresults",
-    "mylar_info",
 ]
 
 # Credential keys that use Fernet encryption (not bcrypt)
@@ -132,9 +123,11 @@ def _open_source_db(path):
 def _get_common_columns(source_conn, dest_conn, table):
     source_cols = {
         row[1] for row in source_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+        if _SAFE_IDENTIFIER.match(row[1])
     }
     dest_cols = {
         row[1] for row in dest_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+        if _SAFE_IDENTIFIER.match(row[1])
     }
     # For weekly table, exclude rowid from insert (let SQLite auto-assign)
     if table == "weekly":
@@ -147,16 +140,17 @@ def _get_common_columns(source_conn, dest_conn, table):
 class Mylar3Migration:
     def __init__(self, source_path):
         self.source_path = source_path
+        self.real_path = None
         self.dbfile = None
-        self.status = "idle"
 
     def validate(self):
         valid, result = _validate_source_path(self.source_path)
         if not valid:
-            return {"valid": False, "error": result}
+            return {"valid": False, "error": "Invalid Mylar3 data path"}
 
         self.dbfile = result
-        real_path = os.path.realpath(self.source_path)
+        self.real_path = os.path.realpath(self.source_path)
+        real_path = self.real_path
 
         try:
             with _open_source_db(self.dbfile) as conn:
@@ -249,16 +243,17 @@ class Mylar3Migration:
             comicarr.MIGRATION_ERROR = None
             comicarr.MIGRATION_TABLES_COMPLETE = 0
 
-            # Validate first
-            if self.dbfile is None:
+            # Validate first (use resolved path to prevent TOCTOU)
+            if self.dbfile is None or self.real_path is None:
                 valid, result = _validate_source_path(self.source_path)
                 if not valid:
                     comicarr.MIGRATION_STATUS = "error"
-                    comicarr.MIGRATION_ERROR = result
+                    comicarr.MIGRATION_ERROR = "Migration validation failed"
                     return False
                 self.dbfile = result
+                self.real_path = os.path.realpath(self.source_path)
 
-            real_path = os.path.realpath(self.source_path)
+            real_path = self.real_path
 
             # Pre-migration backup
             logger.info('[MIGRATION] Creating pre-migration backup...')
@@ -272,7 +267,7 @@ class Mylar3Migration:
 
                 try:
                     # Performance PRAGMAs for bulk import
-                    dest_conn.execute("PRAGMA synchronous = OFF")
+                    dest_conn.execute("PRAGMA synchronous = NORMAL")
                     dest_conn.execute("PRAGMA cache_size = -128000")
                     dest_conn.execute("PRAGMA temp_store = MEMORY")
                     dest_conn.execute("PRAGMA foreign_keys = OFF")
@@ -281,7 +276,8 @@ class Mylar3Migration:
                     for idx in dest_conn.execute(
                         "SELECT name FROM sqlite_master WHERE type='index' AND sql IS NOT NULL"
                     ).fetchall():
-                        dest_conn.execute("DROP INDEX IF EXISTS %s" % idx[0])
+                        if _SAFE_IDENTIFIER.match(idx[0]):
+                            dest_conn.execute('DROP INDEX IF EXISTS "%s"' % idx[0])
 
                     # Determine which tables exist in both source and destination
                     source_tables = {
@@ -325,7 +321,7 @@ class Mylar3Migration:
                         try:
                             total_rows = 0
                             while True:
-                                batch = source_cursor.fetchmany(2000)
+                                batch = source_cursor.fetchmany(5000)
                                 if not batch:
                                     break
                                 dest_conn.executemany(
@@ -343,17 +339,18 @@ class Mylar3Migration:
                                 '[MIGRATION][%s] Failed: %s' % (table.upper(), e)
                             )
                             comicarr.MIGRATION_STATUS = "error"
-                            comicarr.MIGRATION_ERROR = "Failed on table %s: %s" % (table, e)
+                            comicarr.MIGRATION_ERROR = "Failed on table %s" % table
                             return False
 
                         comicarr.MIGRATION_TABLES_COMPLETE += 1
 
-                    # Restore safe PRAGMAs
-                    dest_conn.execute("PRAGMA synchronous = NORMAL")
-                    dest_conn.execute("PRAGMA foreign_keys = ON")
-                    dest_conn.execute("PRAGMA optimize")
-
                 finally:
+                    try:
+                        dest_conn.execute("PRAGMA synchronous = NORMAL")
+                        dest_conn.execute("PRAGMA foreign_keys = ON")
+                        dest_conn.execute("PRAGMA optimize")
+                    except Exception:
+                        pass
                     dest_conn.close()
 
             # Migrate config after database
@@ -382,20 +379,11 @@ class Mylar3Migration:
         except Exception as e:
             logger.error('[MIGRATION] Migration failed: %s' % e)
             comicarr.MIGRATION_STATUS = "error"
-            comicarr.MIGRATION_ERROR = str(e)
+            comicarr.MIGRATION_ERROR = "Migration failed unexpectedly"
             return False
         finally:
             comicarr.MIGRATION_IN_PROGRESS = False
             _migration_lock.release()
-
-    def get_progress(self):
-        return {
-            "status": comicarr.MIGRATION_STATUS,
-            "current_table": comicarr.MIGRATION_CURRENT_TABLE,
-            "tables_complete": comicarr.MIGRATION_TABLES_COMPLETE,
-            "tables_total": comicarr.MIGRATION_TABLES_TOTAL,
-            "error": comicarr.MIGRATION_ERROR,
-        }
 
 
 def migrate_mylar3_config(source_path):
@@ -488,44 +476,45 @@ def _verify_migration(source_db_path):
     try:
         with _open_source_db(source_db_path) as source_conn:
             dest_conn = sqlite3.connect(comicarr.DB_FILE)
-            dest_conn.row_factory = sqlite3.Row
+            try:
+                dest_conn.row_factory = sqlite3.Row
 
-            for table in ["comics", "issues", "annuals"]:
+                for table in ["comics", "issues", "annuals"]:
+                    try:
+                        src_count = source_conn.execute(
+                            "SELECT COUNT(*) as cnt FROM %s" % table
+                        ).fetchone()
+                        dst_count = dest_conn.execute(
+                            "SELECT COUNT(*) as cnt FROM %s" % table
+                        ).fetchone()
+                        src_n = int(src_count["cnt"]) if src_count else 0
+                        dst_n = int(dst_count["cnt"]) if dst_count else 0
+                        if src_n != dst_n:
+                            logger.warn(
+                                '[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d'
+                                % (table, src_n, dst_n)
+                            )
+                        else:
+                            logger.fdebug(
+                                '[MIGRATION][VERIFY] %s: %d rows OK' % (table, dst_n)
+                            )
+                    except Exception as e:
+                        logger.warn('[MIGRATION][VERIFY] Could not verify %s: %s' % (table, e))
+
+                # Check for orphaned issues
                 try:
-                    src_count = source_conn.execute(
-                        "SELECT COUNT(*) as cnt FROM %s" % table
+                    orphans = dest_conn.execute(
+                        "SELECT COUNT(*) as cnt FROM issues WHERE ComicID NOT IN (SELECT ComicID FROM comics)"
                     ).fetchone()
-                    dst_count = dest_conn.execute(
-                        "SELECT COUNT(*) as cnt FROM %s" % table
-                    ).fetchone()
-                    src_n = int(src_count["cnt"]) if src_count else 0
-                    dst_n = int(dst_count["cnt"]) if dst_count else 0
-                    if src_n != dst_n:
+                    orphan_count = int(orphans["cnt"]) if orphans else 0
+                    if orphan_count > 0:
                         logger.warn(
-                            '[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d'
-                            % (table, src_n, dst_n)
-                        )
-                    else:
-                        logger.fdebug(
-                            '[MIGRATION][VERIFY] %s: %d rows OK' % (table, dst_n)
+                            '[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)'
+                            % orphan_count
                         )
                 except Exception as e:
-                    logger.warn('[MIGRATION][VERIFY] Could not verify %s: %s' % (table, e))
-
-            # Check for orphaned issues
-            try:
-                orphans = dest_conn.execute(
-                    "SELECT COUNT(*) as cnt FROM issues WHERE ComicID NOT IN (SELECT ComicID FROM comics)"
-                ).fetchone()
-                orphan_count = int(orphans["cnt"]) if orphans else 0
-                if orphan_count > 0:
-                    logger.warn(
-                        '[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)'
-                        % orphan_count
-                    )
-            except Exception as e:
-                logger.warn('[MIGRATION][VERIFY] Orphan check failed: %s' % e)
-
-            dest_conn.close()
+                    logger.warn('[MIGRATION][VERIFY] Orphan check failed: %s' % e)
+            finally:
+                dest_conn.close()
     except Exception as e:
         logger.warn('[MIGRATION][VERIFY] Verification failed: %s' % e)

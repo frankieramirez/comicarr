@@ -23,7 +23,6 @@ interface AuthProviderProps {
 interface StartupDiagnostics {
   db_empty: boolean;
   migration_dismissed: boolean;
-  volume_warning: boolean;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -154,7 +153,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const dismissMigration = () => {
     setNeedsMigration(false);
     // Persist dismissal to backend config
-    apiCall("setConfig", { MIGRATION_DISMISSED: "true" }).catch(() => {});
+    apiCall("setConfig", { MIGRATION_DISMISSED: "true" }).catch((err) => {
+      console.warn("Failed to persist migration dismissal:", err);
+    });
   };
 
   const value: AuthContextValue = {

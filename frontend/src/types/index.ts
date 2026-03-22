@@ -65,9 +65,6 @@ export type {
   ConfigUpdate,
 } from "./config";
 
-// Migration types
-export type { MigrationStatus } from "../hooks/useMigration";
-
 // Component types
 export type {
   StatusBadgeProps,

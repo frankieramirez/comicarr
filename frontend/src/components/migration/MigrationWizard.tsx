@@ -16,6 +16,7 @@ import {
   usePreviewMigration,
   useStartMigration,
   useMigrationProgress,
+  type MigrationProgressResponse,
 } from "@/hooks/useMigration";
 
 interface MigrationWizardProps {
@@ -27,7 +28,7 @@ function MigrationWizardInner({ onDismiss }: MigrationWizardProps) {
 
   const preview = usePreviewMigration();
   const startMigration = useStartMigration();
-  const progress = useMigrationProgress(true);
+  const progress = useMigrationProgress(startMigration.isSuccess);
 
   // Derive current view from backend state
   const isMigrating =
@@ -40,6 +41,7 @@ function MigrationWizardInner({ onDismiss }: MigrationWizardProps) {
     if (progress.data?.status === "migrating") {
       const handler = (e: BeforeUnloadEvent) => {
         e.preventDefault();
+        e.returnValue = "";
       };
       window.addEventListener("beforeunload", handler);
       return () => window.removeEventListener("beforeunload", handler);
@@ -47,19 +49,15 @@ function MigrationWizardInner({ onDismiss }: MigrationWizardProps) {
   }, [progress.data?.status]);
 
   const handleValidate = () => {
-    if (path.trim()) {
-      preview.mutate(path.trim());
-    }
+    preview.mutate(path.trim());
   };
 
   const handleStartMigration = () => {
-    if (path.trim()) {
-      startMigration.mutate(path.trim());
-    }
+    startMigration.mutate(path.trim());
   };
 
-  if (isMigrating) {
-    return <ProgressView progress={progress.data!} />;
+  if (isMigrating && progress.data) {
+    return <ProgressView progress={progress.data} />;
   }
 
   return (
@@ -237,13 +235,7 @@ function SetupView({
 // --- Progress View ---
 
 interface ProgressViewProps {
-  progress: {
-    status: string;
-    current_table: string;
-    tables_complete: number;
-    tables_total: number;
-    error?: string | null;
-  };
+  progress: MigrationProgressResponse;
 }
 
 function ProgressView({ progress }: ProgressViewProps) {

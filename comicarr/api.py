@@ -1406,7 +1406,6 @@ class Api(object):
             {
                 "db_empty": comicarr.DB_EMPTY,
                 "migration_dismissed": comicarr.CONFIG.MIGRATION_DISMISSED,
-                "volume_warning": comicarr.VOLUME_MOUNT_WARNING,
             }
         )
 
@@ -1427,7 +1426,7 @@ class Api(object):
         if result.get("valid"):
             self.data = self._successResponse(result)
         else:
-            self.data = self._failureResponse(result.get("error", "Validation failed"))
+            self.data = self._failureResponse("Invalid Mylar3 data path")
 
     def _startMigration(self, **kwargs):
         if self.apitype != "normal":
@@ -1439,11 +1438,6 @@ class Api(object):
             self.data = self._failureResponse("path parameter is required")
             return
 
-        confirm = kwargs.get("confirm", "")
-        if str(confirm).lower() != "true":
-            self.data = self._failureResponse("confirm=true parameter required for safety")
-            return
-
         if comicarr.MIGRATION_IN_PROGRESS:
             self.data = self._failureResponse("Migration already in progress")
             return
@@ -1451,6 +1445,12 @@ class Api(object):
         from comicarr import migration
 
         m = migration.Mylar3Migration(path)
+        # Validate synchronously before spawning thread
+        result = m.validate()
+        if not result.get("valid"):
+            self.data = self._failureResponse("Invalid Mylar3 data path")
+            return
+
         t = threading.Thread(target=m.execute, name="MigrationThread")
         t.daemon = True
         t.start()

@@ -11,13 +11,7 @@ import {
   SortingState,
   CellContext,
 } from "@tanstack/react-table";
-import {
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  BookOpen,
-  Database,
-} from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -268,18 +262,7 @@ export default function SeriesTable({
   }
 
   if (data.length === 0) {
-    return (
-      <EmptyState variant="library">
-        <Button
-          variant="outline"
-          onClick={() => (window.location.href = "/")}
-          className="mt-2"
-        >
-          <Database className="h-4 w-4 mr-2" />
-          Migrate from Mylar3
-        </Button>
-      </EmptyState>
-    );
+    return <EmptyState variant="library" />;
   }
 
   return (

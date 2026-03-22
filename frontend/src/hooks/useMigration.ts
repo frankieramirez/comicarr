@@ -1,14 +1,13 @@
 import {
   useQuery,
   useMutation,
-  useQueryClient,
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiCall } from "@/lib/api";
 
 /** Preview/validation response from previewMigration API */
-interface PreviewMigrationResponse {
+export interface PreviewMigrationResponse {
   valid: boolean;
   version: string;
   series_count: number;
@@ -19,13 +18,13 @@ interface PreviewMigrationResponse {
   error?: string;
 }
 
-interface MigrationTableSummary {
+export interface MigrationTableSummary {
   name: string;
   row_count: number;
 }
 
 /** Progress response from getMigrationProgress API */
-interface MigrationProgressResponse {
+export interface MigrationProgressResponse {
   status: MigrationStatus;
   current_table: string;
   tables_complete: number;
@@ -52,25 +51,15 @@ export function usePreviewMigration(): UseMutationResult<
   });
 }
 
-/** Starts a migration in a background thread. Invalidates series cache on success. */
+/** Starts a migration in a background thread. */
 export function useStartMigration(): UseMutationResult<
   { status: string },
   Error,
   string
 > {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (path: string) =>
-      apiCall<{ status: string }>("startMigration", {
-        path,
-        confirm: "true",
-      }),
-    onSuccess: () => {
-      // Invalidate series data so library refreshes after migration
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["series"] });
-      }, 2000);
-    },
+      apiCall<{ status: string }>("startMigration", { path }),
   });
 }
 

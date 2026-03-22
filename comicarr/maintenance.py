@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import sqlite3
+import time
 
 import comicarr
 from comicarr import filechecker, helpers, importer, logger
@@ -52,31 +53,29 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         logger.error('[AUTO-BACKUP] Cannot create backup directory %s: %s' % (dest_dir, e))
         return False
 
-    import time
+    retention = max(int(retention), 1)
     timestamp = time.strftime('%Y%m%d_%H%M%S')
     dest_path = os.path.join(dest_dir, 'comicarr.db.%s.bak' % timestamp)
 
+    src_conn = None
+    dst_conn = None
     try:
         src_conn = sqlite3.connect(source_path)
         dst_conn = sqlite3.connect(dest_path)
-        src_conn.backup(dst_conn)
-        dst_conn.close()
-        src_conn.close()
+        src_conn.backup(dst_conn, pages=256, sleep=0.01)
     except Exception as e:
         logger.error('[AUTO-BACKUP] Backup failed: %s' % e)
-        # Clean up partial backup
         if os.path.exists(dest_path):
             try:
                 os.remove(dest_path)
             except OSError:
                 pass
         return False
-
-    # Verify backup file size is reasonable
-    source_size = os.path.getsize(source_path)
-    backup_size = os.path.getsize(dest_path)
-    if backup_size == 0 or backup_size < source_size * 0.5:
-        logger.warn('[AUTO-BACKUP] Backup file size (%d bytes) seems too small compared to source (%d bytes)' % (backup_size, source_size))
+    finally:
+        if dst_conn:
+            dst_conn.close()
+        if src_conn:
+            src_conn.close()
 
     # Rotate old backups — keep only `retention` most recent
     existing = sorted(glob.glob(os.path.join(dest_dir, 'comicarr.db.*.bak')))
