@@ -356,11 +356,14 @@ class AuthController(object):
             if len(password) < 8:
                 return {"success": False, "error": "Password must be at least 8 characters"}
 
+            # Hash password before storing — never write plaintext to config
+            hashed_password = encrypted.hash_password(password)
+
             # Save credentials via process_kwargs (handles ConfigParser sync)
             comicarr.CONFIG.process_kwargs(
                 {
                     "http_username": username,
-                    "http_password": password,
+                    "http_password": hashed_password,
                     "authentication": 2,  # Form-based auth
                 }
             )

@@ -409,22 +409,30 @@ class Api(object):
             return
 
         ht_user = comicarr.CONFIG.HTTP_USERNAME
-        edc = encrypted.Encryptor(comicarr.CONFIG.HTTP_PASSWORD)
-        ed_chk = edc.decrypt_it()
-        if comicarr.CONFIG.ENCRYPT_PASSWORDS is True:
-            if username == ht_user and all([ed_chk["status"] is True, ed_chk["password"] == password]):
-                _rate_limiter.record_success(ip)
-                self.data = self._successResponse({"apikey": comicarr.CONFIG.API_KEY})
-            else:
-                _rate_limiter.record_failure(ip)
-                self.data = self._failureResponse("Incorrect username or password.")
+        stored_pass = comicarr.CONFIG.HTTP_PASSWORD
+
+        if not hmac.compare_digest(username, ht_user):
+            _rate_limiter.record_failure(ip)
+            self.data = self._failureResponse("Incorrect username or password.")
+            return
+
+        # Three-state password verification (mirrors auth.py check_credentials)
+        verified = False
+        if stored_pass and (stored_pass.startswith("$2b$") or stored_pass.startswith("$2a$")):
+            verified = encrypted.verify_password(password, stored_pass)
+        elif stored_pass and stored_pass.startswith("^~$z$"):
+            edc = encrypted.Encryptor(stored_pass, logon=True)
+            ed_chk = edc.decrypt_it()
+            verified = ed_chk["status"] is True and ed_chk["password"] == password
         else:
-            if username == ht_user and password == comicarr.CONFIG.HTTP_PASSWORD:
-                _rate_limiter.record_success(ip)
-                self.data = self._successResponse({"apikey": comicarr.CONFIG.API_KEY})
-            else:
-                _rate_limiter.record_failure(ip)
-                self.data = self._failureResponse("Incorrect username or password.")
+            verified = password == stored_pass
+
+        if verified:
+            _rate_limiter.record_success(ip)
+            self.data = self._successResponse({"apikey": comicarr.CONFIG.API_KEY})
+        else:
+            _rate_limiter.record_failure(ip)
+            self.data = self._failureResponse("Incorrect username or password.")
 
     def _getIndex(self, **kwargs):
         # Support pagination via limit and offset parameters

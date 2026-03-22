@@ -272,16 +272,21 @@ export async function checkSetup(): Promise<{ needs_setup: boolean }> {
 export async function setupCredentials(
   username: string,
   password: string,
+  setupToken?: string,
 ): Promise<{ success: boolean; error?: string; username?: string }> {
   try {
     const url = new URL(`${AUTH_BASE}/setup`, window.location.origin);
+    const params: Record<string, string> = { username, password };
+    if (setupToken) {
+      params.setup_token = setupToken;
+    }
     const response = await fetch(url, {
       method: "POST",
       headers: {
         ...COMMON_HEADERS,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ username, password }),
+      body: new URLSearchParams(params),
       credentials: "include",
     });
     if (!response.ok) {

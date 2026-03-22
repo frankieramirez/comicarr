@@ -81,6 +81,27 @@ def _csrf_protect():
 cherrypy.tools.csrf = cherrypy.Tool("before_handler", _csrf_protect, priority=20)
 
 
+def _make_bcrypt_checkpassword(user_pass_dict):
+    """Create a checkpassword callable that handles bcrypt hashes for HTTP Basic Auth.
+    CherryPy's built-in checkpassword_dict does plaintext comparison which breaks after
+    bcrypt migration."""
+    from comicarr import encrypted
+
+    def checkpassword(realm, username, password):
+        stored = user_pass_dict.get(username)
+        if stored is None:
+            return False
+        if stored.startswith("$2b$") or stored.startswith("$2a$"):
+            return encrypted.verify_password(password, stored)
+        if stored.startswith("^~$z$"):
+            edc = encrypted.Encryptor(stored, logon=True)
+            ed_chk = edc.decrypt_it()
+            return ed_chk["status"] is True and ed_chk["password"] == password
+        return password == stored
+
+    return checkpassword
+
+
 def initialize(options):
 
     # HTTPS stuff stolen from sickbeard
@@ -224,7 +245,7 @@ def initialize(options):
                 {
                     "tools.auth_basic.on": True,
                     "tools.auth_basic.realm": "Comicarr",
-                    "tools.auth_basic.checkpassword": cherrypy.lib.auth_basic.checkpassword_dict(
+                    "tools.auth_basic.checkpassword": _make_bcrypt_checkpassword(
                         {options["http_username"]: options["http_password"]}
                     ),
                 }
@@ -254,7 +275,7 @@ def initialize(options):
             "tools.auth.on": False,
             "tools.auth_basic.on": True,
             "tools.auth_basic.realm": "Comicarr OPDS",
-            "tools.auth_basic.checkpassword": cherrypy.lib.auth_basic.checkpassword_dict(user_list),
+            "tools.auth_basic.checkpassword": _make_bcrypt_checkpassword(user_list),
         }
     else:
         conf["/opds"] = {"tools.auth_basic.on": False, "tools.auth.on": False}
