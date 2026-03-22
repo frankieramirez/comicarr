@@ -28,7 +28,7 @@ dependencies = [
 
     "tenacity>=8.2.3",
     "tzlocal>=2.0.0",
-    "urllib3<2",
+    "urllib3<3",
     "user_agent2>=2021.12.11",
 ]
 
