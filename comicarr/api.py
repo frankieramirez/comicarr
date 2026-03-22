@@ -124,6 +124,9 @@ cmd_list = [
     "bulkMetatag",
     "getCalendar",
     "getStartupDiagnostics",
+    "previewMigration",
+    "startMigration",
+    "getMigrationProgress",
 ]
 
 
@@ -1404,6 +1407,63 @@ class Api(object):
                 "db_empty": comicarr.DB_EMPTY,
                 "migration_dismissed": comicarr.CONFIG.MIGRATION_DISMISSED,
                 "volume_warning": comicarr.VOLUME_MOUNT_WARNING,
+            }
+        )
+
+    def _previewMigration(self, **kwargs):
+        if self.apitype != "normal":
+            self.data = self._failureResponse("Migration requires normal API key")
+            return
+
+        path = kwargs.get("path", "")
+        if not path:
+            self.data = self._failureResponse("path parameter is required")
+            return
+
+        from comicarr import migration
+
+        m = migration.Mylar3Migration(path)
+        result = m.validate()
+        if result.get("valid"):
+            self.data = self._successResponse(result)
+        else:
+            self.data = self._failureResponse(result.get("error", "Validation failed"))
+
+    def _startMigration(self, **kwargs):
+        if self.apitype != "normal":
+            self.data = self._failureResponse("Migration requires normal API key")
+            return
+
+        path = kwargs.get("path", "")
+        if not path:
+            self.data = self._failureResponse("path parameter is required")
+            return
+
+        confirm = kwargs.get("confirm", "")
+        if str(confirm).lower() != "true":
+            self.data = self._failureResponse("confirm=true parameter required for safety")
+            return
+
+        if comicarr.MIGRATION_IN_PROGRESS:
+            self.data = self._failureResponse("Migration already in progress")
+            return
+
+        from comicarr import migration
+
+        m = migration.Mylar3Migration(path)
+        t = threading.Thread(target=m.execute, name="MigrationThread")
+        t.daemon = True
+        t.start()
+        self.data = self._successResponse({"status": "started"})
+
+    def _getMigrationProgress(self, **kwargs):
+        self.data = self._successResponse(
+            {
+                "status": comicarr.MIGRATION_STATUS,
+                "current_table": comicarr.MIGRATION_CURRENT_TABLE,
+                "tables_complete": comicarr.MIGRATION_TABLES_COMPLETE,
+                "tables_total": comicarr.MIGRATION_TABLES_TOTAL,
+                "error": comicarr.MIGRATION_ERROR,
             }
         )
 
