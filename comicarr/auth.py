@@ -24,12 +24,15 @@
 # Session tool to be loaded.
 ###### from cherrypy/tools on github
 
+import hmac
 import threading
+import time
 import urllib.error
 import urllib.parse
 
 # from datetime import datetime, timedelta
 import urllib.request
+from collections import defaultdict
 
 import cherrypy
 
@@ -39,23 +42,63 @@ from comicarr import encrypted, logger
 SESSION_KEY = "_cp_username"
 
 
+class LoginRateLimiter(object):
+    def __init__(self, max_attempts=5, lockout_seconds=300):
+        self._attempts = defaultdict(list)
+        self._lock = threading.Lock()
+        self.max_attempts = max_attempts
+        self.lockout_seconds = lockout_seconds
+
+    def is_locked_out(self, ip):
+        with self._lock:
+            now = time.monotonic()
+            cutoff = now - self.lockout_seconds
+            recent = [t for t in self._attempts[ip] if t > cutoff]
+            if recent:
+                self._attempts[ip] = recent
+            else:
+                self._attempts.pop(ip, None)
+            return len(recent) >= self.max_attempts
+
+    def record_failure(self, ip):
+        with self._lock:
+            self._attempts[ip].append(time.monotonic())
+
+    def record_success(self, ip):
+        with self._lock:
+            self._attempts.pop(ip, None)
+
+
+# Module-level rate limiter instance shared across all login endpoints
+_rate_limiter = LoginRateLimiter()
+
+
 def check_credentials(username, password):
     """Verifies credentials for username and password.
     Returns None on success or a string describing the error on failure"""
-    # Adapt to your needs
+    # Check rate limit BEFORE any password verification (prevents CPU waste from bcrypt)
+    ip = cherrypy.request.remote.ip
+    if _rate_limiter.is_locked_out(ip):
+        logger.info("[AUTH] Login attempt blocked (rate limited) from IP: %s" % ip)
+        return "Incorrect username or password."
+
     forms_user = cherrypy.request.config["auth.forms_username"]
     forms_pass = cherrypy.request.config["auth.forms_password"]
     edc = encrypted.Encryptor(forms_pass, logon=True)
     ed_chk = edc.decrypt_it()
     if comicarr.CONFIG.ENCRYPT_PASSWORDS is True:
         if username == forms_user and all([ed_chk["status"] is True, ed_chk["password"] == password]):
+            _rate_limiter.record_success(ip)
             return None
         else:
+            _rate_limiter.record_failure(ip)
             return "Incorrect username or password."
     else:
         if username == forms_user and password == forms_pass:
+            _rate_limiter.record_success(ip)
             return None
         else:
+            _rate_limiter.record_failure(ip)
             return "Incorrect username or password."
 
 
@@ -258,7 +301,7 @@ class AuthController(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def setup(self, username=None, password=None):
+    def setup(self, username=None, password=None, setup_token=None):
         """First-run credential setup. Only works if no auth is configured."""
         # Restrict to POST only to prevent CSRF via GET
         if cherrypy.request.method != "POST":
@@ -270,6 +313,11 @@ class AuthController(object):
             # Only allow setup if no credentials are configured
             if comicarr.CONFIG.HTTP_USERNAME and comicarr.CONFIG.HTTP_PASSWORD:
                 return {"success": False, "error": "Credentials already configured"}
+
+            # Require setup token when one is active (prevents LAN attacker from completing setup)
+            if comicarr.SETUP_TOKEN is not None:
+                if not setup_token or not hmac.compare_digest(setup_token, comicarr.SETUP_TOKEN):
+                    return {"success": False, "error": "Invalid setup token. Check the server console log."}
 
             if not username or not password:
                 return {"success": False, "error": "Username and password required"}
@@ -289,6 +337,9 @@ class AuthController(object):
             comicarr.CONFIG.configure(update=True, startup=False)
 
             logger.info("[AUTH-SETUP] Initial credentials configured for user: %s" % username)
+
+            # Clear the setup token — setup is complete
+            comicarr.SETUP_TOKEN = None
 
             # CherryPy sessions are configured at mount time based on whether auth
             # is set. A server restart is needed for login/sessions to work.

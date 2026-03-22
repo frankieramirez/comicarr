@@ -128,9 +128,9 @@ class OPDS(object):
         cherrypy.response.headers["Content-Type"] = "text/xml"
         return error
 
-    def _dic_from_query(self, query):
+    def _dic_from_query(self, query, args=None):
         myDB = db.DBConnection()
-        rows = myDB.select(query)
+        rows = myDB.select(query, args)
 
         rows_as_dic = []
 
@@ -474,10 +474,10 @@ class OPDS(object):
             self.data = self._error_with_message("Comic Not Found")
             return
         issues = self._dic_from_query(
-            'SELECT * from issues WHERE ComicID="' + kwargs["comicid"] + '"order by Int_IssueNumber DESC'
+            "SELECT * from issues WHERE ComicID=? order by Int_IssueNumber DESC", [kwargs["comicid"]]
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            annuals = self._dic_from_query('SELECT * FROM annuals WHERE ComicID="' + kwargs["comicid"] + '"')
+            annuals = self._dic_from_query("SELECT * FROM annuals WHERE ComicID=?", [kwargs["comicid"]])
         else:
             annuals = []
         for annual in annuals:
@@ -1117,7 +1117,7 @@ class OPDS(object):
         links = []
         entries = []
         arclist = self._dic_from_query(
-            "SELECT * from storyarcs WHERE StoryArcID='" + kwargs["arcid"] + "' ORDER BY ReadingOrder"
+            "SELECT * from storyarcs WHERE StoryArcID=? ORDER BY ReadingOrder", [kwargs["arcid"]]
         )
         newarclist = []
         arcname = ""

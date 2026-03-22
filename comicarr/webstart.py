@@ -32,6 +32,24 @@ from comicarr.helpers import create_https_certificates
 from comicarr.webserve import WebInterface
 
 
+# Setup mode paths allowed before initial credentials are configured
+_SETUP_ALLOWED_PATHS = ("/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico")
+
+
+def _check_setup_gate():
+    """CherryPy tool: block all requests except setup-related paths when first-run setup is pending."""
+    if comicarr.SETUP_TOKEN is None:
+        return
+    path = cherrypy.request.path_info
+    for allowed in _SETUP_ALLOWED_PATHS:
+        if path == allowed or path.startswith(allowed + "/"):
+            return
+    raise cherrypy.HTTPError(503, "Setup required. Please configure credentials via the setup page.")
+
+
+cherrypy.tools.setup_gate = cherrypy.Tool("before_handler", _check_setup_gate, priority=10)
+
+
 def initialize(options):
 
     # HTTPS stuff stolen from sickbeard
@@ -62,6 +80,7 @@ def initialize(options):
         "tools.decode.on": True,
         "log.screen": options["cherrypy_logging"],
         "engine.autoreload.on": False,
+        "tools.setup_gate.on": True,
         "tools.response_headers.on": True,
         "tools.response_headers.headers": [
             ("X-Content-Type-Options", "nosniff"),
@@ -160,18 +179,22 @@ def initialize(options):
 
     rest_api = {
         "/": {
-            # the api uses restful method dispatching
             "request.dispatch": cherrypy.dispatch.MethodDispatcher(),
-            # all api calls require that the client passes HTTP basic authentication
             "tools.auth_basic.on": False,
+            "tools.auth.on": False,
+            "tools.rest_auth.on": True,
+            "tools.response_headers.on": True,
+            "tools.response_headers.headers": [("Content-Type", "application/json")],
         }
     }
 
-    if options["opds_authentication"]:
+    # Enable OPDS auth if explicitly configured OR if main auth is enabled
+    opds_auth = options["opds_authentication"] or (options.get("authentication", 0) > 0 and options["http_password"] is not None)
+    if opds_auth:
         user_list = {}
-        if len(options["opds_username"]) > 0:
+        if options.get("opds_username") and len(options["opds_username"]) > 0:
             user_list[options["opds_username"]] = options["opds_password"]
-        if options["http_password"] is not None and options["http_username"] != options["opds_username"]:
+        if options["http_password"] is not None and options.get("http_username") != options.get("opds_username"):
             user_list[options["http_username"]] = options["http_password"]
         conf["/opds"] = {
             "tools.auth.on": False,

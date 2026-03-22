@@ -553,6 +553,14 @@ def main():
         'opds_pagesize': comicarr.CONFIG.OPDS_PAGESIZE,
     }
 
+    # Generate setup token if first-run setup is needed
+    if not comicarr.CONFIG.HTTP_USERNAME or not comicarr.CONFIG.HTTP_PASSWORD:
+        import secrets
+        comicarr.SETUP_TOKEN = secrets.token_urlsafe(32)
+        logger.info('[SETUP] *** First-run setup required ***')
+        logger.info('[SETUP] Setup token: %s' % comicarr.SETUP_TOKEN)
+        logger.info('[SETUP] Provide this token when setting up credentials via the web interface.')
+
     # Try to start the server.
     webstart.initialize(web_config)
 

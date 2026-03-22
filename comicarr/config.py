@@ -146,7 +146,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "HTTPS_CHAIN": (str, "Interface", None),
         "HTTPS_FORCE_ON": (bool, "Interface", False),
         "HOST_RETURN": (str, "Interface", None),
-        "AUTHENTICATION": (int, "Interface", 0),
+        "AUTHENTICATION": (int, "Interface", 2),
         "LOGIN_TIMEOUT": (int, "Interface", 43800),
         "ALPHAINDEX": (bool, "Interface", True),
         "CHERRYPY_LOGGING": (bool, "Interface", False),
