@@ -33,7 +33,7 @@ def putfile(localpath, file):    #localpath=full path to .torrent (including fil
     import sys
     if file[-7:] != "torrent":
         file += ".torrent"
-    rempath = os.path.join(comicarr.CONFIG.SEEDBOX_WATCHDIR, file) #this will default to the OS running mylar for slashes.
+    rempath = os.path.join(comicarr.CONFIG.SEEDBOX_WATCHDIR, file) #this will default to the OS running comicarr for slashes.
     logger.fdebug('remote path set to ' + str(rempath))
     logger.fdebug('local path set to ' + str(localpath))
 

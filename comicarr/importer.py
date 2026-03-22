@@ -847,7 +847,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     elif comlocation is None:
         comlocation = None
 
-    # Map MangaDex status to Mylar status format
+    # Map MangaDex status to Comicarr status format
     md_status = manga.get('status', 'unknown')
     status_mapping = {
         'ongoing': 'Continuing',

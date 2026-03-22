@@ -198,7 +198,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 continue
 
             feedme = feedparser.parse(r.content)
-            #logger.info(feedme)   #<-- uncomment this to see what Mylar is retrieving from the feed
+            #logger.info(feedme)   #<-- uncomment this to see what Comicarr is retrieving from the feed
 
         i = 0
 
@@ -211,8 +211,8 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                     torthe32p.append({
                                     'site':     picksite,
                                     'title':    entry['torrent_seriesname'].lstrip() + ' ' + entry['torrent_seriesvol'] + ' #' + entry['torrent_seriesiss'],
-                                    'volume':   entry['torrent_seriesvol'],      # not stored by mylar yet.
-                                    'issue':    entry['torrent_seriesiss'],    # not stored by mylar yet.
+                                    'volume':   entry['torrent_seriesvol'],      # not stored by comicarr yet.
+                                    'issue':    entry['torrent_seriesiss'],    # not stored by comicarr yet.
                                     'link':     entry['torrent_id'],  #just the id for the torrent
                                     'pubdate':  entry['pubdate'],
                                     'size':     entry['file_size'],
@@ -366,8 +366,8 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                         feeddata.append({
                                        'site':     picksite,
                                        'title':    series.lstrip() + ' ' + vol + ' #' + issue,
-                                       'volume':   vol,      # not stored by mylar yet.
-                                       'issue':    issue,    # not stored by mylar yet.
+                                       'volume':   vol,      # not stored by comicarr yet.
+                                       'issue':    issue,    # not stored by comicarr yet.
                                        'link':     newlink,  #just the id for the torrent
                                        'pubdate':  feedme.entries[i].updated,
                                        'size':     justdigits

@@ -683,7 +683,7 @@ class Config(object):
             if logger.LOG_LANG.startswith('en'):
                 logger.initLogger(console=not comicarr.QUIET, log_dir=self.LOG_DIR, max_logsize=self.MAX_LOGSIZE, max_logfiles=self.MAX_LOGFILES, loglevel=log_level)
             else:
-                logger.mylar_log.initLogger(loglevel=log_level, log_dir=self.LOG_DIR, max_logsize=self.MAX_LOGSIZE, max_logfiles=self.MAX_LOGFILES)
+                logger.comicarr_log.initLogger(loglevel=log_level, log_dir=self.LOG_DIR, max_logsize=self.MAX_LOGSIZE, max_logfiles=self.MAX_LOGFILES)
 
         if any([self.CONFIG_VERSION == 0, self.CONFIG_VERSION < self.newconfig]):
             if not self.BACKUP_LOCATION:
@@ -1349,7 +1349,7 @@ class Config(object):
         elif self.COMICVINE_API[:4] == 'None':
             # Notify user of what's going on
             logger.warn('Comicvine API key starts with a None, working around for now, please fix')
-            # Set the actual API key, so mylar does not appear broken from the start
+            # Set the actual API key, so comicarr does not appear broken from the start
             self.COMICVINE_API = self.COMICVINE_API[4:]
 
         if self.SEARCH_INTERVAL < 360:

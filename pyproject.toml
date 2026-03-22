@@ -43,6 +43,7 @@ dev = [
     "freezegun>=1.4.0",
     "factory-boy>=3.3.0",
     "hypothesis>=6.100.0",
+    "ruff>=0.15.7",
 ]
 
 [tool.setuptools.packages.find]

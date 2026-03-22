@@ -157,7 +157,7 @@ def search_series(name, mode='series', issue=None, limityear=None, limit=None, o
         comiclist = []
 
         for series in results_list:
-            # Map Metron fields to Mylar format
+            # Map Metron fields to Comicarr format
             metron_id = str(series.id) if hasattr(series, 'id') else None
 
             if metron_id is None:

@@ -95,14 +95,14 @@ def GCDScraper(ComicName, ComicYear, Total, ComicID, quickmatch=None):
         #print ("CleanResultName: " + str(CleanResultName))
         if CleanResultName == CleanComicName or CleanResultName[3:] == CleanComicName:
         #if resultName[n].lower() == helpers.cleanName(str(ComicName)).lower():
-            #print ("n:" + str(n) + "...matched by name to Mylar!")
+            #print ("n:" + str(n) + "...matched by name to Comicarr!")
             #this has been seen in a few instances already, so trying to adjust.
             #when the series year is 2011, in gcd it might be 2012 due to publication
             #dates overlapping between Dec/11 and Jan/12. Let's accept a match with a
             #1 year grace space, and then pull in the first issue to see the actual pub
             # date and if coincides with the other date..match it.
             if resultYear[n] == ComicYear or resultYear[n] == str(int(ComicYear) +1):
-                #print ("n:" + str(n) + "...matched by year to Mylar!")
+                #print ("n:" + str(n) + "...matched by year to Comicarr!")
                 #print ( "Year: " + str(resultYear[n]) )
                 #Occasionally there are discrepancies in comic count between
                 #GCD and CV. 99% it's CV not updating to the newest issue as fast
@@ -117,7 +117,7 @@ def GCDScraper(ComicName, ComicYear, Total, ComicID, quickmatch=None):
                         issvariation = "gcd"
                     else:
                         issvariation = "no"
-                        #print ("n:" + str(n) + "...matched by issues to Mylar!")
+                        #print ("n:" + str(n) + "...matched by issues to Comicarr!")
                         #print ("complete match!...proceeding")
                     TotalIssues = resultIssues[n]
                     resultURL = str(resultID[n])
@@ -777,9 +777,9 @@ def annualCheck(gcomicid, comicid, comicname, comicyear):
         print(("CleanResultName: " + str(CleanResultName)))
         if CleanResultName == CleanComicName or CleanResultName[3:] == CleanComicName:
         #if resultName[n].lower() == helpers.cleanName(str(ComicName)).lower():
-            #print ("n:" + str(n) + "...matched by name to Mylar!")
+            #print ("n:" + str(n) + "...matched by name to Comicarr!")
             if resultYear[n] == ComicYear or resultYear[n] == str(int(ComicYear) +1):
-                print(("n:" + str(n) + "...matched by year to Mylar!"))
+                print(("n:" + str(n) + "...matched by year to Comicarr!"))
                 print(("Year: " + str(resultYear[n])))
                 TotalIssues = resultIssues[n]
                 resultURL = str(resultID[n])

@@ -163,7 +163,7 @@ class ComicTaggerSettings:
                 # see if it's in the path of unix user
                 if utils.which("rar") is not None:
                     self.rar_exe_path = utils.which("rar")
-                #unrar is used by Mylar for unraring. We don't rar anything up, so this should cover the bases.
+                #unrar is used by Comicarr for unraring. We don't rar anything up, so this should cover the bases.
                 elif utils.which("unrar") is not None:
                     self.rar_exe_path = utils.which("unrar")
             if self.rar_exe_path != "":

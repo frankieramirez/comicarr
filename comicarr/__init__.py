@@ -818,7 +818,7 @@ def queue_schedule(queuetype, mode):
         thread.start()
         logger.info('[%s] %s' % (name, after_msg))
 
-    def shutdown(pool, mylar_queue, thread_name):
+    def shutdown(pool, comicarr_queue, thread_name):
         try:
             if pool.is_alive() is False:
                 return
@@ -827,11 +827,11 @@ def queue_schedule(queuetype, mode):
 
         logger.fdebug(f'Terminating the {thread_name} thread')
         try:
-            mylar_queue.put('exit')
+            comicarr_queue.put('exit')
             pool.join(5)
             logger.fdebug('Joined pool for termination -  successful')
         except KeyboardInterrupt:
-            mylar_queue.put('exit')
+            comicarr_queue.put('exit')
             pool.join(5)
         except AssertionError:
             if mode == 'shutdown':
@@ -991,7 +991,7 @@ def dbcheck():
 
     #add in the late players to the game....
 
-    # -- mylar info table --
+    # -- mylar_info table (legacy name, kept for backward compat) --
     try:
         bdc = c.execute('SELECT DatabaseVersion from mylar_info')
     except sqlite3.OperationalError:

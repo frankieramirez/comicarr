@@ -261,7 +261,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     logger.fdebug("Attempting to put the Status' back how they were.")
                     icount = 0
                     #the problem - the loop below will not match on NEW issues that have been refreshed that weren't present in the
-                    #db before (ie. you left Mylar off for abit, and when you started it up it pulled down new issue information)
+                    #db before (ie. you left Comicarr off for abit, and when you started it up it pulled down new issue information)
                     #need to test if issuenew['Status'] is None, but in a seperate loop below.
                     fndissue = []
                     nowdate = datetime.datetime.now()
@@ -2063,7 +2063,7 @@ def watchlist_updater(calledfrom=None, sched=False):
         last_date = datetime.datetime.strftime(last_dater, '%Y-%m-%d %H:%M:%S')
     elif last_runtimestamp is not None:
         # check here to see if it's so it fires off no more than 15 minutes since last startup.
-        # this is to avoid constant checks if mylar is restarted several times.
+        # this is to avoid constant checks if comicarr is restarted several times.
         rd = datetime.datetime.utcfromtimestamp(last_runtimestamp)
         rd_mins = rd + datetime.timedelta(seconds = 900)
         rd_now = datetime.datetime.utcfromtimestamp(time.time())

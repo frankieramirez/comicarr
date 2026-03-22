@@ -1169,7 +1169,7 @@ def NZB_SEARCH(
                 else:
                     logger.warn(
                         'You have a blank newznab entry within your configuration.'
-                        'Remove it, save the config and restart mylar to fix things.'
+                        'Remove it, save the config and restart comicarr to fix things.'
                         'Skipping this blank provider until fixed.'
                     )
                     findurl = None
@@ -1428,7 +1428,7 @@ def verification(verified_matches, is_info):
                     logger.error(
                         '[NZBPROVIDER = NONE] Encountered an error using given '
                         'provider with requested information: %s. You have a blank '
-                        'entry most likely in your newznabs, fix it & restart Mylar'
+                        'entry most likely in your newznabs, fix it & restart Comicarr'
                         % verified
                     )
                     verified_index +=1
@@ -3549,7 +3549,7 @@ def searcher(
                     str(random.getrandbits(256)).encode('utf-8')
                 ).hexdigest()[0:32]
 
-            # generate the mylar host address if applicable.
+            # generate the comicarr host address if applicable.
             if comicarr.CONFIG.ENABLE_HTTPS:
                 proto = 'https://'
             else:
@@ -3566,7 +3566,7 @@ def searcher(
                     hroot = comicarr.CONFIG.HTTP_ROOT
 
             if comicarr.LOCAL_IP is None:
-                # if mylar's local, get the local IP using socket.
+                # if comicarr's local, get the local IP using socket.
                 try:
                     import socket
 
@@ -3577,20 +3577,20 @@ def searcher(
                 except Exception as e:
                     logger.warn(
                         'Unable to determine local IP. Defaulting to host address for'
-                        ' Mylar provided as : %s. Error returned: %s'
+                        ' Comicarr provided as : %s. Error returned: %s'
                         % (comicarr.CONFIG.HTTP_HOST, e)
                     )
 
             if comicarr.CONFIG.HOST_RETURN:
-                # mylar has the return value already provided
+                # comicarr has the return value already provided
                 # (easier and will work if it's right)
                 if comicarr.CONFIG.HOST_RETURN.endswith('/'):
-                    mylar_host = comicarr.CONFIG.HOST_RETURN
+                    comicarr_host = comicarr.CONFIG.HOST_RETURN
                 else:
-                    mylar_host = comicarr.CONFIG.HOST_RETURN + '/'
+                    comicarr_host = comicarr.CONFIG.HOST_RETURN + '/'
 
             elif comicarr.CONFIG.SAB_DIRECT_UNPACK:
-                # if sab & mylar are on different machines, check to see if they are
+                # if sab & comicarr are on different machines, check to see if they are
                 # local or external IP's provided for host.
                 if (
                     comicarr.CONFIG.HTTP_HOST == 'localhost'
@@ -3599,21 +3599,21 @@ def searcher(
                     or comicarr.CONFIG.HTTP_HOST.startswith('192.')
                     or comicarr.CONFIG.HTTP_HOST.startswith('172.')
                 ):
-                    # if mylar's local, use the local IP already assigned to LOCAL_IP.
-                    mylar_host = (
+                    # if comicarr's local, use the local IP already assigned to LOCAL_IP.
+                    comicarr_host = (
                         '%s%s:%s%s'
                         % (proto, comicarr.LOCAL_IP, comicarr.CONFIG.HTTP_PORT, hroot)
                      )
                 else:
                     if comicarr.EXT_IP is None:
-                        # if mylar isn't local, get the external IP using pystun.
+                        # if comicarr isn't local, get the external IP using pystun.
                         import stun
 
                         sip = comicarr.CONFIG.HTTP_HOST
                         port = int(comicarr.CONFIG.HTTP_PORT)
                         try:
                             nat_type, ext_ip, ext_port = stun.get_ip_info(sip, port)
-                            mylar_host = (
+                            comicarr_host = (
                                 '%s%s:%s%s'
                                 % (proto, ext_ip, ext_port, hroot)
                              )
@@ -3623,13 +3623,13 @@ def searcher(
                                 'Unable to retrieve External IP - try using the'
                                 ' host_return option in the config.ini. Error: %s' % e
                             )
-                            mylar_host = (
+                            comicarr_host = (
                                 '%s%s:%s%s'
                                 % (proto, comicarr.CONFIG.HTTP_HOST,
                                    comicarr.CONFIG.HTTP_PORT, hroot)
                             )
                     else:
-                        mylar_host = (
+                        comicarr_host = (
                             '%s%s:%s%s'
                             % (proto, comicarr.EXT_IP, comicarr.CONFIG.HTTP_PORT, hroot)
                         )
@@ -3640,12 +3640,12 @@ def searcher(
                     tmp_host = comicarr.CONFIG.HTTP_HOST
                 else:
                     tmp_host = comicarr.LOCAL_IP
-                mylar_host = (
+                comicarr_host = (
                     proto + str(tmp_host) + ':' + str(comicarr.CONFIG.HTTP_PORT) + hroot
                 )
 
             fileURL = (
-                mylar_host
+                comicarr_host
                 + 'api?apikey='
                 + comicarr.DOWNLOAD_APIKEY
                 + '&cmd=downloadNZB&nzbname='

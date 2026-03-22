@@ -1578,7 +1578,7 @@ def havetotals(refreshit=None):
 
             #cv_removed: 0 = series is present on CV
             #            1 = series has been removed from CV
-            #            2 = series has been removed from CV but retaining what mylar has in it's db
+            #            2 = series has been removed from CV but retaining what comicarr has in it's db
 
             comics.append({"ComicID":         comic['ComicID'],
                            "ComicName":       comic['ComicName'],
@@ -3838,7 +3838,7 @@ def queue_info():
 def script_env(mode, vars):
     #mode = on-snatch, pre-postprocess, post-postprocess
     #var = dictionary containing variables to pass
-    mylar_env = os.environ.copy()
+    comicarr_env = os.environ.copy()
     shell_cmd = sys.executable
     if mode == 'on-snatch':
         runscript = comicarr.CONFIG.SNATCH_SCRIPT
@@ -3846,81 +3846,81 @@ def script_env(mode, vars):
             shell_cmd = comicarr.CONFIG.SNATCH_SHELL_LOCATION
         if 'torrentinfo' in vars:
             if 'hash' in vars['torrentinfo']:
-                mylar_env['mylar_release_hash'] = vars['torrentinfo']['hash']
+                comicarr_env['comicarr_release_hash'] = vars['torrentinfo']['hash']
             if 'torrent_filename' in vars['torrentinfo']:
-                mylar_env['mylar_torrent_filename'] = vars['torrentinfo']['torrent_filename']
+                comicarr_env['comicarr_torrent_filename'] = vars['torrentinfo']['torrent_filename']
             if 'name' in vars['torrentinfo']:
-                mylar_env['mylar_release_name'] = vars['torrentinfo']['name']
+                comicarr_env['comicarr_release_name'] = vars['torrentinfo']['name']
             if 'folder' in vars['torrentinfo']:
-                mylar_env['mylar_release_folder'] = vars['torrentinfo']['folder']
+                comicarr_env['comicarr_release_folder'] = vars['torrentinfo']['folder']
             if 'label' in vars['torrentinfo']:
-                mylar_env['mylar_release_label'] = vars['torrentinfo']['label']
+                comicarr_env['comicarr_release_label'] = vars['torrentinfo']['label']
             if 'total_filesize' in vars['torrentinfo']:
-                mylar_env['mylar_release_filesize'] = str(vars['torrentinfo']['total_filesize'])
+                comicarr_env['comicarr_release_filesize'] = str(vars['torrentinfo']['total_filesize'])
             if 'time_started' in vars['torrentinfo']:
-                mylar_env['mylar_release_start'] = str(vars['torrentinfo']['time_started'])
+                comicarr_env['comicarr_release_start'] = str(vars['torrentinfo']['time_started'])
             if 'filepath' in vars['torrentinfo']:
-                mylar_env['mylar_torrent_file'] = str(vars['torrentinfo']['filepath'])
+                comicarr_env['comicarr_torrent_file'] = str(vars['torrentinfo']['filepath'])
             else:
                 try:
-                    mylar_env['mylar_release_files'] = '|'.join(vars['torrentinfo']['files'])
+                    comicarr_env['comicarr_release_files'] = '|'.join(vars['torrentinfo']['files'])
                 except TypeError:
-                    mylar_env['mylar_release_files'] = '|'.join(json.dumps(vars['torrentinfo']['files']))
+                    comicarr_env['comicarr_release_files'] = '|'.join(json.dumps(vars['torrentinfo']['files']))
         elif 'nzbinfo' in vars:
-            mylar_env['mylar_release_id'] = vars['nzbinfo']['id']
+            comicarr_env['comicarr_release_id'] = vars['nzbinfo']['id']
             if 'client_id' in vars['nzbinfo']:
-                mylar_env['mylar_client_id'] = vars['nzbinfo']['client_id']
-            mylar_env['mylar_release_nzbname'] = vars['nzbinfo']['nzbname']
-            mylar_env['mylar_release_link'] = vars['nzbinfo']['link']
-            mylar_env['mylar_release_nzbpath'] = vars['nzbinfo']['nzbpath']
+                comicarr_env['comicarr_client_id'] = vars['nzbinfo']['client_id']
+            comicarr_env['comicarr_release_nzbname'] = vars['nzbinfo']['nzbname']
+            comicarr_env['comicarr_release_link'] = vars['nzbinfo']['link']
+            comicarr_env['comicarr_release_nzbpath'] = vars['nzbinfo']['nzbpath']
             if 'blackhole' in vars['nzbinfo']:
-                mylar_env['mylar_release_blackhole'] = vars['nzbinfo']['blackhole']
-        mylar_env['mylar_release_provider'] = vars['provider']
+                comicarr_env['comicarr_release_blackhole'] = vars['nzbinfo']['blackhole']
+        comicarr_env['comicarr_release_provider'] = vars['provider']
         if 'comicinfo' in vars:
             try:
                 if vars['comicinfo']['comicid'] is not None:
-                    mylar_env['mylar_comicid'] = vars['comicinfo']['comicid']  #comicid/issueid are unknown for one-offs (should be fixable tho)
+                    comicarr_env['comicarr_comicid'] = vars['comicinfo']['comicid']  #comicid/issueid are unknown for one-offs (should be fixable tho)
                 else:
-                    mylar_env['mylar_comicid'] = 'None'
+                    comicarr_env['comicarr_comicid'] = 'None'
             except:
                 pass
             try:
                 if vars['comicinfo']['issueid'] is not None:
-                    mylar_env['mylar_issueid'] = vars['comicinfo']['issueid']
+                    comicarr_env['comicarr_issueid'] = vars['comicinfo']['issueid']
                 else:
-                    mylar_env['mylar_issueid'] = 'None'
+                    comicarr_env['comicarr_issueid'] = 'None'
             except:
                 pass
             try:
                 if vars['comicinfo']['issuearcid'] is not None:
-                    mylar_env['mylar_issuearcid'] = vars['comicinfo']['issuearcid']
+                    comicarr_env['comicarr_issuearcid'] = vars['comicinfo']['issuearcid']
                 else:
-                    mylar_env['mylar_issuearcid'] = 'None'
+                    comicarr_env['comicarr_issuearcid'] = 'None'
             except:
                 pass
-            mylar_env['mylar_comicname'] = vars['comicinfo']['comicname']
-            mylar_env['mylar_issuenumber'] = str(vars['comicinfo']['issuenumber'])
+            comicarr_env['comicarr_comicname'] = vars['comicinfo']['comicname']
+            comicarr_env['comicarr_issuenumber'] = str(vars['comicinfo']['issuenumber'])
             try:
-                mylar_env['mylar_comicvolume'] = str(vars['comicinfo']['volume'])
-            except:
-                pass
-            try:
-                mylar_env['mylar_seriesyear'] = str(vars['comicinfo']['seriesyear'])
+                comicarr_env['comicarr_comicvolume'] = str(vars['comicinfo']['volume'])
             except:
                 pass
             try:
-                mylar_env['mylar_issuedate'] = str(vars['comicinfo']['issuedate'])
+                comicarr_env['comicarr_seriesyear'] = str(vars['comicinfo']['seriesyear'])
+            except:
+                pass
+            try:
+                comicarr_env['comicarr_issuedate'] = str(vars['comicinfo']['issuedate'])
             except:
                 pass
 
-        mylar_env['mylar_release_pack'] = str(vars['pack'])
+        comicarr_env['comicarr_release_pack'] = str(vars['pack'])
         if vars['pack'] is True:
             if vars['pack_numbers'] is not None:
-                mylar_env['mylar_release_pack_numbers'] = vars['pack_numbers']
+                comicarr_env['comicarr_release_pack_numbers'] = vars['pack_numbers']
             if vars['pack_issuelist'] is not None:
-                mylar_env['mylar_release_pack_issuelist'] = vars['pack_issuelist']
-        mylar_env['mylar_method'] = vars['method']
-        mylar_env['mylar_client'] = vars['clientmode']
+                comicarr_env['comicarr_release_pack_issuelist'] = vars['pack_issuelist']
+        comicarr_env['comicarr_method'] = vars['method']
+        comicarr_env['comicarr_client'] = vars['clientmode']
 
     elif mode == 'post-process':
         #to-do
@@ -3949,19 +3949,19 @@ def script_env(mode, vars):
     script_cmd = shlex.split(curScriptName)
     logger.fdebug("Executing command " +str(script_cmd))
     try:
-        subprocess.call(script_cmd, env=dict(mylar_env))
+        subprocess.call(script_cmd, env=dict(comicarr_env))
     except OSError as e:
         logger.warn("Unable to run extra_script: " + str(script_cmd))
         return False
     except TypeError as e:
         bad_environment = False
-        for key, value in mylar_env.items():
+        for key, value in comicarr_env.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 bad_environment = True
                 if key in os.environ:
                     logger.error('Invalid global environment variable: {k!r} = {v!r}'.format(k=key, v=value))
                 else:
-                    logger.error('Invalid Mylar environment variable: {k!r} = {v!r}'.format(k=key, v=value))
+                    logger.error('Invalid Comicarr environment variable: {k!r} = {v!r}'.format(k=key, v=value))
         if not bad_environment:
             raise e
     else:
