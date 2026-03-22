@@ -8,10 +8,10 @@ class TestEmailInit:
     """Test EMAIL initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         email = notifiers_module.EMAIL()
 
-        assert email.emailfrom == "mylar@example.com"
+        assert email.emailfrom == "comicarr@example.com"
         assert email.emailto == "user@example.com"
         assert email.emailsvr == "smtp.example.com"
         assert email.emailport == 587
@@ -123,10 +123,10 @@ class TestEmailNotify:
         sendmail_call = mock_smtp["smtp_instance"].sendmail.call_args
         sent_from, sent_to, message = sendmail_call[0]
 
-        assert sent_from == "mylar@example.com"
+        assert sent_from == "comicarr@example.com"
         assert sent_to == "user@example.com"
         assert "Subject: Test Subject" in message
-        assert "From: mylar@example.com" in message
+        assert "From: comicarr@example.com" in message
         assert "To: user@example.com" in message
         assert "Test message body" in message
 
@@ -214,5 +214,5 @@ class TestEmailTestNotify:
         sendmail_call = mock_smtp["smtp_instance"].sendmail.call_args
         _, _, message = sendmail_call[0]
 
-        assert "Subject: Mylar notification - Test" in message
+        assert "Subject: Comicarr notification - Test" in message
         assert "great power comes great responsibility" in message

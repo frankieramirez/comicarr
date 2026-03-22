@@ -1,3 +1,4 @@
+comicarr.db
 mylar.db
 config.ini
 *.py[co]
@@ -22,6 +23,7 @@ venv/
 
 # Runtime database files
 cv_cache.db
+.comicarr_maintenance.db
 .mylar_maintenance.db
 *.db-shm
 *.db-wal

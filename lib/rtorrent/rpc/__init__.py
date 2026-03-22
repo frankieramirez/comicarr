@@ -1,3 +1,4 @@
+# Modified for Comicarr
 # Copyright (c) 2013 Chris Lucas, <chris@chrisjlucas.com>
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,7 +25,7 @@ import xmlrpc.client
 from lib.rtorrent.common import bool_to_int, convert_version_tuple_to_str,\
     safe_repr
 from lib.rtorrent.err import MethodError
-from mylar import logger
+from comicarr import logger
 
 
 def get_varname(rpc_call, version):

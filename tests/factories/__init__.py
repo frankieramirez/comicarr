@@ -1,1 +1,1 @@
-# Test data factories for Mylar3
+# Test data factories for Comicarr

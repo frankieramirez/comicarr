@@ -8,7 +8,7 @@ class TestTelegramInit:
     """Test TELEGRAM initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         telegram = notifiers_module.TELEGRAM()
 
         assert telegram.userid == "123456789"

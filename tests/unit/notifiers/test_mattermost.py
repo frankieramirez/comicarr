@@ -9,7 +9,7 @@ class TestMattermostInit:
     """Test MATTERMOST initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         mattermost = notifiers_module.MATTERMOST()
 
         assert mattermost.webhook_url == "https://mattermost.example.com/hooks/test"
@@ -42,7 +42,7 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             metadata={"series": "Spider-Man", "year": "2020", "issue": "001"},
         )
@@ -54,7 +54,7 @@ class TestMattermostNotify:
     def test_notify_payload_includes_branding(
         self, notifiers_module, mock_notifier_config
     ):
-        """Payload includes Mylar branding."""
+        """Payload includes Comicarr branding."""
         responses.add(
             responses.POST,
             "https://mattermost.example.com/hooks/test",
@@ -64,14 +64,14 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             metadata={"series": "Spider-Man", "year": "2020", "issue": "001"},
         )
 
         assert result is True
         request_body = json.loads(responses.calls[0].request.body)
-        assert request_body["username"] == "Mylar"
+        assert request_body["username"] == "Comicarr"
         assert "comicarrlogo" in request_body["icon_url"]
         assert "Powered by" in request_body["footer"]
 
@@ -89,7 +89,7 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             metadata=mattermost_metadata,
         )
@@ -121,7 +121,7 @@ class TestMattermostNotify:
         mattermost = notifiers_module.MATTERMOST(
             test_webhook_url="https://mattermost.example.com/hooks/override"
         )
-        result = mattermost.notify(text="Mylar", attachment_text="Test notification")
+        result = mattermost.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is True
         request_body = json.loads(responses.calls[0].request.body)
@@ -142,7 +142,7 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -170,7 +170,7 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -195,7 +195,7 @@ class TestMattermostNotify:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             module="[TEST]",
             metadata={"series": "Test", "year": "2024", "issue": "1"},
@@ -220,7 +220,7 @@ class TestMattermostNotifyErrors:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             metadata={"series": "Test", "year": "2024", "issue": "1"},
         )
@@ -241,7 +241,7 @@ class TestMattermostNotifyErrors:
 
         mattermost = notifiers_module.MATTERMOST()
         result = mattermost.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Test notification",
             metadata={"series": "Test", "year": "2024", "issue": "1"},
         )

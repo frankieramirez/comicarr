@@ -9,7 +9,7 @@ class TestSlackInit:
     """Test SLACK initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         slack = notifiers_module.SLACK()
 
         assert slack.webhook_url == "https://hooks.slack.com/services/test/webhook"
@@ -39,7 +39,7 @@ class TestSlackNotify:
         )
 
         slack = notifiers_module.SLACK()
-        result = slack.notify(text="Mylar", attachment_text="Test notification")
+        result = slack.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is True
         assert len(responses.calls) == 1
@@ -55,7 +55,7 @@ class TestSlackNotify:
         )
 
         slack = notifiers_module.SLACK()
-        result = slack.notify(text="Mylar", attachment_text="Test notification")
+        result = slack.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is True
         request_body = json.loads(responses.calls[0].request.body)
@@ -74,7 +74,7 @@ class TestSlackNotify:
 
         slack = notifiers_module.SLACK()
         result = slack.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -101,7 +101,7 @@ class TestSlackNotify:
 
         slack = notifiers_module.SLACK()
         result = slack.notify(
-            text="Mylar",
+            text="Comicarr",
             attachment_text="Snatched",
             snatched_nzb="Spider-Man 001",
             prov="NZBGeek",
@@ -126,7 +126,7 @@ class TestSlackNotify:
         slack = notifiers_module.SLACK()
         # Should not raise any errors
         result = slack.notify(
-            text="Mylar", attachment_text="Test notification", module="[TEST]"
+            text="Comicarr", attachment_text="Test notification", module="[TEST]"
         )
         assert result is True
 
@@ -147,7 +147,7 @@ class TestSlackNotifyErrors:
         )
 
         slack = notifiers_module.SLACK()
-        result = slack.notify(text="Mylar", attachment_text="Test notification")
+        result = slack.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is False
 
@@ -164,7 +164,7 @@ class TestSlackNotifyErrors:
         )
 
         slack = notifiers_module.SLACK()
-        result = slack.notify(text="Mylar", attachment_text="Test notification")
+        result = slack.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is False
 

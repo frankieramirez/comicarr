@@ -136,7 +136,7 @@ export interface MangaChapter {
   updated_at: string | null;
   scanlation_group: string | null;
   external_url: string | null;
-  // Mapped to Mylar issue structure
+  // Mapped to Comicarr issue structure
   issue_number: string | null;
   issue_name: string | null;
   release_date: string | null;

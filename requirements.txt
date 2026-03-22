@@ -11,7 +11,6 @@ beautifulsoup4>=4.8.2
 cfscrape>=2.0.8
 cheroot>=8.2.1
 CherryPy>=18.5.0
-configparser>=4.0.2
 feedparser>=5.2.1
 Mako>=1.1.0
 mokkari>=3.0.0
@@ -25,7 +24,6 @@ pytz>=2019.3
 rarfile>=4.0
 requests[socks]>=2.22.0
 simplejson>=3.17.0
-six>=1.13.0
 tenacity>=8.2.3
 tzlocal>=2.0.0
 urllib3<2

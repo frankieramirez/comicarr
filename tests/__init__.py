@@ -1,1 +1,1 @@
-# Mylar3 Test Suite
+# Comicarr Test Suite

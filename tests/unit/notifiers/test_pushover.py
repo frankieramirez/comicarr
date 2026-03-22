@@ -10,7 +10,7 @@ class TestPushoverInit:
     """Test PUSHOVER initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use mylar.CONFIG values by default."""
+        """Init should use comicarr.CONFIG values by default."""
         pushover = notifiers_module.PUSHOVER()
 
         assert pushover.apikey == "test_pushover_apikey"
