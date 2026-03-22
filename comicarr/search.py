@@ -3456,12 +3456,9 @@ def searcher(
 
             # generate the api key to download here and then kill it immediately after.
             if comicarr.DOWNLOAD_APIKEY is None:
-                import hashlib
-                import random
+                import secrets
 
-                comicarr.DOWNLOAD_APIKEY = hashlib.sha224(str(random.getrandbits(256)).encode("utf-8")).hexdigest()[
-                    0:32
-                ]
+                comicarr.DOWNLOAD_APIKEY = secrets.token_hex(16)
 
             # generate the comicarr host address if applicable.
             if comicarr.CONFIG.ENABLE_HTTPS:

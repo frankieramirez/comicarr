@@ -20,19 +20,173 @@
 import base64
 import os
 
+import bcrypt
+from cryptography.fernet import Fernet
+
 from comicarr import logger
+
+# Module-level cache for the Fernet instance (loaded once per process)
+_fernet_instance = None
+
+
+def _get_fernet():
+    """Get or create the Fernet instance using the master key from SECURE_DIR."""
+    global _fernet_instance
+    if _fernet_instance is not None:
+        return _fernet_instance
+
+    import comicarr
+
+    if not comicarr.CONFIG or not comicarr.CONFIG.SECURE_DIR:
+        logger.error("[ENCRYPTION] SECURE_DIR not configured — cannot load master key")
+        return None
+
+    key_path = os.path.join(comicarr.CONFIG.SECURE_DIR, "master.key")
+
+    if os.path.exists(key_path):
+        with open(key_path, "rb") as f:
+            key = f.read().strip()
+    else:
+        # Generate a new Fernet key (direct random bytes, no PBKDF2 needed)
+        key = base64.urlsafe_b64encode(os.urandom(32))
+        try:
+            with open(key_path, "wb") as f:
+                f.write(key)
+            os.chmod(key_path, 0o600)
+            logger.info("[ENCRYPTION] Generated new master key at %s" % key_path)
+        except Exception as e:
+            logger.error("[ENCRYPTION] Failed to write master key: %s" % e)
+            return None
+
+    try:
+        _fernet_instance = Fernet(key)
+    except Exception as e:
+        logger.error("[ENCRYPTION] Invalid master key: %s" % e)
+        return None
+
+    return _fernet_instance
+
+
+def reset_fernet():
+    """Reset the cached Fernet instance (for testing or key rotation)."""
+    global _fernet_instance
+    _fernet_instance = None
+
+
+# --- bcrypt helpers for login passwords ---
+
+def hash_password(password):
+    """Hash a login password with bcrypt (cost factor 12)."""
+    if isinstance(password, str):
+        password = password.encode("utf-8")
+    return bcrypt.hashpw(password, bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+
+def verify_password(password, hashed):
+    """Verify a password against a bcrypt hash. Returns True if match."""
+    if isinstance(password, str):
+        password = password.encode("utf-8")
+    if isinstance(hashed, str):
+        hashed = hashed.encode("utf-8")
+    try:
+        return bcrypt.checkpw(password, hashed)
+    except Exception as e:
+        logger.error("[ENCRYPTION] bcrypt verify error: %s" % e)
+        return False
+
+
+def migrate_password(stored_password):
+    """Migrate a stored password to bcrypt hash. Handles three states:
+    - $2b$ prefix: already bcrypt, return as-is
+    - ^~$z$ prefix: old base64, decode then hash
+    - No prefix: plaintext, hash directly
+    Returns the bcrypt hash string, or None on failure.
+    """
+    if stored_password is None:
+        return None
+
+    if stored_password.startswith("$2b$") or stored_password.startswith("$2a$"):
+        return stored_password  # Already bcrypt
+
+    if stored_password.startswith("^~$z$"):
+        # Old base64 encoding — decode to get plaintext
+        try:
+            decoded = base64.b64decode(stored_password[5:])
+            plaintext = decoded[:-8].decode("utf-8")  # Strip 8-byte salt
+        except Exception as e:
+            logger.error("[ENCRYPTION] Failed to decode base64 password for migration: %s" % e)
+            return None
+        return hash_password(plaintext)
+
+    # Plaintext password — hash directly
+    return hash_password(stored_password)
 
 
 class Encryptor(object):
+    """Encrypt/decrypt service credentials using Fernet.
+
+    Preserves the dict-returning interface:
+        {"status": True/False, "password": "..."}
+
+    Handles migration from old base64 encoding (^~$z$ prefix) to Fernet (gAAAAA prefix).
+    """
     def __init__(self, password, chk_password=None, logon=False):
         self.password = password
         self.logon = logon
 
     def encrypt_it(self):
-        # self.password = self.password.encode('utf-8')
+        """Encrypt a plaintext credential with Fernet."""
+        fernet = _get_fernet()
+        if fernet is None:
+            logger.warn("[ENCRYPTION] Fernet not available — falling back to base64")
+            return self._legacy_encrypt()
+        try:
+            token = fernet.encrypt(self.password.encode("utf-8"))
+            return {"status": True, "password": token.decode("utf-8")}
+        except Exception as e:
+            logger.warn("Error when encrypting: %s" % e)
+            return {"status": False}
+
+    def decrypt_it(self):
+        """Decrypt a credential. Handles Fernet tokens, legacy base64, and plaintext."""
+        if self.password is None:
+            return {"status": False}
+
+        # Already a Fernet token (starts with gAAAAA)
+        if self.password.startswith("gAAAAA"):
+            fernet = _get_fernet()
+            if fernet is None:
+                if self.logon is False:
+                    logger.warn("[ENCRYPTION] Fernet not available — cannot decrypt")
+                return {"status": False}
+            try:
+                plaintext = fernet.decrypt(self.password.encode("utf-8"), ttl=None)
+                return {"status": True, "password": plaintext.decode("utf-8")}
+            except Exception as e:
+                logger.warn("Error when decrypting Fernet token: %s" % e)
+                return {"status": False}
+
+        # Legacy base64 encoding (^~$z$ prefix)
+        if self.password.startswith("^~$z$"):
+            try:
+                passd = base64.b64decode(self.password[5:])
+                return {"status": True, "password": passd[:-8].decode("utf-8")}
+            except Exception as e:
+                logger.warn("Error when decrypting legacy password: %s" % e)
+                return {"status": False}
+
+        # Not encrypted — return as-is when logon is True (plaintext comparison path)
+        if self.logon:
+            return {"status": False}
+
+        if self.logon is False:
+            logger.warn("Error not an encryption that I recognize.")
+        return {"status": False}
+
+    def _legacy_encrypt(self):
+        """Fallback base64 encoding (used only if Fernet key is unavailable)."""
         try:
             salt = os.urandom(8)
-            [salt[i] for i in range(0, len(salt))]
             salted_pass = base64.b64encode(b"%s%s" % (self.password.encode("utf-8"), salt))
         except Exception as e:
             logger.warn("Error when encrypting: %s" % e)
@@ -40,17 +194,3 @@ class Encryptor(object):
         else:
             fp = "%s%s" % ("^~$z$", salted_pass.decode("utf-8"))
             return {"status": True, "password": fp}
-
-    def decrypt_it(self):
-        try:
-            if not self.password.startswith("^~$z$"):
-                if self.logon is False:
-                    logger.warn("Error not an encryption that I recognize.")
-                return {"status": False}
-            passd = base64.b64decode(self.password[5:])  # (base64.decodestring(self.password))
-            [bytes(passd[-8:])]
-        except Exception as e:
-            logger.warn("Error when decrypting password: %s" % e)
-            return {"status": False}
-        else:
-            return {"status": True, "password": passd[:-8].decode("utf-8")}

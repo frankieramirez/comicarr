@@ -246,25 +246,25 @@ class Api(object):
             self.apitype = "normal"
         else:
             if not comicarr.CONFIG.API_ENABLED:
-                if kwargs["apikey"] != comicarr.DOWNLOAD_APIKEY and kwargs["apikey"] != comicarr.SSE_KEY:
+                dl_match = comicarr.DOWNLOAD_APIKEY and hmac.compare_digest(kwargs["apikey"], comicarr.DOWNLOAD_APIKEY)
+                sse_match = comicarr.SSE_KEY and hmac.compare_digest(kwargs["apikey"], comicarr.SSE_KEY)
+                if not dl_match and not sse_match:
                     self.data = self._failureResponse("API not enabled")
                     return
 
-            if kwargs["apikey"] != comicarr.CONFIG.API_KEY and all(
-                [
-                    kwargs["apikey"] != comicarr.SSE_KEY,
-                    kwargs["apikey"] != comicarr.DOWNLOAD_APIKEY,
-                    comicarr.DOWNLOAD_APIKEY is not None,
-                ]
-            ):
+            api_match = hmac.compare_digest(kwargs["apikey"], str(comicarr.CONFIG.API_KEY))
+            sse_match = comicarr.SSE_KEY and hmac.compare_digest(kwargs["apikey"], comicarr.SSE_KEY)
+            dl_match = comicarr.DOWNLOAD_APIKEY and hmac.compare_digest(kwargs["apikey"], comicarr.DOWNLOAD_APIKEY)
+
+            if not api_match and not sse_match and not dl_match:
                 self.data = self._failureResponse("Incorrect API key")
                 return
             else:
-                if kwargs["apikey"] == comicarr.CONFIG.API_KEY:
+                if api_match:
                     self.apitype = "normal"
-                elif kwargs["apikey"] == comicarr.DOWNLOAD_APIKEY:
+                elif dl_match:
                     self.apitype = "download"
-                elif kwargs["apikey"] == comicarr.SSE_KEY:
+                elif sse_match:
                     self.apitype = "sse"
                 self.apikey = kwargs.pop("apikey")
 

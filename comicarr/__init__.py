@@ -532,16 +532,17 @@ def initialize(config_file):
                     logger.info("Synology Parsing Fix already implemented. No changes required at this time.")
 
             if comicarr.SSE_KEY is None:
-                import hashlib
+                import secrets
 
-                comicarr.SSE_KEY = hashlib.sha224(str(random.getrandbits(256)).encode("utf-8")).hexdigest()[0:32]
+                comicarr.SSE_KEY = secrets.token_hex(16)
 
             from comicarr.downloaders import external_server as des
 
             EXT_SERVER = des.EXT_SERVER
             logger.info("[DDL] External server configuration available to be loaded: %s" % EXT_SERVER)
 
-        SESSION_ID = random.randint(10000, 999999)
+        import secrets as _secrets
+        SESSION_ID = _secrets.randbelow(990000) + 10000
 
         CV_HEADERS = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}
 

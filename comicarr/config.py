@@ -1122,6 +1122,29 @@ class Config(object):
         if self.ENCRYPT_PASSWORDS is True:
             self.encrypt_items(mode="encrypt")
 
+        # Migrate login password to bcrypt on startup (handles all three states)
+        if self.HTTP_PASSWORD and not (
+            self.HTTP_PASSWORD.startswith("$2b$") or self.HTTP_PASSWORD.startswith("$2a$")
+        ):
+            # Backup config before credential migration
+            backup_path = os.path.join(self.SECURE_DIR, "config.ini.pre-security-migration.bak")
+            if not os.path.exists(backup_path):
+                try:
+                    import shutil
+                    shutil.copy2(self._config_file, backup_path)
+                    logger.info("[SECURITY] Pre-migration backup saved to %s" % backup_path)
+                except Exception as e:
+                    logger.error("[SECURITY] Failed to create pre-migration backup: %s" % e)
+
+            new_hash = encrypted.migrate_password(self.HTTP_PASSWORD)
+            if new_hash:
+                self.HTTP_PASSWORD = new_hash
+                config.set("Interface", "http_password", new_hash)
+                self.ENCRYPT_PASSWORDS = True
+                config.set("General", "encrypt_passwords", "True")
+                self.WRITE_THE_CONFIG = True
+                logger.info("[SECURITY] Login password migrated to bcrypt")
+
     def writeconfig(self, values=None, startup=False):
         logger.fdebug("Writing configuration to file")
         config.set("Newznab", "extra_newznabs", ", ".join(self.write_extras(self.EXTRA_NEWZNABS)))
@@ -1154,18 +1177,23 @@ class Config(object):
         if values is not None:
             self.process_kwargs(values)
 
+        # Atomic write: write to temp file then rename to prevent config loss on crash
         try:
-            with codecs.open(self._config_file, encoding="utf8", mode="w+") as configfile:
+            tmp_path = self._config_file + ".tmp"
+            with codecs.open(tmp_path, encoding="utf8", mode="w") as configfile:
                 config.write(configfile)
+                configfile.flush()
+                os.fsync(configfile.fileno())
+            os.replace(tmp_path, self._config_file)
             logger.fdebug("Configuration written to disk.")
         except IOError as e:
             logger.warn("Error writing configuration file: %s", e)
 
     def encrypt_items(self, mode="encrypt", updateconfig=False):
+        # HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet
         encryption_list = OrderedDict(
             {
                 # key                      section         key            value
-                "HTTP_PASSWORD": ("Interface", "http_password", self.HTTP_PASSWORD),
                 "SAB_PASSWORD": ("SABnzbd", "sab_password", self.SAB_PASSWORD),
                 "SAB_APIKEY": ("SABnzbd", "sab_apikey", self.SAB_APIKEY),
                 "NZBGET_PASSWORD": ("NZBGet", "nzbget_password", self.NZBGET_PASSWORD),
@@ -1190,55 +1218,73 @@ class Config(object):
                 "OPDS_PASSWORD": ("OPDS", "opds_password", self.OPDS_PASSWORD),
                 "PP_SSHPASSWD": ("AutoSnatch", "pp_sshpasswd", self.PP_SSHPASSWD),
                 "EMAIL_PASSWORD": ("Email", "email_password", self.EMAIL_PASSWORD),
+                "GIT_TOKEN": ("Git", "git_token", self.GIT_TOKEN),
+                "METRON_PASSWORD": ("Metron", "metron_password", self.METRON_PASSWORD),
+                "GOTIFY_TOKEN": ("GOTIFY", "gotify_token", self.GOTIFY_TOKEN),
+                "MATRIX_ACCESS_TOKEN": ("MATRIX", "matrix_access_token", self.MATRIX_ACCESS_TOKEN),
+                "EXTERNAL_APIKEY": ("DDL", "external_apikey", self.EXTERNAL_APIKEY),
+                "SLACK_WEBHOOK_URL": ("SLACK", "slack_webhook_url", self.SLACK_WEBHOOK_URL),
+                "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url", self.MATTERMOST_WEBHOOK_URL),
+                "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url", self.DISCORD_WEBHOOK_URL),
             }
         )
 
         new_encrypted = 0
         for k, v in encryption_list.items():
-            value = []
-            for x in v:
-                value.append(x)
+            section, ini_key, current_value = v
 
-            if value[2] is not None:
-                if value[2][:5] == "^~$z$":
-                    if mode == "decrypt":
-                        hp = encrypted.Encryptor(value[2])
-                        decrypted_password = hp.decrypt_it()
-                        if decrypted_password["status"] is False:
-                            logger.warn(
-                                "Password unable to decrypt - you might have to manually edit the ini for %s to reset the value"
-                                % value[1]
-                            )
-                        else:
-                            if k != "HTTP_PASSWORD":
-                                setattr(self, k, decrypted_password["password"])
-                            if updateconfig is True:
-                                config.set(value[0], value[1], decrypted_password["password"])
+            if current_value is None:
+                continue
+
+            # Skip values already encrypted with Fernet
+            if current_value.startswith("gAAAAA"):
+                if mode == "decrypt":
+                    hp = encrypted.Encryptor(current_value)
+                    decrypted = hp.decrypt_it()
+                    if decrypted["status"]:
+                        setattr(self, k, decrypted["password"])
+                        if updateconfig:
+                            config.set(section, ini_key, decrypted["password"])
+                continue
+
+            # Legacy base64 encrypted values
+            if current_value.startswith("^~$z$"):
+                if mode == "decrypt":
+                    hp = encrypted.Encryptor(current_value)
+                    decrypted = hp.decrypt_it()
+                    if decrypted["status"]:
+                        setattr(self, k, decrypted["password"])
+                        if updateconfig:
+                            config.set(section, ini_key, decrypted["password"])
                     else:
-                        if k == "HTTP_PASSWORD":
-                            hp = encrypted.Encryptor(value[2])
-                            decrypted_password = hp.decrypt_it()
-                            if decrypted_password["status"] is False:
-                                logger.warn(
-                                    "Password unable to decrypt - you might have to manually edit the ini for %s to reset the value"
-                                    % value[1]
-                                )
-                            else:
-                                setattr(self, k, decrypted_password["password"])
-                else:
-                    hp = encrypted.Encryptor(value[2])
-                    encrypted_password = hp.encrypt_it()
-                    if encrypted_password["status"] is False:
                         logger.warn(
-                            "Unable to encrypt password for %s - it has not been encrypted. Keeping it as it is."
-                            % value[1]
+                            "Password unable to decrypt - you might have to manually edit the ini for %s to reset the value"
+                            % ini_key
                         )
-                    else:
-                        if k == "HTTP_PASSWORD":
-                            # make sure we set the http_password for signon to the encrypted value otherwise won't match
-                            setattr(self, k, encrypted_password["password"])
-                        config.set(value[0], value[1], encrypted_password["password"])
-                        new_encrypted += 1
+                else:
+                    # Re-encrypt legacy base64 → Fernet
+                    hp = encrypted.Encryptor(current_value)
+                    decrypted = hp.decrypt_it()
+                    if decrypted["status"]:
+                        re_enc = encrypted.Encryptor(decrypted["password"])
+                        encrypted_password = re_enc.encrypt_it()
+                        if encrypted_password["status"]:
+                            config.set(section, ini_key, encrypted_password["password"])
+                            new_encrypted += 1
+                continue
+
+            # Plaintext — encrypt with Fernet
+            if mode == "encrypt":
+                hp = encrypted.Encryptor(current_value)
+                encrypted_password = hp.encrypt_it()
+                if encrypted_password["status"]:
+                    config.set(section, ini_key, encrypted_password["password"])
+                    new_encrypted += 1
+                else:
+                    logger.warn(
+                        "Unable to encrypt password for %s - it has not been encrypted. Keeping it as it is."
+                        % ini_key
+                    )
 
         if new_encrypted > 0:
             self.WRITE_THE_CONFIG = True
@@ -1321,11 +1367,14 @@ class Config(object):
         if not os.path.exists(self.SECURE_DIR):
             try:
                 os.makedirs(self.SECURE_DIR)
+                os.chmod(self.SECURE_DIR, 0o700)
             except OSError:
                 logger.error(
-                    "[Secure DIR Check] Could not create secure directory. Check permissions of datadir: %s"
-                    % comicarr.DATA_DIR
+                    "[FATAL] Could not create secure directory at %s. "
+                    "Credential encryption will not work. Fix permissions and restart."
+                    % self.SECURE_DIR
                 )
+                raise SystemExit(1)
 
         if not self.BACKUP_LOCATION:
             self.BACKUP_LOCATION = os.path.join(comicarr.DATA_DIR, "backup")

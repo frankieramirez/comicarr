@@ -9604,10 +9604,9 @@ class WebInterface(object):
     findsabAPI.exposed = True
 
     def generateAPI(self):
+        import secrets
 
-        import hashlib
-
-        apikey = hashlib.sha256(str(random.getrandbits(256)).encode("utf-8")).hexdigest()[0:32]
+        apikey = secrets.token_hex(16)
         logger.info("New API generated")
         comicarr.CONFIG.API_KEY = apikey
         return apikey

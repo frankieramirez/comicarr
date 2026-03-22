@@ -84,17 +84,44 @@ def check_credentials(username, password):
 
     forms_user = cherrypy.request.config["auth.forms_username"]
     forms_pass = cherrypy.request.config["auth.forms_password"]
-    edc = encrypted.Encryptor(forms_pass, logon=True)
-    ed_chk = edc.decrypt_it()
-    if comicarr.CONFIG.ENCRYPT_PASSWORDS is True:
-        if username == forms_user and all([ed_chk["status"] is True, ed_chk["password"] == password]):
+
+    if username != forms_user:
+        _rate_limiter.record_failure(ip)
+        return "Incorrect username or password."
+
+    # Three-state password verification:
+    # 1. $2b$/$2a$ prefix → bcrypt hash, verify with bcrypt.checkpw()
+    # 2. ^~$z$ prefix → legacy base64, decode and compare, then re-hash
+    # 3. No prefix → plaintext, compare directly, then hash
+    if forms_pass and (forms_pass.startswith("$2b$") or forms_pass.startswith("$2a$")):
+        if encrypted.verify_password(password, forms_pass):
+            _rate_limiter.record_success(ip)
+            return None
+        else:
+            _rate_limiter.record_failure(ip)
+            return "Incorrect username or password."
+    elif forms_pass and forms_pass.startswith("^~$z$"):
+        edc = encrypted.Encryptor(forms_pass, logon=True)
+        ed_chk = edc.decrypt_it()
+        if ed_chk["status"] is True and ed_chk["password"] == password:
+            # Migrate to bcrypt on successful login
+            new_hash = encrypted.hash_password(password)
+            comicarr.CONFIG.process_kwargs({"http_password": new_hash})
+            comicarr.CONFIG.writeconfig()
+            logger.info("[AUTH] Password migrated from base64 to bcrypt")
             _rate_limiter.record_success(ip)
             return None
         else:
             _rate_limiter.record_failure(ip)
             return "Incorrect username or password."
     else:
-        if username == forms_user and password == forms_pass:
+        # Plaintext password
+        if password == forms_pass:
+            # Migrate to bcrypt on successful login
+            new_hash = encrypted.hash_password(password)
+            comicarr.CONFIG.process_kwargs({"http_password": new_hash})
+            comicarr.CONFIG.writeconfig()
+            logger.info("[AUTH] Password migrated from plaintext to bcrypt")
             _rate_limiter.record_success(ip)
             return None
         else:
