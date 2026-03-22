@@ -32,9 +32,12 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 from packaging.version import parse as parse_version
+from sqlalchemy import Column, Integer, MetaData, Table, Text, func, select
+from sqlalchemy.exc import OperationalError
 
 import comicarr
 from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
 from comicarr.torrent.clients import qbittorrent as qbittorrent
 from comicarr.torrent.clients import transmission
@@ -96,7 +99,6 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
     link = []
 
     feeddata = []
-    db.DBConnection()
     torthetpse = []
     torthe32p = []
     torinfo = {}
@@ -705,8 +707,6 @@ def experimental_cleaner(rls):
 
 
 def rssdbupdate(feeddata, i, type):
-    myDB = db.DBConnection()
-
     # let's add the entries into the db so as to save on searches
     # also to build up the ID's ;)
 
@@ -750,7 +750,7 @@ def rssdbupdate(feeddata, i, type):
         newVal["ComicName"] = seriesname
         newVal["Issue_Number"] = issuenumber
 
-        myDB.upsert("rssdb", newVal, ctrlVal)
+        db.upsert("rssdb", newVal, ctrlVal)
 
     logger.fdebug(
         "Completed adding new data to RSS DB. Next add in " + str(comicarr.CONFIG.RSS_CHECKINTERVAL) + " minutes"
@@ -759,26 +759,31 @@ def rssdbupdate(feeddata, i, type):
 
 
 def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
-    myDB = db.DBConnection()
     if any([comicid is None, comicid == "None", oneoff is True]):
         pass
     else:
-        snm = myDB.selectone("SELECT * FROM comics WHERE comicid=?", [comicid]).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics).where(comics.c.ComicID == comicid)
+            snm = conn.execute(stmt).mappings().first()
         if snm is None:
             logger.fdebug("Invalid ComicID of %s. Aborting search" % comicid)
             return "no results"
         else:
             seriesname = snm["ComicName"]
-            snm["AlternateSearch"]
 
     dsearch_rem1 = re.sub("\\band\\b", "%", seriesname.lower())
     dsearch_rem2 = re.sub("\\bthe\\b", "%", dsearch_rem1.lower())
     dsearch_removed = re.sub(r"\s+", " ", dsearch_rem2)
     dsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\-\\;\\/\\=\\?\\&\\.\\s\\,]", "%", dsearch_removed)
     dsearch = "%" + dsearch_seriesname + "%"
-    dresults = myDB.select(
-        'SELECT * FROM rssdb WHERE ComicName like ? COLLATE NOCASE AND Site="DDL(GetComics)"', [dsearch]
-    )
+
+    with db.get_engine().connect() as conn:
+        stmt = select(rssdb).where(
+            rssdb.c.ComicName.ilike(dsearch),
+            rssdb.c.Site == "DDL(GetComics)",
+        )
+        dresults = [dict(row) for row in conn.execute(stmt).mappings()]
+
     ddltheinfo = []
     ddlinfo = {}
     if not dresults:
@@ -800,13 +805,14 @@ def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
 
 
 def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
-    myDB = db.DBConnection()
     seriesname_alt = None
     if any([comicid is None, comicid == "None", oneoff is True]):
         pass
     else:
         # logger.fdebug('ComicID: ' + str(comicid))
-        snm = myDB.selectone("SELECT * FROM comics WHERE comicid=?", [comicid]).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics).where(comics.c.ComicID == comicid)
+            snm = conn.execute(stmt).mappings().first()
         if snm is None:
             logger.fdebug("Invalid ComicID of " + str(comicid) + ". Aborting search.")
             return
@@ -839,10 +845,19 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
     tresults = []
     tsearch = "%" + tsearch
 
-    if comicarr.CONFIG.ENABLE_32P and nzbprov == "32P":
-        tresults = myDB.select("SELECT * FROM rssdb WHERE Title like ? AND Site='32P'", [tsearch])
-    if comicarr.CONFIG.ENABLE_PUBLIC and nzbprov == "Public Torrents":
-        tresults += myDB.select("SELECT * FROM rssdb WHERE Title like ? AND (Site='DEM' OR Site='WWT')", [tsearch])
+    with db.get_engine().connect() as conn:
+        if comicarr.CONFIG.ENABLE_32P and nzbprov == "32P":
+            stmt = select(rssdb).where(
+                rssdb.c.Title.ilike(tsearch),
+                rssdb.c.Site == "32P",
+            )
+            tresults = [dict(row) for row in conn.execute(stmt).mappings()]
+        if comicarr.CONFIG.ENABLE_PUBLIC and nzbprov == "Public Torrents":
+            stmt = select(rssdb).where(
+                rssdb.c.Title.ilike(tsearch),
+                rssdb.c.Site.in_(["DEM", "WWT"]),
+            )
+            tresults += [dict(row) for row in conn.execute(stmt).mappings()]
 
     # logger.fdebug('seriesname_alt:' + str(seriesname_alt))
     if seriesname_alt is None or seriesname_alt == "None":
@@ -879,12 +894,19 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
                 AS_Alternate += "%"
 
             AS_Alternate = "%" + AS_Alternate
-            if comicarr.CONFIG.ENABLE_32P and nzbprov == "32P":
-                tresults += myDB.select("SELECT * FROM rssdb WHERE Title like ? AND Site='32P'", [AS_Alternate])
-            if comicarr.CONFIG.ENABLE_PUBLIC and nzbprov == "Public Torrents":
-                tresults += myDB.select(
-                    "SELECT * FROM rssdb WHERE Title like ? AND (Site='DEM' OR Site='WWT')", [AS_Alternate]
-                )
+            with db.get_engine().connect() as conn:
+                if comicarr.CONFIG.ENABLE_32P and nzbprov == "32P":
+                    stmt = select(rssdb).where(
+                        rssdb.c.Title.ilike(AS_Alternate),
+                        rssdb.c.Site == "32P",
+                    )
+                    tresults += [dict(row) for row in conn.execute(stmt).mappings()]
+                if comicarr.CONFIG.ENABLE_PUBLIC and nzbprov == "Public Torrents":
+                    stmt = select(rssdb).where(
+                        rssdb.c.Title.ilike(AS_Alternate),
+                        rssdb.c.Site.in_(["DEM", "WWT"]),
+                    )
+                    tresults += [dict(row) for row in conn.execute(stmt).mappings()]
 
     if not tresults:
         logger.fdebug("torrent search returned no results for %s" % seriesname)
@@ -990,12 +1012,13 @@ def nzbdbsearch(
     nzbtheinfo = []
     nzbinfo = {}
 
-    myDB = db.DBConnection()
     seriesname_alt = None
     if any([comicid is None, comicid == "None", oneoff is True, rsslist is not None]):
         pass
     else:
-        snm = myDB.selectone("SELECT * FROM comics WHERE comicid=?", [comicid]).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics).where(comics.c.ComicID == comicid)
+            snm = conn.execute(stmt).mappings().first()
         if snm is None:
             logger.info("Invalid ComicID of " + str(comicid) + ". Aborting search.")
             return
@@ -1004,144 +1027,252 @@ def nzbdbsearch(
             seriesname_alt = snm["AlternateSearch"]
 
     if rsslist is not None:
-        conn = comicarr.sql_db()
-        cur = conn.cursor()
-        logger.info("cur returned. db attached.")
-        try:
-            # if the VariableTable doesn't exist yet, this will fail. Let's go.
-            cur.execute("DROP TABLE VariableTable")
-        except Exception:
-            pass
-        else:
-            logger.info("dropped previous rss dataset to ensure we have a clean slate.")
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS VariableTable (ComicName TEXT, SQLquery_name TEXT collate nocase, Issue_Number TEXT, ComicYear TEXT, SeriesYear TEXT, Publisher TEXT, IssueDate TEXT, StoreDate TEXT, IssueID TEXT NOT NULL UNIQUE, AlternateSearch TEXT collate nocase, UseFuzzy TEXT, ComicVersion TEXT, SARC TEXT, IssueArcID TEXT, searchmode TEXT, RSS TEXT, ComicID TEXT, ComicName_Filesafe TEXT, AllowPacks TEXT, OneOff INT, TorrentID_32P TEXT, DigitalDate TEXT, BookType TEXT, Ignore_Booktype TEXT)"
+        # -- VariableTable pattern: use a TEMPORARY table via SQLAlchemy --
+        _tmp_metadata = MetaData()
+        variable_table = Table(
+            "VariableTable",
+            _tmp_metadata,
+            Column("ComicName", Text),
+            Column("SQLquery_name", Text),
+            Column("Issue_Number", Text),
+            Column("ComicYear", Text),
+            Column("SeriesYear", Text),
+            Column("Publisher", Text),
+            Column("IssueDate", Text),
+            Column("StoreDate", Text),
+            Column("IssueID", Text, unique=True, nullable=False),
+            Column("AlternateSearch", Text),
+            Column("UseFuzzy", Text),
+            Column("ComicVersion", Text),
+            Column("SARC", Text),
+            Column("IssueArcID", Text),
+            Column("searchmode", Text),
+            Column("RSS", Text),
+            Column("ComicID", Text),
+            Column("ComicName_Filesafe", Text),
+            Column("AllowPacks", Text),
+            Column("OneOff", Integer),
+            Column("TorrentID_32P", Text),
+            Column("DigitalDate", Text),
+            Column("BookType", Text),
+            Column("Ignore_Booktype", Text),
+            prefixes=["TEMPORARY"],
         )
-        # logger.info('rsslist: %s' % (rsslist))
 
-        # curline = "INSERT INTO VariableTable (Variable) VALUES ({seq})".format(seq=','.join(['?'] *(len(rsslist))))
-        try:
-            cur.executemany(
-                "INSERT OR IGNORE INTO VariableTable (ComicName, SQLquery_name, Issue_Number, ComicYear, SeriesYear, Publisher, IssueDate, StoreDate, IssueID, AlternateSearch, UseFuzzy, ComicVersion, SARC, IssueArcID, searchmode, RSS, ComicID, ComicName_Filesafe, AllowPacks, OneOff, TorrentID_32P, DigitalDate, booktype, ignore_booktype) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                rsslist,
-            )
-            # cur.executemany(curline, rsslist)
-            conn.commit()
-            cur.close()
-        except Exception as e:
-            logger.warn("error: %s" % e)
-            cur.close()
-        else:
-            logger.info("executed insert...now attempting to select")
+        with db.get_engine().connect() as conn:
+            # Drop if lingering from a previous run, then create
+            try:
+                variable_table.drop(conn, checkfirst=False)
+            except OperationalError:
+                pass
+            variable_table.create(conn)
 
-        tcnt = myDB.select("SELECT COUNT(*) as count FROM rssdb")
-        totalcnt = tcnt[0][0]
-        cnt = 0
-        for nzb in myDB.select(
-            "SELECT DISTINCT r.ComicName as RSS_ComicName, r.Issue_Number as RSS_IssueNumber, r.Title, r.Link, r.Pubdate, r.Size, r.Site, v.* FROM rssdb r join VariableTable v on r.Title like '%' || v.SQLQuery_name || '%' WHERE (r.ComicName like '%' || v.SQLQuery_name || '%' and v.SQLQuery_name is not NULL) AND v.Issue_Number = r.Issue_Number"
-        ):
-            cnt += 1
-            nzbTITLE = re.sub("&amp;", "&", nzb["Title"]).strip()
-            nzbTITLE = re.sub("&#39;", "'", nzbTITLE).strip()
-            # logger.info('tor[Title]: %s' % tor['Title'])
-            if comicarr.CONFIG.PREFERRED_QUALITY == 1:
-                if "cbr" not in nzbTITLE:
-                    # logger.fdebug('Quality restriction enforced [ cbr only ]. Rejecting result.')
-                    continue
-            elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
-                if "cbz" not in nzbTITLE:
-                    # logger.fdebug('Quality restriction enforced [ cbz only ]. Rejecting result.')
-                    continue
-            if provider_list is not None:
-                if not any(
-                    nzb["Site"] in olist for olist in provider_list["prov_order"]
-                ) or helpers.block_provider_check(nzb["Site"]):
-                    continue
+            # Populate the temp table — use INSERT OR IGNORE for SQLite,
+            # on_conflict_do_nothing for portability
+            dialect = db.get_dialect()
+            try:
+                if dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert as dialect_insert
+                elif dialect == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert as dialect_insert
+                else:
+                    dialect_insert = None
 
+                for row_tuple in rsslist:
+                    row_dict = {
+                        "ComicName": row_tuple[0],
+                        "SQLquery_name": row_tuple[1],
+                        "Issue_Number": row_tuple[2],
+                        "ComicYear": row_tuple[3],
+                        "SeriesYear": row_tuple[4],
+                        "Publisher": row_tuple[5],
+                        "IssueDate": row_tuple[6],
+                        "StoreDate": row_tuple[7],
+                        "IssueID": row_tuple[8],
+                        "AlternateSearch": row_tuple[9],
+                        "UseFuzzy": row_tuple[10],
+                        "ComicVersion": row_tuple[11],
+                        "SARC": row_tuple[12],
+                        "IssueArcID": row_tuple[13],
+                        "searchmode": row_tuple[14],
+                        "RSS": row_tuple[15],
+                        "ComicID": row_tuple[16],
+                        "ComicName_Filesafe": row_tuple[17],
+                        "AllowPacks": row_tuple[18],
+                        "OneOff": row_tuple[19],
+                        "TorrentID_32P": row_tuple[20],
+                        "DigitalDate": row_tuple[21],
+                        "BookType": row_tuple[22],
+                        "Ignore_Booktype": row_tuple[23],
+                    }
+                    if dialect_insert is not None:
+                        ins = dialect_insert(variable_table).values(**row_dict)
+                        if dialect == "sqlite":
+                            ins = ins.on_conflict_do_nothing(index_elements=["IssueID"])
+                        else:
+                            ins = ins.on_conflict_do_nothing(index_elements=["IssueID"])
+                        conn.execute(ins)
+                    else:
+                        # MySQL or other — use prefix_with approach
+                        ins = variable_table.insert().prefix_with("IGNORE").values(**row_dict)
+                        conn.execute(ins)
+                conn.commit()
+            except Exception as e:
+                logger.warn("error: %s" % e)
             else:
-                if nzbprov is not None:
-                    if nzbprov != nzb["Site"] or not comicarr.CONFIG.ENABLE_NEWZNABS:
-                        # logger.fdebug('this is a result from ' + str(tor['Site']) + ', not the site I am looking for of ' + str(nzbprov))
+                logger.info("executed insert...now attempting to select")
+
+            # Count total RSS entries
+            cnt_stmt = select(func.count()).select_from(rssdb)
+            totalcnt = conn.execute(cnt_stmt).scalar() or 0
+            cnt = 0
+
+            # The JOIN query: rssdb r JOIN VariableTable v
+            # ON r.Title LIKE '%' || v.SQLQuery_name || '%'
+            # WHERE r.ComicName LIKE '%' || v.SQLQuery_name || '%'
+            #   AND v.SQLQuery_name IS NOT NULL
+            #   AND v.Issue_Number = r.Issue_Number
+            r = rssdb
+            v = variable_table
+            like_pattern = func.concat("%", v.c.SQLquery_name, "%")
+            join_cond = r.c.Title.ilike(like_pattern)
+            j = r.join(v, join_cond)
+            join_stmt = (
+                select(
+                    r.c.ComicName.label("RSS_ComicName"),
+                    r.c.Issue_Number.label("RSS_IssueNumber"),
+                    r.c.Title,
+                    r.c.Link,
+                    r.c.Pubdate,
+                    r.c.Size,
+                    r.c.Site,
+                    v,
+                )
+                .select_from(j)
+                .where(
+                    r.c.ComicName.ilike(like_pattern),
+                    v.c.SQLquery_name.isnot(None),
+                    v.c.Issue_Number == r.c.Issue_Number,
+                )
+                .distinct()
+            )
+
+            for nzb in [dict(row) for row in conn.execute(join_stmt).mappings()]:
+                cnt += 1
+                nzbTITLE = re.sub("&amp;", "&", nzb["Title"]).strip()
+                nzbTITLE = re.sub("&#39;", "'", nzbTITLE).strip()
+                # logger.info('tor[Title]: %s' % tor['Title'])
+                if comicarr.CONFIG.PREFERRED_QUALITY == 1:
+                    if "cbr" not in nzbTITLE:
+                        # logger.fdebug('Quality restriction enforced [ cbr only ]. Rejecting result.')
+                        continue
+                elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
+                    if "cbz" not in nzbTITLE:
+                        # logger.fdebug('Quality restriction enforced [ cbz only ]. Rejecting result.')
+                        continue
+                if provider_list is not None:
+                    if not any(
+                        nzb["Site"] in olist for olist in provider_list["prov_order"]
+                    ) or helpers.block_provider_check(nzb["Site"]):
                         continue
 
-            # 0 holds the title/issue and format-type.
-            fmod = comicarr.filechecker.FileChecker()
-            formatrem_seriesname = fmod.dynamic_replace(nzb["ComicName"])["mod_seriesname"]
-            formatrem_nzbsplit = fmod.dynamic_replace(nzbTITLE)["mod_seriesname"]
-            if (
-                formatrem_seriesname.lower() in formatrem_nzbsplit.lower()
-            ):  # or any(x.lower() in formatrem_torsplit.lower() for x in AS_Alt):
-                # logger.fdebug('matched to : %s' % nzbTITLE)
-                # logger.fdebug('matched on series title: %s' % nzb['ComicName'])
-                titleend = formatrem_nzbsplit[len(formatrem_seriesname) :]
-                titleend = re.sub(r"\-", "", titleend)  # remove the '-' which is unnecessary
-                # remove extensions
-                titleend = re.sub("cbr", "", titleend)
-                titleend = re.sub("cbz", "", titleend)
-                titleend = re.sub("none", "", titleend)
-                # logger.fdebug('titleend: ' + titleend)
+                else:
+                    if nzbprov is not None:
+                        if nzbprov != nzb["Site"] or not comicarr.CONFIG.ENABLE_NEWZNABS:
+                            # logger.fdebug('this is a result from ' + str(tor['Site']) + ', not the site I am looking for of ' + str(nzbprov))
+                            continue
 
-                titleend.split()
+                # 0 holds the title/issue and format-type.
+                fmod = comicarr.filechecker.FileChecker()
+                formatrem_seriesname = fmod.dynamic_replace(nzb["ComicName"])["mod_seriesname"]
+                formatrem_nzbsplit = fmod.dynamic_replace(nzbTITLE)["mod_seriesname"]
+                if (
+                    formatrem_seriesname.lower() in formatrem_nzbsplit.lower()
+                ):  # or any(x.lower() in formatrem_torsplit.lower() for x in AS_Alt):
+                    # logger.fdebug('matched to : %s' % nzbTITLE)
+                    # logger.fdebug('matched on series title: %s' % nzb['ComicName'])
+                    titleend = formatrem_nzbsplit[len(formatrem_seriesname) :]
+                    titleend = re.sub(r"\-", "", titleend)  # remove the '-' which is unnecessary
+                    # remove extensions
+                    titleend = re.sub("cbr", "", titleend)
+                    titleend = re.sub("cbz", "", titleend)
+                    titleend = re.sub("none", "", titleend)
+                    # logger.fdebug('titleend: ' + titleend)
 
-                issues = None
-                pack = False
-                if nzb["Site"] == "DDL(GetComics)":
-                    # see if it's a pack type
-                    ddl_check = ddlrss_pack_detect(nzbTITLE, nzb["Link"])
-                    if ddl_check is not None:
-                        nzbTITLE = ddl_check["title"]
-                        issues = ddl_check["issues"]
-                        pack = ddl_check["pack"]
+                    titleend.split()
 
-                nzbtheinfo.append(
-                    {
-                        "title": nzbTITLE,  # cttitle,
-                        "link": nzb["Link"],
-                        "pubdate": nzb["Pubdate"],
-                        "site": nzb["Site"],
-                        "length": nzb["Size"],
-                        "issues": issues,
-                        "pack": pack,
-                        "info": {
-                            "ComicName": nzb["ComicName"],
-                            "Issue_Number": nzb["Issue_Number"],
-                            "ComicYear": nzb["ComicYear"],
-                            "SeriesYear": nzb["SeriesYear"],
-                            "Publisher": nzb["Publisher"],
-                            "IssueDate": nzb["IssueDate"],
-                            "StoreDate": nzb["StoreDate"],
-                            "IssueID": nzb["IssueID"],
-                            "AlternateSearch": nzb["AlternateSearch"],
-                            "UseFuzzy": nzb["UseFuzzy"],
-                            "ComicVersion": nzb["ComicVersion"],
-                            "SARC": nzb["SARC"],
-                            "IssueArcID": nzb["IssueARCID"],
-                            "searchmode": nzb["searchmode"],
-                            "RSS": nzb["RSS"],
-                            "ComicID": nzb["ComicID"],
-                            "ComicName_Filesafe": nzb["ComicName_Filesafe"],
-                            "AllowPacks": bool(nzb["AllowPacks"]),
-                            "OneOff": bool(nzb["OneOff"]),
-                            "TorrentID_32P": nzb["TorrentID_32P"],
-                            "DigitalDate": nzb["DigitalDate"],
-                            "booktype": nzb["booktype"],
-                            "ignore_booktype": bool(nzb["ignore_booktype"]),
-                        },
-                    }
-                )
-        # logger.info('nzbinfo: %s' % nzbtheinfo)
-        logger.info(
-            "[RSS-QUERY] Searched through RSSDB looking for %s Wanted items in %s RSS entries. Rough matching to %s items."
-            % (len(rsslist), totalcnt, len(nzbtheinfo))
-        )
+                    issues = None
+                    pack = False
+                    if nzb["Site"] == "DDL(GetComics)":
+                        # see if it's a pack type
+                        ddl_check = ddlrss_pack_detect(nzbTITLE, nzb["Link"])
+                        if ddl_check is not None:
+                            nzbTITLE = ddl_check["title"]
+                            issues = ddl_check["issues"]
+                            pack = ddl_check["pack"]
+
+                    nzbtheinfo.append(
+                        {
+                            "title": nzbTITLE,  # cttitle,
+                            "link": nzb["Link"],
+                            "pubdate": nzb["Pubdate"],
+                            "site": nzb["Site"],
+                            "length": nzb["Size"],
+                            "issues": issues,
+                            "pack": pack,
+                            "info": {
+                                "ComicName": nzb["ComicName"],
+                                "Issue_Number": nzb["Issue_Number"],
+                                "ComicYear": nzb["ComicYear"],
+                                "SeriesYear": nzb["SeriesYear"],
+                                "Publisher": nzb["Publisher"],
+                                "IssueDate": nzb["IssueDate"],
+                                "StoreDate": nzb["StoreDate"],
+                                "IssueID": nzb["IssueID"],
+                                "AlternateSearch": nzb["AlternateSearch"],
+                                "UseFuzzy": nzb["UseFuzzy"],
+                                "ComicVersion": nzb["ComicVersion"],
+                                "SARC": nzb["SARC"],
+                                "IssueArcID": nzb["IssueArcID"],
+                                "searchmode": nzb["searchmode"],
+                                "RSS": nzb["RSS"],
+                                "ComicID": nzb["ComicID"],
+                                "ComicName_Filesafe": nzb["ComicName_Filesafe"],
+                                "AllowPacks": bool(nzb["AllowPacks"]),
+                                "OneOff": bool(nzb["OneOff"]),
+                                "TorrentID_32P": nzb["TorrentID_32P"],
+                                "DigitalDate": nzb["DigitalDate"],
+                                "booktype": nzb["BookType"],
+                                "ignore_booktype": bool(nzb["Ignore_Booktype"]),
+                            },
+                        }
+                    )
+
+            # Drop the temp table before closing
+            try:
+                variable_table.drop(conn)
+            except OperationalError:
+                pass
+
+            # logger.info('nzbinfo: %s' % nzbtheinfo)
+            logger.info(
+                "[RSS-QUERY] Searched through RSSDB looking for %s Wanted items in %s RSS entries. Rough matching to %s items."
+                % (len(rsslist), totalcnt, len(nzbtheinfo))
+            )
     else:
         nsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.\\-\\s]", "%", seriesname)
         formatrem_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.]", "", seriesname)
 
         nsearch = "%" + nsearch_seriesname + "%"
 
-        nresults = myDB.select("SELECT * FROM rssdb WHERE Title like ? AND Site=?", [nsearch, nzbprov])
-        if nresults is None:
+        with db.get_engine().connect() as conn:
+            stmt = select(rssdb).where(
+                rssdb.c.Title.ilike(nsearch),
+                rssdb.c.Site == nzbprov,
+            )
+            nresults = [dict(row) for row in conn.execute(stmt).mappings()]
+
+        if not nresults:
             logger.fdebug("nzb search returned no results for " + seriesname)
             if seriesname_alt is None:
                 logger.fdebug("no nzb Alternate name given. Aborting search.")
@@ -1153,10 +1284,13 @@ def nzbdbsearch(
                 for calt in chkthealt:
                     AS_Alternate = re.sub("##", "", calt)
                     AS_Alternate = "%" + AS_Alternate + "%"
-                    nresults += myDB.select(
-                        "SELECT * FROM rssdb WHERE Title like ? AND Site=?", [AS_Alternate, nzbprov]
-                    )
-                if nresults is None:
+                    with db.get_engine().connect() as conn:
+                        stmt = select(rssdb).where(
+                            rssdb.c.Title.ilike(AS_Alternate),
+                            rssdb.c.Site == nzbprov,
+                        )
+                        nresults += [dict(row) for row in conn.execute(stmt).mappings()]
+                if not nresults:
                     logger.fdebug("nzb alternate name search returned no results.")
                     return "no results"
 
@@ -1229,7 +1363,7 @@ def nzbdbsearch(
                                 {
                                     "title": subs,
                                     "link": re.sub(r"\/release\/", "/download/", results["Link"]),
-                                    "pubdate": str(results["PubDate"]),
+                                    "pubdate": str(results["Pubdate"]),
                                     "site": str(results["Site"]),
                                     "length": str(results["Size"]),
                                 }
@@ -1642,8 +1776,12 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
 
 
 def delete_cache_entry(id):
-    myDB = db.DBConnection()
-    myDB.action("DELETE FROM rssdb WHERE link=? AND Site='32P'", [id])
+    with db.get_engine().begin() as conn:
+        stmt = rssdb.delete().where(
+            rssdb.c.Link == id,
+            rssdb.c.Site == "32P",
+        )
+        conn.execute(stmt)
 
 
 if __name__ == "__main__":

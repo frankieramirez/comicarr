@@ -36,6 +36,7 @@ from operator import itemgetter
 import cherrypy
 from cherrypy.lib.static import serve_download, serve_file
 from PIL import Image
+from sqlalchemy import delete, func, select
 
 import comicarr
 from comicarr import (
@@ -51,8 +52,38 @@ from comicarr import (
     versioncheck,
     webserve,
 )
+from comicarr.tables import (
+    annuals as t_annuals,
+    comics as t_comics,
+    importresults as t_importresults,
+    issues as t_issues,
+    snatched as t_snatched,
+    storyarcs as t_storyarcs,
+    upcoming as t_upcoming,
+    weekly as t_weekly,
+)
 
 from . import cache
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers to reduce boilerplate
+# ---------------------------------------------------------------------------
+
+
+def _select_all(stmt):
+    """Execute a select statement and return a list of dicts."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        return [dict(row._mapping) for row in result]
+
+
+def _select_one(stmt):
+    """Execute a select statement and return the first row as a dict, or None."""
+    with db.get_engine().connect() as conn:
+        result = conn.execute(stmt)
+        row = result.first()
+        return dict(row._mapping) if row else None
 
 
 def check_rest_api_key():
@@ -130,6 +161,52 @@ cmd_list = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Reusable column-label lists for SQLAlchemy select()
+# ---------------------------------------------------------------------------
+
+_COMICS_COLUMNS = [
+    t_comics.c.ComicID.label("ComicID"),
+    t_comics.c.ComicName.label("ComicName"),
+    t_comics.c.ComicImageURL.label("ComicImage"),
+    t_comics.c.Status.label("Status"),
+    t_comics.c.ComicPublisher.label("ComicPublisher"),
+    t_comics.c.ComicYear.label("ComicYear"),
+    t_comics.c.LatestIssue.label("LatestIssue"),
+    t_comics.c.Total.label("Total"),
+    t_comics.c.Have.label("Have"),
+    t_comics.c.DetailURL.label("DetailURL"),
+    t_comics.c.ContentType.label("ContentType"),
+]
+
+_ISSUES_COLUMNS = [
+    t_issues.c.IssueID.label("id"),
+    t_issues.c.IssueName.label("name"),
+    t_issues.c.ImageURL.label("imageURL"),
+    t_issues.c.Issue_Number.label("number"),
+    t_issues.c.ReleaseDate.label("releaseDate"),
+    t_issues.c.IssueDate.label("issueDate"),
+    t_issues.c.Status.label("status"),
+    t_issues.c.ComicName.label("comicName"),
+    t_issues.c.ChapterNumber.label("chapterNumber"),
+    t_issues.c.VolumeNumber.label("volumeNumber"),
+]
+
+_ANNUALS_COLUMNS = [
+    t_annuals.c.IssueID.label("id"),
+    t_annuals.c.IssueName.label("name"),
+    t_annuals.c.Issue_Number.label("number"),
+    t_annuals.c.ReleaseDate.label("releaseDate"),
+    t_annuals.c.IssueDate.label("issueDate"),
+    t_annuals.c.Status.label("status"),
+    t_annuals.c.ComicName.label("comicName"),
+]
+
+_READLIST_COLUMNS = [
+    # Note: readlist table imported locally where needed
+]
+
+
 class Api(object):
     API_ERROR_CODE_DEFAULT = 460
 
@@ -174,59 +251,33 @@ class Api(object):
         cherrypy.response.headers["Content-Type"] = self.headers
         return json.dumps(response)
 
-    def _resultsFromQuery(self, query, args=None):
-        myDB = db.DBConnection()
-        rows = myDB.select(query, args)
+    def _resultsFromQuery(self, stmt):
+        """Execute a SQLAlchemy Core statement and return list of dicts."""
+        return _select_all(stmt)
 
-        results = []
-
-        for row in rows:
-            results.append(dict(list(zip(list(row.keys()), row, strict=False))))
-
-        return results
-
-    def _paginatedResultsFromQuery(self, query, limit=None, offset=None, args=None):
+    def _paginatedResultsFromQuery(self, stmt, limit=None, offset=None):
         """
-        Execute a query with optional pagination support.
+        Execute a statement with optional pagination support.
 
         Returns:
             dict with 'results', 'total', 'limit', 'offset', 'has_more'
         """
-        myDB = db.DBConnection()
-        if args is None:
-            args = []
-
         # Get total count first (for pagination metadata)
-        # Extract the FROM clause to build a count query
-        count_query = query
-        if " ORDER BY " in count_query.upper():
-            count_query = count_query[: count_query.upper().find(" ORDER BY ")]
-        # Replace SELECT ... FROM with SELECT COUNT(*) FROM
-        from_pos = count_query.upper().find(" FROM ")
-        if from_pos != -1:
-            count_query = "SELECT COUNT(*)" + count_query[from_pos:]
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        with db.get_engine().connect() as conn:
+            total = conn.execute(count_stmt).scalar() or 0
 
-        total_rows = myDB.select(count_query, args)
-        total = total_rows[0][0] if total_rows else 0
-
-        # Apply pagination to original query using parameterized queries
-        paginated_query = query
-        paginated_args = list(args)
-        if limit is not None:
-            paginated_query += " LIMIT ?"
-            paginated_args.append(int(limit))
-            if offset is not None and int(offset) > 0:
-                paginated_query += " OFFSET ?"
-                paginated_args.append(int(offset))
-
-        rows = myDB.select(paginated_query, paginated_args)
-        results = []
-        for row in rows:
-            results.append(dict(list(zip(list(row.keys()), row, strict=False))))
-
-        # Calculate if there are more results
+        # Apply pagination
+        paginated_stmt = stmt
+        current_limit = int(limit) if limit is not None else total
         current_offset = int(offset) if offset else 0
-        current_limit = int(limit) if limit else total
+        if limit is not None:
+            paginated_stmt = paginated_stmt.limit(int(limit))
+            if offset is not None and int(offset) > 0:
+                paginated_stmt = paginated_stmt.offset(int(offset))
+
+        results = _select_all(paginated_stmt)
+
         has_more = (current_offset + len(results)) < total
 
         return {
@@ -338,55 +389,6 @@ class Api(object):
         else:
             return self.data
 
-    def _selectForComics(self):
-        return "SELECT \
-            ComicID as ComicID,\
-            ComicName as ComicName,\
-            ComicImageURL as ComicImage,\
-            Status as Status,\
-            ComicPublisher as ComicPublisher,\
-            ComicYear as ComicYear,\
-            LatestIssue as LatestIssue,\
-            Total as Total,\
-            Have as Have,\
-            DetailURL as DetailURL,\
-            ContentType as ContentType\
-        FROM comics"
-
-    def _selectForIssues(self):
-        return "SELECT \
-            IssueID as id,\
-            IssueName as name,\
-            ImageURL as imageURL,\
-            Issue_Number as number,\
-            ReleaseDate as releaseDate,\
-            IssueDate as issueDate,\
-            Status as status,\
-            ComicName as comicName,\
-            ChapterNumber as chapterNumber,\
-            VolumeNumber as volumeNumber\
-        FROM issues"
-
-    def _selectForAnnuals(self):
-        return "SELECT \
-            IssueID as id,\
-            IssueName as name,\
-            Issue_Number as number,\
-            ReleaseDate as releaseDate,\
-            IssueDate as issueDate,\
-            Status as status,\
-            ComicName as comicName\
-        FROM annuals"
-
-    def _selectForReadList(self):
-        return "SELECT \
-            IssueID as id,\
-            Issue_Number as number,\
-            IssueDate as issueDate,\
-            Status as status,\
-            ComicName as comicName\
-        FROM readlist"
-
     def _getAPI(self, **kwargs):
         from comicarr.auth import _rate_limiter
 
@@ -443,11 +445,11 @@ class Api(object):
         limit = kwargs.get("limit")
         offset = kwargs.get("offset", 0)
 
-        query = "{select} ORDER BY ComicSortName COLLATE NOCASE".format(select=self._selectForComics())
+        stmt = select(*_COMICS_COLUMNS).order_by(t_comics.c.ComicSortName)
 
         if limit is not None:
             # Return paginated results with metadata
-            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            paginated = self._paginatedResultsFromQuery(stmt, limit=limit, offset=offset)
             self.data = self._successResponse(
                 {
                     "comics": paginated["results"],
@@ -461,15 +463,22 @@ class Api(object):
             )
         else:
             # Backwards compatible: return all results without pagination wrapper
-            self.data = self._successResponse(self._resultsFromQuery(query))
+            self.data = self._successResponse(self._resultsFromQuery(stmt))
 
         return
 
     def _getReadList(self, **kwargs):
+        from comicarr.tables import readlist as t_readlist
 
-        readListQuery = "{select} ORDER BY IssueDate ASC".format(select=self._selectForReadList())
+        stmt = select(
+            t_readlist.c.IssueID.label("id"),
+            t_readlist.c.Issue_Number.label("number"),
+            t_readlist.c.IssueDate.label("issueDate"),
+            t_readlist.c.Status.label("status"),
+            t_readlist.c.ComicName.label("comicName"),
+        ).order_by(t_readlist.c.IssueDate.asc())
 
-        self.data = self._successResponse(self._resultsFromQuery(readListQuery))
+        self.data = self._successResponse(self._resultsFromQuery(stmt))
 
         return
 
@@ -481,24 +490,30 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
+        comic_stmt = (
+            select(*_COMICS_COLUMNS)
+            .where(t_comics.c.ComicID == self.id)
+            .order_by(t_comics.c.ComicSortName)
+        )
+        comic = _select_all(comic_stmt)
 
-        comicQuery = self._selectForComics() + " WHERE ComicID=? ORDER BY ComicSortName COLLATE NOCASE"
-        comic_rows = myDB.select(comicQuery, [self.id])
-        comic = [dict(zip(row.keys(), row, strict=False)) for row in comic_rows]
-
-        issuesQuery = self._selectForIssues() + " WHERE ComicID=? ORDER BY Int_IssueNumber DESC"
-        issues_rows = myDB.select(issuesQuery, [self.id])
-        issues = [dict(zip(row.keys(), row, strict=False)) for row in issues_rows]
+        issues_stmt = (
+            select(*_ISSUES_COLUMNS)
+            .where(t_issues.c.ComicID == self.id)
+            .order_by(t_issues.c.Int_IssueNumber.desc())
+        )
+        issues = _select_all(issues_stmt)
 
         if comicarr.CONFIG.ANNUALS_ON:
-            annualsQuery = self._selectForAnnuals() + " WHERE ComicID=?"
-            annuals_rows = myDB.select(annualsQuery, [self.id])
-            annuals = [dict(zip(row.keys(), row, strict=False)) for row in annuals_rows]
+            annuals_stmt = (
+                select(*_ANNUALS_COLUMNS)
+                .where(t_annuals.c.ComicID == self.id)
+            )
+            annuals_list = _select_all(annuals_stmt)
         else:
-            annuals = []
+            annuals_list = []
 
-        self.data = self._successResponse({"comic": comic, "issues": issues, "annuals": annuals})
+        self.data = self._successResponse({"comic": comic, "issues": issues, "annuals": annuals_list})
 
         return
 
@@ -507,11 +522,11 @@ class Api(object):
         limit = kwargs.get("limit")
         offset = kwargs.get("offset", 0)
 
-        query = "SELECT * from snatched order by DateAdded DESC"
+        stmt = select(t_snatched).order_by(t_snatched.c.DateAdded.desc())
 
         if limit is not None:
             # Return paginated results with metadata
-            paginated = self._paginatedResultsFromQuery(query, limit=limit, offset=offset)
+            paginated = self._paginatedResultsFromQuery(stmt, limit=limit, offset=offset)
             self.data = self._successResponse(
                 {
                     "history": paginated["results"],
@@ -525,14 +540,14 @@ class Api(object):
             )
         else:
             # Backwards compatible: return all results without pagination wrapper
-            self.data = self._successResponse(self._resultsFromQuery(query))
+            self.data = self._successResponse(self._resultsFromQuery(stmt))
         return
 
     def _getUpcoming(self, **kwargs):
         if "include_downloaded_issues" in kwargs and kwargs["include_downloaded_issues"].upper() == "Y":
-            select_status_clause = "w.STATUS IN ('Wanted', 'Snatched', 'Downloaded')"
+            status_list = ["Wanted", "Snatched", "Downloaded"]
         else:
-            select_status_clause = "w.STATUS = 'Wanted'"
+            status_list = ["Wanted"]
 
         # Days in a new year that precede the first Sunday will look to the previous Sunday for week and year.
         today = datetime.date.today()
@@ -545,16 +560,29 @@ class Api(object):
             week = today.strftime("%U")
             year = today.strftime("%Y")
 
-        myDB = db.DBConnection()
-        upcoming_query = (
-            "SELECT w.COMIC AS ComicName, w.ISSUE AS IssueNumber, w.ComicID, w.IssueID, w.SHIPDATE AS IssueDate, w.STATUS AS Status, c.ComicName AS DisplayComicName \
-            FROM weekly w JOIN comics c ON w.ComicID = c.ComicID WHERE w.COMIC IS NOT NULL AND w.ISSUE IS NOT NULL AND \
-            SUBSTR('0' || w.weeknumber, -2) = ? AND w.year = ? AND "
-            + select_status_clause
-            + " ORDER BY c.ComicSortName"
+        # SUBSTR('0' || w.weeknumber, -2) -> func.right(func.concat('0', col), 2)
+        padded_weeknumber = func.right(func.concat("0", t_weekly.c.weeknumber), 2)
+
+        stmt = (
+            select(
+                t_weekly.c.COMIC.label("ComicName"),
+                t_weekly.c.ISSUE.label("IssueNumber"),
+                t_weekly.c.ComicID,
+                t_weekly.c.IssueID,
+                t_weekly.c.SHIPDATE.label("IssueDate"),
+                t_weekly.c.STATUS.label("Status"),
+                t_comics.c.ComicName.label("DisplayComicName"),
+            )
+            .select_from(t_weekly.join(t_comics, t_weekly.c.ComicID == t_comics.c.ComicID))
+            .where(t_weekly.c.COMIC.isnot(None))
+            .where(t_weekly.c.ISSUE.isnot(None))
+            .where(padded_weeknumber == week)
+            .where(t_weekly.c.year == year)
+            .where(t_weekly.c.STATUS.in_(status_list))
+            .order_by(t_comics.c.ComicSortName)
         )
-        rows = myDB.select(upcoming_query, [week, year])
-        self.data = [dict(zip(row.keys(), row, strict=False)) for row in rows]
+
+        self.data = _select_all(stmt)
         return
 
     def _getCalendar(self, **kwargs):
@@ -576,45 +604,52 @@ class Api(object):
             kwargs.get("include_storyarcs", "y" if comicarr.CONFIG.UPCOMING_STORYARCS else "n").upper() == "Y"
         )
 
-        myDB = db.DBConnection()
-
         # Calculate date range
         today = datetime.date.today()
         end_date = today + datetime.timedelta(days=days)
         today_str = today.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
 
-        # Build status clause
-        if status_filter == "all":
-            status_clause = "1=1"
-        elif status_filter == "snatched":
-            status_clause = "b.Status = 'Snatched'"
-        elif status_filter == "downloaded":
-            status_clause = "b.Status = 'Downloaded'"
-        else:
-            status_clause = "b.Status = 'Wanted'"
+        # Build status filter condition
+        def _status_filter(status_col):
+            if status_filter == "all":
+                return True  # no filter
+            elif status_filter == "snatched":
+                return status_col == "Snatched"
+            elif status_filter == "downloaded":
+                return status_col == "Downloaded"
+            else:
+                return status_col == "Wanted"
 
         events = []
 
         # Query main issues
-        issues_query = (
-            """
-            SELECT a.ComicName, a.ComicYear, a.ComicPublisher, b.Issue_Number,
-                   b.IssueName, b.ReleaseDate, b.IssueDate, b.IssueID, b.ComicID, b.Status
-            FROM comics a
-            INNER JOIN issues b ON a.ComicID = b.ComicID
-            WHERE %s
-            AND b.ReleaseDate IS NOT NULL
-            AND b.ReleaseDate != ''
-            AND b.ReleaseDate >= ?
-            AND b.ReleaseDate <= ?
-            ORDER BY b.ReleaseDate
-        """
-            % status_clause
+        issues_stmt = (
+            select(
+                t_comics.c.ComicName,
+                t_comics.c.ComicYear,
+                t_comics.c.ComicPublisher,
+                t_issues.c.Issue_Number,
+                t_issues.c.IssueName,
+                t_issues.c.ReleaseDate,
+                t_issues.c.IssueDate,
+                t_issues.c.IssueID,
+                t_issues.c.ComicID,
+                t_issues.c.Status,
+            )
+            .select_from(t_comics.join(t_issues, t_comics.c.ComicID == t_issues.c.ComicID))
+            .where(t_issues.c.ReleaseDate.isnot(None))
+            .where(t_issues.c.ReleaseDate != "")
+            .where(t_issues.c.ReleaseDate >= today_str)
+            .where(t_issues.c.ReleaseDate <= end_date_str)
         )
+        status_cond = _status_filter(t_issues.c.Status)
+        if status_cond is not True:
+            issues_stmt = issues_stmt.where(status_cond)
+        issues_stmt = issues_stmt.order_by(t_issues.c.ReleaseDate)
 
-        issues = myDB.select(issues_query, [today_str, end_date_str])
-        for issue in issues:
+        issues_rows = _select_all(issues_stmt)
+        for issue in issues_rows:
             events.append(
                 {
                     "comic_name": issue["ComicName"],
@@ -632,23 +667,34 @@ class Api(object):
 
         # Query annuals if enabled
         if include_annuals:
-            annuals_query = """
-                SELECT a.ComicName, a.ComicYear, a.ComicPublisher, b.Issue_Number,
-                       b.IssueName, b.ReleaseDate, b.IssueDate, b.IssueID, b.ComicID,
-                       b.ReleaseComicName, b.Status
-                FROM comics a
-                INNER JOIN annuals b ON a.ComicID = b.ComicID
-                WHERE NOT b.Deleted
-                AND %s
-                AND b.ReleaseDate IS NOT NULL
-                AND b.ReleaseDate != ''
-                AND b.ReleaseDate >= ?
-                AND b.ReleaseDate <= ?
-                ORDER BY b.ReleaseDate
-            """ % status_clause.replace("b.Status", "b.Status")
+            annuals_stmt = (
+                select(
+                    t_comics.c.ComicName,
+                    t_comics.c.ComicYear,
+                    t_comics.c.ComicPublisher,
+                    t_annuals.c.Issue_Number,
+                    t_annuals.c.IssueName,
+                    t_annuals.c.ReleaseDate,
+                    t_annuals.c.IssueDate,
+                    t_annuals.c.IssueID,
+                    t_annuals.c.ComicID,
+                    t_annuals.c.ReleaseComicName,
+                    t_annuals.c.Status,
+                )
+                .select_from(t_comics.join(t_annuals, t_comics.c.ComicID == t_annuals.c.ComicID))
+                .where(t_annuals.c.Deleted != 1)
+                .where(t_annuals.c.ReleaseDate.isnot(None))
+                .where(t_annuals.c.ReleaseDate != "")
+                .where(t_annuals.c.ReleaseDate >= today_str)
+                .where(t_annuals.c.ReleaseDate <= end_date_str)
+            )
+            status_cond_ann = _status_filter(t_annuals.c.Status)
+            if status_cond_ann is not True:
+                annuals_stmt = annuals_stmt.where(status_cond_ann)
+            annuals_stmt = annuals_stmt.order_by(t_annuals.c.ReleaseDate)
 
-            annuals = myDB.select(annuals_query, [today_str, end_date_str])
-            for annual in annuals:
+            annuals_rows = _select_all(annuals_stmt)
+            for annual in annuals_rows:
                 events.append(
                     {
                         "comic_name": annual["ReleaseComicName"] or annual["ComicName"],
@@ -666,20 +712,29 @@ class Api(object):
 
         # Query story arcs if enabled
         if include_storyarcs:
-            storyarcs_query = """
-                SELECT ComicName, IssueNumber, IssueName, ReleaseDate, IssueID,
-                       ComicID, Storyarc, Status
-                FROM storyarcs
-                WHERE %s
-                AND ReleaseDate IS NOT NULL
-                AND ReleaseDate != ''
-                AND ReleaseDate >= ?
-                AND ReleaseDate <= ?
-                ORDER BY ReleaseDate
-            """ % status_clause.replace("b.Status", "Status")
+            storyarcs_stmt = (
+                select(
+                    t_storyarcs.c.ComicName,
+                    t_storyarcs.c.IssueNumber,
+                    t_storyarcs.c.IssueName,
+                    t_storyarcs.c.ReleaseDate,
+                    t_storyarcs.c.IssueID,
+                    t_storyarcs.c.ComicID,
+                    t_storyarcs.c.StoryArc,
+                    t_storyarcs.c.Status,
+                )
+                .where(t_storyarcs.c.ReleaseDate.isnot(None))
+                .where(t_storyarcs.c.ReleaseDate != "")
+                .where(t_storyarcs.c.ReleaseDate >= today_str)
+                .where(t_storyarcs.c.ReleaseDate <= end_date_str)
+            )
+            status_cond_arc = _status_filter(t_storyarcs.c.Status)
+            if status_cond_arc is not True:
+                storyarcs_stmt = storyarcs_stmt.where(status_cond_arc)
+            storyarcs_stmt = storyarcs_stmt.order_by(t_storyarcs.c.ReleaseDate)
 
-            storyarcs = myDB.select(storyarcs_query, [today_str, end_date_str])
-            for arc in storyarcs:
+            storyarcs_rows = _select_all(storyarcs_stmt)
+            for arc in storyarcs_rows:
                 events.append(
                     {
                         "comic_name": arc["ComicName"],
@@ -692,7 +747,7 @@ class Api(object):
                         "comic_id": arc["ComicID"],
                         "status": arc["Status"],
                         "type": "storyarc",
-                        "storyarc": arc["Storyarc"],
+                        "storyarc": arc["StoryArc"],
                     }
                 )
 
@@ -774,11 +829,35 @@ class Api(object):
         limit = kwargs.get("limit")
         offset = kwargs.get("offset", 0)
 
-        iss_query = "SELECT a.ComicName, a.ComicYear, a.ComicVersion, a.Type as BookType, a.ComicPublisher, a.publisherImprint, b.Issue_Number, b.IssueName, b.ReleaseDate, b.IssueDate, b.DigitalDate, b.Status, b.ComicID, b.IssueID, b.DateAdded from comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID WHERE b.Status='Wanted'"
+        # Aliases for table references
+        a = t_comics
+        b = t_issues
+
+        iss_stmt = (
+            select(
+                a.c.ComicName,
+                a.c.ComicYear,
+                a.c.ComicVersion,
+                a.c.Type.label("BookType"),
+                a.c.ComicPublisher,
+                a.c.PublisherImprint,
+                b.c.Issue_Number,
+                b.c.IssueName,
+                b.c.ReleaseDate,
+                b.c.IssueDate,
+                b.c.DigitalDate,
+                b.c.Status,
+                b.c.ComicID,
+                b.c.IssueID,
+                b.c.DateAdded,
+            )
+            .select_from(a.join(b, a.c.ComicID == b.c.ComicID))
+            .where(b.c.Status == "Wanted")
+        )
 
         if limit is not None:
             # Return paginated issues with metadata
-            paginated = self._paginatedResultsFromQuery(iss_query, limit=limit, offset=offset)
+            paginated = self._paginatedResultsFromQuery(iss_stmt, limit=limit, offset=offset)
             tmp_data = {
                 "issues": paginated["results"],
                 "pagination": {
@@ -790,19 +869,58 @@ class Api(object):
             }
         else:
             # Backwards compatible: return all results
-            issues = self._resultsFromQuery(iss_query)
+            issues = self._resultsFromQuery(iss_stmt)
             tmp_data = {"issues": issues}
 
         if "story_arcs" in kwargs and kwargs["story_arcs"] == "true":
             if comicarr.CONFIG.UPCOMING_STORYARCS is True:
-                arcs_query = "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, IssueNumber, IssueName, ReleaseDate, IssueDate, DigitalDate, Status, ComicID, IssueID, DateAdded from storyarcs WHERE Status='Wanted'"
-                arclist = self._resultsFromQuery(arcs_query)
+                arcs_stmt = select(
+                    t_storyarcs.c.StoryArc,
+                    t_storyarcs.c.StoryArcID,
+                    t_storyarcs.c.IssueArcID,
+                    t_storyarcs.c.ComicName,
+                    t_storyarcs.c.IssueNumber,
+                    t_storyarcs.c.IssueName,
+                    t_storyarcs.c.ReleaseDate,
+                    t_storyarcs.c.IssueDate,
+                    t_storyarcs.c.DigitalDate,
+                    t_storyarcs.c.Status,
+                    t_storyarcs.c.ComicID,
+                    t_storyarcs.c.IssueID,
+                    t_storyarcs.c.DateAdded,
+                ).where(t_storyarcs.c.Status == "Wanted")
+                arclist = self._resultsFromQuery(arcs_stmt)
                 tmp_data2 = {**tmp_data, **{"story_arcs": arclist}}
                 tmp_data = tmp_data2
 
         if comicarr.CONFIG.ANNUALS_ON:
-            annuals_query = "SELECT b.ReleaseComicName as ComicName, a.ComicYear, a.ComicVersion, a.Type as BookType, a.ComicPublisher, a.publisherImprint, a.ComicName as SeriesName, b.Issue_Number as Issue_Number, b.IssueName, b.ReleaseDate, b.IssueDate, b.DigitalDate, b.Status, b.ComicID, b.IssueID, b.ReleaseComicID as SeriesComicID, b.DateAdded FROM comics as a INNER JOIN annuals as b ON a.ComicID = b.ComicID WHERE NOT b.Deleted and b.Status='Wanted'"
-            annuals_list = self._resultsFromQuery(annuals_query)
+            ann_a = t_comics
+            ann_b = t_annuals
+            annuals_stmt = (
+                select(
+                    ann_b.c.ReleaseComicName.label("ComicName"),
+                    ann_a.c.ComicYear,
+                    ann_a.c.ComicVersion,
+                    ann_a.c.Type.label("BookType"),
+                    ann_a.c.ComicPublisher,
+                    ann_a.c.PublisherImprint,
+                    ann_a.c.ComicName.label("SeriesName"),
+                    ann_b.c.Issue_Number.label("Issue_Number"),
+                    ann_b.c.IssueName,
+                    ann_b.c.ReleaseDate,
+                    ann_b.c.IssueDate,
+                    ann_b.c.DigitalDate,
+                    ann_b.c.Status,
+                    ann_b.c.ComicID,
+                    ann_b.c.IssueID,
+                    ann_b.c.ReleaseComicID.label("SeriesComicID"),
+                    ann_b.c.DateAdded,
+                )
+                .select_from(ann_a.join(ann_b, ann_a.c.ComicID == ann_b.c.ComicID))
+                .where(ann_b.c.Deleted != 1)
+                .where(ann_b.c.Status == "Wanted")
+            )
+            annuals_list = self._resultsFromQuery(annuals_stmt)
             tmp_data2 = {**tmp_data, **{"annuals": annuals_list}}
             tmp_data = tmp_data2
 
@@ -842,10 +960,10 @@ class Api(object):
                 directory_del = False  # safeguard anything else here.
 
         try:
-            myDB = db.DBConnection()
-            delchk = myDB.selectone(
-                "SELECT ComicName, ComicYear, ComicLocation FROM comics where ComicID=?", [self.id]
-            ).fetchone()
+            delchk = _select_one(
+                select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation)
+                .where(t_comics.c.ComicID == self.id)
+            )
             if not delchk:
                 logger.error("ComicID %s not found in watchlist." % self.id)
                 self.data = self._failureResponse("ComicID %s not found in watchlist." % self.id)
@@ -853,9 +971,10 @@ class Api(object):
             logger.fdebug(
                 "Deletion request received for %s (%s) [%s]" % (delchk["ComicName"], delchk["ComicYear"], self.id)
             )
-            myDB.action("DELETE from comics WHERE ComicID=?", [self.id])
-            myDB.action("DELETE from issues WHERE ComicID=?", [self.id])
-            myDB.action("DELETE from upcoming WHERE ComicID=?", [self.id])
+            with db.get_engine().begin() as conn:
+                conn.execute(delete(t_comics).where(t_comics.c.ComicID == self.id))
+                conn.execute(delete(t_issues).where(t_issues.c.ComicID == self.id))
+                conn.execute(delete(t_upcoming).where(t_upcoming.c.ComicID == self.id))
             if directory_del is True:
                 if os.path.exists(delchk["ComicLocation"]):
                     shutil.rmtree(delchk["ComicLocation"])
@@ -883,10 +1002,7 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        controlValueDict = {"ComicID": self.id}
-        newValueDict = {"Status": "Paused"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", {"Status": "Paused"}, {"ComicID": self.id})
 
     def _resumeComic(self, **kwargs):
         if "id" not in kwargs:
@@ -895,10 +1011,7 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        controlValueDict = {"ComicID": self.id}
-        newValueDict = {"Status": "Active"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", {"Status": "Active"}, {"ComicID": self.id})
 
     def _regenerateCovers(self, **kwargs):
         # kwargs = id: {comicid, {comicid_list}, 'all', 'missing'}
@@ -908,7 +1021,6 @@ class Api(object):
         #               -- missing = just series on watchlist with no cover image in cache
         #        = overwrite_existing: {true, false} (applies only to {comicid, comicid_list, all})
 
-        myDB = db.DBConnection()
         if "id" not in kwargs:
             self.data = self._failureResponse("Missing parameter: id")
             return
@@ -916,10 +1028,10 @@ class Api(object):
             self.id = kwargs["id"]
             id_list = []
             if any([self.id == "all", self.id == "missing"]):
-                the_list = myDB.select("SELECT * FROM comics")
+                the_list = _select_all(select(t_comics))
                 for tt in the_list:
                     if self.id == "missing":
-                        if os.path.isfile(os.path.join(comicarr.CONFIG.CACHE_DIR, "%s.jpg" % (tt["comicid"]))):
+                        if os.path.isfile(os.path.join(comicarr.CONFIG.CACHE_DIR, "%s.jpg" % (tt["ComicID"]))):
                             continue
                     id_list.append(
                         {
@@ -938,7 +1050,7 @@ class Api(object):
                     tmp_list.append(self.id)
 
                 for tm in tmp_list:
-                    th = myDB.selectone("SELECT * FROM comics WHERE comicid=?", [tm]).fetchone()
+                    th = _select_one(select(t_comics).where(t_comics.c.ComicID == tm))
                     id_list.append(
                         {
                             "comicid": th["ComicID"],
@@ -1011,12 +1123,14 @@ class Api(object):
         watch = []
         already_added = []
         notfound = []
-        myDB = db.DBConnection()
         for comicid in id_list:
             if comicid.startswith("4050-"):
                 comicid = re.sub("4050-", "", comicid).strip()
 
-            chkdb = myDB.selectone("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [comicid]).fetchone()
+            chkdb = _select_one(
+                select(t_comics.c.ComicName, t_comics.c.ComicYear)
+                .where(t_comics.c.ComicID == comicid)
+            )
             if not chkdb:
                 notfound.append({"comicid": comicid})
             else:
@@ -1086,10 +1200,10 @@ class Api(object):
         else:
             booktype = booktype.lower()
 
-        myDB = db.DBConnection()
-        btresp = myDB.selectone(
-            "SELECT ComicName, ComicYear, Type, Corrected_Type FROM Comics WHERE ComicID=?", [self.id]
-        ).fetchone()
+        btresp = _select_one(
+            select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.Type, t_comics.c.Corrected_Type)
+            .where(t_comics.c.ComicID == self.id)
+        )
         if not btresp:
             self.data = self._failureResponse("Unable to locate ComicID %s within watchlist" % self.id)
             return
@@ -1110,9 +1224,7 @@ class Api(object):
                     break
 
             try:
-                newValue = {"Corrected_Type": booktype}
-                newWrite = {"ComicID": self.id}
-                myDB.upsert("comics", newValue, newWrite)
+                db.upsert("comics", {"Corrected_Type": booktype}, {"ComicID": self.id})
             except Exception as e:
                 self.data = self._failureResponse(
                     "[%s] Unable to update Booktype for ComicID: %s. Error returned: %s" % (self.id, e)
@@ -1208,10 +1320,7 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        controlValueDict = {"IssueID": self.id}
-        newValueDict = {"Status": "Wanted"}
-        myDB.upsert("issues", newValueDict, controlValueDict)
+        db.upsert("issues", {"Status": "Wanted"}, {"IssueID": self.id})
         search.searchforissue(self.id)
 
     def _unqueueIssue(self, **kwargs):
@@ -1221,19 +1330,19 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        controlValueDict = {"IssueID": self.id}
-        newValueDict = {"Status": "Skipped"}
-        myDB.upsert("issues", newValueDict, controlValueDict)
+        db.upsert("issues", {"Status": "Skipped"}, {"IssueID": self.id})
 
     def _seriesjsonListing(self, **kwargs):
         if "missing" in kwargs:
-            msj_query = (
-                "SELECT comicid, ComicLocation FROM comics WHERE seriesjsonPresent = 0 OR seriesjsonPresent is NULL"
+            stmt = (
+                select(t_comics.c.ComicID, t_comics.c.ComicLocation)
+                .where(
+                    (t_comics.c.seriesjsonPresent == 0) | (t_comics.c.seriesjsonPresent.is_(None))
+                )
             )
         else:
-            msj_query = "SELECT comicid, ComicLocation FROM comics"
-        results = self._resultsFromQuery(msj_query)
+            stmt = select(t_comics.c.ComicID, t_comics.c.ComicLocation)
+        results = self._resultsFromQuery(stmt)
         if len(results) > 0:
             self.data = self._successResponse(results)
         else:
@@ -1501,10 +1610,8 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        query = self._selectForComics() + " WHERE ComicID=?"
-        rows = myDB.select(query, [self.id])
-        results = [dict(zip(row.keys(), row, strict=False)) for row in rows]
+        stmt = select(*_COMICS_COLUMNS).where(t_comics.c.ComicID == self.id)
+        results = _select_all(stmt)
         if len(results) == 1:
             self.data = self._successResponse(results)
         else:
@@ -1517,10 +1624,8 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        myDB = db.DBConnection()
-        query = self._selectForIssues() + " WHERE IssueID=?"
-        rows = myDB.select(query, [self.id])
-        results = [dict(zip(row.keys(), row, strict=False)) for row in rows]
+        stmt = select(*_ISSUES_COLUMNS).where(t_issues.c.IssueID == self.id)
+        results = _select_all(stmt)
         if len(results) == 1:
             self.data = self._successResponse(results)
         else:
@@ -1545,9 +1650,7 @@ class Api(object):
                 return
         else:
             # If we cant find the image, lets check the db for a url.
-            myDB = db.DBConnection()
-            comic_rows = myDB.select("SELECT * from comics WHERE ComicID=?", [self.id])
-            comic = [dict(zip(row.keys(), row, strict=False)) for row in comic_rows]
+            comic = _select_all(select(t_comics).where(t_comics.c.ComicID == self.id))
 
             # Try every img url in the db
             try:
@@ -1650,10 +1753,8 @@ class Api(object):
             return
 
         self.id = id
-        # Fetch a list of dicts from issues table
-        myDB = db.DBConnection()
-        i_rows = myDB.select("SELECT * from issues WHERE issueID=?", [self.id])
-        i = [dict(zip(row.keys(), row, strict=False)) for row in i_rows]
+        # Fetch issue from issues table
+        i = _select_all(select(t_issues).where(t_issues.c.IssueID == self.id))
 
         if not len(i):
             self.data = self._failureResponse("Couldnt find a issue with issueID %s" % self.id)
@@ -1667,8 +1768,7 @@ class Api(object):
         # Check the issue is downloaded
         if issuelocation is not None:
             # Find the comic location
-            comic_rows = myDB.select("SELECT * from comics WHERE comicID=?", [issue["ComicID"]])
-            comic = dict(zip(comic_rows[0].keys(), comic_rows[0], strict=False))
+            comic = _select_one(select(t_comics).where(t_comics.c.ComicID == issue["ComicID"]))
             comiclocation = comic.get("ComicLocation")
             f = os.path.join(comiclocation, issuelocation)
             if not os.path.isfile(f):
@@ -1716,22 +1816,45 @@ class Api(object):
     def _getStoryArc(self, **kwargs):
         if "id" not in kwargs:
             if "customOnly" in kwargs and kwargs["customOnly"]:
-                self.data = self._resultsFromQuery(
-                    'SELECT StoryArcID, StoryArc, MAX(ReadingOrder) AS HighestOrder from storyarcs WHERE StoryArcID LIKE "C%" GROUP BY StoryArcID ORDER BY StoryArc'
+                stmt = (
+                    select(
+                        t_storyarcs.c.StoryArcID,
+                        t_storyarcs.c.StoryArc,
+                        func.max(t_storyarcs.c.ReadingOrder).label("HighestOrder"),
+                    )
+                    .where(t_storyarcs.c.StoryArcID.like("C%"))
+                    .group_by(t_storyarcs.c.StoryArcID)
+                    .order_by(t_storyarcs.c.StoryArc)
                 )
             else:
-                self.data = self._resultsFromQuery(
-                    "SELECT StoryArcID, StoryArc, MAX(ReadingOrder) AS HighestOrder from storyarcs GROUP BY StoryArcID ORDER BY StoryArc"
+                stmt = (
+                    select(
+                        t_storyarcs.c.StoryArcID,
+                        t_storyarcs.c.StoryArc,
+                        func.max(t_storyarcs.c.ReadingOrder).label("HighestOrder"),
+                    )
+                    .group_by(t_storyarcs.c.StoryArcID)
+                    .order_by(t_storyarcs.c.StoryArc)
                 )
+            self.data = self._resultsFromQuery(stmt)
         else:
             self.id = kwargs["id"]
-            myDB = db.DBConnection()
-            rows = myDB.select(
-                "SELECT StoryArc, ReadingOrder, ComicID, ComicName, IssueNumber, IssueID, \
-                                            IssueDate, IssueName, IssuePublisher from storyarcs WHERE StoryArcID=? ORDER BY ReadingOrder",
-                [self.id],
+            stmt = (
+                select(
+                    t_storyarcs.c.StoryArc,
+                    t_storyarcs.c.ReadingOrder,
+                    t_storyarcs.c.ComicID,
+                    t_storyarcs.c.ComicName,
+                    t_storyarcs.c.IssueNumber,
+                    t_storyarcs.c.IssueID,
+                    t_storyarcs.c.IssueDate,
+                    t_storyarcs.c.IssueName,
+                    t_storyarcs.c.IssuePublisher,
+                )
+                .where(t_storyarcs.c.StoryArcID == self.id)
+                .order_by(t_storyarcs.c.ReadingOrder)
             )
-            self.data = [dict(zip(row.keys(), row, strict=False)) for row in rows]
+            self.data = _select_all(stmt)
         return
 
     def _addStoryArc(self, **kwargs):
@@ -1745,9 +1868,11 @@ class Api(object):
                 storyarcname = kwargs.pop("storyarcname")
         else:
             self.id = kwargs.pop("id")
-            myDB = db.DBConnection()
-            arc_rows = myDB.select("SELECT * from storyarcs WHERE StoryArcID=? ORDER by ReadingOrder", [self.id])
-            arc = [dict(zip(row.keys(), row, strict=False)) for row in arc_rows]
+            arc = _select_all(
+                select(t_storyarcs)
+                .where(t_storyarcs.c.StoryArcID == self.id)
+                .order_by(t_storyarcs.c.ReadingOrder)
+            )
             storyarcname = arc[0]["StoryArc"]
             issuecount = len(arc)
         if "issues" not in kwargs and "arclist" not in kwargs:
@@ -1823,8 +1948,7 @@ class Api(object):
             #    recreate_from_annuals = False
 
         try:
-            myDB = db.DBConnection()
-            las = myDB.select("SELECT * from Annuals WHERE NOT Deleted")
+            las = _select_all(select(t_annuals).where(t_annuals.c.Deleted != 1))
         except Exception:
             self.data = self._failureResponse(
                 "Unable to query Annuals table - possibly no annuals have been detected as being integrated."
@@ -1849,9 +1973,9 @@ class Api(object):
 
                 if group_series is True:
                     if int(lss["ComicID"]) not in annual_listing.keys():
-                        annual_listing[int(lss["comicid"])] = [annuals]
+                        annual_listing[int(lss["ComicID"])] = [annuals]
                     else:
-                        annual_listing[int(lss["comicid"])] += [annuals]
+                        annual_listing[int(lss["ComicID"])] += [annuals]
                 else:
                     annuals["comicid"] = int(lss["ComicID"])
                     annual_listing.append(annuals)
@@ -1922,7 +2046,8 @@ class Api(object):
                 "search_progress",
                 "search_complete",
             ]:
-                myDB = db.DBConnection()
+                from comicarr.tables import notifs as t_notifs
+
                 tmp_message = dict(the_message, **{"session_id": comicarr.SESSION_ID})
                 if event != "check_update":
                     try:
@@ -1938,7 +2063,7 @@ class Api(object):
                 the_real_message = re.sub(r"\r\n|\n|</br>", "", the_tmp_message)
                 tmp_message = dict(tmp_message, **{"message": the_real_message})
                 # logger.fdebug('the_message re-added: %s' % (tmp_message,))
-                myDB.upsert("notifs", tmp_message, {"date": helpers.now()})
+                db.upsert("notifs", tmp_message, {"date": helpers.now()})
             if event in ["search_progress", "search_complete"]:
                 logger.info(
                     "[SSE] Sending search event via SSE: event=%s, search_id=%s" % (event, the_message.get("search_id"))
@@ -2860,11 +2985,12 @@ class Api(object):
             response_data["chapter_count"] = len(chapters)
 
         # Check if manga is in library
-        myDB = db.DBConnection()
         if str(manga_id).startswith("md-"):
-            db_manga = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [manga_id]).fetchone()
+            lookup_id = manga_id
         else:
-            db_manga = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", ["md-" + manga_id]).fetchone()
+            lookup_id = "md-" + manga_id
+
+        db_manga = _select_one(select(t_comics).where(t_comics.c.ComicID == lookup_id))
 
         response_data["in_library"] = db_manga is not None
         if db_manga:
@@ -2886,53 +3012,37 @@ class Api(object):
         Returns:
             List of import groups with files and pagination info
         """
-        myDB = db.DBConnection()
-
-        limit = int(kwargs.get("limit", 50))
-        offset = int(kwargs.get("offset", 0))
+        limit_val = int(kwargs.get("limit", 50))
+        offset_val = int(kwargs.get("offset", 0))
         include_ignored = kwargs.get("include_ignored", "false").lower() == "true"
 
-        # Build query for pending imports - group by DynamicName and Volume
-        if include_ignored:
-            base_query = """
-                SELECT *, COUNT(*) as FileCount
-                FROM importresults
-                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                  AND Status != 'Imported'
-                GROUP BY DynamicName, Volume
-                ORDER BY ComicName COLLATE NOCASE
-            """
-            count_query = """
-                SELECT COUNT(DISTINCT DynamicName || COALESCE(Volume, ''))
-                FROM importresults
-                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                  AND Status != 'Imported'
-            """
-        else:
-            base_query = """
-                SELECT *, COUNT(*) as FileCount
-                FROM importresults
-                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                  AND Status != 'Imported'
-                  AND (IgnoreFile IS NULL OR IgnoreFile = 0)
-                GROUP BY DynamicName, Volume
-                ORDER BY ComicName COLLATE NOCASE
-            """
-            count_query = """
-                SELECT COUNT(DISTINCT DynamicName || COALESCE(Volume, ''))
-                FROM importresults
-                WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                  AND Status != 'Imported'
-                  AND (IgnoreFile IS NULL OR IgnoreFile = 0)
-            """
+        ir = t_importresults
 
-        # Get total count
-        total_result = myDB.selectone(count_query).fetchone()
-        total = total_result[0] if total_result else 0
+        # Base conditions shared by all queries
+        base_conds = [
+            (ir.c.WatchMatch.is_(None)) | (ir.c.WatchMatch.like("C%")),
+            ir.c.Status != "Imported",
+        ]
+        if not include_ignored:
+            base_conds.append((ir.c.IgnoreFile.is_(None)) | (ir.c.IgnoreFile == 0))
 
-        # Get paginated results
-        paginated_query = base_query + " LIMIT ? OFFSET ?"
-        results = myDB.select(paginated_query, [limit, offset])
+        # Count distinct groups: DynamicName || COALESCE(Volume, '')
+        count_expr = func.count(func.distinct(func.concat(ir.c.DynamicName, func.coalesce(ir.c.Volume, ""))))
+        count_stmt = select(count_expr).where(*base_conds)
+
+        with db.get_engine().connect() as conn:
+            total = conn.execute(count_stmt).scalar() or 0
+
+        # Get paginated groups
+        group_stmt = (
+            select(ir, func.count().label("FileCount"))
+            .where(*base_conds)
+            .group_by(ir.c.DynamicName, ir.c.Volume)
+            .order_by(ir.c.ComicName)
+            .limit(limit_val)
+            .offset(offset_val)
+        )
+        results = _select_all(group_stmt)
 
         imports = []
         for result in results:
@@ -2940,26 +3050,15 @@ class Api(object):
             volume = result["Volume"]
 
             # Get all files for this group
+            file_conds = list(base_conds)
+            file_conds.append(ir.c.DynamicName == dynamic_name)
+
             if volume is None or volume == "None":
-                files_query = """
-                    SELECT * FROM importresults
-                    WHERE DynamicName=? AND (Volume IS NULL OR Volume='None')
-                    AND (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                    AND Status != 'Imported'
-                """
-                if not include_ignored:
-                    files_query += " AND (IgnoreFile IS NULL OR IgnoreFile = 0)"
-                files = myDB.select(files_query, [dynamic_name])
+                file_conds.append((ir.c.Volume.is_(None)) | (ir.c.Volume == "None"))
             else:
-                files_query = """
-                    SELECT * FROM importresults
-                    WHERE DynamicName=? AND Volume=?
-                    AND (WatchMatch IS NULL OR WatchMatch LIKE 'C%')
-                    AND Status != 'Imported'
-                """
-                if not include_ignored:
-                    files_query += " AND (IgnoreFile IS NULL OR IgnoreFile = 0)"
-                files = myDB.select(files_query, [dynamic_name, volume])
+                file_conds.append(ir.c.Volume == volume)
+
+            files = _select_all(select(ir).where(*file_conds))
 
             file_list = []
             for f in files:
@@ -3004,7 +3103,7 @@ class Api(object):
         self.data = self._successResponse(
             {
                 "imports": imports,
-                "pagination": {"total": total, "limit": limit, "offset": offset, "has_more": (offset + limit) < total},
+                "pagination": {"total": total, "limit": limit_val, "offset": offset_val, "has_more": (offset_val + limit_val) < total},
             }
         )
 
@@ -3032,10 +3131,8 @@ class Api(object):
         comic_id = kwargs["comic_id"]
         issue_id = kwargs.get("issue_id")
 
-        myDB = db.DBConnection()
-
         # Get comic name for display
-        comic = myDB.selectone("SELECT ComicName FROM comics WHERE ComicID=?", [comic_id]).fetchone()
+        comic = _select_one(select(t_comics.c.ComicName).where(t_comics.c.ComicID == comic_id))
         comic_name = comic["ComicName"] if comic else "Unknown"
 
         matched = 0
@@ -3057,7 +3154,7 @@ class Api(object):
                 update_values["IssueID"] = issue_id
                 update_values["SuggestedIssueID"] = issue_id
 
-            myDB.upsert("importresults", update_values, {"impID": imp_id})
+            db.upsert("importresults", update_values, {"impID": imp_id})
             matched += 1
 
         self.data = self._successResponse({"matched": matched, "comic_id": comic_id, "comic_name": comic_name})
@@ -3081,15 +3178,13 @@ class Api(object):
         ignore = kwargs.get("ignore", "true").lower() == "true"
         ignore_value = 1 if ignore else 0
 
-        myDB = db.DBConnection()
-
         updated = 0
         for imp_id in imp_ids:
             imp_id = imp_id.strip()
             if not imp_id:
                 continue
 
-            myDB.upsert("importresults", {"IgnoreFile": ignore_value}, {"impID": imp_id})
+            db.upsert("importresults", {"IgnoreFile": ignore_value}, {"impID": imp_id})
             updated += 1
 
         self.data = self._successResponse({"updated": updated, "ignored": ignore})
@@ -3141,15 +3236,14 @@ class Api(object):
 
         imp_ids = kwargs["imp_ids"].split(",")
 
-        myDB = db.DBConnection()
-
         deleted = 0
         for imp_id in imp_ids:
             imp_id = imp_id.strip()
             if not imp_id:
                 continue
 
-            myDB.action("DELETE FROM importresults WHERE impID=?", [imp_id])
+            with db.get_engine().begin() as conn:
+                conn.execute(delete(t_importresults).where(t_importresults.c.impID == imp_id))
             deleted += 1
 
         self.data = self._successResponse({"deleted": deleted})
@@ -3160,17 +3254,9 @@ class REST(object):
         pass
 
     @staticmethod
-    def _dic_from_query(query, args=None):
-        """Shared helper for REST endpoints — returns list of dicts from a SQL query."""
-        myDB = db.DBConnection()
-        rows = myDB.select(query, args)
-
-        rows_as_dic = []
-        for row in rows:
-            row_as_dic = dict(list(zip(list(row.keys()), row, strict=False)))
-            rows_as_dic.append(row_as_dic)
-
-        return rows_as_dic
+    def _dic_from_query(stmt):
+        """Shared helper for REST endpoints -- returns list of dicts from a SQLAlchemy statement."""
+        return _select_all(stmt)
 
     class Watchlist(object):
         exposed = True
@@ -3189,7 +3275,9 @@ class REST(object):
             pass
 
         def GET(self):
-            comics = REST._dic_from_query("SELECT * from comics order by ComicSortName COLLATE NOCASE")
+            comics = REST._dic_from_query(
+                select(t_comics).order_by(t_comics.c.ComicSortName)
+            )
             return json.dumps(comics, ensure_ascii=False)
 
     @cherrypy.popargs("comic_id", "issuemode", "issue_id")
@@ -3201,21 +3289,29 @@ class REST(object):
 
         def GET(self, comic_id=None, issuemode=None, issue_id=None):
             if comic_id is None:
-                comics = REST._dic_from_query("SELECT * from comics order by ComicSortName COLLATE NOCASE")
+                comics = REST._dic_from_query(
+                    select(t_comics).order_by(t_comics.c.ComicSortName)
+                )
                 return json.dumps(comics, ensure_ascii=False)
 
             if issuemode is None:
-                match = REST._dic_from_query("SELECT * from comics WHERE ComicID=?", [comic_id])
+                match = REST._dic_from_query(
+                    select(t_comics).where(t_comics.c.ComicID == comic_id)
+                )
                 if match:
                     return json.dumps(match, ensure_ascii=False)
                 else:
                     return json.dumps({"error": "No Comic with that ID"})
             elif issuemode == "issues":
-                issues = REST._dic_from_query("SELECT * from issues WHERE comicid=?", [comic_id])
+                issues = REST._dic_from_query(
+                    select(t_issues).where(t_issues.c.ComicID == comic_id)
+                )
                 return json.dumps(issues, ensure_ascii=False)
             elif issuemode == "issue" and issue_id is not None:
                 issues = REST._dic_from_query(
-                    "SELECT * from issues WHERE comicid=? AND issueid=?", [comic_id, issue_id]
+                    select(t_issues)
+                    .where(t_issues.c.ComicID == comic_id)
+                    .where(t_issues.c.IssueID == issue_id)
                 )
                 return json.dumps(issues, ensure_ascii=False)
             else:
