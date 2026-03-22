@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --uid 1001 --create-home comicarr
 COPY --from=backend-build /app /opt/comicarr
 COPY --from=frontend-build /app/frontend/dist /opt/comicarr/frontend/dist
+ENV PATH="/opt/comicarr/.venv/bin:$PATH"
 USER comicarr
 EXPOSE 8090
 VOLUME ["/config", "/comics"]
