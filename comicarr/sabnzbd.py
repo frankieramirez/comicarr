@@ -141,7 +141,9 @@ class SABnzbd(object):
                         logger.fdebug("unable to pop nzo_id - possibly already done/finished/does not exist")
                         no_findie = True
                     tmp_queue["nzo_ids"] = self.params["nzo_id"]  # if it pops, still there - make sure we put it back
-                    queue_resp = requests.get(self.sab_url, params=tmp_queue, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+                    queue_resp = requests.get(
+                        self.sab_url, params=tmp_queue, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30
+                    )
                     queueresponse = queue_resp.json()
                     try:
                         queueinfo = queueresponse["queue"]["slots"][0]

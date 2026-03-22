@@ -122,18 +122,20 @@ def initialize(options):
             enable_https = False
 
     # Build Content-Security-Policy header
-    csp = "; ".join([
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: https://comicvine.gamespot.com",
-        "font-src 'self'",
-        "connect-src 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "object-src 'none'",
-    ])
+    csp = "; ".join(
+        [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https://comicvine.gamespot.com",
+            "font-src 'self'",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",
+        ]
+    )
 
     options_dict = {
         "server.socket_port": options["http_port"],
@@ -263,7 +265,9 @@ def initialize(options):
     }
 
     # Enable OPDS auth if explicitly configured OR if main auth is enabled
-    opds_auth = options["opds_authentication"] or (options.get("authentication", 0) > 0 and options["http_password"] is not None)
+    opds_auth = options["opds_authentication"] or (
+        options.get("authentication", 0) > 0 and options["http_password"] is not None
+    )
     if opds_auth:
         user_list = {}
         if options.get("opds_username") and len(options["opds_username"]) > 0:

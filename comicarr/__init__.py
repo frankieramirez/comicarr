@@ -542,6 +542,7 @@ def initialize(config_file):
             logger.info("[DDL] External server configuration available to be loaded: %s" % EXT_SERVER)
 
         import secrets
+
         SESSION_ID = secrets.randbelow(990000) + 10000
 
         CV_HEADERS = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}

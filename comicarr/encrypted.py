@@ -69,6 +69,7 @@ def _get_fernet():
 
 # --- bcrypt helpers for login passwords ---
 
+
 def hash_password(password):
     """Hash a login password with bcrypt (cost factor 12)."""
     if isinstance(password, str):
@@ -127,6 +128,7 @@ class Encryptor(object):
 
     Handles migration from old base64 encoding (^~$z$ prefix) to Fernet (gAAAAA prefix).
     """
+
     def __init__(self, password, logon=False):
         self.password = password
         self.logon = logon

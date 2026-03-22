@@ -1224,7 +1224,9 @@ class Api(object):
 
     def _seriesjsonListing(self, **kwargs):
         if "missing" in kwargs:
-            msj_query = "SELECT comicid, ComicLocation FROM comics WHERE seriesjsonPresent = 0 OR seriesjsonPresent is NULL"
+            msj_query = (
+                "SELECT comicid, ComicLocation FROM comics WHERE seriesjsonPresent = 0 OR seriesjsonPresent is NULL"
+            )
         else:
             msj_query = "SELECT comicid, ComicLocation FROM comics"
         results = self._resultsFromQuery(msj_query)

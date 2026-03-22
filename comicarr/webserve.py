@@ -9600,7 +9600,8 @@ class WebInterface(object):
         sp = sabparse.sabnzbd(sabhost, sabusername, sabpassword)
         sabapi = sp.sab_get()
         logger.info(
-            "SAB API Key found (length: %d). You still have to save the config to retain this setting." % len(str(sabapi))
+            "SAB API Key found (length: %d). You still have to save the config to retain this setting."
+            % len(str(sabapi))
         )
         comicarr.CONFIG.SAB_APIKEY = sabapi
         return sabapi
@@ -10739,20 +10740,21 @@ class WebInterface(object):
     blockProviders.exposed = True
 
     def viewSpecificLog(self, log_id):
-        if not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", str(log_id)):
             return "Invalid log ID"
         logger.info("log_id: %s" % log_id)
         log_file = "specific_%s.log" % log_id
         with open(os.path.join(comicarr.CONFIG.LOG_DIR, log_file)) as f:
             loglines = f.read()
             import html
+
             loglines = html.escape(loglines).replace("\n", "<br>")
         return loglines
 
     viewSpecificLog.exposed = True
 
     def deleteSpecificLog(self, log_id=None, allspecific=None):
-        if log_id is not None and not re.match(r'^[a-zA-Z0-9_-]+$', str(log_id)):
+        if log_id is not None and not re.match(r"^[a-zA-Z0-9_-]+$", str(log_id)):
             return json.dumps({"status": "error", "message": "Invalid log ID"})
         myDB = db.DBConnection()
         if all([allspecific is not None, log_id is None]):

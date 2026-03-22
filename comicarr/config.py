@@ -1125,14 +1125,13 @@ class Config(object):
             self.encrypt_items(mode="encrypt")
 
         # Migrate login password to bcrypt on startup (handles all three states)
-        if self.HTTP_PASSWORD and not (
-            self.HTTP_PASSWORD.startswith("$2b$") or self.HTTP_PASSWORD.startswith("$2a$")
-        ):
+        if self.HTTP_PASSWORD and not (self.HTTP_PASSWORD.startswith("$2b$") or self.HTTP_PASSWORD.startswith("$2a$")):
             # Backup config before credential migration
             backup_path = os.path.join(self.SECURE_DIR, "config.ini.pre-security-migration.bak")
             if not os.path.exists(backup_path):
                 try:
                     import shutil
+
                     shutil.copy2(self._config_file, backup_path)
                     logger.info("[SECURITY] Pre-migration backup saved to %s" % backup_path)
                 except Exception as e:
@@ -1284,8 +1283,7 @@ class Config(object):
                     new_encrypted += 1
                 else:
                     logger.warn(
-                        "Unable to encrypt password for %s - it has not been encrypted. Keeping it as it is."
-                        % ini_key
+                        "Unable to encrypt password for %s - it has not been encrypted. Keeping it as it is." % ini_key
                     )
 
         if new_encrypted > 0:
@@ -1373,8 +1371,7 @@ class Config(object):
             except OSError:
                 logger.error(
                     "[FATAL] Could not create secure directory at %s. "
-                    "Credential encryption will not work. Fix permissions and restart."
-                    % self.SECURE_DIR
+                    "Credential encryption will not work. Fix permissions and restart." % self.SECURE_DIR
                 )
                 raise SystemExit(1)
 

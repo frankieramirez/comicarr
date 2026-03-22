@@ -158,7 +158,9 @@ class ComicScanner(object):
                 os.remove(os.path.join(root, f))
         for root, dirs, files in os.walk(os.path.join(comicarr.CONFIG.CACHE_DIR, "webviewer", ish_id), topdown=False):
             for d in dirs:
-                os.chmod(os.path.join(root, d), stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)  # 0755
+                os.chmod(
+                    os.path.join(root, d), stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+                )  # 0755
                 os.rmdir(os.path.join(root, d))
         if comic_path.endswith(".cbr"):
             opened_rar = rarfile.RarFile(comic_path)
