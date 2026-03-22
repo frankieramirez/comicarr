@@ -480,13 +480,13 @@ def initialize(config_file):
                 comic_count = row[0] if row else 0
                 if comic_count > 0:
                     if comicarr.CONFIG.BACKUP_ON_START:
-                        backup_dir = os.path.join(comicarr.DATA_DIR, 'backups')
+                        backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
                         retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
                         maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
                 else:
                     comicarr.DB_EMPTY = True
             except Exception as e:
-                logger.warn('[STARTUP] Startup diagnostics skipped: %s' % e)
+                logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
             finally:
                 if conn:
                     conn.close()

@@ -44,18 +44,18 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         retention: number of backups to keep (default: 4)
     """
     if not os.path.isfile(source_path):
-        logger.warn('[AUTO-BACKUP] Source database not found: %s' % source_path)
+        logger.warn("[AUTO-BACKUP] Source database not found: %s" % source_path)
         return False
 
     try:
         os.makedirs(dest_dir, exist_ok=True)
     except OSError as e:
-        logger.error('[AUTO-BACKUP] Cannot create backup directory %s: %s' % (dest_dir, e))
+        logger.error("[AUTO-BACKUP] Cannot create backup directory %s: %s" % (dest_dir, e))
         return False
 
     retention = max(int(retention), 1)
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    dest_path = os.path.join(dest_dir, 'comicarr.db.%s.bak' % timestamp)
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    dest_path = os.path.join(dest_dir, "comicarr.db.%s.bak" % timestamp)
 
     src_conn = None
     dst_conn = None
@@ -64,7 +64,7 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         dst_conn = sqlite3.connect(dest_path)
         src_conn.backup(dst_conn, pages=256, sleep=0.01)
     except Exception as e:
-        logger.error('[AUTO-BACKUP] Backup failed: %s' % e)
+        logger.error("[AUTO-BACKUP] Backup failed: %s" % e)
         if os.path.exists(dest_path):
             try:
                 os.remove(dest_path)
@@ -78,16 +78,16 @@ def auto_backup_db(source_path, dest_dir, retention=4):
             src_conn.close()
 
     # Rotate old backups — keep only `retention` most recent
-    existing = sorted(glob.glob(os.path.join(dest_dir, 'comicarr.db.*.bak')))
+    existing = sorted(glob.glob(os.path.join(dest_dir, "comicarr.db.*.bak")))
     while len(existing) > retention:
         oldest = existing.pop(0)
         try:
             os.remove(oldest)
-            logger.fdebug('[AUTO-BACKUP] Removed old backup: %s' % os.path.basename(oldest))
+            logger.fdebug("[AUTO-BACKUP] Removed old backup: %s" % os.path.basename(oldest))
         except OSError as e:
-            logger.warn('[AUTO-BACKUP] Failed to remove old backup %s: %s' % (oldest, e))
+            logger.warn("[AUTO-BACKUP] Failed to remove old backup %s: %s" % (oldest, e))
 
-    logger.info('[AUTO-BACKUP] Database backed up to %s' % os.path.basename(dest_path))
+    logger.info("[AUTO-BACKUP] Database backed up to %s" % os.path.basename(dest_path))
     return True
 
 

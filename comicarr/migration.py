@@ -27,7 +27,7 @@ import comicarr
 from comicarr import encrypted, logger, maintenance
 
 _migration_lock = threading.Lock()
-_SAFE_IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # Tables to migrate, ordered by dependency
 # (ephemeral tables like searchresults, notifs, provider_searches are excluded)
@@ -122,11 +122,13 @@ def _open_source_db(path):
 
 def _get_common_columns(source_conn, dest_conn, table):
     source_cols = {
-        row[1] for row in source_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+        row[1]
+        for row in source_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
         if _SAFE_IDENTIFIER.match(row[1])
     }
     dest_cols = {
-        row[1] for row in dest_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+        row[1]
+        for row in dest_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
         if _SAFE_IDENTIFIER.match(row[1])
     }
     # For weekly table, exclude rowid from insert (let SQLite auto-assign)
@@ -157,9 +159,7 @@ class Mylar3Migration:
                 # Get Mylar3 version
                 version = "unknown"
                 try:
-                    row = conn.execute(
-                        "SELECT DatabaseVersion FROM mylar_info"
-                    ).fetchone()
+                    row = conn.execute("SELECT DatabaseVersion FROM mylar_info").fetchone()
                     if row:
                         version = str(row["DatabaseVersion"])
                 except Exception:
@@ -185,13 +185,13 @@ class Mylar3Migration:
                 tables = []
                 for table in MIGRATABLE_TABLES:
                     try:
-                        row = conn.execute(
-                            "SELECT COUNT(*) as cnt FROM %s" % table
-                        ).fetchone()
-                        tables.append({
-                            "name": table,
-                            "row_count": int(row["cnt"]) if row else 0,
-                        })
+                        row = conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
+                        tables.append(
+                            {
+                                "name": table,
+                                "row_count": int(row["cnt"]) if row else 0,
+                            }
+                        )
                     except Exception:
                         # Table doesn't exist in source
                         pass
@@ -213,9 +213,7 @@ class Mylar3Migration:
                         try:
                             val = cp.get(section, key.lower())
                             if val and val.strip():
-                                path_warnings.append(
-                                    "%s = %s" % (key, val)
-                                )
+                                path_warnings.append("%s = %s" % (key, val))
                         except (configparser.NoOptionError, configparser.NoSectionError):
                             pass
 
@@ -229,12 +227,12 @@ class Mylar3Migration:
                     "path_warnings": path_warnings,
                 }
         except Exception as e:
-            logger.error('[MIGRATION] Validation failed: %s' % e)
+            logger.error("[MIGRATION] Validation failed: %s" % e)
             return {"valid": False, "error": str(e)}
 
     def execute(self):
         if not _migration_lock.acquire(blocking=False):
-            logger.error('[MIGRATION] Migration already in progress')
+            logger.error("[MIGRATION] Migration already in progress")
             return False
 
         try:
@@ -256,8 +254,8 @@ class Mylar3Migration:
             real_path = self.real_path
 
             # Pre-migration backup
-            logger.info('[MIGRATION] Creating pre-migration backup...')
-            backup_dir = os.path.join(comicarr.DATA_DIR, 'backups')
+            logger.info("[MIGRATION] Creating pre-migration backup...")
+            backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
             maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir)
 
             # Open source database read-only
@@ -281,41 +279,32 @@ class Mylar3Migration:
 
                     # Determine which tables exist in both source and destination
                     source_tables = {
-                        row[0] for row in source_conn.execute(
-                            "SELECT name FROM sqlite_master WHERE type='table'"
-                        ).fetchall()
+                        row[0]
+                        for row in source_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
                     }
                     dest_tables = {
-                        row[0] for row in dest_conn.execute(
-                            "SELECT name FROM sqlite_master WHERE type='table'"
-                        ).fetchall()
+                        row[0]
+                        for row in dest_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
                     }
-                    tables_to_migrate = [
-                        t for t in MIGRATABLE_TABLES
-                        if t in source_tables and t in dest_tables
-                    ]
+                    tables_to_migrate = [t for t in MIGRATABLE_TABLES if t in source_tables and t in dest_tables]
                     comicarr.MIGRATION_TABLES_TOTAL = len(tables_to_migrate)
 
                     # Migrate each table
                     for table in tables_to_migrate:
                         comicarr.MIGRATION_CURRENT_TABLE = table
-                        logger.info('[MIGRATION][%s] Starting import...' % table.upper())
+                        logger.info("[MIGRATION][%s] Starting import..." % table.upper())
 
                         columns = _get_common_columns(source_conn, dest_conn, table)
                         if not columns:
-                            logger.warn('[MIGRATION][%s] No common columns found, skipping' % table.upper())
+                            logger.warn("[MIGRATION][%s] No common columns found, skipping" % table.upper())
                             comicarr.MIGRATION_TABLES_COMPLETE += 1
                             continue
 
                         col_list = ", ".join(columns)
                         placeholders = ", ".join(["?"] * len(columns))
-                        insert_sql = "INSERT OR IGNORE INTO %s (%s) VALUES (%s)" % (
-                            table, col_list, placeholders
-                        )
+                        insert_sql = "INSERT OR IGNORE INTO %s (%s) VALUES (%s)" % (table, col_list, placeholders)
 
-                        source_cursor = source_conn.execute(
-                            "SELECT %s FROM %s" % (col_list, table)
-                        )
+                        source_cursor = source_conn.execute("SELECT %s FROM %s" % (col_list, table))
 
                         dest_conn.execute("BEGIN")
                         try:
@@ -324,20 +313,13 @@ class Mylar3Migration:
                                 batch = source_cursor.fetchmany(5000)
                                 if not batch:
                                     break
-                                dest_conn.executemany(
-                                    insert_sql,
-                                    [tuple(row) for row in batch]
-                                )
+                                dest_conn.executemany(insert_sql, [tuple(row) for row in batch])
                                 total_rows += len(batch)
                             dest_conn.commit()
-                            logger.info(
-                                '[MIGRATION][%s] Imported %d rows' % (table.upper(), total_rows)
-                            )
+                            logger.info("[MIGRATION][%s] Imported %d rows" % (table.upper(), total_rows))
                         except Exception as e:
                             dest_conn.rollback()
-                            logger.error(
-                                '[MIGRATION][%s] Failed: %s' % (table.upper(), e)
-                            )
+                            logger.error("[MIGRATION][%s] Failed: %s" % (table.upper(), e))
                             comicarr.MIGRATION_STATUS = "error"
                             comicarr.MIGRATION_ERROR = "Failed on table %s" % table
                             return False
@@ -354,16 +336,17 @@ class Mylar3Migration:
                     dest_conn.close()
 
             # Migrate config after database
-            logger.info('[MIGRATION] Migrating config settings...')
+            logger.info("[MIGRATION] Migrating config settings...")
             try:
                 migrate_mylar3_config(real_path)
             except Exception as e:
-                logger.error('[MIGRATION] Config migration failed (data migration succeeded): %s' % e)
+                logger.error("[MIGRATION] Config migration failed (data migration succeeded): %s" % e)
                 # Don't fail the whole migration for config issues
 
             # Run dbcheck() to rebuild indexes and apply schema updates
-            logger.info('[MIGRATION] Running dbcheck() to rebuild indexes...')
+            logger.info("[MIGRATION] Running dbcheck() to rebuild indexes...")
             from comicarr import dbcheck
+
             dbcheck()
 
             # Post-migration verification
@@ -373,11 +356,11 @@ class Mylar3Migration:
             comicarr.DB_EMPTY = False
             comicarr.MIGRATION_STATUS = "complete"
             comicarr.MIGRATION_CURRENT_TABLE = ""
-            logger.info('[MIGRATION] Migration completed successfully')
+            logger.info("[MIGRATION] Migration completed successfully")
             return True
 
         except Exception as e:
-            logger.error('[MIGRATION] Migration failed: %s' % e)
+            logger.error("[MIGRATION] Migration failed: %s" % e)
             comicarr.MIGRATION_STATUS = "error"
             comicarr.MIGRATION_ERROR = "Migration failed unexpectedly"
             return False
@@ -389,7 +372,7 @@ class Mylar3Migration:
 def migrate_mylar3_config(source_path):
     config_path = os.path.join(source_path, "config.ini")
     if not os.path.isfile(config_path):
-        logger.warn('[MIGRATION] No config.ini found at %s, skipping config migration' % source_path)
+        logger.warn("[MIGRATION] No config.ini found at %s, skipping config migration" % source_path)
         return
 
     # Bootstrap SECURE_DIR before any credential operations
@@ -430,7 +413,7 @@ def migrate_mylar3_config(source_path):
                 old_val = source_config.get(old_section, old_key.lower())
                 if old_val is not None and new_key not in values:
                     values[new_key] = old_val.strip() if isinstance(old_val, str) else old_val
-                    logger.fdebug('[MIGRATION] Remapped %s.%s -> %s' % (old_section, old_key, new_key))
+                    logger.fdebug("[MIGRATION] Remapped %s.%s -> %s" % (old_section, old_key, new_key))
             except (configparser.NoOptionError, configparser.NoSectionError):
                 pass
 
@@ -440,7 +423,7 @@ def migrate_mylar3_config(source_path):
         migrated = encrypted.migrate_password(old_pass)
         if migrated:
             values["HTTP_PASSWORD"] = migrated
-            logger.fdebug('[MIGRATION] HTTP_PASSWORD migrated to bcrypt')
+            logger.fdebug("[MIGRATION] HTTP_PASSWORD migrated to bcrypt")
         del old_pass  # Don't keep plaintext reference
 
     # Re-encrypt credential values
@@ -454,9 +437,9 @@ def migrate_mylar3_config(source_path):
                 enc = encrypted.Encryptor(dec["password"]).encrypt_it()
                 if enc["status"]:
                     values[key] = enc["password"]
-                    logger.fdebug('[MIGRATION] Re-encrypted %s' % key)
+                    logger.fdebug("[MIGRATION] Re-encrypted %s" % key)
                 else:
-                    logger.warn('[MIGRATION] Failed to re-encrypt %s, skipping' % key)
+                    logger.warn("[MIGRATION] Failed to re-encrypt %s, skipping" % key)
                     del values[key]
             else:
                 # Value might be plaintext — encrypt it
@@ -464,12 +447,12 @@ def migrate_mylar3_config(source_path):
                 if enc["status"]:
                     values[key] = enc["password"]
                 else:
-                    logger.warn('[MIGRATION] Failed to encrypt %s, skipping' % key)
+                    logger.warn("[MIGRATION] Failed to encrypt %s, skipping" % key)
                     del values[key]
 
     # Write config atomically
     comicarr.CONFIG.writeconfig(values)
-    logger.info('[MIGRATION] Config migration completed — %d settings imported' % len(values))
+    logger.info("[MIGRATION] Config migration completed — %d settings imported" % len(values))
 
 
 def _verify_migration(source_db_path):
@@ -481,25 +464,19 @@ def _verify_migration(source_db_path):
 
                 for table in ["comics", "issues", "annuals"]:
                     try:
-                        src_count = source_conn.execute(
-                            "SELECT COUNT(*) as cnt FROM %s" % table
-                        ).fetchone()
-                        dst_count = dest_conn.execute(
-                            "SELECT COUNT(*) as cnt FROM %s" % table
-                        ).fetchone()
+                        src_count = source_conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
+                        dst_count = dest_conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
                         src_n = int(src_count["cnt"]) if src_count else 0
                         dst_n = int(dst_count["cnt"]) if dst_count else 0
                         if src_n != dst_n:
                             logger.warn(
-                                '[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d'
+                                "[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d"
                                 % (table, src_n, dst_n)
                             )
                         else:
-                            logger.fdebug(
-                                '[MIGRATION][VERIFY] %s: %d rows OK' % (table, dst_n)
-                            )
+                            logger.fdebug("[MIGRATION][VERIFY] %s: %d rows OK" % (table, dst_n))
                     except Exception as e:
-                        logger.warn('[MIGRATION][VERIFY] Could not verify %s: %s' % (table, e))
+                        logger.warn("[MIGRATION][VERIFY] Could not verify %s: %s" % (table, e))
 
                 # Check for orphaned issues
                 try:
@@ -509,12 +486,12 @@ def _verify_migration(source_db_path):
                     orphan_count = int(orphans["cnt"]) if orphans else 0
                     if orphan_count > 0:
                         logger.warn(
-                            '[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)'
+                            "[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)"
                             % orphan_count
                         )
                 except Exception as e:
-                    logger.warn('[MIGRATION][VERIFY] Orphan check failed: %s' % e)
+                    logger.warn("[MIGRATION][VERIFY] Orphan check failed: %s" % e)
             finally:
                 dest_conn.close()
     except Exception as e:
-        logger.warn('[MIGRATION][VERIFY] Verification failed: %s' % e)
+        logger.warn("[MIGRATION][VERIFY] Verification failed: %s" % e)
