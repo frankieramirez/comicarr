@@ -61,7 +61,7 @@ class GC(object):
                 get_cookies = self.session.post(
                     main_url,
                     json={"url": comicarr.GC_URL, "cmd": "request.get"},
-                    verify=False,
+                    verify=comicarr.CONFIG.PUBLIC_VERIFY,
                     headers=self.flare_headers,
                     timeout=30,
                 )

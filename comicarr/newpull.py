@@ -12,7 +12,7 @@ def newpull():
     pagelinks = "http://www.previewsworld.com/Home/1/1/71/952"
 
     try:
-        r = requests.get(pagelinks, verify=False)
+        r = requests.get(pagelinks, verify=comicarr.CONFIG.PUBLIC_VERIFY)
 
     except Exception as e:
         logger.warn("Error fetching data: %s" % e)

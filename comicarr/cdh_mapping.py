@@ -152,7 +152,7 @@ class CDH_MAP(object):
         return final_dst
 
     def sendsab(self, params):
-        response = requests.get(self.sab_url, params=params, verify=False)
+        response = requests.get(self.sab_url, params=params, verify=comicarr.CONFIG.SAB_VERIFY)
         response = response.json()
         return response
 

@@ -9613,7 +9613,7 @@ class WebInterface(object):
         sp = sabparse.sabnzbd(sabhost, sabusername, sabpassword)
         sabapi = sp.sab_get()
         logger.info(
-            "SAB API Key found as : " + str(sabapi) + ". You still have to save the config to retain this setting."
+            "SAB API Key found (length: %d). You still have to save the config to retain this setting." % len(str(sabapi))
         )
         comicarr.CONFIG.SAB_APIKEY = sabapi
         return sabapi

@@ -51,14 +51,14 @@ class sabnzbd(object):
                     [self.sabpassword is not None, self.sabpassword != "None", self.sabpassword != ""]
                 ):
                     postdata = {"username": self.sabusername, "password": self.sabpassword, "remember_me": 0}
-                    s.post(sabline + "login/", data=postdata, verify=False)
+                    s.post(sabline + "login/", data=postdata, verify=comicarr.CONFIG.SAB_VERIFY)
 
                     if not bool(s.cookies.get("login_cookie")):
                         logger.fdebug(
                             "SABnzbd authentication failed - this may or may not be relevant depending on your configuration."
                         )
 
-                r = s.get(sabline + "config/general", verify=False)
+                r = s.get(sabline + "config/general", verify=comicarr.CONFIG.SAB_VERIFY)
                 soup = BeautifulSoup(r.content, "html.parser")
                 find_apikey = soup.find(
                     id=re.compile("^apikey(|_display)$")

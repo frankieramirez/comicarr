@@ -306,11 +306,13 @@ _CONFIG_DEFINITIONS = OrderedDict(
         ),  # 0/False: ComicRN.py, #1/True: Completed Download Handling
         "SAB_REMOVE_COMPLETED": (bool, "SABnzbd", False),
         "SAB_REMOVE_FAILED": (bool, "SABnzbd", False),
+        "SAB_VERIFY": (bool, "SABnzbd", False),
         "NZBGET_HOST": (str, "NZBGet", None),
         "NZBGET_SUB": (str, "NZBGet", None),
         "NZBGET_PORT": (str, "NZBGet", None),
         "NZBGET_USERNAME": (str, "NZBGet", None),
         "NZBGET_PASSWORD": (str, "NZBGet", None),
+        "NZBGET_VERIFY": (bool, "NZBGet", False),
         "NZBGET_PRIORITY": (str, "NZBGet", None),
         "NZBGET_CATEGORY": (str, "NZBGet", None),
         "NZBGET_DIRECTORY": (str, "NZBGet", None),
