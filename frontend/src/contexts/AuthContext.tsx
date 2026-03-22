@@ -20,6 +20,11 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+interface StartupDiagnostics {
+  db_empty: boolean;
+  migration_dismissed: boolean;
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -27,6 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [needsMigration, setNeedsMigration] = useState(false);
 
   // Check session on mount and restore API key from sessionStorage
   useEffect(() => {
@@ -53,6 +59,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const result = await checkSession();
         if (result.authenticated && result.username) {
           setUser({ username: result.username });
+
+          // Check if first-run migration is needed
+          try {
+            const diag = await apiCall<StartupDiagnostics>(
+              "getStartupDiagnostics",
+            );
+            if (diag.db_empty && !diag.migration_dismissed) {
+              setNeedsMigration(true);
+            }
+          } catch {
+            // Non-critical — skip migration check
+          }
         } else {
           // Clear API key and SSE key if session is invalid
           sessionStorage.removeItem("comicarr_api_key");
@@ -132,6 +150,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const dismissMigration = () => {
+    setNeedsMigration(false);
+    // Persist dismissal to backend config
+    apiCall("setConfig", { MIGRATION_DISMISSED: "true" }).catch((err) => {
+      console.warn("Failed to persist migration dismissal:", err);
+    });
+  };
+
   const value: AuthContextValue = {
     user,
     apiKey,
@@ -140,6 +166,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isVerifying,
     needsSetup,
+    needsMigration,
+    dismissMigration,
     login,
     logout,
   };
