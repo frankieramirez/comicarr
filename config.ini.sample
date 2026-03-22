@@ -3,7 +3,6 @@
 # Lines starting with # are comments.
 
 [General]
-config_version = 15
 launch_browser = False
 
 [Interface]
