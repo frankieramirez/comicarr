@@ -18,7 +18,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-from lib.rarfile import rarfile
+import rarfile
 import requests
 import zipfile
 from io import BytesIO

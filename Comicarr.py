@@ -135,7 +135,7 @@ from comicarr import (
     logger,
     maintenance,
     maintenance_webstart,
-    req_test,
+    dependency_check,
     versioncheck,
     webstart,
 )
@@ -561,7 +561,7 @@ def main():
     versioncheck.versionload()
 
     # pip requirements check here
-    r = req_test.Req()
+    r = dependency_check.Req()
     r.loaders()
 
     if comicarr.CONFIG.LAUNCH_BROWSER and not args_nolaunch:

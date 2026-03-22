@@ -46,7 +46,7 @@ from PIL import Image
 from pathlib import Path
 
 import zipfile
-from lib.rarfile import rarfile
+import rarfile
 
 import comicarr
 from . import logger
