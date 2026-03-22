@@ -9,6 +9,9 @@ services:
       - /path/to/comics:/comics
       - /path/to/manga:/manga
       - /path/to/downloads:/downloads
+      # For Mylar3 migration (read-only, mount entire directory):
+      # - /path/to/mylar3/config:/mylar3:ro
+      # IMPORTANT: Mount the directory, not just the .db file (SQLite WAL needs sidecar files)
     environment:
       # Synology NAS defaults: PUID=1026, PGID=100
       - PUID=1000
