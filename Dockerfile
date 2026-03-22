@@ -18,6 +18,9 @@ COPY . .
 # Stage 3: Runtime
 FROM python:3.12-slim AS runtime
 WORKDIR /opt/comicarr
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git p7zip-full unrar-free \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --uid 1001 --create-home comicarr
 COPY --from=backend-build /app /opt/comicarr
 COPY --from=frontend-build /app/frontend/dist /opt/comicarr/frontend/dist
