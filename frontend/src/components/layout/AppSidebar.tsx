@@ -95,7 +95,9 @@ export default function AppSidebar() {
                 onClick={handleNavClick}
                 className="flex items-center gap-3"
               >
-                <Logo className="h-6 text-foreground" />
+                <div className="w-full">
+                  <Logo className="h-full w-full text-foreground" />
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
