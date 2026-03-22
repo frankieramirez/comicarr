@@ -417,7 +417,7 @@ def migrate_mylar3_config(source_path):
     source_config = configparser.RawConfigParser()
     source_config.read(config_path)
 
-    from comicarr.config import _CONFIG_DEFINITIONS, _BAD_DEFINITIONS
+    from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
 
     # Build values dict from source config
     values = {}
