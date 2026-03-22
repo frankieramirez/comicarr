@@ -26,8 +26,12 @@ Comicarr is a modernized fork of Mylar3, rebuilt with a React 19 frontend and fo
 docker run -d \
   --name comicarr \
   -p 8090:8090 \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  -e TZ=Etc/UTC \
   -v /path/to/config:/config \
   -v /path/to/comics:/comics \
+  -v /path/to/manga:/manga \
   -v /path/to/downloads:/downloads \
   ghcr.io/frankieramirez/comicarr:latest
 ```
@@ -44,7 +48,7 @@ docker-compose up -d
 
 **Requirements:**
 - Python 3.10+
-- Node.js 18+
+- Node.js 22+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 **Steps:**

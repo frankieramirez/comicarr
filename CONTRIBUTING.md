@@ -7,7 +7,7 @@ Thank you for your interest in contributing to Comicarr! This guide will help yo
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+
+- Node.js 22+
 - [uv](https://docs.astral.sh/uv/) (recommended for Python dependency management)
 
 ### Getting Started

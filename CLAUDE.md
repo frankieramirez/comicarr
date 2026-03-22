@@ -46,7 +46,7 @@ python3 Comicarr.py maintenance --carepackage  # Generate debug package
 
 ## Codebase Index
 [Comicarr Code Index]|root: ./comicarr
-|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),PostProcessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{frontend/src/:React components}
+|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}|Business Logic:{search.py:provider search (~4300 lines),postprocessor.py:post-processing (~3600 lines),cv.py:ComicVine API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLite,helpers.py:utilities (~5000 lines)}|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}|Frontend:{frontend/src/:React components}
 
 **IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
 
