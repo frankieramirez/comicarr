@@ -26,6 +26,7 @@ dependencies = [
     "rarfile>=4.0",
     "requests[socks]>=2.22.0",
     "simplejson>=3.17.0",
+    "SQLAlchemy>=2.0",
     "tenacity>=8.2.3",
     "tzlocal>=2.0.0",
     "urllib3<2",
@@ -33,6 +34,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+postgres = ["psycopg2-binary>=2.9"]
+mysql = ["mysqlclient>=2.1"]
+mysql-pure = ["PyMySQL>=1.0"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",

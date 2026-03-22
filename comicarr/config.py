@@ -106,6 +106,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "CLEANUP_CACHE": (bool, "General", True),
         "CLEANUP_STRAYS": (bool, "General", False),
         "SECURE_DIR": (str, "General", None),
+        "DATABASE_URL": (str, "Database", None),
         "ENCRYPT_PASSWORDS": (bool, "General", False),
         "BACKUP_ON_START": (bool, "General", False),
         "BACKUP_LOCATION": (str, "General", None),
@@ -1228,6 +1229,7 @@ class Config(object):
                 "SLACK_WEBHOOK_URL": ("SLACK", "slack_webhook_url", self.SLACK_WEBHOOK_URL),
                 "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url", self.MATTERMOST_WEBHOOK_URL),
                 "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url", self.DISCORD_WEBHOOK_URL),
+                "DATABASE_URL": ("Database", "database_url", self.DATABASE_URL),
             }
         )
 
