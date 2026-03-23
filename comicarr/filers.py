@@ -39,14 +39,10 @@ class FileHandlers(object):
         self.weekly = None
         if ComicID is not None:
             self.comicid = ComicID
-            self.comic = db.select_one(
-                select(comics).where(comics.c.ComicID == ComicID)
-            )
+            self.comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
             if not self.comic:
                 self.weekly = db.select_one(
-                    select(weekly).where(
-                        (weekly.c.ComicID == ComicID) & (weekly.c.IssueID == IssueID)
-                    )
+                    select(weekly).where((weekly.c.ComicID == ComicID) & (weekly.c.IssueID == IssueID))
                 )
                 if not self.weekly:
                     self.comic = None
@@ -59,14 +55,10 @@ class FileHandlers(object):
 
         if IssueID is not None:
             self.issueid = IssueID
-            self.issue = db.select_one(
-                select(issues).where(issues.c.IssueID == IssueID)
-            )
+            self.issue = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
             if not self.issue:
                 if comicarr.CONFIG.ANNUALS_ON:
-                    self.issue = db.select_one(
-                        select(annuals).where(annuals.c.IssueID == IssueID)
-                    )
+                    self.issue = db.select_one(select(annuals).where(annuals.c.IssueID == IssueID))
                 if not self.issue:
                     self.issue = None
         elif issue is not None:
@@ -78,9 +70,7 @@ class FileHandlers(object):
 
         if arcID is not None:
             self.arcid = arcID
-            self.arc = db.select_one(
-                select(storyarcs).where(storyarcs.c.IssueArcID == arcID)
-            )
+            self.arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == arcID))
         else:
             self.arc = None
             self.arcid = None
@@ -349,8 +339,7 @@ class FileHandlers(object):
     def series_folder_collision_detection(self, comlocation, comicid, booktype, comicyear, volume):
         # Use ilike for portable case-insensitive LIKE matching
         stmt = select(comics).where(
-            comics.c.ComicLocation.ilike("%" + comlocation + "%")
-            & (comics.c.ComicID != comicid)
+            comics.c.ComicLocation.ilike("%" + comlocation + "%") & (comics.c.ComicID != comicid)
         )
         chk = db.select_all(stmt)
 
@@ -433,24 +422,15 @@ class FileHandlers(object):
             if arc:
                 # this has to be adjusted to be able to include story arc issues that span multiple arcs
                 chkissue = db.select_one(
-                    select(storyarcs).where(
-                        (storyarcs.c.ComicID == comicid)
-                        & (storyarcs.c.IssueNumber == issue)
-                    )
+                    select(storyarcs).where((storyarcs.c.ComicID == comicid) & (storyarcs.c.IssueNumber == issue))
                 )
             else:
                 chkissue = db.select_one(
-                    select(issues).where(
-                        (issues.c.ComicID == comicid)
-                        & (issues.c.Issue_Number == issue)
-                    )
+                    select(issues).where((issues.c.ComicID == comicid) & (issues.c.Issue_Number == issue))
                 )
                 if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
                     chkissue = db.select_one(
-                        select(annuals).where(
-                            (annuals.c.ComicID == comicid)
-                            & (annuals.c.Issue_Number == issue)
-                        )
+                        select(annuals).where((annuals.c.ComicID == comicid) & (annuals.c.Issue_Number == issue))
                     )
 
             if chkissue is None:
@@ -458,22 +438,19 @@ class FileHandlers(object):
                 if arc:
                     chkissue = db.select_one(
                         select(storyarcs).where(
-                            (storyarcs.c.ComicID == comicid)
-                            & (storyarcs.c.Int_IssueNumber == issuedigits(issue))
+                            (storyarcs.c.ComicID == comicid) & (storyarcs.c.Int_IssueNumber == issuedigits(issue))
                         )
                     )
                 else:
                     chkissue = db.select_one(
                         select(issues).where(
-                            (issues.c.ComicID == comicid)
-                            & (issues.c.Int_IssueNumber == issuedigits(issue))
+                            (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == issuedigits(issue))
                         )
                     )
                     if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
                         chkissue = db.select_one(
                             select(annuals).where(
-                                (annuals.c.ComicID == comicid)
-                                & (annuals.c.Int_IssueNumber == issuedigits(issue))
+                                (annuals.c.ComicID == comicid) & (annuals.c.Int_IssueNumber == issuedigits(issue))
                             )
                         )
 
@@ -491,25 +468,17 @@ class FileHandlers(object):
         if arc:
             issueinfo = db.select_one(
                 select(storyarcs).where(
-                    (storyarcs.c.ComicID == comicid)
-                    & (storyarcs.c.IssueID == issueid)
-                    & (storyarcs.c.StoryArc == arc)
+                    (storyarcs.c.ComicID == comicid) & (storyarcs.c.IssueID == issueid) & (storyarcs.c.StoryArc == arc)
                 )
             )
         else:
             issueinfo = db.select_one(
-                select(issues).where(
-                    (issues.c.ComicID == comicid)
-                    & (issues.c.IssueID == issueid)
-                )
+                select(issues).where((issues.c.ComicID == comicid) & (issues.c.IssueID == issueid))
             )
             if issueinfo is None:
                 logger.fdebug("not an issue, checking against annuals")
                 issueinfo = db.select_one(
-                    select(annuals).where(
-                        (annuals.c.ComicID == comicid)
-                        & (annuals.c.IssueID == issueid)
-                    )
+                    select(annuals).where((annuals.c.ComicID == comicid) & (annuals.c.IssueID == issueid))
                 )
                 if issueinfo is None:
                     logger.fdebug("Unable to rename - cannot locate issue id within db")

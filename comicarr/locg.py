@@ -126,6 +126,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
 
         # Ensure the weekly table exists (created via tables.py metadata)
         from comicarr.tables import metadata as table_metadata
+
         table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)
 
         # clear out the upcoming table here so they show the new values properly.

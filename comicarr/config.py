@@ -960,9 +960,7 @@ class Config(object):
                 inspector = sa_inspect(db.get_engine())
                 cols = inspector.get_columns("provider_searches")
                 if cols:
-                    stmt = delete(provider_searches).where(
-                        provider_searches.c.id.in_([102, 103])
-                    )
+                    stmt = delete(provider_searches).where(provider_searches.c.id.in_([102, 103]))
                     with db.get_engine().begin() as conn:
                         conn.execute(stmt)
             except Exception:
@@ -2211,10 +2209,7 @@ class Config(object):
         from comicarr.tables import provider_searches
 
         with db.get_engine().connect() as conn:
-            chk = [
-                dict(row._mapping)
-                for row in conn.execute(select(provider_searches))
-            ]
+            chk = [dict(row._mapping) for row in conn.execute(select(provider_searches))]
         p_list = {}
         write = False
         if chk:
@@ -2306,9 +2301,7 @@ class Config(object):
                         # needed to ensure the type is set properly for this provider
                         ptype = tprov["type"]
                         if tmp_prov == "Experimental":
-                            stmt = delete(provider_searches).where(
-                                provider_searches.c.id == 101
-                            )
+                            stmt = delete(provider_searches).where(provider_searches.c.id == 101)
                             with db.get_engine().begin() as conn:
                                 conn.execute(stmt)
                             tmp_prov = "experimental"

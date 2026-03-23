@@ -1094,9 +1094,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             altnames.append(alt["AlternateName"])
 
                     # pull in the annual IDs attached to the given series here for pinpoint accuracy.
-                    stmt = select(annuals).where(
-                        (annuals.c.ComicID == watch["ComicID"]) & (annuals.c.Deleted != 1)
-                    )
+                    stmt = select(annuals).where((annuals.c.ComicID == watch["ComicID"]) & (annuals.c.Deleted != 1))
                     annualist = db.select_all(stmt)
                     annual_ids = []
                     if annualist is None:
@@ -1477,20 +1475,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                         logger.fdebug("issue id check passed.")
                         if annualidmatch and comicarr.CONFIG.ANNUALS_ON:
                             isschk = db.select_one(
-                                select(annuals).where(
-                                    (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
-                                )
+                                select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
                             )
                         else:
-                            isschk = db.select_one(
-                                select(issues).where(issues.c.IssueID == issueid)
-                            )
+                            isschk = db.select_one(select(issues).where(issues.c.IssueID == issueid))
 
                         if isschk is None:
                             isschk = db.select_one(
-                                select(annuals).where(
-                                    (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
-                                )
+                                select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
                             )
                             if isschk is None:
                                 logger.fdebug("comicid_before: %s" % comicid)
@@ -1652,9 +1644,7 @@ def mass_publishers(publishers, weeknumber, year):
         publishers = None
 
     if publishers is None:
-        stmt = select(weekly).where(
-            (weekly.c.weeknumber == weeknumber) & (weekly.c.year == year)
-        )
+        stmt = select(weekly).where((weekly.c.weeknumber == weeknumber) & (weekly.c.year == year))
         watchlist = db.select_all(stmt)
         comicarr.CONFIG.MASS_PUBLISHERS = []
     else:
@@ -1662,9 +1652,7 @@ def mass_publishers(publishers, weeknumber, year):
             pub_listing.append(pb)
         comicarr.CONFIG.MASS_PUBLISHERS = json.loads(json.dumps(pub_listing))
         stmt = select(weekly).where(
-            (weekly.c.weeknumber == weeknumber)
-            & (weekly.c.year == year)
-            & (weekly.c.PUBLISHER.in_(publishers))
+            (weekly.c.weeknumber == weeknumber) & (weekly.c.year == year) & (weekly.c.PUBLISHER.in_(publishers))
         )
         watchlist = db.select_all(stmt)
 
@@ -1720,9 +1708,7 @@ def loaditup(comicname, comicid, issue, chktype):
         )
         issueload = db.select_one(
             select(annuals).where(
-                (annuals.c.ComicID == comicid)
-                & (annuals.c.Int_IssueNumber == issue_number)
-                & (annuals.c.Deleted != 1)
+                (annuals.c.ComicID == comicid) & (annuals.c.Int_IssueNumber == issue_number) & (annuals.c.Deleted != 1)
             )
         )
     else:
@@ -1737,9 +1723,7 @@ def loaditup(comicname, comicid, issue, chktype):
             + " to do comparitive issue analysis for pull-list"
         )
         issueload = db.select_one(
-            select(issues).where(
-                (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == issue_number)
-            )
+            select(issues).where((issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == issue_number))
         )
 
     if issueload is None:
@@ -1852,17 +1836,9 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
     module += "[WEEKLY-PULL]"
 
     if issueid is None:
-        chkit = db.select_one(
-            select(weekly).where(
-                (weekly.c.ComicID == comicid) & (weekly.c.ISSUE == issuenum)
-            )
-        )
+        chkit = db.select_one(select(weekly).where((weekly.c.ComicID == comicid) & (weekly.c.ISSUE == issuenum)))
     else:
-        chkit = db.select_one(
-            select(weekly).where(
-                (weekly.c.ComicID == comicid) & (weekly.c.IssueID == issueid)
-            )
-        )
+        chkit = db.select_one(select(weekly).where((weekly.c.ComicID == comicid) & (weekly.c.IssueID == issueid)))
 
     if chkit is None:
         logger.fdebug(
@@ -1984,9 +1960,7 @@ def future_check():
     # future to-do
     # specify whether you want to 'add a series (Watch For)' or 'mark an issue as a one-off download'.
     # currently the 'add series' option in the futurepulllist will attempt to add a series as per normal.
-    stmt = select(futureupcoming).where(
-        (futureupcoming.c.IssueNumber == "1") | (futureupcoming.c.IssueNumber == "0")
-    )
+    stmt = select(futureupcoming).where((futureupcoming.c.IssueNumber == "1") | (futureupcoming.c.IssueNumber == "0"))
     chkfuture = db.select_all(stmt)
     if chkfuture is None or len(chkfuture) == 0:
         logger.info("There are not any series on your future-list that I consider to be a NEW series")
@@ -2220,9 +2194,7 @@ def future_check_add(comicid, serinfo, chkthewanted=None, theissdate=None):
         logger.info("Sucessfully imported " + ser["ComicName"] + " (" + str(theissdate) + ")")
 
     with db.get_engine().begin() as conn:
-        conn.execute(
-            delete(futureupcoming).where(futureupcoming.c.ComicName == ser["ComicName"])
-        )
+        conn.execute(delete(futureupcoming).where(futureupcoming.c.ComicName == ser["ComicName"]))
     logger.info(
         "Removed " + ser["ComicName"] + " (" + str(theissdate) + ") from the future upcoming list as it is now added."
     )

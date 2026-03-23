@@ -1213,6 +1213,7 @@ def sql_db():
     when finished, or preferably use this as a context manager.
     """
     from comicarr.db import get_engine
+
     return get_engine().connect()
 
 
@@ -1294,20 +1295,44 @@ def dbcheck():
 
     # -- Comics Table --
     comics_cols = [
-        ("LastUpdated", "TEXT"), ("QUALalt_vers", "TEXT"), ("QUALtype", "TEXT"),
-        ("QUALscanner", "TEXT"), ("QUALquality", "TEXT"), ("AlternateSearch", "TEXT"),
-        ("ComicVersion", "TEXT"), ("SortOrder", "INTEGER"), ("UseFuzzy", "TEXT"),
-        ("DetailURL", "TEXT"), ("ForceContinuing", "INTEGER"), ("intLatestIssue", "INTEGER"),
-        ("ComicName_Filesafe", "TEXT"), ("AlternateFileName", "TEXT"),
-        ("ComicImageURL", "TEXT"), ("ComicImageALTURL", "TEXT"), ("NewPublish", "TEXT"),
-        ("AllowPacks", "TEXT"), ("Type", "TEXT"), ("Corrected_SeriesYear", "TEXT"),
-        ("Corrected_Type", "TEXT"), ("TorrentID_32P", "TEXT"), ("LatestIssueID", "TEXT"),
-        ("Collects", "TEXT"), ("IgnoreType", "INTEGER"), ("FirstImageSize", "INTEGER"),
-        ("AgeRating", "TEXT"), ("PublisherImprint", "TEXT"), ("DescriptionEdit", "TEXT"),
-        ("FilesUpdated", "TEXT"), ("dirlocked", "INTEGER"), ("seriesjsonPresent", "INT"),
-        ("cv_removed", "INT"), ("ContentType", "TEXT DEFAULT 'comic'"),
-        ("ReadingDirection", "TEXT DEFAULT 'ltr'"), ("MetadataSource", "TEXT"),
-        ("ExternalID", "TEXT"), ("not_updated_db", "TEXT"),
+        ("LastUpdated", "TEXT"),
+        ("QUALalt_vers", "TEXT"),
+        ("QUALtype", "TEXT"),
+        ("QUALscanner", "TEXT"),
+        ("QUALquality", "TEXT"),
+        ("AlternateSearch", "TEXT"),
+        ("ComicVersion", "TEXT"),
+        ("SortOrder", "INTEGER"),
+        ("UseFuzzy", "TEXT"),
+        ("DetailURL", "TEXT"),
+        ("ForceContinuing", "INTEGER"),
+        ("intLatestIssue", "INTEGER"),
+        ("ComicName_Filesafe", "TEXT"),
+        ("AlternateFileName", "TEXT"),
+        ("ComicImageURL", "TEXT"),
+        ("ComicImageALTURL", "TEXT"),
+        ("NewPublish", "TEXT"),
+        ("AllowPacks", "TEXT"),
+        ("Type", "TEXT"),
+        ("Corrected_SeriesYear", "TEXT"),
+        ("Corrected_Type", "TEXT"),
+        ("TorrentID_32P", "TEXT"),
+        ("LatestIssueID", "TEXT"),
+        ("Collects", "TEXT"),
+        ("IgnoreType", "INTEGER"),
+        ("FirstImageSize", "INTEGER"),
+        ("AgeRating", "TEXT"),
+        ("PublisherImprint", "TEXT"),
+        ("DescriptionEdit", "TEXT"),
+        ("FilesUpdated", "TEXT"),
+        ("dirlocked", "INTEGER"),
+        ("seriesjsonPresent", "INT"),
+        ("cv_removed", "INT"),
+        ("ContentType", "TEXT DEFAULT 'comic'"),
+        ("ReadingDirection", "TEXT DEFAULT 'ltr'"),
+        ("MetadataSource", "TEXT"),
+        ("ExternalID", "TEXT"),
+        ("not_updated_db", "TEXT"),
     ]
     _ensure_columns(engine, "comics", comics_cols)
 
@@ -1326,54 +1351,90 @@ def dbcheck():
 
     # -- Issues Table --
     issues_cols = [
-        ("ComicSize", "TEXT"), ("inCacheDIR", "TEXT"), ("AltIssueNumber", "TEXT"),
-        ("IssueDate_Edit", "TEXT"), ("ImageURL", "TEXT"), ("ImageURL_ALT", "TEXT"),
-        ("DigitalDate", "TEXT"), ("forced_file", "INT"),
-        ("ChapterNumber", "TEXT"), ("VolumeNumber", "TEXT"),
+        ("ComicSize", "TEXT"),
+        ("inCacheDIR", "TEXT"),
+        ("AltIssueNumber", "TEXT"),
+        ("IssueDate_Edit", "TEXT"),
+        ("ImageURL", "TEXT"),
+        ("ImageURL_ALT", "TEXT"),
+        ("DigitalDate", "TEXT"),
+        ("forced_file", "INT"),
+        ("ChapterNumber", "TEXT"),
+        ("VolumeNumber", "TEXT"),
     ]
     _ensure_columns(engine, "issues", issues_cols)
 
     # -- ImportResults Table --
     importresults_cols = [
-        ("WatchMatch", "TEXT"), ("IssueCount", "TEXT"), ("ComicLocation", "TEXT"),
-        ("ComicFilename", "TEXT"), ("impID", "TEXT"), ("implog", "TEXT"),
-        ("DisplayName", "TEXT"), ("SRID", "TEXT"), ("ComicID", "TEXT"),
-        ("IssueID", "TEXT"), ("Volume", "TEXT"), ("IssueNumber", "TEXT"),
-        ("DynamicName", "TEXT"), ("MatchConfidence", "INTEGER"),
-        ("SuggestedComicID", "TEXT"), ("SuggestedComicName", "TEXT"),
-        ("SuggestedIssueID", "TEXT"), ("IgnoreFile", "INTEGER DEFAULT 0"),
+        ("WatchMatch", "TEXT"),
+        ("IssueCount", "TEXT"),
+        ("ComicLocation", "TEXT"),
+        ("ComicFilename", "TEXT"),
+        ("impID", "TEXT"),
+        ("implog", "TEXT"),
+        ("DisplayName", "TEXT"),
+        ("SRID", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("IssueID", "TEXT"),
+        ("Volume", "TEXT"),
+        ("IssueNumber", "TEXT"),
+        ("DynamicName", "TEXT"),
+        ("MatchConfidence", "INTEGER"),
+        ("SuggestedComicID", "TEXT"),
+        ("SuggestedComicName", "TEXT"),
+        ("SuggestedIssueID", "TEXT"),
+        ("IgnoreFile", "INTEGER DEFAULT 0"),
         ("MatchSource", "TEXT"),
     ]
     _ensure_columns(engine, "importresults", importresults_cols)
 
     # -- Readlist Table --
     readlist_cols = [
-        ("inCacheDIR", "TEXT"), ("Location", "TEXT"), ("IssueDate", "TEXT"),
-        ("SeriesYear", "TEXT"), ("ComicID", "TEXT"), ("StatusChange", "TEXT"),
+        ("inCacheDIR", "TEXT"),
+        ("Location", "TEXT"),
+        ("IssueDate", "TEXT"),
+        ("SeriesYear", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("StatusChange", "TEXT"),
     ]
     _ensure_columns(engine, "readlist", readlist_cols)
 
     # -- Weekly Table --
     weekly_cols = [
-        ("ComicID", "TEXT"), ("IssueID", "TEXT"), ("DynamicName", "TEXT"),
-        ("CV_Last_Update", "TEXT"), ("weeknumber", "TEXT"), ("year", "TEXT"),
-        ("volume", "TEXT"), ("seriesyear", "TEXT"), ("annuallink", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("IssueID", "TEXT"),
+        ("DynamicName", "TEXT"),
+        ("CV_Last_Update", "TEXT"),
+        ("weeknumber", "TEXT"),
+        ("year", "TEXT"),
+        ("volume", "TEXT"),
+        ("seriesyear", "TEXT"),
+        ("annuallink", "TEXT"),
         ("format", "TEXT"),
     ]
     _ensure_columns(engine, "weekly", weekly_cols)
 
     # -- Nzblog Table --
     nzblog_cols = [
-        ("SARC", "TEXT"), ("PROVIDER", "TEXT"), ("ID", "TEXT"),
-        ("AltNZBName", "TEXT"), ("OneOff", "TEXT"),
+        ("SARC", "TEXT"),
+        ("PROVIDER", "TEXT"),
+        ("ID", "TEXT"),
+        ("AltNZBName", "TEXT"),
+        ("OneOff", "TEXT"),
     ]
     _ensure_columns(engine, "nzblog", nzblog_cols)
 
     # -- Annuals Table --
     annuals_cols = [
-        ("Location", "TEXT"), ("ComicSize", "TEXT"), ("Int_IssueNumber", "INT"),
-        ("ReleaseDate", "TEXT"), ("ReleaseComicID", "TEXT"), ("ReleaseComicName", "TEXT"),
-        ("IssueDate_Edit", "TEXT"), ("DateAdded", "TEXT"), ("DigitalDate", "TEXT"),
+        ("Location", "TEXT"),
+        ("ComicSize", "TEXT"),
+        ("Int_IssueNumber", "INT"),
+        ("ReleaseDate", "TEXT"),
+        ("ReleaseComicID", "TEXT"),
+        ("ReleaseComicName", "TEXT"),
+        ("IssueDate_Edit", "TEXT"),
+        ("DateAdded", "TEXT"),
+        ("DigitalDate", "TEXT"),
         ("Deleted", "INT DEFAULT 0"),
     ]
     _ensure_columns(engine, "annuals", annuals_cols)
@@ -1402,11 +1463,21 @@ def dbcheck():
 
     # -- StoryArcs Table --
     storyarcs_cols = [
-        ("ComicID", "TEXT"), ("StoreDate", "TEXT"), ("IssueDate", "TEXT"),
-        ("Publisher", "TEXT"), ("IssuePublisher", "TEXT"), ("IssueName", "TEXT"),
-        ("CV_ArcID", "TEXT"), ("Int_IssueNumber", "INT"), ("Volume", "TEXT"),
-        ("Manual", "TEXT"), ("DateAdded", "TEXT"), ("DigitalDate", "TEXT"),
-        ("Type", "TEXT"), ("Aliases", "TEXT"), ("ArcImage", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("StoreDate", "TEXT"),
+        ("IssueDate", "TEXT"),
+        ("Publisher", "TEXT"),
+        ("IssuePublisher", "TEXT"),
+        ("IssueName", "TEXT"),
+        ("CV_ArcID", "TEXT"),
+        ("Int_IssueNumber", "INT"),
+        ("Volume", "TEXT"),
+        ("Manual", "TEXT"),
+        ("DateAdded", "TEXT"),
+        ("DigitalDate", "TEXT"),
+        ("Type", "TEXT"),
+        ("Aliases", "TEXT"),
+        ("ArcImage", "TEXT"),
     ]
     _ensure_columns(engine, "storyarcs", storyarcs_cols)
 
@@ -1424,7 +1495,10 @@ def dbcheck():
 
     # -- SearchResults Table --
     searchresults_cols = [
-        ("SRID", "TEXT"), ("Series", "TEXT"), ("sresults", "TEXT"), ("ogcname", "TEXT"),
+        ("SRID", "TEXT"),
+        ("Series", "TEXT"),
+        ("sresults", "TEXT"),
+        ("ogcname", "TEXT"),
     ]
     _ensure_columns(engine, "searchresults", searchresults_cols)
 
@@ -1454,9 +1528,15 @@ def dbcheck():
 
     # -- DDL_info Table --
     ddl_cols = [
-        ("remote_filesize", "TEXT"), ("updated_date", "TEXT"), ("mainlink", "TEXT"),
-        ("issues", "TEXT"), ("site", "TEXT"), ("submit_date", "TEXT"),
-        ("pack", "INTEGER"), ("link_type", "TEXT"), ("tmp_filename", "TEXT"),
+        ("remote_filesize", "TEXT"),
+        ("updated_date", "TEXT"),
+        ("mainlink", "TEXT"),
+        ("issues", "TEXT"),
+        ("site", "TEXT"),
+        ("submit_date", "TEXT"),
+        ("pack", "INTEGER"),
+        ("link_type", "TEXT"),
+        ("tmp_filename", "TEXT"),
     ]
     _ensure_columns(engine, "ddl_info", ddl_cols)
 
@@ -1490,12 +1570,8 @@ def dbcheck():
             text("DELETE FROM issues WHERE ComicName='None' OR ComicName LIKE 'Comic ID%' OR ComicName IS NULL")
         )
         conn.execute(text("DELETE FROM issues WHERE ComicID IS NULL"))
-        conn.execute(
-            text("DELETE FROM annuals WHERE ComicName='None' OR ComicName IS NULL OR Issue_Number IS NULL")
-        )
-        conn.execute(
-            text("DELETE FROM upcoming WHERE ComicName='None' OR ComicName IS NULL OR IssueNumber IS NULL")
-        )
+        conn.execute(text("DELETE FROM annuals WHERE ComicName='None' OR ComicName IS NULL OR Issue_Number IS NULL"))
+        conn.execute(text("DELETE FROM upcoming WHERE ComicName='None' OR ComicName IS NULL OR IssueNumber IS NULL"))
         conn.execute(text("DELETE FROM importresults WHERE ComicName='None' OR ComicName IS NULL"))
         conn.execute(text("DELETE FROM storyarcs WHERE StoryArcID IS NULL OR StoryArc IS NULL"))
         conn.execute(text("DELETE FROM failed WHERE ComicName='None' OR ComicName IS NULL OR ID IS NULL"))
@@ -1605,9 +1681,7 @@ def _migrate_unique_constraints(engine):
             cols = ", ".join(key_cols)
             try:
                 with engine.begin() as conn:
-                    conn.execute(
-                        text(f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} UNIQUE ({cols})")
-                    )
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} UNIQUE ({cols})"))
             except (OperationalError, ProgrammingError) as e:
                 logger.warn("Could not add constraint %s: %s", constraint_name, e)
 

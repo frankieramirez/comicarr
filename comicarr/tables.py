@@ -654,6 +654,7 @@ TABLE_MAP = {
     "mylar_info": mylar_info,
 }
 
+
 # Upsert key columns per table (derived from UniqueConstraint / unique=True metadata)
 def _derive_upsert_keys():
 
@@ -676,5 +677,6 @@ def _derive_upsert_keys():
             if len(pk_cols) > 1:
                 keys[name] = pk_cols
     return keys
+
 
 UPSERT_KEYS = _derive_upsert_keys()

@@ -185,9 +185,9 @@ class Readinglist(object):
                         issues.c.Location,
                     )
                     .select_from(
-                        readlist
-                        .join(issues, issues.c.IssueID == readlist.c.IssueID, isouter=True)
-                        .join(comics, comics.c.ComicID == issues.c.ComicID, isouter=True)
+                        readlist.join(issues, issues.c.IssueID == readlist.c.IssueID, isouter=True).join(
+                            comics, comics.c.ComicID == issues.c.ComicID, isouter=True
+                        )
                     )
                     .where(readlist.c.Status == "Added")
                 )

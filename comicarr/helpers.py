@@ -432,18 +432,20 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
                 select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.IssueNumber == issue)
             )
         else:
-            chkissue = db.select_one(
-                select(issues).where(issues.c.ComicID == comicid, issues.c.Issue_Number == issue)
-            )
+            chkissue = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.Issue_Number == issue))
             if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
                 chkissue = db.select_one(
-                    select(annuals).where(annuals.c.ComicID == comicid, annuals.c.Issue_Number == issue, annuals.c.Deleted != 1)
+                    select(annuals).where(
+                        annuals.c.ComicID == comicid, annuals.c.Issue_Number == issue, annuals.c.Deleted != 1
+                    )
                 )
 
         if chkissue is None:
             if arc:
                 chkissue = db.select_one(
-                    select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.Int_IssueNumber == issuedigits(issue))
+                    select(storyarcs).where(
+                        storyarcs.c.ComicID == comicid, storyarcs.c.Int_IssueNumber == issuedigits(issue)
+                    )
                 )
             else:
                 chkissue = db.select_one(
@@ -451,7 +453,11 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
                 )
                 if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
                     chkissue = db.select_one(
-                        select(annuals).where(annuals.c.ComicID == comicid, annuals.c.Int_IssueNumber == issuedigits(issue), annuals.c.Deleted != 1)
+                        select(annuals).where(
+                            annuals.c.ComicID == comicid,
+                            annuals.c.Int_IssueNumber == issuedigits(issue),
+                            annuals.c.Deleted != 1,
+                        )
                     )
 
             if chkissue is None:
@@ -467,14 +473,18 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     logger.fdebug("issueid is now : " + str(issueid))
     if arc:
         issuenzb = db.select_one(
-            select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid, storyarcs.c.StoryArc == arc)
+            select(storyarcs).where(
+                storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid, storyarcs.c.StoryArc == arc
+            )
         )
     else:
         issuenzb = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.IssueID == issueid))
         if issuenzb is None:
             logger.fdebug("not an issue, checking against annuals")
             issuenzb = db.select_one(
-                select(annuals).where(annuals.c.ComicID == comicid, annuals.c.IssueID == issueid, annuals.c.Deleted != 1)
+                select(annuals).where(
+                    annuals.c.ComicID == comicid, annuals.c.IssueID == issueid, annuals.c.Deleted != 1
+                )
             )
             if issuenzb is None:
                 logger.fdebug("Unable to rename - cannot locate issue id within db")
@@ -1742,8 +1752,12 @@ def havetotals(refreshit=None):
                 + " is incomplete - Removing from DB. You should try to re-add the series."
             )
             with db.get_engine().begin() as conn:
-                conn.execute(delete(comics).where(comics.c.ComicID == comic["ComicID"], comics.c.ComicName.like("Comic ID%")))
-                conn.execute(delete(issues).where(issues.c.ComicID == comic["ComicID"], issues.c.ComicName.like("Comic ID%")))
+                conn.execute(
+                    delete(comics).where(comics.c.ComicID == comic["ComicID"], comics.c.ComicName.like("Comic ID%"))
+                )
+                conn.execute(
+                    delete(issues).where(issues.c.ComicID == comic["ComicID"], issues.c.ComicName.like("Comic ID%"))
+                )
             continue
 
         if not haveissues:
@@ -2296,7 +2310,9 @@ def listLibrary(comicid=None):
                 .group_by(comics.c.ComicID)
             )
         else:
-            stmt = select(comics.c.ComicID, comics.c.Status, comics.c.ComicName, comics.c.ComicYear).group_by(comics.c.ComicID)
+            stmt = select(comics.c.ComicID, comics.c.Status, comics.c.ComicName, comics.c.ComicYear).group_by(
+                comics.c.ComicID
+            )
     else:
         cleaned_id = re.sub("4050-", "", comicid).strip()
         if comicarr.CONFIG.ANNUALS_ON is True:
@@ -5631,9 +5647,7 @@ def DateAddedFix():
     with db.get_engine().begin() as conn:
         # Batch UPDATE for issues table
         conn.execute(
-            update(issues)
-            .where(issues.c.Status == "Wanted", issues.c.DateAdded.is_(None))
-            .values(DateAdded=DateAdded)
+            update(issues).where(issues.c.Status == "Wanted", issues.c.DateAdded.is_(None)).values(DateAdded=DateAdded)
         )
         # Batch UPDATE for annuals table
         conn.execute(
@@ -5650,7 +5664,9 @@ def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):
         for s in sc:
             the_list.append({"table": "issues", "issueid": s["IssueID"]})
         if comicarr.CONFIG.ANNUALS_ON:
-            ac = db.select_all(select(annuals.c.IssueID).where(annuals.c.ComicID == comicid, annuals.c.Status == status_from))
+            ac = db.select_all(
+                select(annuals.c.IssueID).where(annuals.c.ComicID == comicid, annuals.c.Status == status_from)
+            )
             for s in ac:
                 the_list.append({"table": "annuals", "issueid": s["IssueID"]})
     else:
@@ -5665,11 +5681,15 @@ def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):
 
         else:
             for x in comicid:
-                sc = db.select_all(select(issues.c.IssueID).where(issues.c.ComicID == x, issues.c.Status == status_from))
+                sc = db.select_all(
+                    select(issues.c.IssueID).where(issues.c.ComicID == x, issues.c.Status == status_from)
+                )
                 for s in sc:
                     the_list.append({"table": "issues", "issueid": s["IssueID"]})
                 if comicarr.CONFIG.ANNUALS_ON:
-                    ac = db.select_all(select(annuals.c.IssueID).where(annuals.c.ComicID == x, annuals.c.Status == status_from))
+                    ac = db.select_all(
+                        select(annuals.c.IssueID).where(annuals.c.ComicID == x, annuals.c.Status == status_from)
+                    )
                     for s in ac:
                         the_list.append({"table": "annuals", "issueid": s["IssueID"]})
 
@@ -5911,7 +5931,9 @@ def log_that_exception(except_info):
     db.upsert("exceptions_log", gather_info, {"date": logdate})
 
     # write the leadup log lines that were tailed above to the external file here...
-    fileline = db.select_one(select(text("rowid"), exceptions_log.c.date).select_from(exceptions_log).where(exceptions_log.c.date == logdate))
+    fileline = db.select_one(
+        select(text("rowid"), exceptions_log.c.date).select_from(exceptions_log).where(exceptions_log.c.date == logdate)
+    )
     with open(os.path.join(comicarr.CONFIG.LOG_DIR, "specific_" + str(fileline["rowid"]) + ".log"), "w") as f:
         f.writelines(leadup)
         f.write(except_info.get("traceback", None))

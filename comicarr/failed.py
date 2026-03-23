@@ -175,15 +175,19 @@ class FailedProcessor(object):
             logger.info(module + " Annual detected.")
             annchk = "yes"
             with db.get_engine().connect() as conn:
-                stmt = select(comics.c.ComicYear, annuals).select_from(
-                    comics.join(annuals, comics.c.ComicID == annuals.c.ComicID, isouter=True)
-                ).where(annuals.c.IssueID == issueid, annuals.c.ComicName.isnot(None))
+                stmt = (
+                    select(comics.c.ComicYear, annuals)
+                    .select_from(comics.join(annuals, comics.c.ComicID == annuals.c.ComicID, isouter=True))
+                    .where(annuals.c.IssueID == issueid, annuals.c.ComicName.isnot(None))
+                )
                 issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
         else:
             with db.get_engine().connect() as conn:
-                stmt = select(comics.c.ComicYear, issues).select_from(
-                    comics.join(issues, comics.c.ComicID == issues.c.ComicID, isouter=True)
-                ).where(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None))
+                stmt = (
+                    select(comics.c.ComicYear, issues)
+                    .select_from(comics.join(issues, comics.c.ComicID == issues.c.ComicID, isouter=True))
+                    .where(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None))
+                )
                 issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
         if issuenzb is not None:

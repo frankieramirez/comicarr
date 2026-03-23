@@ -468,9 +468,7 @@ class OPDS(object):
             self.data = self._error_with_message("Comic Not Found")
             return
         with db.get_engine().connect() as conn:
-            stmt = select(issues).where(
-                issues.c.ComicID == kwargs["comicid"]
-            ).order_by(issues.c.Int_IssueNumber.desc())
+            stmt = select(issues).where(issues.c.ComicID == kwargs["comicid"]).order_by(issues.c.Int_IssueNumber.desc())
             issues_list = [dict(row._mapping) for row in conn.execute(stmt)]
         if comicarr.CONFIG.ANNUALS_ON:
             with db.get_engine().connect() as conn:
@@ -1150,11 +1148,7 @@ class OPDS(object):
         links = []
         entries = []
         with db.get_engine().connect() as conn:
-            stmt = (
-                select(storyarcs)
-                .where(storyarcs.c.StoryArcID == kwargs["arcid"])
-                .order_by(storyarcs.c.ReadingOrder)
-            )
+            stmt = select(storyarcs).where(storyarcs.c.StoryArcID == kwargs["arcid"]).order_by(storyarcs.c.ReadingOrder)
             arclist = [dict(row._mapping) for row in conn.execute(stmt)]
         newarclist = []
         arcname = ""

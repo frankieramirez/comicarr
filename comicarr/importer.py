@@ -355,7 +355,10 @@ def addComictoDB(
             # NOTE: 'exceptions' table is not in tables.py; using text() for this legacy query
             with db.get_engine().connect() as conn:
                 CV_EXcomicid = next(
-                    (dict(row._mapping) for row in conn.execute(text("SELECT * from exceptions WHERE ComicID=:p0"), {"p0": comicid})),
+                    (
+                        dict(row._mapping)
+                        for row in conn.execute(text("SELECT * from exceptions WHERE ComicID=:p0"), {"p0": comicid})
+                    ),
                     None,
                 )
             if CV_EXcomicid["variloop"] is None:

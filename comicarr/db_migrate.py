@@ -353,5 +353,3 @@ def migrate(source_url, target_url, batch_size=5000):
     source_engine.dispose()
     target_engine.dispose()
     return verify_ok and not failed_tables
-
-

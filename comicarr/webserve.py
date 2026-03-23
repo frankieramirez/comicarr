@@ -857,7 +857,9 @@ class WebInterface(object):
         isCounts[6] = 0  # 6 failed
         isCounts[7] = 0  # 7 snatched
         # isCounts[8] = 0   #8 read
-        issues = db.rawdb.select_all("SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid])
+        issues = db.rawdb.select_all(
+            "SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid]
+        )
         if comicarr.CONFIG.ANNUALS_ON:
             issues += db.rawdb.select_all(
                 "SELECT Status FROM annuals WHERE ComicID=? AND NOT DELETED ORDER BY Int_IssueNumber DESC", [comicid]
@@ -3523,9 +3525,7 @@ class WebInterface(object):
             }
 
             if mode == "want":
-                issues = db.rawdb.select_one(
-                    "SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID]
-                )
+                issues = db.rawdb.select_one("SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID])
             elif mode == "want_ann":
                 issues = db.rawdb.select_one(
                     "SELECT IssueDate, ReleaseDate FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
@@ -3683,7 +3683,9 @@ class WebInterface(object):
 
     def pullSearch(self, week, year):
         # retrieve a list of all the issues that are in a Wanted state from the pull that we can search for.
-        ps = db.rawdb.select_all("SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year])
+        ps = db.rawdb.select_all(
+            "SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year]
+        )
         if ps is None:
             logger.info("No items are marked as Wanted on the pullist to be searched for at this time")
             return
@@ -3737,6 +3739,7 @@ class WebInterface(object):
         wantedcount = 0
         weekinfo = helpers.weekly_info(week, year, current)
         from sqlalchemy import inspect as sa_inspect
+
         popit = [True] if sa_inspect(db.get_engine()).has_table("weekly") else []
         if popit:
             w_results = db.rawdb.select_all(
@@ -4675,7 +4678,9 @@ class WebInterface(object):
         issuesnumwant = 0
         annsnumwant = 0
         mvvalues = {"Status": "Wanted"}
-        skipped2 = db.rawdb.select_all("SELECT issueid, 0 as type from issues WHERE ComicID=? AND Status='Skipped'", [comicid])
+        skipped2 = db.rawdb.select_all(
+            "SELECT issueid, 0 as type from issues WHERE ComicID=? AND Status='Skipped'", [comicid]
+        )
         if comicarr.CONFIG.ANNUALS_ON:
             skipped2 += db.rawdb.select_all(
                 "SELECT issueid, 1 as type from annuals WHERE ComicID=? AND Status='Skipped'", [comicid]
@@ -5462,7 +5467,9 @@ class WebInterface(object):
     def manageIssues(self, **kwargs):
         status = kwargs["status"]
         if comicarr.CONFIG.ANNUALS_ON:
-            issues = db.rawdb.select_all("SELECT * from issues WHERE Status=? AND ComicName NOT LIKE '%Annual%'", [status])
+            issues = db.rawdb.select_all(
+                "SELECT * from issues WHERE Status=? AND ComicName NOT LIKE '%Annual%'", [status]
+            )
             issues += db.rawdb.select_all("SELECT * from annuals WHERE Status=? AND Deleted != 1", [status])
         else:
             issues = db.rawdb.select_all("SELECT * from issues WHERE Status=?", [status])
@@ -5515,6 +5522,7 @@ class WebInterface(object):
 
     def markImports(self, action=None, **args):
         import unicodedata
+
         comicstoimport = []
         if action == "massimport":
             logger.info("Initiating mass import.")
@@ -5589,7 +5597,9 @@ class WebInterface(object):
                         )
                     else:
                         logger.info("Removing " + ComicName + " [" + str(volume) + "] from the Import list")
-                        db.raw_execute("DELETE from importresults WHERE DynamicName=? AND Volume=?", [DynamicName, volume])
+                        db.raw_execute(
+                            "DELETE from importresults WHERE DynamicName=? AND Volume=?", [DynamicName, volume]
+                        )
 
             if len(comicstoimport) > 0:
                 logger.info("Initiating selected import mode for " + str(len(comicstoimport)) + " series.")
@@ -6402,6 +6412,7 @@ class WebInterface(object):
 
     def importReadlist(self, filename):
         from xml.dom.minidom import parseString
+
         file = open(filename)
         data = file.read()
         file.close()
@@ -6697,9 +6708,7 @@ class WebInterface(object):
                     dyn_name = re.sub("2021annual", "", dyn_name).strip()
                     dyn_name = re.sub("annual", "", dyn_name).strip()
                 comics = db.select_all(
-                    sa_select(_t.comics).where(
-                        db.ci_compare(_t.comics.c.DynamicComicName, dyn_name)
-                    )
+                    sa_select(_t.comics).where(db.ci_compare(_t.comics.c.DynamicComicName, dyn_name))
                 )
 
                 for comic in comics:
@@ -7156,7 +7165,9 @@ class WebInterface(object):
                 )
                 stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
-        watchlistchk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID])
+        watchlistchk = db.rawdb.select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID]
+        )
         if watchlistchk is not None:
             for watchchk in watchlistchk:
                 logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
@@ -7246,7 +7257,9 @@ class WebInterface(object):
     def ReadMassCopy(self, StoryArcID, StoryArcName):
         # this copies entire story arcs into the /cache/<storyarc> folder
         # alternatively, it will copy the issues individually directly to a 3rd party device (ie.tablet)
-        copylist = db.rawdb.select_all("SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID])
+        copylist = db.rawdb.select_all(
+            "SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID]
+        )
         if copylist is None:
             logger.fdebug("You don't have any issues from " + StoryArcName + ". Aborting Mass Copy.")
             return
@@ -9702,9 +9715,7 @@ class WebInterface(object):
             logger.info("issueid: %s" % (issueid))
             meta_data = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if meta_data is None:
-                meta_data = db.rawdb.select_one(
-                    "SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid]
-                )
+                meta_data = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
             seriestitle = meta_data["ComicName"]
             issuenumber = meta_data["Issue_Number"]
             try:
@@ -9723,9 +9734,7 @@ class WebInterface(object):
             logger.info("meta_data: %s" % (meta_data,))
             metadata_db = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if metadata_db is None:
-                metadata_db = db.rawdb.select_one(
-                    "SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid]
-                )
+                metadata_db = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
                 if not metadata_db:
                     metadata_db = None
             seriestitle = meta_data["series"]
@@ -10885,7 +10894,9 @@ class WebInterface(object):
         logger.info("year: %s" % year)
         weeklyresults = []
         if weeknumber is not None:
-            w_results = db.rawdb.select_all("SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)])
+            w_results = db.rawdb.select_all(
+                "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)]
+            )
             watchlibrary = helpers.listLibrary()
             issueLibrary = helpers.listIssues(weeknumber, year)
             oneofflist = helpers.listoneoffs(weeknumber, year)
@@ -11739,9 +11750,7 @@ class WebInterface(object):
             delete_dir = True
         else:
             delete_dir = False
-        cc = db.rawdb.select_one(
-            "SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid]
-        )
+        cc = db.rawdb.select_one("SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid])
         comicname = cc["comicname"]
         comicyear = cc["comicyear"]
         seriesdir = cc["comiclocation"]

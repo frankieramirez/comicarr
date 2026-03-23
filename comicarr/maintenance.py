@@ -47,8 +47,7 @@ def auto_backup_db(source_path, dest_dir, retention=4):
 
     if get_dialect() != "sqlite":
         logger.warn(
-            "Database backup is only supported for SQLite. "
-            "PostgreSQL/MySQL users should use pg_dump/mysqldump."
+            "Database backup is only supported for SQLite. PostgreSQL/MySQL users should use pg_dump/mysqldump."
         )
         return False
 

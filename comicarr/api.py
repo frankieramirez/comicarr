@@ -488,25 +488,16 @@ class Api(object):
         else:
             self.id = kwargs["id"]
 
-        comic_stmt = (
-            select(*_COMICS_COLUMNS)
-            .where(t_comics.c.ComicID == self.id)
-            .order_by(t_comics.c.ComicSortName)
-        )
+        comic_stmt = select(*_COMICS_COLUMNS).where(t_comics.c.ComicID == self.id).order_by(t_comics.c.ComicSortName)
         comic = db.select_all(comic_stmt)
 
         issues_stmt = (
-            select(*_ISSUES_COLUMNS)
-            .where(t_issues.c.ComicID == self.id)
-            .order_by(t_issues.c.Int_IssueNumber.desc())
+            select(*_ISSUES_COLUMNS).where(t_issues.c.ComicID == self.id).order_by(t_issues.c.Int_IssueNumber.desc())
         )
         issues = db.select_all(issues_stmt)
 
         if comicarr.CONFIG.ANNUALS_ON:
-            annuals_stmt = (
-                select(*_ANNUALS_COLUMNS)
-                .where(t_annuals.c.ComicID == self.id)
-            )
+            annuals_stmt = select(*_ANNUALS_COLUMNS).where(t_annuals.c.ComicID == self.id)
             annuals_list = db.select_all(annuals_stmt)
         else:
             annuals_list = []
@@ -959,8 +950,9 @@ class Api(object):
 
         try:
             delchk = db.select_one(
-                select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation)
-                .where(t_comics.c.ComicID == self.id)
+                select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation).where(
+                    t_comics.c.ComicID == self.id
+                )
             )
             if not delchk:
                 logger.error("ComicID %s not found in watchlist." % self.id)
@@ -1126,8 +1118,7 @@ class Api(object):
                 comicid = re.sub("4050-", "", comicid).strip()
 
             chkdb = db.select_one(
-                select(t_comics.c.ComicName, t_comics.c.ComicYear)
-                .where(t_comics.c.ComicID == comicid)
+                select(t_comics.c.ComicName, t_comics.c.ComicYear).where(t_comics.c.ComicID == comicid)
             )
             if not chkdb:
                 notfound.append({"comicid": comicid})
@@ -1199,8 +1190,9 @@ class Api(object):
             booktype = booktype.lower()
 
         btresp = db.select_one(
-            select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.Type, t_comics.c.Corrected_Type)
-            .where(t_comics.c.ComicID == self.id)
+            select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.Type, t_comics.c.Corrected_Type).where(
+                t_comics.c.ComicID == self.id
+            )
         )
         if not btresp:
             self.data = self._failureResponse("Unable to locate ComicID %s within watchlist" % self.id)
@@ -1332,11 +1324,8 @@ class Api(object):
 
     def _seriesjsonListing(self, **kwargs):
         if "missing" in kwargs:
-            stmt = (
-                select(t_comics.c.ComicID, t_comics.c.ComicLocation)
-                .where(
-                    (t_comics.c.seriesjsonPresent == 0) | (t_comics.c.seriesjsonPresent.is_(None))
-                )
+            stmt = select(t_comics.c.ComicID, t_comics.c.ComicLocation).where(
+                (t_comics.c.seriesjsonPresent == 0) | (t_comics.c.seriesjsonPresent.is_(None))
             )
         else:
             stmt = select(t_comics.c.ComicID, t_comics.c.ComicLocation)
@@ -1867,9 +1856,7 @@ class Api(object):
         else:
             self.id = kwargs.pop("id")
             arc = db.select_all(
-                select(t_storyarcs)
-                .where(t_storyarcs.c.StoryArcID == self.id)
-                .order_by(t_storyarcs.c.ReadingOrder)
+                select(t_storyarcs).where(t_storyarcs.c.StoryArcID == self.id).order_by(t_storyarcs.c.ReadingOrder)
             )
             storyarcname = arc[0]["StoryArc"]
             issuecount = len(arc)
@@ -2044,7 +2031,6 @@ class Api(object):
                 "search_progress",
                 "search_complete",
             ]:
-
                 tmp_message = dict(the_message, **{"session_id": comicarr.SESSION_ID})
                 if event != "check_update":
                     try:
@@ -3100,7 +3086,12 @@ class Api(object):
         self.data = self._successResponse(
             {
                 "imports": imports,
-                "pagination": {"total": total, "limit": limit_val, "offset": offset_val, "has_more": (offset_val + limit_val) < total},
+                "pagination": {
+                    "total": total,
+                    "limit": limit_val,
+                    "offset": offset_val,
+                    "has_more": (offset_val + limit_val) < total,
+                },
             }
         )
 
@@ -3272,9 +3263,7 @@ class REST(object):
             pass
 
         def GET(self):
-            comics = REST._dic_from_query(
-                select(t_comics).order_by(t_comics.c.ComicSortName)
-            )
+            comics = REST._dic_from_query(select(t_comics).order_by(t_comics.c.ComicSortName))
             return json.dumps(comics, ensure_ascii=False)
 
     @cherrypy.popargs("comic_id", "issuemode", "issue_id")
@@ -3286,29 +3275,21 @@ class REST(object):
 
         def GET(self, comic_id=None, issuemode=None, issue_id=None):
             if comic_id is None:
-                comics = REST._dic_from_query(
-                    select(t_comics).order_by(t_comics.c.ComicSortName)
-                )
+                comics = REST._dic_from_query(select(t_comics).order_by(t_comics.c.ComicSortName))
                 return json.dumps(comics, ensure_ascii=False)
 
             if issuemode is None:
-                match = REST._dic_from_query(
-                    select(t_comics).where(t_comics.c.ComicID == comic_id)
-                )
+                match = REST._dic_from_query(select(t_comics).where(t_comics.c.ComicID == comic_id))
                 if match:
                     return json.dumps(match, ensure_ascii=False)
                 else:
                     return json.dumps({"error": "No Comic with that ID"})
             elif issuemode == "issues":
-                issues = REST._dic_from_query(
-                    select(t_issues).where(t_issues.c.ComicID == comic_id)
-                )
+                issues = REST._dic_from_query(select(t_issues).where(t_issues.c.ComicID == comic_id))
                 return json.dumps(issues, ensure_ascii=False)
             elif issuemode == "issue" and issue_id is not None:
                 issues = REST._dic_from_query(
-                    select(t_issues)
-                    .where(t_issues.c.ComicID == comic_id)
-                    .where(t_issues.c.IssueID == issue_id)
+                    select(t_issues).where(t_issues.c.ComicID == comic_id).where(t_issues.c.IssueID == issue_id)
                 )
                 return json.dumps(issues, ensure_ascii=False)
             else:

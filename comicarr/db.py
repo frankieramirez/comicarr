@@ -213,10 +213,7 @@ def raw_execute(sql, args=None, executemany=False):
     with get_engine().begin() as conn:
         if executemany and args is not None:
             if isinstance(args, list) and args and isinstance(args[0], (list, tuple)):
-                params_list = [
-                    {f"param_{i}": v for i, v in enumerate(row)}
-                    for row in args
-                ]
+                params_list = [{f"param_{i}": v for i, v in enumerate(row)} for row in args]
             else:
                 params_list = args
             return conn.execute(text(converted), params_list)
@@ -294,9 +291,7 @@ def upsert(table_name: str, value_dict: dict, key_dict: dict) -> None:
                 logger.error("Database error during upsert on %s: %s", table_name, e)
                 raise
     else:
-        raise OperationalError(
-            f"Upsert on {table_name} failed after 5 retries", None, None
-        )
+        raise OperationalError(f"Upsert on {table_name} failed after 5 retries", None, None)
 
 
 # ---------------------------------------------------------------------------
@@ -407,23 +402,14 @@ class DBConnection:
                     with get_engine().begin() as conn:
                         if executemany and args is not None:
                             # Convert list of tuples to list of dicts
-                            param_names = [
-                                f"param_{i}"
-                                for i in range(converted.count(":param_"))
-                            ]
+                            param_names = [f"param_{i}" for i in range(converted.count(":param_"))]
                             if not param_names:
                                 # Count params from the converted query
                                 import re as _re
 
-                                param_names = [
-                                    m.group(0).lstrip(":")
-                                    for m in _re.finditer(r":param_\d+", converted)
-                                ]
+                                param_names = [m.group(0).lstrip(":") for m in _re.finditer(r":param_\d+", converted)]
                             if isinstance(args, list) and args and isinstance(args[0], (list, tuple)):
-                                params_list = [
-                                    {f"param_{i}": v for i, v in enumerate(row)}
-                                    for row in args
-                                ]
+                                params_list = [{f"param_{i}": v for i, v in enumerate(row)} for row in args]
                             else:
                                 params_list = args
                             conn.execute(text(converted), params_list)

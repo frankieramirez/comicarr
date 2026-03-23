@@ -1717,13 +1717,9 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
             while stloop > 0:
                 if stloop == 1:
                     if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
-                        issues_1 = db.select_all(
-                            select(issues).where(issues.c.Status.in_(["Wanted", "Failed"]))
-                        )
+                        issues_1 = db.select_all(select(issues).where(issues.c.Status.in_(["Wanted", "Failed"])))
                     else:
-                        issues_1 = db.select_all(
-                            select(issues).where(issues.c.Status == "Wanted")
-                        )
+                        issues_1 = db.select_all(select(issues).where(issues.c.Status == "Wanted"))
                     for iss in issues_1:
                         checkit = searchforissue_checker(
                             iss["IssueID"],
@@ -1777,9 +1773,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                                 select(storyarcs).where(storyarcs.c.Status.in_(["Wanted", "Failed"]))
                             )
                         else:
-                            issues_2 = db.select_all(
-                                select(storyarcs).where(storyarcs.c.Status == "Wanted")
-                            )
+                            issues_2 = db.select_all(select(storyarcs).where(storyarcs.c.Status == "Wanted"))
                         cnt = 0
                         for iss in issues_2:
                             checkit = searchforissue_checker(
@@ -1832,17 +1826,11 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                 elif stloop == 3:
                     if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
                         issues_3 = db.select_all(
-                            select(annuals).where(
-                                annuals.c.Status.in_(["Wanted", "Failed"])
-                                & (annuals.c.Deleted != 1)
-                            )
+                            select(annuals).where(annuals.c.Status.in_(["Wanted", "Failed"]) & (annuals.c.Deleted != 1))
                         )
                     else:
                         issues_3 = db.select_all(
-                            select(annuals).where(
-                                (annuals.c.Status == "Wanted")
-                                & (annuals.c.Deleted != 1)
-                            )
+                            select(annuals).where((annuals.c.Status == "Wanted") & (annuals.c.Deleted != 1))
                         )
                     for iss in issues_3:
                         checkit = searchforissue_checker(
@@ -1906,10 +1894,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                     OneOff = False
                     storyarc_watchlist = False
                     comic = db.select_one(
-                        select(comics).where(
-                            (comics.c.ComicID == result["ComicID"])
-                            & (comics.c.ComicName != "None")
-                        )
+                        select(comics).where((comics.c.ComicID == result["ComicID"]) & (comics.c.ComicName != "None"))
                     )
                     if all([comic is None, result["mode"] == "story_arc"]):
                         comic = db.select_one(
@@ -2432,29 +2417,20 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
         else:
             try:
                 comicarr.SEARCHLOCK.acquire()
-                result = db.select_one(
-                    select(issues).where(issues.c.IssueID == issueid)
-                )
+                result = db.select_one(select(issues).where(issues.c.IssueID == issueid))
                 smode = "want"
                 oneoff = False
                 if result is None:
                     result = db.select_one(
-                        select(annuals).where(
-                            (annuals.c.IssueID == issueid)
-                            & (annuals.c.Deleted != 1)
-                        )
+                        select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
                     )
                     smode = "want_ann"
                     if result is None:
-                        result = db.select_one(
-                            select(storyarcs).where(storyarcs.c.IssueArcID == issueid)
-                        )
+                        result = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid))
                         smode = "story_arc"
                         oneoff = True
                         if result is None:
-                            result = db.select_one(
-                                select(weekly).where(weekly.c.IssueID == issueid)
-                            )
+                            result = db.select_one(select(weekly).where(weekly.c.IssueID == issueid))
                             smode = "pullwant"
                             oneoff = True
                             if result is None:
@@ -2524,9 +2500,7 @@ def searchforissue(issueid=None, new=False, rsschecker=None, manual=False):
                     booktype = result["format"]
                     ignore_booktype = False
                 else:
-                    comic = db.select_one(
-                        select(comics).where(comics.c.ComicID == ComicID)
-                    )
+                    comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
                     if smode == "want_ann":
                         ComicName = result["ReleaseComicName"]
                         Comicname_filesafe = None
@@ -2686,20 +2660,11 @@ def searchIssueIDList(issuelist):
     ):
         for issueid in issuelist:
             comicname = None
-            issue = db.select_one(
-                select(issues).where(issues.c.IssueID == issueid)
-            )
+            issue = db.select_one(select(issues).where(issues.c.IssueID == issueid))
             if issue is None:
-                issue = db.select_one(
-                    select(annuals).where(
-                        (annuals.c.IssueID == issueid)
-                        & (annuals.c.Deleted != 1)
-                    )
-                )
+                issue = db.select_one(select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)))
                 if issue is None:
-                    issue = db.select_one(
-                        select(storyarcs).where(storyarcs.c.IssueArcID == issueid)
-                    )
+                    issue = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid))
                     if issue is not None:
                         comicname = issue["ComicName"]
                         seriesyear = issue["SeriesYear"]
@@ -2721,9 +2686,7 @@ def searchIssueIDList(issuelist):
                 continue
 
             if comicname is None:
-                comic = db.select_one(
-                    select(comics).where(comics.c.ComicID == issue["ComicID"])
-                )
+                comic = db.select_one(select(comics).where(comics.c.ComicID == issue["ComicID"]))
                 comicname = comic["ComicName"]
                 seriesyear = comic["ComicYear"]
                 booktype = comic["Type"]
