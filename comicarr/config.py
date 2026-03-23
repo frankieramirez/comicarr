@@ -1370,8 +1370,6 @@ class Config(object):
             backup_path = os.path.join(self.SECURE_DIR, "config.ini.pre-security-migration.bak")
             if not os.path.exists(backup_path):
                 try:
-                    import shutil
-
                     shutil.copy2(self._config_file, backup_path)
                     logger.info("[SECURITY] Pre-migration backup saved to %s" % backup_path)
                 except Exception as e:
