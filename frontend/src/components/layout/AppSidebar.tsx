@@ -86,7 +86,7 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       {/* Header with Logo */}
-      <SidebarHeader className="px-4 pt-4 pb-2">
+      <SidebarHeader className="px-4 pt-4 pb-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <Link to="/" onClick={handleNavClick} className="flex items-center">
