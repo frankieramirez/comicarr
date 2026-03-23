@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2](https://github.com/frankieramirez/comicarr/compare/v0.4.1...v0.4.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* run uv lock in Docker build to handle version bumps ([27b610d](https://github.com/frankieramirez/comicarr/commit/27b610d2ca42316577ccc8ba1b2b67bfee44ad1b))
+
 ## [0.4.1](https://github.com/frankieramirez/comicarr/compare/v0.4.0...v0.4.1) (2026-03-23)
 
 
