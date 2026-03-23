@@ -89,17 +89,13 @@ export default function AppSidebar() {
       <SidebarHeader className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link
-                to="/"
-                onClick={handleNavClick}
-                className="flex items-center gap-3"
-              >
-                <div className="w-full">
-                  <Logo className="h-full w-full text-foreground" />
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <Link
+              to="/"
+              onClick={handleNavClick}
+              className="flex items-center py-2"
+            >
+              <Logo className="w-full max-h-10 text-foreground" />
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
