@@ -20,12 +20,11 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
   const fetchedRef = useRef(new Set<string>());
   const lastKeyRef = useRef("");
 
-  // Stable reference for the query key — prevents effect re-firing on every render
-  const stableKey = useMemo(() => queryKey, [JSON.stringify(queryKey)]);
+  const keyStr = JSON.stringify(queryKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableKey = useMemo(() => queryKey, [keyStr]);
 
   useEffect(() => {
-    // Reset fetched set when search changes (new query/page/sort)
-    const keyStr = JSON.stringify(stableKey);
     if (lastKeyRef.current !== keyStr) {
       fetchedRef.current = new Set();
       lastKeyRef.current = keyStr;
@@ -76,7 +75,7 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
     return () => {
       cancelled = true;
     };
-  }, [results, stableKey, queryClient]);
+  }, [results, stableKey, keyStr, queryClient]);
 }
 
 function patchResults(
