@@ -221,6 +221,23 @@ def raw_execute(sql, args=None, executemany=False):
 
 
 # ---------------------------------------------------------------------------
+# rawdb -- compatibility shim for webserve.py callers
+# ---------------------------------------------------------------------------
+# DEPRECATED: webserve.py uses ``db.rawdb.select_all(...)`` / ``db.rawdb.select_one(...)``.
+# New code should call ``db.raw_select_all()`` / ``db.raw_select_one()`` directly.
+
+
+class _RawDBShim:
+    """Thin proxy so ``db.rawdb.select_all`` keeps working during migration."""
+
+    select_all = staticmethod(raw_select_all)
+    select_one = staticmethod(raw_select_one)
+
+
+rawdb = _RawDBShim()
+
+
+# ---------------------------------------------------------------------------
 # Portable helpers
 # ---------------------------------------------------------------------------
 
