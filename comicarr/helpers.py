@@ -42,9 +42,8 @@ from urllib.parse import urljoin
 
 import rarfile
 import requests
-from PIL import Image
-
 import sqlalchemy
+from PIL import Image
 from sqlalchemy import delete, func, select, text, update
 
 import comicarr
@@ -55,12 +54,9 @@ from comicarr.tables import (
     comics,
     ddl_info,
     exceptions_log,
-    failed,
     issues,
     jobhistory,
-    nzblog,
     oneoffhistory,
-    readlist,
     ref32p,
     snatched,
     storyarcs,

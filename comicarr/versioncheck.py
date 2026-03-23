@@ -31,10 +31,9 @@ import urllib.parse
 import urllib.request
 
 import requests
-
-import comicarr
 from sqlalchemy import select
 
+import comicarr
 from comicarr import db, logger
 from comicarr.tables import jobhistory
 

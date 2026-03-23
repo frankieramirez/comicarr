@@ -35,8 +35,6 @@ from comicarr.tables import (
     issues,
     jobhistory,
     nzblog,
-    oneoffhistory,
-    snatched,
     storyarcs,
     upcoming,
     weekly,

@@ -656,7 +656,6 @@ TABLE_MAP = {
 
 # Upsert key columns per table (derived from UniqueConstraint / unique=True metadata)
 def _derive_upsert_keys():
-    from sqlalchemy import PrimaryKeyConstraint
 
     keys = {}
     for name, table in TABLE_MAP.items():

@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from sqlalchemy import Integer, select, and_, or_, delete, func, inspect
+from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, updater, weeklypull

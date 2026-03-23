@@ -54,17 +54,30 @@ from comicarr import (
 )
 from comicarr.tables import (
     annuals as t_annuals,
+)
+from comicarr.tables import (
     comics as t_comics,
+)
+from comicarr.tables import (
     importresults as t_importresults,
+)
+from comicarr.tables import (
     issues as t_issues,
+)
+from comicarr.tables import (
     snatched as t_snatched,
+)
+from comicarr.tables import (
     storyarcs as t_storyarcs,
+)
+from comicarr.tables import (
     upcoming as t_upcoming,
+)
+from comicarr.tables import (
     weekly as t_weekly,
 )
 
 from . import cache
-
 
 # ---------------------------------------------------------------------------
 # Module-level helpers to reduce boilerplate
@@ -2031,7 +2044,6 @@ class Api(object):
                 "search_progress",
                 "search_complete",
             ]:
-                from comicarr.tables import notifs as t_notifs
 
                 tmp_message = dict(the_message, **{"session_id": comicarr.SESSION_ID})
                 if event != "check_update":

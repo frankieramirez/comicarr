@@ -24,15 +24,14 @@ import json
 import os
 import re
 import shutil
-
-# import imghdr  # Removed - deprecated in Python 3.13+ and not used in this file
-import sqlalchemy.exc
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
+# import imghdr  # Removed - deprecated in Python 3.13+ and not used in this file
+import sqlalchemy.exc
 from sqlalchemy import select, text
 
 import comicarr
@@ -1909,7 +1908,6 @@ def updateissuedata(
 ):
     annualchk = []
     weeklyissue_check = []
-    db_already_open = False
 
     logger.fdebug("issuedata call references...")
     logger.fdebug("comicid: %s" % comicid)
@@ -1921,7 +1919,6 @@ def updateissuedata(
     logger.fdebug("issuetype: %s" % issuetype)
 
     if series_status is None and comicid is not None:
-        db_already_open = True
         with db.get_engine().connect() as conn:
             stmt = select(comics.c.Status).where(comics.c.ComicID == comicid)
             chk_series_status = next((dict(row._mapping) for row in conn.execute(stmt)), None)

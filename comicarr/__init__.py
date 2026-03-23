@@ -1578,7 +1578,6 @@ def _migrate_unique_constraints(engine):
         logger.info("Adding UNIQUE constraint %s on %s(%s)", constraint_name, table_name, ", ".join(key_cols))
 
         # Deduplicate first — keep row with highest rowid
-        key_where = " AND ".join(f"a.{k} = b.{k}" for k in key_cols)
         null_checks = " AND ".join(f"{k} IS NOT NULL AND {k} != ''" for k in key_cols)
         dedup_sql = (
             f"DELETE FROM {table_name} WHERE rowid NOT IN ("

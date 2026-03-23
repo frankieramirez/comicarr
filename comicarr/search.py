@@ -37,9 +37,8 @@ from urllib.parse import unquote, urljoin, urlparse
 import feedparser
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
 from sqlalchemy import select
+from urllib3.util.retry import Retry
 
 import comicarr
 from comicarr import (

@@ -952,7 +952,9 @@ class Config(object):
             self.EXTRA_NEWZNABS = enz
             self.EXTRA_TORZNABS = extra_torznabs
             try:
-                from sqlalchemy import inspect as sa_inspect, delete
+                from sqlalchemy import delete
+                from sqlalchemy import inspect as sa_inspect
+
                 from comicarr.tables import provider_searches
 
                 inspector = sa_inspect(db.get_engine())
@@ -2204,7 +2206,8 @@ class Config(object):
     def write_out_provider_searches(self):
         # this is needed for rss to work since the provider table isn't written to
         # until a search is performed
-        from sqlalchemy import select, delete
+        from sqlalchemy import delete, select
+
         from comicarr.tables import provider_searches
 
         with db.get_engine().connect() as conn:

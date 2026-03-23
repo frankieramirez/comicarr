@@ -44,8 +44,7 @@ import cherrypy
 import requests
 import simplejson as simplejson
 from packaging.version import parse as parse_version
-
-from sqlalchemy import select as sa_select, delete as sa_delete, update as sa_update, func, and_, or_, not_, literal_column, text
+from sqlalchemy import select as sa_select
 
 import comicarr
 from comicarr import (
@@ -68,10 +67,10 @@ from comicarr import (
     updater,
     weeklypull,
 )
+from comicarr import tables as _t
 from comicarr.auth import (
     AuthController,
 )
-from comicarr import tables as _t
 
 
 def _serve_spa_index():
