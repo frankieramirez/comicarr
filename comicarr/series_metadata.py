@@ -23,8 +23,11 @@ import os
 import re
 import threading
 
+from sqlalchemy import select
+
 import comicarr
 from comicarr import db, filechecker, helpers, logger, updater
+from comicarr.tables import comics
 
 
 class metadata_Series(object):
@@ -45,8 +48,10 @@ class metadata_Series(object):
             if self.refreshSeries is True:
                 updater.dbUpdate(cid, calledfrom="json_api")
 
-            myDB = db.DBConnection()
-            comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [cid]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(comics).where(comics.c.ComicID == cid)
+                row = conn.execute(stmt).first()
+                comic = dict(row._mapping) if row else None
 
             if comic:
                 description_load = None
@@ -214,6 +219,6 @@ class metadata_Series(object):
                     continue
                 else:
                     logger.fdebug("Successfully written series.json file to %s" % comic["ComicLocation"])
-                    myDB.upsert("comics", {"seriesjsonPresent": int(True)}, {"ComicID": cid})
+                    db.upsert("comics", {"seriesjsonPresent": int(True)}, {"ComicID": cid})
 
         return

@@ -29,9 +29,11 @@ from operator import itemgetter
 import cfscrape
 import requests
 from bs4 import BeautifulSoup
+from sqlalchemy import and_, delete
 
 import comicarr
 from comicarr import cv, db, filechecker, helpers, logger
+from comicarr.tables import rssdb
 
 
 class info32p(object):
@@ -545,8 +547,15 @@ class info32p(object):
         return {"status": True, "status_msg": self.status_msg, "download_bool": True}
 
     def delete_cache_entry(self, id):
-        myDB = db.DBConnection()
-        myDB.action("DELETE FROM rssdb WHERE link=? AND Site='32P'", [id])
+        with db.get_engine().begin() as conn:
+            conn.execute(
+                delete(rssdb).where(
+                    and_(
+                        rssdb.c.Link == id,
+                        rssdb.c.Site == "32P",
+                    )
+                )
+            )
 
     class LoginSession(object):
         def __init__(self, un, pw, session_path=None):

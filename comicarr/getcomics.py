@@ -531,7 +531,6 @@ class GC(object):
             except Exception:
                 pack = False
 
-        myDB = db.DBConnection()
         series = None
         year = None
         size = None
@@ -1114,7 +1113,7 @@ class GC(object):
                 "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "status": "Queued",
             }
-            myDB.upsert("ddl_info", vals, ctrlval)
+            db.upsert("ddl_info", vals, ctrlval)
 
             # tmp_filename = None
             # if any([link_type == 'Mega', link_type == 'Mega Link']):
@@ -1163,7 +1162,6 @@ class GC(object):
         else:
             comicarr.DDL_LOCK.acquire()
 
-        myDB = db.DBConnection()
         comicarr.DDL_QUEUED.append(id)
         filename = None
         self.cookie_receipt()
@@ -1233,7 +1231,7 @@ class GC(object):
                             return {"success": False, "filename": filename, "path": None, "link_type": link_type}
 
                 # write the filename to the db for tracking purposes...
-                myDB.upsert(
+                db.upsert(
                     "ddl_info",
                     {"filename": filename, "remote_filesize": remote_filesize},
                     {"id": id},

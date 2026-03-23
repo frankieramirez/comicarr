@@ -25,8 +25,11 @@ import re
 import shutil
 import traceback
 
+from sqlalchemy import and_, select
+
 import comicarr
 from comicarr import db, filechecker, helpers, logger, updater
+from comicarr.tables import comics, issues
 
 
 # You can scan a single directory and append it to the current library by specifying append=True
@@ -53,7 +56,6 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
     cbz_retry = 0
 
     comicarr.IMPORT_STATUS = "Now attempting to parse files for additional information"
-    myDB = db.DBConnection()
     # comicarr.IMPORT_PARSED_COUNT #used to count what #/totalfiles the filename parser is currently on
     for r, _d, f in os.walk(dir):
         for files in f:
@@ -61,10 +63,20 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
             if any(files.lower().endswith("." + x.lower()) for x in extensions):
                 comicpath = os.path.join(r, files)
                 if comicarr.CONFIG.IMP_PATHS is True:
-                    if myDB.select(
-                        'SELECT * FROM comics JOIN issues WHERE issues.Status="Downloaded" AND ComicLocation=? AND issues.Location=?',
-                        [r, files],
-                    ):
+                    stmt = (
+                        select(comics)
+                        .join(issues, issues.c.ComicID == comics.c.ComicID)
+                        .where(
+                            and_(
+                                issues.c.Status == "Downloaded",
+                                comics.c.ComicLocation == r,
+                                issues.c.Location == files,
+                            )
+                        )
+                    )
+                    with db.get_engine().connect() as conn:
+                        existing = [dict(row._mapping) for row in conn.execute(stmt)]
+                    if existing:
                         logger.info("Skipped known issue path: %s" % comicpath)
                         continue
 
@@ -196,7 +208,8 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
 
     # let's load in the watchlist to see if we have any matches.
     logger.info("loading in the watchlist to see if a series is being watched already...")
-    watchlist = myDB.select("SELECT * from comics")
+    with db.get_engine().connect() as conn:
+        watchlist = [dict(row._mapping) for row in conn.execute(select(comics))]
     ComicName = []
     DisplayName = []
     ComicYear = []
@@ -673,9 +686,11 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
                     watch_issue = watch_the_list["ComicIssue"]
                     logger.fdebug("ComicID: " + str(watch_comicid))
                     logger.fdebug("Issue#: " + str(watch_issue))
-                    issuechk = myDB.selectone(
-                        "SELECT * from issues where ComicID=? AND INT_IssueNumber=?", [watch_comicid, watch_issue]
-                    ).fetchone()
+                    stmt = select(issues).where(
+                        and_(issues.c.ComicID == watch_comicid, issues.c.Int_IssueNumber == watch_issue)
+                    )
+                    with db.get_engine().connect() as conn:
+                        issuechk = conn.execute(stmt).mappings().fetchone()
                     if issuechk is None:
                         logger.fdebug("No matching issues for this comic#")
                     else:
@@ -683,7 +698,7 @@ def libraryScan(dir=None, append=False, ComicID=None, ComicName=None, cron=None,
                         control = {"IssueID": issuechk["IssueID"]}
                         values = {"Status": "Archived"}
                         logger.fdebug("...changing status of " + str(issuechk["Issue_Number"]) + " to Archived ")
-                        myDB.upsert("issues", values, control)
+                        db.upsert("issues", values, control)
                         if str(watch_comicid) not in comicids:
                             comicids.append(watch_comicid)
                     wat += 1
@@ -760,8 +775,6 @@ def scanLibrary(scan=None, queue=None):
             )
             # logger.info('[IMPORT-BREAKDOWN] Failure Files: ' + str(soma['failure_list']))
 
-            myDB = db.DBConnection()
-
             # first we do the CV ones.
             if int(soma["import_cv_ids"]) > 0:
                 for i in soma["CV_import_comicids"]:
@@ -787,7 +800,7 @@ def scanLibrary(scan=None, queue=None):
                         "ImportDate": helpers.today(),
                         "WatchMatch": None,
                     }  # i['watchmatch']}
-                    myDB.upsert("importresults", newValue, controlValue)
+                    db.upsert("importresults", newValue, controlValue)
 
             if int(soma["import_count"]) > 0:
                 for ss in soma["import_by_comicids"]:
@@ -811,7 +824,7 @@ def scanLibrary(scan=None, queue=None):
                         "ImportDate": helpers.today(),
                         "WatchMatch": ss["watchmatch"],
                     }
-                    myDB.upsert("importresults", newValue, controlValue)
+                    db.upsert("importresults", newValue, controlValue)
 
             # because we could be adding volumes/series that span years, we need to account for this
             # add the year to the db under the term, valid-years

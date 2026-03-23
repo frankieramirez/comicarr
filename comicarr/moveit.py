@@ -15,8 +15,6 @@ def movefiles(comicid, comlocation, imported):
     except ValueError:
         pass
 
-    myDB = db.DBConnection()
-
     logger.fdebug("comlocation is : " + comlocation)
     logger.fdebug("original comicname is : " + imported["ComicName"])
 
@@ -66,12 +64,11 @@ def movefiles(comicid, comlocation, imported):
             else:
                 controlValue = {"impID": result["import_id"], "ComicFilename": result["filename"]}
                 newValue = {"Status": "Imported", "SRID": result["srid"], "ComicID": comicid}
-            myDB.upsert("importresults", newValue, controlValue)
+            db.upsert("importresults", newValue, controlValue)
     return
 
 
 def archivefiles(comicid, comlocation, imported):
-    myDB = db.DBConnection()
     # if move files isn't enabled, let's set all found comics to Archive status :)
     try:
         imported = ast.literal_eval(imported)
@@ -107,6 +104,6 @@ def archivefiles(comicid, comlocation, imported):
             else:
                 controlValue = {"impID": result["import_id"], "ComicFilename": result["comicfilename"]}
                 newValue = {"Status": "Imported", "SRID": imported["srid"], "ComicID": comicid}
-            myDB.upsert("importresults", newValue, controlValue)
+            db.upsert("importresults", newValue, controlValue)
 
     return

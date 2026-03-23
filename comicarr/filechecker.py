@@ -1959,13 +1959,36 @@ class FileChecker(object):
         comic_ext = tuple(x for x in comic_ext if x not in comicarr.CONFIG.IGNORE_SEARCH_WORDS)
 
         if all([comicarr.CONFIG.ENABLE_TORRENTS is True, self.pp_mode is True]):
-            from comicarr import db
+            from sqlalchemy import and_, or_, select
 
-            myDB = db.DBConnection()
+            from comicarr import db
+            from comicarr.tables import issues, snatched
+
             pp_crclist = []
-            pp_crc = myDB.select(
-                "SELECT a.crc, b.IssueID FROM Snatched as a INNER JOIN issues as b ON a.IssueID=b.IssueID WHERE (a.Status='Post-Processed' or a.status='Snatched' or a.provider='32P' or a.provider='WWT' or a.provider='DEM') and a.crc is not NULL and (b.Status='Downloaded' or b.status='Archived') GROUP BY a.crc ORDER BY a.DateAdded"
+            stmt = (
+                select(snatched.c.crc, issues.c.IssueID)
+                .select_from(snatched.join(issues, snatched.c.IssueID == issues.c.IssueID))
+                .where(
+                    and_(
+                        or_(
+                            snatched.c.Status == "Post-Processed",
+                            snatched.c.Status == "Snatched",
+                            snatched.c.Provider == "32P",
+                            snatched.c.Provider == "WWT",
+                            snatched.c.Provider == "DEM",
+                        ),
+                        snatched.c.crc.isnot(None),
+                        or_(
+                            issues.c.Status == "Downloaded",
+                            issues.c.Status == "Archived",
+                        ),
+                    )
+                )
+                .group_by(snatched.c.crc)
+                .order_by(snatched.c.DateAdded)
             )
+            with db.get_engine().connect() as conn:
+                pp_crc = [dict(row._mapping) for row in conn.execute(stmt)]
             for pp in pp_crc:
                 pp_crclist.append({"IssueID": pp["IssueID"], "crc": pp["crc"]})
 
