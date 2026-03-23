@@ -38,7 +38,7 @@ export function useSearchComics(
     UseQueryOptions<RawSearchResponse, Error, SearchResponse>
   > = {},
 ): UseQueryResult<SearchResponse> {
-  const limit = 50; // Results per page
+  const limit = 20; // Results per page
   const offset = (page - 1) * limit;
 
   // Build query params - omit sort for relevance (null)
@@ -100,7 +100,7 @@ export function useSearchManga(
     UseQueryOptions<RawSearchResponse, Error, SearchResponse>
   > = {},
 ): UseQueryResult<SearchResponse> {
-  const limit = 50; // Results per page
+  const limit = 20; // Results per page
   const offset = (page - 1) * limit;
 
   return useQuery({

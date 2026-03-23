@@ -293,8 +293,13 @@ class Api(object):
             return
 
         if "apikey" not in kwargs and ("apikey" not in kwargs and kwargs["cmd"] != "getAPI"):
-            self.data = self._failureResponse("Missing API key")
-            return
+            # Allow session-authenticated requests from the frontend
+            username = cherrypy.session.get("_cp_username")
+            if username:
+                self.apitype = "normal"
+            else:
+                self.data = self._failureResponse("Missing API key")
+                return
         elif kwargs["cmd"] == "getAPI":
             self.apitype = "normal"
         else:

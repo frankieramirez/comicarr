@@ -27,6 +27,7 @@ Provides server-side sorting which solves the CV sorting bug.
 import threading
 import time
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import comicarr
 from comicarr import logger
@@ -225,6 +226,9 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             if limit and len(comiclist) >= limit:
                 break
 
+        # Fetch cover images in parallel (uses cache, so fast for repeat queries)
+        _backfill_images(comiclist)
+
         search_duration = time.time() - search_start_time
         logger.info("[METRON] Search completed in %.2f seconds (%d results)" % (search_duration, len(comiclist)))
 
@@ -277,6 +281,25 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             }
         else:
             return []
+
+
+def _backfill_images(comiclist):
+    """Fetch cover images for all results in parallel, updating comiclist in-place."""
+    needs_image = [(i, c["comicid"]) for i, c in enumerate(comiclist) if not c.get("comicimage")]
+    if not needs_image:
+        return
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(get_series_image, sid): idx for idx, sid in needs_image}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                image_url = future.result()
+                if image_url:
+                    comiclist[idx]["comicimage"] = image_url
+                    comiclist[idx]["comicthumb"] = image_url
+            except Exception:
+                pass
 
 
 def _cache_image(series_id, value):

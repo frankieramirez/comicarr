@@ -32,7 +32,7 @@ from comicarr.helpers import create_https_certificates
 from comicarr.webserve import WebInterface
 
 # Setup mode paths allowed before initial credentials are configured
-_SETUP_ALLOWED_PATHS = ("/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico")
+_SETUP_ALLOWED_PATHS = ("/", "/index.html", "/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico")
 
 
 def _check_setup_gate():
