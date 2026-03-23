@@ -44,6 +44,7 @@ import cherrypy
 import requests
 import simplejson as simplejson
 from packaging.version import parse as parse_version
+from sqlalchemy import select as sa_select
 
 import comicarr
 from comicarr import (
@@ -66,6 +67,7 @@ from comicarr import (
     updater,
     weeklypull,
 )
+from comicarr import tables as _t
 from comicarr.auth import (
     AuthController,
 )
@@ -487,8 +489,7 @@ class WebInterface(object):
     loadhome.exposed = True
 
     def comicDetails(self, ComicID, addbyid=0, **kwargs):
-        myDB = db.DBConnection()
-        comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+        comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
         if comic is None and bool(addbyid) is False:
             raise cherrypy.HTTPRedirect("home")
         elif comic is None and bool(addbyid) is True:
@@ -615,7 +616,7 @@ class WebInterface(object):
 
                 if run_them_down is True:
                     updater.forceRescan(ComicID)
-                    comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+                    comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
 
             totalissues = comic["Total"]
             haveissues = comic["Have"]
@@ -769,7 +770,7 @@ class WebInterface(object):
                     pass
 
         # let's cheat. :)
-        # comicskip = myDB.select('SELECT * from comics order by ComicSortName COLLATE NOCASE')
+        # comicskip = db.rawdb.select_all('SELECT * from comics order by ComicSortName COLLATE NOCASE')
         skipno = len(comicarr.COMICSORT["SortOrder"])
         lastno = comicarr.COMICSORT["LastOrderNo"]
         lastid = comicarr.COMICSORT["LastOrderID"]
@@ -856,11 +857,11 @@ class WebInterface(object):
         isCounts[6] = 0  # 6 failed
         isCounts[7] = 0  # 7 snatched
         # isCounts[8] = 0   #8 read
-
-        myDB = db.DBConnection()
-        issues = myDB.select("SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid])
+        issues = db.rawdb.select_all(
+            "SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid]
+        )
         if comicarr.CONFIG.ANNUALS_ON:
-            issues += myDB.select(
+            issues += db.rawdb.select_all(
                 "SELECT Status FROM annuals WHERE ComicID=? AND NOT DELETED ORDER BY Int_IssueNumber DESC", [comicid]
             )
         for curResult in issues:
@@ -906,8 +907,6 @@ class WebInterface(object):
             filters = json.loads(kwargs.get("filters"))
         except Exception:
             filters = []
-
-        myDB = db.DBConnection()
         sort_dir = sSortDir_0.lower() if sSortDir_0.lower() in ("asc", "desc") else "desc"
         sortcolumn = "b.Int_IssueNumber %s" % sort_dir
         if iSortCol_0 == "1":
@@ -923,7 +922,7 @@ class WebInterface(object):
             "SELECT a.ComicLocation as ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.ComicID = b.ComicID WHERE a.ComicID=? ORDER BY %s"
             % sortcolumn
         )
-        issueslist = myDB.select(queryline, [ComicID])
+        issueslist = db.rawdb.select_all(queryline, [ComicID])
         issues = []
 
         secondary_folders = None
@@ -1058,12 +1057,10 @@ class WebInterface(object):
             filters = json.loads(kwargs.get("filters"))
         except Exception:
             filters = []
-
-        myDB = db.DBConnection()
         annuals = []
         if comicarr.CONFIG.ANNUALS_ON:
-            annualslist = myDB.select(
-                "SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted ORDER BY ReleaseDate ASC, Int_IssueNumber DESC",
+            annualslist = db.rawdb.select_all(
+                "SELECT * FROM annuals WHERE ComicID=? AND Deleted != 1 ORDER BY ReleaseDate ASC, Int_IssueNumber DESC",
                 [ComicID],
             )
             #    #we need to load in the annual['ReleaseComicName'] and annual['ReleaseComicID']
@@ -1222,10 +1219,8 @@ class WebInterface(object):
         if query is None:
             query = kwargs["search_query"]
             logger.fdebug("search_query: %s" % query)
-
-        myDB = db.DBConnection()
         queryline = "SELECT * FROM tmp_searches WHERE query_id=?"  # ORDER BY %s" % sortcolumn
-        db_results = myDB.select(queryline, [query])
+        db_results = db.rawdb.select_all(queryline, [query])
         if not db_results:
             try:
                 results = mb.findComic(query, None, issue=None)
@@ -1430,7 +1425,6 @@ class WebInterface(object):
         else:
             query_id = random.randint(1, 999999)
             # write it to temporary db here - so we don't have to continually poll CV
-            myDB = db.DBConnection()
             for x in searchresults:
                 ctrlid = {"query_id": query_id, "comicid": int(x["comicid"])}
 
@@ -1459,7 +1453,7 @@ class WebInterface(object):
                     vals["volume"] = x["volume"]
                     vals["publisherimprint"] = x["imprint"]
                     vals["type"] = x["type"]
-                myDB.upsert("tmp_searches", vals, ctrlid)
+                db.upsert("tmp_searches", vals, ctrlid)
 
         return _serve_spa_index()
 
@@ -1531,7 +1525,6 @@ class WebInterface(object):
             )
 
             # Store in database (existing logic)
-            myDB = db.DBConnection()
             for x in searchresults:
                 ctrlid = {"query_id": search_id, "comicid": int(x["comicid"])}
                 haveit = "Yes" if x["haveit"] != "No" else "No"
@@ -1559,7 +1552,7 @@ class WebInterface(object):
                     vals["publisherimprint"] = x["imprint"]
                     vals["type"] = x["type"]
 
-                myDB.upsert("tmp_searches", vals, ctrlid)
+                db.upsert("tmp_searches", vals, ctrlid)
 
             # Emit completion message
             logger.info(
@@ -1680,7 +1673,6 @@ class WebInterface(object):
         ogcname=None,
         serinfo=None,
     ):
-        myDB = db.DBConnection()
         if imported == "confirm":
             # if it's coming from the importer and it's just for confirmation, record the right selection and break.
             # if it's 'confirmed' coming in as the value for imported
@@ -1690,14 +1682,14 @@ class WebInterface(object):
             # iterate through, and overwrite the existing watchmatch with the new chosen 'C' + comicid value
 
             confirmedid = "C" + str(comicid)
-            confirms = myDB.select("SELECT * FROM importresults WHERE WatchMatch=?", [ogcname])
+            confirms = db.rawdb.select_all("SELECT * FROM importresults WHERE WatchMatch=?", [ogcname])
             if confirms is None:
                 logger.Error("There are no results that match...this is an ERROR.")
             else:
                 for confirm in confirms:
                     controlValue = {"impID": confirm["impID"]}
                     newValue = {"WatchMatch": str(confirmedid)}
-                    myDB.upsert("importresults", newValue, controlValue)
+                    db.upsert("importresults", newValue, controlValue)
                 self.importResults()
             return
         elif imported == "futurecheck":
@@ -1725,7 +1717,7 @@ class WebInterface(object):
         # print ("comicimage: " + str(comicimage))
         if not comicarr.CONFIG.CV_ONLY:
             # here we test for exception matches (ie. comics spanning more than one volume, known mismatches, etc).
-            CV_EXcomicid = myDB.selectone("SELECT * from exceptions WHERE ComicID=?", [comicid]).fetchone()
+            CV_EXcomicid = db.rawdb.select_one("SELECT * from exceptions WHERE ComicID=?", [comicid])
             if CV_EXcomicid is None:  # pass #
                 gcdinfo = parseit.GCDScraper(comicname, comicyear, comicissues, comicid, quickmatch="yes")
                 if gcdinfo == "No Match":
@@ -1854,10 +1846,9 @@ class WebInterface(object):
             )
 
         if query_id is not None:
-            myDB = db.DBConnection()
-            query_chk = myDB.selectone(
+            query_chk = db.rawdb.select_one(
                 "SELECT * FROM tmp_searches where query_id=? AND comicid=?", [query_id, comicid]
-            ).fetchone()
+            )
             if query_chk:
                 if query_chk["searchtype"] == "story_arc":
                     logger.info("query_id storyarc match to : %s" % (query_id))
@@ -1870,7 +1861,7 @@ class WebInterface(object):
                     #            #'arclist': query_chk['arclist'],
                     #            #'description': query_chk['description'],
                     #            'ArcImage': query_chk['comicimage']}
-                    # myDB.upsert("storyarcs", arc_info, {'StoryArcID': storyarcid})
+                    # db.upsert("storyarcs", arc_info, {'StoryArcID': storyarcid})
                     response = self.addStoryArc(
                         arcid=query_chk["comicid"],
                         cvarcid=query_chk["cvarcid"],
@@ -1907,7 +1898,7 @@ class WebInterface(object):
                         "Type": booktype,
                         "Total": query_chk["issues"],
                     }
-                    myDB.upsert("comics", vals, {"ComicID": comicid})
+                    db.upsert("comics", vals, {"ComicID": comicid})
         else:
             logger.info("Attempting to add directly by ComicVineID: " + str(comicid))
             if comicid.startswith("4050-"):
@@ -1920,7 +1911,6 @@ class WebInterface(object):
                     ogcname = comicinfo["ComicName"]
                     seriesyear = comicinfo["ComicYear"]
                     # write some values to tmp db so they populate with page already loaded so it's not all None
-                    myDB = db.DBConnection()
                     vals = {
                         "ComicName": comicinfo["ComicName"],
                         "ComicPublisher": comicinfo["ComicPublisher"],
@@ -1930,7 +1920,7 @@ class WebInterface(object):
                         "Type": comicinfo["Type"],
                         "Total": comicinfo["ComicIssues"],
                     }
-                    myDB.upsert("comics", vals, {"ComicID": comicid})
+                    db.upsert("comics", vals, {"ComicID": comicid})
 
         if nothread is False:
             watch = []
@@ -1958,8 +1948,7 @@ class WebInterface(object):
 
         # Update tmp_searches to reflect comic is now in library
         if query_id is not None:
-            myDB = db.DBConnection()
-            myDB.upsert("tmp_searches", {"haveit": "Yes"}, {"query_id": query_id, "comicid": int(comicid)})
+            db.upsert("tmp_searches", {"haveit": "Yes"}, {"query_id": query_id, "comicid": int(comicid)})
 
         if calledby is True or calledby == "True":
             return json.dumps({"status": "success", "comicid": comicid, "comicname": ogcname})
@@ -1992,12 +1981,11 @@ class WebInterface(object):
         # arclist contains ALL the issueid's in sequence, along with the issue titles.
         # call the function within cv.py to grab all the issueid's and return all the issue data
         module = "[STORY ARC]"
-        myDB = db.DBConnection()
         # check if it already exists.
         if cvarcid is None:
-            arc_chk = myDB.select("SELECT * FROM storyarcs WHERE StoryArcID=?", [arcid])
+            arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [arcid])
         else:
-            arc_chk = myDB.select("SELECT * FROM storyarcs WHERE CV_ArcID=?", [cvarcid])
+            arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE CV_ArcID=?", [cvarcid])
         if arc_chk is None:
             if arcrefresh:
                 logger.warn(
@@ -2009,7 +1997,7 @@ class WebInterface(object):
                 logger.fdebug(
                     module + " No match in db based on ComicVine ID. Making sure and checking against Story Arc Name."
                 )
-                arc_chk = myDB.select("SELECT * FROM storyarcs WHERE StoryArc=?", [storyarcname])
+                arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArc=?", [storyarcname])
                 if arc_chk is None:
                     logger.warn(module + " " + storyarcname + " already exists on your Story Arc Watchlist!")
                     raise cherrypy.HTTPRedirect("readlist")
@@ -2244,7 +2232,7 @@ class WebInterface(object):
                     "Manual": AD["Manual"],
                 }
 
-                myDB.upsert("storyarcs", newVals, newCtrl)
+                db.upsert("storyarcs", newVals, newCtrl)
 
         # run the Search for Watchlist matches now.
         logger.fdebug(module + " Now searching your watchlist for matches belonging to this story arc.")
@@ -2260,9 +2248,8 @@ class WebInterface(object):
     addStoryArc.exposed = True
 
     def wanted_Export(self, mode):
-        myDB = db.DBConnection()
-        wantlist = myDB.select(
-            "select b.ComicName, b.ComicYear, a.Issue_Number, a.IssueDate, a.ComicID, a.IssueID from issues a inner join comics b on a.ComicID=b.ComicID where a.status=? and b.ComicName is not NULL",
+        wantlist = db.rawdb.select_all(
+            "select b.ComicName, b.ComicYear, a.Issue_Number, a.IssueDate, a.ComicID, a.IssueID from issues a inner join comics b on a.ComicID=b.ComicID where a.status=? and b.ComicName IS NOT NULL",
             [mode],
         )
         if wantlist is None:
@@ -2362,7 +2349,6 @@ class WebInterface(object):
         self, comicid, comicname=None, comicyear=None, comicissues=None, comiccover=None, comicpublisher=None
     ):
         # since we already know most of the info, let's add it to the db so we can reference it later.
-        myDB = db.DBConnection()
         gcomicid = "G" + str(comicid)
         comicyear_len = comicyear.find(" ", 2)
         comyear = comicyear[comicyear_len + 1 : comicyear_len + 5]
@@ -2389,7 +2375,7 @@ class WebInterface(object):
             "ComicImage": comiccover,
             "Total": comicissues,
         }
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", newValueDict, controlValueDict)
         threading.Thread(target=importer.GCDimport, args=[gcomicid]).start()
         raise cherrypy.HTTPRedirect("comicDetails?ComicID=%s" % gcomicid)
 
@@ -2582,27 +2568,24 @@ class WebInterface(object):
 
     def pauseSeries(self, ComicID):
         logger.info("Pausing comic: " + ComicID)
-        myDB = db.DBConnection()
         controlValueDict = {"ComicID": ComicID}
         newValueDict = {"Status": "Paused"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", newValueDict, controlValueDict)
         raise cherrypy.HTTPRedirect("comicDetails?ComicID=%s" % ComicID)
 
     pauseSeries.exposed = True
 
     def resumeSeries(self, ComicID):
         logger.info("Resuming comic: " + ComicID)
-        myDB = db.DBConnection()
         controlValueDict = {"ComicID": ComicID}
         newValueDict = {"Status": "Active"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", newValueDict, controlValueDict)
         raise cherrypy.HTTPRedirect("comicDetails?ComicID=%s" % ComicID)
 
     resumeSeries.exposed = True
 
     def deleteSeries(self, ComicID, delete_dir=None):
-        myDB = db.DBConnection()
-        comic = myDB.selectone("SELECT * from comics WHERE ComicID=?", [ComicID]).fetchone()
+        comic = db.rawdb.select_one("SELECT * from comics WHERE ComicID=?", [ComicID])
         try:
             if comic["ComicName"] is None:
                 ComicName = "None"
@@ -2618,14 +2601,14 @@ class WebInterface(object):
             seriesyear = comic["ComicYear"]
             seriesvol = comic["ComicVersion"]
             logger.info("Deleting all traces of Comic: " + ComicName)
-            myDB.action("DELETE from comics WHERE ComicID=?", [ComicID])
-            myDB.action("DELETE from issues WHERE ComicID=?", [ComicID])
+            db.raw_execute("DELETE from comics WHERE ComicID=?", [ComicID])
+            db.raw_execute("DELETE from issues WHERE ComicID=?", [ComicID])
 
             if comicarr.CONFIG.ANNUALS_ON:
-                myDB.action("DELETE from annuals WHERE ComicID=?", [ComicID])
-            myDB.action("DELETE from upcoming WHERE ComicID=?", [ComicID])
-            myDB.action("DELETE from readlist WHERE ComicID=?", [ComicID])
-            myDB.action('UPDATE weekly SET Status="Skipped" WHERE ComicID=? AND Status="Wanted"', [ComicID])
+                db.raw_execute("DELETE from annuals WHERE ComicID=?", [ComicID])
+            db.raw_execute("DELETE from upcoming WHERE ComicID=?", [ComicID])
+            db.raw_execute("DELETE from readlist WHERE ComicID=?", [ComicID])
+            db.raw_execute("UPDATE weekly SET Status='Skipped' WHERE ComicID=? AND Status='Wanted'", [ComicID])
             if delete_dir:  # comicarr.CONFIG.DELETE_REMOVE_DIR:
                 logger.fdebug("Remove directory on series removal enabled.")
                 if seriesdir is not None:
@@ -2654,14 +2637,13 @@ class WebInterface(object):
     deleteSeries.exposed = True
 
     def wipenzblog(self, ComicID=None, IssueID=None):
-        myDB = db.DBConnection()
         if ComicID is None:
             logger.fdebug(
                 "Wiping NZBLOG in it's entirety. You should NOT be downloading while doing this or else you'll lose the log for the download."
             )
-            myDB.action("DROP table nzblog")
+            db.raw_execute("DROP table nzblog")
             logger.fdebug("Deleted nzblog table.")
-            myDB.action(
+            db.raw_execute(
                 "CREATE TABLE IF NOT EXISTS nzblog (IssueID TEXT, NZBName TEXT, SARC TEXT, PROVIDER TEXT, ID TEXT, AltNZBName TEXT, OneOff TEXT)"
             )
             logger.fdebug("Re-created nzblog table.")
@@ -2670,7 +2652,7 @@ class WebInterface(object):
             logger.fdebug(
                 "Removing all download history for the given IssueID. This should allow post-processing to finish for the given IssueID."
             )
-            myDB.action("DELETE FROM nzblog WHERE IssueID=?", [IssueID])
+            db.raw_execute("DELETE FROM nzblog WHERE IssueID=?", [IssueID])
             logger.fdebug("Successfully removed all entries in the download log for IssueID: " + str(IssueID))
             raise cherrypy.HTTPRedirect("history")
 
@@ -2678,8 +2660,7 @@ class WebInterface(object):
 
     def refreshSeries(self, ComicID):
         watch = []
-        myDB = db.DBConnection()
-        chkdb = myDB.selectone("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+        chkdb = db.rawdb.select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
         # if not any(ext['comicid'] == ComicID for ext in comicarr.REFRESH_LIST):
         if {"comicid": ComicID, "comicname": chkdb["ComicName"]} not in comicarr.REFRESH_QUEUE.queue:
             watch.append({"comicid": ComicID, "comicname": chkdb["ComicName"], "seriesyear": chkdb["ComicYear"]})
@@ -2697,8 +2678,7 @@ class WebInterface(object):
 
     def description_edit(self, id, value):
         comicid = id[1:]
-        myDB = db.DBConnection()
-        serieschk = myDB.selectone("SELECT * from comics WHERE ComicID=?", [comicid]).fetchone()
+        serieschk = db.rawdb.select_one("SELECT * from comics WHERE ComicID=?", [comicid])
         if serieschk is None:
             logger.error("Cannot edit this for some reason - something is wrong.")
             return
@@ -2712,7 +2692,7 @@ class WebInterface(object):
         comicname = serieschk["ComicName"]
         newVal = {"DescriptionEdit": value}
         ctrlVal = {"ComicID": comicid}
-        myDB.upsert("comics", newVal, ctrlVal)
+        db.upsert("comics", newVal, ctrlVal)
         logger.info("Updated Description for %s [%s]" % (comicname, comicid))
         return value
 
@@ -2729,9 +2709,8 @@ class WebInterface(object):
         logger.fdebug("issueid:" + str(issueid))
         issue_type = id[second_id + 1 :]
         logger.fdebug("issue_type: %s" % issue_type)
-        myDB = db.DBConnection()
-        comicchk = myDB.selectone("SELECT ComicYear FROM comics WHERE ComicID=?", [comicid]).fetchone()
-        issuechk = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [issueid]).fetchone()
+        comicchk = db.rawdb.select_one("SELECT ComicYear FROM comics WHERE ComicID=?", [comicid])
+        issuechk = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [issueid])
         if issuechk is None:
             logger.error("Cannot edit this for some reason - something is wrong.")
             return
@@ -2763,7 +2742,7 @@ class WebInterface(object):
 
         newVal = {issue_field: value, "IssueDate_Edit": "%s.%s" % (oldissuedate, issue_type[0])}  # store = s, cover = c
         ctrlVal = {"IssueID": issueid}
-        myDB.upsert("issues", newVal, ctrlVal)
+        db.upsert("issues", newVal, ctrlVal)
         logger.info("Updated %s Issue Date for issue #%s" % (issue_type, issuenumber))
         return value
 
@@ -2790,9 +2769,7 @@ class WebInterface(object):
                 query_id = v
             elif k == "serieslist":
                 serieslist.append(v)
-
-        myDB = db.DBConnection()
-        tmp_chk = myDB.select("SELECT * FROM tmp_searches where query_id = ?", [query_id])
+        tmp_chk = db.rawdb.select_all("SELECT * FROM tmp_searches where query_id = ?", [query_id])
         the_list = {}
         for tc in tmp_chk:
             the_list[str(tc["comicid"])] = {"comicname": tc["comicname"], "seriesyear": tc["comicyear"]}
@@ -2843,7 +2820,6 @@ class WebInterface(object):
     markannuals.exposed = True
 
     def markissues(self, action=None, **args):
-        myDB = db.DBConnection()
         issuesToAdd = []
         issuestoArchive = []
         tier1_cnt = 0
@@ -2886,19 +2862,19 @@ class WebInterface(object):
             ):
                 continue
             else:
-                mi = myDB.selectone(
+                mi = db.rawdb.select_one(
                     "SELECT a.ComicYear, b.* FROM issues b LEFT JOIN comics a ON a.ComicID=b.ComicID WHERE b.IssueID=?",
                     [IssueID],
-                ).fetchone()
+                )
                 arcs = False
                 annchk = "no"
                 seriesyear = None
                 if mi is None:
                     if comicarr.CONFIG.ANNUALS_ON:
-                        mi = myDB.selectone(
-                            "SELECT a.ComicYear, b.* FROM annuals b LEFT JOIN comics a ON a.ComicID=b.ComicID WHERE b.IssueID=? AND NOT b.Deleted",
+                        mi = db.rawdb.select_one(
+                            "SELECT a.ComicYear, b.* FROM annuals b LEFT JOIN comics a ON a.ComicID=b.ComicID WHERE b.IssueID=? AND b.Deleted != 1",
                             [IssueID],
-                        ).fetchone()
+                        )
                         if mi is not None:
                             comicname = mi["ReleaseComicName"]
                             issuenumber = mi["Issue_Number"]
@@ -2906,7 +2882,7 @@ class WebInterface(object):
                             comicid = mi["ComicID"]
                             seriesyear = mi["ComicYear"]
                         else:
-                            mi = myDB.selectone("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueID]).fetchone()
+                            mi = db.rawdb.select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueID])
                             if mi is not None:
                                 arcs = True
                                 comicname = mi["ComicName"]
@@ -2957,7 +2933,7 @@ class WebInterface(object):
                 elif action == "Skipped":
                     logger.fdebug("Marking " + str(IssueID) + " as Skipped")
                 elif action == "Clear":
-                    myDB.action("DELETE FROM snatched WHERE IssueID=?", [IssueID])
+                    db.raw_execute("DELETE FROM snatched WHERE IssueID=?", [IssueID])
                 elif action == "Failed" and comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
                     logger.fdebug(
                         "Marking ["
@@ -2978,11 +2954,11 @@ class WebInterface(object):
                     newValueDict = {"Status": newaction}
 
                 if annchk == "yes":
-                    myDB.upsert("annuals", newValueDict, controlValueDict)
+                    db.upsert("annuals", newValueDict, controlValueDict)
                 elif arcs is True:
-                    myDB.upsert("storyarcs", newValueDict, controlValueDict)
+                    db.upsert("storyarcs", newValueDict, controlValueDict)
                 else:
-                    myDB.upsert("issues", newValueDict, controlValueDict)
+                    db.upsert("issues", newValueDict, controlValueDict)
 
         if action == "OppositeTier":
             tierline = "Now changing "
@@ -3015,7 +2991,6 @@ class WebInterface(object):
     markissues.exposed = True
 
     def markentries(self, action=None, **args):
-        myDB = db.DBConnection()
         cnt = 0
         for ID in args:
             if any([ID is None, "manage_failed_length" in ID]):
@@ -3023,12 +2998,12 @@ class WebInterface(object):
             else:
                 if "##" in ID:
                     f = ID.split("##")
-                    myDB.action(
+                    db.raw_execute(
                         "DELETE FROM Failed WHERE IssueID=? AND Provider=? AND NZBName=? AND DateFailed=?",
                         [f[0], f[1], f[2], f[3]],
                     )
                 else:
-                    myDB.action("DELETE FROM Failed WHERE ID=?", [ID])
+                    db.raw_execute("DELETE FROM Failed WHERE ID=?", [ID])
                 cnt += 1
         logger.info(
             "[DB FAILED CLEANSING] Cleared "
@@ -3057,8 +3032,7 @@ class WebInterface(object):
         # 3 - if it's an nzb - we recreate the sab/nzbget url and resubmit it directly.
         #  - if it's a torrent - we redownload the torrent and flip it to the watchdir on the local / seedbox.
         # 4 - Change status to Snatched.
-        myDB = db.DBConnection()
-        chk_snatch = myDB.select("SELECT * FROM snatched WHERE IssueID=?", [IssueID])
+        chk_snatch = db.rawdb.select_all("SELECT * FROM snatched WHERE IssueID=?", [IssueID])
         if chk_snatch is None:
             logger.info("Unable to locate how issue was downloaded (name, provider). Cannot continue.")
             return json.dumps(
@@ -3096,17 +3070,17 @@ class WebInterface(object):
         for ps in sorted(providers_snatched, key=itemgetter("DateAdded", "Provider"), reverse=True):
             try:
                 Provider_sql = "%" + ps["Provider"] + "%"
-                chk_the_log = myDB.selectone(
+                chk_the_log = db.rawdb.select_one(
                     "SELECT * FROM nzblog WHERE IssueID=? OR IssueID=? AND Provider like (?)",
                     [IssueID, "S" + IssueID, Provider_sql],
-                ).fetchone()
+                )
             except:
                 logger.warn(
                     "Unable to locate provider reference for attempted Retry. Will see if I can just get the last attempted download."
                 )
-                chk_the_log = myDB.selectone(
+                chk_the_log = db.rawdb.select_one(
                     'SELECT * FROM nzblog WHERE IssueID=? and Provider != "CBT" and Provider != "KAT"', [IssueID]
-                ).fetchone()
+                )
 
             if chk_the_log is None:
                 if len(providers_snatched) == 1:
@@ -3129,7 +3103,7 @@ class WebInterface(object):
                 )
 
         if all([ComicYear is not None, ComicYear != "None"]) and all([IssueID is not None, IssueID != "None"]):
-            getYear = myDB.selectone("SELECT IssueDate, ReleaseDate FROM Issues WHERE IssueID=?", [IssueID]).fetchone()
+            getYear = db.rawdb.select_one("SELECT IssueDate, ReleaseDate FROM Issues WHERE IssueID=?", [IssueID])
             if getYear is None:
                 logger.warn(
                     "Unable to retrieve any valid date for Issue (Try to refresh the series and then try again."
@@ -3227,31 +3201,31 @@ class WebInterface(object):
                 break
             else:
                 oneoff = False
-                chkthis = myDB.selectone(
-                    "SELECT a.ComicID, a.ComicName, a.ComicVersion, a.ComicYear, b.IssueID, b.Issue_Number, b.IssueDate FROM comics as a INNER JOIN annuals as b ON a.ComicID = b.ComicID WHERE IssueID=? AND NOT b.Deleted",
+                chkthis = db.rawdb.select_one(
+                    "SELECT a.ComicID, a.ComicName, a.ComicVersion, a.ComicYear, b.IssueID, b.Issue_Number, b.IssueDate FROM comics as a INNER JOIN annuals as b ON a.ComicID = b.ComicID WHERE IssueID=? AND b.Deleted != 1",
                     [IssueID],
-                ).fetchone()
+                )
                 if chkthis is None:
-                    chkthis = myDB.selectone(
+                    chkthis = db.rawdb.select_one(
                         "SELECT a.ComicID, a.ComicName, a.ComicVersion, a.ComicYear, b.IssueID, b.Issue_Number, b.IssueDate FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID WHERE IssueID=?",
                         [IssueID],
-                    ).fetchone()
+                    )
                     if chkthis is None:
-                        chkthis = myDB.selectone(
+                        chkthis = db.rawdb.select_one(
                             "SELECT ComicID, ComicName, year as ComicYear, IssueID, IssueNumber as Issue_Number, weeknumber, year from oneoffhistory WHERE IssueID=?",
                             [IssueID],
-                        ).fetchone()
+                        )
                         if chkthis is None:
                             if any(["_" in IssueID, IssueID.startswith("S")]):
-                                chkthis = myDB.selectone(
+                                chkthis = db.rawdb.select_one(
                                     "SELECT ComicID, ComicName, seriesyear as ComicYear, IssueID, IssueNumber as Issue_Number, IssueDate, Volume as ComicVersion from storyarcs WHERE IssueArcID=?",
                                     [IssueID],
-                                ).fetchone()
+                                )
                             else:
-                                chkthis = myDB.selectone(
+                                chkthis = db.rawdb.select_one(
                                     "SELECT ComicID, ComicName, seriesyear as ComicYear, IssueID, IssueNumber as Issue_Number, IssueDate, Volume as ComicVersion from storyarcs WHERE IssueID=?",
                                     [IssueID],
-                                ).fetchone()
+                                )
                             if chkthis is None:
                                 logger.warn(
                                     "Unable to locate previous snatch details (checked issues/annuals/one-offs/storyarcs). Retrying the snatch for this issue is unavailable."
@@ -3355,7 +3329,7 @@ class WebInterface(object):
                                 )
                             break
                 elif "DDL" in fullprov:
-                    get_id = myDB.selectone("SELECT id, mainlink FROM ddl_info WHERE IssueID=?", [IssueID]).fetchone()
+                    get_id = db.rawdb.select_one("SELECT id, mainlink FROM ddl_info WHERE IssueID=?", [IssueID])
                     if get_id:
                         link = {"id": get_id[0], "link": get_id[1]}
                         retried = True
@@ -3426,7 +3400,6 @@ class WebInterface(object):
         logger.fdebug("ComicID: %s" % ComicID)
         logger.fdebug("mode: %s" % mode)
         now = datetime.datetime.now()
-        myDB = db.DBConnection()
         # mode dictates type of queue - either 'want' for individual comics, or 'series' for series watchlist.
         if ComicID is None and mode == "series":
             raise cherrypy.HTTPRedirect("searchit?name=%s&issue=%s&mode=%s" % (ComicName, "None", "series"))
@@ -3448,7 +3421,7 @@ class WebInterface(object):
                 logger.info("Story Arc : %s queueing selected issue..." % SARC)
                 logger.fdebug("IssueArcID : %s" % IssueArcID)
                 # try to load the issue dates - can now sideload issue details.
-                dateload = myDB.selectone("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID]).fetchone()
+                dateload = db.rawdb.select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID])
                 if dateload is None:
                     IssueDate = None
                     Publisher = None
@@ -3469,7 +3442,7 @@ class WebInterface(object):
             logger.fdebug("publisher: %s" % Publisher)
             controlValueDict = {"IssueArcID": IssueArcID}
             newStatus = {"Status": "Wanted"}
-            myDB.upsert("storyarcs", newStatus, controlValueDict)
+            db.upsert("storyarcs", newStatus, controlValueDict)
             moduletype = "[STORY-ARCS]"
             passinfo = {
                 "issueid": IssueArcID,
@@ -3503,7 +3476,7 @@ class WebInterface(object):
             }
 
         elif mode == "want" or mode == "want_ann" or manualsearch:
-            cdname = myDB.selectone("SELECT * from comics where ComicID=?", [ComicID]).fetchone()
+            cdname = db.rawdb.select_one("SELECT * from comics where ComicID=?", [ComicID])
             if ComicName is None:
                 ComicName = cdname["ComicName"]
             cdname["ComicName_Filesafe"]
@@ -3525,11 +3498,11 @@ class WebInterface(object):
                     logger.info("Initiating manual search for %s issue: %s" % (ComicName, ComicIssue))
                 else:
                     logger.info("Marking %s issue: %s as wanted..." % (ComicName, ComicIssue))
-                    myDB.upsert("issues", newStatus, controlValueDict)
+                    db.upsert("issues", newStatus, controlValueDict)
             else:
-                annual_name = myDB.selectone(
-                    "SELECT * FROM annuals WHERE ComicID=? and IssueID=? AND NOT Deleted", [ComicID, IssueID]
-                ).fetchone()
+                annual_name = db.rawdb.select_one(
+                    "SELECT * FROM annuals WHERE ComicID=? and IssueID=? AND Deleted != 1", [ComicID, IssueID]
+                )
                 if annual_name is None:
                     logger.fdebug("Unable to locate.")
                 else:
@@ -3539,7 +3512,7 @@ class WebInterface(object):
                     logger.info("Initiating manual search for %s : %s" % (ComicName, ComicIssue))
                 else:
                     logger.info("Marking %s : %s as wanted..." % (ComicName, ComicIssue))
-                    myDB.upsert("annuals", newStatus, controlValueDict)
+                    db.upsert("annuals", newStatus, controlValueDict)
             moduletype = "[WANTED-SEARCH]"
             passinfo = {
                 "issueid": IssueID,
@@ -3552,13 +3525,11 @@ class WebInterface(object):
             }
 
             if mode == "want":
-                issues = myDB.selectone(
-                    "SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID]
-                ).fetchone()
+                issues = db.rawdb.select_one("SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID])
             elif mode == "want_ann":
-                issues = myDB.selectone(
-                    "SELECT IssueDate, ReleaseDate FROM annuals WHERE IssueID=? AND NOT Deleted", [IssueID]
-                ).fetchone()
+                issues = db.rawdb.select_one(
+                    "SELECT IssueDate, ReleaseDate FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
+                )
             if ComicYear is None:
                 ComicYear = str(issues["IssueDate"])[:4]
             if issues["ReleaseDate"] is None or issues["ReleaseDate"] == "0000-00-00":
@@ -3601,26 +3572,25 @@ class WebInterface(object):
     queueissue.exposed = True
 
     def unqueueissue(self, IssueID, ComicID, ComicName=None, Issue=None, smode=None, ReleaseComicID=None):
-        myDB = db.DBConnection()
         if ReleaseComicID == "null":
             ReleaseComicID = None
         if ComicName is None:
             if ReleaseComicID is None:  # ReleaseComicID is used for annuals.
-                issue = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [IssueID]).fetchone()
+                issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
             else:
                 issue = None
             annchk = "no"
             if issue is None:
                 if comicarr.CONFIG.ANNUALS_ON:
                     if ReleaseComicID is None:
-                        issann = myDB.selectone(
-                            "SELECT * FROM annuals WHERE IssueID=? AND NOT Deleted", [IssueID]
-                        ).fetchone()
+                        issann = db.rawdb.select_one(
+                            "SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
+                        )
                     else:
-                        issann = myDB.selectone(
-                            "SELECT * FROM annuals WHERE IssueID=? AND ReleaseComicID=? AND NOT Deleted",
+                        issann = db.rawdb.select_one(
+                            "SELECT * FROM annuals WHERE IssueID=? AND ReleaseComicID=? AND Deleted != 1",
                             [IssueID, ReleaseComicID],
-                        ).fetchone()
+                        )
                     ComicName = issann["ReleaseComicName"]
                     IssueNumber = issann["Issue_Number"]
                     annchk = "yes"
@@ -3634,19 +3604,19 @@ class WebInterface(object):
             if smode == "failed" and comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
                 logger.info("Marking " + ComicName + " issue # " + IssueNumber + " as Failed...")
                 newValueDict = {"Status": "Failed"}
-                myDB.upsert("failed", newValueDict, controlValueDict)
+                db.upsert("failed", newValueDict, controlValueDict)
                 if annchk == "yes":
-                    myDB.upsert("annuals", newValueDict, controlValueDict)
+                    db.upsert("annuals", newValueDict, controlValueDict)
                 else:
-                    myDB.upsert("issues", newValueDict, controlValueDict)
+                    db.upsert("issues", newValueDict, controlValueDict)
                 self.failed_handling(ComicID=ComicID, IssueID=IssueID)
             else:
                 logger.info("Marking " + ComicName + " issue # " + IssueNumber + " as Skipped...")
                 newValueDict = {"Status": "Skipped"}
                 if annchk == "yes":
-                    myDB.upsert("annuals", newValueDict, controlValueDict)
+                    db.upsert("annuals", newValueDict, controlValueDict)
                 else:
-                    myDB.upsert("issues", newValueDict, controlValueDict)
+                    db.upsert("issues", newValueDict, controlValueDict)
         return json.dumps(
             {
                 "status": "success",
@@ -3688,12 +3658,11 @@ class WebInterface(object):
     failed_handling.exposed = True
 
     def archiveissue(self, IssueID, comicid):
-        myDB = db.DBConnection()
-        issue = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [IssueID]).fetchone()
+        issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
         annchk = "no"
         if issue is None:
             if comicarr.CONFIG.ANNUALS_ON:
-                issann = myDB.selectone("SELECT * FROM annuals WHERE IssueID=? AND NOT Deleted", [IssueID]).fetchone()
+                issann = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID])
                 comicname = issann["ReleaseComicName"]
                 issue = issann["Issue_Number"]
                 annchk = "yes"
@@ -3705,17 +3674,18 @@ class WebInterface(object):
         controlValueDict = {"IssueID": IssueID}
         newValueDict = {"Status": "Archived"}
         if annchk == "yes":
-            myDB.upsert("annuals", newValueDict, controlValueDict)
+            db.upsert("annuals", newValueDict, controlValueDict)
         else:
-            myDB.upsert("issues", newValueDict, controlValueDict)
+            db.upsert("issues", newValueDict, controlValueDict)
         raise cherrypy.HTTPRedirect("comicDetails?ComicID=%s" % comicid)
 
     archiveissue.exposed = True
 
     def pullSearch(self, week, year):
-        myDB = db.DBConnection()
         # retrieve a list of all the issues that are in a Wanted state from the pull that we can search for.
-        ps = myDB.select("SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year])
+        ps = db.rawdb.select_all(
+            "SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year]
+        )
         if ps is None:
             logger.info("No items are marked as Wanted on the pullist to be searched for at this time")
             return
@@ -3751,11 +3721,9 @@ class WebInterface(object):
                 generateonly = v
             elif k == "current":
                 current = v
-
-        myDB = db.DBConnection()
         autowant = []
         if generateonly is False:
-            autowants = myDB.select("SELECT * FROM futureupcoming WHERE Status='Wanted'")
+            autowants = db.rawdb.select_all("SELECT * FROM futureupcoming WHERE Status='Wanted'")
             if autowants:
                 for aw in autowants:
                     autowant.append(
@@ -3770,9 +3738,11 @@ class WebInterface(object):
         weeklyresults = []
         wantedcount = 0
         weekinfo = helpers.weekly_info(week, year, current)
-        popit = myDB.select("SELECT * FROM sqlite_master WHERE name='weekly' and type='table'")
+        from sqlalchemy import inspect as sa_inspect
+
+        popit = [True] if sa_inspect(db.get_engine()).has_table("weekly") else []
         if popit:
-            w_results = myDB.select(
+            w_results = db.rawdb.select_all(
                 "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weekinfo["weeknumber"]), weekinfo["year"]]
             )
             if len(w_results) == 0:
@@ -3781,7 +3751,7 @@ class WebInterface(object):
                 )
                 repoll = self.pullrecreate(weeknumber=weekinfo["weeknumber"], year=weekinfo["year"])
                 if repoll["status"] == "success":
-                    w_results = myDB.select(
+                    w_results = db.rawdb.select_all(
                         "SELECT * from weekly WHERE weeknumber=? AND year=?",
                         [int(weekinfo["weeknumber"]), weekinfo["year"]],
                     )
@@ -3798,7 +3768,7 @@ class WebInterface(object):
                         )
                         repoll = self.manualpull()
                         if repoll["status"] == "success":
-                            w_results = myDB.select(
+                            w_results = db.rawdb.select_all(
                                 "SELECT * from weekly WHERE weeknumber=? AND year=?",
                                 [int(weekinfo["weeknumber"]), weekinfo["year"]],
                             )
@@ -3942,7 +3912,7 @@ class WebInterface(object):
                     tmpsql = "SELECT * FROM snatched where Status='Snatched' and status != 'Post-Processed' and (provider='32P' or Provider='WWT' or Provider='DEM') AND IssueID in ({seq})".format(
                         seq=",".join(["?"] * (len(genlist)))
                     )
-                    chkthis = myDB.select(tmpsql, genlist)
+                    chkthis = db.rawdb.select_all(tmpsql, genlist)
                     if chkthis is None:
                         continue
                     else:
@@ -3968,9 +3938,8 @@ class WebInterface(object):
     pullist.exposed = True
 
     def removeautowant(self, comicname, release):
-        myDB = db.DBConnection()
         logger.fdebug("Removing " + comicname + " from the auto-want list.")
-        myDB.action(
+        db.raw_execute(
             "DELETE FROM futureupcoming WHERE ComicName=? AND IssueDate=? AND Status='Wanted'", [comicname, release]
         )
 
@@ -3978,13 +3947,12 @@ class WebInterface(object):
 
     def add2futurewatchlist(self, ComicName, Issue, Publisher, ShipDate, weeknumber, year):
         # ShipDate is just weekinfo['midweek'] #a tuple ('weeknumber','startweek','midweek','endweek','year')
-        myDB = db.DBConnection()
         logger.info(ShipDate)
 
-        chkfuture = myDB.selectone(
+        chkfuture = db.rawdb.select_one(
             "SELECT * FROM futureupcoming WHERE ComicName=? AND IssueNumber=? AND weeknumber=? AND year=?",
             [ComicName, Issue, weeknumber, year],
-        ).fetchone()
+        )
         if chkfuture is not None:
             logger.info("Already on Future Upcoming list - not adding at this time.")
             return
@@ -3994,7 +3962,7 @@ class WebInterface(object):
 
         newVal = {"Status": "Wanted", "IssueDate": ShipDate, "weeknumber": weeknumber, "year": year}
 
-        myDB.upsert("futureupcoming", newVal, newCtrl)
+        db.upsert("futureupcoming", newVal, newCtrl)
 
     add2futurewatchlist.exposed = True
 
@@ -4005,9 +3973,8 @@ class WebInterface(object):
     future_check.exposed = True
 
     def filterpull(self):
-        myDB = db.DBConnection()
-        myDB.select("SELECT * from weekly")
-        pulldate = myDB.selectone("SELECT * from weekly").fetchone()
+        db.rawdb.select_all("SELECT * from weekly")
+        pulldate = db.rawdb.select_one("SELECT * from weekly")
         if pulldate is None:
             raise cherrypy.HTTPRedirect("home")
         return _serve_spa_index()
@@ -4038,15 +4005,13 @@ class WebInterface(object):
                 "[PULL-LIST] Cannot re-create pull-list as walksoftly is currently offline. Retaining existing pull-data until it's back online"
             )
             return {"status": "failure"}
-
-        db.DBConnection()
         forcecheck = "yes"
         # if weeknumber is None:
-        #    myDB.action("DROP TABLE weekly")
+        #    db.raw_execute("DROP TABLE weekly")
         #    comicarr.dbcheck()
         #    logger.info("Deleted existing pull-list data. Recreating Pull-list...")
         # else:
-        #    myDB.action('DELETE FROM weekly WHERE weeknumber=? and year=?', [int(weeknumber), int(year)])
+        #    db.raw_execute('DELETE FROM weekly WHERE weeknumber=? and year=?', [int(weeknumber), int(year)])
         #    logger.info("Deleted existing pull-list data for week %s, %s. Now Recreating the Pull-list..." % (weeknumber, year))
         logger.info("[PULL-LIST] Now Recreating the Pull-list for week %s, %s..." % (weeknumber, year))
         statchk = weeklypull.pullit(forcecheck, weeknumber, year)
@@ -4071,10 +4036,8 @@ class WebInterface(object):
         weekinfo["startweek"]
         weekinfo["midweek"]
         weekinfo["endweek"]
-
-        myDB = db.DBConnection()
         logger.info("weeknumber: %s" % weeknumber)
-        upcomingdata = myDB.select(
+        upcomingdata = db.rawdb.select_all(
             """
             SELECT weeknumber, year, Status, IssueID, ComicID, Comic, Issue,
                    ShipDate, DynamicName
@@ -4103,7 +4066,7 @@ class WebInterface(object):
                         "Weekly Pull hasn't finished being generated as of yet (or has yet to initialize). Try to wait up to a minute to accomodate processing."
                     )
                     comicarr.WANTED_TAB_OFF = True
-                    myDB.action("DROP TABLE weekly")
+                    db.raw_execute("DROP TABLE weekly")
                     comicarr.dbcheck()
                     logger.info("Deleted existed pull-list data. Recreating Pull-list...")
                     forcecheck = "yes"
@@ -4164,7 +4127,7 @@ class WebInterface(object):
         # fix None DateAdded points here
         helpers.DateAddedFix()
         # let's straightload the series that have no issue data associated as of yet (ie. new series) from the futurepulllist
-        future_nodata_upcoming = myDB.select("""
+        future_nodata_upcoming = db.rawdb.select_all("""
             SELECT ComicName, IssueNumber, ComicID, IssueID, IssueDate, Status
             FROM futureupcoming
             WHERE IssueNumber='1' OR IssueNumber='0'
@@ -4173,6 +4136,7 @@ class WebInterface(object):
         # let's move any items from the upcoming table into the wanted table if the date has already passed.
         # gather the list...
         # Single query with JOIN to get all outdated items and their issue data
+        today_str = helpers.today()
         outdated_query = """
             SELECT
                 u.ComicName,
@@ -4183,10 +4147,10 @@ class WebInterface(object):
                 i.Issue_Number
             FROM upcoming u
             LEFT JOIN issues i ON u.IssueID = i.IssueID
-            WHERE u.IssueDate < date('now')
+            WHERE u.IssueDate < ?
             ORDER BY u.IssueDate DESC
         """
-        outdated_items = myDB.select(outdated_query)
+        outdated_items = db.rawdb.select_all(outdated_query, [today_str])
 
         if outdated_items:
             # Batch UPDATE - single query for all issues
@@ -4195,7 +4159,7 @@ class WebInterface(object):
             if issue_ids_to_update:
                 placeholders = ",".join(["?"] * len(issue_ids_to_update))
                 batch_update_query = f"UPDATE issues SET Status = 'Wanted' WHERE IssueID IN ({placeholders})"
-                myDB.action(batch_update_query, issue_ids_to_update)
+                db.raw_execute(batch_update_query, issue_ids_to_update)
 
                 # Preserve logging for each item
                 for item in outdated_items:
@@ -4207,11 +4171,11 @@ class WebInterface(object):
             # Batch DELETE - delete all outdated items from upcoming
             for item in outdated_items:
                 logger.fdebug("[DELETE] - " + item["ComicName"] + " issue #: " + str(item["IssueNumber"]))
-                myDB.action(
+                db.raw_execute(
                     "DELETE from upcoming WHERE ComicName=? AND IssueNumber=?", [item["ComicName"], item["IssueNumber"]]
                 )
 
-        mism = myDB.select(
+        mism = db.rawdb.select_all(
             "SELECT c.Type as BookType, c.ComicYear, c.ComicVersion, a.IssueDate, a.ReleaseDate, b.* FROM Comics as c LEFT JOIN Issues as a ON a.Comicid=c.ComicID INNER JOIN Weekly as b ON a.IssueID=b.IssueID WHERE b.Status='Mismatched' OR b.Status='Incomplete'"
         )
         mismatched = []
@@ -4262,8 +4226,6 @@ class WebInterface(object):
     upcoming.exposed = True
 
     def update_upcoming_filters(self):
-        myDB = db.DBConnection()
-
         stat_values = ["Wanted"]
         if comicarr.CONFIG.UPCOMING_SNATCHED is True:
             stat_values.append("Snatched")
@@ -4273,7 +4235,7 @@ class WebInterface(object):
         statline = "Status IN (%s)" % stat_placeholders
 
         iss_query = "SELECT ComicName, Status, ComicID, IssueID, DateAdded from issues WHERE %s" % statline
-        issues = myDB.select(iss_query, stat_values)
+        issues = db.rawdb.select_all(iss_query, stat_values)
 
         arcs = {}
         if comicarr.CONFIG.UPCOMING_STORYARCS is True:
@@ -4281,7 +4243,7 @@ class WebInterface(object):
                 "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, Status, ComicID, IssueID, DateAdded from storyarcs WHERE %s"
                 % statline
             )
-            arclist = myDB.select(arcs_query, stat_values)
+            arclist = db.rawdb.select_all(arcs_query, stat_values)
             for arc in arclist:
                 arcs[arc["IssueID"]] = {
                     "storyarc": arc["Storyarc"],
@@ -4308,8 +4270,8 @@ class WebInterface(object):
         if comicarr.CONFIG.ANNUALS_ON:
             # let's add the annuals to the wanted table so people can see them
             # ComicName wasn't present in db initially - added on startup chk now.
-            annuals_query = "SELECT * FROM annuals WHERE NOT Deleted AND %s" % statline
-            annuals_list = myDB.select(annuals_query, stat_values)
+            annuals_query = "SELECT * FROM annuals WHERE Deleted != 1 AND %s" % statline
+            annuals_list = db.rawdb.select_all(annuals_query, stat_values)
 
             issues += annuals_list
 
@@ -4387,8 +4349,6 @@ class WebInterface(object):
         except Exception:
             filters = []
         # logger.fdebug('filters: %s' % (filters,))
-
-        myDB = db.DBConnection()
         if sSortDir_0 == "desc":
             reverse_order = True
         else:
@@ -4406,8 +4366,7 @@ class WebInterface(object):
 
         if sSearch:
             search_pattern = f"%{sSearch}%"
-            where_clause += """ AND (ComicName LIKE ? COLLATE NOCASE
-                                OR Issue_Number LIKE ?
+            where_clause += """ AND (ComicName LIKE ?                                OR Issue_Number LIKE ?
                                 OR ReleaseDate LIKE ?
                                 OR DateAdded LIKE ?)"""
             search_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
@@ -4418,7 +4377,7 @@ class WebInterface(object):
             FROM issues
             WHERE {where_clause}
         """
-        issues = myDB.select(iss_query, search_params)
+        issues = db.rawdb.select_all(iss_query, search_params)
         arcs = {}
         if comicarr.CONFIG.UPCOMING_STORYARCS is True:
             arc_search_params = []
@@ -4426,10 +4385,8 @@ class WebInterface(object):
 
             if sSearch:
                 search_pattern = f"%{sSearch}%"
-                arc_where += """ AND (ComicName LIKE ? COLLATE NOCASE
-                                 OR IssueNumber LIKE ?
-                                 OR Storyarc LIKE ? COLLATE NOCASE
-                                 OR ReleaseDate LIKE ?
+                arc_where += """ AND (ComicName LIKE ?                                 OR IssueNumber LIKE ?
+                                 OR Storyarc LIKE ?                                 OR ReleaseDate LIKE ?
                                  OR DateAdded LIKE ?)"""
                 arc_search_params.extend(
                     [search_pattern, search_pattern, search_pattern, search_pattern, search_pattern]
@@ -4441,7 +4398,7 @@ class WebInterface(object):
                 FROM storyarcs
                 WHERE {arc_where}
             """
-            arclist = myDB.select(arcs_query, arc_search_params)
+            arclist = db.rawdb.select_all(arcs_query, arc_search_params)
             for arc in arclist:
                 arc_int_number = arc["Int_IssueNumber"]
                 if arc_int_number is None:
@@ -4464,9 +4421,9 @@ class WebInterface(object):
                 SELECT ReleaseComicName as ComicName, Issue_Number, Int_IssueNumber,
                        ReleaseDate, Status, ComicID, IssueID, DateAdded
                 FROM annuals
-                WHERE NOT Deleted AND {where_clause}
+                WHERE Deleted != 1 AND {where_clause}
             """
-            annuals_list = myDB.select(annuals_query, search_params)
+            annuals_list = db.rawdb.select_all(annuals_query, search_params)
 
             issues += annuals_list
 
@@ -4673,13 +4630,12 @@ class WebInterface(object):
 
     def searchformissing(self, ComicID):
         # search for 'missing' issues for a given series without marking them as Wanted (issues that are in a Skipped or Wanted state).
-        myDB = db.DBConnection()
-        missing = myDB.select(
+        missing = db.rawdb.select_all(
             "SELECT a.ComicName, a.ComicYear, b.* FROM comics a join issues b on a.comicid=b.comicid WHERE a.ComicID=? AND (b.Status ='Skipped' or b.Status='Wanted' or b.Status = 'Snatched')",
             [ComicID],
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            missing += myDB.select(
+            missing += db.rawdb.select_all(
                 "SELECT a.ComicName, a.ComicYear, b.* FROM comics a join annuals b on a.comicid=b.comicid WHERE a.ComicID=? AND (b.Status ='Skipped' or b.Status='Wanted' or b.Status ='Snatched')",
                 [ComicID],
             )
@@ -4722,10 +4678,11 @@ class WebInterface(object):
         issuesnumwant = 0
         annsnumwant = 0
         mvvalues = {"Status": "Wanted"}
-        myDB = db.DBConnection()
-        skipped2 = myDB.select("SELECT issueid, 0 as type from issues WHERE ComicID=? AND Status='Skipped'", [comicid])
+        skipped2 = db.rawdb.select_all(
+            "SELECT issueid, 0 as type from issues WHERE ComicID=? AND Status='Skipped'", [comicid]
+        )
         if comicarr.CONFIG.ANNUALS_ON:
-            skipped2 += myDB.select(
+            skipped2 += db.rawdb.select_all(
                 "SELECT issueid, 1 as type from annuals WHERE ComicID=? AND Status='Skipped'", [comicid]
             )
         for skippy in skipped2:
@@ -4736,7 +4693,7 @@ class WebInterface(object):
             else:
                 skip_table = "issues"
                 issuesnumwant += 1
-            myDB.upsert(skip_table, mvvalues, mvcontroldict)
+            db.upsert(skip_table, mvvalues, mvcontroldict)
             issuestowanted.append(skippy["issueid"])
         if (issuesnumwant + annsnumwant) > 0:
             num_line = "%s issues" % issuesnumwant
@@ -4761,12 +4718,11 @@ class WebInterface(object):
     def annualDelete(self, comicid, ReleaseComicID=None):
         if "delete_" in comicid:
             comicid = re.sub("delete_", "", comicid).strip()
-        myDB = db.DBConnection()
         if ReleaseComicID is None:
-            myDB.action("UPDATE annuals set Deleted=1 WHERE ComicID=?", [comicid])
+            db.raw_execute("UPDATE annuals set Deleted=1 WHERE ComicID=?", [comicid])
             logger.fdebug("Deleted all annuals from DB for ComicID of " + str(comicid))
         else:
-            myDB.action("UPDATE annuals set Deleted=1 WHERE ReleaseComicID=?", [ReleaseComicID])
+            db.raw_execute("UPDATE annuals set Deleted=1 WHERE ReleaseComicID=?", [ReleaseComicID])
             logger.fdebug("Deleted selected annual from DB with a ComicID of " + str(ReleaseComicID))
         return json.dumps({"status": "success", "message": "Successfully removed annuals"})
 
@@ -4774,9 +4730,8 @@ class WebInterface(object):
 
     def ddl_requeue(self, mode, id=None, issueid=None):
         logger.info("id: %s / mode: %s / issueid: %s" % (id, mode, issueid))
-        myDB = db.DBConnection()
         if mode == "clear_queue":
-            chk = myDB.selectone("SELECT count(*) AS count FROM ddl_info WHERE status = 'Queued'").fetchone()
+            chk = db.rawdb.select_one("SELECT count(*) AS count FROM ddl_info WHERE status = 'Queued'")
             countchk = 0
             if chk:
                 countchk = chk["count"]
@@ -4786,27 +4741,27 @@ class WebInterface(object):
                     {"status": True, "message": "Queue already cleared - there was nothing to clear from the Queue"}
                 )
 
-            myDB.action("DELETE FROM ddl_info WHERE status = 'Queued'")
+            db.raw_execute("DELETE FROM ddl_info WHERE status = 'Queued'")
             return json.dumps({"status": True, "message": "Successfully cleared %s items from the Queue" % countchk})
 
         if id is None:
-            items = myDB.select("SELECT * FROM ddl_info WHERE status = 'Queued' ORDER BY updated_date DESC")
+            items = db.rawdb.select_all("SELECT * FROM ddl_info WHERE status = 'Queued' ORDER BY updated_date DESC")
         else:
-            oneitem = myDB.selectone("SELECT * FROM DDL_INFO WHERE ID=?", [id]).fetchone()
+            oneitem = db.rawdb.select_one("SELECT * FROM DDL_INFO WHERE ID=?", [id])
             items = [oneitem]
 
         itemlist = []
         for x in items:
             OneOff = False
-            comic = myDB.selectone(
+            comic = db.rawdb.select_one(
                 "SELECT * from comics WHERE ComicID=? AND ComicName != 'None'",
                 [x["comicid"]],
-            ).fetchone()
+            )
             if comic is None:
-                comic = myDB.selectone(
+                comic = db.rawdb.select_one(
                     "SELECT * from storyarcs WHERE IssueID=?",
                     [x["issueid"]],
-                ).fetchone()
+                )
                 if comic is None:
                     OneOff = True
 
@@ -4849,10 +4804,10 @@ class WebInterface(object):
                     logger.fdebug("resume set to resume at: %s bytes" % filesize)
                     resume = filesize
                 elif mode == "abort":
-                    myDB.upsert("ddl_info", {"Status": "Failed"}, {"id": id})  # DELETE FROM ddl_info where ID=?', [id])
+                    db.upsert("ddl_info", {"Status": "Failed"}, {"id": id})  # DELETE FROM ddl_info where ID=?', [id])
                     continue
                 elif mode == "remove":
-                    myDB.action("DELETE FROM ddl_info where ID=?", [id])
+                    db.raw_execute("DELETE FROM ddl_info where ID=?", [id])
                     continue
                 else:
                     resume = None
@@ -4904,13 +4859,11 @@ class WebInterface(object):
     ddl_requeue.exposed = True
 
     def queueManage(self):  # **args):
-        myDB = db.DBConnection()
-
         resultlist = "There are currently no items waiting in the Direct Download (DDL) Queue for processing."
-        s_info = myDB.select(
+        s_info = db.rawdb.select_all(
             "SELECT a.ComicName, a.ComicVersion, a.ComicID, a.ComicYear, b.Issue_Number, b.IssueID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID INNER JOIN ddl_info as c ON b.IssueID = c.IssueID"
         )  # WHERE c.status != 'Downloading'")
-        o_info = myDB.select(
+        o_info = db.rawdb.select_all(
             "Select a.ComicName, b.Issue_Number, a.IssueID, a.ComicID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack from oneoffhistory a join snatched b on a.issueid=b.issueid join ddl_info c on b.issueid=c.issueid where b.provider like 'DDL%'"
         )
         tmp_list = {}
@@ -5009,13 +4962,11 @@ class WebInterface(object):
         iDisplayStart = int(iDisplayStart)
         iDisplayLength = int(iDisplayLength)
         filtered = []
-
-        myDB = db.DBConnection()
         resultlist = "There are currently no items waiting in the Direct Download (DDL) Queue for processing."
-        s_info = myDB.select(
+        s_info = db.rawdb.select_all(
             "SELECT a.ComicName, a.ComicVersion, a.ComicID, a.ComicYear, b.Issue_Number, b.IssueID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack, c.link_type FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID INNER JOIN ddl_info as c ON b.IssueID = c.IssueID"
         )  # WHERE c.status != 'Downloading'")
-        o_info = myDB.select(
+        o_info = db.rawdb.select_all(
             "Select a.ComicName, b.Issue_Number, a.IssueID, a.ComicID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack, c.link_type from oneoffhistory a join snatched b on a.issueid=b.issueid join ddl_info c on b.issueid=c.issueid where b.provider like 'DDL%'"
         )
         tmp_list = {}
@@ -5182,7 +5133,6 @@ class WebInterface(object):
 
     def previewRename(self, **args):  # comicid=None, comicidlist=None):
         file_format = comicarr.CONFIG.FILE_FORMAT
-        myDB = db.DBConnection()
         resultlist = []
         for k, v in list(args.items()):
             if any([k == "x", k == "y"]):
@@ -5201,11 +5151,11 @@ class WebInterface(object):
             comicidlist = []
             comicidlist.append(comicid)
         for cid in comicidlist:
-            comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [cid]).fetchone()
+            comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
             comic["ComicLocation"]
             comic["ComicName"]
-            issuelist = myDB.select(
-                "SELECT * FROM issues WHERE ComicID=? AND Location is not NULL ORDER BY ReleaseDate", [str(cid)]
+            issuelist = db.rawdb.select_all(
+                "SELECT * FROM issues WHERE ComicID=? AND Location IS NOT NULL ORDER BY ReleaseDate", [str(cid)]
             )
             if issuelist:
                 for issue in issuelist:
@@ -5243,17 +5193,16 @@ class WebInterface(object):
         else:
             comiclist = []
             comiclist.append(comicid)
-        myDB = db.DBConnection()
         for cid in comiclist:
             filefind = 0
-            comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [cid]).fetchone()
+            comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
             comicdir = comic["ComicLocation"]
             comicname = comic["ComicName"]
             comicyear = comic["ComicYear"]
             extensions = (".cbr", ".cbz", ".cb7")
-            issues = myDB.select("SELECT * FROM issues WHERE ComicID=?", [cid])
+            issues = db.rawdb.select_all("SELECT * FROM issues WHERE ComicID=?", [cid])
             if comicarr.CONFIG.ANNUALS_ON:
-                issues += myDB.select("SELECT * FROM annuals WHERE ComicID=? AND NOT Deleted", [cid])
+                issues += db.rawdb.select_all("SELECT * FROM annuals WHERE ComicID=? AND Deleted != 1", [cid])
             try:
                 if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
                     if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicdir))):
@@ -5320,9 +5269,7 @@ class WebInterface(object):
             "imp_paths": helpers.checked(comicarr.CONFIG.IMP_PATHS),
             "imp_seriesfolders": helpers.checked(comicarr.CONFIG.IMP_SERIESFOLDERS),
         }
-
-        myDB = db.DBConnection()
-        jobresults = myDB.select("SELECT DISTINCT * FROM jobhistory")
+        jobresults = db.rawdb.select_all("SELECT DISTINCT * FROM jobhistory")
         if jobresults is not None:
             tmp = []
             for jb in jobresults:
@@ -5419,7 +5366,6 @@ class WebInterface(object):
                 break
         # logger.fdebug('jobid: %s' % jobid)
         if jobid is not None:
-            myDB = db.DBConnection()
             if mode == "pause":
                 try:
                     comicarr.SCHED.pause_job(jobid)
@@ -5443,7 +5389,7 @@ class WebInterface(object):
                     comicarr.SEARCH_STATUS = "Paused"
                 elif jobid == "weekly":
                     comicarr.WEEKLY_STATUS = "Paused"
-                myDB.upsert("jobhistory", val, ctrl)
+                db.upsert("jobhistory", val, ctrl)
             elif mode == "resume":
                 try:
                     comicarr.SCHED.resume_job(jobid)
@@ -5452,7 +5398,7 @@ class WebInterface(object):
                 logger.info("[%s] Resumed scheduled runtime." % job)
                 ctrl = {"JobName": job}
                 val = {"Status": "Waiting"}
-                myDB.upsert("jobhistory", val, ctrl)
+                db.upsert("jobhistory", val, ctrl)
                 if jobid == "rss":
                     comicarr.CONFIG.ENABLE_RSS = True
                     comicarr.RSS_STATUS = "Waiting"
@@ -5520,20 +5466,20 @@ class WebInterface(object):
 
     def manageIssues(self, **kwargs):
         status = kwargs["status"]
-        myDB = db.DBConnection()
         if comicarr.CONFIG.ANNUALS_ON:
-            issues = myDB.select("SELECT * from issues WHERE Status=? AND ComicName NOT LIKE '%Annual%'", [status])
-            issues += myDB.select("SELECT * from annuals WHERE Status=? AND NOT Deleted", [status])
+            issues = db.rawdb.select_all(
+                "SELECT * from issues WHERE Status=? AND ComicName NOT LIKE '%Annual%'", [status]
+            )
+            issues += db.rawdb.select_all("SELECT * from annuals WHERE Status=? AND Deleted != 1", [status])
         else:
-            issues = myDB.select("SELECT * from issues WHERE Status=?", [status])
+            issues = db.rawdb.select_all("SELECT * from issues WHERE Status=?", [status])
         return _serve_spa_index()
 
     manageIssues.exposed = True
 
     def manageFailed(self):
         results = []
-        myDB = db.DBConnection()
-        failedlist = myDB.select("SELECT * from Failed")
+        failedlist = db.rawdb.select_all("SELECT * from Failed")
         for f in failedlist:
             if f["Provider"] == "Public Torrents":
                 link = helpers.torrent_create(f["Provider"], f["ID"])
@@ -5569,8 +5515,7 @@ class WebInterface(object):
     cblimport.exposed = True
 
     def flushImports(self):
-        myDB = db.DBConnection()
-        myDB.action("DELETE from importresults")
+        db.raw_execute("DELETE from importresults")
         logger.info("Flushing all Import Results and clearing the tables")
 
     flushImports.exposed = True
@@ -5578,11 +5523,10 @@ class WebInterface(object):
     def markImports(self, action=None, **args):
         import unicodedata
 
-        myDB = db.DBConnection()
         comicstoimport = []
         if action == "massimport":
             logger.info("Initiating mass import.")
-            cnames = myDB.select(
+            cnames = db.rawdb.select_all(
                 "SELECT ComicName, ComicID, Volume, DynamicName from importresults WHERE Status='Not Imported' GROUP BY DynamicName, Volume"
             )
             for cname in cnames:
@@ -5647,13 +5591,15 @@ class WebInterface(object):
                     DynamicName = v
                     if volume is None or volume == "None":
                         logger.info("Removing " + ComicName + " from the Import list")
-                        myDB.action(
-                            'DELETE from importresults WHERE DynamicName=? AND (Volume is NULL OR Volume="None")',
+                        db.raw_execute(
+                            "DELETE from importresults WHERE DynamicName=? AND (Volume IS NULL OR Volume='None')",
                             [DynamicName],
                         )
                     else:
                         logger.info("Removing " + ComicName + " [" + str(volume) + "] from the Import list")
-                        myDB.action("DELETE from importresults WHERE DynamicName=? AND Volume=?", [DynamicName, volume])
+                        db.raw_execute(
+                            "DELETE from importresults WHERE DynamicName=? AND Volume=?", [DynamicName, volume]
+                        )
 
             if len(comicstoimport) > 0:
                 logger.info("Initiating selected import mode for " + str(len(comicstoimport)) + " series.")
@@ -5666,7 +5612,6 @@ class WebInterface(object):
     markImports.exposed = True
 
     def markComics(self, action=None, **args):
-        myDB = db.DBConnection()
         comicsToAdd = []
         clist = []
         for k, v in list(args.items()):
@@ -5695,10 +5640,10 @@ class WebInterface(object):
                     + str(cl["ComicID"])
                     + "] form the DB."
                 )
-                myDB.action("DELETE from comics WHERE ComicID=?", [cl["ComicID"]])
-                myDB.action("DELETE from issues WHERE ComicID=?", [cl["ComicID"]])
+                db.raw_execute("DELETE from comics WHERE ComicID=?", [cl["ComicID"]])
+                db.raw_execute("DELETE from issues WHERE ComicID=?", [cl["ComicID"]])
                 if comicarr.CONFIG.ANNUALS_ON:
-                    myDB.action("DELETE from annuals WHERE ComicID=?", [cl["ComicID"]])
+                    db.raw_execute("DELETE from annuals WHERE ComicID=?", [cl["ComicID"]])
                 logger.info(
                     "[MANAGE COMICS][DELETION] Successfully deleted "
                     + cl["ComicName"]
@@ -5709,12 +5654,12 @@ class WebInterface(object):
             elif action == "pause":
                 controlValueDict = {"ComicID": cl["ComicID"]}
                 newValueDict = {"Status": "Paused"}
-                myDB.upsert("comics", newValueDict, controlValueDict)
+                db.upsert("comics", newValueDict, controlValueDict)
                 logger.info("[MANAGE COMICS][PAUSE] " + cl["ComicName"] + " has now been put into a Paused State.")
             elif action == "resume":
                 controlValueDict = {"ComicID": cl["ComicID"]}
                 newValueDict = {"Status": "Active"}
-                myDB.upsert("comics", newValueDict, controlValueDict)
+                db.upsert("comics", newValueDict, controlValueDict)
                 logger.info("[MANAGE COMICS][RESUME] " + cl["ComicName"] + " has now been put into a Resumed State.")
             elif action == "recheck" or action == "metatag":
                 comicsToAdd.append(
@@ -5758,16 +5703,14 @@ class WebInterface(object):
         if issueIds is None:
             self.schedulerForceCheck(jobid="search")
         else:
-            myDB = db.DBConnection()
-
             if not isinstance(issueIds, list):
                 issueIds = [issueIds]
 
             for issueId in issueIds:
-                issue_data = myDB.selectone(
+                issue_data = db.rawdb.select_one(
                     "SELECT C.Type, C.ComicYear, I.ComicName, I.Issue_Number, I.ComicID, I.IssueID FROM comics as C INNER JOIN issues as I on C.ComicID = I.ComicID WHERE I.IssueID=?",
                     [issueId],
-                ).fetchone()
+                )
                 passInfo = {
                     "issueid": issueId,
                     "comicname": issue_data["ComicName"],
@@ -5854,8 +5797,7 @@ class WebInterface(object):
                     % (str(len(ComicID)), comicinfo["ComicName"], comicinfo["ComicYear"]),
                 }
         else:
-            myDB = db.DBConnection()
-            cline = myDB.selectone("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID]).fetchone()
+            cline = db.rawdb.select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
             if cline:
                 updater.forceRescan(ComicID)
                 comicarr.GLOBAL_MESSAGES = {
@@ -5882,8 +5824,7 @@ class WebInterface(object):
     history.exposed = True
 
     def loadhistory(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
-        myDB = db.DBConnection()
-        r_list = myDB.select(
+        r_list = db.rawdb.select_all(
             "select b.StoryArcID, b.StoryArc, b.IssueArcID, a.*, c.weeknumber, c.year from snatched a left join storyarcs b on b.issueid=a.issueid left join oneoffhistory c on a.issueid=c.issueid order by DateAdded DESC"
         )
         iDisplayStart = int(iDisplayStart)
@@ -5908,9 +5849,9 @@ class WebInterface(object):
             }
 
             if rt["IssueID"] is not None and all(["_" in rt["IssueID"], rt["StoryArc"] is None]):
-                tmp = myDB.selectone(
+                tmp = db.rawdb.select_one(
                     "Select StoryArc FROM storyarcs where IssueArcID=?", [re.sub("S", "", rt["IssueID"])]
-                ).fetchone()
+                )
                 if tmp:
                     tmplist["StoryArc"] = tmp["StoryArc"]
 
@@ -6008,8 +5949,7 @@ class WebInterface(object):
     reOrder.exposed = True
 
     def readlist(self):
-        myDB = db.DBConnection()
-        issuelist = myDB.select("SELECT * from readlist")
+        issuelist = db.rawdb.select_all("SELECT * from readlist")
         # tuple this
         readlist = []
         c_added = 0  # count of issues that have been added to the readlist and remain in that status ( meaning not sent / read )
@@ -6050,8 +5990,7 @@ class WebInterface(object):
     readlist.exposed = True
 
     def clear_arcstatus(self, issuearcid=None):
-        myDB = db.DBConnection()
-        myDB.upsert("storyarcs", {"Status": "Skipped"}, {"IssueArcID": issuearcid})
+        db.upsert("storyarcs", {"Status": "Skipped"}, {"IssueArcID": issuearcid})
         logger.info("Status set to Skipped.")
 
     clear_arcstatus.exposed = True
@@ -6068,24 +6007,23 @@ class WebInterface(object):
     load_arc_details.exposed = True
 
     def storyarc_main(self, arcid=None, **kwargs):
-        myDB = db.DBConnection()
         arclist = []
         if arcid is None:
-            alist = myDB.select(
-                "SELECT * from storyarcs WHERE ComicName is not Null GROUP BY StoryArcID"
+            alist = db.rawdb.select_all(
+                "SELECT * from storyarcs WHERE ComicName IS NOT NULL GROUP BY StoryArcID"
             )  # COLLATE NOCASE")
         else:
-            alist = myDB.select(
-                "SELECT * from storyarcs WHERE ComicName is not Null AND StoryArcID=? GROUP BY StoryArcID", [arcid]
+            alist = db.rawdb.select_all(
+                "SELECT * from storyarcs WHERE ComicName IS NOT NULL AND StoryArcID=? GROUP BY StoryArcID", [arcid]
             )  # COLLATE NOCASE")
 
         for al in alist:
-            totalissues = myDB.select(
-                "SELECT COUNT(*) as count from storyarcs WHERE StoryARcID=? AND NOT Manual is 'deleted'",
+            totalissues = db.rawdb.select_all(
+                "SELECT COUNT(*) as count from storyarcs WHERE StoryARcID=? AND Manual != 'deleted'",
                 [al["StoryArcID"]],
             )
 
-            havecnt = myDB.select(
+            havecnt = db.rawdb.select_all(
                 "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND (Status='Downloaded' or Status='Archived')",
                 [al["StoryArcID"]],
             )
@@ -6124,15 +6062,14 @@ class WebInterface(object):
     storyarc_main.exposed = True
 
     def detailStoryArc(self, StoryArcID, StoryArcName=None, CV_ArcID=None, **kwargs):
-        myDB = db.DBConnection()
         if StoryArcID is None and CV_ArcID is not None:
-            arcinfo = myDB.select(
-                "SELECT * from storyarcs WHERE CV_ArcID=? and NOT Manual IS 'deleted' order by ReadingOrder ASC",
+            arcinfo = db.rawdb.select_all(
+                "SELECT * from storyarcs WHERE CV_ArcID=? and Manual != 'deleted' order by ReadingOrder ASC",
                 [CV_ArcID],
             )
         else:
-            arcinfo = myDB.select(
-                "SELECT * from storyarcs WHERE StoryArcID=? and NOT Manual IS 'deleted' order by ReadingOrder ASC",
+            arcinfo = db.rawdb.select_all(
+                "SELECT * from storyarcs WHERE StoryArcID=? and Manual != 'deleted' order by ReadingOrder ASC",
                 [StoryArcID],
             )
         issref = []
@@ -6167,8 +6104,8 @@ class WebInterface(object):
 
         if len(issref) > 0:
             helpers.updatearc_locs(StoryArcID, issref)
-            arcinfo = myDB.select(
-                "SELECT * from storyarcs WHERE StoryArcID=? AND NOT Manual IS 'deleted' order by ReadingOrder ASC",
+            arcinfo = db.rawdb.select_all(
+                "SELECT * from storyarcs WHERE StoryArcID=? AND Manual != 'deleted' order by ReadingOrder ASC",
                 [StoryArcID],
             )
 
@@ -6279,10 +6216,8 @@ class WebInterface(object):
         if valid_readingorder is None:
             logger.error("invalid readingorder supplied. Rejecting due to sequencing error")
             return
-
-        myDB = db.DBConnection()
-        readchk = myDB.select(
-            "SELECT * FROM storyarcs WHERE StoryArcID=? AND NOT Manual is 'deleted' ORDER BY ReadingOrder", [storyarcid]
+        readchk = db.rawdb.select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' ORDER BY ReadingOrder", [storyarcid]
         )
         if readchk is None:
             logger.error("Cannot edit this for some reason (Cannot locate Storyarc) - something is wrong.")
@@ -6369,7 +6304,7 @@ class WebInterface(object):
 
                 r1_new = {"ReadingOrder": rl["ReadingOrder"]}
 
-                myDB.upsert("storyarcs", r1_new, rl_ctrl)
+                db.upsert("storyarcs", r1_new, rl_ctrl)
             except Exception as e:
                 logger.warn("error: %s" % (e,))
 
@@ -6392,12 +6327,11 @@ class WebInterface(object):
 
     def markreads(self, action=None, **args):
         sendtablet_queue = []
-        myDB = db.DBConnection()
         for IssueID in args:
             if IssueID is None or "issue_table" in IssueID or "issue_table_length" in IssueID:
                 continue
             else:
-                mi = myDB.selectone("SELECT * FROM readlist WHERE IssueID=?", [IssueID]).fetchone()
+                mi = db.rawdb.select_one("SELECT * FROM readlist WHERE IssueID=?", [IssueID])
                 if mi is None:
                     continue
                 else:
@@ -6416,7 +6350,7 @@ class WebInterface(object):
                     read.addtoreadlist()
                 elif action == "Remove":
                     logger.fdebug("Deleting %s #%s" % (comicname, mi["Issue_Number"]))
-                    myDB.action("DELETE from readlist WHERE IssueID=?", [IssueID])
+                    db.raw_execute("DELETE from readlist WHERE IssueID=?", [IssueID])
                 elif action == "Send":
                     logger.fdebug("Queuing " + mi["Location"] + " to send to tablet.")
                     sendtablet_queue.append({"filepath": mi["Location"], "issueid": IssueID, "comicid": mi["ComicID"]})
@@ -6429,33 +6363,32 @@ class WebInterface(object):
     def removefromreadlist(
         self, IssueID=None, StoryArcID=None, IssueArcID=None, AllRead=None, ArcName=None, delete_type=None, manual=None
     ):
-        myDB = db.DBConnection()
         if IssueID:
-            myDB.action("DELETE from readlist WHERE IssueID=?", [IssueID])
+            db.raw_execute("DELETE from readlist WHERE IssueID=?", [IssueID])
             logger.info("[DELETE-READ-ISSUE] Removed " + str(IssueID) + " from Reading List")
         elif StoryArcID:
             logger.info("[DELETE-ARC] Removing " + ArcName + " from your Story Arc Watchlist")
-            myDB.action("DELETE from storyarcs WHERE StoryArcID=?", [StoryArcID])
+            db.raw_execute("DELETE from storyarcs WHERE StoryArcID=?", [StoryArcID])
             # ArcName should be an optional flag so that it doesn't remove arcs that have identical naming (ie. Secret Wars)
             if delete_type:
                 if ArcName:
                     logger.info("[DELETE-STRAGGLERS-OPTION] Removing all traces of arcs with the name of : " + ArcName)
-                    myDB.action("DELETE from storyarcs WHERE StoryArc=?", [ArcName])
+                    db.raw_execute("DELETE from storyarcs WHERE StoryArc=?", [ArcName])
                 else:
                     logger.warn("[DELETE-STRAGGLERS-OPTION] No ArcName provided - just deleting by Story Arc ID")
             stid = "S" + str(StoryArcID) + "_%"
             # delete from the nzblog so it will always find the most current downloads. Nzblog has issueid, but starts with ArcID
-            myDB.action("DELETE from nzblog WHERE IssueID LIKE ?", [stid])
+            db.raw_execute("DELETE from nzblog WHERE IssueID LIKE ?", [stid])
             logger.info("[DELETE-ARC] Removed " + str(StoryArcID) + " from Story Arcs.")
         elif IssueArcID:
             if manual == "added":
-                myDB.action("DELETE from storyarcs WHERE IssueArcID=?", [IssueArcID])
+                db.raw_execute("DELETE from storyarcs WHERE IssueArcID=?", [IssueArcID])
             else:
-                myDB.upsert("storyarcs", {"Manual": "deleted"}, {"IssueArcID": IssueArcID})
-            # myDB.action('DELETE from storyarcs WHERE IssueArcID=?', [IssueArcID])
+                db.upsert("storyarcs", {"Manual": "deleted"}, {"IssueArcID": IssueArcID})
+            # db.raw_execute('DELETE from storyarcs WHERE IssueArcID=?', [IssueArcID])
             logger.info("[DELETE-ARC] Removed " + str(IssueArcID) + " from the Story Arc.")
         elif AllRead:
-            myDB.action("DELETE from readlist WHERE Status='Read'")
+            db.raw_execute("DELETE from readlist WHERE Status='Read'")
             logger.info("[DELETE-ALL-READ] Removed All issues that have been marked as Read from Reading List")
 
     removefromreadlist.exposed = True
@@ -6479,8 +6412,6 @@ class WebInterface(object):
 
     def importReadlist(self, filename):
         from xml.dom.minidom import parseString
-
-        myDB = db.DBConnection()
 
         file = open(filename)
         data = file.read()
@@ -6516,15 +6447,15 @@ class WebInterface(object):
                 "ReadingOrder": i,
                 "TotalIssues": len(tracks),
             }
-            myDB.upsert("storyarcs", NewVals, CtrlVal)
+            db.upsert("storyarcs", NewVals, CtrlVal)
             i += 1
 
         # Now we either load in all of the issue data for series' already on the watchlist,
         # or we dynamically load them from CV and write to the db.
 
         # this loads in all the series' that have multiple entries in the current story arc.
-        Arc_MultipleSeries = myDB.select(
-            "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID is NULL GROUP BY ComicName HAVING (COUNT(ComicName) > 1)",
+        Arc_MultipleSeries = db.rawdb.select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID IS NULL GROUP BY ComicName HAVING (COUNT(ComicName) > 1)",
             [storyarcid],
         )
 
@@ -6554,7 +6485,7 @@ class WebInterface(object):
                 )  # Arc_MS['SeriesYear']})
 
             for MSCheck in AMS:
-                thischk = myDB.select(
+                thischk = db.rawdb.select_all(
                     "SELECT * FROM storyarcs WHERE ComicName=? AND SeriesYear=?",
                     [MSCheck["ComicName"], MSCheck["SeriesYear"]],
                 )
@@ -6580,8 +6511,8 @@ class WebInterface(object):
                 # logger.fdebug(str(MSCheck))
 
         # now we load in the list without the multiple entries (ie. series that appear only once in the cbl and don't have an IssueID)
-        Arc_Issues = myDB.select(
-            "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID is NULL GROUP BY ComicName HAVING (COUNT(ComicName) = 1)",
+        Arc_Issues = db.rawdb.select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID IS NULL GROUP BY ComicName HAVING (COUNT(ComicName) = 1)",
             [storyarcid],
         )
         if Arc_Issues is None:
@@ -6625,7 +6556,7 @@ class WebInterface(object):
                 issues = comicarr.cv.getComic(sr["comicid"], "issue")
                 isscnt = len(issues["issuechoice"])
                 logger.info("isscnt : " + str(isscnt))
-                chklist = myDB.select(
+                chklist = db.rawdb.select_all(
                     "SELECT * FROM storyarcs WHERE StoryArcID=? AND ComicName=? AND SeriesYear=?",
                     [duh["StoryArcID"], duh["ComicName"], duh["SeriesYear"]],
                 )
@@ -6688,18 +6619,17 @@ class WebInterface(object):
                     "ReleaseDate": AD["Store_Date"],
                 }
 
-                myDB.upsert("storyarcs", newVals, newCtrl)
+                db.upsert("storyarcs", newVals, newCtrl)
 
         raise cherrypy.HTTPRedirect("detailStoryArc?StoryArcID=%s&StoryArcName=%s" % (storyarcid, storyarc))
 
     importReadlist.exposed = True
 
     def ArcWatchlist(self, StoryArcID=None):
-        myDB = db.DBConnection()
         if StoryArcID:
-            ArcWatch = myDB.select("SELECT * FROM storyarcs WHERE StoryArcID=?", [StoryArcID])
+            ArcWatch = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [StoryArcID])
         else:
-            ArcWatch = myDB.select("SELECT * FROM storyarcs")
+            ArcWatch = db.rawdb.select_all("SELECT * FROM storyarcs")
 
         if ArcWatch is None:
             logger.info("No Story Arcs to search")
@@ -6777,7 +6707,9 @@ class WebInterface(object):
                 if comicarr.CONFIG.ANNUALS_ON:
                     dyn_name = re.sub("2021annual", "", dyn_name).strip()
                     dyn_name = re.sub("annual", "", dyn_name).strip()
-                comics = myDB.select("SELECT * FROM comics WHERE DynamicComicName IN (?) COLLATE NOCASE", [dyn_name])
+                comics = db.select_all(
+                    sa_select(_t.comics).where(db.ci_compare(_t.comics.c.DynamicComicName, dyn_name))
+                )
 
                 for comic in comics:
                     mod_watch = comic["DynamicComicName"]  # is from the comics db
@@ -6795,22 +6727,22 @@ class WebInterface(object):
                             if "." not in str(GCDissue):
                                 GCDissue = "%s.00" % GCDissue
                             logger.fdebug("issue converted to %s" % GCDissue)
-                            isschk = myDB.selectone(
+                            isschk = db.rawdb.select_one(
                                 "SELECT * FROM issues WHERE Issue_Number=? AND ComicID=?",
                                 [str(GCDissue), comic["ComicID"]],
-                            ).fetchone()
+                            )
                         else:
                             issue_int = helpers.issuedigits(arc["IssueNumber"])
                             logger.fdebug("int_issue = %s" % issue_int)
                             if comicarr.CONFIG.ANNUALS_ON and "annual" in arc["ComicName"].lower():
                                 logger.fdebug("annual checking: %s -- %s" % (issue_int, comic["ComicID"]))
-                                isschk = myDB.select(
+                                isschk = db.rawdb.select_all(
                                     "SELECT ComicID, IssueID, IssueDate, ReleaseDate, ReleaseComicName FROM annuals WHERE Int_IssueNumber=? AND ComicID=?",
                                     [issue_int, comic["ComicID"]],
                                 )
                                 match_annual = True
                             else:
-                                isschk = myDB.select(
+                                isschk = db.rawdb.select_all(
                                     "SELECT ComicID, IssueID, IssueDate, ReleaseDate, ComicName FROM issues WHERE Int_IssueNumber=? AND ComicID=?",
                                     [issue_int, comic["ComicID"]],
                                 )  # AND STATUS !='Snatched'", [issue_int, comic['ComicID']]).fetchone()
@@ -6965,7 +6897,7 @@ class WebInterface(object):
                                 newStatus = "Downloaded"
                                 newVal = {"Status": newStatus, "Location": loc_path}  # dfilename}
                                 ctrlVal = {"IssueArcID": arc["IssueArcID"]}
-                                myDB.upsert("storyarcs", newVal, ctrlVal)
+                                db.upsert("storyarcs", newVal, ctrlVal)
                                 break
                             else:
                                 newStatus = "Skipped"
@@ -6974,12 +6906,12 @@ class WebInterface(object):
                             # this will set all None Status' to Skipped (at least initially)
                             newVal = {"Status": "Skipped"}
                             ctrlVal = {"IssueArcID": arc["IssueArcID"]}
-                            myDB.upsert("storyarcs", newVal, ctrlVal)
+                            db.upsert("storyarcs", newVal, ctrlVal)
                         continue
 
                 newVal = {"Status": "Skipped"}
                 ctrlVal = {"IssueArcID": arc["IssueArcID"]}
-                myDB.upsert("storyarcs", newVal, ctrlVal)
+                db.upsert("storyarcs", newVal, ctrlVal)
 
             logger.fdebug(
                 "%s issues currently exist on your watchlist that are within this arc. Analyzing..." % len(arc_match)
@@ -6987,15 +6919,15 @@ class WebInterface(object):
             for m_arc in arc_match:
                 # now we cycle through the issues looking for a match.
                 if m_arc["match_annual"]:
-                    issue = myDB.selectone(
+                    issue = db.rawdb.select_one(
                         "SELECT a.Issue_Number, a.Status, a.IssueID, a.ComicName, a.IssueDate, a.Location, b.readingorder FROM annuals AS a INNER JOIN storyarcs AS b ON a.comicid = b.comicid where a.comicid=? and a.issue_number=? and a.issueid=?",
                         [m_arc["match_id"], m_arc["match_issue"], m_arc["match_issueid"]],
-                    ).fetchone()
+                    )
                 else:
-                    issue = myDB.selectone(
+                    issue = db.rawdb.select_one(
                         "SELECT a.Issue_Number, a.Status, a.IssueID, a.ComicName, a.IssueDate, a.Location, b.readingorder FROM issues AS a INNER JOIN storyarcs AS b ON a.comicid = b.comicid where a.comicid=? and a.issue_number=?",
                         [m_arc["match_id"], m_arc["match_issue"]],
-                    ).fetchone()
+                    )
                 if issue is None:
                     pass
                 else:
@@ -7019,7 +6951,7 @@ class WebInterface(object):
                                     "SeriesYear": m_arc["match_seriesyear"],
                                     "ComicID": m_arc["match_id"],
                                 }
-                                myDB.upsert("readlist", shownewVal, showctrlVal)
+                                db.upsert("readlist", shownewVal, showctrlVal)
 
                             logger.fdebug("Already have %s : #%s" % (issue["ComicName"], issue["Issue_Number"]))
                             if issue["Location"] is not None:
@@ -7122,7 +7054,7 @@ class WebInterface(object):
                             ctrlVal = {"IssueArcID": m_arc["match_issuearcid"]}
                             newVal = {"Status": issue["Status"], "IssueID": issue["IssueID"], "Location": location_path}
 
-                            myDB.upsert("storyarcs", newVal, ctrlVal)
+                            db.upsert("storyarcs", newVal, ctrlVal)
 
                         else:
                             logger.fdebug("We don't have %s : #%s" % (issue["ComicName"], issue["Issue_Number"]))
@@ -7131,7 +7063,7 @@ class WebInterface(object):
                                 "Status": issue["Status"],  # "Wanted",
                                 "IssueID": issue["IssueID"],
                             }
-                            myDB.upsert("storyarcs", newVal, ctrlVal)
+                            db.upsert("storyarcs", newVal, ctrlVal)
                             logger.info(
                                 "Marked %s :#%s as %s" % (issue["ComicName"], issue["Issue_Number"], issue["Status"])
                             )
@@ -7154,18 +7086,17 @@ class WebInterface(object):
         # this will queue up (ie. make 'Wanted') issues in a given Story Arc that are 'Not Watched'
         stupdate = []
         add_to_search_queue = []
-        myDB = db.DBConnection()
-        wantedlist = myDB.select(
+        wantedlist = db.rawdb.select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
             [StoryArcID],
         )
         if wantedlist is not None:
             for want in wantedlist:
                 print(want)
-                issuechk = myDB.selectone(
+                issuechk = db.rawdb.select_one(
                     "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                     [want["IssueArcID"]],
-                ).fetchone()
+                )
                 SARC = want["StoryArc"]
                 IssueArcID = want["IssueArcID"]
                 want["Publisher"]
@@ -7234,14 +7165,16 @@ class WebInterface(object):
                 )
                 stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
-        watchlistchk = myDB.select("SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID])
+        watchlistchk = db.rawdb.select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID]
+        )
         if watchlistchk is not None:
             for watchchk in watchlistchk:
                 logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
-                issuechk = myDB.selectone(
+                issuechk = db.rawdb.select_one(
                     "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                     [watchchk["IssueArcID"]],
-                ).fetchone()
+                )
                 SARC = watchchk["StoryArc"]
                 IssueArcID = watchchk["IssueArcID"]
                 if issuechk is None:
@@ -7313,10 +7246,10 @@ class WebInterface(object):
             for st in stupdate:
                 ctrlVal = {"IssueArcID": st["IssueArcID"]}
                 newVal = {"Status": st["Status"]}
-                myDB.upsert("storyarcs", newVal, ctrlVal)
+                db.upsert("storyarcs", newVal, ctrlVal)
                 if st["IssueID"]:
                     ctrlVal = {"IssueID": st["IssueID"]}
-                    myDB.upsert("issues", newVal, ctrlVal)
+                    db.upsert("issues", newVal, ctrlVal)
         comicarr.SEARCH_QUEUE.put((passinfo))
 
     ReadGetWanted.exposed = True
@@ -7324,9 +7257,9 @@ class WebInterface(object):
     def ReadMassCopy(self, StoryArcID, StoryArcName):
         # this copies entire story arcs into the /cache/<storyarc> folder
         # alternatively, it will copy the issues individually directly to a 3rd party device (ie.tablet)
-
-        myDB = db.DBConnection()
-        copylist = myDB.select("SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID])
+        copylist = db.rawdb.select_all(
+            "SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID]
+        )
         if copylist is None:
             logger.fdebug("You don't have any issues from " + StoryArcName + ". Aborting Mass Copy.")
             return
@@ -7463,25 +7396,23 @@ class WebInterface(object):
     getConfig.exposed = True
 
     def clearhistory(self, status_type=None):
-        myDB = db.DBConnection()
         if status_type == "all":
             logger.info("Clearing all history")
-            myDB.action("DELETE from snatched")
+            db.raw_execute("DELETE from snatched")
         else:
             logger.info("Clearing history where status is %s" % status_type)
-            myDB.action("DELETE from snatched WHERE Status=?", [status_type])
+            db.raw_execute("DELETE from snatched WHERE Status=?", [status_type])
             if status_type == "Processed":
-                myDB.action("DELETE from snatched WHERE Status='Post-Processed'")
+                db.raw_execute("DELETE from snatched WHERE Status='Post-Processed'")
         raise cherrypy.HTTPRedirect("history")
 
     clearhistory.exposed = True
 
     def downloadLocal(self, IssueID=None, IssueArcID=None, ReadOrder=None, dir=None):
-        myDB = db.DBConnection()
-        issueDL = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [IssueID]).fetchone()
+        issueDL = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
         comicid = issueDL["ComicID"]
         # print ("comicid: " + str(comicid))
-        comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [comicid]).fetchone()
+        comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
         # ---issue info
         comicname = comic["ComicName"]
         issuenum = issueDL["Issue_Number"]
@@ -7512,7 +7443,7 @@ class WebInterface(object):
                 dstPATH = os.path.join(comicarr.CONFIG.CACHE_DIR, ARCissueFILE)
                 ISnewValueDict = {"inCacheDIR": "True", "Location": issueFILE}
 
-        #            issueDL = myDB.action("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID]).fetchone()
+        #            issueDL = db.raw_execute("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID]).fetchone()
         #            storyarcid = issueDL['StoryArcID']
         #            #print ("comicid: " + str(comicid))
         #            issueLOC = comicarr.CONFIG.DESTINATION_DIR
@@ -7542,12 +7473,12 @@ class WebInterface(object):
             "SeriesYear": seriesyear,
             "IssueDate": issuedate,
         }
-        myDB.upsert("readlist", RLnewValueDict, controlValueDict)
-        myDB.upsert("issues", ISnewValueDict, controlValueDict)
+        db.upsert("readlist", RLnewValueDict, controlValueDict)
+        db.upsert("issues", ISnewValueDict, controlValueDict)
         if IssueArcID:
             controlValueD = {"IssueArcID": IssueArcID}
             newValueDict = {"inCacheDIR": "True", "Location": ARCissueFILE}
-            myDB.upsert("storyarcs", newValueDict, controlValueD)
+            db.upsert("storyarcs", newValueDict, controlValueD)
         # print("DB updated - Download link now enabled.")
 
     downloadLocal.exposed = True
@@ -7560,8 +7491,6 @@ class WebInterface(object):
 
         # this will download all downloaded comics from the weekly pull list and throw them
         # into a 'weekly' pull folder for those wanting to transfer directly to a 3rd party device.
-        db.DBConnection()
-
         if comicarr.CONFIG.WEEKFOLDER:
             if comicarr.CONFIG.WEEKFOLDER_LOC:
                 dstdir = comicarr.CONFIG.WEEKFOLDER_LOC
@@ -7692,9 +7621,8 @@ class WebInterface(object):
     ThreadcomicScan.exposed = True
 
     def importResults(self):
-        myDB = db.DBConnection()
-        results = myDB.select(
-            "SELECT * FROM importresults WHERE WatchMatch is Null OR WatchMatch LIKE 'C%' group by DynamicName, Volume, Status COLLATE NOCASE"
+        results = db.rawdb.select_all(
+            "SELECT * FROM importresults WHERE WatchMatch IS NULL OR WatchMatch LIKE 'C%' group by DynamicName, Volume, Status"
         )
         # this is to get the count of issues;
         res = []
@@ -7704,20 +7632,20 @@ class WebInterface(object):
         for x in res:
             if x["Volume"]:
                 # because Volume gets stored as NULL in the db, we need to account for it coming into here as a possible None value.
-                countthis = myDB.select(
+                countthis = db.rawdb.select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume=? AND Status=?",
                     [x["DynamicName"], x["Volume"], x["Status"]],
                 )
-                countannuals = myDB.select(
+                countannuals = db.rawdb.select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume=? AND IssueNumber LIKE 'Annual%' AND Status=?",
                     [x["DynamicName"], x["Volume"], x["Status"]],
                 )
             else:
-                countthis = myDB.select(
+                countthis = db.rawdb.select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume IS NULL AND Status=?",
                     [x["DynamicName"], x["Status"]],
                 )
-                countannuals = myDB.select(
+                countannuals = db.rawdb.select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume IS NULL AND IssueNumber LIKE 'Annual%' AND Status=?",
                     [x["DynamicName"], x["Status"]],
                 )
@@ -7745,17 +7673,16 @@ class WebInterface(object):
     def ImportFilelisting(self, comicname, dynamicname, volume):
         comicname = urllib.parse.unquote_plus(comicname)
         dynamicname = urllib.parse.unquote_plus(dynamicname)  # urllib.unquote(dynamicname).decode('utf-8')
-        myDB = db.DBConnection()
         if volume is None or volume == "None":
-            results = myDB.select(
-                "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
+            results = db.rawdb.select_all(
+                "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                 [dynamicname],
             )
         else:
             if not volume.lower().startswith("v"):
                 volume = "v" + str(volume)
-            results = myDB.select(
-                "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
+            results = db.rawdb.select_all(
+                "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                 [dynamicname, volume],
             )
 
@@ -7777,19 +7704,18 @@ class WebInterface(object):
     ImportFilelisting.exposed = True
 
     def deleteimport(self, ComicName, volume, DynamicName, Status):
-        myDB = db.DBConnection()
         if volume is None or volume == "None":
             logname = ComicName
         else:
             logname = ComicName + "[" + str(volume) + "]"
         logger.info("Removing import data for Comic: " + logname)
         if volume is None or volume == "None":
-            myDB.action(
-                'DELETE from importresults WHERE DynamicName=? AND Status=? AND (Volume is NULL OR Volume="None")',
+            db.raw_execute(
+                "DELETE from importresults WHERE DynamicName=? AND Status=? AND (Volume IS NULL OR Volume='None')",
                 [DynamicName, Status],
             )
         else:
-            myDB.action(
+            db.raw_execute(
                 "DELETE from importresults WHERE DynamicName=? AND Volume=? AND Status=?", [DynamicName, volume, Status]
             )
         raise cherrypy.HTTPRedirect("importResults")
@@ -7813,8 +7739,6 @@ class WebInterface(object):
             )
             return
         importlock = threading.Lock()
-        myDB = db.DBConnection()
-
         if mimp == 0:
             comiclist = []
             comiclist.append({"ComicName": ComicName, "DynamicName": dynamicname, "Volume": volume, "ComicID": comicid})
@@ -7832,8 +7756,8 @@ class WebInterface(object):
                 if comicinfo["ComicID"] is None or comicinfo["ComicID"] == "None":
                     continue
                 else:
-                    results = myDB.select(
-                        "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND ComicID=?",
+                    results = db.rawdb.select_all(
+                        "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND ComicID=?",
                         [comicinfo["ComicID"]],
                     )
                     files = []
@@ -7882,7 +7806,7 @@ class WebInterface(object):
                     #                  "IssueNumber":       comicinfo['IssueNumber'],
                     #                  "ComicName":         comicinfo['ComicName'],
                     #                  "DynamicName":       comicinfo['DynamicName']}
-                    #        myDB.upsert("importresults", newVal, ctrlVal)
+                    #        db.upsert("importresults", newVal, ctrlVal)
                     logger.info(
                         "[IMPORT] Successfully verified import sequence data for : %s. Currently adding to your watchlist."
                         % comicinfo["ComicName"]
@@ -7914,14 +7838,14 @@ class WebInterface(object):
                     logger.fdebug("[IMPORT] [none] dynamicname: %s" % DynamicName)
                     logger.fdebug("[IMPORT] [none] volume: None")
 
-                    results = myDB.select(
+                    results = db.rawdb.select_all(
                         "SELECT * FROM importresults WHERE DynamicName=? AND Volume IS NULL AND Status='Not Imported'",
                         [DynamicName],
                     )
                 else:
                     logger.fdebug("[IMPORT] [!none] dynamicname: %s" % DynamicName)
                     logger.fdebug("[IMPORT] [!none] volume: %s" % volume)
-                    results = myDB.select(
+                    results = db.rawdb.select_all(
                         "SELECT * FROM importresults WHERE DynamicName=? AND Volume=? AND Status='Not Imported'",
                         [DynamicName, volume],
                     )
@@ -7961,7 +7885,7 @@ class WebInterface(object):
                         # since it's already in the watchlist, we just need to move the files and re-run the filechecker.
                         # self.refreshArtist(comicid=comicid,imported='yes')
                         if comicarr.CONFIG.IMP_MOVE:
-                            comloc = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [comicid]).fetchone()
+                            comloc = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
 
                             movedata_comicid = comicid
                             movedata_comiclocation = comloc["ComicLocation"]
@@ -8219,7 +8143,7 @@ class WebInterface(object):
                     newVal = {"SRID": SRID, "Status": "Manual Intervention", "ComicName": ComicName}
                 else:
                     newVal = {"SRID": SRID, "Status": "Importing", "ComicName": ComicName}
-                myDB.upsert("importresults", newVal, ctrlVal)
+                db.upsert("importresults", newVal, ctrlVal)
 
                 if resultset == 0:
                     if len(search_matches) > 1:
@@ -8250,13 +8174,13 @@ class WebInterface(object):
                                 "comicyear": sres["comicyear"],
                             }
                             logger.fdebug("search_values: [%s]/%s" % (cVal, nVal))
-                            myDB.upsert("searchresults", nVal, cVal)
+                            db.upsert("searchresults", nVal, cVal)
                         logger.info(
                             "[IMPORT] There is more than one result that might be valid - normally this is due to the filename(s) not having enough information for me to use (ie. no volume label/year). Manual intervention is required."
                         )
                         # force the status here just in case
                         newVal = {"SRID": SRID, "Status": "Manual Intervention"}
-                        myDB.upsert("importresults", newVal, ctrlVal)
+                        db.upsert("importresults", newVal, ctrlVal)
 
                     elif len(sresults) > 1:
                         # store the search results for series that returned more than one result for user to select later / when they want.
@@ -8286,33 +8210,33 @@ class WebInterface(object):
                                 "ogcname": ogcname,
                                 "comicyear": sres["comicyear"],
                             }
-                            myDB.upsert("searchresults", nVal, cVal)
+                            db.upsert("searchresults", nVal, cVal)
                         logger.info(
                             "[IMPORT] There is more than one result that might be valid - normally this is due to the filename(s) not having enough information for me to use (ie. no volume label/year). Manual intervention is required."
                         )
                         # force the status here just in case
                         newVal = {"SRID": SRID, "Status": "Manual Intervention"}
-                        myDB.upsert("importresults", newVal, ctrlVal)
+                        db.upsert("importresults", newVal, ctrlVal)
                     else:
                         logger.info(
                             "[IMPORT] Could not find any matching results against CV. Check the logs and perhaps rename the attempted file(s)"
                         )
                         newVal = {"SRID": SRID, "Status": "No Results"}
-                        myDB.upsert("importresults", newVal, ctrlVal)
+                        db.upsert("importresults", newVal, ctrlVal)
 
                 else:
                     logger.info("[IMPORT] Now adding %s..." % ComicName)
 
                     if volume is None or volume == "None":
-                        results = myDB.select(
-                            "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
+                        results = db.rawdb.select_all(
+                            "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                             [DynamicName],
                         )
                     else:
                         if not volume.lower().startswith("v"):
                             volume = "v" + str(volume)
-                        results = myDB.select(
-                            "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
+                        results = db.rawdb.select_all(
+                            "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                             [DynamicName, volume],
                         )
                     files = []
@@ -8342,8 +8266,7 @@ class WebInterface(object):
     preSearchit.exposed = True
 
     def importresults_popup(self, SRID, ComicName, imported=None, ogcname=None, DynamicName=None, Volume=None):
-        myDB = db.DBConnection()
-        resultset = myDB.select("SELECT * FROM searchresults WHERE SRID=?", [SRID])
+        resultset = db.rawdb.select_all("SELECT * FROM searchresults WHERE SRID=?", [SRID])
         if not resultset:
             logger.warn(
                 "There are no search results to view for this entry "
@@ -8355,8 +8278,8 @@ class WebInterface(object):
             raise cherrypy.HTTPRedirect("importResults")
 
         if any([Volume is None, Volume == "None"]):
-            results = myDB.select(
-                "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
+            results = db.rawdb.select_all(
+                "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                 [DynamicName],
             )
         else:
@@ -8364,8 +8287,8 @@ class WebInterface(object):
                 volume = "v" + str(Volume)
             else:
                 volume = Volume
-            results = myDB.select(
-                "SELECT * FROM importresults WHERE (WatchMatch is Null OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
+            results = db.rawdb.select_all(
+                "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                 [DynamicName, volume],
             )
         files = []
@@ -8440,11 +8363,10 @@ class WebInterface(object):
                 logger.fdebug("[ERROR] Unable to retrieve git revision history for some reason: %s" % e)
                 br_hist = "This would be a nice place to see revision history..."
         # ----
-        myDB = db.DBConnection()
-        CCOMICS = myDB.select("SELECT COUNT(*) FROM comics")
-        CHAVES = myDB.select("SELECT COUNT(*) FROM issues WHERE Status='Downloaded' OR Status='Archived'")
-        CISSUES = myDB.select("SELECT COUNT(*) FROM issues")
-        CSIZE = myDB.select("select SUM(ComicSize) from issues where Status='Downloaded' or Status='Archived'")
+        CCOMICS = db.rawdb.select_all("SELECT COUNT(*) FROM comics")
+        CHAVES = db.rawdb.select_all("SELECT COUNT(*) FROM issues WHERE Status='Downloaded' OR Status='Archived'")
+        CISSUES = db.rawdb.select_all("SELECT COUNT(*) FROM issues")
+        CSIZE = db.rawdb.select_all("select SUM(ComicSize) from issues where Status='Downloaded' or Status='Archived'")
         CCOMICS[0][0]
         CHAVES[0][0]
         CISSUES[0][0]
@@ -8454,8 +8376,8 @@ class WebInterface(object):
         for cchk in cti:
             if cchk["recentstatus"] == "Continuing":
                 CCONTCOUNT += 1
-        DLPROVSTATS = myDB.select(
-            "SELECT Provider, COUNT(Provider) AS Frequency FROM Snatched WHERE Status = 'Snatched' AND Provider is NOT NULL GROUP BY Provider ORDER BY Frequency DESC"
+        DLPROVSTATS = db.rawdb.select_all(
+            "SELECT Provider, COUNT(Provider) AS Frequency FROM Snatched WHERE Status = 'Snatched' AND Provider IS NOT NULL GROUP BY Provider ORDER BY Frequency DESC"
         )
         freq = {}
         freq_tot = 0
@@ -8848,10 +8770,9 @@ class WebInterface(object):
         age_rating=None,
         publisher_imprint=None,
     ):
-        myDB = db.DBConnection()
-        chk1 = myDB.selectone(
+        chk1 = db.rawdb.select_one(
             "SELECT ComicLocation, Type, Corrected_Type, PublisherImprint FROM comics WHERE ComicID=?", [ComicID]
-        ).fetchone()
+        )
 
         if chk1[0] is None:
             orig_location = com_location
@@ -9075,7 +8996,7 @@ class WebInterface(object):
 
         if updatedir is True:
             newValues["ComicLocation"] = com_location
-            myDB.upsert("comics", newValues, controlValueDict)
+            db.upsert("comics", newValues, controlValueDict)
             logger.fdebug("Updated Series options!")
 
         raise cherrypy.HTTPRedirect("comicDetails?ComicID=%s" % ComicID)
@@ -9668,11 +9589,10 @@ class WebInterface(object):
     opds.exposed = True
 
     def downloadthis(self, issueid):
-        myDB = db.DBConnection()
-        issue = myDB.selectone(
+        issue = db.rawdb.select_one(
             "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.comicid = b.comicid WHERE b.issueid=?",
             [issueid],
-        ).fetchone()
+        )
         if issue:
             secondary_folders = None
             if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
@@ -9712,16 +9632,15 @@ class WebInterface(object):
     downloadthis.exposed = True
 
     def IssueInfo(self, issueid):  # filelocation, comicname=None, issue=None, date=None, title=None, issueid=None):
-        myDB = db.DBConnection()
-        metadata_db = myDB.selectone(
+        metadata_db = db.rawdb.select_one(
             "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.comicid=b.comicid where b.IssueID=?",
             [issueid],
-        ).fetchone()
+        )
         if metadata_db is None:
-            metadata_db = myDB.selectone(
-                "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN annuals b ON a.comicid=b.comicid where b.IssueID=? AND NOT b.Deleted",
+            metadata_db = db.rawdb.select_one(
+                "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN annuals b ON a.comicid=b.comicid where b.IssueID=? AND b.Deleted != 1",
                 [issueid],
-            ).fetchone()
+            )
             if not metadata_db:
                 metadata_db = None
 
@@ -9793,13 +9712,10 @@ class WebInterface(object):
                     issuecoverartist.append(xi["name"])
             pagecount = None
         elif all([seriestitle is None, meta_data is None]):  # and 'series' not in meta_data:
-            myDB = db.DBConnection()
             logger.info("issueid: %s" % (issueid))
-            meta_data = myDB.selectone("SELECT * FROM issues where IssueID=?", [issueid]).fetchone()
+            meta_data = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if meta_data is None:
-                meta_data = myDB.selectone(
-                    "SELECT * FROM annuals where IssueID=? AND NOT Deleted", [issueid]
-                ).fetchone()
+                meta_data = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
             seriestitle = meta_data["ComicName"]
             issuenumber = meta_data["Issue_Number"]
             try:
@@ -9816,12 +9732,9 @@ class WebInterface(object):
             issuesummary = None
         else:
             logger.info("meta_data: %s" % (meta_data,))
-            myDB = db.DBConnection()
-            metadata_db = myDB.selectone("SELECT * FROM issues where IssueID=?", [issueid]).fetchone()
+            metadata_db = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if metadata_db is None:
-                metadata_db = myDB.selectone(
-                    "SELECT * FROM annuals where IssueID=? AND NOT Deleted", [issueid]
-                ).fetchone()
+                metadata_db = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
                 if not metadata_db:
                     metadata_db = None
             seriestitle = meta_data["series"]
@@ -9950,16 +9863,15 @@ class WebInterface(object):
     ):  # dirName, issueid, filename, comicid, comversion, seriesyear=None, group=False, agerating=None):
         module = "[MANUAL META-TAGGING]"
         try:
-            myDB = db.DBConnection()
-            issuedata = myDB.selectone(
+            issuedata = db.rawdb.select_one(
                 "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN issues b ON a.ComicID=b.ComicID WHERE b.IssueID=?",
                 [issueid],
-            ).fetchone()
+            )
             if not issuedata:
-                issuedata = myDB.selectone(
-                    "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN annuals b ON a.ComicID=b.ComicID WHERE b.IssueID=? AND NOT b.Deleted",
+                issuedata = db.rawdb.select_one(
+                    "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN annuals b ON a.ComicID=b.ComicID WHERE b.IssueID=? AND b.Deleted != 1",
                     [issueid],
-                ).fetchone()
+                )
                 if not issuedata:
                     comicarr.GLOBAL_MESSAGES = {
                         "status": "failure",
@@ -10031,7 +9943,7 @@ class WebInterface(object):
                 vol_label = comversion
 
             if all([issueid is not None, comicid is not None]):
-                roders = myDB.select(
+                roders = db.rawdb.select_all(
                     "SELECT StoryArc, ReadingOrder from storyarcs WHERE ComicID=? AND IssueID=?", [comicid, issueid]
                 )
                 readingorder = None
@@ -10170,10 +10082,9 @@ class WebInterface(object):
     manual_metatag.exposed = True
 
     def bulk_metatag(self, ComicID, IssueIDs, threaded=False):
-        myDB = db.DBConnection()
-        cinfo = myDB.selectone(
+        cinfo = db.rawdb.select_one(
             "SELECT ComicLocation, ComicVersion, ComicYear, ComicName, AgeRating FROM comics WHERE ComicID=?", [ComicID]
-        ).fetchone()
+        )
 
         comicinfo = {
             "ComicID": ComicID,
@@ -10190,13 +10101,13 @@ class WebInterface(object):
         # Use parameterized queries to prevent SQL injection
         placeholders = ",".join(["?" for _ in IssueIDs])
         query_params = [ComicID] + IssueIDs
-        groupinfo = myDB.select(
-            f"SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN ({placeholders}) and Location is not NULL",
+        groupinfo = db.rawdb.select_all(
+            f"SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN ({placeholders}) and Location IS NOT NULL",
             query_params,
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            groupinfo += myDB.select(
-                f"SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN ({placeholders}) and Location is not NULL",
+            groupinfo += db.rawdb.select_all(
+                f"SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN ({placeholders}) and Location IS NOT NULL",
                 query_params,
             )
 
@@ -10255,10 +10166,9 @@ class WebInterface(object):
     thread_that_bulk_meta.exposed = True
 
     def group_metatag(self, ComicID, threaded=False):
-        myDB = db.DBConnection()
-        cinfo = myDB.selectone(
+        cinfo = db.rawdb.select_one(
             "SELECT ComicLocation, ComicVersion, ComicYear, ComicName, AgeRating FROM comics WHERE ComicID=?", [ComicID]
-        ).fetchone()
+        )
 
         comicinfo = {
             "ComicID": ComicID,
@@ -10269,12 +10179,12 @@ class WebInterface(object):
             "meta_dir": cinfo["ComicLocation"],
         }
 
-        groupinfo = myDB.select(
-            "SELECT IssueID, Location FROM issues WHERE ComicID=? and Location is not NULL", [ComicID]
+        groupinfo = db.rawdb.select_all(
+            "SELECT IssueID, Location FROM issues WHERE ComicID=? and Location IS NOT NULL", [ComicID]
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            groupinfo += myDB.select(
-                "SELECT IssueID, Location FROM annuals WHERE ComicID=? and Location is not NULL", [ComicID]
+            groupinfo += db.rawdb.select_all(
+                "SELECT IssueID, Location FROM annuals WHERE ComicID=? and Location IS NOT NULL", [ComicID]
             )
 
         if len(groupinfo) == 0:
@@ -10756,9 +10666,8 @@ class WebInterface(object):
     def deleteSpecificLog(self, log_id=None, allspecific=None):
         if log_id is not None and not re.match(r"^[a-zA-Z0-9_-]+$", str(log_id)):
             return json.dumps({"status": "error", "message": "Invalid log ID"})
-        myDB = db.DBConnection()
         if all([allspecific is not None, log_id is None]):
-            chk_specific = myDB.select("SELECT rowid FROM exceptions_log")
+            chk_specific = db.rawdb.select_all("SELECT rowid FROM exceptions_log")
             cnt = 0
             if chk_specific:
                 for csc in chk_specific:
@@ -10772,7 +10681,7 @@ class WebInterface(object):
                             " %s. Error returned: %s" % (log_file, comicarr.CONFIG.LOG_DIR, e)
                         )
                     try:
-                        myDB.action("DELETE from exceptions_log WHERE rowid=?", [csc["rowid"]])
+                        db.raw_execute("DELETE from exceptions_log WHERE rowid=?", [csc["rowid"]])
                     except Exception:
                         pass
 
@@ -10780,16 +10689,16 @@ class WebInterface(object):
 
         elif allspecific != log_id:
             # for group entries
-            reflines = myDB.selectone(
+            reflines = db.rawdb.select_one(
                 "SELECT error, func_name, filename, line_num FROM exceptions_log WHERE rowid=?", [log_id]
-            ).fetchone()
+            )
             # get the actual matching components
             error = reflines["error"]
             func_name = reflines["func_name"]
             filename = reflines["filename"]
             line_num = reflines["line_num"]
             # get all the ids in the db that match the components
-            morelines = myDB.select(
+            morelines = db.rawdb.select_all(
                 "SELECT rowid from exceptions_log WHERE error=? AND func_name=? AND filename=? AND line_num=?",
                 [error, func_name, filename, line_num],
             )
@@ -10806,7 +10715,7 @@ class WebInterface(object):
                     )
                 try:
                     # remove the specific log entry from the dB.
-                    myDB.action("DELETE FROM exceptions_log WHERE rowid=?", [mn["rowid"]])
+                    db.raw_execute("DELETE FROM exceptions_log WHERE rowid=?", [mn["rowid"]])
                 except Exception:
                     errors_happened = True
 
@@ -10817,7 +10726,7 @@ class WebInterface(object):
 
         else:
             # for specific entry
-            myDB.action("DELETE from exceptions_log WHERE rowid=?", [log_id])
+            db.raw_execute("DELETE from exceptions_log WHERE rowid=?", [log_id])
             log_file = "specific_%s.log" % log_id
             try:
                 os.remove(os.path.join(comicarr.CONFIG.LOG_DIR, log_file))
@@ -10835,8 +10744,7 @@ class WebInterface(object):
 
     def manageExceptions(self, **kwargs):
         exception_list = []
-        myDB = db.DBConnection()
-        elist = myDB.select(
+        elist = db.rawdb.select_all(
             "SELECT count(*) as count, rowid, * FROM exceptions_log group by error,"
             " func_name, filename, line_num order by date DESC"
         )
@@ -10903,8 +10811,7 @@ class WebInterface(object):
     test_32p.exposed = True
 
     def check_ActiveDDL(self):
-        myDB = db.DBConnection()
-        active = myDB.selectone("SELECT * FROM DDL_INFO WHERE STATUS = 'Downloading'").fetchone()
+        active = db.rawdb.select_one("SELECT * FROM DDL_INFO WHERE STATUS = 'Downloading'")
         if active is None:
             return json.dumps(
                 {
@@ -10987,8 +10894,9 @@ class WebInterface(object):
         logger.info("year: %s" % year)
         weeklyresults = []
         if weeknumber is not None:
-            myDB = db.DBConnection()
-            w_results = myDB.select("SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)])
+            w_results = db.rawdb.select_all(
+                "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)]
+            )
             watchlibrary = helpers.listLibrary()
             issueLibrary = helpers.listIssues(weeknumber, year)
             oneofflist = helpers.listoneoffs(weeknumber, year)
@@ -11039,9 +10947,9 @@ class WebInterface(object):
             weeklylist = sorted(weeklyresults, key=itemgetter("PUBLISHER", "COMIC"), reverse=False)
             for ab in weeklylist:
                 if ab["HAVEIT"] == ab["COMICID"]:
-                    lb = myDB.selectone(
+                    lb = db.rawdb.select_one(
                         "SELECT ComicVersion, Type, ComicYear from comics WHERE ComicID=?", [ab["COMICID"]]
-                    ).fetchone()
+                    )
                     issuelist.append(
                         {
                             "IssueNumber": ab["ISSUE"],
@@ -11160,8 +11068,7 @@ class WebInterface(object):
                 new_imagename = str(comicid) + "-bannerH" + str(height) + ext
                 os.rename(filepath, os.path.join(rootpath, new_imagename))
                 logger.info("successfully saved %s to new dimensions of banner : 960 x %s" % (new_imagename, height))
-                myDB = db.DBConnection()
-                myDB.upsert("storyarcs", {"ArcImage": new_imagename}, {"StoryArcID": comicid})
+                db.upsert("storyarcs", {"ArcImage": new_imagename}, {"StoryArcID": comicid})
             else:
                 logger.warn("unable to locate %s in cache directory in order to save" % filepath)
 
@@ -11196,8 +11103,6 @@ class WebInterface(object):
                 pullyear=kwargs["pullyear"],
                 manual=True,
             )
-
-        myDB = db.DBConnection()
         r = []
 
         for x in comicarr.COMICINFO:  # results:
@@ -11225,7 +11130,7 @@ class WebInterface(object):
                 "pack": x["pack"],
             }
 
-            myDB.upsert("manualresults", newval, ctrlval)
+            db.upsert("manualresults", newval, ctrlval)
 
             r.append(
                 {
@@ -11245,10 +11150,9 @@ class WebInterface(object):
     choose_specific_download.exposed = True
 
     def download_specific_release(self, nzbid, provider, name):
-        myDB = db.DBConnection()
-        dsr = myDB.selectone(
+        dsr = db.rawdb.select_one(
             "SELECT * FROM manualresults WHERE id=? AND tmpprov=? AND name=?", [nzbid, provider, name]
-        ).fetchone()
+        )
         if dsr is None:
             logger.warn("Unable to locate result - something is wrong. Try and manually search again?")
             return
@@ -11387,7 +11291,7 @@ class WebInterface(object):
         # myDB = db.DBConnection()
         # pub_listing = []
         # if publishers is None:
-        #    watchlist = myDB.select('SELECT * FROM weekly WHERE weeknumber=? and year=?', [weeknumber, year])
+        #    watchlist = db.rawdb.select_all('SELECT * FROM weekly WHERE weeknumber=? and year=?', [weeknumber, year])
         # else:
         #    cnt = 0
         #    pblist = 'AND (publisher="%s"' % publishers[cnt]
@@ -11401,7 +11305,7 @@ class WebInterface(object):
         #    comicarr.CONFIG.MASS_PUBLISHERS = json.loads(json.dumps(pub_listing))
         #    comicarr.CONFIG.writeconfig(values={'mass_publishers': json.dumps(comicarr.CONFIG.MASS_PUBLISHERS)})
         #    query_line = 'SELECT * FROM WEEKLY WHERE weeknumber=%s AND year=%s %s' % (weeknumber, year, pblist)
-        #    watchlist = myDB.select(query_line)
+        #    watchlist = db.rawdb.select_all(query_line)
 
         # if watchlist:
         #    for wt in watchlist:
@@ -11429,11 +11333,9 @@ class WebInterface(object):
         for k, v in list(args.items()):
             if k == "id":
                 comicid = v[1:]
-
-        myDB = db.DBConnection()
-        desc = myDB.selectone(
+        desc = db.rawdb.select_one(
             "SELECT Description, DescriptionEdit, ComicLocation FROM comics WHERE comicid=?", [comicid]
-        ).fetchone()
+        )
 
         description_load = None
         if os.path.exists(os.path.join(desc["ComicLocation"], "series.json")):
@@ -11486,8 +11388,7 @@ class WebInterface(object):
 
     def weekly_publisherlisting(self, weeknumber, year):
         comiclist = []
-        myDB = db.DBConnection()
-        thelist = myDB.select(
+        thelist = db.rawdb.select_all(
             "SELECT Publisher FROM weekly WHERE weeknumber=? AND year=? GROUP BY Publisher ORDER BY Publisher ASC",
             [weeknumber, year],
         )
@@ -11573,13 +11474,12 @@ class WebInterface(object):
 
     def serieslisting(self, comicid=None):
         comiclist = []
-        myDB = db.DBConnection()
         if comicid is not None:
-            thelist = myDB.select(
+            thelist = db.rawdb.select_all(
                 "SELECT ComicName, ComicVersion, ComicYear, ComicID FROM comics WHERE ComicID=?", [comicid]
             )
         else:
-            thelist = myDB.select(
+            thelist = db.rawdb.select_all(
                 "SELECT ComicName, ComicVersion, ComicYear, ComicID FROM comics ORDER BY ComicName ASC"
             )
         for ts in thelist:
@@ -11624,8 +11524,7 @@ class WebInterface(object):
             modal = "modal"  # default to modal.
 
         logger.fdebug("[modal:%s] session_id set to: %s" % (modal, session_id))
-        myDB = db.DBConnection()
-        notifs = myDB.select(
+        notifs = db.rawdb.select_all(
             "SELECT * FROM notifs where session_id=? ORDER BY substr(date,4)||substr(date,6,2)||substr(date,9,2) DESC LIMIT 10",
             [session_id],
         )
@@ -11649,14 +11548,13 @@ class WebInterface(object):
     manageNotifs.exposed = True
 
     def clear_notifs(self, session_id):
-        myDB = db.DBConnection()
-        count_chk = myDB.selectone("SELECT COUNT() FROM notifs WHERE session_id=?", [session_id]).fetchone()[0]
+        count_chk = db.rawdb.select_one("SELECT COUNT() FROM notifs WHERE session_id=?", [session_id])[0]
         logger.info("notifs to be cleared: %s" % count_chk)
         if not count_chk:
             c_message = "No notifications present currently for the given session to clear"
             c_status = "success"
         else:
-            c_not = myDB.action("DELETE FROM notifs WHERE session_id=?", [session_id])
+            c_not = db.raw_execute("DELETE FROM notifs WHERE session_id=?", [session_id])
             if c_not:
                 c_message = "Successfully cleared %s notifications for current session" % count_chk
                 c_status = "success"
@@ -11684,16 +11582,14 @@ class WebInterface(object):
 
         if query_id == "null":
             query_id = None
-
-        myDB = db.DBConnection()
         comlocation = None
         if location is not None and comlocation != location:
             comlocation = location
 
         if query_id is not None:
-            tmp_results = myDB.selectone(
+            tmp_results = db.rawdb.select_one(
                 "SELECT * FROM tmp_searches WHERE comicid=? AND query_id=?", [comicid, query_id]
-            ).fetchone()
+            )
             results = {
                 "ComicName": tmp_results["comicname"],
                 "ComicVersion": tmp_results["volume"],
@@ -11814,10 +11710,8 @@ class WebInterface(object):
         watchlibrary = helpers.listLibrary()
         watch = []
         storyarcname = None
-
-        myDB = db.DBConnection()
-        arcs = myDB.select(
-            'Select ComicID, ComicName, SeriesYear, StoryArc FROM storyarcs WHERE storyarcid=? AND (Manual IS NOT "deleted" OR Manual IS NULL) GROUP BY ComicID',
+        arcs = db.rawdb.select_all(
+            "SELECT ComicID, ComicName, SeriesYear, StoryArc FROM storyarcs WHERE storyarcid=? AND (Manual != 'deleted' OR Manual IS NULL) GROUP BY ComicID",
             [storyarcid],
         )
 
@@ -11856,10 +11750,7 @@ class WebInterface(object):
             delete_dir = True
         else:
             delete_dir = False
-        myDB = db.DBConnection()
-        cc = myDB.selectone(
-            "SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid]
-        ).fetchone()
+        cc = db.rawdb.select_one("SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid])
         comicname = cc["comicname"]
         comicyear = cc["comicyear"]
         seriesdir = cc["comiclocation"]
@@ -11873,13 +11764,13 @@ class WebInterface(object):
                     {"status": "failure", "message": "Series has already been removed from the watchlist"}
                 )
 
-            myDB.action("DELETE FROM comics WHERE ComicID=?", [comicid])
-            myDB.action("DELETE FROM issues WHERE ComicID=?", [comicid])
+            db.raw_execute("DELETE FROM comics WHERE ComicID=?", [comicid])
+            db.raw_execute("DELETE FROM issues WHERE ComicID=?", [comicid])
             if comicarr.CONFIG.ANNUALS_ON:
-                myDB.action("DELETE FROM annuals WHERE ComicID=?", [comicid])
-            myDB.action("DELETE from upcoming WHERE ComicID=?", [comicid])
-            myDB.action("DELETE from readlist WHERE ComicID=?", [comicid])
-            myDB.action('UPDATE weekly SET Status="Skipped" WHERE ComicID=? AND Status="Wanted"', [comicid])
+                db.raw_execute("DELETE FROM annuals WHERE ComicID=?", [comicid])
+            db.raw_execute("DELETE from upcoming WHERE ComicID=?", [comicid])
+            db.raw_execute("DELETE from readlist WHERE ComicID=?", [comicid])
+            db.raw_execute("UPDATE weekly SET Status='Skipped' WHERE ComicID=? AND Status='Wanted'", [comicid])
             warnings = 0
             if delete_dir:
                 logger.fdebug("Remove directory on series removal enabled.")
@@ -11924,7 +11815,7 @@ class WebInterface(object):
             return json.dumps({"status": "success", "message": linemsg})
 
         else:
-            myDB.upsert("comics", {"Status": "Paused", "cv_removed": 2}, {"ComicID": comicid})
+            db.upsert("comics", {"Status": "Paused", "cv_removed": 2}, {"ComicID": comicid})
             logger.info(
                 "[CV-REMOVAL-DETECTION] Successfully retained %s (%s) and is now in a Paused status"
                 % (comicname, comicyear)
@@ -11964,9 +11855,6 @@ class WebInterface(object):
                             "message": f"CBL Processing Error: No CV identifiers for entry {books.index(book)}",
                         }
                     )
-
-            myDB = db.DBConnection()
-
             for book in books:
                 databaseEntry = book.find(".//Database[@Name='cv']")
 
@@ -11980,18 +11868,18 @@ class WebInterface(object):
                 if cvSeriesID in volume_cache.keys():
                     vol_exists = volume_cache[cvSeriesID]
                 else:
-                    comic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID]).fetchone()
+                    comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
                     vol_exists = False if comic is None else True
                     volume_cache[cvSeriesID] = vol_exists
                     if not vol_exists:
                         newvol_count += 1
 
                 if vol_exists:
-                    issue = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [cvIssueID]).fetchone()
+                    issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
 
                     # Check in case the issue is an integrated annual
                     if issue is None:
-                        issue = myDB.selectone("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID]).fetchone()
+                        issue = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
 
                     iss_exists = False if issue is None else True
 
@@ -12082,9 +11970,6 @@ class WebInterface(object):
 
         try:
             books = cblRoot.findall(".//Book")
-
-            myDB = db.DBConnection()
-
             # Process the CBL File and build a dictionary of Wanted Issue IDs keyed on the ComicID
             for book in books:
                 databaseEntry = book.find(".//Database[@Name='cv']")
@@ -12117,7 +12002,7 @@ class WebInterface(object):
                     else:
                         checkIssue = True
                 else:
-                    volume = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID]).fetchone()
+                    volume = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
                     if volume is None:
                         logger.fdebug(
                             f'CBL File: Volume "{volumeName} ({volumeYear})" does not exist exist.  Adding Volume, and Issue #{issueNumber} to be marked as Wanted'
@@ -12146,11 +12031,11 @@ class WebInterface(object):
                         checkIssue = True
 
                 if checkIssue:
-                    issue = myDB.selectone("SELECT * FROM issues WHERE IssueID=?", [cvIssueID]).fetchone()
+                    issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
 
                     # Check in case the issue is an integrated annual
                     if issue is None:
-                        issue = myDB.selectone("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID]).fetchone()
+                        issue = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
 
                     if issue is None:
                         logger.warning(

@@ -1,16 +1,15 @@
 import csv
-import os
 import re
-import sqlite3
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from bs4 import BeautifulSoup
+from sqlalchemy import text
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import db, helpers, logger
 
 
 def solicit(month, year):
@@ -182,21 +181,22 @@ def solicit(month, year):
 
     logger.fdebug("attempting to populate future upcoming...")
 
-    dbfile = os.path.join(comicarr.DATA_DIR, "comicarr.db")
+    # The 'future' table is a legacy table not in tables.py; use text() for DDL
+    engine = db.get_engine()
 
-    connection = sqlite3.connect(str(dbfile))
-    cursor = connection.cursor()
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS future"))
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS future "
+                "(SHIPDATE, PUBLISHER text, ISSUE text, COMIC VARCHAR(150), "
+                "EXTRA text, STATUS text, FutureID text, ComicID text)"
+            )
+        )
 
     # we should extract the issues that are being watched, but no data is available yet ('Watch For' status)
     # once we get the data, store it, wipe the existing table, retrieve the new data, populate the data into
     # the table, recheck the series against the current watchlist and then restore the Watch For data.
-
-    cursor.executescript("drop table if exists future;")
-
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS future (SHIPDATE, PUBLISHER text, ISSUE text, COMIC VARCHAR(150), EXTRA text, STATUS text, FutureID text, ComicID text);"
-    )
-    connection.commit()
 
     csvfile = open(newfl, "rb")
     creader = csv.reader(csvfile, delimiter="\t")
@@ -206,15 +206,17 @@ def solicit(month, year):
     for row in creader:
         try:
             # print ("Row: %s" % row)
-            cursor.execute("INSERT INTO future VALUES (?,?,?,?,?,?,?,null);", row)
+            with engine.begin() as conn:
+                conn.execute(
+                    text("INSERT INTO future VALUES (:p0, :p1, :p2, :p3, :p4, :p5, :p6, null)"),
+                    {"p0": row[0], "p1": row[1], "p2": row[2], "p3": row[3], "p4": row[4], "p5": row[5], "p6": row[6]},
+                )
         except Exception:
             logger.fdebug("Error - invald arguments...-skipping")
             pass
         t += 1
     logger.fdebug("successfully added " + str(t) + " issues to future upcoming table.")
     csvfile.close()
-    connection.commit()
-    connection.close()
 
     comicarr.weeklypull.pullitcheck(futurepull="yes")
     # .end

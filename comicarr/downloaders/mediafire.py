@@ -78,10 +78,9 @@ class MediaFire(object):
         logger.fdebug("From: %s" % url_origin)
         logger.fdebug("To: %s" % os.path.join(self.dl_location, filename))
 
-        myDB = db.DBConnection()
         ## write the filename to the db for tracking purposes...
         logger.fdebug("[Writing to db: %s" % (filename))
-        myDB.upsert(
+        db.upsert(
             "ddl_info",
             {"filename": str(filename), "remote_filesize": str(filesize), "size": helpers.human_size(filesize)},
             {"id": id},
@@ -91,8 +90,7 @@ class MediaFire(object):
     def mediafire_dl(self, url, id, fileinfo, issueid):
         filepath = os.path.join(self.dl_location, fileinfo["filename"])
 
-        myDB = db.DBConnection()
-        myDB.upsert(
+        db.upsert(
             "ddl_info",
             {
                 "tmp_filename": fileinfo["filename"]

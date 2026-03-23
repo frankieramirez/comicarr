@@ -54,10 +54,9 @@ class MegaNZ(object):
                 filesize = pui["size"]
                 filename = pui["name"]
 
-                myDB = db.DBConnection()
                 # write the filename to the db for tracking purposes...
                 logger.info("[get-public-url-info resolved] Writing to db: %s [%s]" % (filename, filesize))
-                myDB.upsert(
+                db.upsert(
                     "ddl_info",
                     {
                         "filename": str(filename),
@@ -104,10 +103,9 @@ class MegaNZ(object):
         mth = (data["current"] / data["total"]) * 100
 
         if data["tmp_filename"] is not None and self.wrote_tmp is False:
-            myDB = db.DBConnection()
             # write the filename to the db for tracking purposes...
             logger.info("writing to db: %s [%s][%s]" % (data["name"], data["total"], data["tmp_filename"]))
-            myDB.upsert(
+            db.upsert(
                 "ddl_info",
                 {
                     "tmp_filename": str(data["tmp_filename"])

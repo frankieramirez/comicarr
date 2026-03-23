@@ -21,10 +21,12 @@ import datetime
 import re
 
 import requests
+from sqlalchemy import and_, delete
 
 import comicarr
 from comicarr import db, logger
 from comicarr.helpers import ignored_publisher_check
+from comicarr.tables import weekly
 
 
 def locg(pulldate=None, weeknumber=None, year=None):
@@ -122,11 +124,10 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
             x["shipdate"]
 
-        myDB = db.DBConnection()
+        # Ensure the weekly table exists (created via tables.py metadata)
+        from comicarr.tables import metadata as table_metadata
 
-        myDB.action(
-            "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE, PUBLISHER text, ISSUE text, COMIC VARCHAR(150), EXTRA text, STATUS text, ComicID text, IssueID text, CV_Last_Update text, DynamicName text, weeknumber text, year text, volume text, seriesyear text, annuallink text, format text, rowid INTEGER PRIMARY KEY)"
-        )
+        table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)
 
         # clear out the upcoming table here so they show the new values properly.
         # if pulldate == '00000000':
@@ -139,7 +140,15 @@ def locg(pulldate=None, weeknumber=None, year=None):
             return {"status": "failure"}
 
         logger.info("Re-creating pullist to ensure everything's fresh.")
-        myDB.action("DELETE FROM weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)])
+        with db.get_engine().begin() as conn:
+            conn.execute(
+                delete(weekly).where(
+                    and_(
+                        weekly.c.weeknumber == int(weeknumber),
+                        weekly.c.year == int(year),
+                    )
+                )
+            )
 
         for x in pull:
             comicid = None
@@ -156,23 +165,23 @@ def locg(pulldate=None, weeknumber=None, year=None):
             cl_dyninfo = cl_d.dynamic_replace(comicname)
             dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
 
-            controlValueDict = {"DYNAMICNAME": dynamic_name, "ISSUE": re.sub("#", "", x["issue"]).strip()}
+            controlValueDict = {"DynamicName": dynamic_name, "ISSUE": re.sub("#", "", x["issue"]).strip()}
 
             newValueDict = {
                 "SHIPDATE": x["shipdate"],
                 "PUBLISHER": x["publisher"],
                 "STATUS": "Skipped",
                 "COMIC": comicname,
-                "COMICID": comicid,
-                "ISSUEID": issueid,
-                "WEEKNUMBER": x["weeknumber"],
-                "ANNUALLINK": x["annuallink"],
-                "YEAR": x["year"],
-                "VOLUME": x["volume"],
-                "SERIESYEAR": x["seriesyear"],
-                "FORMAT": x["format"],
+                "ComicID": comicid,
+                "IssueID": issueid,
+                "weeknumber": x["weeknumber"],
+                "annuallink": x["annuallink"],
+                "year": x["year"],
+                "volume": x["volume"],
+                "seriesyear": x["seriesyear"],
+                "format": x["format"],
             }
-            myDB.upsert("weekly", newValueDict, controlValueDict)
+            db.upsert("weekly", newValueDict, controlValueDict)
 
         logger.info("[PULL-LIST] Successfully populated pull-list into Comicarr for week %s of %s" % (weeknumber, year))
         # set the last poll date/time here so that we don't start overwriting stuff too much...

@@ -6,12 +6,14 @@ import zipfile
 
 import cherrypy
 import rarfile
+from sqlalchemy import select
 
 import comicarr
 from comicarr import (
     db,
     logger,
 )
+from comicarr.tables import comics, issues
 from comicarr.webserve import serve_template
 
 
@@ -56,11 +58,19 @@ class WebViewer(object):
         except:
             logger.warn("WebReader: ish_id not set!")
 
-        myDB = db.DBConnection()
-        comic = myDB.selectone(
-            "select comics.ComicLocation, issues.Location from comics, issues where comics.comicid = issues.comicid and issues.issueid = ?",
-            [ish_id],
-        ).fetchone()
+        stmt = (
+            select(comics.c.ComicLocation, issues.c.Location)
+            .where(comics.c.ComicID == issues.c.ComicID)
+            .where(issues.c.IssueID == ish_id)
+        )
+        with db.get_engine().connect() as conn:
+            row = conn.execute(stmt).first()
+
+        if row is None:
+            comic = None
+        else:
+            comic = dict(row._mapping)
+
         if comic is None:
             logger.warn("WebReader: ish_id %s requested but not in the database!" % ish_id)
             raise cherrypy.HTTPRedirect("home")

@@ -231,6 +231,13 @@ def main():
     parser.add_argument('--pidfile', default=None, help='Create a pid file (only relevant when running as a daemon)')
     parser.add_argument('--safe', action='store_true', default=False, help='redirect the startup page to point to the Manage Comics screen on startup')
 
+    parser_migrate = subparsers.add_parser('migrate', help='Migrate database from SQLite to PostgreSQL or MySQL')
+    parser_migrate.add_argument('--from', dest='migrate_source', required=True, help='Source database URL (e.g., sqlite:///path/to/comicarr.db)')
+    parser_migrate.add_argument('--to', dest='migrate_target', required=True, help='Target database URL (e.g., postgresql://user:pass@localhost/comicarr)')
+    parser_migrate.add_argument('--validate-only', dest='migrate_validate', action='store_true', default=False, help='Only validate, do not migrate')
+    parser_migrate.add_argument('--batch-size', dest='migrate_batch', type=int, default=5000, help='Rows per batch insert (default: 5000)')
+    parser_migrate.add_argument('--yes', dest='migrate_yes', action='store_true', default=False, help='Skip confirmation prompt')
+
     parser_maintenance = subparsers.add_parser('maintenance', help='Enter maintenance mode (no GUI). Additional commands are available (maintenance --help)')
     parser_maintenance.add_argument('-xj', '--exportjson', default=None, action='store', help='Export existing comicarr.db to json file') #, default=argparse.SUPPRESS)
     parser_maintenance.add_argument('-id', '--importdatabase', default=None, action='store', help='Import a database into current db') # , default=argparse.SUPPRESS)
@@ -268,6 +275,29 @@ def main():
     args_backup = args.get('backup')
     if not any([args_backup == 'ini', args_backup == 'db', args_backup == 'both']):
         args_backup = False
+
+    # Handle migrate subcommand (runs independently, then exits)
+    if args.get('maintenance') == 'migrate' or args.get('migrate_source'):
+        from comicarr.db_migrate import migrate, validate
+        source = args.get('migrate_source')
+        target = args.get('migrate_target')
+        if not source or not target:
+            print('Usage: python3 Comicarr.py migrate --from sqlite:///path/to/db --to postgresql://...')
+            sys.exit(1)
+        if args.get('migrate_validate'):
+            ok = validate(source, target)
+            sys.exit(0 if ok else 1)
+        if not args.get('migrate_yes'):
+            from comicarr.db_migrate import _mask_password
+            print(f'This will migrate data from:')
+            print(f'  Source: {_mask_password(source)}')
+            print(f'  Target: {_mask_password(target)}')
+            confirm = input('Proceed? [y/N] ').strip().lower()
+            if confirm != 'y':
+                print('Aborted.')
+                sys.exit(1)
+        ok = migrate(source, target, batch_size=args.get('migrate_batch', 5000))
+        sys.exit(0 if ok else 1)
 
     if args_maintenance:
         if all([args_exportjson is None, args_importdatabase is None, args_importjson is None, args_importstatus is False, args_update is False, args_fixslashes is False, args_clearprovidertable is False, args_carepackage is False]):

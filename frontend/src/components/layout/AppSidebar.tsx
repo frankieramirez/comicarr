@@ -86,20 +86,12 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       {/* Header with Logo */}
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="px-4 pt-4 pb-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link
-                to="/"
-                onClick={handleNavClick}
-                className="flex items-center gap-3"
-              >
-                <div className="w-full">
-                  <Logo className="h-full w-full text-foreground" />
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <Link to="/" onClick={handleNavClick} className="flex items-center">
+              <Logo className="h-6 w-auto text-foreground" />
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

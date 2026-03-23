@@ -20,8 +20,11 @@
 
 import os
 
+from sqlalchemy import select
+
 import comicarr
 from comicarr import db, helpers, logger
+from comicarr.tables import annuals, comics, issues, readlist, storyarcs
 
 
 class Readinglist(object):
@@ -44,19 +47,30 @@ class Readinglist(object):
 
     def addtoreadlist(self):
         annualize = False
-        myDB = db.DBConnection()
-        readlist = myDB.selectone("SELECT * from issues where IssueID=?", [self.IssueID]).fetchone()
-        if readlist is None:
+        with db.get_engine().connect() as conn:
+            stmt = select(issues).where(issues.c.IssueID == self.IssueID)
+            result = [dict(row._mapping) for row in conn.execute(stmt)]
+            rl = result[0] if result else None
+
+        if rl is None:
             logger.fdebug(self.module + " Checking against annuals..")
-            readlist = myDB.selectone("SELECT * from annuals where IssueID=?", [self.IssueID]).fetchone()
-            if readlist is None:
+            with db.get_engine().connect() as conn:
+                stmt = select(annuals).where(annuals.c.IssueID == self.IssueID)
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                rl = result[0] if result else None
+            if rl is None:
                 logger.error(self.module + " Cannot locate IssueID - aborting..")
                 return {"status": "failure", "message": "Unable to locate issue in database. Does it exist?"}
             else:
-                logger.fdebug("%s Successfully found annual for %s" % (self.module, readlist["ComicID"]))
+                logger.fdebug("%s Successfully found annual for %s" % (self.module, rl["ComicID"]))
                 annualize = True
-        comicinfo = myDB.selectone("SELECT * from comics where ComicID=?", [readlist["ComicID"]]).fetchone()
-        logger.info(self.module + " Attempting to add issueid " + readlist["IssueID"])
+
+        with db.get_engine().connect() as conn:
+            stmt = select(comics).where(comics.c.ComicID == rl["ComicID"])
+            result = [dict(row._mapping) for row in conn.execute(stmt)]
+            comicinfo = result[0] if result else None
+
+        logger.info(self.module + " Attempting to add issueid " + rl["IssueID"])
         if comicinfo is None:
             logger.info(
                 self.module
@@ -73,53 +87,56 @@ class Readinglist(object):
                         comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"])
                     )
                 else:
-                    ff = comicarr.filers.FileHandlers(ComicID=readlist["ComicID"])
+                    ff = comicarr.filers.FileHandlers(ComicID=rl["ComicID"])
                     secondary_folders = ff.secondary_folders(comicinfo["ComicLocation"])
 
-                if os.path.exists(os.path.join(secondary_folders, readlist["Location"])):
-                    locpath = os.path.join(secondary_folders, readlist["Location"])
+                if os.path.exists(os.path.join(secondary_folders, rl["Location"])):
+                    locpath = os.path.join(secondary_folders, rl["Location"])
                 else:
-                    if os.path.exists(os.path.join(comicinfo["ComicLocation"], readlist["Location"])):
-                        locpath = os.path.join(comicinfo["ComicLocation"], readlist["Location"])
+                    if os.path.exists(os.path.join(comicinfo["ComicLocation"], rl["Location"])):
+                        locpath = os.path.join(comicinfo["ComicLocation"], rl["Location"])
             else:
-                if os.path.exists(os.path.join(comicinfo["ComicLocation"], readlist["Location"])):
-                    locpath = os.path.join(comicinfo["ComicLocation"], readlist["Location"])
+                if os.path.exists(os.path.join(comicinfo["ComicLocation"], rl["Location"])):
+                    locpath = os.path.join(comicinfo["ComicLocation"], rl["Location"])
 
             if locpath is not None:
-                comicissue = readlist["Issue_Number"]
+                comicissue = rl["Issue_Number"]
                 if annualize is True:
-                    comicname = readlist["ReleaseComicName"]
+                    comicname = rl["ReleaseComicName"]
                 else:
                     comicname = comicinfo["ComicName"]
                 dspinfo = comicname + " #" + comicissue
                 if annualize is True:
                     if comicarr.CONFIG.ANNUALS_ON is True:
-                        dspinfo = comicname + " #" + readlist["Issue_Number"]
+                        dspinfo = comicname + " #" + rl["Issue_Number"]
                         if "annual" in comicname.lower():
-                            comicissue = "Annual " + readlist["Issue_Number"]
+                            comicissue = "Annual " + rl["Issue_Number"]
                         elif "special" in comicname.lower():
-                            comicissue = "Special " + readlist["Issue_Number"]
+                            comicissue = "Special " + rl["Issue_Number"]
 
                 ctrlval = {"IssueID": self.IssueID}
                 newval = {
                     "DateAdded": helpers.today(),
                     "Status": "Added",
-                    "ComicID": readlist["ComicID"],
+                    "ComicID": rl["ComicID"],
                     "Issue_Number": comicissue,
-                    "IssueDate": readlist["IssueDate"],
+                    "IssueDate": rl["IssueDate"],
                     "SeriesYear": comicinfo["ComicYear"],
                     "ComicName": comicname,
                     "Location": locpath,
                 }
 
-                myDB.upsert("readlist", newval, ctrlval)
+                db.upsert("readlist", newval, ctrlval)
                 logger.info(self.module + " Added " + dspinfo + " to the Reading list.")
         return {"status": "success", "message": "Successfully added %s to your reading list" % dspinfo}
 
     def markasRead(self, IssueID=None, IssueArcID=None):
-        myDB = db.DBConnection()
         if IssueID:
-            issue = myDB.selectone("SELECT * from readlist WHERE IssueID=?", [IssueID]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(readlist).where(readlist.c.IssueID == IssueID)
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                issue = result[0] if result else None
+
             if issue["Status"] == "Read":
                 NewVal = {"Status": "Added"}
             else:
@@ -128,17 +145,21 @@ class Readinglist(object):
             NewVal["StatusChange"] = helpers.today()
 
             CtrlVal = {"IssueID": IssueID}
-            myDB.upsert("readlist", NewVal, CtrlVal)
+            db.upsert("readlist", NewVal, CtrlVal)
             logger.info(self.module + " Marked " + issue["ComicName"] + " #" + str(issue["Issue_Number"]) + " as Read.")
         elif IssueArcID:
-            issue = myDB.selectone("SELECT * from readinglist WHERE IssueArcID=?", [IssueArcID]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(storyarcs).where(storyarcs.c.IssueArcID == IssueArcID)
+                result = [dict(row._mapping) for row in conn.execute(stmt)]
+                issue = result[0] if result else None
+
             if issue["Status"] == "Read":
                 NewVal = {"Status": "Added"}
             else:
                 NewVal = {"Status": "Read"}
             NewVal["StatusChange"] = helpers.today()
             CtrlVal = {"IssueArcID": IssueArcID}
-            myDB.upsert("readinglist", NewVal, CtrlVal)
+            db.upsert("storyarcs", NewVal, CtrlVal)
             logger.info(self.module + " Marked " + issue["ComicName"] + " #" + str(issue["IssueNumber"]) + " as Read.")
         else:
             logger.info(self.module + "Could not mark anything as read, no IssueID or IssueArcID passed")
@@ -151,20 +172,33 @@ class Readinglist(object):
         # Read - Issue has been read
         # Not Read - Issue has been downloaded to your reading client after the syncfiles has taken place.
         module = "[READLIST-TRANSFER]"
-        myDB = db.DBConnection()
-        readlist = []
+        rl_list = []
         sendlist = []
 
         if self.filelist is None:
-            rl = myDB.select(
-                'SELECT issues.IssueID, comics.ComicID, comics.ComicLocation, issues.Location FROM readlist LEFT JOIN issues ON issues.IssueID = readlist.IssueID LEFT JOIN comics on comics.ComicID = issues.ComicID WHERE readlist.Status="Added"'
-            )
-            if rl is None:
+            with db.get_engine().connect() as conn:
+                stmt = (
+                    select(
+                        issues.c.IssueID,
+                        comics.c.ComicID,
+                        comics.c.ComicLocation,
+                        issues.c.Location,
+                    )
+                    .select_from(
+                        readlist.join(issues, issues.c.IssueID == readlist.c.IssueID, isouter=True).join(
+                            comics, comics.c.ComicID == issues.c.ComicID, isouter=True
+                        )
+                    )
+                    .where(readlist.c.Status == "Added")
+                )
+                rl = [dict(row._mapping) for row in conn.execute(stmt)]
+
+            if not rl:
                 logger.info(module + " No issues have been marked to be synced. Aborting syncfiles")
                 return
 
             for rlist in rl:
-                readlist.append(
+                rl_list.append(
                     {
                         "filepath": os.path.join(rlist["ComicLocation"], rlist["Location"]),
                         "issueid": rlist["IssueID"],
@@ -173,10 +207,10 @@ class Readinglist(object):
                 )
 
         else:
-            readlist = self.filelist
+            rl_list = self.filelist
 
-        if len(readlist) > 0:
-            for clist in readlist:
+        if len(rl_list) > 0:
+            for clist in rl_list:
                 if clist["filepath"] == "None" or clist["filepath"] is None:
                     logger.warn(
                         module
@@ -190,26 +224,6 @@ class Readinglist(object):
                     )
                     continue
                 else:
-                    #                    multiplecid = False
-                    #                    for x in cidlist:
-                    #                        if clist['comicid'] == x['comicid']:
-                    #                            comicid = x['comicid']
-                    #                            comiclocation = x['location']
-                    #                            multiplecid = True
-
-                    #                    if multiplecid == False:
-                    #                        cid = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [clist['comicid']]).fetchone()
-                    #                        if cid is None:
-                    #                            continue
-                    #                        else:
-                    #                            comiclocation = cid['ComicLocation']
-                    #                            comicid = cid['ComicID']
-
-                    #                    if comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None and comicarr.CONFIG.MULTIPLE_DEST_DIRS != 'None' and os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comiclocation)) != comiclocation:
-                    #                        logger.fdebug(module + ' Multiple_dest_dirs:' + comicarr.CONFIG.MULTIPLE_DEST_DIRS)
-                    #                        logger.fdebug(module + ' Dir: ' + comiclocation)
-                    #                        logger.fdebug(module + ' Os.path.basename: ' + os.path.basename(comiclocation))
-                    #                        pathdir = os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comiclocation))
                     if os.path.exists(clist["filepath"]):
                         sendlist.append(
                             {
@@ -218,16 +232,6 @@ class Readinglist(object):
                                 "filename": os.path.split(clist["filepath"])[1],
                             }
                         )
-                    #                     else:
-                    #                         if os.path.exists(os.path.join(comiclocation, clist['filename'])):
-                    #                                sendlist.append({"issueid":   clist['issueid'],
-                    #                                                 "filepath":  comiclocation,
-                    #                                                 "filename":  clist['filename']})
-                    #                    else:
-                    #                        if os.path.exists(os.path.join(comiclocation, clist['filename'])):
-                    #                            sendlist.append({"issueid":   clist['issueid'],
-                    #                                             "filepath":  comiclocation,
-                    #                                             "filename":  clist['filename']})
                     else:
                         logger.warn(
                             module
@@ -236,11 +240,6 @@ class Readinglist(object):
                             + " does not exist in the given location. Remove from the Reading List and Re-add and/or confirm the file exists in the specified location"
                         )
                         continue
-
-            #                    #cidlist is just for this reference loop to not make unnecessary db calls if the comicid has already been processed.
-            #                    cidlist.append({"comicid":   clist['comicid'],
-            #                                    "issueid":   clist['issueid'],
-            #                                    "location":  comiclocation})  #store the comicid so we don't make multiple sql requests
 
             if len(sendlist) == 0:
                 logger.info(module + " Nothing to send from your readlist")
@@ -280,4 +279,4 @@ class Readinglist(object):
                 for succ in success:
                     newCTRL = {"issueid": succ["issueid"]}
                     newVAL = {"Status": "Downloaded", "StatusChange": helpers.today()}
-                    myDB.upsert("readlist", newVAL, newCTRL)
+                    db.upsert("readlist", newVAL, newCTRL)

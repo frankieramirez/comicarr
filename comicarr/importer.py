@@ -24,14 +24,15 @@ import json
 import os
 import re
 import shutil
-
-# import imghdr  # Removed - deprecated in Python 3.13+ and not used in this file
-import sqlite3
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# import imghdr  # Removed - deprecated in Python 3.13+ and not used in this file
+import sqlalchemy.exc
+from sqlalchemy import select, text
 
 import comicarr
 from comicarr import (
@@ -48,17 +49,17 @@ from comicarr import (
     series_metadata,
     updater,
 )
+from comicarr.tables import annuals, comics, issues
 
 
 def is_exists(comicid):
 
-    myDB = db.DBConnection()
-
-    # See if the artist is already in the database
-    comiclist = myDB.select("SELECT ComicID, ComicName from comics WHERE ComicID=?", [comicid])
+    with db.get_engine().connect() as conn:
+        stmt = select(comics.c.ComicID, comics.c.ComicName).where(comics.c.ComicID == comicid)
+        comiclist = [dict(row._mapping) for row in conn.execute(stmt)]
 
     if any(comicid in x for x in comiclist):
-        logger.info(comiclist[0][1] + " is already in the database.")
+        logger.info(comiclist[0]["ComicName"] + " is already in the database.")
         return False
     else:
         return False
@@ -127,17 +128,41 @@ def addvialist(seriesQueue, issueWantQueue):
 
 
 def markIssueWantedById(issueId):
-    myDB = db.DBConnection()
-    issue = myDB.selectone(
-        "SELECT i.IssueId, c.ComicName, i.Issue_Number, c.ComicID, c.ComicYear, i.Status FROM issues i LEFT JOIN comics c ON i.ComicID=c.ComicID WHERE i.IssueID=?",
-        [issueId],
-    ).fetchone()
+    with db.get_engine().connect() as conn:
+        # Try issues first
+        stmt = (
+            select(
+                issues.c.IssueID,
+                comics.c.ComicName,
+                issues.c.Issue_Number,
+                comics.c.ComicID,
+                comics.c.ComicYear,
+                issues.c.Status,
+            )
+            .select_from(issues.join(comics, issues.c.ComicID == comics.c.ComicID, isouter=True))
+            .where(issues.c.IssueID == issueId)
+        )
+        issue = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
     annual_check = False
     if issue is None:
-        issue = myDB.selectone(
-            "SELECT a.IssueId, c.ComicName, a.ReleaseComicName, a.Issue_Number, c.ComicID, c.ComicYear, a.Status FROM annuals a LEFT JOIN comics c ON a.ComicID=c.ComicID WHERE a.IssueID=? AND NOT a.Deleted",
-            [issueId],
-        ).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = (
+                select(
+                    annuals.c.IssueID,
+                    comics.c.ComicName,
+                    annuals.c.ReleaseComicName,
+                    annuals.c.Issue_Number,
+                    comics.c.ComicID,
+                    comics.c.ComicYear,
+                    annuals.c.Status,
+                )
+                .select_from(annuals.join(comics, annuals.c.ComicID == comics.c.ComicID, isouter=True))
+                .where(annuals.c.IssueID == issueId)
+                .where(annuals.c.Deleted == 0)
+            )
+            issue = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
         if issue is None:
             logger.warning(
                 f"Tried setting wanted status for issue with ID {issueId} in MASS-ADD thread but could not find issue"
@@ -168,9 +193,9 @@ def markIssueWantedById(issueId):
     newValueDict = {"Status": "Wanted"}
 
     if annual_check:
-        myDB.upsert("annuals", newValueDict, controlValueDict)
+        db.upsert("annuals", newValueDict, controlValueDict)
     else:
-        myDB.upsert("issues", newValueDict, controlValueDict)
+        db.upsert("issues", newValueDict, controlValueDict)
 
     logger.fdebug(f"Finished changing status of {comicname} [ID:{comicid}] issue #{issuenumber} to Wanted")
 
@@ -191,7 +216,6 @@ def addComictoDB(
     fixed_type=None,
     suppress_addall=None,
 ):
-    myDB = db.DBConnection()
 
     # Check if this is a MangaDex manga ID (prefixed with 'md-')
     if str(comicid).startswith("md-"):
@@ -199,7 +223,10 @@ def addComictoDB(
 
     controlValueDict = {"ComicID": comicid}
 
-    dbcomic = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [comicid]).fetchone()
+    with db.get_engine().connect() as conn:
+        stmt = select(comics).where(comics.c.ComicID == comicid)
+        dbcomic = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
     bypass = True
     if dbcomic is not None:
         if chkwant is not None:
@@ -263,7 +290,7 @@ def addComictoDB(
         old_description = None
         db_check_values = None
 
-    myDB.upsert("comics", newValueDict, controlValueDict)
+    db.upsert("comics", newValueDict, controlValueDict)
 
     # run the re-sortorder here in order to properly display the page
     if all([pullupd is None, calledfrom != "maintenance"]):
@@ -281,7 +308,7 @@ def addComictoDB(
                 newValueDict = {"Status": "Active"}
             else:
                 newValueDict = {"Status": "Paused"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", newValueDict, controlValueDict)
         return {"status": "incomplete"}
 
     if comic["ComicName"].startswith("The "):
@@ -298,7 +325,7 @@ def addComictoDB(
             )
             i_choose_violence = cv.check_that_biatch(comicid, db_check_values, comic)
             if i_choose_violence:
-                myDB.upsert("comics", {"Status": "Paused", "cv_removed": 1}, {"ComicID": comicid})
+                db.upsert("comics", {"Status": "Paused", "cv_removed": 1}, {"ComicID": comicid})
                 return {"status": "incomplete"}
 
     comic["Corrected_Type"] = fixed_type
@@ -325,7 +352,15 @@ def addComictoDB(
                 # print ("gcdinfo:" + str(gcdinfo))
 
         elif mismatch == "yes":
-            CV_EXcomicid = myDB.selectone("SELECT * from exceptions WHERE ComicID=?", [comicid])
+            # NOTE: 'exceptions' table is not in tables.py; using text() for this legacy query
+            with db.get_engine().connect() as conn:
+                CV_EXcomicid = next(
+                    (
+                        dict(row._mapping)
+                        for row in conn.execute(text("SELECT * from exceptions WHERE ComicID=:p0"), {"p0": comicid})
+                    ),
+                    None,
+                )
             if CV_EXcomicid["variloop"] is None:
                 pass
             else:
@@ -674,7 +709,7 @@ def addComictoDB(
         "Status": "Loading",
     }
 
-    myDB.upsert("comics", newValueDict, controlValueDict)
+    db.upsert("comics", newValueDict, controlValueDict)
 
     comicarr.GLOBAL_MESSAGES = {
         "status": "mid-message-event",
@@ -813,9 +848,14 @@ def addComictoDB(
             moveit.archivefiles(comicid, comlocation, imported)
 
     # check for existing files...
-    statbefore = myDB.selectone(
-        "SELECT Status FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [comicid, helpers.issuedigits(latestiss)]
-    ).fetchone()
+    with db.get_engine().connect() as conn:
+        stmt = (
+            select(issues.c.Status)
+            .where(issues.c.ComicID == comicid)
+            .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+        )
+        statbefore = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
     logger.fdebug("issue: " + latestiss + " status before chk :" + str(statbefore["Status"]))
     updater.forceRescan(comicid)
 
@@ -824,9 +864,14 @@ def addComictoDB(
         sm = series_metadata.metadata_Series(comicid, bulk=False, api=False)
         sm.update_metadata()
 
-    statafter = myDB.selectone(
-        "SELECT Status FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [comicid, helpers.issuedigits(latestiss)]
-    ).fetchone()
+    with db.get_engine().connect() as conn:
+        stmt = (
+            select(issues.c.Status)
+            .where(issues.c.ComicID == comicid)
+            .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+        )
+        statafter = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
     logger.fdebug("issue: " + latestiss + " status after chk :" + str(statafter["Status"]))
 
     logger.fdebug("pullupd: " + str(pullupd))
@@ -839,15 +884,24 @@ def addComictoDB(
             comicarr.CONFIG.AUTOWANT_UPCOMING and lastpubdate == "Present" and series_status == "Active"
         ):  # and 'Present' in gcdinfo['resultPublished']:
             logger.fdebug("latestissue: #" + str(latestiss))
-            chkstats = myDB.selectone(
-                "SELECT * FROM issues WHERE ComicID=? AND Int_IssueNumber=?", [comicid, helpers.issuedigits(latestiss)]
-            ).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = (
+                    select(issues)
+                    .where(issues.c.ComicID == comicid)
+                    .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+                )
+                chkstats = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
             if chkstats is None:
                 if comicarr.CONFIG.ANNUALS_ON:
-                    chkstats = myDB.selectone(
-                        "SELECT * FROM annuals WHERE ComicID=? AND Int_IssueNumber=? AND NOT Deleted",
-                        [comicid, helpers.issuedigits(latestiss)],
-                    ).fetchone()
+                    with db.get_engine().connect() as conn:
+                        stmt = (
+                            select(annuals)
+                            .where(annuals.c.ComicID == comicid)
+                            .where(annuals.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+                            .where(annuals.c.Deleted == 0)
+                        )
+                        chkstats = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
             if chkstats:
                 logger.fdebug("latestissue status: " + chkstats["Status"])
@@ -866,7 +920,10 @@ def addComictoDB(
                 # here we grab issues that have been marked as wanted above...
                 if calledfrom != "maintenance":
                     results = []
-                    issresults = myDB.select("SELECT * FROM issues where ComicID=? AND Status='Wanted'", [comicid])
+                    with db.get_engine().connect() as conn:
+                        stmt = select(issues).where(issues.c.ComicID == comicid).where(issues.c.Status == "Wanted")
+                        issresults = [dict(row._mapping) for row in conn.execute(stmt)]
+
                     if issresults:
                         for issr in issresults:
                             results.append(
@@ -877,9 +934,15 @@ def addComictoDB(
                                 }
                             )
                     if comicarr.CONFIG.ANNUALS_ON:
-                        an_results = myDB.select(
-                            "SELECT * FROM annuals WHERE ComicID=? AND Status='Wanted' AND NOT Deleted", [comicid]
-                        )
+                        with db.get_engine().connect() as conn:
+                            stmt = (
+                                select(annuals)
+                                .where(annuals.c.ComicID == comicid)
+                                .where(annuals.c.Status == "Wanted")
+                                .where(annuals.c.Deleted == 0)
+                            )
+                            an_results = [dict(row._mapping) for row in conn.execute(stmt)]
+
                         if an_results:
                             for ar in an_results:
                                 results.append(
@@ -910,7 +973,10 @@ def addComictoDB(
         # if this isn't None, this is being called from the futureupcoming list
         # a new series was added automagically, but it has more than 1 issue (probably because it was a back-dated issue)
         # the chkwant is a tuple containing all the data for the given series' issues that were marked as Wanted for futureupcoming dates.
-        chkresults = myDB.select("SELECT * FROM issues WHERE ComicID=? AND Status='Skipped'", [comicid])
+        with db.get_engine().connect() as conn:
+            stmt = select(issues).where(issues.c.ComicID == comicid).where(issues.c.Status == "Skipped")
+            chkresults = [dict(row._mapping) for row in conn.execute(stmt)]
+
         if chkresults:
             logger.info("[FROM THE FUTURE CHECKLIST] Attempting to grab wanted issues for : " + comic["ComicName"])
             for result in chkresults:
@@ -993,7 +1059,6 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     """
     from comicarr import mangadex
 
-    myDB = db.DBConnection()
     logger.info("[MANGADEX] Adding manga with ID: %s" % mangaid)
 
     # Get the raw MangaDex UUID (without md- prefix)
@@ -1002,7 +1067,9 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     controlValueDict = {"ComicID": mangaid}
 
     # Check if manga already exists
-    dbmanga = myDB.selectone("SELECT * FROM comics WHERE ComicID=?", [mangaid]).fetchone()
+    with db.get_engine().connect() as conn:
+        stmt = select(comics).where(comics.c.ComicID == mangaid)
+        dbmanga = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
     if dbmanga is not None:
         if dbmanga["Status"] == "Active":
@@ -1017,14 +1084,14 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         comlocation = None
 
     # Set loading status
-    myDB.upsert("comics", {"Status": "Loading"}, controlValueDict)
+    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
 
     # Fetch manga details from MangaDex
     manga = mangadex.get_manga_details(mangaid)
 
     if not manga:
         logger.error("[MANGADEX] Error fetching manga details for: %s" % mangaid)
-        myDB.upsert(
+        db.upsert(
             "comics",
             {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
             controlValueDict,
@@ -1094,7 +1161,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     if alt_titles:
         comic_values["AlternateSearch"] = "##".join(alt_titles[:5])  # Limit to 5 alt titles
 
-    myDB.upsert("comics", comic_values, controlValueDict)
+    db.upsert("comics", comic_values, controlValueDict)
 
     # Now fetch and add chapters as issues
     logger.info("[MANGADEX] Fetching chapters for: %s" % manga_name)
@@ -1137,7 +1204,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
                 "DateAdded": helpers.now(),
             }
 
-            myDB.upsert("issues", issue_values, {"IssueID": issue_id})
+            db.upsert("issues", issue_values, {"IssueID": issue_id})
             issue_count += 1
 
             # Track latest chapter
@@ -1169,7 +1236,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
             "LatestIssue": str(latest_chapter) if latest_chapter else "0",
             "LatestDate": latest_date or "Unknown",
         }
-        myDB.upsert("comics", update_values, controlValueDict)
+        db.upsert("comics", update_values, controlValueDict)
 
         logger.info("[MANGADEX] Added %d chapters for %s" % (issue_count, manga_name))
 
@@ -1190,28 +1257,35 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
     # CV = comicid, GCD = gcomicid :) (ie. CV=2740, GCD=G3719)
 
     gcdcomicid = gcomicid
-    myDB = db.DBConnection()
 
     # We need the current minimal info in the database instantly
     # so we don't throw a 500 error when we redirect to the artistPage
 
     controlValueDict = {"ComicID": gcdcomicid}
 
-    comic = myDB.selectone(
-        "SELECT ComicName, ComicYear, Total, ComicPublished, ComicImage, ComicLocation, ComicPublisher FROM comics WHERE ComicID=?",
-        [gcomicid],
-    ).fetchone()
-    ComicName = comic[0]
-    ComicYear = comic[1]
-    ComicIssues = comic[2]
-    ComicPublished = comic[3]
-    comlocation = comic[5]
-    ComicPublisher = comic[6]
-    # ComicImage = comic[4]
+    with db.get_engine().connect() as conn:
+        stmt = select(
+            comics.c.ComicName,
+            comics.c.ComicYear,
+            comics.c.Total,
+            comics.c.ComicPublished,
+            comics.c.ComicImage,
+            comics.c.ComicLocation,
+            comics.c.ComicPublisher,
+        ).where(comics.c.ComicID == gcomicid)
+        comic = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
+    ComicName = comic["ComicName"]
+    ComicYear = comic["ComicYear"]
+    ComicIssues = comic["Total"]
+    ComicPublished = comic["ComicPublished"]
+    comlocation = comic["ComicLocation"]
+    ComicPublisher = comic["ComicPublisher"]
+    # ComicImage = comic["ComicImage"]
     # print ("Comic:" + str(ComicName))
 
     newValueDict = {"Status": "Loading"}
-    myDB.upsert("comics", newValueDict, controlValueDict)
+    db.upsert("comics", newValueDict, controlValueDict)
 
     # we need to lookup the info for the requested ComicID in full now
     # comic = cv.getComic(comicid,'comic')
@@ -1222,7 +1296,7 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
             newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (gcdcomicid), "Status": "Active"}
         else:
             newValueDict = {"Status": "Active"}
-        myDB.upsert("comics", newValueDict, controlValueDict)
+        db.upsert("comics", newValueDict, controlValueDict)
         return
 
     # run the re-sortorder here in order to properly display the page
@@ -1377,7 +1451,7 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
         "Status": "Loading",
     }
 
-    myDB.upsert("comics", newValueDict, controlValueDict)
+    db.upsert("comics", newValueDict, controlValueDict)
 
     # comicsort here...
     # run the re-sortorder here in order to properly display the page
@@ -1441,7 +1515,9 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
         # ---END.NEW.
 
         # check if the issue already exists
-        iss_exists = myDB.selectone("SELECT * from issues WHERE IssueID=?", [issid]).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(issues).where(issues.c.IssueID == issid)
+            iss_exists = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
         # Only change the status & add DateAdded if the issue is not already in the database
         if iss_exists is None:
@@ -1474,7 +1550,7 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
             # print ("Existing status : " + str(iss_exists['Status']))
             newValueDict["Status"] = iss_exists["Status"]
 
-        myDB.upsert("issues", newValueDict, controlValueDict)
+        db.upsert("issues", newValueDict, controlValueDict)
         bb += 1
 
     #        logger.debug(u"Updating comic cache for " + ComicName)
@@ -1491,7 +1567,7 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
         "LastUpdated": helpers.now(),
     }
 
-    myDB.upsert("comics", newValueStat, controlValueStat)
+    db.upsert("comics", newValueStat, controlValueStat)
 
     if comicarr.CONFIG.CVINFO and os.path.isdir(comlocation):
         if not os.path.exists(comlocation + "/cvinfo"):
@@ -1522,7 +1598,10 @@ def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
 
         # here we grab issues that have been marked as wanted above...
 
-        results = myDB.select("SELECT * FROM issues where ComicID=? AND Status='Wanted'", [gcomicid])
+        with db.get_engine().connect() as conn:
+            stmt = select(issues).where(issues.c.ComicID == gcomicid).where(issues.c.Status == "Wanted")
+            results = [dict(row._mapping) for row in conn.execute(stmt)]
+
         if results:
             logger.info("Attempting to grab wanted issues for : " + ComicName)
 
@@ -1553,15 +1632,19 @@ def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_adda
     logger.info("nostatus: %s" % nostatus)
     logger.info("issuedata: %s" % (issuedata))
 
-    myDB = db.DBConnection()
     nowdate = datetime.datetime.now()
     now_week = datetime.datetime.strftime(nowdate, "%Y%U")
 
     if issuedata:
-        isslastdate = myDB.selectone(
-            "SELECT IssueDate, ReleaseDate from issues where ComicID=? ORDER BY IssueDate DESC LIMIT 1",
-            [issuedata[0]["ComicID"]],
-        ).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = (
+                select(issues.c.IssueDate, issues.c.ReleaseDate)
+                .where(issues.c.ComicID == issuedata[0]["ComicID"])
+                .order_by(issues.c.IssueDate.desc())
+                .limit(1)
+            )
+            isslastdate = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
         if not isslastdate:
             lastchkdate = "0000-00-00"  # set it to make sure every new issue gets autowanted if enabled.
         else:
@@ -1587,7 +1670,10 @@ def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_adda
             }
 
             # check if the issue already exists
-            iss_exists = myDB.selectone("SELECT * from issues WHERE IssueID=?", [issue["IssueID"]]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(issues).where(issues.c.IssueID == issue["IssueID"])
+                iss_exists = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
             dbwrite = "issues"
 
             # if iss_exists is None:
@@ -1654,11 +1740,12 @@ def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_adda
 
             # logger.fdebug('issue_collection results: [%s] %s' % (controlValueDict, newValueDict))
             try:
-                myDB.upsert(dbwrite, newValueDict, controlValueDict)
-            except sqlite3.InterfaceError:
-                # raise sqlite3.InterfaceError(e)
+                db.upsert(dbwrite, newValueDict, controlValueDict)
+            except sqlalchemy.exc.InterfaceError:
+                # raise sqlalchemy.exc.InterfaceError(e)
                 logger.error("Something went wrong - I cannot add the issue information into my DB.")
-                myDB.action("DELETE FROM comics WHERE ComicID=?", [issue["ComicID"]])
+                with db.get_engine().begin() as conn:
+                    conn.execute(comics.delete().where(comics.c.ComicID == issue["ComicID"]))
                 return
 
 
@@ -1681,8 +1768,6 @@ def manualAnnual(
         serieslast_updated = datetime.datetime.strptime(serieslast_updated, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     except Exception:
         pass
-
-    myDB = db.DBConnection()
 
     if annchk is None:
         nowdate = datetime.datetime.now()
@@ -1802,7 +1887,7 @@ def manualAnnual(
         # need to add in the values for the new series to be added.
         # "M_ComicName":    sr['ComicName'],
         # "M_ComicID":      manual_comicid}
-        myDB.upsert("annuals", newVals, newCtrl)
+        db.upsert("annuals", newVals, newCtrl)
     if len(annchk) > 0:
         logger.info(
             "Successfully integrated " + str(len(annchk)) + " annuals into the series: " + annchk[0]["ComicName"]
@@ -1826,7 +1911,6 @@ def updateissuedata(
 ):
     annualchk = []
     weeklyissue_check = []
-    db_already_open = False
 
     logger.fdebug("issuedata call references...")
     logger.fdebug("comicid: %s" % comicid)
@@ -1838,9 +1922,10 @@ def updateissuedata(
     logger.fdebug("issuetype: %s" % issuetype)
 
     if series_status is None and comicid is not None:
-        db_already_open = True
-        myDB = db.DBConnection()
-        chk_series_status = myDB.selectone("SELECT Status from comics where ComicID=?", [comicid]).fetchone()
+        with db.get_engine().connect() as conn:
+            stmt = select(comics.c.Status).where(comics.c.ComicID == comicid)
+            chk_series_status = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
         if chk_series_status is not None:
             series_status = chk_series_status["Status"]
         else:
@@ -2292,9 +2377,8 @@ def updateissuedata(
         "LatestDate": latestdate,
         "LastUpdated": helpers.now(),
     }
-    if not db_already_open:
-        myDB = db.DBConnection()
-    myDB.upsert("comics", newValueStat, controlValueStat)
+
+    db.upsert("comics", newValueStat, controlValueStat)
 
     importantdates = {}
     importantdates["LatestIssue"] = latestiss
@@ -2343,9 +2427,10 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
     nowdate = datetime.datetime.now()
     now_week = datetime.datetime.strftime(nowdate, "%Y%U")
 
-    myDB = db.DBConnection()
+    with db.get_engine().connect() as conn:
+        stmt = select(annuals).where(annuals.c.ComicID == comicid)
+        annual_load = [dict(row._mapping) for row in conn.execute(stmt)]
 
-    annual_load = myDB.select("SELECT * FROM annuals WHERE ComicID=?", [comicid])
     logger.fdebug("checking annual db")
     for annthis in annual_load:
         if not any(d["ReleaseComicID"] == annthis["ReleaseComicID"] for d in annload):
@@ -2469,7 +2554,10 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
                         digdate = str(firstval["Digital_Date"])
                         int_issnum = helpers.issuedigits(issnum)
 
-                        iss_exists = myDB.selectone("SELECT * from annuals WHERE IssueID=?", [issid]).fetchone()
+                        with db.get_engine().connect() as conn:
+                            stmt = select(annuals).where(annuals.c.IssueID == issid)
+                            iss_exists = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
                         if iss_exists is None:
                             if stdate == "0000-00-00":
                                 dk = re.sub("-", "", issdate).strip()
@@ -2611,8 +2699,7 @@ def image_it(comicid, latestissueid, comlocation, ComicImage):
                         "[%s] Error saving cover (%s) into series directory (%s) at this time" % (e, cimage, comiclocal)
                     )
 
-    myDB = db.DBConnection()
-    myDB.upsert("comics", {"ComicImage": ComicImage}, {"ComicID": comicid})
+    db.upsert("comics", {"ComicImage": ComicImage}, {"ComicID": comicid})
 
 
 def importer_thread(serieslist):

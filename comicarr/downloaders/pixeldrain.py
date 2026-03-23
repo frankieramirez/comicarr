@@ -88,10 +88,9 @@ class PixelDrain(object):
             logger.warn("[PIXELDRAIN] Unable to retrieve remote link - %s" % file_error)
             return {"success": False, "filename": None, "path": None, "link_type_failure": "GC-Pixel"}
 
-        myDB = db.DBConnection()
         # write the filename to the db for tracking purposes...
         logger.info("[PixelDrain] Writing to db: %s [%s]" % (file_info["filename"], file_info["filesize"]))
-        myDB.upsert(
+        db.upsert(
             "ddl_info",
             {
                 "filename": str(file_info["filename"]),
@@ -113,8 +112,7 @@ class PixelDrain(object):
         filesize = fileinfo["filesize"]
         filepath = os.path.join(self.dl_location, filename)
 
-        myDB = db.DBConnection()
-        myDB.upsert(
+        db.upsert(
             "ddl_info",
             {"tmp_filename": filename},  # tmp_filename should be all that's needed to be updated at this point...
             {"id": self.id},

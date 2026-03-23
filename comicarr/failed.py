@@ -22,9 +22,11 @@ import os
 import re
 
 import feedparser as feedparser
+from sqlalchemy import select
 
 import comicarr
 from comicarr import db, helpers, logger
+from comicarr.tables import annuals, comics, failed, issues, nzblog
 
 
 class FailedProcessor(object):
@@ -83,8 +85,6 @@ class FailedProcessor(object):
     def Process(self):
         module = "[FAILED-DOWNLOAD]"
 
-        myDB = db.DBConnection()
-
         if self.nzb_name and self.nzb_folder:
             self._log("Failed download has been detected: " + self.nzb_name + " in " + self.nzb_folder)
 
@@ -110,7 +110,9 @@ class FailedProcessor(object):
             logger.fdebug(module + " After conversions, nzbname is : " + str(nzbname))
             self._log("nzbname: " + str(nzbname))
 
-            nzbiss = myDB.selectone("SELECT * from nzblog WHERE nzbname=?", [nzbname]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(nzblog).where(nzblog.c.NZBName == nzbname)
+                nzbiss = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
             if nzbiss is None:
                 self._log("Failure - could not initially locate nzbfile in my database to rename.")
@@ -119,7 +121,9 @@ class FailedProcessor(object):
                 nzbname = re.sub("_", ".", str(nzbname))
                 self._log("trying again with this nzbname: " + str(nzbname))
                 logger.fdebug(module + " Trying to locate nzbfile again with nzbname of : " + str(nzbname))
-                nzbiss = myDB.selectone("SELECT * from nzblog WHERE nzbname=?", [nzbname]).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(nzblog).where(nzblog.c.NZBName == nzbname)
+                    nzbiss = next((dict(row._mapping) for row in conn.execute(stmt)), None)
                 if nzbiss is None:
                     logger.error(module + " Unable to locate downloaded file to rename. PostProcessing aborted.")
                     self._log("Unable to locate downloaded file to rename. PostProcessing aborted.")
@@ -138,7 +142,9 @@ class FailedProcessor(object):
 
         else:
             issueid = self.issueid
-            nzbiss = myDB.selectone("SELECT * from nzblog WHERE IssueID=?", [issueid]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(nzblog).where(nzblog.c.IssueID == issueid)
+                nzbiss = next((dict(row._mapping) for row in conn.execute(stmt)), None)
             if nzbiss is None:
                 logger.info(
                     module + " Cannot locate corresponding record in download history. This will be implemented soon."
@@ -168,15 +174,21 @@ class FailedProcessor(object):
         if "annual" in nzbname.lower():
             logger.info(module + " Annual detected.")
             annchk = "yes"
-            issuenzb = myDB.selectone(
-                "SELECT a.ComicYear, b.* from comics as a left join annuals as b on a.ComicID=b.ComicID WHERE b.IssueID=? AND b.ComicName NOT NULL",
-                [issueid],
-            ).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = (
+                    select(comics.c.ComicYear, annuals)
+                    .select_from(comics.join(annuals, comics.c.ComicID == annuals.c.ComicID, isouter=True))
+                    .where(annuals.c.IssueID == issueid, annuals.c.ComicName.isnot(None))
+                )
+                issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
         else:
-            issuenzb = myDB.selectone(
-                "SELECT a.ComicYear, b.* from comics as a left join issues as b on a.ComicID=b.ComicID WHERE b.IssueID=? AND b.ComicName NOT NULL",
-                [issueid],
-            ).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = (
+                    select(comics.c.ComicYear, issues)
+                    .select_from(comics.join(issues, comics.c.ComicID == issues.c.ComicID, isouter=True))
+                    .where(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None))
+                )
+                issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
         if issuenzb is not None:
             logger.info(module + " issuenzb found.")
@@ -231,7 +243,7 @@ class FailedProcessor(object):
 
         ctrlVal = {"IssueID": issueid}
         Vals = {"Status": "Failed"}
-        myDB.upsert("issues", Vals, ctrlVal)
+        db.upsert("issues", Vals, ctrlVal)
 
         ctrlVal = {"ID": self.id, "Provider": self.prov, "NZBName": nzbname}
         Vals = {
@@ -242,7 +254,7 @@ class FailedProcessor(object):
             "ComicID": comicid,
             "DateFailed": helpers.now(),
         }
-        myDB.upsert("failed", Vals, ctrlVal)
+        db.upsert("failed", Vals, ctrlVal)
 
         logger.info(module + " Successfully marked as Failed.")
         self._log("Successfully marked as Failed.")
@@ -305,7 +317,6 @@ class FailedProcessor(object):
         #     ID is provider dependent, so the same file should be different for every provider.
         module = "[FAILED_DOWNLOAD_CHECKER]"
 
-        myDB = db.DBConnection()
         # Querying on NZBName alone will result in all downloads regardless of provider.
         # This will make sure that the files being downloaded are different regardless of provider.
         # Perhaps later improvement might be to break it down by provider so that Comicarr will attempt to
@@ -316,40 +327,44 @@ class FailedProcessor(object):
             st = self.id.find("searchid:")
             end = self.id.find(",", st)
             self.id = "%" + self.id[:st] + "%" + self.id[end + 1 : len(self.id) - 1] + "%"
-            chk_fail = myDB.selectone("SELECT * FROM failed WHERE ID LIKE ?", [self.id]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(failed).where(failed.c.ID.like(self.id))
+                chk_fail = next((dict(row._mapping) for row in conn.execute(stmt)), None)
         else:
-            chk_fail = myDB.selectone("SELECT * FROM failed WHERE ID=?", [self.id]).fetchone()
+            with db.get_engine().connect() as conn:
+                stmt = select(failed).where(failed.c.ID == self.id)
+                chk_fail = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
         if chk_fail is None:
             logger.info(module + " Successfully marked this download as Good for downloadable content")
             return "Good"
         else:
-            if chk_fail["status"] == "Good":
+            if chk_fail["Status"] == "Good":
                 logger.info(
                     module
                     + " result has a status of GOOD - which means it does not currently exist in the failed download list."
                 )
-                return chk_fail["status"]
-            elif chk_fail["status"] == "Failed":
+                return chk_fail["Status"]
+            elif chk_fail["Status"] == "Failed":
                 logger.info(
                     module + " result has a status of FAIL which indicates it is not a good choice to download."
                 )
                 logger.info(module + " continuing search for another download.")
-                return chk_fail["status"]
-            elif chk_fail["status"] == "Retry":
+                return chk_fail["Status"]
+            elif chk_fail["Status"] == "Retry":
                 logger.info(
                     module + " result has a status of RETRY which indicates it was a failed download that retried ."
                 )
-                return chk_fail["status"]
-            elif chk_fail["status"] == "Retrysame":
+                return chk_fail["Status"]
+            elif chk_fail["Status"] == "Retrysame":
                 logger.info(
                     module
                     + " result has a status of RETRYSAME which indicates it was a failed download that retried the initial download."
                 )
-                return chk_fail["status"]
+                return chk_fail["Status"]
             else:
                 logger.info(
-                    module + " result has a status of " + chk_fail["status"] + ". I am not sure what to do now."
+                    module + " result has a status of " + chk_fail["Status"] + ". I am not sure what to do now."
                 )
                 return "nope"
 
@@ -357,8 +372,6 @@ class FailedProcessor(object):
         # use this to forcibly mark a single issue as being Failed (ie. if a search result is sent to a client, but the result
         # ends up passing in a 404 or something that makes it so that the download can't be initiated).
         module = "[FAILED-DOWNLOAD]"
-
-        myDB = db.DBConnection()
 
         logger.info(module + " Marking as a Failed Download.")
 
@@ -375,17 +388,23 @@ class FailedProcessor(object):
         else:
             if "annual" in self.nzb_name.lower():
                 logger.info(module + " Annual detected.")
-                issuenzb = myDB.selectone(
-                    "SELECT * from annuals WHERE IssueID=? AND ComicName NOT NULL", [self.issueid]
-                ).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(annuals).where(
+                        annuals.c.IssueID == self.issueid,
+                        annuals.c.ComicName.isnot(None),
+                    )
+                    issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
             else:
-                issuenzb = myDB.selectone(
-                    "SELECT * from issues WHERE IssueID=? AND ComicName NOT NULL", [self.issueid]
-                ).fetchone()
+                with db.get_engine().connect() as conn:
+                    stmt = select(issues).where(
+                        issues.c.IssueID == self.issueid,
+                        issues.c.ComicName.isnot(None),
+                    )
+                    issuenzb = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
             ctrlVal = {"IssueID": self.issueid}
             Vals = {"Status": "Failed"}
-            myDB.upsert("issues", Vals, ctrlVal)
+            db.upsert("issues", Vals, ctrlVal)
             ComicName = issuenzb["ComicName"]
             IssueNumber = issuenzb["Issue_Number"]
 
@@ -398,6 +417,6 @@ class FailedProcessor(object):
             "ComicID": self.comicid,
             "DateFailed": helpers.now(),
         }
-        myDB.upsert("failed", Vals, ctrlVal)
+        db.upsert("failed", Vals, ctrlVal)
 
         logger.info(module + " Successfully marked as Failed.")

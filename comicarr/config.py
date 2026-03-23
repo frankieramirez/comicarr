@@ -106,6 +106,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "CLEANUP_CACHE": (bool, "General", True),
         "CLEANUP_STRAYS": (bool, "General", False),
         "SECURE_DIR": (str, "General", None),
+        "DATABASE_URL": (str, "Database", None),
         "ENCRYPT_PASSWORDS": (bool, "General", False),
         "BACKUP_ON_START": (bool, "General", False),
         "BACKUP_LOCATION": (str, "General", None),
@@ -950,11 +951,18 @@ class Config(object):
 
             self.EXTRA_NEWZNABS = enz
             self.EXTRA_TORZNABS = extra_torznabs
-            myDB = db.DBConnection()
             try:
-                ccd = myDB.select("PRAGMA table_info(provider_searches)")
-                if ccd:
-                    myDB.action("DELETE FROM provider_searches where id=102 or id=103")
+                from sqlalchemy import delete
+                from sqlalchemy import inspect as sa_inspect
+
+                from comicarr.tables import provider_searches
+
+                inspector = sa_inspect(db.get_engine())
+                cols = inspector.get_columns("provider_searches")
+                if cols:
+                    stmt = delete(provider_searches).where(provider_searches.c.id.in_([102, 103]))
+                    with db.get_engine().begin() as conn:
+                        conn.execute(stmt)
             except Exception:
                 # if the table doesn't exist yet, it'll get created after the config loads on new installs.
                 pass
@@ -1228,6 +1236,7 @@ class Config(object):
                 "SLACK_WEBHOOK_URL": ("SLACK", "slack_webhook_url", self.SLACK_WEBHOOK_URL),
                 "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url", self.MATTERMOST_WEBHOOK_URL),
                 "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url", self.DISCORD_WEBHOOK_URL),
+                "DATABASE_URL": ("Database", "database_url", self.DATABASE_URL),
             }
         )
 
@@ -2195,8 +2204,12 @@ class Config(object):
     def write_out_provider_searches(self):
         # this is needed for rss to work since the provider table isn't written to
         # until a search is performed
-        myDB = db.DBConnection()
-        chk = myDB.select("SELECT * FROM provider_searches")
+        from sqlalchemy import delete, select
+
+        from comicarr.tables import provider_searches
+
+        with db.get_engine().connect() as conn:
+            chk = [dict(row._mapping) for row in conn.execute(select(provider_searches))]
         p_list = {}
         write = False
         if chk:
@@ -2234,7 +2247,7 @@ class Config(object):
 
                     t_ctrl = {"id": t_id, "provider": prov_t}
                     t_vals = {"active": ck["active"], "lastrun": ck["lastrun"], "type": ck["type"], "hits": ck_hits}
-                    myDB.upsert("provider_searches", t_vals, t_ctrl)
+                    db.upsert("provider_searches", t_vals, t_ctrl)
                 p_list[prov_t] = {
                     "id": t_id,
                     "active": ck["active"],
@@ -2288,7 +2301,9 @@ class Config(object):
                         # needed to ensure the type is set properly for this provider
                         ptype = tprov["type"]
                         if tmp_prov == "Experimental":
-                            myDB.action("DELETE FROM provider_searches where id=101")
+                            stmt = delete(provider_searches).where(provider_searches.c.id == 101)
+                            with db.get_engine().begin() as conn:
+                                conn.execute(stmt)
                             tmp_prov = "experimental"
                         ctrls = {"id": tprov["id"], "provider": tmp_prov}
                         vals = {
@@ -2301,7 +2316,7 @@ class Config(object):
 
             if write is True:
                 logger.fdebug("writing: keys - %s: vals - %s" % (vals, ctrls))
-                myDB.upsert("provider_searches", vals, ctrls)
+                db.upsert("provider_searches", vals, ctrls)
 
 
 def ddl_creations():

@@ -42,6 +42,8 @@ import cherrypy
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 import comicarr.config
 from comicarr import (
@@ -473,23 +475,19 @@ def initialize(config_file):
             logger.error("Cannot connect to the database: %s" % e)
         else:
             # Check if database is empty and set startup flags
-            conn = None
             try:
-                conn = sql_db()
-                row = conn.execute("SELECT COUNT(*) FROM comics").fetchone()
-                comic_count = row[0] if row else 0
-                if comic_count > 0:
-                    if comicarr.CONFIG.BACKUP_ON_START:
-                        backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
-                        retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
-                        maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
-                else:
-                    comicarr.DB_EMPTY = True
+                with sql_db() as conn:
+                    row = conn.execute(text("SELECT COUNT(*) FROM comics")).first()
+                    comic_count = row[0] if row else 0
+                    if comic_count > 0:
+                        if comicarr.CONFIG.BACKUP_ON_START:
+                            backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
+                            retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
+                            maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+                    else:
+                        comicarr.DB_EMPTY = True
             except Exception as e:
                 logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
-            finally:
-                if conn:
-                    conn.close()
 
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
@@ -1209,976 +1207,483 @@ def queue_schedule(queuetype, mode):
 
 
 def sql_db():
-    conn = sqlite3.connect(DB_FILE, detect_types=sqlite3.PARSE_DECLTYPES)
-    return conn
+    """Return a SQLAlchemy connection (replaces raw sqlite3).
+
+    Callers must use SQLAlchemy text() for raw SQL and call .close()
+    when finished, or preferably use this as a context manager.
+    """
+    from comicarr.db import get_engine
+
+    return get_engine().connect()
+
+
+def _ensure_columns(engine, table_name, required_columns):
+    """Add missing columns to an existing table.
+
+    Uses SQLAlchemy inspect() for portable column detection.
+    Each ALTER TABLE runs in its own transaction.
+
+    Args:
+        engine: SQLAlchemy Engine
+        table_name: Name of the table to check
+        required_columns: List of (column_name, column_type_sql) tuples
+    """
+    inspector = inspect(engine)
+    try:
+        existing = {c["name"] for c in inspector.get_columns(table_name)}
+    except Exception:
+        return  # Table doesn't exist yet (will be created by metadata.create_all)
+
+    for col_name, col_type in required_columns:
+        if col_name not in existing:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+            except (OperationalError, ProgrammingError) as e:
+                logger.warn("Could not add column %s.%s: %s", table_name, col_name, e)
 
 
 def dbcheck():
-    conn = sql_db()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT ReleaseDate from storyarcs")
-    except sqlite3.OperationalError:
+    from comicarr.db import get_engine
+    from comicarr.tables import metadata as sa_metadata
+
+    engine = get_engine()
+
+    # --- Legacy readinglist -> storyarcs migration (very old databases) ---
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if "readinglist" in existing_tables and "storyarcs" not in existing_tables:
         try:
-            c.execute(
-                "CREATE TABLE IF NOT EXISTS storyarcs(StoryArcID TEXT, ComicName TEXT, IssueNumber TEXT, SeriesYear TEXT, IssueYEAR TEXT, StoryArc TEXT, TotalIssues TEXT, Status TEXT, inCacheDir TEXT, Location TEXT, IssueArcID TEXT, ReadingOrder INT, IssueID TEXT, ComicID TEXT, ReleaseDate TEXT, IssueDate TEXT, Publisher TEXT, IssuePublisher TEXT, IssueName TEXT, CV_ArcID TEXT, Int_IssueNumber INT, DynamicComicName TEXT, Volume TEXT, Manual TEXT, DateAdded TEXT, DigitalDate TEXT, Type TEXT, Aliases TEXT, ArcImage TEXT)"
-            )
-            c.execute(
-                "INSERT INTO storyarcs(StoryArcID, ComicName, IssueNumber, SeriesYear, IssueYEAR, StoryArc, TotalIssues, Status, inCacheDir, Location, IssueArcID, ReadingOrder, IssueID, ComicID, ReleaseDate, IssueDate, Publisher, IssuePublisher, IssueName, CV_ArcID, Int_IssueNumber, DynamicComicName, Volume, Manual) SELECT StoryArcID, ComicName, IssueNumber, SeriesYear, IssueYEAR, StoryArc, TotalIssues, Status, inCacheDir, Location, IssueArcID, ReadingOrder, IssueID, ComicID, StoreDate, IssueDate, Publisher, IssuePublisher, IssueName, CV_ArcID, Int_IssueNumber, DynamicComicName, Volume, Manual FROM readinglist"
-            )
-            c.execute("DROP TABLE readinglist")
-        except sqlite3.OperationalError:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS storyarcs(StoryArcID TEXT, ComicName TEXT, "
+                        "IssueNumber TEXT, SeriesYear TEXT, IssueYEAR TEXT, StoryArc TEXT, "
+                        "TotalIssues TEXT, Status TEXT, inCacheDir TEXT, Location TEXT, "
+                        "IssueArcID TEXT, ReadingOrder INT, IssueID TEXT, ComicID TEXT, "
+                        "ReleaseDate TEXT, IssueDate TEXT, Publisher TEXT, IssuePublisher TEXT, "
+                        "IssueName TEXT, CV_ArcID TEXT, Int_IssueNumber INT, DynamicComicName TEXT, "
+                        "Volume TEXT, Manual TEXT, DateAdded TEXT, DigitalDate TEXT, Type TEXT, "
+                        "Aliases TEXT, ArcImage TEXT, StoreDate TEXT)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO storyarcs(StoryArcID, ComicName, IssueNumber, SeriesYear, "
+                        "IssueYEAR, StoryArc, TotalIssues, Status, inCacheDir, Location, "
+                        "IssueArcID, ReadingOrder, IssueID, ComicID, ReleaseDate, IssueDate, "
+                        "Publisher, IssuePublisher, IssueName, CV_ArcID, Int_IssueNumber, "
+                        "DynamicComicName, Volume, Manual) SELECT StoryArcID, ComicName, "
+                        "IssueNumber, SeriesYear, IssueYEAR, StoryArc, TotalIssues, Status, "
+                        "inCacheDir, Location, IssueArcID, ReadingOrder, IssueID, ComicID, "
+                        "StoreDate, IssueDate, Publisher, IssuePublisher, IssueName, CV_ArcID, "
+                        "Int_IssueNumber, DynamicComicName, Volume, Manual FROM readinglist"
+                    )
+                )
+                conn.execute(text("DROP TABLE readinglist"))
+        except (OperationalError, ProgrammingError):
             logger.warn("Unable to update readinglist table to new storyarc table format.")
 
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS comics (ComicID TEXT UNIQUE, ComicName TEXT, ComicSortName TEXT, ComicYear TEXT, DateAdded TEXT, Status TEXT, IncludeExtras INTEGER, Have INTEGER, Total INTEGER, ComicImage TEXT, FirstImageSize INTEGER, ComicPublisher TEXT, PublisherImprint TEXT, ComicLocation TEXT, ComicPublished TEXT, NewPublish TEXT, LatestIssue TEXT, intLatestIssue INT, LatestDate TEXT, Description TEXT, DescriptionEdit TEXT, QUALalt_vers TEXT, QUALtype TEXT, QUALscanner TEXT, QUALquality TEXT, LastUpdated TEXT, AlternateSearch TEXT, UseFuzzy TEXT, ComicVersion TEXT, SortOrder INTEGER, DetailURL TEXT, ForceContinuing INTEGER, ComicName_Filesafe TEXT, AlternateFileName TEXT, ComicImageURL TEXT, ComicImageALTURL TEXT, DynamicComicName TEXT, AllowPacks TEXT, Type TEXT, Corrected_SeriesYear TEXT, Corrected_Type TEXT, TorrentID_32P TEXT, LatestIssueID TEXT, Collects CLOB, IgnoreType INTEGER, AgeRating TEXT, FilesUpdated TEXT, seriesjsonPresent INT, dirlocked INTEGER, cv_removed INTEGER)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS issues (IssueID TEXT, ComicName TEXT, IssueName TEXT, Issue_Number TEXT, DateAdded TEXT, Status TEXT, Type TEXT, ComicID TEXT, ArtworkURL Text, ReleaseDate TEXT, Location TEXT, IssueDate TEXT, DigitalDate TEXT, Int_IssueNumber INT, ComicSize TEXT, AltIssueNumber TEXT, IssueDate_Edit TEXT, ImageURL TEXT, ImageURL_ALT TEXT, forced_file INT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS snatched (IssueID TEXT, ComicName TEXT, Issue_Number TEXT, Size INTEGER, DateAdded TEXT, Status TEXT, FolderName TEXT, ComicID TEXT, Provider TEXT, Hash TEXT, crc TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS upcoming (ComicName TEXT, IssueNumber TEXT, ComicID TEXT, IssueID TEXT, IssueDate TEXT, Status TEXT, DisplayComicName TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS nzblog (IssueID TEXT, NZBName TEXT, SARC TEXT, PROVIDER TEXT, ID TEXT, AltNZBName TEXT, OneOff TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS weekly (SHIPDATE TEXT, PUBLISHER TEXT, ISSUE TEXT, COMIC VARCHAR(150), EXTRA TEXT, STATUS TEXT, ComicID TEXT, IssueID TEXT, CV_Last_Update TEXT, DynamicName TEXT, weeknumber TEXT, year TEXT, volume TEXT, seriesyear TEXT, annuallink TEXT, format TEXT, rowid INTEGER PRIMARY KEY)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS importresults (impID TEXT, ComicName TEXT, ComicYear TEXT, Status TEXT, ImportDate TEXT, ComicFilename TEXT, ComicLocation TEXT, WatchMatch TEXT, DisplayName TEXT, SRID TEXT, ComicID TEXT, IssueID TEXT, Volume TEXT, IssueNumber TEXT, DynamicName TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS readlist (IssueID TEXT, ComicName TEXT, Issue_Number TEXT, Status TEXT, DateAdded TEXT, Location TEXT, inCacheDir TEXT, SeriesYear TEXT, ComicID TEXT, StatusChange TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS annuals (IssueID TEXT, Issue_Number TEXT, IssueName TEXT, IssueDate TEXT, Status TEXT, ComicID TEXT, GCDComicID TEXT, Location TEXT, ComicSize TEXT, Int_IssueNumber INT, ComicName TEXT, ReleaseDate TEXT, DigitalDate TEXT, ReleaseComicID TEXT, ReleaseComicName TEXT, IssueDate_Edit TEXT, DateAdded TEXT, Deleted INT DEFAULT 0)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS rssdb (Title TEXT UNIQUE, Link TEXT, Pubdate TEXT, Site TEXT, Size TEXT, Issue_Number TEXT, ComicName TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS futureupcoming (ComicName TEXT, IssueNumber TEXT, ComicID TEXT, IssueID TEXT, IssueDate TEXT, Publisher TEXT, Status TEXT, DisplayComicName TEXT, weeknumber TEXT, year TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS failed (ID TEXT, Status TEXT, ComicID TEXT, IssueID TEXT, Provider TEXT, ComicName TEXT, Issue_Number TEXT, NZBName TEXT, DateFailed TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS searchresults (SRID TEXT, results Numeric, Series TEXT, publisher TEXT, haveit TEXT, name TEXT, deck TEXT, url TEXT, description TEXT, comicid TEXT, comicimage TEXT, issues TEXT, comicyear TEXT, ogcname TEXT)"
-    )
-    c.execute("CREATE TABLE IF NOT EXISTS ref32p (ComicID TEXT UNIQUE, ID TEXT, Series TEXT, Updated TEXT)")
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS oneoffhistory (ComicName TEXT, IssueNumber TEXT, ComicID TEXT, IssueID TEXT, Status TEXT, weeknumber TEXT, year TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS jobhistory (JobName TEXT, prev_run_datetime timestamp, prev_run_timestamp REAL, next_run_datetime timestamp, next_run_timestamp REAL, last_run_completed TEXT, successful_completions TEXT, failed_completions TEXT, status TEXT, last_date timestamp)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS manualresults (provider TEXT, id TEXT, kind TEXT, comicname TEXT, volume TEXT, oneoff TEXT, fullprov TEXT, issuenumber TEXT, modcomicname TEXT, name TEXT, link TEXT, size TEXT, pack_numbers TEXT, pack_issuelist TEXT, comicyear TEXT, issuedate TEXT, tmpprov TEXT, pack TEXT, issueid TEXT, comicid TEXT, sarc TEXT, issuearcid TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS storyarcs(StoryArcID TEXT, ComicName TEXT, IssueNumber TEXT, SeriesYear TEXT, IssueYEAR TEXT, StoryArc TEXT, TotalIssues TEXT, Status TEXT, inCacheDir TEXT, Location TEXT, IssueArcID TEXT, ReadingOrder INT, IssueID TEXT, ComicID TEXT, ReleaseDate TEXT, IssueDate TEXT, Publisher TEXT, IssuePublisher TEXT, IssueName TEXT, CV_ArcID TEXT, Int_IssueNumber INT, DynamicComicName TEXT, Volume TEXT, Manual TEXT, DateAdded TEXT, DigitalDate TEXT, Type TEXT, Aliases TEXT, ArcImage TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS ddl_info (ID TEXT UNIQUE, series TEXT, year TEXT, filename TEXT, size TEXT, issueid TEXT, comicid TEXT, link TEXT, status TEXT, remote_filesize TEXT, updated_date TEXT, mainlink TEXT, issues TEXT, site TEXT, submit_date TEXT, pack INTEGER, link_type TEXT, tmp_filename TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS exceptions_log(date TEXT UNIQUE, comicname TEXT, issuenumber TEXT, seriesyear TEXT, issueid TEXT, comicid TEXT, booktype TEXT, searchmode TEXT, error TEXT, error_text TEXT, filename TEXT, line_num TEXT, func_name TEXT, traceback TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS tmp_searches (query_id INTEGER, comicid INTEGER, comicname TEXT, publisher TEXT, publisherimprint TEXT, comicyear TEXT, issues TEXT, volume TEXT, deck TEXT, url TEXT, type TEXT, cvarcid TEXT, arclist TEXT, description TEXT, haveit TEXT, mode TEXT, searchtype TEXT, comicimage TEXT, thumbimage TEXT, PRIMARY KEY (query_id, comicid))"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS notifs(session_id INT, date TEXT, event TEXT, comicid TEXT, comicname TEXT, issuenumber TEXT, seriesyear TEXT, status TEXT, message TEXT, PRIMARY KEY (session_id, date))"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)"
-    )
-    c.execute("CREATE TABLE IF NOT EXISTS mylar_info(DatabaseVersion INTEGER PRIMARY KEY)")
-    conn.commit()  # Commit table creations before continuing
+    # --- Create all tables and indexes from SQLAlchemy metadata ---
+    sa_metadata.create_all(engine)
 
-    # create some indexes
-    c.execute("CREATE INDEX IF NOT EXISTS issues_id on issues(IssueID)")
-    c.execute("CREATE INDEX IF NOT EXISTS comics_id on comics(ComicID)")
-    # Additional indexes for common query patterns
-    c.execute("CREATE INDEX IF NOT EXISTS issues_comicid ON issues(ComicID)")
-    c.execute("CREATE INDEX IF NOT EXISTS issues_status ON issues(Status)")
-    c.execute("CREATE INDEX IF NOT EXISTS annuals_comicid ON annuals(ComicID)")
-    c.execute("CREATE INDEX IF NOT EXISTS comics_status ON comics(Status)")
-    c.execute("CREATE INDEX IF NOT EXISTS snatched_issueid ON snatched(IssueID)")
-    c.execute("CREATE INDEX IF NOT EXISTS weekly_comicid ON weekly(ComicID)")
-    c.execute("CREATE INDEX IF NOT EXISTS storyarcs_comicid ON storyarcs(ComicID)")
-    c.execute("CREATE INDEX IF NOT EXISTS storyarcs_storyarcid ON storyarcs(StoryArcID)")
-    c.execute("CREATE INDEX IF NOT EXISTS failed_issueid ON failed(IssueID)")
-    c.execute("CREATE INDEX IF NOT EXISTS upcoming_issuedate ON upcoming(IssueDate)")
-    c.execute("CREATE INDEX IF NOT EXISTS upcoming_issueid ON upcoming(IssueID)")
-    # Indexes for /upcoming page search performance
-    c.execute("CREATE INDEX IF NOT EXISTS issues_status_comicname ON issues(Status, ComicName COLLATE NOCASE)")
-    c.execute("CREATE INDEX IF NOT EXISTS issues_comicname ON issues(ComicName COLLATE NOCASE)")
-    c.execute("CREATE INDEX IF NOT EXISTS storyarcs_status_comicname ON storyarcs(Status, ComicName COLLATE NOCASE)")
-    c.execute("CREATE INDEX IF NOT EXISTS storyarcs_status_storyarc ON storyarcs(Status, Storyarc COLLATE NOCASE)")
+    # --- Schema migrations: add columns missing from older databases ---
+    # For new installations, create_all() creates tables with all columns.
+    # For upgrades, these ensure missing columns are added.
 
-    # Enable SQLite performance optimizations
-    c.execute("PRAGMA journal_mode = WAL")
-    c.execute("PRAGMA synchronous = NORMAL")
-    c.execute("PRAGMA cache_size = -64000")  # 64MB cache
-    # busy_timeout, foreign_keys, synchronous, mmap_size, journal_size_limit
-    # are set per-connection in db.py ConnectionPool.get_connection()
-
-    # add in the late players to the game....
-
-    # -- mylar_info table (legacy name, kept for backward compat) --
-    try:
-        bdc = c.execute("SELECT DatabaseVersion from mylar_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE mylar_info ADD COLUMN DatabaseVersion INTEGER PRIMARY KEY")
-        c.execute("INSERT INTO mylar_info(DatabaseVersion) VALUES(0)")
-    else:
-        bc = bdc.fetchone()
-        if any([not bc, bc is None]):
-            # version is null - set the default version now.
-            c.execute("INSERT INTO mylar_info(DatabaseVersion) VALUES(0)")
+    dynamic_upgrade = False
 
     # -- Comics Table --
+    comics_cols = [
+        ("LastUpdated", "TEXT"),
+        ("QUALalt_vers", "TEXT"),
+        ("QUALtype", "TEXT"),
+        ("QUALscanner", "TEXT"),
+        ("QUALquality", "TEXT"),
+        ("AlternateSearch", "TEXT"),
+        ("ComicVersion", "TEXT"),
+        ("SortOrder", "INTEGER"),
+        ("UseFuzzy", "TEXT"),
+        ("DetailURL", "TEXT"),
+        ("ForceContinuing", "INTEGER"),
+        ("intLatestIssue", "INTEGER"),
+        ("ComicName_Filesafe", "TEXT"),
+        ("AlternateFileName", "TEXT"),
+        ("ComicImageURL", "TEXT"),
+        ("ComicImageALTURL", "TEXT"),
+        ("NewPublish", "TEXT"),
+        ("AllowPacks", "TEXT"),
+        ("Type", "TEXT"),
+        ("Corrected_SeriesYear", "TEXT"),
+        ("Corrected_Type", "TEXT"),
+        ("TorrentID_32P", "TEXT"),
+        ("LatestIssueID", "TEXT"),
+        ("Collects", "TEXT"),
+        ("IgnoreType", "INTEGER"),
+        ("FirstImageSize", "INTEGER"),
+        ("AgeRating", "TEXT"),
+        ("PublisherImprint", "TEXT"),
+        ("DescriptionEdit", "TEXT"),
+        ("FilesUpdated", "TEXT"),
+        ("dirlocked", "INTEGER"),
+        ("seriesjsonPresent", "INT"),
+        ("cv_removed", "INT"),
+        ("ContentType", "TEXT DEFAULT 'comic'"),
+        ("ReadingDirection", "TEXT DEFAULT 'ltr'"),
+        ("MetadataSource", "TEXT"),
+        ("ExternalID", "TEXT"),
+        ("not_updated_db", "TEXT"),
+    ]
+    _ensure_columns(engine, "comics", comics_cols)
 
-    try:
-        c.execute("SELECT LastUpdated from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN LastUpdated TEXT")
-
-    try:
-        c.execute("SELECT QUALalt_vers from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN QUALalt_vers TEXT")
-
-    try:
-        c.execute("SELECT QUALtype from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN QUALtype TEXT")
-
-    try:
-        c.execute("SELECT QUALscanner from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN QUALscanner TEXT")
-
-    try:
-        c.execute("SELECT QUALquality from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN QUALquality TEXT")
-
-    try:
-        c.execute("SELECT AlternateSearch from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN AlternateSearch TEXT")
-
-    try:
-        c.execute("SELECT ComicVersion from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ComicVersion TEXT")
-
-    try:
-        c.execute("SELECT SortOrder from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN SortOrder INTEGER")
-
-    try:
-        c.execute("SELECT UseFuzzy from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN UseFuzzy TEXT")
-
-    try:
-        c.execute("SELECT DetailURL from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN DetailURL TEXT")
-
-    try:
-        c.execute("SELECT ForceContinuing from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ForceContinuing INTEGER")
-
-    try:
-        c.execute("SELECT intLatestIssue from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN intLatestIssue INTEGER")
-
-    try:
-        c.execute("SELECT ComicName_Filesafe from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ComicName_Filesafe TEXT")
-
-    try:
-        c.execute("SELECT AlternateFileName from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN AlternateFileName TEXT")
-
-    try:
-        c.execute("SELECT ComicImageURL from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ComicImageURL TEXT")
-
-    try:
-        c.execute("SELECT ComicImageALTURL from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ComicImageALTURL TEXT")
-
-    try:
-        c.execute("SELECT NewPublish from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN NewPublish TEXT")
-
-    try:
-        c.execute("SELECT AllowPacks from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN AllowPacks TEXT")
-
-    try:
-        c.execute("SELECT Type from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN Type TEXT")
-
-    try:
-        c.execute("SELECT Corrected_SeriesYear from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN Corrected_SeriesYear TEXT")
-
-    try:
-        c.execute("SELECT Corrected_Type from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN Corrected_Type TEXT")
-
-    try:
-        c.execute("SELECT TorrentID_32P from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN TorrentID_32P TEXT")
-
-    try:
-        c.execute("SELECT LatestIssueID from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN LatestIssueID TEXT")
-
-    try:
-        c.execute("SELECT Collects from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN Collects CLOB")
-
-    try:
-        c.execute("SELECT IgnoreType from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN IgnoreType INTEGER")
-
-    try:
-        c.execute("SELECT FirstImageSize from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN FirstImageSize INTEGER")
-
-    try:
-        c.execute("SELECT AgeRating from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN AgeRating TEXT")
-
-    try:
-        c.execute("SELECT PublisherImprint from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN PublisherImprint TEXT")
-
-    try:
-        c.execute("SELECT DescriptionEdit from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN DescriptionEdit TEXT")
-
-    try:
-        c.execute("SELECT FilesUpdated from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN FilesUpdated TEXT")
-
-    try:
-        c.execute("SELECT dirlocked from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN dirlocked INTEGER")
-
-    try:
-        c.execute("SELECT seriesjsonPresent from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN seriesjsonPresent INT")
-
-    try:
-        c.execute("SELECT cv_removed from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN cv_removed INT")
-
-    # -- Manga Support Columns --
-
-    try:
-        c.execute("SELECT ContentType from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ContentType TEXT DEFAULT 'comic'")
-
-    try:
-        c.execute("SELECT ReadingDirection from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ReadingDirection TEXT DEFAULT 'ltr'")
-
-    try:
-        c.execute("SELECT MetadataSource from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN MetadataSource TEXT")
-
-    try:
-        c.execute("SELECT ExternalID from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN ExternalID TEXT")
-
-    try:
-        c.execute("SELECT DynamicComicName from comics")
-        if CONFIG.DYNAMIC_UPDATE < 3:
-            dynamic_upgrade = True
-        else:
-            dynamic_upgrade = False
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN DynamicComicName TEXT")
+    # Check DynamicComicName separately (has side effect)
+    inspector = inspect(engine)
+    comics_existing = {c["name"] for c in inspector.get_columns("comics")}
+    if "DynamicComicName" not in comics_existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE comics ADD COLUMN DynamicComicName TEXT"))
+        except (OperationalError, ProgrammingError):
+            pass
+        dynamic_upgrade = True
+    elif CONFIG.DYNAMIC_UPDATE < 3:
         dynamic_upgrade = True
 
     # -- Issues Table --
+    issues_cols = [
+        ("ComicSize", "TEXT"),
+        ("inCacheDIR", "TEXT"),
+        ("AltIssueNumber", "TEXT"),
+        ("IssueDate_Edit", "TEXT"),
+        ("ImageURL", "TEXT"),
+        ("ImageURL_ALT", "TEXT"),
+        ("DigitalDate", "TEXT"),
+        ("forced_file", "INT"),
+        ("ChapterNumber", "TEXT"),
+        ("VolumeNumber", "TEXT"),
+    ]
+    _ensure_columns(engine, "issues", issues_cols)
 
-    try:
-        c.execute("SELECT ComicSize from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN ComicSize TEXT")
+    # -- ImportResults Table --
+    importresults_cols = [
+        ("WatchMatch", "TEXT"),
+        ("IssueCount", "TEXT"),
+        ("ComicLocation", "TEXT"),
+        ("ComicFilename", "TEXT"),
+        ("impID", "TEXT"),
+        ("implog", "TEXT"),
+        ("DisplayName", "TEXT"),
+        ("SRID", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("IssueID", "TEXT"),
+        ("Volume", "TEXT"),
+        ("IssueNumber", "TEXT"),
+        ("DynamicName", "TEXT"),
+        ("MatchConfidence", "INTEGER"),
+        ("SuggestedComicID", "TEXT"),
+        ("SuggestedComicName", "TEXT"),
+        ("SuggestedIssueID", "TEXT"),
+        ("IgnoreFile", "INTEGER DEFAULT 0"),
+        ("MatchSource", "TEXT"),
+    ]
+    _ensure_columns(engine, "importresults", importresults_cols)
 
-    try:
-        c.execute("SELECT inCacheDir from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN inCacheDIR TEXT")
+    # -- Readlist Table --
+    readlist_cols = [
+        ("inCacheDIR", "TEXT"),
+        ("Location", "TEXT"),
+        ("IssueDate", "TEXT"),
+        ("SeriesYear", "TEXT"),
+        ("ComicID", "TEXT"),
+        ("StatusChange", "TEXT"),
+    ]
+    _ensure_columns(engine, "readlist", readlist_cols)
 
-    try:
-        c.execute("SELECT AltIssueNumber from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN AltIssueNumber TEXT")
+    # -- Weekly Table --
+    weekly_cols = [
+        ("ComicID", "TEXT"),
+        ("IssueID", "TEXT"),
+        ("DynamicName", "TEXT"),
+        ("CV_Last_Update", "TEXT"),
+        ("weeknumber", "TEXT"),
+        ("year", "TEXT"),
+        ("volume", "TEXT"),
+        ("seriesyear", "TEXT"),
+        ("annuallink", "TEXT"),
+        ("format", "TEXT"),
+    ]
+    _ensure_columns(engine, "weekly", weekly_cols)
 
-    try:
-        c.execute("SELECT IssueDate_Edit from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN IssueDate_Edit TEXT")
+    # -- Nzblog Table --
+    nzblog_cols = [
+        ("SARC", "TEXT"),
+        ("PROVIDER", "TEXT"),
+        ("ID", "TEXT"),
+        ("AltNZBName", "TEXT"),
+        ("OneOff", "TEXT"),
+    ]
+    _ensure_columns(engine, "nzblog", nzblog_cols)
 
-    try:
-        c.execute("SELECT ImageURL from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN ImageURL TEXT")
+    # -- Annuals Table --
+    annuals_cols = [
+        ("Location", "TEXT"),
+        ("ComicSize", "TEXT"),
+        ("Int_IssueNumber", "INT"),
+        ("ReleaseDate", "TEXT"),
+        ("ReleaseComicID", "TEXT"),
+        ("ReleaseComicName", "TEXT"),
+        ("IssueDate_Edit", "TEXT"),
+        ("DateAdded", "TEXT"),
+        ("DigitalDate", "TEXT"),
+        ("Deleted", "INT DEFAULT 0"),
+    ]
+    _ensure_columns(engine, "annuals", annuals_cols)
 
-    try:
-        c.execute("SELECT ImageURL_ALT from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN ImageURL_ALT TEXT")
-
-    try:
-        c.execute("SELECT DigitalDate from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN DigitalDate TEXT")
-
-    try:
-        c.execute("SELECT forced_file from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN forced_file INT")
-
-    # -- Manga Support Columns for Issues --
-
-    try:
-        c.execute("SELECT ChapterNumber from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN ChapterNumber TEXT")
-
-    try:
-        c.execute("SELECT VolumeNumber from issues")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE issues ADD COLUMN VolumeNumber TEXT")
-
-    ## -- ImportResults Table --
-
-    try:
-        c.execute("SELECT WatchMatch from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN WatchMatch TEXT")
-
-    try:
-        c.execute("SELECT IssueCount from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN IssueCount TEXT")
-
-    try:
-        c.execute("SELECT ComicLocation from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN ComicLocation TEXT")
-
-    try:
-        c.execute("SELECT ComicFilename from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN ComicFilename TEXT")
-
-    try:
-        c.execute("SELECT impID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN impID TEXT")
-
-    try:
-        c.execute("SELECT implog from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN implog TEXT")
-
-    try:
-        c.execute("SELECT DisplayName from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN DisplayName TEXT")
-
-    try:
-        c.execute("SELECT SRID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN SRID TEXT")
-
-    try:
-        c.execute("SELECT ComicID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN ComicID TEXT")
-
-    try:
-        c.execute("SELECT IssueID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN IssueID TEXT")
-
-    try:
-        c.execute("SELECT Volume from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN Volume TEXT")
-
-    try:
-        c.execute("SELECT IssueNumber from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN IssueNumber TEXT")
-
-    try:
-        c.execute("SELECT DynamicName from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN DynamicName TEXT")
-
-    try:
-        c.execute("SELECT MatchConfidence from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN MatchConfidence INTEGER")
-
-    try:
-        c.execute("SELECT SuggestedComicID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN SuggestedComicID TEXT")
-
-    try:
-        c.execute("SELECT SuggestedComicName from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN SuggestedComicName TEXT")
-
-    try:
-        c.execute("SELECT SuggestedIssueID from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN SuggestedIssueID TEXT")
-
-    try:
-        c.execute("SELECT IgnoreFile from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN IgnoreFile INTEGER DEFAULT 0")
-
-    try:
-        c.execute("SELECT MatchSource from importresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE importresults ADD COLUMN MatchSource TEXT")
-
-    ## -- Readlist Table --
-
-    try:
-        c.execute("SELECT inCacheDIR from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN inCacheDIR TEXT")
-
-    try:
-        c.execute("SELECT Location from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN Location TEXT")
-
-    try:
-        c.execute("SELECT IssueDate from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN IssueDate TEXT")
-
-    try:
-        c.execute("SELECT SeriesYear from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN SeriesYear TEXT")
-
-    try:
-        c.execute("SELECT ComicID from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN ComicID TEXT")
-
-    try:
-        c.execute("SELECT StatusChange from readlist")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE readlist ADD COLUMN StatusChange TEXT")
-
-    ## -- Weekly Table --
-
-    try:
-        c.execute("SELECT ComicID from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN ComicID TEXT")
-
-    try:
-        c.execute("SELECT IssueID from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN IssueID TEXT")
-
-    try:
-        c.execute("SELECT DynamicName from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN DynamicName TEXT")
-
-    try:
-        c.execute("SELECT CV_Last_Update from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN CV_Last_Update TEXT")
-
-    try:
-        c.execute("SELECT weeknumber from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN weeknumber TEXT")
-
-    try:
-        c.execute("SELECT year from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN year TEXT")
-
-    try:
-        c.execute("SELECT rowid from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN rowid INTEGER PRIMARY KEY")
-
-    try:
-        c.execute("SELECT volume from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN volume TEXT")
-
-    try:
-        c.execute("SELECT seriesyear from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN seriesyear TEXT")
-
-    try:
-        c.execute("SELECT annuallink from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN annuallink TEXT")
-
-    try:
-        c.execute("SELECT format from weekly")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE weekly ADD COLUMN format TEXT")
-
-    ## -- Nzblog Table --
-
-    try:
-        c.execute("SELECT SARC from nzblog")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE nzblog ADD COLUMN SARC TEXT")
-
-    try:
-        c.execute("SELECT PROVIDER from nzblog")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE nzblog ADD COLUMN PROVIDER TEXT")
-
-    try:
-        c.execute("SELECT ID from nzblog")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE nzblog ADD COLUMN ID TEXT")
-
-    try:
-        c.execute("SELECT AltNZBName from nzblog")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE nzblog ADD COLUMN AltNZBName TEXT")
-
-    try:
-        c.execute("SELECT OneOff from nzblog")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE nzblog ADD COLUMN OneOff TEXT")
-
-    ## -- Annuals Table --
-
-    try:
-        c.execute("SELECT Location from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN Location TEXT")
-
-    try:
-        c.execute("SELECT ComicSize from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN ComicSize TEXT")
-
-    try:
-        c.execute("SELECT Int_IssueNumber from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN Int_IssueNumber INT")
-
-    try:
-        c.execute("SELECT ComicName from annuals")
-        annual_update = "no"
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN ComicName TEXT")
+    # Check ComicName in annuals separately (has side effect)
+    annuals_existing = {c["name"] for c in inspect(engine).get_columns("annuals")}
+    annual_update = "no"
+    if "ComicName" not in annuals_existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE annuals ADD COLUMN ComicName TEXT"))
+        except (OperationalError, ProgrammingError):
+            pass
         annual_update = "yes"
 
     if annual_update == "yes":
         logger.info("Updating Annuals table for new fields - one-time update.")
         helpers.annual_update()
 
-    try:
-        c.execute("SELECT ReleaseDate from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN ReleaseDate TEXT")
+    # -- Snatched Table --
+    snatched_cols = [("Provider", "TEXT"), ("Hash", "TEXT"), ("crc", "TEXT")]
+    _ensure_columns(engine, "snatched", snatched_cols)
 
-    try:
-        c.execute("SELECT ReleaseComicID from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN ReleaseComicID TEXT")
+    # -- Upcoming Table --
+    _ensure_columns(engine, "upcoming", [("DisplayComicName", "TEXT")])
 
-    try:
-        c.execute("SELECT ReleaseComicName from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN ReleaseComicName TEXT")
+    # -- StoryArcs Table --
+    storyarcs_cols = [
+        ("ComicID", "TEXT"),
+        ("StoreDate", "TEXT"),
+        ("IssueDate", "TEXT"),
+        ("Publisher", "TEXT"),
+        ("IssuePublisher", "TEXT"),
+        ("IssueName", "TEXT"),
+        ("CV_ArcID", "TEXT"),
+        ("Int_IssueNumber", "INT"),
+        ("Volume", "TEXT"),
+        ("Manual", "TEXT"),
+        ("DateAdded", "TEXT"),
+        ("DigitalDate", "TEXT"),
+        ("Type", "TEXT"),
+        ("Aliases", "TEXT"),
+        ("ArcImage", "TEXT"),
+    ]
+    _ensure_columns(engine, "storyarcs", storyarcs_cols)
 
-    try:
-        c.execute("SELECT IssueDate_Edit from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN IssueDate_Edit TEXT")
-
-    try:
-        c.execute("SELECT DateAdded from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN DateAdded TEXT")
-
-    try:
-        c.execute("SELECT DigitalDate from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN DigitalDate TEXT")
-
-    try:
-        c.execute("SELECT Deleted from annuals")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE annuals ADD COLUMN Deleted INT DEFAULT 0")
-
-    ## -- rssdb Table --
-    # to_the_rss_update = False
-    # try:
-    #    c.execute('SELECT Issue_Number from rssdb')
-    # except sqlite3.OperationalError:
-    #    c.execute('ALTER TABLE rssdb ADD COLUMN Issue_Number TEXT')
-    #    to_the_rss_update = True
-
-    # try:
-    #    c.execute('SELECT ComicName from rssdb')
-    # except sqlite3.OperationalError:
-    #    c.execute('ALTER TABLE rssdb ADD COLUMN ComicName TEXT')
-
-    ## -- Snatched Table --
-
-    try:
-        c.execute("SELECT Provider from snatched")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE snatched ADD COLUMN Provider TEXT")
-
-    try:
-        c.execute("SELECT Hash from snatched")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE snatched ADD COLUMN Hash TEXT")
-
-    try:
-        c.execute("SELECT crc from snatched")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE snatched ADD COLUMN crc TEXT")
-
-    ## -- Upcoming Table --
-
-    try:
-        c.execute("SELECT DisplayComicName from upcoming")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE upcoming ADD COLUMN DisplayComicName TEXT")
-
-    ## -- storyarcs Table --
-
-    try:
-        c.execute("SELECT ComicID from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN ComicID TEXT")
-
-    try:
-        c.execute("SELECT StoreDate from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN StoreDate TEXT")
-
-    try:
-        c.execute("SELECT IssueDate from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN IssueDate TEXT")
-
-    try:
-        c.execute("SELECT Publisher from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Publisher TEXT")
-
-    try:
-        c.execute("SELECT IssuePublisher from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN IssuePublisher TEXT")
-
-    try:
-        c.execute("SELECT IssueName from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN IssueName TEXT")
-
-    try:
-        c.execute("SELECT CV_ArcID from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN CV_ArcID TEXT")
-
-    try:
-        c.execute("SELECT Int_IssueNumber from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Int_IssueNumber INT")
-
-    try:
-        c.execute("SELECT DynamicComicName from storyarcs")
-        if CONFIG.DYNAMIC_UPDATE < 4:
-            dynamic_upgrade = True
-        else:
-            dynamic_upgrade = False
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN DynamicComicName TEXT")
+    # Check DynamicComicName in storyarcs separately (has side effect)
+    storyarcs_existing = {c["name"] for c in inspect(engine).get_columns("storyarcs")}
+    if "DynamicComicName" not in storyarcs_existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE storyarcs ADD COLUMN DynamicComicName TEXT"))
+        except (OperationalError, ProgrammingError):
+            pass
+        dynamic_upgrade = True
+    elif CONFIG.DYNAMIC_UPDATE < 4:
         dynamic_upgrade = True
 
-    try:
-        c.execute("SELECT Volume from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Volume TEXT")
+    # -- SearchResults Table --
+    searchresults_cols = [
+        ("SRID", "TEXT"),
+        ("Series", "TEXT"),
+        ("sresults", "TEXT"),
+        ("ogcname", "TEXT"),
+    ]
+    _ensure_columns(engine, "searchresults", searchresults_cols)
 
-    try:
-        c.execute("SELECT Manual from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Manual TEXT")
+    # -- FutureUpcoming Table --
+    _ensure_columns(engine, "futureupcoming", [("weeknumber", "TEXT"), ("year", "TEXT")])
 
-    try:
-        c.execute("SELECT DateAdded from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN DateAdded TEXT")
+    # -- Failed Table --
+    _ensure_columns(engine, "failed", [("DateFailed", "TEXT")])
 
-    try:
-        c.execute("SELECT DigitalDate from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN DigitalDate TEXT")
+    # -- Ref32p Table --
+    _ensure_columns(engine, "ref32p", [("Updated", "TEXT")])
 
-    try:
-        c.execute("SELECT Type from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Type TEXT")
+    # -- Jobhistory Table --
+    _ensure_columns(engine, "jobhistory", [("status", "TEXT")])
 
-    try:
-        c.execute("SELECT Aliases from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN Aliases TEXT")
-
-    try:
-        c.execute("SELECT ArcImage from storyarcs")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE storyarcs ADD COLUMN ArcImage TEXT")
-
-    ## -- searchresults Table --
-    try:
-        c.execute("SELECT SRID from searchresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE searchresults ADD COLUMN SRID TEXT")
-
-    try:
-        c.execute("SELECT Series from searchresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE searchresults ADD COLUMN Series TEXT")
-
-    try:
-        c.execute("SELECT sresults from searchresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE searchresults ADD COLUMN sresults TEXT")
-
-    try:
-        c.execute("SELECT ogcname from searchresults")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE searchresults ADD COLUMN ogcname TEXT")
-
-    ## -- futureupcoming Table --
-    try:
-        c.execute("SELECT weeknumber from futureupcoming")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE futureupcoming ADD COLUMN weeknumber TEXT")
-
-    try:
-        c.execute("SELECT year from futureupcoming")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE futureupcoming ADD COLUMN year TEXT")
-
-    ## -- Failed Table --
-    try:
-        c.execute("SELECT DateFailed from Failed")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE Failed ADD COLUMN DateFailed TEXT")
-
-    ## -- Ref32p Table --
-    try:
-        c.execute("SELECT Updated from ref32p")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ref32p ADD COLUMN Updated TEXT")
-
-    ## -- Jobhistory Table --
-    try:
-        c.execute("SELECT status from jobhistory")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE jobhistory ADD COLUMN status TEXT")
-
-    # last date is used by db Updater if the update list is > 1500
-    # so it can stagger the requests across an hr or more
-    try:
-        c.execute("SELECT last_date from jobhistory")
-    except (sqlite3.OperationalError, Exception):
+    # last date — used by db Updater for staggering requests
+    jobhistory_existing = {c["name"] for c in inspect(engine).get_columns("jobhistory")}
+    if "last_date" not in jobhistory_existing:
         try:
-            c.execute("ALTER TABLE jobhistory ADD COLUMN last_date timestamp")
-        except (sqlite3.OperationalError, Exception):
-            comicarr.DB_BACKFILL = False  # table already exists but something about last_date is f'd
-        else:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE jobhistory ADD COLUMN last_date timestamp"))
             comicarr.DB_BACKFILL = True
+        except (OperationalError, ProgrammingError):
+            comicarr.DB_BACKFILL = False
     else:
         comicarr.DB_BACKFILL = False
 
-    ## -- DDL_info Table --
-    try:
-        c.execute("SELECT remote_filesize from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN remote_filesize TEXT")
+    # -- DDL_info Table --
+    ddl_cols = [
+        ("remote_filesize", "TEXT"),
+        ("updated_date", "TEXT"),
+        ("mainlink", "TEXT"),
+        ("issues", "TEXT"),
+        ("site", "TEXT"),
+        ("submit_date", "TEXT"),
+        ("pack", "INTEGER"),
+        ("link_type", "TEXT"),
+        ("tmp_filename", "TEXT"),
+    ]
+    _ensure_columns(engine, "ddl_info", ddl_cols)
 
-    try:
-        c.execute("SELECT updated_date from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN updated_date TEXT")
+    # -- Provider_searches Table --
+    _ensure_columns(engine, "provider_searches", [("id", "INTEGER"), ("hits", "INTEGER DEFAULT 0")])
 
-    try:
-        c.execute("SELECT mainlink from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN mainlink TEXT")
+    # -- mylar_info bootstrap --
+    with engine.begin() as conn:
+        try:
+            result = conn.execute(text("SELECT DatabaseVersion FROM mylar_info"))
+            row = result.fetchone()
+            if row is None:
+                conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES(0)"))
+        except (OperationalError, ProgrammingError):
+            try:
+                conn.execute(text("ALTER TABLE mylar_info ADD COLUMN DatabaseVersion INTEGER PRIMARY KEY"))
+                conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES(0)"))
+            except (OperationalError, ProgrammingError):
+                pass
 
-    try:
-        c.execute("SELECT issues from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN issues TEXT")
-
-    try:
-        c.execute("SELECT site from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN site TEXT")
-
-    try:
-        c.execute("SELECT submit_date from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN submit_date TEXT")
-
-    try:
-        c.execute("SELECT pack from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN pack INTEGER")
-
-    try:
-        c.execute("SELECT link_type from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN link_type TEXT")
-
-    try:
-        c.execute("SELECT tmp_filename from ddl_info")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE ddl_info ADD COLUMN tmp_filename TEXT")
-
-    ## -- provider_searches Table --
-    try:
-        c.execute("SELECT id from provider_searches")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE provider_searches ADD COLUMN id INTEGER")
-
-    try:
-        c.execute("SELECT hits from provider_searches")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE provider_searches ADD COLUMN hits INTEGER DEFAULT 0")
-
-    # if it's prior to Wednesday, the issue counts will be inflated by one as the online db's everywhere
-    # prepare for the next 'new' release of a series. It's caught in updater.py, so let's just store the
-    # value in the sql so we can display it in the details screen for everyone to wonder at.
-    try:
-        c.execute("SELECT not_updated_db from comics")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comics ADD COLUMN not_updated_db TEXT")
-
-    # -- not implemented just yet ;)
-
-    # for metadata...
-    # MetaData_Present will be true/false if metadata is present
-    # MetaData will hold the MetaData itself in tuple format
-    #    try:
-    #        c.execute('SELECT MetaData_Present from comics')
-    #    except sqlite3.OperationalError:
-    #        c.execute('ALTER TABLE importresults ADD COLUMN MetaData_Present TEXT')
-
-    #    try:
-    #        c.execute('SELECT MetaData from importresults')
-    #    except sqlite3.OperationalError:
-    #        c.execute('ALTER TABLE importresults ADD COLUMN MetaData TEXT')
-
-    # let's delete errant comics that are stranded (ie. Comicname = Comic ID: )
+    # --- Data integrity cleanup ---
     logger.info("Ensuring DB integrity - Removing all Erroneous Comics (ie. named None)")
-    c.execute(
-        "DELETE from comics WHERE ComicName='None' OR ComicName LIKE 'Comic ID%' OR ComicName is NULL OR ComicName like '%Fetch%failed%'"
-    )
-    c.execute("DELETE from issues WHERE ComicName='None' OR ComicName LIKE 'Comic ID%' OR ComicName is NULL")
-    c.execute("DELETE from issues WHERE ComicID is NULL")
-    c.execute("DELETE from annuals WHERE ComicName='None' OR ComicName is NULL or Issue_Number is NULL")
-    c.execute("DELETE from upcoming WHERE ComicName='None' OR ComicName is NULL or IssueNumber is NULL")
-    c.execute("DELETE from importresults WHERE ComicName='None' OR ComicName is NULL")
-    c.execute("DELETE from storyarcs WHERE StoryArcID is NULL OR StoryArc is NULL")
-    c.execute("DELETE from Failed WHERE ComicName='None' OR ComicName is NULL OR ID is NULL")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "DELETE FROM comics WHERE ComicName='None' OR ComicName LIKE 'Comic ID%' "
+                "OR ComicName IS NULL OR ComicName LIKE '%Fetch%failed%'"
+            )
+        )
+        conn.execute(
+            text("DELETE FROM issues WHERE ComicName='None' OR ComicName LIKE 'Comic ID%' OR ComicName IS NULL")
+        )
+        conn.execute(text("DELETE FROM issues WHERE ComicID IS NULL"))
+        conn.execute(text("DELETE FROM annuals WHERE ComicName='None' OR ComicName IS NULL OR Issue_Number IS NULL"))
+        conn.execute(text("DELETE FROM upcoming WHERE ComicName='None' OR ComicName IS NULL OR IssueNumber IS NULL"))
+        conn.execute(text("DELETE FROM importresults WHERE ComicName='None' OR ComicName IS NULL"))
+        conn.execute(text("DELETE FROM storyarcs WHERE StoryArcID IS NULL OR StoryArc IS NULL"))
+        conn.execute(text("DELETE FROM failed WHERE ComicName='None' OR ComicName IS NULL OR ID IS NULL"))
 
-    logger.info("Correcting Null entries that make the main page break on startup.")
-    c.execute("UPDATE Comics SET LatestDate='Unknown' WHERE LatestDate='None' or LatestDate is NULL")
+        logger.info("Correcting Null entries that make the main page break on startup.")
+        conn.execute(text("UPDATE comics SET LatestDate='Unknown' WHERE LatestDate='None' OR LatestDate IS NULL"))
 
-    try:
-        c.execute("DELETE FROM weekly WHERE Publisher is NULL AND COMIC IS NOT NULL")
-    except Exception:
-        pass
+        try:
+            conn.execute(text("DELETE FROM weekly WHERE Publisher IS NULL AND COMIC IS NOT NULL"))
+        except Exception:
+            pass
 
-    # update tables here as necessary based on current version of comicarr.
-    # this won't be written to the ini until a save of the config after load, but it should be oldconfig_version+1 on load
+    # --- Config-version-based data migrations ---
     logger.info(
         "[%s]oldconfig_version: %s" % (type(comicarr.CONFIG.OLDCONFIG_VERSION), comicarr.CONFIG.OLDCONFIG_VERSION)
     )
     if comicarr.CONFIG.OLDCONFIG_VERSION is not None:
         if int(comicarr.CONFIG.OLDCONFIG_VERSION) < 12:
             logger.info("now updating table data to ensure DDL is properly populated with correct data.")
-            c.execute("UPDATE snatched SET Provider = 'DDL(GetComics)' WHERE Provider = 'ddl'")
-            c.execute("UPDATE nzblog SET PROVIDER = 'DDL(GetComics)' WHERE PROVIDER = 'ddl'")
-            c.execute("UPDATE rssdb SET site = 'DDL(GetComics)' WHERE site = 'DDL'")
-            c.execute("UPDATE ddl_info SET site = 'DDL(GetComics)' WHERE site is NULL")
+            with engine.begin() as conn:
+                conn.execute(text("UPDATE snatched SET Provider = 'DDL(GetComics)' WHERE Provider = 'ddl'"))
+                conn.execute(text("UPDATE nzblog SET PROVIDER = 'DDL(GetComics)' WHERE PROVIDER = 'ddl'"))
+                conn.execute(text("UPDATE rssdb SET site = 'DDL(GetComics)' WHERE site = 'DDL'"))
+                conn.execute(text("UPDATE ddl_info SET site = 'DDL(GetComics)' WHERE site IS NULL"))
 
-    conn.commit()
-    c.close()
+    # --- Deduplicate and add UNIQUE constraints for upsert tables ---
+    _migrate_unique_constraints(engine)
 
     if dynamic_upgrade is True:
         logger.info("Updating db to include some important changes.")
         helpers.upgrade_dynamic()
+
+
+def _migrate_unique_constraints(engine):
+    """Add UNIQUE constraints to tables that need them for atomic upserts.
+
+    For SQLite, this requires table recreation (cannot ALTER TABLE ADD CONSTRAINT).
+    For PostgreSQL/MySQL, uses ALTER TABLE ADD CONSTRAINT directly.
+
+    Only runs once — skips if constraints already exist.
+    """
+    from comicarr.db import get_dialect
+
+    dialect = get_dialect()
+
+    # Tables needing UNIQUE constraints and their key columns
+    # Tables that already have them (comics, rssdb, ref32p, ddl_info, exceptions_log,
+    # tmp_searches, notifs, provider_searches, mylar_info) are skipped.
+    constraint_map = {
+        "issues": (["IssueID"], "uq_issues_issueid"),
+        "annuals": (["IssueID"], "uq_annuals_issueid"),
+        "storyarcs": (["IssueArcID"], "uq_storyarcs_issuearcid"),
+        "readlist": (["IssueID"], "uq_readlist_issueid"),
+        "failed": (["ID", "Provider", "NZBName"], "uq_failed_id_provider_nzbname"),
+        "upcoming": (["ComicID", "IssueNumber"], "uq_upcoming_comicid_issuenum"),
+        "nzblog": (["IssueID", "PROVIDER"], "uq_nzblog_issueid_provider"),
+        "importresults": (["impID"], "uq_importresults_impid"),
+        "jobhistory": (["JobName"], "uq_jobhistory_jobname"),
+        "snatched": (["IssueID", "Status", "Provider"], "uq_snatched_issue_status_provider"),
+        "oneoffhistory": (["ComicID", "IssueID"], "uq_oneoffhistory_comicid_issueid"),
+        "weekly": (["ComicID", "IssueID"], "uq_weekly_comicid_issueid"),
+    }
+
+    inspector = inspect(engine)
+
+    for table_name, (key_cols, constraint_name) in constraint_map.items():
+        # Check if constraint already exists
+        try:
+            existing_uq = inspector.get_unique_constraints(table_name)
+            existing_uq_names = {u.get("name") for u in existing_uq}
+            if constraint_name in existing_uq_names:
+                continue
+            # Also check if columns already have unique constraints by column set
+            existing_col_sets = {tuple(sorted(u.get("column_names", []))) for u in existing_uq}
+            if tuple(sorted(key_cols)) in existing_col_sets:
+                continue
+        except Exception:
+            continue
+
+        logger.info("Adding UNIQUE constraint %s on %s(%s)", constraint_name, table_name, ", ".join(key_cols))
+
+        # Deduplicate first — keep row with highest rowid
+        null_checks = " AND ".join(f"{k} IS NOT NULL AND {k} != ''" for k in key_cols)
+        dedup_sql = (
+            f"DELETE FROM {table_name} WHERE rowid NOT IN ("
+            f"SELECT MAX(rowid) FROM {table_name} WHERE {null_checks} GROUP BY {', '.join(key_cols)}"
+            f") AND {null_checks}"
+        )
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(dedup_sql))
+        except (OperationalError, ProgrammingError) as e:
+            logger.warn("Dedup on %s failed (non-fatal): %s", table_name, e)
+
+        if dialect == "sqlite":
+            # SQLite cannot ALTER TABLE ADD CONSTRAINT — must recreate table
+            # Skip for now; the constraint exists in tables.py for new databases.
+            # Existing SQLite databases will use the non-atomic upsert fallback
+            # until the user runs the migration tool.
+            logger.info(
+                "SQLite: UNIQUE constraint %s defined in schema for new databases. "
+                "Existing database will use legacy upsert until migration.",
+                constraint_name,
+            )
+        else:
+            # PostgreSQL / MySQL: add constraint directly
+            cols = ", ".join(key_cols)
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} UNIQUE ({cols})"))
+            except (OperationalError, ProgrammingError) as e:
+                logger.warn("Could not add constraint %s: %s", constraint_name, e)
 
     # if to_the_rss_update is True:
     #    comicarr.MAINTENANCE = True

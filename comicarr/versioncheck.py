@@ -31,9 +31,11 @@ import urllib.parse
 import urllib.request
 
 import requests
+from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger
+from comicarr.tables import jobhistory
 
 
 def runGit(args, ptv=None):
@@ -569,8 +571,9 @@ def versionload(cli_values=None, carepackage_call=False):
     comicarr.LATEST_VERSION = comicarr.CURRENT_VERSION
 
     if comicarr.CONFIG.CHECK_GITHUB_ON_STARTUP and comicarr.INSTALL_TYPE != "docker":
-        myDB = db.DBConnection()
-        chk_last = myDB.selectone("SELECT prev_run_timestamp from jobhistory where JobName='Check Version'").fetchone()
+        stmt = select(jobhistory.c.prev_run_timestamp).where(jobhistory.c.JobName == "Check Version")
+        with db.get_engine().connect() as conn:
+            chk_last = conn.execute(stmt).mappings().fetchone()
         prev_run = False
         if chk_last:
             if chk_last["prev_run_timestamp"] is not None:

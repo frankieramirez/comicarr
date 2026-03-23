@@ -43,6 +43,14 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         dest_dir: directory to store backups
         retention: number of backups to keep (default: 4)
     """
+    from comicarr.db import get_dialect
+
+    if get_dialect() != "sqlite":
+        logger.warn(
+            "Database backup is only supported for SQLite. PostgreSQL/MySQL users should use pg_dump/mysqldump."
+        )
+        return False
+
     if not os.path.isfile(source_path):
         logger.warn("[AUTO-BACKUP] Source database not found: %s" % source_path)
         return False
