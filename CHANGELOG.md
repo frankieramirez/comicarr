@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0](https://github.com/frankieramirez/comicarr/compare/v0.3.0...v0.4.0) (2026-03-23)
+
+
+### Features
+
+* Automate releases with release-please ([#47](https://github.com/frankieramirez/comicarr/issues/47)) ([12adb79](https://github.com/frankieramirez/comicarr/commit/12adb79b4347b59f7bd583fb7b6fb11ff47ed005))
+
+
+### Bug Fixes
+
+* Metron search missing cover images + API hardening ([#48](https://github.com/frankieramirez/comicarr/issues/48)) ([639c9d3](https://github.com/frankieramirez/comicarr/commit/639c9d39a394fbbdebf4c7c3f0d1d6bb1195c4cd))
+
 ## [0.1.0] - 2026-03-21
 
 ### Added
