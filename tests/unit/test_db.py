@@ -36,6 +36,9 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     # Ensure CONFIG is absent so default SQLite path is used
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    # Ensure LOG_LEVEL is set (logger.fdebug compares it with >)
+    if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
+        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     yield
     shutdown_engine()
 
