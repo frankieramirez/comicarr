@@ -84,22 +84,38 @@ All new Python files must include the GPL v3 license header at the top.
 
 ## Pull Request Process
 
-1. Create a feature branch from `main`
+1. Create a feature branch from `main` using a conventional prefix:
+   ```
+   feat/add-manga-search
+   fix/metadata-parsing
+   refactor/search-deduplication
+   docs/api-guide
+   chore/update-deps
+   ```
 2. Make your changes with clear, conventional commit messages
 3. Ensure all tests pass and linting is clean
-4. Open a PR with a clear description of what and why
+4. Open a PR — **the title must follow conventional commit format** (CI enforces this):
+   ```
+   feat: Add manga search provider
+   fix: Correct metadata parsing for annual issues
+   refactor: Extract search result deduplication
+   docs: Update API configuration guide
+   ```
 5. Fill out the PR template
 
-### Commit Message Format
+PR titles matter because release-please parses them (via squash merge) to determine version bumps and generate changelogs.
 
-Use [conventional commits](https://www.conventionalcommits.org/):
+## Releases
 
-```
-feat: add new download client support
-fix: correct metadata parsing for annual issues
-refactor: extract search result deduplication
-docs: update API configuration guide
-```
+Releases are fully automated via [release-please](https://github.com/googleapis/release-please-action). **Do not manually create tags, bump versions, or create GitHub Releases.**
+
+How it works:
+
+1. Use conventional commit messages (`feat:`, `fix:`, etc.) — these determine version bumps
+2. Release-please automatically maintains a Release PR with changelog and version bumps
+3. Merging the Release PR creates the GitHub Release, git tag, and triggers the Docker image build
+
+Version files (`pyproject.toml`, `frontend/package.json`) are updated automatically — never edit versions by hand.
 
 ## Reporting Issues
 

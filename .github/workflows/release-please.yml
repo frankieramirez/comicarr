@@ -1,17 +1,34 @@
-name: Release
+name: Release Please
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  build-and-push:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@c3fc4de07084f75a2b61a5b933069bda6edf3d5c # v4.4.0
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
-
     steps:
       - uses: actions/checkout@v6
 
@@ -25,10 +42,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -36,12 +49,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/frankieramirez/comicarr:latest
-            ghcr.io/frankieramirez/comicarr:${{ steps.version.outputs.VERSION }}
+            ghcr.io/frankieramirez/comicarr:${{ needs.release-please.outputs.version }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
