@@ -101,6 +101,18 @@ refactor: extract search result deduplication
 docs: update API configuration guide
 ```
 
+## Releases
+
+Releases are fully automated via [release-please](https://github.com/googleapis/release-please-action). **Do not manually create tags, bump versions, or create GitHub Releases.**
+
+How it works:
+
+1. Use conventional commit messages (`feat:`, `fix:`, etc.) — these determine version bumps
+2. Release-please automatically maintains a Release PR with changelog and version bumps
+3. Merging the Release PR creates the GitHub Release, git tag, and triggers the Docker image build
+
+Version files (`pyproject.toml`, `frontend/package.json`) are updated automatically — never edit versions by hand.
+
 ## Reporting Issues
 
 - Use the [Bug Report](https://github.com/frankieramirez/comicarr/issues/new?template=bug_report.md) template
