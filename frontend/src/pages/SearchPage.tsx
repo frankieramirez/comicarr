@@ -114,9 +114,8 @@ export default function SearchPage() {
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
 
-  // Lazy-load Metron cover images (only fires for comic mode with Metron results)
-  const comicQueryKey = ["search", urlQuery, urlPage, comicApiSort];
-  useMetronImages(searchResults, comicQueryKey);
+  // Lazy-load Metron cover images
+  useMetronImages(searchResults, ["search", urlQuery, urlPage, comicApiSort]);
 
   // Get sort options for current mode
   const sortOptions = SORT_OPTIONS[searchMode];

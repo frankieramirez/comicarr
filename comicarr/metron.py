@@ -32,7 +32,6 @@ from comicarr import logger
 from comicarr.helpers import listLibrary
 
 # In-memory cache for series images to avoid repeated API calls
-# Bounded to prevent memory leaks — evicts oldest entries when full
 _IMAGE_CACHE = OrderedDict()  # {series_id: image_url}
 _IMAGE_CACHE_MAXSIZE = 1000
 
@@ -134,9 +133,6 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
     # Get library for "haveit" status
     comicLibrary = listLibrary()
 
-    # Map sort parameter to Metron ordering (used for logging/future API support)
-    metron_ordering = SORT_MAPPING.get(sort, SORT_MAPPING[None])
-
     # Set pagination defaults
     page_limit = limit if limit else 50
     page_offset = offset if offset else 0
@@ -185,7 +181,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             # These would require fetching full series details via api.series(id)
             # For search results, we use defaults
             publisher = "Unknown"
-            cover_url = None  # Images lazy-loaded via getSeriesImage
+            cover_url = None
             cv_id = None  # Not available in list results
 
             # Check if we already have this series
@@ -296,9 +292,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
 
 
 def _cache_image(series_id, value):
-    """Store a value in the bounded image cache, evicting oldest if full."""
     _IMAGE_CACHE[series_id] = value
-    # Move to end so LRU eviction works correctly
     _IMAGE_CACHE.move_to_end(series_id)
     while len(_IMAGE_CACHE) > _IMAGE_CACHE_MAXSIZE:
         _IMAGE_CACHE.popitem(last=False)
@@ -314,7 +308,7 @@ def get_series_image(series_id):
     Returns:
         Image URL string, or None if not available
     """
-    # Check cache first (includes cached failures)
+    # Check cache first
     if series_id in _IMAGE_CACHE:
         logger.fdebug("[METRON] Image cache hit for series %s" % series_id)
         return _IMAGE_CACHE[series_id]
@@ -325,9 +319,7 @@ def get_series_image(series_id):
         return None
 
     try:
-        # Fetch only the first page of issues (avoids fetching ALL issues)
         issues = api.issues_list({"series_id": series_id, "page": 1})
-        # Take only the first element without exhausting the iterator
         first_issue = next(iter(issues), None)
 
         if first_issue:

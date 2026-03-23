@@ -6,11 +6,8 @@ import type { SearchResult } from "@/types";
 const MAX_CONCURRENT = 4;
 
 /**
- * Lazy-loads cover images for Metron search results.
- *
- * Metron's series_list API doesn't include images, so we fire
- * throttled getSeriesImage calls and patch the React Query cache
- * as each resolves.
+ * Lazy-loads cover images for Metron search results via throttled
+ * getSeriesImage calls, patching the React Query cache as each resolves.
  */
 export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
   const queryClient = useQueryClient();
@@ -19,7 +16,6 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
   const fetchedRef = useRef(new Set<string>());
 
   useEffect(() => {
-    // Find Metron results that need images
     const needsImage = results.filter(
       (r) =>
         r.metadata_source === "metron" &&
@@ -32,7 +28,6 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
 
     if (needsImage.length === 0) return;
 
-    // Build queue of series IDs to fetch
     const ids = needsImage.map((r) => r.comicid!);
     queueRef.current = [...ids];
 
@@ -48,7 +43,6 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
         getSeriesImage(seriesId)
           .then((imageUrl) => {
             if (imageUrl) {
-              // Update the React Query cache in-place
               queryClient.setQueryData(queryKey, (old: unknown) => {
                 if (!old) return old;
                 return patchResults(old, seriesId, imageUrl);
@@ -66,10 +60,6 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
   }, [results, queryKey, queryClient]);
 }
 
-/**
- * Patch a search response to update the image for a given series ID.
- * Handles both array and object response formats.
- */
 function patchResults(
   data: unknown,
   seriesId: string,
