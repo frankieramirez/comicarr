@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1](https://github.com/frankieramirez/comicarr/compare/v0.4.0...v0.4.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* sync uv.lock and prevent stale lockfile on release ([#51](https://github.com/frankieramirez/comicarr/issues/51)) ([0efcc3e](https://github.com/frankieramirez/comicarr/commit/0efcc3e3c2d2bbb95c42ab24a47bfa8a6ec8457d))
+
 ## [0.4.0](https://github.com/frankieramirez/comicarr/compare/v0.3.0...v0.4.0) (2026-03-23)
 
 
