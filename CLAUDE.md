@@ -50,6 +50,16 @@ python3 Comicarr.py maintenance --carepackage  # Generate debug package
 
 **IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.**
 
+## Releases
+
+Releases are automated via release-please. **Do NOT manually create tags, bump versions, or create GitHub Releases.**
+
+- Conventional commits on `main` (`feat:`, `fix:`, etc.) automatically maintain a Release PR
+- Merging the Release PR creates the GitHub Release, `vX.Y.Z` tag, and triggers Docker image build
+- Versions in `pyproject.toml` and `frontend/package.json` are bumped automatically — never edit these manually
+- Config: `release-please-config.json` and `.release-please-manifest.json`
+- Docker images publish to `ghcr.io/frankieramirez/comicarr`
+
 ## Anti-Patterns / What NOT to Do
 
 - **Do NOT use type hints** - None exist in the codebase currently
