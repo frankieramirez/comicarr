@@ -156,7 +156,7 @@ def _clean_row(row_dict, table_name, int_columns, text_columns):
 
 def validate(source_url, target_url):
     """Dry-run validation: report type mismatches, duplicates, and row counts."""
-    print(f"\n=== Validation Mode ===")
+    print("\n=== Validation Mode ===")
     print(f"Source: {_mask_password(source_url)}")
     print(f"Target: {_mask_password(target_url)}")
     print()
@@ -229,7 +229,7 @@ def migrate(source_url, target_url, batch_size=5000):
         target_url: SQLAlchemy URL for target database
         batch_size: Number of rows per batch insert (default 5000)
     """
-    print(f"\n=== Migration Starting ===")
+    print("\n=== Migration Starting ===")
     print(f"Source: {_mask_password(source_url)}")
     print(f"Target: {_mask_password(target_url)}")
     print(f"Batch size: {batch_size}")
@@ -323,7 +323,7 @@ def migrate(source_url, target_url, batch_size=5000):
             print(f"  FAIL  {table_name}: {e}")
 
     # --- Post-migration verification ---
-    print(f"\n=== Verification ===")
+    print("\n=== Verification ===")
     verify_ok = True
     for table_name in ALL_TABLES:
         if table_name not in source_tables:
@@ -343,7 +343,7 @@ def migrate(source_url, target_url, batch_size=5000):
         print(f"  {table_name:25s}  source={src_count:>8,d}  target={tgt_count:>8,d}  {match}")
 
     # Spot-check: compare random rows
-    print(f"\n=== Spot Check (5 random rows per table) ===")
+    print("\n=== Spot Check (5 random rows per table) ===")
     for table_name in ALL_TABLES[:5]:  # Check first 5 tables
         if table_name not in source_tables:
             continue
@@ -359,7 +359,7 @@ def migrate(source_url, target_url, batch_size=5000):
                 if src_row:
                     print(f"  {table_name}[{off}]: sampled OK")
 
-    print(f"\n=== Migration Summary ===")
+    print("\n=== Migration Summary ===")
     print(f"  Total rows migrated: {total_migrated:,d}")
     print(f"  Data cleaning conversions: {total_cleaned:,d}")
     print(f"  Failed tables: {len(failed_tables)}")
@@ -369,10 +369,10 @@ def migrate(source_url, target_url, batch_size=5000):
     print(f"  Verification: {'PASSED' if verify_ok else 'FAILED'}")
 
     if verify_ok and not failed_tables:
-        print(f"\n  Migration completed successfully.")
-        print(f"  WARNING: Securely delete or encrypt the old SQLite file.")
+        print("\n  Migration completed successfully.")
+        print("  WARNING: Securely delete or encrypt the old SQLite file.")
     else:
-        print(f"\n  Migration completed with issues. Review output above.")
+        print("\n  Migration completed with issues. Review output above.")
 
     source_engine.dispose()
     target_engine.dispose()
@@ -418,7 +418,7 @@ def run_cli(args):
         sys.exit(0 if ok else 1)
 
     if not parsed.yes:
-        print(f"This will migrate data from:")
+        print("This will migrate data from:")
         print(f"  Source: {_mask_password(parsed.source)}")
         print(f"  Target: {_mask_password(parsed.target)}")
         print()
