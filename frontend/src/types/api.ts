@@ -80,7 +80,9 @@ export type ApiCommand =
   | "getStartupDiagnostics"
   | "previewMigration"
   | "startMigration"
-  | "getMigrationProgress";
+  | "getMigrationProgress"
+  | "getSeriesImage"
+  | "findManga";
 
 /** API call parameters */
 export type ApiParams = Record<

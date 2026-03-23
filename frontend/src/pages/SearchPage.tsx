@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
+import { useMetronImages } from "@/hooks/useMetronImages";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ContentType } from "@/types/entities";
@@ -112,6 +113,10 @@ export default function SearchPage() {
   const { data, isLoading, error } = activeSearch;
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
+
+  // Lazy-load Metron cover images (only fires for comic mode with Metron results)
+  const comicQueryKey = ["search", urlQuery, urlPage, comicApiSort];
+  useMetronImages(searchResults, comicQueryKey);
 
   // Get sort options for current mode
   const sortOptions = SORT_OPTIONS[searchMode];

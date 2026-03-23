@@ -81,6 +81,7 @@ export interface SearchResult {
   issues?: number;
   in_library?: boolean;
   deck?: string | null;
+  metadata_source?: string;
 }
 
 /** Wanted issue (issue with extra fields from wanted queue) */
