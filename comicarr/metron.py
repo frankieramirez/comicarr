@@ -25,13 +25,16 @@ Provides server-side sorting which solves the CV sorting bug.
 """
 
 import time
+from collections import OrderedDict
 
 import comicarr
 from comicarr import logger
 from comicarr.helpers import listLibrary
 
 # In-memory cache for series images to avoid repeated API calls
-_IMAGE_CACHE = {}  # {series_id: image_url}
+# Bounded to prevent memory leaks — evicts oldest entries when full
+_IMAGE_CACHE = OrderedDict()  # {series_id: image_url}
+_IMAGE_CACHE_MAXSIZE = 1000
 
 # Mapping from frontend sort values to Metron's ordering parameter
 SORT_MAPPING = {
@@ -131,8 +134,8 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
     # Get library for "haveit" status
     comicLibrary = listLibrary()
 
-    # Map sort parameter to Metron ordering
-    SORT_MAPPING.get(sort, SORT_MAPPING[None])
+    # Map sort parameter to Metron ordering (used for logging/future API support)
+    metron_ordering = SORT_MAPPING.get(sort, SORT_MAPPING[None])
 
     # Set pagination defaults
     page_limit = limit if limit else 50
@@ -182,7 +185,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             # These would require fetching full series details via api.series(id)
             # For search results, we use defaults
             publisher = "Unknown"
-            cover_url = "cache/blankcover.jpg"
+            cover_url = None  # Images lazy-loaded via getSeriesImage
             cv_id = None  # Not available in list results
 
             # Check if we already have this series
@@ -221,7 +224,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                     "comicimage": cover_url,
                     "comicthumb": cover_url,
                     "publisher": publisher,
-                    "description": "None",  # Not available in list results
+                    "description": None,  # Not available in list results
                     "deck": None,
                     "type": None,  # Not available in list results
                     "haveit": haveit,
@@ -230,6 +233,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                     "volume": volume,
                     "imprint": None,
                     "seriesrange": yearRange,
+                    "metadata_source": "metron",
                 }
             )
 
@@ -291,6 +295,15 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             return []
 
 
+def _cache_image(series_id, value):
+    """Store a value in the bounded image cache, evicting oldest if full."""
+    _IMAGE_CACHE[series_id] = value
+    # Move to end so LRU eviction works correctly
+    _IMAGE_CACHE.move_to_end(series_id)
+    while len(_IMAGE_CACHE) > _IMAGE_CACHE_MAXSIZE:
+        _IMAGE_CACHE.popitem(last=False)
+
+
 def get_series_image(series_id):
     """
     Fetch cover image URL for a series by getting its first issue.
@@ -301,9 +314,7 @@ def get_series_image(series_id):
     Returns:
         Image URL string, or None if not available
     """
-    global _IMAGE_CACHE
-
-    # Check cache first
+    # Check cache first (includes cached failures)
     if series_id in _IMAGE_CACHE:
         logger.fdebug("[METRON] Image cache hit for series %s" % series_id)
         return _IMAGE_CACHE[series_id]
@@ -314,28 +325,26 @@ def get_series_image(series_id):
         return None
 
     try:
-        # Fetch issues for this series, limited to first issue
-        issues = api.issues_list({"series_id": series_id})
-        issues_list = list(issues)
+        # Fetch only the first page of issues (avoids fetching ALL issues)
+        issues = api.issues_list({"series_id": series_id, "page": 1})
+        # Take only the first element without exhausting the iterator
+        first_issue = next(iter(issues), None)
 
-        if issues_list:
-            # Get the first issue's image
-            first_issue = issues_list[0]
+        if first_issue:
             image_url = first_issue.image if hasattr(first_issue, "image") else None
 
             if image_url:
-                # Convert to string if it's a URL object
                 image_url_str = str(image_url)
-                # Cache the result
-                _IMAGE_CACHE[series_id] = image_url_str
+                _cache_image(series_id, image_url_str)
                 logger.fdebug("[METRON] Fetched and cached image for series %s: %s" % (series_id, image_url_str))
                 return image_url_str
 
         logger.fdebug("[METRON] No image found for series %s" % series_id)
-        # Cache None to avoid repeated lookups for series without images
-        _IMAGE_CACHE[series_id] = None
+        _cache_image(series_id, None)
         return None
 
     except Exception as e:
         logger.error("[METRON] Failed to fetch series image for %s: %s" % (series_id, e))
+        # Cache failures to prevent repeated failing API calls
+        _cache_image(series_id, None)
         return None

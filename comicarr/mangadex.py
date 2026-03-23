@@ -150,7 +150,7 @@ def _extract_cover_url(manga_data):
             if cover_filename:
                 return f"https://uploads.mangadex.org/covers/{manga_id}/{cover_filename}.256.jpg"
 
-    return "cache/blankcover.jpg"
+    return None
 
 
 def _extract_author(manga_data):
