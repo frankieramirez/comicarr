@@ -26,12 +26,23 @@ Data cleaning during migration:
 
 import logging
 import os
+import re
 
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from comicarr.db import _mask_password
-from comicarr.tables import metadata
+from comicarr.tables import UPSERT_KEYS, metadata
+
+
+def _mask_password(url):
+    """Mask password in database URL for logging."""
+    try:
+        u = make_url(url)
+        return u.render_as_string(hide_password=True)
+    except Exception:
+        return re.sub(r"(://[^:]+:)(.+)@", r"\1***@", url)
+
 
 logger = logging.getLogger("comicarr.db_migrate")
 
@@ -252,6 +263,7 @@ def migrate(source_url, target_url, batch_size=5000):
 
     total_migrated = 0
     total_cleaned = 0
+    total_deduped = {}
     failed_tables = []
 
     for table_name in ALL_TABLES:
@@ -283,6 +295,7 @@ def migrate(source_url, target_url, batch_size=5000):
                 offset = 0
                 table_migrated = 0
                 table_cleaned = 0
+                table_deduped = 0
 
                 while offset < row_count:
                     rows = source_conn.execute(
@@ -291,13 +304,28 @@ def migrate(source_url, target_url, batch_size=5000):
                     )
 
                     batch = []
+                    seen_keys = set()
                     for row in rows:
                         row_dict = dict(row._mapping)
                         # Filter to only columns that exist in the target schema
                         row_dict = {k: v for k, v in row_dict.items() if k in target_cols}
                         cleaned, conversions = _clean_row(row_dict, table_name, int_cols, text_cols)
-                        batch.append(cleaned)
                         table_cleaned += len(conversions)
+
+                        # Deduplicate rows that would violate UNIQUE constraints
+                        upsert_keys = UPSERT_KEYS.get(table_name)
+                        if upsert_keys:
+                            key_vals = tuple(cleaned.get(k) for k in upsert_keys)
+                            if any(v is None or v == "" for v in key_vals):
+                                batch.append(cleaned)  # Allow NULL keys
+                            elif key_vals in seen_keys:
+                                table_deduped += 1
+                                continue  # Skip duplicate
+                            else:
+                                seen_keys.add(key_vals)
+                                batch.append(cleaned)
+                        else:
+                            batch.append(cleaned)
 
                     if batch:
                         with target_engine.begin() as target_conn:
@@ -308,7 +336,13 @@ def migrate(source_url, target_url, batch_size=5000):
 
                 total_migrated += table_migrated
                 total_cleaned += table_cleaned
-                status = f"({table_cleaned} cleaned)" if table_cleaned else ""
+                total_deduped[table_name] = table_deduped
+                parts = []
+                if table_cleaned:
+                    parts.append(f"{table_cleaned} cleaned")
+                if table_deduped:
+                    parts.append(f"{table_deduped} deduped")
+                status = f"({', '.join(parts)})" if parts else ""
                 print(f"  {table_name:25s}  {table_migrated:>8,d} rows migrated  {status}")
 
         except (OperationalError, ProgrammingError) as e:
@@ -330,8 +364,13 @@ def migrate(source_url, target_url, batch_size=5000):
         with target_engine.connect() as conn:
             tgt_count = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
 
-        match = "OK" if src_count == tgt_count else "MISMATCH"
-        if src_count != tgt_count:
+        deduped = total_deduped.get(table_name, 0)
+        if src_count == tgt_count:
+            match = "OK"
+        elif deduped and src_count == tgt_count + deduped:
+            match = f"OK ({deduped} deduped)"
+        else:
+            match = "MISMATCH"
             verify_ok = False
         print(f"  {table_name:25s}  source={src_count:>8,d}  target={tgt_count:>8,d}  {match}")
 
