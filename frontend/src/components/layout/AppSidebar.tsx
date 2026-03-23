@@ -28,7 +28,6 @@ import {
   ListTodo,
   Settings,
   LogOut,
-  BookMarked,
   Moon,
   Sun,
   FolderInput,
@@ -67,7 +66,6 @@ export default function AppSidebar() {
     { path: "/", label: "Series", icon: Home },
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
-    { path: "/story-arcs", label: "Story Arcs", icon: BookMarked },
     { path: "/import", label: "Import", icon: FolderInput },
   ];
 

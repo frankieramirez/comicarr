@@ -16,7 +16,7 @@ export function SaveButton({
   if (!isDirty) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex justify-end space-x-3 shadow-lg z-10">
+    <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex justify-end space-x-3 shadow-lg z-10">
       <Button variant="outline" onClick={onCancel} disabled={isSaving}>
         Cancel
       </Button>

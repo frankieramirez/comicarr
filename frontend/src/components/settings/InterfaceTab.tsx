@@ -12,11 +12,6 @@ export function InterfaceTab({
   formData,
   onChange,
 }: InterfaceTabProps) {
-  const interfaceOptions = [
-    { value: "carbon", label: "Carbon (Modern)" },
-    { value: "default", label: "Default (Classic)" },
-  ];
-
   return (
     <div className="space-y-6">
       <SettingGroup
@@ -50,14 +45,6 @@ export function InterfaceTab({
         title="Interface Preferences"
         description="Customize the look and behavior of the web interface"
       >
-        <SettingField
-          label="Theme"
-          value={formData.interface as string | undefined}
-          type="select"
-          options={interfaceOptions}
-          onChange={(value) => onChange("interface", value as string)}
-          helpText="Choose your preferred interface theme"
-        />
         <SettingField
           label="Launch Browser"
           type="checkbox"
