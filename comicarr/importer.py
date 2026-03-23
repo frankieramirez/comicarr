@@ -1142,7 +1142,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         "ComicPublished": comic_published,
         "ComicPublisher": manga.get("author", "Unknown"),
         "Description": description[:4000] if description else None,
-        "ComicImage": manga.get("cover_url", "cache/blankcover.jpg"),
+        "ComicImage": manga.get("cover_url"),
         "ComicImageURL": manga.get("cover_url"),
         "DetailURL": manga.get("url"),
         "DynamicComicName": dynamic_name,

@@ -2826,6 +2826,11 @@ class Api(object):
             return
 
         series_id = kwargs["id"]
+        try:
+            int(series_id)
+        except (ValueError, TypeError):
+            self.data = self._failureResponse("Invalid parameter: id must be numeric")
+            return
 
         from comicarr import metron
 

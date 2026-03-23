@@ -1,9 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSeriesImage } from "@/lib/api";
 import type { SearchResult } from "@/types";
 
 const MAX_CONCURRENT = 4;
+
+interface SearchResponse {
+  results?: Record<string, unknown>[];
+  pagination?: unknown;
+}
 
 /**
  * Lazy-loads cover images for Metron search results via throttled
@@ -12,10 +17,20 @@ const MAX_CONCURRENT = 4;
 export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
   const queryClient = useQueryClient();
   const activeRef = useRef(0);
-  const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef(new Set<string>());
+  const lastKeyRef = useRef("");
+
+  // Stable reference for the query key — prevents effect re-firing on every render
+  const stableKey = useMemo(() => queryKey, [JSON.stringify(queryKey)]);
 
   useEffect(() => {
+    // Reset fetched set when search changes (new query/page/sort)
+    const keyStr = JSON.stringify(stableKey);
+    if (lastKeyRef.current !== keyStr) {
+      fetchedRef.current = new Set();
+      lastKeyRef.current = keyStr;
+    }
+
     const needsImage = results.filter(
       (r) =>
         r.metadata_source === "metron" &&
@@ -28,66 +43,61 @@ export function useMetronImages(results: SearchResult[], queryKey: unknown[]) {
 
     if (needsImage.length === 0) return;
 
-    const ids = needsImage.map((r) => r.comicid!);
-    queueRef.current = [...ids];
+    let cancelled = false;
+    const queue = needsImage.flatMap((r) => (r.comicid ? [r.comicid] : []));
+
+    // Mark as fetched immediately to prevent duplicate queuing
+    for (const id of queue) {
+      fetchedRef.current.add(id);
+    }
 
     function processQueue() {
-      while (
-        activeRef.current < MAX_CONCURRENT &&
-        queueRef.current.length > 0
-      ) {
-        const seriesId = queueRef.current.shift()!;
-        fetchedRef.current.add(seriesId);
+      while (activeRef.current < MAX_CONCURRENT && queue.length > 0) {
+        const seriesId = queue.shift()!;
         activeRef.current++;
 
         getSeriesImage(seriesId)
           .then((imageUrl) => {
-            if (imageUrl) {
-              queryClient.setQueryData(queryKey, (old: unknown) => {
-                if (!old) return old;
-                return patchResults(old, seriesId, imageUrl);
-              });
-            }
+            if (cancelled || !imageUrl) return;
+            queryClient.setQueryData(stableKey, (old: unknown) => {
+              if (!old) return old;
+              return patchResults(old as SearchResponse, seriesId, imageUrl);
+            });
           })
           .finally(() => {
             activeRef.current--;
-            processQueue();
+            if (!cancelled) processQueue();
           });
       }
     }
 
     processQueue();
-  }, [results, queryKey, queryClient]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [results, stableKey, queryClient]);
 }
 
 function patchResults(
-  data: unknown,
+  data: SearchResponse,
   seriesId: string,
   imageUrl: string,
-): unknown {
-  const patchItem = (item: Record<string, unknown>) => {
-    if (item.comicid === seriesId) {
-      return {
-        ...item,
-        comicimage: imageUrl,
-        comicthumb: imageUrl,
-        image: imageUrl,
-      };
-    }
-    return item;
+): SearchResponse {
+  if (!data.results || !Array.isArray(data.results)) return data;
+
+  return {
+    ...data,
+    results: data.results.map((item) => {
+      if (item.comicid === seriesId) {
+        return {
+          ...item,
+          comicimage: imageUrl,
+          comicthumb: imageUrl,
+          image: imageUrl,
+        };
+      }
+      return item;
+    }),
   };
-
-  if (Array.isArray(data)) {
-    return data.map(patchItem);
-  }
-
-  const obj = data as Record<string, unknown>;
-  if (obj.results && Array.isArray(obj.results)) {
-    return {
-      ...obj,
-      results: (obj.results as Record<string, unknown>[]).map(patchItem),
-    };
-  }
-
-  return data;
 }

@@ -127,7 +127,7 @@ def initialize(options):
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https://comicvine.gamespot.com",
+            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
             "font-src 'self'",
             "connect-src 'self'",
             "frame-ancestors 'none'",

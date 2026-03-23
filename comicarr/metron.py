@@ -24,6 +24,7 @@ Uses mokkari library to interface with Metron's API.
 Provides server-side sorting which solves the CV sorting bug.
 """
 
+import threading
 import time
 from collections import OrderedDict
 
@@ -34,20 +35,7 @@ from comicarr.helpers import listLibrary
 # In-memory cache for series images to avoid repeated API calls
 _IMAGE_CACHE = OrderedDict()  # {series_id: image_url}
 _IMAGE_CACHE_MAXSIZE = 1000
-
-# Mapping from frontend sort values to Metron's ordering parameter
-SORT_MAPPING = {
-    "year_desc": "-year_began",
-    "year_asc": "year_began",
-    "issues_desc": "-issue_count",
-    "issues_asc": "issue_count",
-    "name_asc": "name",
-    "name_desc": "-name",
-    "date_last_updated:desc": "-modified",  # CV default sort
-    "date_last_updated:asc": "modified",
-    "relevance": None,  # Use Metron's natural order for relevance
-    None: "-year_began",  # Default to newest first
-}
+_IMAGE_CACHE_LOCK = threading.Lock()
 
 
 def initialize_metron_api():
@@ -292,10 +280,11 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
 
 
 def _cache_image(series_id, value):
-    _IMAGE_CACHE[series_id] = value
-    _IMAGE_CACHE.move_to_end(series_id)
-    while len(_IMAGE_CACHE) > _IMAGE_CACHE_MAXSIZE:
-        _IMAGE_CACHE.popitem(last=False)
+    with _IMAGE_CACHE_LOCK:
+        _IMAGE_CACHE[series_id] = value
+        _IMAGE_CACHE.move_to_end(series_id)
+        while len(_IMAGE_CACHE) > _IMAGE_CACHE_MAXSIZE:
+            _IMAGE_CACHE.popitem(last=False)
 
 
 def get_series_image(series_id):
@@ -309,9 +298,11 @@ def get_series_image(series_id):
         Image URL string, or None if not available
     """
     # Check cache first
-    if series_id in _IMAGE_CACHE:
-        logger.fdebug("[METRON] Image cache hit for series %s" % series_id)
-        return _IMAGE_CACHE[series_id]
+    with _IMAGE_CACHE_LOCK:
+        if series_id in _IMAGE_CACHE:
+            _IMAGE_CACHE.move_to_end(series_id)
+            logger.fdebug("[METRON] Image cache hit for series %s" % series_id)
+            return _IMAGE_CACHE[series_id]
 
     api = comicarr.METRON_API
     if api is None:

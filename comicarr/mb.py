@@ -824,7 +824,7 @@ def storyarcinfo(xmlid):
     try:
         xmlimage = arcdom.getElementsByTagName("super_url")[0].firstChild.wholeText
     except:
-        xmlimage = "cache/blankcover.jpg"
+        xmlimage = None
 
     try:
         xmlimage = result.getElementsByTagName("super_url")[0].firstChild.wholeText
@@ -832,12 +832,12 @@ def storyarcinfo(xmlid):
         try:
             xmlimage = result.getElementsByTagName("small_url")[0].firstChild.wholeText
         except Exception:
-            xmlimage = "cache/blankcover.jpg"
+            xmlimage = None
 
     try:
         xmlthumb = result.getElementsByTagName("thumb_url")[0].firstChild.wholeText
     except Exception:
-        xmlthumb = "cache/blankcover.jpg"
+        xmlthumb = None
 
     try:
         xmldesc = arcdom.getElementsByTagName("desc")[0].firstChild.wholeText
