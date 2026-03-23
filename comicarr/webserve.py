@@ -489,7 +489,7 @@ class WebInterface(object):
     loadhome.exposed = True
 
     def comicDetails(self, ComicID, addbyid=0, **kwargs):
-        comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
+        comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
         if comic is None and bool(addbyid) is False:
             raise cherrypy.HTTPRedirect("home")
         elif comic is None and bool(addbyid) is True:
@@ -616,7 +616,7 @@ class WebInterface(object):
 
                 if run_them_down is True:
                     updater.forceRescan(ComicID)
-                    comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
+                    comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [ComicID])
 
             totalissues = comic["Total"]
             haveissues = comic["Have"]
@@ -770,7 +770,7 @@ class WebInterface(object):
                     pass
 
         # let's cheat. :)
-        # comicskip = db.rawdb.select_all('SELECT * from comics order by ComicSortName COLLATE NOCASE')
+        # comicskip = db.raw_select_all('SELECT * from comics order by ComicSortName COLLATE NOCASE')
         skipno = len(comicarr.COMICSORT["SortOrder"])
         lastno = comicarr.COMICSORT["LastOrderNo"]
         lastid = comicarr.COMICSORT["LastOrderID"]
@@ -857,11 +857,11 @@ class WebInterface(object):
         isCounts[6] = 0  # 6 failed
         isCounts[7] = 0  # 7 snatched
         # isCounts[8] = 0   #8 read
-        issues = db.rawdb.select_all(
+        issues = db.raw_select_all(
             "SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid]
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            issues += db.rawdb.select_all(
+            issues += db.raw_select_all(
                 "SELECT Status FROM annuals WHERE ComicID=? AND NOT DELETED ORDER BY Int_IssueNumber DESC", [comicid]
             )
         for curResult in issues:
@@ -922,7 +922,7 @@ class WebInterface(object):
             "SELECT a.ComicLocation as ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.ComicID = b.ComicID WHERE a.ComicID=? ORDER BY %s"
             % sortcolumn
         )
-        issueslist = db.rawdb.select_all(queryline, [ComicID])
+        issueslist = db.raw_select_all(queryline, [ComicID])
         issues = []
 
         secondary_folders = None
@@ -1059,7 +1059,7 @@ class WebInterface(object):
             filters = []
         annuals = []
         if comicarr.CONFIG.ANNUALS_ON:
-            annualslist = db.rawdb.select_all(
+            annualslist = db.raw_select_all(
                 "SELECT * FROM annuals WHERE ComicID=? AND Deleted != 1 ORDER BY ReleaseDate ASC, Int_IssueNumber DESC",
                 [ComicID],
             )
@@ -1220,7 +1220,7 @@ class WebInterface(object):
             query = kwargs["search_query"]
             logger.fdebug("search_query: %s" % query)
         queryline = "SELECT * FROM tmp_searches WHERE query_id=?"  # ORDER BY %s" % sortcolumn
-        db_results = db.rawdb.select_all(queryline, [query])
+        db_results = db.raw_select_all(queryline, [query])
         if not db_results:
             try:
                 results = mb.findComic(query, None, issue=None)
@@ -1682,7 +1682,7 @@ class WebInterface(object):
             # iterate through, and overwrite the existing watchmatch with the new chosen 'C' + comicid value
 
             confirmedid = "C" + str(comicid)
-            confirms = db.rawdb.select_all("SELECT * FROM importresults WHERE WatchMatch=?", [ogcname])
+            confirms = db.raw_select_all("SELECT * FROM importresults WHERE WatchMatch=?", [ogcname])
             if confirms is None:
                 logger.Error("There are no results that match...this is an ERROR.")
             else:
@@ -1717,7 +1717,7 @@ class WebInterface(object):
         # print ("comicimage: " + str(comicimage))
         if not comicarr.CONFIG.CV_ONLY:
             # here we test for exception matches (ie. comics spanning more than one volume, known mismatches, etc).
-            CV_EXcomicid = db.rawdb.select_one("SELECT * from exceptions WHERE ComicID=?", [comicid])
+            CV_EXcomicid = db.raw_select_one("SELECT * from exceptions WHERE ComicID=?", [comicid])
             if CV_EXcomicid is None:  # pass #
                 gcdinfo = parseit.GCDScraper(comicname, comicyear, comicissues, comicid, quickmatch="yes")
                 if gcdinfo == "No Match":
@@ -1846,7 +1846,7 @@ class WebInterface(object):
             )
 
         if query_id is not None:
-            query_chk = db.rawdb.select_one(
+            query_chk = db.raw_select_one(
                 "SELECT * FROM tmp_searches where query_id=? AND comicid=?", [query_id, comicid]
             )
             if query_chk:
@@ -1983,9 +1983,9 @@ class WebInterface(object):
         module = "[STORY ARC]"
         # check if it already exists.
         if cvarcid is None:
-            arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [arcid])
+            arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [arcid])
         else:
-            arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE CV_ArcID=?", [cvarcid])
+            arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE CV_ArcID=?", [cvarcid])
         if arc_chk is None:
             if arcrefresh:
                 logger.warn(
@@ -1997,7 +1997,7 @@ class WebInterface(object):
                 logger.fdebug(
                     module + " No match in db based on ComicVine ID. Making sure and checking against Story Arc Name."
                 )
-                arc_chk = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArc=?", [storyarcname])
+                arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArc=?", [storyarcname])
                 if arc_chk is None:
                     logger.warn(module + " " + storyarcname + " already exists on your Story Arc Watchlist!")
                     raise cherrypy.HTTPRedirect("readlist")
@@ -2248,7 +2248,7 @@ class WebInterface(object):
     addStoryArc.exposed = True
 
     def wanted_Export(self, mode):
-        wantlist = db.rawdb.select_all(
+        wantlist = db.raw_select_all(
             "select b.ComicName, b.ComicYear, a.Issue_Number, a.IssueDate, a.ComicID, a.IssueID from issues a inner join comics b on a.ComicID=b.ComicID where a.status=? and b.ComicName IS NOT NULL",
             [mode],
         )
@@ -2585,7 +2585,7 @@ class WebInterface(object):
     resumeSeries.exposed = True
 
     def deleteSeries(self, ComicID, delete_dir=None):
-        comic = db.rawdb.select_one("SELECT * from comics WHERE ComicID=?", [ComicID])
+        comic = db.raw_select_one("SELECT * from comics WHERE ComicID=?", [ComicID])
         try:
             if comic["ComicName"] is None:
                 ComicName = "None"
@@ -2660,7 +2660,7 @@ class WebInterface(object):
 
     def refreshSeries(self, ComicID):
         watch = []
-        chkdb = db.rawdb.select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
+        chkdb = db.raw_select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
         # if not any(ext['comicid'] == ComicID for ext in comicarr.REFRESH_LIST):
         if {"comicid": ComicID, "comicname": chkdb["ComicName"]} not in comicarr.REFRESH_QUEUE.queue:
             watch.append({"comicid": ComicID, "comicname": chkdb["ComicName"], "seriesyear": chkdb["ComicYear"]})
@@ -2678,7 +2678,7 @@ class WebInterface(object):
 
     def description_edit(self, id, value):
         comicid = id[1:]
-        serieschk = db.rawdb.select_one("SELECT * from comics WHERE ComicID=?", [comicid])
+        serieschk = db.raw_select_one("SELECT * from comics WHERE ComicID=?", [comicid])
         if serieschk is None:
             logger.error("Cannot edit this for some reason - something is wrong.")
             return
@@ -2709,8 +2709,8 @@ class WebInterface(object):
         logger.fdebug("issueid:" + str(issueid))
         issue_type = id[second_id + 1 :]
         logger.fdebug("issue_type: %s" % issue_type)
-        comicchk = db.rawdb.select_one("SELECT ComicYear FROM comics WHERE ComicID=?", [comicid])
-        issuechk = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [issueid])
+        comicchk = db.raw_select_one("SELECT ComicYear FROM comics WHERE ComicID=?", [comicid])
+        issuechk = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [issueid])
         if issuechk is None:
             logger.error("Cannot edit this for some reason - something is wrong.")
             return
@@ -2769,7 +2769,7 @@ class WebInterface(object):
                 query_id = v
             elif k == "serieslist":
                 serieslist.append(v)
-        tmp_chk = db.rawdb.select_all("SELECT * FROM tmp_searches where query_id = ?", [query_id])
+        tmp_chk = db.raw_select_all("SELECT * FROM tmp_searches where query_id = ?", [query_id])
         the_list = {}
         for tc in tmp_chk:
             the_list[str(tc["comicid"])] = {"comicname": tc["comicname"], "seriesyear": tc["comicyear"]}
@@ -2862,7 +2862,7 @@ class WebInterface(object):
             ):
                 continue
             else:
-                mi = db.rawdb.select_one(
+                mi = db.raw_select_one(
                     "SELECT a.ComicYear, b.* FROM issues b LEFT JOIN comics a ON a.ComicID=b.ComicID WHERE b.IssueID=?",
                     [IssueID],
                 )
@@ -2871,7 +2871,7 @@ class WebInterface(object):
                 seriesyear = None
                 if mi is None:
                     if comicarr.CONFIG.ANNUALS_ON:
-                        mi = db.rawdb.select_one(
+                        mi = db.raw_select_one(
                             "SELECT a.ComicYear, b.* FROM annuals b LEFT JOIN comics a ON a.ComicID=b.ComicID WHERE b.IssueID=? AND b.Deleted != 1",
                             [IssueID],
                         )
@@ -2882,7 +2882,7 @@ class WebInterface(object):
                             comicid = mi["ComicID"]
                             seriesyear = mi["ComicYear"]
                         else:
-                            mi = db.rawdb.select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueID])
+                            mi = db.raw_select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueID])
                             if mi is not None:
                                 arcs = True
                                 comicname = mi["ComicName"]
@@ -3032,7 +3032,7 @@ class WebInterface(object):
         # 3 - if it's an nzb - we recreate the sab/nzbget url and resubmit it directly.
         #  - if it's a torrent - we redownload the torrent and flip it to the watchdir on the local / seedbox.
         # 4 - Change status to Snatched.
-        chk_snatch = db.rawdb.select_all("SELECT * FROM snatched WHERE IssueID=?", [IssueID])
+        chk_snatch = db.raw_select_all("SELECT * FROM snatched WHERE IssueID=?", [IssueID])
         if chk_snatch is None:
             logger.info("Unable to locate how issue was downloaded (name, provider). Cannot continue.")
             return json.dumps(
@@ -3070,7 +3070,7 @@ class WebInterface(object):
         for ps in sorted(providers_snatched, key=itemgetter("DateAdded", "Provider"), reverse=True):
             try:
                 Provider_sql = "%" + ps["Provider"] + "%"
-                chk_the_log = db.rawdb.select_one(
+                chk_the_log = db.raw_select_one(
                     "SELECT * FROM nzblog WHERE IssueID=? OR IssueID=? AND Provider like (?)",
                     [IssueID, "S" + IssueID, Provider_sql],
                 )
@@ -3078,7 +3078,7 @@ class WebInterface(object):
                 logger.warn(
                     "Unable to locate provider reference for attempted Retry. Will see if I can just get the last attempted download."
                 )
-                chk_the_log = db.rawdb.select_one(
+                chk_the_log = db.raw_select_one(
                     'SELECT * FROM nzblog WHERE IssueID=? and Provider != "CBT" and Provider != "KAT"', [IssueID]
                 )
 
@@ -3103,7 +3103,7 @@ class WebInterface(object):
                 )
 
         if all([ComicYear is not None, ComicYear != "None"]) and all([IssueID is not None, IssueID != "None"]):
-            getYear = db.rawdb.select_one("SELECT IssueDate, ReleaseDate FROM Issues WHERE IssueID=?", [IssueID])
+            getYear = db.raw_select_one("SELECT IssueDate, ReleaseDate FROM Issues WHERE IssueID=?", [IssueID])
             if getYear is None:
                 logger.warn(
                     "Unable to retrieve any valid date for Issue (Try to refresh the series and then try again."
@@ -3201,28 +3201,28 @@ class WebInterface(object):
                 break
             else:
                 oneoff = False
-                chkthis = db.rawdb.select_one(
+                chkthis = db.raw_select_one(
                     "SELECT a.ComicID, a.ComicName, a.ComicVersion, a.ComicYear, b.IssueID, b.Issue_Number, b.IssueDate FROM comics as a INNER JOIN annuals as b ON a.ComicID = b.ComicID WHERE IssueID=? AND b.Deleted != 1",
                     [IssueID],
                 )
                 if chkthis is None:
-                    chkthis = db.rawdb.select_one(
+                    chkthis = db.raw_select_one(
                         "SELECT a.ComicID, a.ComicName, a.ComicVersion, a.ComicYear, b.IssueID, b.Issue_Number, b.IssueDate FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID WHERE IssueID=?",
                         [IssueID],
                     )
                     if chkthis is None:
-                        chkthis = db.rawdb.select_one(
+                        chkthis = db.raw_select_one(
                             "SELECT ComicID, ComicName, year as ComicYear, IssueID, IssueNumber as Issue_Number, weeknumber, year from oneoffhistory WHERE IssueID=?",
                             [IssueID],
                         )
                         if chkthis is None:
                             if any(["_" in IssueID, IssueID.startswith("S")]):
-                                chkthis = db.rawdb.select_one(
+                                chkthis = db.raw_select_one(
                                     "SELECT ComicID, ComicName, seriesyear as ComicYear, IssueID, IssueNumber as Issue_Number, IssueDate, Volume as ComicVersion from storyarcs WHERE IssueArcID=?",
                                     [IssueID],
                                 )
                             else:
-                                chkthis = db.rawdb.select_one(
+                                chkthis = db.raw_select_one(
                                     "SELECT ComicID, ComicName, seriesyear as ComicYear, IssueID, IssueNumber as Issue_Number, IssueDate, Volume as ComicVersion from storyarcs WHERE IssueID=?",
                                     [IssueID],
                                 )
@@ -3329,7 +3329,7 @@ class WebInterface(object):
                                 )
                             break
                 elif "DDL" in fullprov:
-                    get_id = db.rawdb.select_one("SELECT id, mainlink FROM ddl_info WHERE IssueID=?", [IssueID])
+                    get_id = db.raw_select_one("SELECT id, mainlink FROM ddl_info WHERE IssueID=?", [IssueID])
                     if get_id:
                         link = {"id": get_id[0], "link": get_id[1]}
                         retried = True
@@ -3421,7 +3421,7 @@ class WebInterface(object):
                 logger.info("Story Arc : %s queueing selected issue..." % SARC)
                 logger.fdebug("IssueArcID : %s" % IssueArcID)
                 # try to load the issue dates - can now sideload issue details.
-                dateload = db.rawdb.select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID])
+                dateload = db.raw_select_one("SELECT * FROM storyarcs WHERE IssueArcID=?", [IssueArcID])
                 if dateload is None:
                     IssueDate = None
                     Publisher = None
@@ -3476,7 +3476,7 @@ class WebInterface(object):
             }
 
         elif mode == "want" or mode == "want_ann" or manualsearch:
-            cdname = db.rawdb.select_one("SELECT * from comics where ComicID=?", [ComicID])
+            cdname = db.raw_select_one("SELECT * from comics where ComicID=?", [ComicID])
             if ComicName is None:
                 ComicName = cdname["ComicName"]
             cdname["ComicName_Filesafe"]
@@ -3500,7 +3500,7 @@ class WebInterface(object):
                     logger.info("Marking %s issue: %s as wanted..." % (ComicName, ComicIssue))
                     db.upsert("issues", newStatus, controlValueDict)
             else:
-                annual_name = db.rawdb.select_one(
+                annual_name = db.raw_select_one(
                     "SELECT * FROM annuals WHERE ComicID=? and IssueID=? AND Deleted != 1", [ComicID, IssueID]
                 )
                 if annual_name is None:
@@ -3525,9 +3525,9 @@ class WebInterface(object):
             }
 
             if mode == "want":
-                issues = db.rawdb.select_one("SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID])
+                issues = db.raw_select_one("SELECT IssueDate, ReleaseDate FROM issues WHERE IssueID=?", [IssueID])
             elif mode == "want_ann":
-                issues = db.rawdb.select_one(
+                issues = db.raw_select_one(
                     "SELECT IssueDate, ReleaseDate FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
                 )
             if ComicYear is None:
@@ -3576,18 +3576,18 @@ class WebInterface(object):
             ReleaseComicID = None
         if ComicName is None:
             if ReleaseComicID is None:  # ReleaseComicID is used for annuals.
-                issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
+                issue = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
             else:
                 issue = None
             annchk = "no"
             if issue is None:
                 if comicarr.CONFIG.ANNUALS_ON:
                     if ReleaseComicID is None:
-                        issann = db.rawdb.select_one(
+                        issann = db.raw_select_one(
                             "SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
                         )
                     else:
-                        issann = db.rawdb.select_one(
+                        issann = db.raw_select_one(
                             "SELECT * FROM annuals WHERE IssueID=? AND ReleaseComicID=? AND Deleted != 1",
                             [IssueID, ReleaseComicID],
                         )
@@ -3658,11 +3658,11 @@ class WebInterface(object):
     failed_handling.exposed = True
 
     def archiveissue(self, IssueID, comicid):
-        issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
+        issue = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
         annchk = "no"
         if issue is None:
             if comicarr.CONFIG.ANNUALS_ON:
-                issann = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID])
+                issann = db.raw_select_one("SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID])
                 comicname = issann["ReleaseComicName"]
                 issue = issann["Issue_Number"]
                 annchk = "yes"
@@ -3683,7 +3683,7 @@ class WebInterface(object):
 
     def pullSearch(self, week, year):
         # retrieve a list of all the issues that are in a Wanted state from the pull that we can search for.
-        ps = db.rawdb.select_all(
+        ps = db.raw_select_all(
             "SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year]
         )
         if ps is None:
@@ -3723,7 +3723,7 @@ class WebInterface(object):
                 current = v
         autowant = []
         if generateonly is False:
-            autowants = db.rawdb.select_all("SELECT * FROM futureupcoming WHERE Status='Wanted'")
+            autowants = db.raw_select_all("SELECT * FROM futureupcoming WHERE Status='Wanted'")
             if autowants:
                 for aw in autowants:
                     autowant.append(
@@ -3742,7 +3742,7 @@ class WebInterface(object):
 
         popit = [True] if sa_inspect(db.get_engine()).has_table("weekly") else []
         if popit:
-            w_results = db.rawdb.select_all(
+            w_results = db.raw_select_all(
                 "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weekinfo["weeknumber"]), weekinfo["year"]]
             )
             if len(w_results) == 0:
@@ -3751,7 +3751,7 @@ class WebInterface(object):
                 )
                 repoll = self.pullrecreate(weeknumber=weekinfo["weeknumber"], year=weekinfo["year"])
                 if repoll["status"] == "success":
-                    w_results = db.rawdb.select_all(
+                    w_results = db.raw_select_all(
                         "SELECT * from weekly WHERE weeknumber=? AND year=?",
                         [int(weekinfo["weeknumber"]), weekinfo["year"]],
                     )
@@ -3768,7 +3768,7 @@ class WebInterface(object):
                         )
                         repoll = self.manualpull()
                         if repoll["status"] == "success":
-                            w_results = db.rawdb.select_all(
+                            w_results = db.raw_select_all(
                                 "SELECT * from weekly WHERE weeknumber=? AND year=?",
                                 [int(weekinfo["weeknumber"]), weekinfo["year"]],
                             )
@@ -3912,7 +3912,7 @@ class WebInterface(object):
                     tmpsql = "SELECT * FROM snatched where Status='Snatched' and status != 'Post-Processed' and (provider='32P' or Provider='WWT' or Provider='DEM') AND IssueID in ({seq})".format(
                         seq=",".join(["?"] * (len(genlist)))
                     )
-                    chkthis = db.rawdb.select_all(tmpsql, genlist)
+                    chkthis = db.raw_select_all(tmpsql, genlist)
                     if chkthis is None:
                         continue
                     else:
@@ -3949,7 +3949,7 @@ class WebInterface(object):
         # ShipDate is just weekinfo['midweek'] #a tuple ('weeknumber','startweek','midweek','endweek','year')
         logger.info(ShipDate)
 
-        chkfuture = db.rawdb.select_one(
+        chkfuture = db.raw_select_one(
             "SELECT * FROM futureupcoming WHERE ComicName=? AND IssueNumber=? AND weeknumber=? AND year=?",
             [ComicName, Issue, weeknumber, year],
         )
@@ -3973,8 +3973,8 @@ class WebInterface(object):
     future_check.exposed = True
 
     def filterpull(self):
-        db.rawdb.select_all("SELECT * from weekly")
-        pulldate = db.rawdb.select_one("SELECT * from weekly")
+        db.raw_select_all("SELECT * from weekly")
+        pulldate = db.raw_select_one("SELECT * from weekly")
         if pulldate is None:
             raise cherrypy.HTTPRedirect("home")
         return _serve_spa_index()
@@ -4037,7 +4037,7 @@ class WebInterface(object):
         weekinfo["midweek"]
         weekinfo["endweek"]
         logger.info("weeknumber: %s" % weeknumber)
-        upcomingdata = db.rawdb.select_all(
+        upcomingdata = db.raw_select_all(
             """
             SELECT weeknumber, year, Status, IssueID, ComicID, Comic, Issue,
                    ShipDate, DynamicName
@@ -4127,7 +4127,7 @@ class WebInterface(object):
         # fix None DateAdded points here
         helpers.DateAddedFix()
         # let's straightload the series that have no issue data associated as of yet (ie. new series) from the futurepulllist
-        future_nodata_upcoming = db.rawdb.select_all("""
+        future_nodata_upcoming = db.raw_select_all("""
             SELECT ComicName, IssueNumber, ComicID, IssueID, IssueDate, Status
             FROM futureupcoming
             WHERE IssueNumber='1' OR IssueNumber='0'
@@ -4150,7 +4150,7 @@ class WebInterface(object):
             WHERE u.IssueDate < ?
             ORDER BY u.IssueDate DESC
         """
-        outdated_items = db.rawdb.select_all(outdated_query, [today_str])
+        outdated_items = db.raw_select_all(outdated_query, [today_str])
 
         if outdated_items:
             # Batch UPDATE - single query for all issues
@@ -4175,7 +4175,7 @@ class WebInterface(object):
                     "DELETE from upcoming WHERE ComicName=? AND IssueNumber=?", [item["ComicName"], item["IssueNumber"]]
                 )
 
-        mism = db.rawdb.select_all(
+        mism = db.raw_select_all(
             "SELECT c.Type as BookType, c.ComicYear, c.ComicVersion, a.IssueDate, a.ReleaseDate, b.* FROM Comics as c LEFT JOIN Issues as a ON a.Comicid=c.ComicID INNER JOIN Weekly as b ON a.IssueID=b.IssueID WHERE b.Status='Mismatched' OR b.Status='Incomplete'"
         )
         mismatched = []
@@ -4235,7 +4235,7 @@ class WebInterface(object):
         statline = "Status IN (%s)" % stat_placeholders
 
         iss_query = "SELECT ComicName, Status, ComicID, IssueID, DateAdded from issues WHERE %s" % statline
-        issues = db.rawdb.select_all(iss_query, stat_values)
+        issues = db.raw_select_all(iss_query, stat_values)
 
         arcs = {}
         if comicarr.CONFIG.UPCOMING_STORYARCS is True:
@@ -4243,7 +4243,7 @@ class WebInterface(object):
                 "SELECT Storyarc, StoryArcID, IssueArcID, ComicName, Status, ComicID, IssueID, DateAdded from storyarcs WHERE %s"
                 % statline
             )
-            arclist = db.rawdb.select_all(arcs_query, stat_values)
+            arclist = db.raw_select_all(arcs_query, stat_values)
             for arc in arclist:
                 arcs[arc["IssueID"]] = {
                     "storyarc": arc["Storyarc"],
@@ -4271,7 +4271,7 @@ class WebInterface(object):
             # let's add the annuals to the wanted table so people can see them
             # ComicName wasn't present in db initially - added on startup chk now.
             annuals_query = "SELECT * FROM annuals WHERE Deleted != 1 AND %s" % statline
-            annuals_list = db.rawdb.select_all(annuals_query, stat_values)
+            annuals_list = db.raw_select_all(annuals_query, stat_values)
 
             issues += annuals_list
 
@@ -4377,7 +4377,7 @@ class WebInterface(object):
             FROM issues
             WHERE {where_clause}
         """
-        issues = db.rawdb.select_all(iss_query, search_params)
+        issues = db.raw_select_all(iss_query, search_params)
         arcs = {}
         if comicarr.CONFIG.UPCOMING_STORYARCS is True:
             arc_search_params = []
@@ -4398,7 +4398,7 @@ class WebInterface(object):
                 FROM storyarcs
                 WHERE {arc_where}
             """
-            arclist = db.rawdb.select_all(arcs_query, arc_search_params)
+            arclist = db.raw_select_all(arcs_query, arc_search_params)
             for arc in arclist:
                 arc_int_number = arc["Int_IssueNumber"]
                 if arc_int_number is None:
@@ -4423,7 +4423,7 @@ class WebInterface(object):
                 FROM annuals
                 WHERE Deleted != 1 AND {where_clause}
             """
-            annuals_list = db.rawdb.select_all(annuals_query, search_params)
+            annuals_list = db.raw_select_all(annuals_query, search_params)
 
             issues += annuals_list
 
@@ -4630,12 +4630,12 @@ class WebInterface(object):
 
     def searchformissing(self, ComicID):
         # search for 'missing' issues for a given series without marking them as Wanted (issues that are in a Skipped or Wanted state).
-        missing = db.rawdb.select_all(
+        missing = db.raw_select_all(
             "SELECT a.ComicName, a.ComicYear, b.* FROM comics a join issues b on a.comicid=b.comicid WHERE a.ComicID=? AND (b.Status ='Skipped' or b.Status='Wanted' or b.Status = 'Snatched')",
             [ComicID],
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            missing += db.rawdb.select_all(
+            missing += db.raw_select_all(
                 "SELECT a.ComicName, a.ComicYear, b.* FROM comics a join annuals b on a.comicid=b.comicid WHERE a.ComicID=? AND (b.Status ='Skipped' or b.Status='Wanted' or b.Status ='Snatched')",
                 [ComicID],
             )
@@ -4678,11 +4678,11 @@ class WebInterface(object):
         issuesnumwant = 0
         annsnumwant = 0
         mvvalues = {"Status": "Wanted"}
-        skipped2 = db.rawdb.select_all(
+        skipped2 = db.raw_select_all(
             "SELECT issueid, 0 as type from issues WHERE ComicID=? AND Status='Skipped'", [comicid]
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            skipped2 += db.rawdb.select_all(
+            skipped2 += db.raw_select_all(
                 "SELECT issueid, 1 as type from annuals WHERE ComicID=? AND Status='Skipped'", [comicid]
             )
         for skippy in skipped2:
@@ -4731,7 +4731,7 @@ class WebInterface(object):
     def ddl_requeue(self, mode, id=None, issueid=None):
         logger.info("id: %s / mode: %s / issueid: %s" % (id, mode, issueid))
         if mode == "clear_queue":
-            chk = db.rawdb.select_one("SELECT count(*) AS count FROM ddl_info WHERE status = 'Queued'")
+            chk = db.raw_select_one("SELECT count(*) AS count FROM ddl_info WHERE status = 'Queued'")
             countchk = 0
             if chk:
                 countchk = chk["count"]
@@ -4745,20 +4745,20 @@ class WebInterface(object):
             return json.dumps({"status": True, "message": "Successfully cleared %s items from the Queue" % countchk})
 
         if id is None:
-            items = db.rawdb.select_all("SELECT * FROM ddl_info WHERE status = 'Queued' ORDER BY updated_date DESC")
+            items = db.raw_select_all("SELECT * FROM ddl_info WHERE status = 'Queued' ORDER BY updated_date DESC")
         else:
-            oneitem = db.rawdb.select_one("SELECT * FROM DDL_INFO WHERE ID=?", [id])
+            oneitem = db.raw_select_one("SELECT * FROM DDL_INFO WHERE ID=?", [id])
             items = [oneitem]
 
         itemlist = []
         for x in items:
             OneOff = False
-            comic = db.rawdb.select_one(
+            comic = db.raw_select_one(
                 "SELECT * from comics WHERE ComicID=? AND ComicName != 'None'",
                 [x["comicid"]],
             )
             if comic is None:
-                comic = db.rawdb.select_one(
+                comic = db.raw_select_one(
                     "SELECT * from storyarcs WHERE IssueID=?",
                     [x["issueid"]],
                 )
@@ -4860,10 +4860,10 @@ class WebInterface(object):
 
     def queueManage(self):  # **args):
         resultlist = "There are currently no items waiting in the Direct Download (DDL) Queue for processing."
-        s_info = db.rawdb.select_all(
+        s_info = db.raw_select_all(
             "SELECT a.ComicName, a.ComicVersion, a.ComicID, a.ComicYear, b.Issue_Number, b.IssueID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID INNER JOIN ddl_info as c ON b.IssueID = c.IssueID"
         )  # WHERE c.status != 'Downloading'")
-        o_info = db.rawdb.select_all(
+        o_info = db.raw_select_all(
             "Select a.ComicName, b.Issue_Number, a.IssueID, a.ComicID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack from oneoffhistory a join snatched b on a.issueid=b.issueid join ddl_info c on b.issueid=c.issueid where b.provider like 'DDL%'"
         )
         tmp_list = {}
@@ -4963,10 +4963,10 @@ class WebInterface(object):
         iDisplayLength = int(iDisplayLength)
         filtered = []
         resultlist = "There are currently no items waiting in the Direct Download (DDL) Queue for processing."
-        s_info = db.rawdb.select_all(
+        s_info = db.raw_select_all(
             "SELECT a.ComicName, a.ComicVersion, a.ComicID, a.ComicYear, b.Issue_Number, b.IssueID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack, c.link_type FROM comics as a INNER JOIN issues as b ON a.ComicID = b.ComicID INNER JOIN ddl_info as c ON b.IssueID = c.IssueID"
         )  # WHERE c.status != 'Downloading'")
-        o_info = db.rawdb.select_all(
+        o_info = db.raw_select_all(
             "Select a.ComicName, b.Issue_Number, a.IssueID, a.ComicID, c.series as filename, c.size, c.status, c.id, c.updated_date, c.issues, c.year, c.pack, c.link_type from oneoffhistory a join snatched b on a.issueid=b.issueid join ddl_info c on b.issueid=c.issueid where b.provider like 'DDL%'"
         )
         tmp_list = {}
@@ -5151,10 +5151,10 @@ class WebInterface(object):
             comicidlist = []
             comicidlist.append(comicid)
         for cid in comicidlist:
-            comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
+            comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
             comic["ComicLocation"]
             comic["ComicName"]
-            issuelist = db.rawdb.select_all(
+            issuelist = db.raw_select_all(
                 "SELECT * FROM issues WHERE ComicID=? AND Location IS NOT NULL ORDER BY ReleaseDate", [str(cid)]
             )
             if issuelist:
@@ -5195,14 +5195,14 @@ class WebInterface(object):
             comiclist.append(comicid)
         for cid in comiclist:
             filefind = 0
-            comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
+            comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [cid])
             comicdir = comic["ComicLocation"]
             comicname = comic["ComicName"]
             comicyear = comic["ComicYear"]
             extensions = (".cbr", ".cbz", ".cb7")
-            issues = db.rawdb.select_all("SELECT * FROM issues WHERE ComicID=?", [cid])
+            issues = db.raw_select_all("SELECT * FROM issues WHERE ComicID=?", [cid])
             if comicarr.CONFIG.ANNUALS_ON:
-                issues += db.rawdb.select_all("SELECT * FROM annuals WHERE ComicID=? AND Deleted != 1", [cid])
+                issues += db.raw_select_all("SELECT * FROM annuals WHERE ComicID=? AND Deleted != 1", [cid])
             try:
                 if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
                     if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicdir))):
@@ -5269,7 +5269,7 @@ class WebInterface(object):
             "imp_paths": helpers.checked(comicarr.CONFIG.IMP_PATHS),
             "imp_seriesfolders": helpers.checked(comicarr.CONFIG.IMP_SERIESFOLDERS),
         }
-        jobresults = db.rawdb.select_all("SELECT DISTINCT * FROM jobhistory")
+        jobresults = db.raw_select_all("SELECT DISTINCT * FROM jobhistory")
         if jobresults is not None:
             tmp = []
             for jb in jobresults:
@@ -5467,19 +5467,19 @@ class WebInterface(object):
     def manageIssues(self, **kwargs):
         status = kwargs["status"]
         if comicarr.CONFIG.ANNUALS_ON:
-            issues = db.rawdb.select_all(
+            issues = db.raw_select_all(
                 "SELECT * from issues WHERE Status=? AND ComicName NOT LIKE '%Annual%'", [status]
             )
-            issues += db.rawdb.select_all("SELECT * from annuals WHERE Status=? AND Deleted != 1", [status])
+            issues += db.raw_select_all("SELECT * from annuals WHERE Status=? AND Deleted != 1", [status])
         else:
-            issues = db.rawdb.select_all("SELECT * from issues WHERE Status=?", [status])
+            issues = db.raw_select_all("SELECT * from issues WHERE Status=?", [status])
         return _serve_spa_index()
 
     manageIssues.exposed = True
 
     def manageFailed(self):
         results = []
-        failedlist = db.rawdb.select_all("SELECT * from Failed")
+        failedlist = db.raw_select_all("SELECT * from Failed")
         for f in failedlist:
             if f["Provider"] == "Public Torrents":
                 link = helpers.torrent_create(f["Provider"], f["ID"])
@@ -5526,7 +5526,7 @@ class WebInterface(object):
         comicstoimport = []
         if action == "massimport":
             logger.info("Initiating mass import.")
-            cnames = db.rawdb.select_all(
+            cnames = db.raw_select_all(
                 "SELECT ComicName, ComicID, Volume, DynamicName from importresults WHERE Status='Not Imported' GROUP BY DynamicName, Volume"
             )
             for cname in cnames:
@@ -5707,7 +5707,7 @@ class WebInterface(object):
                 issueIds = [issueIds]
 
             for issueId in issueIds:
-                issue_data = db.rawdb.select_one(
+                issue_data = db.raw_select_one(
                     "SELECT C.Type, C.ComicYear, I.ComicName, I.Issue_Number, I.ComicID, I.IssueID FROM comics as C INNER JOIN issues as I on C.ComicID = I.ComicID WHERE I.IssueID=?",
                     [issueId],
                 )
@@ -5797,7 +5797,7 @@ class WebInterface(object):
                     % (str(len(ComicID)), comicinfo["ComicName"], comicinfo["ComicYear"]),
                 }
         else:
-            cline = db.rawdb.select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
+            cline = db.raw_select_one("SELECT ComicName, ComicYear FROM comics WHERE ComicID=?", [ComicID])
             if cline:
                 updater.forceRescan(ComicID)
                 comicarr.GLOBAL_MESSAGES = {
@@ -5824,7 +5824,7 @@ class WebInterface(object):
     history.exposed = True
 
     def loadhistory(self, iDisplayStart=0, iDisplayLength=100, iSortCol_0=5, sSortDir_0="desc", sSearch="", **kwargs):
-        r_list = db.rawdb.select_all(
+        r_list = db.raw_select_all(
             "select b.StoryArcID, b.StoryArc, b.IssueArcID, a.*, c.weeknumber, c.year from snatched a left join storyarcs b on b.issueid=a.issueid left join oneoffhistory c on a.issueid=c.issueid order by DateAdded DESC"
         )
         iDisplayStart = int(iDisplayStart)
@@ -5849,7 +5849,7 @@ class WebInterface(object):
             }
 
             if rt["IssueID"] is not None and all(["_" in rt["IssueID"], rt["StoryArc"] is None]):
-                tmp = db.rawdb.select_one(
+                tmp = db.raw_select_one(
                     "Select StoryArc FROM storyarcs where IssueArcID=?", [re.sub("S", "", rt["IssueID"])]
                 )
                 if tmp:
@@ -5949,7 +5949,7 @@ class WebInterface(object):
     reOrder.exposed = True
 
     def readlist(self):
-        issuelist = db.rawdb.select_all("SELECT * from readlist")
+        issuelist = db.raw_select_all("SELECT * from readlist")
         # tuple this
         readlist = []
         c_added = 0  # count of issues that have been added to the readlist and remain in that status ( meaning not sent / read )
@@ -6009,21 +6009,21 @@ class WebInterface(object):
     def storyarc_main(self, arcid=None, **kwargs):
         arclist = []
         if arcid is None:
-            alist = db.rawdb.select_all(
+            alist = db.raw_select_all(
                 "SELECT * from storyarcs WHERE ComicName IS NOT NULL GROUP BY StoryArcID"
             )  # COLLATE NOCASE")
         else:
-            alist = db.rawdb.select_all(
+            alist = db.raw_select_all(
                 "SELECT * from storyarcs WHERE ComicName IS NOT NULL AND StoryArcID=? GROUP BY StoryArcID", [arcid]
             )  # COLLATE NOCASE")
 
         for al in alist:
-            totalissues = db.rawdb.select_all(
+            totalissues = db.raw_select_all(
                 "SELECT COUNT(*) as count from storyarcs WHERE StoryARcID=? AND Manual != 'deleted'",
                 [al["StoryArcID"]],
             )
 
-            havecnt = db.rawdb.select_all(
+            havecnt = db.raw_select_all(
                 "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND (Status='Downloaded' or Status='Archived')",
                 [al["StoryArcID"]],
             )
@@ -6063,12 +6063,12 @@ class WebInterface(object):
 
     def detailStoryArc(self, StoryArcID, StoryArcName=None, CV_ArcID=None, **kwargs):
         if StoryArcID is None and CV_ArcID is not None:
-            arcinfo = db.rawdb.select_all(
+            arcinfo = db.raw_select_all(
                 "SELECT * from storyarcs WHERE CV_ArcID=? and Manual != 'deleted' order by ReadingOrder ASC",
                 [CV_ArcID],
             )
         else:
-            arcinfo = db.rawdb.select_all(
+            arcinfo = db.raw_select_all(
                 "SELECT * from storyarcs WHERE StoryArcID=? and Manual != 'deleted' order by ReadingOrder ASC",
                 [StoryArcID],
             )
@@ -6104,7 +6104,7 @@ class WebInterface(object):
 
         if len(issref) > 0:
             helpers.updatearc_locs(StoryArcID, issref)
-            arcinfo = db.rawdb.select_all(
+            arcinfo = db.raw_select_all(
                 "SELECT * from storyarcs WHERE StoryArcID=? AND Manual != 'deleted' order by ReadingOrder ASC",
                 [StoryArcID],
             )
@@ -6216,7 +6216,7 @@ class WebInterface(object):
         if valid_readingorder is None:
             logger.error("invalid readingorder supplied. Rejecting due to sequencing error")
             return
-        readchk = db.rawdb.select_all(
+        readchk = db.raw_select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' ORDER BY ReadingOrder", [storyarcid]
         )
         if readchk is None:
@@ -6331,7 +6331,7 @@ class WebInterface(object):
             if IssueID is None or "issue_table" in IssueID or "issue_table_length" in IssueID:
                 continue
             else:
-                mi = db.rawdb.select_one("SELECT * FROM readlist WHERE IssueID=?", [IssueID])
+                mi = db.raw_select_one("SELECT * FROM readlist WHERE IssueID=?", [IssueID])
                 if mi is None:
                     continue
                 else:
@@ -6454,7 +6454,7 @@ class WebInterface(object):
         # or we dynamically load them from CV and write to the db.
 
         # this loads in all the series' that have multiple entries in the current story arc.
-        Arc_MultipleSeries = db.rawdb.select_all(
+        Arc_MultipleSeries = db.raw_select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID IS NULL GROUP BY ComicName HAVING (COUNT(ComicName) > 1)",
             [storyarcid],
         )
@@ -6485,7 +6485,7 @@ class WebInterface(object):
                 )  # Arc_MS['SeriesYear']})
 
             for MSCheck in AMS:
-                thischk = db.rawdb.select_all(
+                thischk = db.raw_select_all(
                     "SELECT * FROM storyarcs WHERE ComicName=? AND SeriesYear=?",
                     [MSCheck["ComicName"], MSCheck["SeriesYear"]],
                 )
@@ -6511,7 +6511,7 @@ class WebInterface(object):
                 # logger.fdebug(str(MSCheck))
 
         # now we load in the list without the multiple entries (ie. series that appear only once in the cbl and don't have an IssueID)
-        Arc_Issues = db.rawdb.select_all(
+        Arc_Issues = db.raw_select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND IssueID IS NULL GROUP BY ComicName HAVING (COUNT(ComicName) = 1)",
             [storyarcid],
         )
@@ -6556,7 +6556,7 @@ class WebInterface(object):
                 issues = comicarr.cv.getComic(sr["comicid"], "issue")
                 isscnt = len(issues["issuechoice"])
                 logger.info("isscnt : " + str(isscnt))
-                chklist = db.rawdb.select_all(
+                chklist = db.raw_select_all(
                     "SELECT * FROM storyarcs WHERE StoryArcID=? AND ComicName=? AND SeriesYear=?",
                     [duh["StoryArcID"], duh["ComicName"], duh["SeriesYear"]],
                 )
@@ -6627,9 +6627,9 @@ class WebInterface(object):
 
     def ArcWatchlist(self, StoryArcID=None):
         if StoryArcID:
-            ArcWatch = db.rawdb.select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [StoryArcID])
+            ArcWatch = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [StoryArcID])
         else:
-            ArcWatch = db.rawdb.select_all("SELECT * FROM storyarcs")
+            ArcWatch = db.raw_select_all("SELECT * FROM storyarcs")
 
         if ArcWatch is None:
             logger.info("No Story Arcs to search")
@@ -6727,7 +6727,7 @@ class WebInterface(object):
                             if "." not in str(GCDissue):
                                 GCDissue = "%s.00" % GCDissue
                             logger.fdebug("issue converted to %s" % GCDissue)
-                            isschk = db.rawdb.select_one(
+                            isschk = db.raw_select_one(
                                 "SELECT * FROM issues WHERE Issue_Number=? AND ComicID=?",
                                 [str(GCDissue), comic["ComicID"]],
                             )
@@ -6736,13 +6736,13 @@ class WebInterface(object):
                             logger.fdebug("int_issue = %s" % issue_int)
                             if comicarr.CONFIG.ANNUALS_ON and "annual" in arc["ComicName"].lower():
                                 logger.fdebug("annual checking: %s -- %s" % (issue_int, comic["ComicID"]))
-                                isschk = db.rawdb.select_all(
+                                isschk = db.raw_select_all(
                                     "SELECT ComicID, IssueID, IssueDate, ReleaseDate, ReleaseComicName FROM annuals WHERE Int_IssueNumber=? AND ComicID=?",
                                     [issue_int, comic["ComicID"]],
                                 )
                                 match_annual = True
                             else:
-                                isschk = db.rawdb.select_all(
+                                isschk = db.raw_select_all(
                                     "SELECT ComicID, IssueID, IssueDate, ReleaseDate, ComicName FROM issues WHERE Int_IssueNumber=? AND ComicID=?",
                                     [issue_int, comic["ComicID"]],
                                 )  # AND STATUS !='Snatched'", [issue_int, comic['ComicID']]).fetchone()
@@ -6919,12 +6919,12 @@ class WebInterface(object):
             for m_arc in arc_match:
                 # now we cycle through the issues looking for a match.
                 if m_arc["match_annual"]:
-                    issue = db.rawdb.select_one(
+                    issue = db.raw_select_one(
                         "SELECT a.Issue_Number, a.Status, a.IssueID, a.ComicName, a.IssueDate, a.Location, b.readingorder FROM annuals AS a INNER JOIN storyarcs AS b ON a.comicid = b.comicid where a.comicid=? and a.issue_number=? and a.issueid=?",
                         [m_arc["match_id"], m_arc["match_issue"], m_arc["match_issueid"]],
                     )
                 else:
-                    issue = db.rawdb.select_one(
+                    issue = db.raw_select_one(
                         "SELECT a.Issue_Number, a.Status, a.IssueID, a.ComicName, a.IssueDate, a.Location, b.readingorder FROM issues AS a INNER JOIN storyarcs AS b ON a.comicid = b.comicid where a.comicid=? and a.issue_number=?",
                         [m_arc["match_id"], m_arc["match_issue"]],
                     )
@@ -7086,14 +7086,14 @@ class WebInterface(object):
         # this will queue up (ie. make 'Wanted') issues in a given Story Arc that are 'Not Watched'
         stupdate = []
         add_to_search_queue = []
-        wantedlist = db.rawdb.select_all(
+        wantedlist = db.raw_select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
             [StoryArcID],
         )
         if wantedlist is not None:
             for want in wantedlist:
                 print(want)
-                issuechk = db.rawdb.select_one(
+                issuechk = db.raw_select_one(
                     "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                     [want["IssueArcID"]],
                 )
@@ -7165,13 +7165,13 @@ class WebInterface(object):
                 )
                 stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
-        watchlistchk = db.rawdb.select_all(
+        watchlistchk = db.raw_select_all(
             "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID]
         )
         if watchlistchk is not None:
             for watchchk in watchlistchk:
                 logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
-                issuechk = db.rawdb.select_one(
+                issuechk = db.raw_select_one(
                     "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                     [watchchk["IssueArcID"]],
                 )
@@ -7257,7 +7257,7 @@ class WebInterface(object):
     def ReadMassCopy(self, StoryArcID, StoryArcName):
         # this copies entire story arcs into the /cache/<storyarc> folder
         # alternatively, it will copy the issues individually directly to a 3rd party device (ie.tablet)
-        copylist = db.rawdb.select_all(
+        copylist = db.raw_select_all(
             "SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID]
         )
         if copylist is None:
@@ -7409,10 +7409,10 @@ class WebInterface(object):
     clearhistory.exposed = True
 
     def downloadLocal(self, IssueID=None, IssueArcID=None, ReadOrder=None, dir=None):
-        issueDL = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
+        issueDL = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [IssueID])
         comicid = issueDL["ComicID"]
         # print ("comicid: " + str(comicid))
-        comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
+        comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
         # ---issue info
         comicname = comic["ComicName"]
         issuenum = issueDL["Issue_Number"]
@@ -7621,7 +7621,7 @@ class WebInterface(object):
     ThreadcomicScan.exposed = True
 
     def importResults(self):
-        results = db.rawdb.select_all(
+        results = db.raw_select_all(
             "SELECT * FROM importresults WHERE WatchMatch IS NULL OR WatchMatch LIKE 'C%' group by DynamicName, Volume, Status"
         )
         # this is to get the count of issues;
@@ -7632,20 +7632,20 @@ class WebInterface(object):
         for x in res:
             if x["Volume"]:
                 # because Volume gets stored as NULL in the db, we need to account for it coming into here as a possible None value.
-                countthis = db.rawdb.select_all(
+                countthis = db.raw_select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume=? AND Status=?",
                     [x["DynamicName"], x["Volume"], x["Status"]],
                 )
-                countannuals = db.rawdb.select_all(
+                countannuals = db.raw_select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume=? AND IssueNumber LIKE 'Annual%' AND Status=?",
                     [x["DynamicName"], x["Volume"], x["Status"]],
                 )
             else:
-                countthis = db.rawdb.select_all(
+                countthis = db.raw_select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume IS NULL AND Status=?",
                     [x["DynamicName"], x["Status"]],
                 )
-                countannuals = db.rawdb.select_all(
+                countannuals = db.raw_select_all(
                     "SELECT count(*) FROM importresults WHERE DynamicName=? AND Volume IS NULL AND IssueNumber LIKE 'Annual%' AND Status=?",
                     [x["DynamicName"], x["Status"]],
                 )
@@ -7674,14 +7674,14 @@ class WebInterface(object):
         comicname = urllib.parse.unquote_plus(comicname)
         dynamicname = urllib.parse.unquote_plus(dynamicname)  # urllib.unquote(dynamicname).decode('utf-8')
         if volume is None or volume == "None":
-            results = db.rawdb.select_all(
+            results = db.raw_select_all(
                 "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                 [dynamicname],
             )
         else:
             if not volume.lower().startswith("v"):
                 volume = "v" + str(volume)
-            results = db.rawdb.select_all(
+            results = db.raw_select_all(
                 "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                 [dynamicname, volume],
             )
@@ -7756,7 +7756,7 @@ class WebInterface(object):
                 if comicinfo["ComicID"] is None or comicinfo["ComicID"] == "None":
                     continue
                 else:
-                    results = db.rawdb.select_all(
+                    results = db.raw_select_all(
                         "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND ComicID=?",
                         [comicinfo["ComicID"]],
                     )
@@ -7838,14 +7838,14 @@ class WebInterface(object):
                     logger.fdebug("[IMPORT] [none] dynamicname: %s" % DynamicName)
                     logger.fdebug("[IMPORT] [none] volume: None")
 
-                    results = db.rawdb.select_all(
+                    results = db.raw_select_all(
                         "SELECT * FROM importresults WHERE DynamicName=? AND Volume IS NULL AND Status='Not Imported'",
                         [DynamicName],
                     )
                 else:
                     logger.fdebug("[IMPORT] [!none] dynamicname: %s" % DynamicName)
                     logger.fdebug("[IMPORT] [!none] volume: %s" % volume)
-                    results = db.rawdb.select_all(
+                    results = db.raw_select_all(
                         "SELECT * FROM importresults WHERE DynamicName=? AND Volume=? AND Status='Not Imported'",
                         [DynamicName, volume],
                     )
@@ -7885,7 +7885,7 @@ class WebInterface(object):
                         # since it's already in the watchlist, we just need to move the files and re-run the filechecker.
                         # self.refreshArtist(comicid=comicid,imported='yes')
                         if comicarr.CONFIG.IMP_MOVE:
-                            comloc = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
+                            comloc = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [comicid])
 
                             movedata_comicid = comicid
                             movedata_comiclocation = comloc["ComicLocation"]
@@ -8228,14 +8228,14 @@ class WebInterface(object):
                     logger.info("[IMPORT] Now adding %s..." % ComicName)
 
                     if volume is None or volume == "None":
-                        results = db.rawdb.select_all(
+                        results = db.raw_select_all(
                             "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                             [DynamicName],
                         )
                     else:
                         if not volume.lower().startswith("v"):
                             volume = "v" + str(volume)
-                        results = db.rawdb.select_all(
+                        results = db.raw_select_all(
                             "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                             [DynamicName, volume],
                         )
@@ -8266,7 +8266,7 @@ class WebInterface(object):
     preSearchit.exposed = True
 
     def importresults_popup(self, SRID, ComicName, imported=None, ogcname=None, DynamicName=None, Volume=None):
-        resultset = db.rawdb.select_all("SELECT * FROM searchresults WHERE SRID=?", [SRID])
+        resultset = db.raw_select_all("SELECT * FROM searchresults WHERE SRID=?", [SRID])
         if not resultset:
             logger.warn(
                 "There are no search results to view for this entry "
@@ -8278,7 +8278,7 @@ class WebInterface(object):
             raise cherrypy.HTTPRedirect("importResults")
 
         if any([Volume is None, Volume == "None"]):
-            results = db.rawdb.select_all(
+            results = db.raw_select_all(
                 "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume IS NULL",
                 [DynamicName],
             )
@@ -8287,7 +8287,7 @@ class WebInterface(object):
                 volume = "v" + str(Volume)
             else:
                 volume = Volume
-            results = db.rawdb.select_all(
+            results = db.raw_select_all(
                 "SELECT * FROM importresults WHERE (WatchMatch IS NULL OR WatchMatch LIKE 'C%') AND DynamicName=? AND Volume=?",
                 [DynamicName, volume],
             )
@@ -8363,10 +8363,10 @@ class WebInterface(object):
                 logger.fdebug("[ERROR] Unable to retrieve git revision history for some reason: %s" % e)
                 br_hist = "This would be a nice place to see revision history..."
         # ----
-        CCOMICS = db.rawdb.select_all("SELECT COUNT(*) FROM comics")
-        CHAVES = db.rawdb.select_all("SELECT COUNT(*) FROM issues WHERE Status='Downloaded' OR Status='Archived'")
-        CISSUES = db.rawdb.select_all("SELECT COUNT(*) FROM issues")
-        CSIZE = db.rawdb.select_all("select SUM(ComicSize) from issues where Status='Downloaded' or Status='Archived'")
+        CCOMICS = db.raw_select_all("SELECT COUNT(*) FROM comics")
+        CHAVES = db.raw_select_all("SELECT COUNT(*) FROM issues WHERE Status='Downloaded' OR Status='Archived'")
+        CISSUES = db.raw_select_all("SELECT COUNT(*) FROM issues")
+        CSIZE = db.raw_select_all("select SUM(ComicSize) from issues where Status='Downloaded' or Status='Archived'")
         CCOMICS[0][0]
         CHAVES[0][0]
         CISSUES[0][0]
@@ -8376,7 +8376,7 @@ class WebInterface(object):
         for cchk in cti:
             if cchk["recentstatus"] == "Continuing":
                 CCONTCOUNT += 1
-        DLPROVSTATS = db.rawdb.select_all(
+        DLPROVSTATS = db.raw_select_all(
             "SELECT Provider, COUNT(Provider) AS Frequency FROM Snatched WHERE Status = 'Snatched' AND Provider IS NOT NULL GROUP BY Provider ORDER BY Frequency DESC"
         )
         freq = {}
@@ -8770,7 +8770,7 @@ class WebInterface(object):
         age_rating=None,
         publisher_imprint=None,
     ):
-        chk1 = db.rawdb.select_one(
+        chk1 = db.raw_select_one(
             "SELECT ComicLocation, Type, Corrected_Type, PublisherImprint FROM comics WHERE ComicID=?", [ComicID]
         )
 
@@ -9589,7 +9589,7 @@ class WebInterface(object):
     opds.exposed = True
 
     def downloadthis(self, issueid):
-        issue = db.rawdb.select_one(
+        issue = db.raw_select_one(
             "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.comicid = b.comicid WHERE b.issueid=?",
             [issueid],
         )
@@ -9632,12 +9632,12 @@ class WebInterface(object):
     downloadthis.exposed = True
 
     def IssueInfo(self, issueid):  # filelocation, comicname=None, issue=None, date=None, title=None, issueid=None):
-        metadata_db = db.rawdb.select_one(
+        metadata_db = db.raw_select_one(
             "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN issues b ON a.comicid=b.comicid where b.IssueID=?",
             [issueid],
         )
         if metadata_db is None:
-            metadata_db = db.rawdb.select_one(
+            metadata_db = db.raw_select_one(
                 "SELECT a.ComicLocation, b.* FROM comics a LEFT JOIN annuals b ON a.comicid=b.comicid where b.IssueID=? AND b.Deleted != 1",
                 [issueid],
             )
@@ -9713,9 +9713,9 @@ class WebInterface(object):
             pagecount = None
         elif all([seriestitle is None, meta_data is None]):  # and 'series' not in meta_data:
             logger.info("issueid: %s" % (issueid))
-            meta_data = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
+            meta_data = db.raw_select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if meta_data is None:
-                meta_data = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
+                meta_data = db.raw_select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
             seriestitle = meta_data["ComicName"]
             issuenumber = meta_data["Issue_Number"]
             try:
@@ -9732,9 +9732,9 @@ class WebInterface(object):
             issuesummary = None
         else:
             logger.info("meta_data: %s" % (meta_data,))
-            metadata_db = db.rawdb.select_one("SELECT * FROM issues where IssueID=?", [issueid])
+            metadata_db = db.raw_select_one("SELECT * FROM issues where IssueID=?", [issueid])
             if metadata_db is None:
-                metadata_db = db.rawdb.select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
+                metadata_db = db.raw_select_one("SELECT * FROM annuals where IssueID=? AND Deleted != 1", [issueid])
                 if not metadata_db:
                     metadata_db = None
             seriestitle = meta_data["series"]
@@ -9863,12 +9863,12 @@ class WebInterface(object):
     ):  # dirName, issueid, filename, comicid, comversion, seriesyear=None, group=False, agerating=None):
         module = "[MANUAL META-TAGGING]"
         try:
-            issuedata = db.rawdb.select_one(
+            issuedata = db.raw_select_one(
                 "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN issues b ON a.ComicID=b.ComicID WHERE b.IssueID=?",
                 [issueid],
             )
             if not issuedata:
-                issuedata = db.rawdb.select_one(
+                issuedata = db.raw_select_one(
                     "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN annuals b ON a.ComicID=b.ComicID WHERE b.IssueID=? AND b.Deleted != 1",
                     [issueid],
                 )
@@ -9943,7 +9943,7 @@ class WebInterface(object):
                 vol_label = comversion
 
             if all([issueid is not None, comicid is not None]):
-                roders = db.rawdb.select_all(
+                roders = db.raw_select_all(
                     "SELECT StoryArc, ReadingOrder from storyarcs WHERE ComicID=? AND IssueID=?", [comicid, issueid]
                 )
                 readingorder = None
@@ -10082,7 +10082,7 @@ class WebInterface(object):
     manual_metatag.exposed = True
 
     def bulk_metatag(self, ComicID, IssueIDs, threaded=False):
-        cinfo = db.rawdb.select_one(
+        cinfo = db.raw_select_one(
             "SELECT ComicLocation, ComicVersion, ComicYear, ComicName, AgeRating FROM comics WHERE ComicID=?", [ComicID]
         )
 
@@ -10101,12 +10101,12 @@ class WebInterface(object):
         # Use parameterized queries to prevent SQL injection
         placeholders = ",".join(["?" for _ in IssueIDs])
         query_params = [ComicID] + IssueIDs
-        groupinfo = db.rawdb.select_all(
+        groupinfo = db.raw_select_all(
             f"SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN ({placeholders}) and Location IS NOT NULL",
             query_params,
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            groupinfo += db.rawdb.select_all(
+            groupinfo += db.raw_select_all(
                 f"SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN ({placeholders}) and Location IS NOT NULL",
                 query_params,
             )
@@ -10166,7 +10166,7 @@ class WebInterface(object):
     thread_that_bulk_meta.exposed = True
 
     def group_metatag(self, ComicID, threaded=False):
-        cinfo = db.rawdb.select_one(
+        cinfo = db.raw_select_one(
             "SELECT ComicLocation, ComicVersion, ComicYear, ComicName, AgeRating FROM comics WHERE ComicID=?", [ComicID]
         )
 
@@ -10179,11 +10179,11 @@ class WebInterface(object):
             "meta_dir": cinfo["ComicLocation"],
         }
 
-        groupinfo = db.rawdb.select_all(
+        groupinfo = db.raw_select_all(
             "SELECT IssueID, Location FROM issues WHERE ComicID=? and Location IS NOT NULL", [ComicID]
         )
         if comicarr.CONFIG.ANNUALS_ON:
-            groupinfo += db.rawdb.select_all(
+            groupinfo += db.raw_select_all(
                 "SELECT IssueID, Location FROM annuals WHERE ComicID=? and Location IS NOT NULL", [ComicID]
             )
 
@@ -10667,7 +10667,7 @@ class WebInterface(object):
         if log_id is not None and not re.match(r"^[a-zA-Z0-9_-]+$", str(log_id)):
             return json.dumps({"status": "error", "message": "Invalid log ID"})
         if all([allspecific is not None, log_id is None]):
-            chk_specific = db.rawdb.select_all("SELECT rowid FROM exceptions_log")
+            chk_specific = db.raw_select_all("SELECT rowid FROM exceptions_log")
             cnt = 0
             if chk_specific:
                 for csc in chk_specific:
@@ -10689,7 +10689,7 @@ class WebInterface(object):
 
         elif allspecific != log_id:
             # for group entries
-            reflines = db.rawdb.select_one(
+            reflines = db.raw_select_one(
                 "SELECT error, func_name, filename, line_num FROM exceptions_log WHERE rowid=?", [log_id]
             )
             # get the actual matching components
@@ -10698,7 +10698,7 @@ class WebInterface(object):
             filename = reflines["filename"]
             line_num = reflines["line_num"]
             # get all the ids in the db that match the components
-            morelines = db.rawdb.select_all(
+            morelines = db.raw_select_all(
                 "SELECT rowid from exceptions_log WHERE error=? AND func_name=? AND filename=? AND line_num=?",
                 [error, func_name, filename, line_num],
             )
@@ -10744,7 +10744,7 @@ class WebInterface(object):
 
     def manageExceptions(self, **kwargs):
         exception_list = []
-        elist = db.rawdb.select_all(
+        elist = db.raw_select_all(
             "SELECT count(*) as count, rowid, * FROM exceptions_log group by error,"
             " func_name, filename, line_num order by date DESC"
         )
@@ -10811,7 +10811,7 @@ class WebInterface(object):
     test_32p.exposed = True
 
     def check_ActiveDDL(self):
-        active = db.rawdb.select_one("SELECT * FROM DDL_INFO WHERE STATUS = 'Downloading'")
+        active = db.raw_select_one("SELECT * FROM DDL_INFO WHERE STATUS = 'Downloading'")
         if active is None:
             return json.dumps(
                 {
@@ -10894,7 +10894,7 @@ class WebInterface(object):
         logger.info("year: %s" % year)
         weeklyresults = []
         if weeknumber is not None:
-            w_results = db.rawdb.select_all(
+            w_results = db.raw_select_all(
                 "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)]
             )
             watchlibrary = helpers.listLibrary()
@@ -10947,7 +10947,7 @@ class WebInterface(object):
             weeklylist = sorted(weeklyresults, key=itemgetter("PUBLISHER", "COMIC"), reverse=False)
             for ab in weeklylist:
                 if ab["HAVEIT"] == ab["COMICID"]:
-                    lb = db.rawdb.select_one(
+                    lb = db.raw_select_one(
                         "SELECT ComicVersion, Type, ComicYear from comics WHERE ComicID=?", [ab["COMICID"]]
                     )
                     issuelist.append(
@@ -11150,7 +11150,7 @@ class WebInterface(object):
     choose_specific_download.exposed = True
 
     def download_specific_release(self, nzbid, provider, name):
-        dsr = db.rawdb.select_one(
+        dsr = db.raw_select_one(
             "SELECT * FROM manualresults WHERE id=? AND tmpprov=? AND name=?", [nzbid, provider, name]
         )
         if dsr is None:
@@ -11291,7 +11291,7 @@ class WebInterface(object):
         # myDB = db.DBConnection()
         # pub_listing = []
         # if publishers is None:
-        #    watchlist = db.rawdb.select_all('SELECT * FROM weekly WHERE weeknumber=? and year=?', [weeknumber, year])
+        #    watchlist = db.raw_select_all('SELECT * FROM weekly WHERE weeknumber=? and year=?', [weeknumber, year])
         # else:
         #    cnt = 0
         #    pblist = 'AND (publisher="%s"' % publishers[cnt]
@@ -11305,7 +11305,7 @@ class WebInterface(object):
         #    comicarr.CONFIG.MASS_PUBLISHERS = json.loads(json.dumps(pub_listing))
         #    comicarr.CONFIG.writeconfig(values={'mass_publishers': json.dumps(comicarr.CONFIG.MASS_PUBLISHERS)})
         #    query_line = 'SELECT * FROM WEEKLY WHERE weeknumber=%s AND year=%s %s' % (weeknumber, year, pblist)
-        #    watchlist = db.rawdb.select_all(query_line)
+        #    watchlist = db.raw_select_all(query_line)
 
         # if watchlist:
         #    for wt in watchlist:
@@ -11333,7 +11333,7 @@ class WebInterface(object):
         for k, v in list(args.items()):
             if k == "id":
                 comicid = v[1:]
-        desc = db.rawdb.select_one(
+        desc = db.raw_select_one(
             "SELECT Description, DescriptionEdit, ComicLocation FROM comics WHERE comicid=?", [comicid]
         )
 
@@ -11388,7 +11388,7 @@ class WebInterface(object):
 
     def weekly_publisherlisting(self, weeknumber, year):
         comiclist = []
-        thelist = db.rawdb.select_all(
+        thelist = db.raw_select_all(
             "SELECT Publisher FROM weekly WHERE weeknumber=? AND year=? GROUP BY Publisher ORDER BY Publisher ASC",
             [weeknumber, year],
         )
@@ -11475,11 +11475,11 @@ class WebInterface(object):
     def serieslisting(self, comicid=None):
         comiclist = []
         if comicid is not None:
-            thelist = db.rawdb.select_all(
+            thelist = db.raw_select_all(
                 "SELECT ComicName, ComicVersion, ComicYear, ComicID FROM comics WHERE ComicID=?", [comicid]
             )
         else:
-            thelist = db.rawdb.select_all(
+            thelist = db.raw_select_all(
                 "SELECT ComicName, ComicVersion, ComicYear, ComicID FROM comics ORDER BY ComicName ASC"
             )
         for ts in thelist:
@@ -11524,7 +11524,7 @@ class WebInterface(object):
             modal = "modal"  # default to modal.
 
         logger.fdebug("[modal:%s] session_id set to: %s" % (modal, session_id))
-        notifs = db.rawdb.select_all(
+        notifs = db.raw_select_all(
             "SELECT * FROM notifs where session_id=? ORDER BY substr(date,4)||substr(date,6,2)||substr(date,9,2) DESC LIMIT 10",
             [session_id],
         )
@@ -11548,7 +11548,7 @@ class WebInterface(object):
     manageNotifs.exposed = True
 
     def clear_notifs(self, session_id):
-        count_chk = db.rawdb.select_one("SELECT COUNT() FROM notifs WHERE session_id=?", [session_id])[0]
+        count_chk = db.raw_select_one("SELECT COUNT() FROM notifs WHERE session_id=?", [session_id])[0]
         logger.info("notifs to be cleared: %s" % count_chk)
         if not count_chk:
             c_message = "No notifications present currently for the given session to clear"
@@ -11587,7 +11587,7 @@ class WebInterface(object):
             comlocation = location
 
         if query_id is not None:
-            tmp_results = db.rawdb.select_one(
+            tmp_results = db.raw_select_one(
                 "SELECT * FROM tmp_searches WHERE comicid=? AND query_id=?", [comicid, query_id]
             )
             results = {
@@ -11710,7 +11710,7 @@ class WebInterface(object):
         watchlibrary = helpers.listLibrary()
         watch = []
         storyarcname = None
-        arcs = db.rawdb.select_all(
+        arcs = db.raw_select_all(
             "SELECT ComicID, ComicName, SeriesYear, StoryArc FROM storyarcs WHERE storyarcid=? AND (Manual != 'deleted' OR Manual IS NULL) GROUP BY ComicID",
             [storyarcid],
         )
@@ -11750,7 +11750,7 @@ class WebInterface(object):
             delete_dir = True
         else:
             delete_dir = False
-        cc = db.rawdb.select_one("SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid])
+        cc = db.raw_select_one("SELECT comicname, comicyear, comiclocation from comics where ComicID=?", [comicid])
         comicname = cc["comicname"]
         comicyear = cc["comicyear"]
         seriesdir = cc["comiclocation"]
@@ -11868,18 +11868,18 @@ class WebInterface(object):
                 if cvSeriesID in volume_cache.keys():
                     vol_exists = volume_cache[cvSeriesID]
                 else:
-                    comic = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
+                    comic = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
                     vol_exists = False if comic is None else True
                     volume_cache[cvSeriesID] = vol_exists
                     if not vol_exists:
                         newvol_count += 1
 
                 if vol_exists:
-                    issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
+                    issue = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
 
                     # Check in case the issue is an integrated annual
                     if issue is None:
-                        issue = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
+                        issue = db.raw_select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
 
                     iss_exists = False if issue is None else True
 
@@ -12002,7 +12002,7 @@ class WebInterface(object):
                     else:
                         checkIssue = True
                 else:
-                    volume = db.rawdb.select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
+                    volume = db.raw_select_one("SELECT * FROM comics WHERE ComicID=?", [cvSeriesID])
                     if volume is None:
                         logger.fdebug(
                             f'CBL File: Volume "{volumeName} ({volumeYear})" does not exist exist.  Adding Volume, and Issue #{issueNumber} to be marked as Wanted'
@@ -12031,11 +12031,11 @@ class WebInterface(object):
                         checkIssue = True
 
                 if checkIssue:
-                    issue = db.rawdb.select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
+                    issue = db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [cvIssueID])
 
                     # Check in case the issue is an integrated annual
                     if issue is None:
-                        issue = db.rawdb.select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
+                        issue = db.raw_select_one("SELECT * FROM annuals WHERE IssueID=?", [cvIssueID])
 
                     if issue is None:
                         logger.warning(
