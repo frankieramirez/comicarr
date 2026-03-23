@@ -148,7 +148,7 @@ class Mylar3Migration:
     def validate(self):
         valid, result = _validate_source_path(self.source_path)
         if not valid:
-            return {"valid": False, "error": "Invalid Mylar3 data path"}
+            return {"valid": False, "error": result}
 
         self.dbfile = result
         self.real_path = os.path.realpath(self.source_path)

@@ -1130,9 +1130,6 @@ class Config(object):
             else:
                 pass
 
-        if self.ENCRYPT_PASSWORDS is True:
-            self.encrypt_items(mode="encrypt")
-
         # Migrate login password to bcrypt on startup (handles all three states)
         if self.HTTP_PASSWORD and not (self.HTTP_PASSWORD.startswith("$2b$") or self.HTTP_PASSWORD.startswith("$2a$")):
             # Backup config before credential migration
@@ -1384,6 +1381,10 @@ class Config(object):
                     "Credential encryption will not work. Fix permissions and restart." % self.SECURE_DIR
                 )
                 raise SystemExit(1)
+
+        # Encrypt plaintext credentials now that SECURE_DIR is available
+        if self.ENCRYPT_PASSWORDS is True:
+            self.encrypt_items(mode="encrypt")
 
         # Startup security permission checks
         if startup and not update:

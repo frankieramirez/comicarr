@@ -1522,7 +1522,7 @@ class Api(object):
         if result.get("valid"):
             self.data = self._successResponse(result)
         else:
-            self.data = self._failureResponse("Invalid Mylar3 data path")
+            self.data = self._failureResponse(result.get("error", "Invalid Mylar3 data path"))
 
     def _startMigration(self, **kwargs):
         if self.apitype != "normal":
