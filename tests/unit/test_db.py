@@ -8,9 +8,15 @@ import pytest
 from sqlalchemy import inspect, text
 
 import comicarr
+from unittest.mock import patch
+
+from sqlalchemy.exc import OperationalError
+
 from comicarr.db import (
     DBConnection,
     _convert_positional_to_named,
+    _get_database_url,
+    _mask_password,
     ci_compare,
     get_dialect,
     get_engine,
@@ -326,3 +332,75 @@ class TestThreadSafety:
             t.join(timeout=10)
 
         assert not errors, f"Thread errors: {errors}"
+
+
+# ---------------------------------------------------------------------------
+# _mask_password
+# ---------------------------------------------------------------------------
+
+
+class TestMaskPassword:
+    def test_simple_password(self):
+        url = "postgresql://user:secret@localhost/dbname"
+        masked = _mask_password(url)
+        assert "secret" not in masked
+        assert "user" in masked
+        assert "localhost" in masked
+
+    def test_password_containing_at_sign(self):
+        url = "postgresql://user:p%40ss%40word@localhost/dbname"
+        masked = _mask_password(url)
+        assert "p%40ss%40word" not in masked
+        assert "localhost" in masked
+
+    def test_sqlite_url_unchanged(self):
+        url = "sqlite:///path/to/db.sqlite"
+        masked = _mask_password(url)
+        assert "path/to/db.sqlite" in masked
+
+    def test_password_with_special_chars(self):
+        url = "mysql://admin:p@ss:w0rd!#@dbhost:3306/mydb"
+        masked = _mask_password(url)
+        assert "p@ss:w0rd!#" not in masked
+        assert "dbhost" in masked
+
+
+# ---------------------------------------------------------------------------
+# DATABASE_URL env var override
+# ---------------------------------------------------------------------------
+
+
+class TestDatabaseUrlOverride:
+    def test_env_var_overrides_default(self, monkeypatch):
+        monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/testdb")
+        result = _get_database_url()
+        assert result == "postgresql://u:p@host/testdb"
+
+    def test_default_sqlite_when_no_env(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+        result = _get_database_url()
+        assert result.startswith("sqlite:///")
+        assert "comicarr.db" in result
+
+
+# ---------------------------------------------------------------------------
+# Retry exhaustion
+# ---------------------------------------------------------------------------
+
+
+class TestRetryExhaustion:
+    def test_upsert_raises_after_retries(self):
+        engine = get_engine()
+        metadata.create_all(engine)
+
+        with patch("comicarr.db.get_engine") as mock_engine:
+            # Set up dialect so upsert() can determine the insert strategy
+            mock_engine.return_value.dialect.name = "sqlite"
+            ctx = mock_engine.return_value.begin.return_value.__enter__
+            ctx.return_value.execute.side_effect = OperationalError(
+                "database is locked", None, None
+            )
+            with pytest.raises(OperationalError):
+                upsert("comics", {"ComicName": "Test"}, {"ComicID": "retry1"})

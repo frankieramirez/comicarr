@@ -33,34 +33,17 @@ from comicarr import db, filechecker, helpers, logger
 from comicarr.tables import annuals, comics, issues, storyarcs, weekly
 
 
-def _select_one(stmt):
-    """Execute a select statement and return the first row as a dict, or None."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        row = result.first()
-        if row is None:
-            return None
-        return dict(row._mapping)
-
-
-def _select_all(stmt):
-    """Execute a select statement and return all rows as a list of dicts."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        return [dict(row._mapping) for row in result]
-
-
 class FileHandlers(object):
     def __init__(self, comic=None, issue=None, ComicID=None, IssueID=None, arcID=None):
 
         self.weekly = None
         if ComicID is not None:
             self.comicid = ComicID
-            self.comic = _select_one(
+            self.comic = db.select_one(
                 select(comics).where(comics.c.ComicID == ComicID)
             )
             if not self.comic:
-                self.weekly = _select_one(
+                self.weekly = db.select_one(
                     select(weekly).where(
                         (weekly.c.ComicID == ComicID) & (weekly.c.IssueID == IssueID)
                     )
@@ -76,12 +59,12 @@ class FileHandlers(object):
 
         if IssueID is not None:
             self.issueid = IssueID
-            self.issue = _select_one(
+            self.issue = db.select_one(
                 select(issues).where(issues.c.IssueID == IssueID)
             )
             if not self.issue:
                 if comicarr.CONFIG.ANNUALS_ON:
-                    self.issue = _select_one(
+                    self.issue = db.select_one(
                         select(annuals).where(annuals.c.IssueID == IssueID)
                     )
                 if not self.issue:
@@ -95,7 +78,7 @@ class FileHandlers(object):
 
         if arcID is not None:
             self.arcid = arcID
-            self.arc = _select_one(
+            self.arc = db.select_one(
                 select(storyarcs).where(storyarcs.c.IssueArcID == arcID)
             )
         else:
@@ -369,7 +352,7 @@ class FileHandlers(object):
             comics.c.ComicLocation.ilike("%" + comlocation + "%")
             & (comics.c.ComicID != comicid)
         )
-        chk = _select_all(stmt)
+        chk = db.select_all(stmt)
 
         tryit = None
         if chk:
@@ -449,21 +432,21 @@ class FileHandlers(object):
             logger.fdebug("annualize is " + str(annualize))
             if arc:
                 # this has to be adjusted to be able to include story arc issues that span multiple arcs
-                chkissue = _select_one(
+                chkissue = db.select_one(
                     select(storyarcs).where(
                         (storyarcs.c.ComicID == comicid)
                         & (storyarcs.c.IssueNumber == issue)
                     )
                 )
             else:
-                chkissue = _select_one(
+                chkissue = db.select_one(
                     select(issues).where(
                         (issues.c.ComicID == comicid)
                         & (issues.c.Issue_Number == issue)
                     )
                 )
                 if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
-                    chkissue = _select_one(
+                    chkissue = db.select_one(
                         select(annuals).where(
                             (annuals.c.ComicID == comicid)
                             & (annuals.c.Issue_Number == issue)
@@ -473,21 +456,21 @@ class FileHandlers(object):
             if chkissue is None:
                 # rechk chkissue against int value of issue #
                 if arc:
-                    chkissue = _select_one(
+                    chkissue = db.select_one(
                         select(storyarcs).where(
                             (storyarcs.c.ComicID == comicid)
                             & (storyarcs.c.Int_IssueNumber == issuedigits(issue))
                         )
                     )
                 else:
-                    chkissue = _select_one(
+                    chkissue = db.select_one(
                         select(issues).where(
                             (issues.c.ComicID == comicid)
                             & (issues.c.Int_IssueNumber == issuedigits(issue))
                         )
                     )
                     if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
-                        chkissue = _select_one(
+                        chkissue = db.select_one(
                             select(annuals).where(
                                 (annuals.c.ComicID == comicid)
                                 & (annuals.c.Int_IssueNumber == issuedigits(issue))
@@ -506,7 +489,7 @@ class FileHandlers(object):
         # use issueid to get publisher, series, year, issue number
         logger.fdebug("issueid is now : " + str(issueid))
         if arc:
-            issueinfo = _select_one(
+            issueinfo = db.select_one(
                 select(storyarcs).where(
                     (storyarcs.c.ComicID == comicid)
                     & (storyarcs.c.IssueID == issueid)
@@ -514,7 +497,7 @@ class FileHandlers(object):
                 )
             )
         else:
-            issueinfo = _select_one(
+            issueinfo = db.select_one(
                 select(issues).where(
                     (issues.c.ComicID == comicid)
                     & (issues.c.IssueID == issueid)
@@ -522,7 +505,7 @@ class FileHandlers(object):
             )
             if issueinfo is None:
                 logger.fdebug("not an issue, checking against annuals")
-                issueinfo = _select_one(
+                issueinfo = db.select_one(
                     select(annuals).where(
                         (annuals.c.ComicID == comicid)
                         & (annuals.c.IssueID == issueid)

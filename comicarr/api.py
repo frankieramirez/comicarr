@@ -71,21 +71,6 @@ from . import cache
 # ---------------------------------------------------------------------------
 
 
-def _select_all(stmt):
-    """Execute a select statement and return a list of dicts."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        return [dict(row._mapping) for row in result]
-
-
-def _select_one(stmt):
-    """Execute a select statement and return the first row as a dict, or None."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        row = result.first()
-        return dict(row._mapping) if row else None
-
-
 def check_rest_api_key():
     """CherryPy tool that validates Api-Key header for the /rest mount."""
     api_key = cherrypy.request.headers.get("Api-Key", "")
@@ -253,7 +238,7 @@ class Api(object):
 
     def _resultsFromQuery(self, stmt):
         """Execute a SQLAlchemy Core statement and return list of dicts."""
-        return _select_all(stmt)
+        return db.select_all(stmt)
 
     def _paginatedResultsFromQuery(self, stmt, limit=None, offset=None):
         """
@@ -276,7 +261,7 @@ class Api(object):
             if offset is not None and int(offset) > 0:
                 paginated_stmt = paginated_stmt.offset(int(offset))
 
-        results = _select_all(paginated_stmt)
+        results = db.select_all(paginated_stmt)
 
         has_more = (current_offset + len(results)) < total
 
@@ -495,21 +480,21 @@ class Api(object):
             .where(t_comics.c.ComicID == self.id)
             .order_by(t_comics.c.ComicSortName)
         )
-        comic = _select_all(comic_stmt)
+        comic = db.select_all(comic_stmt)
 
         issues_stmt = (
             select(*_ISSUES_COLUMNS)
             .where(t_issues.c.ComicID == self.id)
             .order_by(t_issues.c.Int_IssueNumber.desc())
         )
-        issues = _select_all(issues_stmt)
+        issues = db.select_all(issues_stmt)
 
         if comicarr.CONFIG.ANNUALS_ON:
             annuals_stmt = (
                 select(*_ANNUALS_COLUMNS)
                 .where(t_annuals.c.ComicID == self.id)
             )
-            annuals_list = _select_all(annuals_stmt)
+            annuals_list = db.select_all(annuals_stmt)
         else:
             annuals_list = []
 
@@ -582,7 +567,7 @@ class Api(object):
             .order_by(t_comics.c.ComicSortName)
         )
 
-        self.data = _select_all(stmt)
+        self.data = db.select_all(stmt)
         return
 
     def _getCalendar(self, **kwargs):
@@ -648,7 +633,7 @@ class Api(object):
             issues_stmt = issues_stmt.where(status_cond)
         issues_stmt = issues_stmt.order_by(t_issues.c.ReleaseDate)
 
-        issues_rows = _select_all(issues_stmt)
+        issues_rows = db.select_all(issues_stmt)
         for issue in issues_rows:
             events.append(
                 {
@@ -693,7 +678,7 @@ class Api(object):
                 annuals_stmt = annuals_stmt.where(status_cond_ann)
             annuals_stmt = annuals_stmt.order_by(t_annuals.c.ReleaseDate)
 
-            annuals_rows = _select_all(annuals_stmt)
+            annuals_rows = db.select_all(annuals_stmt)
             for annual in annuals_rows:
                 events.append(
                     {
@@ -733,7 +718,7 @@ class Api(object):
                 storyarcs_stmt = storyarcs_stmt.where(status_cond_arc)
             storyarcs_stmt = storyarcs_stmt.order_by(t_storyarcs.c.ReleaseDate)
 
-            storyarcs_rows = _select_all(storyarcs_stmt)
+            storyarcs_rows = db.select_all(storyarcs_stmt)
             for arc in storyarcs_rows:
                 events.append(
                     {
@@ -960,7 +945,7 @@ class Api(object):
                 directory_del = False  # safeguard anything else here.
 
         try:
-            delchk = _select_one(
+            delchk = db.select_one(
                 select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation)
                 .where(t_comics.c.ComicID == self.id)
             )
@@ -1028,7 +1013,7 @@ class Api(object):
             self.id = kwargs["id"]
             id_list = []
             if any([self.id == "all", self.id == "missing"]):
-                the_list = _select_all(select(t_comics))
+                the_list = db.select_all(select(t_comics))
                 for tt in the_list:
                     if self.id == "missing":
                         if os.path.isfile(os.path.join(comicarr.CONFIG.CACHE_DIR, "%s.jpg" % (tt["ComicID"]))):
@@ -1050,7 +1035,7 @@ class Api(object):
                     tmp_list.append(self.id)
 
                 for tm in tmp_list:
-                    th = _select_one(select(t_comics).where(t_comics.c.ComicID == tm))
+                    th = db.select_one(select(t_comics).where(t_comics.c.ComicID == tm))
                     id_list.append(
                         {
                             "comicid": th["ComicID"],
@@ -1127,7 +1112,7 @@ class Api(object):
             if comicid.startswith("4050-"):
                 comicid = re.sub("4050-", "", comicid).strip()
 
-            chkdb = _select_one(
+            chkdb = db.select_one(
                 select(t_comics.c.ComicName, t_comics.c.ComicYear)
                 .where(t_comics.c.ComicID == comicid)
             )
@@ -1200,7 +1185,7 @@ class Api(object):
         else:
             booktype = booktype.lower()
 
-        btresp = _select_one(
+        btresp = db.select_one(
             select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.Type, t_comics.c.Corrected_Type)
             .where(t_comics.c.ComicID == self.id)
         )
@@ -1611,7 +1596,7 @@ class Api(object):
             self.id = kwargs["id"]
 
         stmt = select(*_COMICS_COLUMNS).where(t_comics.c.ComicID == self.id)
-        results = _select_all(stmt)
+        results = db.select_all(stmt)
         if len(results) == 1:
             self.data = self._successResponse(results)
         else:
@@ -1625,7 +1610,7 @@ class Api(object):
             self.id = kwargs["id"]
 
         stmt = select(*_ISSUES_COLUMNS).where(t_issues.c.IssueID == self.id)
-        results = _select_all(stmt)
+        results = db.select_all(stmt)
         if len(results) == 1:
             self.data = self._successResponse(results)
         else:
@@ -1650,7 +1635,7 @@ class Api(object):
                 return
         else:
             # If we cant find the image, lets check the db for a url.
-            comic = _select_all(select(t_comics).where(t_comics.c.ComicID == self.id))
+            comic = db.select_all(select(t_comics).where(t_comics.c.ComicID == self.id))
 
             # Try every img url in the db
             try:
@@ -1754,7 +1739,7 @@ class Api(object):
 
         self.id = id
         # Fetch issue from issues table
-        i = _select_all(select(t_issues).where(t_issues.c.IssueID == self.id))
+        i = db.select_all(select(t_issues).where(t_issues.c.IssueID == self.id))
 
         if not len(i):
             self.data = self._failureResponse("Couldnt find a issue with issueID %s" % self.id)
@@ -1768,7 +1753,7 @@ class Api(object):
         # Check the issue is downloaded
         if issuelocation is not None:
             # Find the comic location
-            comic = _select_one(select(t_comics).where(t_comics.c.ComicID == issue["ComicID"]))
+            comic = db.select_one(select(t_comics).where(t_comics.c.ComicID == issue["ComicID"]))
             comiclocation = comic.get("ComicLocation")
             f = os.path.join(comiclocation, issuelocation)
             if not os.path.isfile(f):
@@ -1854,7 +1839,7 @@ class Api(object):
                 .where(t_storyarcs.c.StoryArcID == self.id)
                 .order_by(t_storyarcs.c.ReadingOrder)
             )
-            self.data = _select_all(stmt)
+            self.data = db.select_all(stmt)
         return
 
     def _addStoryArc(self, **kwargs):
@@ -1868,7 +1853,7 @@ class Api(object):
                 storyarcname = kwargs.pop("storyarcname")
         else:
             self.id = kwargs.pop("id")
-            arc = _select_all(
+            arc = db.select_all(
                 select(t_storyarcs)
                 .where(t_storyarcs.c.StoryArcID == self.id)
                 .order_by(t_storyarcs.c.ReadingOrder)
@@ -1948,7 +1933,7 @@ class Api(object):
             #    recreate_from_annuals = False
 
         try:
-            las = _select_all(select(t_annuals).where(t_annuals.c.Deleted != 1))
+            las = db.select_all(select(t_annuals).where(t_annuals.c.Deleted != 1))
         except Exception:
             self.data = self._failureResponse(
                 "Unable to query Annuals table - possibly no annuals have been detected as being integrated."
@@ -2990,7 +2975,7 @@ class Api(object):
         else:
             lookup_id = "md-" + manga_id
 
-        db_manga = _select_one(select(t_comics).where(t_comics.c.ComicID == lookup_id))
+        db_manga = db.select_one(select(t_comics).where(t_comics.c.ComicID == lookup_id))
 
         response_data["in_library"] = db_manga is not None
         if db_manga:
@@ -3042,7 +3027,7 @@ class Api(object):
             .limit(limit_val)
             .offset(offset_val)
         )
-        results = _select_all(group_stmt)
+        results = db.select_all(group_stmt)
 
         imports = []
         for result in results:
@@ -3058,7 +3043,7 @@ class Api(object):
             else:
                 file_conds.append(ir.c.Volume == volume)
 
-            files = _select_all(select(ir).where(*file_conds))
+            files = db.select_all(select(ir).where(*file_conds))
 
             file_list = []
             for f in files:
@@ -3132,7 +3117,7 @@ class Api(object):
         issue_id = kwargs.get("issue_id")
 
         # Get comic name for display
-        comic = _select_one(select(t_comics.c.ComicName).where(t_comics.c.ComicID == comic_id))
+        comic = db.select_one(select(t_comics.c.ComicName).where(t_comics.c.ComicID == comic_id))
         comic_name = comic["ComicName"] if comic else "Unknown"
 
         matched = 0
@@ -3256,7 +3241,7 @@ class REST(object):
     @staticmethod
     def _dic_from_query(stmt):
         """Shared helper for REST endpoints -- returns list of dicts from a SQLAlchemy statement."""
-        return _select_all(stmt)
+        return db.select_all(stmt)
 
     class Watchlist(object):
         exposed = True

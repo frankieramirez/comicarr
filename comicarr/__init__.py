@@ -475,23 +475,19 @@ def initialize(config_file):
             logger.error("Cannot connect to the database: %s" % e)
         else:
             # Check if database is empty and set startup flags
-            conn = None
             try:
-                conn = sql_db()
-                row = conn.execute("SELECT COUNT(*) FROM comics").fetchone()
-                comic_count = row[0] if row else 0
-                if comic_count > 0:
-                    if comicarr.CONFIG.BACKUP_ON_START:
-                        backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
-                        retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
-                        maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
-                else:
-                    comicarr.DB_EMPTY = True
+                with sql_db() as conn:
+                    row = conn.execute(text("SELECT COUNT(*) FROM comics")).first()
+                    comic_count = row[0] if row else 0
+                    if comic_count > 0:
+                        if comicarr.CONFIG.BACKUP_ON_START:
+                            backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
+                            retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
+                            maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+                    else:
+                        comicarr.DB_EMPTY = True
             except Exception as e:
                 logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
-            finally:
-                if conn:
-                    conn.close()
 
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
@@ -1211,13 +1207,13 @@ def queue_schedule(queuetype, mode):
 
 
 def sql_db():
-    """Legacy helper — returns a raw sqlite3 connection.
+    """Return a SQLAlchemy connection (replaces raw sqlite3).
 
-    Used by rsscheck.py for VariableTable pattern. Will be replaced
-    by get_connection() in Phase 2.
+    Callers must use SQLAlchemy text() for raw SQL and call .close()
+    when finished, or preferably use this as a context manager.
     """
-    conn = sqlite3.connect(DB_FILE, detect_types=sqlite3.PARSE_DECLTYPES)
-    return conn
+    from comicarr.db import get_engine
+    return get_engine().connect()
 
 
 def _ensure_columns(engine, table_name, required_columns):

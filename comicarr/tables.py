@@ -278,7 +278,7 @@ weekly = Table(
     Column("seriesyear", Text),
     Column("annuallink", Text),
     Column("format", Text),
-    Column("rowid", Integer, primary_key=True),
+    Column("rowid", Integer, primary_key=True, autoincrement=True),
     UniqueConstraint("ComicID", "IssueID", name="uq_weekly_comicid_issueid"),
 )
 
@@ -654,26 +654,28 @@ TABLE_MAP = {
     "mylar_info": mylar_info,
 }
 
-# Upsert key columns per table (used by dialect-aware upsert)
-UPSERT_KEYS = {
-    "comics": ["ComicID"],
-    "issues": ["IssueID"],
-    "annuals": ["IssueID"],
-    "snatched": ["IssueID", "Status", "Provider"],
-    "storyarcs": ["IssueArcID"],
-    "upcoming": ["ComicID", "IssueNumber"],
-    "nzblog": ["IssueID", "PROVIDER"],
-    "weekly": ["ComicID", "IssueID"],
-    "importresults": ["impID"],
-    "readlist": ["IssueID"],
-    "failed": ["ID", "Provider", "NZBName"],
-    "rssdb": ["Title"],
-    "ref32p": ["ComicID"],
-    "oneoffhistory": ["ComicID", "IssueID"],
-    "jobhistory": ["JobName"],
-    "ddl_info": ["ID"],
-    "exceptions_log": ["date"],
-    "notifs": ["session_id", "date"],
-    "provider_searches": ["id"],
-    "tmp_searches": ["query_id", "comicid"],
-}
+# Upsert key columns per table (derived from UniqueConstraint / unique=True metadata)
+def _derive_upsert_keys():
+    from sqlalchemy import PrimaryKeyConstraint
+
+    keys = {}
+    for name, table in TABLE_MAP.items():
+        # Prefer named UniqueConstraints
+        for constraint in table.constraints:
+            if isinstance(constraint, UniqueConstraint) and constraint.name:
+                keys[name] = [col.name for col in constraint.columns]
+                break
+        # Fall back to unique=True on individual columns
+        if name not in keys:
+            for col in table.columns:
+                if col.unique:
+                    keys[name] = [col.name]
+                    break
+        # Fall back to composite primary keys (for tables like notifs, tmp_searches)
+        if name not in keys:
+            pk_cols = [col.name for col in table.primary_key.columns]
+            if len(pk_cols) > 1:
+                keys[name] = pk_cols
+    return keys
+
+UPSERT_KEYS = _derive_upsert_keys()

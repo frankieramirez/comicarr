@@ -44,23 +44,6 @@ from comicarr.tables import (
 )
 
 
-def _select_all(stmt):
-    """Execute a select statement and return all rows as a list of dicts."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        return [dict(row._mapping) for row in result]
-
-
-def _select_one(stmt):
-    """Execute a select statement and return the first row as a dict, or None."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        row = result.first()
-        if row is None:
-            return None
-        return dict(row._mapping)
-
-
 class PostProcessor(object):
     """
     A class which will process a media file according to the post processing settings in the config.
@@ -621,7 +604,7 @@ class PostProcessor(object):
                 )
             else:
                 if all([self.comicid is None, "_" not in self.issueid]):
-                    cid = _select_one(
+                    cid = db.select_one(
                         select(issues.c.ComicID).where(issues.c.IssueID == str(self.issueid))
                     )
                     self.comicid = cid["ComicID"]
@@ -655,7 +638,7 @@ class PostProcessor(object):
                     filelist["comiccount"] = 0
             # preload the entire ALT list in here.
             alt_list = []
-            alt_db = _select_all(
+            alt_db = db.select_all(
                 select(comics).where(comics.c.AlternateSearch != "None")
             )
             if alt_db is not None:
@@ -747,7 +730,7 @@ class PostProcessor(object):
                     loopchk.append(re.sub(r"[\|\s]", "", mod_seriesname.lower()))
 
                 if any([self.issueid is not None, self.comicid is not None]) and fl["issueid"] is None:
-                    comicseries = _select_all(
+                    comicseries = db.select_all(
                         select(comics).where(comics.c.ComicID == self.comicid)
                     )
                 else:
@@ -758,7 +741,7 @@ class PostProcessor(object):
                         tmp_manual_list = {}
                         tmp_oneoff = {}
                         logger.info("issueid detected in filename: %s" % fl["issueid"])
-                        ssi = _select_one(
+                        ssi = db.select_one(
                             select(
                                 storyarcs.c.ComicID, storyarcs.c.IssueID, storyarcs.c.IssueArcID,
                                 storyarcs.c.IssueNumber, storyarcs.c.ComicName, storyarcs.c.SeriesYear,
@@ -792,7 +775,7 @@ class PostProcessor(object):
                                 "ComicName": ssi["ComicName"],
                             }
 
-                        csi = _select_one(
+                        csi = db.select_one(
                             select(
                                 issues.c.ComicID, issues.c.IssueID, issues.c.Issue_Number,
                                 comics.c.ComicName, comics.c.ComicYear, comics.c.AgeRating,
@@ -801,7 +784,7 @@ class PostProcessor(object):
                             ).where(issues.c.IssueID == fl["issueid"])
                         )
                         if csi is None:
-                            csi = _select_one(
+                            csi = db.select_one(
                                 select(
                                     annuals.c.ComicID, annuals.c.IssueID, annuals.c.Issue_Number,
                                     annuals.c.ReleaseComicName, comics.c.ComicName,
@@ -817,7 +800,7 @@ class PostProcessor(object):
 
                         osi = None
                         if all([csi is None, ssi is None]):
-                            osi = _select_one(
+                            osi = db.select_one(
                                 select(
                                     snatched.c.Issue_Number, snatched.c.ComicName,
                                     snatched.c.IssueID, snatched.c.ComicID, weekly.c.seriesyear,
@@ -1058,7 +1041,7 @@ class PostProcessor(object):
                             oneoff_issuelist.append(tmp_oneoff)
                         continue
 
-                    comicseries = _select_all(
+                    comicseries = db.select_all(
                         select(comics).where(
                             func.lower(comics.c.DynamicComicName).in_([x.lower() for x in loopchk])
                         )
@@ -1070,7 +1053,7 @@ class PostProcessor(object):
                     ):
                         if not any(re.sub(r"[\|\s]", "", orig_seriesname).lower() == x for x in loopchk):
                             loopchk.append(re.sub(r"[\|\s]", "", orig_seriesname.lower()))
-                            comicseries = _select_all(
+                            comicseries = db.select_all(
                                 select(comics).where(
                                     func.lower(comics.c.DynamicComicName).in_([x.lower() for x in loopchk])
                                 )
@@ -1102,13 +1085,13 @@ class PostProcessor(object):
                         wv["Have"] == wv["Total"]
                         and not any(["Present" in wv["ComicPublished"], helpers.now()[:4] in wv["ComicPublished"]])
                     ):
-                        dbcheck = _select_one(
+                        dbcheck = db.select_one(
                             select(issues.c.Status).where(
                                 and_(issues.c.ComicID == wv["ComicID"], issues.c.Int_IssueNumber == tmp_iss)
                             )
                         )
                         if not dbcheck and comicarr.CONFIG.ANNUALS_ON:
-                            dbcheck = _select_one(
+                            dbcheck = db.select_one(
                                 select(annuals.c.Status).where(
                                     and_(annuals.c.ComicID == wv["ComicID"], annuals.c.Int_IssueNumber == tmp_iss)
                                 )
@@ -1155,24 +1138,24 @@ class PostProcessor(object):
                         )
 
                     # force it to use the Publication Date of the latest issue instead of the Latest Date (which could be anything)
-                    ld_check = _select_one(
+                    ld_check = db.select_one(
                         select(issues.c.ReleaseDate, issues.c.Issue_Number, issues.c.Int_IssueNumber).where(
                             issues.c.ComicID == wv["ComicID"]
                         ).order_by(issues.c.ReleaseDate.desc())
                     )
-                    highest_issue_check = _select_one(
+                    highest_issue_check = db.select_one(
                         select(issues.c.Issue_Number, issues.c.Int_IssueNumber).where(
                             issues.c.ComicID == wv["ComicID"]
                         ).order_by(issues.c.Int_IssueNumber.desc())
                     )
                     if ld_check:
                         if comicarr.CONFIG.ANNUALS_ON:
-                            ld_check_ann = _select_one(
+                            ld_check_ann = db.select_one(
                                 select(annuals.c.ReleaseDate, annuals.c.Issue_Number, annuals.c.Int_IssueNumber).where(
                                     annuals.c.ComicID == wv["ComicID"]
                                 ).order_by(annuals.c.ReleaseDate.desc())
                             )
-                            highest_issue_check_ann = _select_one(
+                            highest_issue_check_ann = db.select_one(
                                 select(annuals.c.Issue_Number, annuals.c.Int_IssueNumber).where(
                                     annuals.c.ComicID == wv["ComicID"]
                                 ).order_by(annuals.c.Int_IssueNumber.desc())
@@ -1226,7 +1209,7 @@ class PostProcessor(object):
                         )
                         updater.dbUpdate([wv_comicid])
                         logger.fdebug("Refresh complete for %s. Rechecking issue dates for completion." % wv_comicname)
-                        ld_check = _select_one(
+                        ld_check = db.select_one(
                             select(issues.c.ReleaseDate, issues.c.Issue_Number, issues.c.Int_IssueNumber).where(
                                 issues.c.ComicID == wv["ComicID"]
                             ).order_by(issues.c.ReleaseDate.desc())
@@ -1396,7 +1379,7 @@ class PostProcessor(object):
                                     % (module, fcdigit, cs["ComicID"])
                                 )
                             annchk = "yes"
-                            issuechk = _select_all(
+                            issuechk = db.select_all(
                                 select(annuals).where(
                                     and_(annuals.c.ComicID == cs["ComicID"], annuals.c.Int_IssueNumber == fcdigit, annuals.c.Deleted != 1)
                                 )
@@ -1405,14 +1388,14 @@ class PostProcessor(object):
                             annchk = "no"
                             if temploc is not None:
                                 fcdigit = helpers.issuedigits(temploc)
-                                issuechk = _select_all(
+                                issuechk = db.select_all(
                                     select(issues).where(
                                         and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
                                     )
                                 )
                             else:
                                 fcdigit = None
-                                issuechk = _select_all(select(issues).where(issues.c.ComicID == cs["ComicID"]))
+                                issuechk = db.select_all(select(issues).where(issues.c.ComicID == cs["ComicID"]))
 
                         if not issuechk:
                             try:
@@ -1452,13 +1435,13 @@ class PostProcessor(object):
                                 continue
 
                             if annchk == "yes":
-                                issuechk = _select_all(
+                                issuechk = db.select_all(
                                     select(annuals).where(
                                         and_(annuals.c.ComicID == cs["ComicID"], annuals.c.Int_IssueNumber == fcdigit, annuals.c.Deleted != 1)
                                     )
                                 )
                             else:
-                                issuechk = _select_all(
+                                issuechk = db.select_all(
                                     select(issues).where(
                                         and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
                                     )
@@ -1641,7 +1624,7 @@ class PostProcessor(object):
                                         logger.fdebug(
                                             "name match exact : %s - %s" % (cs["DynamicName"], dynamic_seriesname)
                                         )
-                                        test = _select_one(
+                                        test = db.select_one(
                                             select(weekly.c.COMIC, weekly.c.DynamicName, weekly.c.ISSUE, weekly.c.weeknumber, weekly.c.year).where(
                                                 weekly.c.ComicID == cs["ComicID"]
                                             ).order_by(weekly.c.year.desc(), func.cast(weekly.c.weeknumber, Integer).desc())
@@ -1750,7 +1733,7 @@ class PostProcessor(object):
                                                     rls_weekyear = rls_the_date.isocalendar()[0]
                                                     popit = inspect(db.get_engine()).has_table("weekly")
                                                     if popit:
-                                                        w_results = _select_all(
+                                                        w_results = db.select_all(
                                                             select(weekly).where(
                                                                 and_(weekly.c.weeknumber == str(rls_weeknumber), weekly.c.year == str(rls_weekyear))
                                                             )
@@ -2019,7 +2002,7 @@ class PostProcessor(object):
                 # if not any(re.sub('[\|\s]', '', mod_seriesname).lower() == x for x in arcloopchk):
                 #    arcloopchk.append(re.sub('[\|\s]', '', mod_seriesname.lower()))
                 if self.issuearcid is None:
-                    arc_series = _select_all(
+                    arc_series = db.select_all(
                         select(storyarcs).where(
                             func.lower(storyarcs.c.DynamicComicName).in_([x.lower() for x in loopchk])
                         )
@@ -2027,7 +2010,7 @@ class PostProcessor(object):
                 else:
                     if self.issuearcid[0] == "S":
                         self.issuearcid = self.issuearcid[1:]
-                    arc_series = _select_all(
+                    arc_series = db.select_all(
                         select(storyarcs).where(storyarcs.c.IssueArcID == self.issuearcid)
                     )
 
@@ -2197,7 +2180,7 @@ class PostProcessor(object):
                                                 % (module, annualtype, fcdigit, v[i]["WatchValues"]["ComicID"])
                                             )
                                         annchk = "yes"
-                                        issuechk_row = _select_one(
+                                        issuechk_row = db.select_one(
                                             select(storyarcs).where(
                                                 and_(storyarcs.c.ComicID == v[i]["WatchValues"]["ComicID"], storyarcs.c.Int_IssueNumber == fcdigit)
                                             )
@@ -2207,14 +2190,14 @@ class PostProcessor(object):
                                         annchk = "no"
                                         if temploc is not None:
                                             fcdigit = helpers.issuedigits(temploc)
-                                            issuechk = _select_all(
+                                            issuechk = db.select_all(
                                                 select(storyarcs).where(
                                                     and_(storyarcs.c.ComicID == v[i]["WatchValues"]["ComicID"], storyarcs.c.Int_IssueNumber == fcdigit)
                                                 )
                                             )
                                         else:
                                             fcdigit = None
-                                            issuechk = _select_all(
+                                            issuechk = db.select_all(
                                                 select(storyarcs).where(storyarcs.c.ComicID == v[i]["WatchValues"]["ComicID"])
                                             )
 
@@ -2647,7 +2630,7 @@ class PostProcessor(object):
                     if all(["0-Day Week" in self.nzb_name, comicarr.CONFIG.PACK_0DAY_WATCHLIST_ONLY is True]):
                         pass
                     else:
-                        oneofflist = _select_all(
+                        oneofflist = db.select_all(
                             select(
                                 snatched.c.Issue_Number, snatched.c.ComicName, snatched.c.IssueID,
                                 snatched.c.ComicID, snatched.c.Provider, weekly.c.format,
@@ -2845,7 +2828,7 @@ class PostProcessor(object):
                             vol_label = ml["Volume"]
 
                         if not multiple_arcs:
-                            roders = _select_all(
+                            roders = db.select_all(
                                 select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
                                     and_(storyarcs.c.ComicID == ml["ComicID"], storyarcs.c.IssueID == issueid)
                                 )
@@ -3089,9 +3072,9 @@ class PostProcessor(object):
                         s_id = self.issuearcid
                     else:
                         s_id = self.issueid
-                    nzbiss = _select_one(select(nzblog).where(nzblog.c.IssueID == s_id))
+                    nzbiss = db.select_one(select(nzblog).where(nzblog.c.IssueID == s_id))
                     if nzbiss is None and self.issuearcid is not None:
-                        nzbiss = _select_one(select(nzblog).where(nzblog.c.IssueID == "S" + s_id))
+                        nzbiss = db.select_one(select(nzblog).where(nzblog.c.IssueID == "S" + s_id))
 
                 else:
                     nzbname = self.nzb_name
@@ -3122,7 +3105,7 @@ class PostProcessor(object):
                     logger.fdebug("%s After conversions, nzbname is : %s" % (module, nzbname))
                     self._log("nzbname: %s" % nzbname)
 
-                    nzbiss = _select_one(
+                    nzbiss = db.select_one(
                         select(nzblog).where(
                             or_(nzblog.c.NZBName == nzbname, nzblog.c.AltNZBName == nzbname)
                         )
@@ -3135,7 +3118,7 @@ class PostProcessor(object):
                         nzbname = re.sub(r"[\(\)]", "", str(nzbname))
                         self._log("trying again with this nzbname: %s" % nzbname)
                         logger.fdebug("%s Trying to locate nzbfile again with nzbname of : %s" % (module, nzbname))
-                        nzbiss = _select_one(
+                        nzbiss = db.select_one(
                             select(nzblog).where(
                                 or_(nzblog.c.NZBName == nzbname, nzblog.c.AltNZBName == nzbname)
                             )
@@ -3161,13 +3144,13 @@ class PostProcessor(object):
                 sarc = nzbiss["SARC"]
                 self.oneoff = nzbiss["OneOff"]
                 logger.fdebug("sarc: %s / oneoff: %s" % (sarc, self.oneoff))
-                tmpiss = _select_one(
+                tmpiss = db.select_one(
                     select(comics.c.ComicYear, comics.c.ComicVersion, issues).select_from(
                         comics.join(issues, comics.c.ComicID == issues.c.ComicID, isouter=True)
                     ).where(issues.c.IssueID == issueid)
                 )
                 if tmpiss is None:
-                    tmpiss = _select_one(
+                    tmpiss = db.select_one(
                         select(annuals).where(and_(annuals.c.IssueID == issueid, annuals.c.Deleted != 1))
                     )
                 comicid = None
@@ -3189,7 +3172,7 @@ class PostProcessor(object):
 
                 elif self.oneoff is not None and any([issueid[0] == "S", "_" in issueid]):
                     issuearcid = re.sub("S", "", issueid).strip()
-                    oneinfo = _select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issuearcid))
+                    oneinfo = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issuearcid))
                     if oneinfo is None:
                         logger.warn(
                             "Unable to locate issue as previously snatched arc issue - it might be something else..."
@@ -3199,7 +3182,7 @@ class PostProcessor(object):
                         )
                     else:
                         # reverse lookup the issueid here to see if it possible exists on watchlist...
-                        tmplookup = _select_one(select(comics).where(comics.c.ComicID == oneinfo["ComicID"]))
+                        tmplookup = db.select_one(select(comics).where(comics.c.ComicID == oneinfo["ComicID"]))
                         if tmplookup is not None:
                             logger.fdebug(
                                 "[WATCHLIST-DETECTION-%s] Processing as Arc, detected on watchlist - will PP for both."
@@ -3224,9 +3207,9 @@ class PostProcessor(object):
                         )
 
                 if all([len(ppinfo) == 0, self.oneoff is not None, comicarr.CONFIG.ALT_PULL == 2]):
-                    oneinfo = _select_one(select(weekly).where(weekly.c.IssueID == issueid))
+                    oneinfo = db.select_one(select(weekly).where(weekly.c.IssueID == issueid))
                     if oneinfo is None:
-                        oneinfo = _select_one(select(oneoffhistory).where(oneoffhistory.c.IssueID == issueid))
+                        oneinfo = db.select_one(select(oneoffhistory).where(oneoffhistory.c.IssueID == issueid))
                         if oneinfo is None:
                             logger.warn("Unable to locate issue as previously snatched one-off")
                             self._log("Unable to locate issue as previously snatched one-off")
@@ -3266,7 +3249,7 @@ class PostProcessor(object):
             else:
                 for x in oneoff_issuelist:
                     if x["One-Off"] is True:
-                        oneinfo = _select_one(select(weekly).where(weekly.c.IssueID == x["IssueID"]))
+                        oneinfo = db.select_one(select(weekly).where(weekly.c.IssueID == x["IssueID"]))
                         if oneinfo is not None:
                             ppinfo.append(
                                 {
@@ -3493,12 +3476,12 @@ class PostProcessor(object):
             else:
                 location = self.nzb_folder
             annchk = "no"
-            issuenzb = _select_one(
+            issuenzb = db.select_one(
                 select(issues).where(and_(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None)))
             )
             if issuenzb is None:
                 logger.info("%s Could not detect as a standard issue - checking against annuals." % module)
-                issuenzb = _select_one(
+                issuenzb = db.select_one(
                     select(annuals).where(
                         and_(annuals.c.IssueID == issueid, annuals.c.ComicName.isnot(None), annuals.c.Deleted != 1)
                     )
@@ -3510,18 +3493,18 @@ class PostProcessor(object):
                     if "S" in issueid:
                         sandwich = issueid
                         if oneoff is False:
-                            onechk = _select_one(
+                            onechk = db.select_one(
                                 select(storyarcs).where(storyarcs.c.IssueArcID == re.sub("S", "", issueid).strip())
                             )
                             if onechk is not None:
                                 issuearcid = onechk["IssueArcID"]
-                                issuenzb = _select_one(
+                                issuenzb = db.select_one(
                                     select(issues).where(
                                         and_(issues.c.IssueID == onechk["IssueID"], issues.c.ComicName.isnot(None))
                                     )
                                 )
                                 if issuenzb is None:
-                                    issuenzb = _select_one(
+                                    issuenzb = db.select_one(
                                         select(annuals).where(
                                             and_(annuals.c.IssueID == onechk["IssueID"], annuals.c.ComicName.isnot(None), annuals.c.Deleted != 1)
                                         )
@@ -3626,7 +3609,7 @@ class PostProcessor(object):
                     if sandwich is not None and "S" in sandwich:
                         issuearcid = re.sub("S", "", issueid)
                         logger.fdebug("%s issuearcid:%s" % (module, issuearcid))
-                        arcdata = _select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issuearcid))
+                        arcdata = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issuearcid))
                         if arcdata is None:
                             logger.warn(
                                 "%s Unable to locate issue within Story Arcs. Cannot post-process at this time - try to Refresh the Arc and manual post-process if necessary."
@@ -3668,7 +3651,7 @@ class PostProcessor(object):
                             vol_label = seriesvolume
 
                     if rdorder is not None:
-                        roders = _select_all(
+                        roders = db.select_all(
                             select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
                                 and_(storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid)
                             )
@@ -4022,14 +4005,14 @@ class PostProcessor(object):
             stat = " [1/1]"
         module = self.module
         annchk = "no"
-        comicnzb = _select_one(select(comics).where(comics.c.ComicID == comicid))
-        issuenzb = _select_one(
+        comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comicid))
+        issuenzb = db.select_one(
             select(issues).where(
                 and_(issues.c.IssueID == issueid, issues.c.ComicID == comicid, issues.c.ComicName.isnot(None))
             )
         )
         if ml is not None and comicarr.CONFIG.SNATCHEDTORRENT_NOTIFY:
-            snatchnzb = _select_one(
+            snatchnzb = db.select_one(
                 select(snatched).where(
                     and_(
                         snatched.c.IssueID == issueid,
@@ -4047,7 +4030,7 @@ class PostProcessor(object):
                     % (module, snatchnzb["Provider"])
                 )
         if issuenzb is None:
-            issuenzb = _select_one(
+            issuenzb = db.select_one(
                 select(annuals).where(
                     and_(annuals.c.IssueID == issueid, annuals.c.ComicID == comicid, annuals.c.Deleted != 1)
                 )
@@ -4388,7 +4371,7 @@ class PostProcessor(object):
 
             try:
                 # check for reading order here.
-                order_the_read = _select_all(
+                order_the_read = db.select_all(
                     select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
                         and_(storyarcs.c.IssueID == issueid, storyarcs.c.ComicID == comicid)
                     )
@@ -4742,14 +4725,14 @@ class PostProcessor(object):
             try:
                 logger.info("Watchlist Story Arc match detected.")
                 logger.info(ml)
-                arcsforever = _select_all(
+                arcsforever = db.select_all(
                     select(storyarcs).where(
                         and_(storyarcs.c.ComicID == ml["ComicID"], storyarcs.c.IssueID == ml["IssueID"])
                     )
                 )
                 if not arcsforever:
                     # reverse lookup the issuearcid to get the issueid and check the table for multiple occurances across multiple arcs
-                    id_arcsforever = _select_one(
+                    id_arcsforever = db.select_one(
                         select(storyarcs.c.IssueID).where(
                             and_(storyarcs.c.IssueArcID == ml["IssueArcID"], storyarcs.c.ComicID == ml["ComicID"])
                         )
@@ -4759,7 +4742,7 @@ class PostProcessor(object):
                             "Unable to locate IssueID within givin Story Arc. Ensure everything is up-to-date (refreshed) for the Arc."
                         )
                     else:
-                        arcsforever = _select_all(
+                        arcsforever = db.select_all(
                             select(storyarcs).where(storyarcs.c.IssueID == id_arcsforever["IssueID"])
                         )
 

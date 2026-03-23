@@ -26,13 +26,11 @@ Data cleaning during migration:
 
 import logging
 import os
-import random
-import re
-import sys
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
+from comicarr.db import _mask_password
 from comicarr.tables import metadata
 
 logger = logging.getLogger("comicarr.db_migrate")
@@ -70,11 +68,6 @@ DEPENDENT_TABLES = [
 ]
 
 ALL_TABLES = INDEPENDENT_TABLES + DEPENDENT_TABLES
-
-
-def _mask_password(url):
-    """Mask password in database URL for logging."""
-    return re.sub(r"(://[^:]+:)[^@]+(@)", r"\1***\2", url)
 
 
 def _validate_sqlite_file(path):
@@ -342,23 +335,6 @@ def migrate(source_url, target_url, batch_size=5000):
             verify_ok = False
         print(f"  {table_name:25s}  source={src_count:>8,d}  target={tgt_count:>8,d}  {match}")
 
-    # Spot-check: compare random rows
-    print("\n=== Spot Check (5 random rows per table) ===")
-    for table_name in ALL_TABLES[:5]:  # Check first 5 tables
-        if table_name not in source_tables:
-            continue
-        with source_engine.connect() as conn:
-            src_count = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
-            if src_count == 0:
-                continue
-            sample_offsets = random.sample(range(min(src_count, 1000)), min(5, src_count))
-            for off in sample_offsets:
-                src_row = conn.execute(
-                    text(f"SELECT * FROM {table_name} LIMIT 1 OFFSET :off"), {"off": off}
-                ).fetchone()
-                if src_row:
-                    print(f"  {table_name}[{off}]: sampled OK")
-
     print("\n=== Migration Summary ===")
     print(f"  Total rows migrated: {total_migrated:,d}")
     print(f"  Data cleaning conversions: {total_cleaned:,d}")
@@ -379,53 +355,3 @@ def migrate(source_url, target_url, batch_size=5000):
     return verify_ok and not failed_tables
 
 
-def run_cli(args):
-    """CLI entry point for the migration tool.
-
-    Args:
-        args: List of CLI arguments (after 'migrate' subcommand)
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Migrate Comicarr database from SQLite to PostgreSQL or MySQL"
-    )
-    parser.add_argument(
-        "--from", dest="source", required=True,
-        help="Source database URL (e.g., sqlite:///path/to/comicarr.db)",
-    )
-    parser.add_argument(
-        "--to", dest="target", required=True,
-        help="Target database URL (e.g., postgresql://user:pass@localhost/comicarr)",
-    )
-    parser.add_argument(
-        "--validate-only", action="store_true",
-        help="Only validate — report issues without migrating",
-    )
-    parser.add_argument(
-        "--batch-size", type=int, default=5000,
-        help="Rows per batch insert (default: 5000)",
-    )
-    parser.add_argument(
-        "--yes", action="store_true",
-        help="Skip confirmation prompt",
-    )
-
-    parsed = parser.parse_args(args)
-
-    if parsed.validate_only:
-        ok = validate(parsed.source, parsed.target)
-        sys.exit(0 if ok else 1)
-
-    if not parsed.yes:
-        print("This will migrate data from:")
-        print(f"  Source: {_mask_password(parsed.source)}")
-        print(f"  Target: {_mask_password(parsed.target)}")
-        print()
-        confirm = input("Proceed? [y/N] ").strip().lower()
-        if confirm != "y":
-            print("Aborted.")
-            sys.exit(1)
-
-    ok = migrate(parsed.source, parsed.target, batch_size=parsed.batch_size)
-    sys.exit(0 if ok else 1)

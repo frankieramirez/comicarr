@@ -36,28 +36,11 @@ from comicarr import db, helpers, importer, locg, logger, mb, newpull, updater
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
-def _select_all(stmt):
-    """Execute a select statement and return all rows as a list of dicts."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        return [dict(row._mapping) for row in result]
-
-
-def _select_one(stmt):
-    """Execute a select statement and return the first row as a dict, or None."""
-    with db.get_engine().connect() as conn:
-        result = conn.execute(stmt)
-        row = result.first()
-        if row is None:
-            return None
-        return dict(row._mapping)
-
-
 def pullit(forcecheck=None, weeknumber=None, year=None):
     if weeknumber is None:
         # Check if weekly table exists by attempting a query
         try:
-            pull_date = _select_one(select(weekly.c.SHIPDATE))
+            pull_date = db.select_one(select(weekly.c.SHIPDATE))
             logger.info("Weekly pull list present - checking if it's up-to-date..")
             if pull_date is None:
                 pulldate = "00000000"
@@ -610,7 +593,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
         # let's read in the comic.watchlist from the db here
         weeklylist = []
         stmt = select(comics).where(comics.c.Status == "Active")
-        comiclist = _select_all(stmt)
+        comiclist = db.select_all(stmt)
         if comiclist is None:
             pass
         else:
@@ -748,7 +731,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                         weekly.c.SHIPDATE,
                         weekly.c.DynamicName,
                     ).where(weekly.c.DynamicName.ilike(sqlsearch))
-                    weekly_results = _select_all(stmt)
+                    weekly_results = db.select_all(stmt)
                 else:
                     # The 'future' table is a legacy table not in tables.py;
                     # use raw text() for this query.
@@ -1023,7 +1006,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
         stmt = select(comics).where((comics.c.Status == "Active") & (comics.c.ComicID == comic1off_id))
     else:
         stmt = select(comics).where(comics.c.Status == "Active")
-    comiclist = _select_all(stmt)
+    comiclist = db.select_all(stmt)
 
     if comiclist is None:
         pass
@@ -1114,7 +1097,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     stmt = select(annuals).where(
                         (annuals.c.ComicID == watch["ComicID"]) & (annuals.c.Deleted != 1)
                     )
-                    annualist = _select_all(stmt)
+                    annualist = db.select_all(stmt)
                     annual_ids = []
                     if annualist is None:
                         pass
@@ -1493,18 +1476,18 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     if mismatched is False and issueid:
                         logger.fdebug("issue id check passed.")
                         if annualidmatch and comicarr.CONFIG.ANNUALS_ON:
-                            isschk = _select_one(
+                            isschk = db.select_one(
                                 select(annuals).where(
                                     (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
                                 )
                             )
                         else:
-                            isschk = _select_one(
+                            isschk = db.select_one(
                                 select(issues).where(issues.c.IssueID == issueid)
                             )
 
                         if isschk is None:
-                            isschk = _select_one(
+                            isschk = db.select_one(
                                 select(annuals).where(
                                     (annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1)
                                 )
@@ -1672,7 +1655,7 @@ def mass_publishers(publishers, weeknumber, year):
         stmt = select(weekly).where(
             (weekly.c.weeknumber == weeknumber) & (weekly.c.year == year)
         )
-        watchlist = _select_all(stmt)
+        watchlist = db.select_all(stmt)
         comicarr.CONFIG.MASS_PUBLISHERS = []
     else:
         for pb in publishers:
@@ -1683,7 +1666,7 @@ def mass_publishers(publishers, weeknumber, year):
             & (weekly.c.year == year)
             & (weekly.c.PUBLISHER.in_(publishers))
         )
-        watchlist = _select_all(stmt)
+        watchlist = db.select_all(stmt)
 
     comicarr.CONFIG.writeconfig(
         values={
@@ -1735,7 +1718,7 @@ def loaditup(comicname, comicid, issue, chktype):
             + str(issue)
             + " to do comparitive issue analysis for pull-list"
         )
-        issueload = _select_one(
+        issueload = db.select_one(
             select(annuals).where(
                 (annuals.c.ComicID == comicid)
                 & (annuals.c.Int_IssueNumber == issue_number)
@@ -1753,7 +1736,7 @@ def loaditup(comicname, comicid, issue, chktype):
             + str(issue)
             + " to do comparitive issue analysis for pull-list"
         )
-        issueload = _select_one(
+        issueload = db.select_one(
             select(issues).where(
                 (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == issue_number)
             )
@@ -1869,13 +1852,13 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
     module += "[WEEKLY-PULL]"
 
     if issueid is None:
-        chkit = _select_one(
+        chkit = db.select_one(
             select(weekly).where(
                 (weekly.c.ComicID == comicid) & (weekly.c.ISSUE == issuenum)
             )
         )
     else:
-        chkit = _select_one(
+        chkit = db.select_one(
             select(weekly).where(
                 (weekly.c.ComicID == comicid) & (weekly.c.IssueID == issueid)
             )
@@ -1936,12 +1919,12 @@ def send2read(comicid, issueid, issuenum):
             module + " Send to Reading List enabled for new pulls. Adding to your readlist in the status of 'Added'"
         )
         if issueid is None:
-            chkthis = _select_one(
+            chkthis = db.select_one(
                 select(issues).where(
                     (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == helpers.issuedigits(issuenum))
                 )
             )
-            annchk = _select_one(
+            annchk = db.select_one(
                 select(annuals).where(
                     (annuals.c.ComicID == comicid)
                     & (annuals.c.Int_IssueNumber == helpers.issuedigits(issuenum))
@@ -2004,7 +1987,7 @@ def future_check():
     stmt = select(futureupcoming).where(
         (futureupcoming.c.IssueNumber == "1") | (futureupcoming.c.IssueNumber == "0")
     )
-    chkfuture = _select_all(stmt)
+    chkfuture = db.select_all(stmt)
     if chkfuture is None or len(chkfuture) == 0:
         logger.info("There are not any series on your future-list that I consider to be a NEW series")
     else:
@@ -2173,7 +2156,7 @@ def future_check():
                             & (futureupcoming.c.IssueNumber != "1")
                             & (futureupcoming.c.Status == "Wanted")
                         )
-                        chkwant = _select_all(stmt)
+                        chkwant = db.select_all(stmt)
                         if chkwant is None or len(chkwant) == 0:
                             logger.info("No extra issues to mark at this time for " + ser["ComicName"])
                         else:
