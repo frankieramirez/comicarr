@@ -32,7 +32,7 @@ from comicarr.helpers import create_https_certificates
 from comicarr.webserve import WebInterface
 
 # Setup mode paths allowed before initial credentials are configured
-_SETUP_ALLOWED_PATHS = ("/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico")
+_SETUP_ALLOWED_PATHS = ("/", "/index.html", "/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico")
 
 
 def _check_setup_gate():
@@ -127,7 +127,7 @@ def initialize(options):
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https://comicvine.gamespot.com",
+            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
             "font-src 'self'",
             "connect-src 'self'",
             "frame-ancestors 'none'",

@@ -495,12 +495,12 @@ def findComic(
                         try:
                             xmlimage = result.getElementsByTagName("small_url")[0].firstChild.wholeText
                         except Exception:
-                            xmlimage = "cache/blankcover.jpg"
+                            xmlimage = None
 
                     try:
                         xmlthumb = result.getElementsByTagName("thumb_url")[0].firstChild.wholeText
                     except Exception:
-                        xmlthumb = "cache/blankcover.jpg"
+                        xmlthumb = None
 
                     if (result.getElementsByTagName("start_year")[0].firstChild) is not None:
                         xmlYr = result.getElementsByTagName("start_year")[0].firstChild.wholeText
@@ -694,6 +694,7 @@ def findComic(
                                 "volume": xmlvol,
                                 "imprint": xmlimprint,
                                 "seriesrange": yearRange,  # returning additional information about series run polled from CV
+                                "metadata_source": "comicvine",
                             }
                         )
                         # logger.fdebug('year: %s - constraint met: %s [%s] --- 4050-%s' % (xmlYr,xmlTag,xmlYr,xmlid))
@@ -823,7 +824,7 @@ def storyarcinfo(xmlid):
     try:
         xmlimage = arcdom.getElementsByTagName("super_url")[0].firstChild.wholeText
     except:
-        xmlimage = "cache/blankcover.jpg"
+        xmlimage = None
 
     try:
         xmlimage = result.getElementsByTagName("super_url")[0].firstChild.wholeText
@@ -831,12 +832,12 @@ def storyarcinfo(xmlid):
         try:
             xmlimage = result.getElementsByTagName("small_url")[0].firstChild.wholeText
         except Exception:
-            xmlimage = "cache/blankcover.jpg"
+            xmlimage = None
 
     try:
         xmlthumb = result.getElementsByTagName("thumb_url")[0].firstChild.wholeText
     except Exception:
-        xmlthumb = "cache/blankcover.jpg"
+        xmlthumb = None
 
     try:
         xmldesc = arcdom.getElementsByTagName("desc")[0].firstChild.wholeText

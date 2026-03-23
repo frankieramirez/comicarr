@@ -150,7 +150,7 @@ def _extract_cover_url(manga_data):
             if cover_filename:
                 return f"https://uploads.mangadex.org/covers/{manga_id}/{cover_filename}.256.jpg"
 
-    return "cache/blankcover.jpg"
+    return None
 
 
 def _extract_author(manga_data):
@@ -347,7 +347,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
                     "comicimage": cover_url,
                     "comicthumb": cover_url,
                     "publisher": author,  # Use author as publisher equivalent
-                    "description": description[:500] if description else "None",  # Truncate long descriptions
+                    "description": description[:500] if description else None,
                     "deck": None,
                     "type": "Manga",
                     "haveit": haveit,

@@ -293,8 +293,13 @@ class Api(object):
             return
 
         if "apikey" not in kwargs and ("apikey" not in kwargs and kwargs["cmd"] != "getAPI"):
-            self.data = self._failureResponse("Missing API key")
-            return
+            # Allow session-authenticated requests from the frontend
+            username = cherrypy.session.get("_cp_username")
+            if username:
+                self.apitype = "normal"
+            else:
+                self.data = self._failureResponse("Missing API key")
+                return
         elif kwargs["cmd"] == "getAPI":
             self.apitype = "normal"
         else:
@@ -2826,6 +2831,11 @@ class Api(object):
             return
 
         series_id = kwargs["id"]
+        try:
+            int(series_id)
+        except (ValueError, TypeError):
+            self.data = self._failureResponse("Invalid parameter: id must be numeric")
+            return
 
         from comicarr import metron
 
