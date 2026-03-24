@@ -83,7 +83,6 @@ export interface SearchResult {
   deck?: string | null;
   metadata_source?: string;
   url?: string | null;
-  type?: string | null;
   status?: string | null;
   content_rating?: string | null;
 }

@@ -73,9 +73,20 @@ const SOURCE_LABELS: Record<string, string> = {
   mangadex: "MangaDex",
 };
 
+const htmlParser = new DOMParser();
+
 function stripHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = htmlParser.parseFromString(html, "text/html");
   return doc.body.textContent || "";
+}
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function getDescription(comic: SearchResult): string | null {
@@ -99,7 +110,6 @@ function SearchColumnVisibility({
   onToggle: (columnId: string) => void;
   isManga: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const toggleableColumns = [
     { id: "publisher", label: isManga ? "Author" : "Publisher" },
     { id: "seriesStatus", label: "Status" },
@@ -107,7 +117,7 @@ function SearchColumnVisibility({
   ];
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="icon" className="shadow-none">
           <Settings2 className="h-4 w-4" />
@@ -420,23 +430,19 @@ export default function SearchResultsTable({
                     {sourceLabel}
                   </Badge>
                 )}
-                {comic.url && (
+                {comic.url && isSafeUrl(comic.url) && (
                   <a
                     href={comic.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     className="text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label={`Open ${comic.name} on provider site`}
                   >
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
-              {comic.comicyear && (
-                <div className="text-sm text-muted-foreground">
-                  {comic.comicyear}
-                </div>
-              )}
               {description && (
                 <div className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[300px]">
                   {truncate(description, 120)}
