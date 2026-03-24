@@ -2669,6 +2669,7 @@ class Api(object):
 
         try:
             import importlib.metadata
+
             version = importlib.metadata.version("comicarr")
         except Exception:
             version = "dev"

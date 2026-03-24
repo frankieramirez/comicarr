@@ -3741,7 +3741,8 @@ class WebInterface(object):
             w_results = db.raw_select_all(
                 """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
                        SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
-                FROM weekly WHERE weeknumber=? AND year=?""", [int(weekinfo["weeknumber"]), weekinfo["year"]]
+                FROM weekly WHERE weeknumber=? AND year=?""",
+                [int(weekinfo["weeknumber"]), weekinfo["year"]],
             )
             if len(w_results) == 0:
                 logger.info(
@@ -10908,7 +10909,8 @@ class WebInterface(object):
             w_results = db.raw_select_all(
                 """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
                        SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
-                FROM weekly WHERE weeknumber=? AND year=?""", [int(weeknumber), int(year)]
+                FROM weekly WHERE weeknumber=? AND year=?""",
+                [int(weeknumber), int(year)],
             )
             watchlibrary = helpers.listLibrary()
             issueLibrary = helpers.listIssues(weeknumber, year)
