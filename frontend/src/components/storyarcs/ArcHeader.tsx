@@ -39,8 +39,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
   const handleWantAll = () => {
     wantAllMutation.mutate(arc.StoryArcID, {
       onSuccess: (data) => {
-        const result = (data as { data?: { queued?: number } })?.data;
-        const queued = result?.queued ?? 0;
+        const queued = data?.data?.queued ?? 0;
         addToast({
           type: "success",
           title: "Issues Queued",
@@ -79,6 +78,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
   const handleDelete = () => {
     deleteMutation.mutate(arc.StoryArcID, {
       onSuccess: () => {
+        setShowDeleteConfirm(false);
         addToast({
           type: "success",
           title: "Arc Deleted",
@@ -87,6 +87,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         navigate("/story-arcs");
       },
       onError: () => {
+        setShowDeleteConfirm(false);
         addToast({
           type: "error",
           title: "Error",
@@ -94,7 +95,6 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         });
       },
     });
-    setShowDeleteConfirm(false);
   };
 
   return (

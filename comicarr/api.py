@@ -2011,20 +2011,26 @@ class Api(object):
         if not self._ID_PATTERN.match(str(arc_id)):
             self.data = self._failureResponse("Invalid StoryArcID")
             return
-        # Find issues eligible to be Wanted (not already Downloaded/Archived/Snatched, not soft-deleted)
-        issues = db.rawdb.select_all(
-            "SELECT IssueArcID, Status FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
-            "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched')",
+        # Count already-wanted issues (skipped) and update eligible ones in bulk
+        skipped_rows = db.rawdb.select_all(
+            "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
+            "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched') AND Status = 'Wanted'",
             [arc_id],
         )
-        queued = 0
-        skipped = 0
-        for iss in issues:
-            if iss["Status"] == "Wanted":
-                skipped += 1
-            else:
-                db.upsert("storyarcs", {"Status": "Wanted"}, {"IssueArcID": iss["IssueArcID"]})
-                queued += 1
+        skipped = skipped_rows[0]["count"] if skipped_rows else 0
+        db.raw_execute(
+            "UPDATE storyarcs SET Status='Wanted' WHERE StoryArcID=? AND Manual != 'deleted' "
+            "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched', 'Wanted')",
+            [arc_id],
+        )
+        # Count how many were actually updated
+        queued_rows = db.rawdb.select_all(
+            "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
+            "AND Status = 'Wanted'",
+            [arc_id],
+        )
+        total_wanted = queued_rows[0]["count"] if queued_rows else 0
+        queued = total_wanted - skipped
         # Trigger search via existing ReadGetWanted
         if queued > 0:
             wi = webserve.WebInterface()

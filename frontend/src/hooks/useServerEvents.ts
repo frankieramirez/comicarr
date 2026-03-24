@@ -264,8 +264,6 @@ export function useServerEvents(
             storyarcname?: string;
             message?: string;
           };
-          console.log("[SSE] storyarc_added event:", data);
-
           queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
 
           if (data.message) {

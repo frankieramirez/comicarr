@@ -142,6 +142,9 @@ export default function ArcIssueTable({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
+                    aria-haspopup="true"
+                    aria-expanded={openMenuId === issue.IssueArcID}
+                    aria-label={`Actions for ${issue.ComicName} #${issue.IssueNumber}`}
                     onClick={() =>
                       setOpenMenuId(
                         openMenuId === issue.IssueArcID
@@ -149,6 +152,9 @@ export default function ArcIssueTable({
                           : issue.IssueArcID,
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setOpenMenuId(null);
+                    }}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
@@ -163,7 +169,10 @@ export default function ArcIssueTable({
                           setConfirmDeleteId(null);
                         }}
                       />
-                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[10rem] rounded-md border border-card-border bg-card shadow-lg p-1">
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-full mt-1 z-50 min-w-[10rem] rounded-md border border-card-border bg-card shadow-lg p-1"
+                      >
                         {issue.Status === "Read" ? (
                           <button
                             className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
@@ -185,15 +194,18 @@ export default function ArcIssueTable({
                             Mark as Read
                           </button>
                         )}
-                        <button
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                          onClick={() =>
-                            handleStatusChange(issue.IssueArcID, "Wanted")
-                          }
-                        >
-                          <Search className="w-4 h-4" />
-                          Mark as Wanted
-                        </button>
+                        {issue.Status !== "Wanted" &&
+                          issue.Status !== "Read" && (
+                            <button
+                              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
+                              onClick={() =>
+                                handleStatusChange(issue.IssueArcID, "Wanted")
+                              }
+                            >
+                              <Search className="w-4 h-4" />
+                              Mark as Wanted
+                            </button>
+                          )}
                         <button
                           className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
                           onClick={() =>
@@ -236,7 +248,7 @@ export default function ArcIssueTable({
                           </div>
                         ) : (
                           <button
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-red-50 text-red-600 transition-colors text-left"
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-red-500/10 text-red-600 transition-colors text-left"
                             onClick={() => setConfirmDeleteId(issue.IssueArcID)}
                           >
                             <Trash2 className="w-4 h-4" />

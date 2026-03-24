@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useFindStoryArc } from "@/hooks/useArcSearch";
@@ -14,6 +14,14 @@ export default function ArcSearch({ searchInputRef }: ArcSearchProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const { data: results, isLoading } = useFindStoryArc(debouncedQuery);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
