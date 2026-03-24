@@ -1,4 +1,9 @@
-import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
+import type { ReactNode } from "react";
+import {
+  flexRender,
+  type Row,
+  type Table as TanstackTable,
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -12,12 +17,14 @@ import { cn } from "@/lib/utils";
 interface DataTableProps<TData> {
   table: TanstackTable<TData>;
   onRowClick?: (row: TData) => void;
+  renderSubRow?: (row: Row<TData>, colSpan: number) => ReactNode;
   className?: string;
 }
 
 export function DataTable<TData>({
   table,
   onRowClick,
+  renderSubRow,
   className,
 }: DataTableProps<TData>) {
   return (
@@ -54,25 +61,36 @@ export function DataTable<TData>({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-                className={cn(
-                  "border-card-border",
-                  onRowClick && "cursor-pointer",
-                )}
-                onClick={
-                  onRowClick ? () => onRowClick(row.original) : undefined
-                }
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-6 py-4">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const colSpan = table.getAllColumns().length;
+              return (
+                <>
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={cn(
+                      "border-card-border",
+                      onRowClick && "cursor-pointer",
+                    )}
+                    onClick={
+                      onRowClick ? () => onRowClick(row.original) : undefined
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="px-6 py-4">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {renderSubRow &&
+                    row.getIsExpanded() &&
+                    renderSubRow(row, colSpan)}
+                </>
+              );
+            })
           ) : (
             <TableRow>
               <TableCell

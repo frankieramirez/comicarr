@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
-  flexRender,
-  ColumnDef,
-  CellContext,
+  createColumnHelper,
 } from "@tanstack/react-table";
 import {
   ChevronUp,
@@ -18,16 +16,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/data-table/DataTable";
 import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
 import type { SearchResult, ContentType } from "@/types";
+
+const columnHelper = createColumnHelper<SearchResult>();
 
 // Lazy-loaded cover thumbnail component
 function CoverThumbnail({ comic }: { comic: SearchResult }) {
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Try different image sources
   const imageUrl = comic.comicthumb || comic.image || comic.comicimage;
 
   if (!imageUrl || imageError) {
@@ -74,7 +74,6 @@ const SORT_COLUMN_MAP: Record<string, { asc: string; desc: string }> = {
   issues: { asc: "issues_asc", desc: "issues_desc" },
 };
 
-// Get current sort state for a column
 function getColumnSort(
   columnId: string,
   currentSort: string,
@@ -115,10 +114,8 @@ function ActionCell({
       try {
         const data: AddByIdEventDetail = JSON.parse(event.detail);
 
-        // Check if this event is for our comic
         if (data.comicid === comicIdRef.current) {
           if (data.status === "success") {
-            // Navigate to series detail page
             navigate(`/series/${comicIdRef.current}`);
             setIsProcessing(false);
             comicIdRef.current = null;
@@ -139,7 +136,6 @@ function ActionCell({
       }
     };
 
-    // Listen for custom event dispatched by useServerEvents
     window.addEventListener("comic-added", handleAddById as EventListener);
 
     return () => {
@@ -179,7 +175,6 @@ function ActionCell({
     }
   };
 
-  // Already in library - show disabled "Added" button
   if (isAdded) {
     return (
       <Button variant="outline" size="sm" disabled>
@@ -189,7 +184,6 @@ function ActionCell({
     );
   }
 
-  // Processing state
   if (isProcessing) {
     return (
       <Button variant="outline" size="sm" disabled>
@@ -199,7 +193,6 @@ function ActionCell({
     );
   }
 
-  // Default - Add button with primary outline style
   const isPending = isManga
     ? addMangaMutation.isPending
     : addComicMutation.isPending;
@@ -217,6 +210,63 @@ function ActionCell({
   );
 }
 
+// Server-side sort header for search results
+function ServerSortHeader({
+  columnId,
+  title,
+  currentSort,
+  onSortChange,
+}: {
+  columnId: string;
+  title: string;
+  currentSort: string;
+  onSortChange: (sort: string) => void;
+}) {
+  const mapping = SORT_COLUMN_MAP[columnId];
+  if (!mapping) return <span>{title}</span>;
+
+  const sortState = getColumnSort(columnId, currentSort);
+  const ariaSort =
+    sortState === "asc"
+      ? ("ascending" as const)
+      : sortState === "desc"
+        ? ("descending" as const)
+        : undefined;
+
+  const handleClick = () => {
+    if (sortState === false) onSortChange(mapping.desc);
+    else if (sortState === "desc") onSortChange(mapping.asc);
+    else onSortChange(mapping.desc);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
+  return (
+    <div
+      className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+      role="button"
+      tabIndex={0}
+      aria-sort={ariaSort}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
+      <span>{title}</span>
+      {sortState === "asc" ? (
+        <ChevronUp className="w-4 h-4" />
+      ) : sortState === "desc" ? (
+        <ChevronDown className="w-4 h-4" />
+      ) : (
+        <ChevronsUpDown className="w-4 h-4 text-muted-foreground/50" />
+      )}
+    </div>
+  );
+}
+
 export default function SearchResultsTable({
   results,
   currentSort,
@@ -226,45 +276,26 @@ export default function SearchResultsTable({
   const isManga = contentType === "manga";
   const issuesLabel = isManga ? "Chapters" : "Issues";
 
-  // Handle column header click for sorting
-  const handleSortClick = (columnId: string) => {
-    const mapping = SORT_COLUMN_MAP[columnId];
-    if (!mapping) return;
-
-    const currentState = getColumnSort(columnId, currentSort);
-    if (currentState === false) {
-      onSortChange(mapping.desc);
-    } else if (currentState === "desc") {
-      onSortChange(mapping.asc);
-    } else {
-      onSortChange(mapping.desc);
-    }
-  };
-
-  // Handle keyboard activation on sort headers
-  const handleSortKeyDown = (e: React.KeyboardEvent, columnId: string) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleSortClick(columnId);
-    }
-  };
-
-  const columns = useMemo<ColumnDef<SearchResult>[]>(
+  const columns = useMemo(
     () => [
-      {
+      columnHelper.display({
         id: "cover",
         header: "",
         enableSorting: false,
         size: 50,
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
-          <CoverThumbnail comic={row.original} />
-        ),
-      },
-      {
+        cell: ({ row }) => <CoverThumbnail comic={row.original} />,
+      }),
+      columnHelper.accessor("name", {
         id: "series",
-        accessorKey: "name",
-        header: "Series",
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+        header: () => (
+          <ServerSortHeader
+            columnId="series"
+            title="Series"
+            currentSort={currentSort}
+            onSortChange={onSortChange}
+          />
+        ),
+        cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.name}</div>
             {row.original.comicyear && (
@@ -274,45 +305,55 @@ export default function SearchResultsTable({
             )}
           </div>
         ),
-      },
-      {
+      }),
+      columnHelper.accessor("comicyear", {
         id: "year",
-        accessorKey: "comicyear",
-        header: "Year",
-        cell: ({ getValue }: CellContext<SearchResult, unknown>) => (
-          <span>{(getValue() as string) || "\u2014"}</span>
+        header: () => (
+          <ServerSortHeader
+            columnId="year"
+            title="Year"
+            currentSort={currentSort}
+            onSortChange={onSortChange}
+          />
         ),
-      },
-      {
+        cell: ({ getValue }) => <span>{getValue() || "\u2014"}</span>,
+      }),
+      columnHelper.accessor("issues", {
         id: "issues",
-        accessorKey: "issues",
-        header: issuesLabel,
-        cell: ({ row }: CellContext<SearchResult, unknown>) => {
+        header: () => (
+          <ServerSortHeader
+            columnId="issues"
+            title={issuesLabel}
+            currentSort={currentSort}
+            onSortChange={onSortChange}
+          />
+        ),
+        cell: ({ row }) => {
           const issues = row.original.issues ?? row.original.count_of_issues;
           return <span>{issues !== undefined ? issues : "\u2014"}</span>;
         },
-      },
-      {
+      }),
+      columnHelper.display({
         id: "status",
         header: "Status",
         enableSorting: false,
-        cell: ({ row }: CellContext<SearchResult, unknown>) =>
+        cell: ({ row }) =>
           row.original.in_library ? (
             <Badge variant="default">In Library</Badge>
           ) : null,
-      },
-      {
+      }),
+      columnHelper.display({
         id: "actions",
         header: "",
         enableSorting: false,
-        cell: ({ row }: CellContext<SearchResult, unknown>) => (
+        cell: ({ row }) => (
           <div className="text-right">
             <ActionCell comic={row.original} contentType={contentType} />
           </div>
         ),
-      },
+      }),
     ],
-    [contentType, issuesLabel],
+    [contentType, issuesLabel, currentSort, onSortChange],
   );
 
   const table = useReactTable({
@@ -322,91 +363,5 @@ export default function SearchResultsTable({
     manualSorting: true,
   });
 
-  return (
-    <div className="rounded-lg border border-card-border bg-card card-shadow overflow-hidden">
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="w-full">
-          <thead className="bg-muted/50 border-b border-card-border">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const isSortable = !!SORT_COLUMN_MAP[header.id];
-                  const sortState = isSortable
-                    ? getColumnSort(header.id, currentSort)
-                    : false;
-
-                  // Map sort state to aria-sort value
-                  const ariaSort =
-                    sortState === "asc"
-                      ? ("ascending" as const)
-                      : sortState === "desc"
-                        ? ("descending" as const)
-                        : undefined;
-
-                  return (
-                    <th
-                      key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      aria-sort={ariaSort}
-                    >
-                      {header.isPlaceholder ? null : (
-                        <div
-                          className={
-                            isSortable
-                              ? "flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
-                              : ""
-                          }
-                          role={isSortable ? "button" : undefined}
-                          tabIndex={isSortable ? 0 : undefined}
-                          onClick={
-                            isSortable
-                              ? () => handleSortClick(header.id)
-                              : undefined
-                          }
-                          onKeyDown={
-                            isSortable
-                              ? (e) => handleSortKeyDown(e, header.id)
-                              : undefined
-                          }
-                        >
-                          <span>
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                          </span>
-                          {isSortable && (
-                            <span>
-                              {sortState === "asc" ? (
-                                <ChevronUp className="w-4 h-4" />
-                              ) : sortState === "desc" ? (
-                                <ChevronDown className="w-4 h-4" />
-                              ) : (
-                                <ChevronsUpDown className="w-4 h-4" />
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-card-border">
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-accent/50 transition-colors">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <DataTable table={table} />;
 }

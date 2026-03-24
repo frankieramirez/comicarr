@@ -1,16 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
   getExpandedRowModel,
-  flexRender,
-  ColumnDef,
-  RowSelectionState,
-  ExpandedState,
-  Row,
-  CellContext,
-  HeaderContext,
-  Updater,
+  createColumnHelper,
+  type RowSelectionState,
+  type ExpandedState,
+  type Updater,
 } from "@tanstack/react-table";
 import { ChevronRight, ChevronDown, FileText, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +14,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import ConfidenceBadge from "./ConfidenceBadge";
+import { DataTable } from "@/components/data-table/DataTable";
+import { DataTableServerPagination } from "@/components/data-table/DataTableServerPagination";
+import { TableCell, TableRow } from "@/components/ui/table";
 import type { ImportGroup, ImportFile, PaginationMeta } from "@/types";
+
+const columnHelper = createColumnHelper<ImportGroup>();
 
 interface ImportTableProps {
   imports?: ImportGroup[];
@@ -63,147 +64,144 @@ export default function ImportTable({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
 
-  const columns: ColumnDef<ImportGroup>[] = [
-    {
-      id: "select",
-      header: ({ table }: HeaderContext<ImportGroup, unknown>) => (
-        <Checkbox
-          checked={
-            table.getIsAllRowsSelected() ||
-            (table.getIsSomeRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-        />
-      ),
-      cell: ({ row }: CellContext<ImportGroup, unknown>) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      ),
-      size: 40,
-    },
-    {
-      id: "expander",
-      header: "",
-      cell: ({ row }: CellContext<ImportGroup, unknown>) => {
-        const canExpand = row.original.files && row.original.files.length > 0;
-        return canExpand ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              row.toggleExpanded();
-            }}
-            className="p-1 hover:bg-muted rounded"
-          >
-            {row.getIsExpanded() ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllRowsSelected() ||
+              (table.getIsSomeRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        size: 40,
+      }),
+      columnHelper.display({
+        id: "expander",
+        header: "",
+        cell: ({ row }) => {
+          const canExpand = row.original.files && row.original.files.length > 0;
+          return canExpand ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                row.toggleExpanded();
+              }}
+              className="p-1 hover:bg-muted rounded"
+            >
+              {row.getIsExpanded() ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          ) : null;
+        },
+        size: 40,
+      }),
+      columnHelper.accessor("ComicName", {
+        header: "Series",
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">{row.original.ComicName}</div>
+            {row.original.Volume && (
+              <div className="text-sm text-muted-foreground">
+                Volume {row.original.Volume}
+              </div>
             )}
-          </button>
-        ) : null;
-      },
-      size: 40,
-    },
-    {
-      accessorKey: "ComicName",
-      header: "Series",
-      cell: ({ row }: CellContext<ImportGroup, unknown>) => (
-        <div>
-          <div className="font-medium">{row.original.ComicName}</div>
-          {row.original.Volume && (
-            <div className="text-sm text-muted-foreground">
-              Volume {row.original.Volume}
-            </div>
-          )}
-          {row.original.ComicYear && (
-            <div className="text-xs text-muted-foreground">
-              ({row.original.ComicYear})
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "FileCount",
-      header: "Files",
-      cell: ({ getValue }: CellContext<ImportGroup, unknown>) => (
-        <span className="font-mono text-sm">{getValue() as number}</span>
-      ),
-    },
-    {
-      accessorKey: "MatchConfidence",
-      header: "Confidence",
-      cell: ({ getValue }: CellContext<ImportGroup, unknown>) => (
-        <ConfidenceBadge confidence={getValue() as number | null} />
-      ),
-    },
-    {
-      accessorKey: "SuggestedComicName",
-      header: "Suggested Match",
-      cell: ({ row }: CellContext<ImportGroup, unknown>) => {
-        const suggestedName = row.original.SuggestedComicName;
-        const suggestedId = row.original.SuggestedComicID;
-
-        if (!suggestedName) {
-          return (
-            <span className="text-muted-foreground/70">No match found</span>
-          );
-        }
-
-        return (
-          <div className="flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{suggestedName}</span>
-            {suggestedId && (
-              <span className="text-xs text-muted-foreground">
-                (ID: {suggestedId})
-              </span>
+            {row.original.ComicYear && (
+              <div className="text-xs text-muted-foreground">
+                ({row.original.ComicYear})
+              </div>
             )}
           </div>
-        );
-      },
-    },
-    {
-      accessorKey: "Status",
-      header: "Status",
-      cell: ({ getValue }: CellContext<ImportGroup, unknown>) => (
-        <StatusBadge status={getValue() as string} />
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }: CellContext<ImportGroup, unknown>) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMatchClick?.(row.original);
-          }}
-        >
-          Match
-        </Button>
-      ),
-    },
-  ];
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("FileCount", {
+        header: "Files",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-sm">{getValue()}</span>
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("MatchConfidence", {
+        header: "Confidence",
+        cell: ({ getValue }) => (
+          <ConfidenceBadge confidence={getValue() ?? null} />
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("SuggestedComicName", {
+        header: "Suggested Match",
+        cell: ({ row }) => {
+          const suggestedName = row.original.SuggestedComicName;
+          const suggestedId = row.original.SuggestedComicID;
+
+          if (!suggestedName) {
+            return (
+              <span className="text-muted-foreground/70">No match found</span>
+            );
+          }
+
+          return (
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{suggestedName}</span>
+              {suggestedId && (
+                <span className="text-xs text-muted-foreground">
+                  (ID: {suggestedId})
+                </span>
+              )}
+            </div>
+          );
+        },
+        enableSorting: false,
+      }),
+      columnHelper.accessor("Status", {
+        header: "Status",
+        cell: ({ getValue }) => <StatusBadge status={getValue()} />,
+        enableSorting: false,
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMatchClick?.(row.original);
+            }}
+          >
+            Match
+          </Button>
+        ),
+      }),
+    ],
+    [onMatchClick],
+  );
 
   const table = useReactTable({
     data: imports,
     columns,
-    state: {
-      rowSelection,
-      expanded,
-    },
+    state: { rowSelection, expanded },
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
       setRowSelection(updater);
       if (onSelectionChange) {
         const newSelection =
           typeof updater === "function" ? updater(rowSelection) : updater;
-        // Get all impIDs from selected groups (all files within each group)
         const selectedIds: string[] = [];
         Object.keys(newSelection).forEach((index) => {
           const group = imports[parseInt(index)];
@@ -219,8 +217,8 @@ export default function ImportTable({
     getExpandedRowModel: getExpandedRowModel(),
     getRowId: (row) => `${row.DynamicName}-${row.Volume || "null"}`,
     enableRowSelection: true,
-    getRowCanExpand: (row: Row<ImportGroup>) =>
-      row.original.files && row.original.files.length > 0,
+    getRowCanExpand: (row) =>
+      !!(row.original.files && row.original.files.length > 0),
   });
 
   if (imports.length === 0) {
@@ -234,87 +232,35 @@ export default function ImportTable({
   }
 
   return (
-    <div className="rounded-lg border-card-border bg-card card-shadow overflow-hidden">
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="w-full">
-          <thead className="bg-muted/50 border-card-border backdrop-blur-sm border-b">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="bg-card divide-y divide-card-border">
-            {table.getRowModel().rows.map((row) => (
-              <>
-                <tr
-                  key={row.id}
-                  className="hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => row.toggleExpanded()}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </td>
+    <div>
+      <DataTable
+        table={table}
+        onRowClick={(row) => {
+          const tableRow = table
+            .getRowModel()
+            .rows.find((r) => r.original === row);
+          tableRow?.toggleExpanded();
+        }}
+        renderSubRow={(row, colSpan) =>
+          row.original.files ? (
+            <TableRow key={`${row.id}-expanded`}>
+              <TableCell colSpan={colSpan} className="p-0">
+                <div className="bg-muted/20">
+                  {row.original.files.map((file) => (
+                    <FileRow key={file.impID} file={file} />
                   ))}
-                </tr>
-                {row.getIsExpanded() && row.original.files && (
-                  <tr key={`${row.id}-expanded`}>
-                    <td colSpan={columns.length} className="p-0">
-                      <div className="bg-muted/20">
-                        {row.original.files.map((file) => (
-                          <FileRow key={file.impID} file={file} />
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {pagination && (
-        <div className="border-t border-card-border px-6 py-3 flex items-center justify-between bg-muted/50">
-          <div className="text-sm text-gray-600">
-            Showing {pagination.offset + 1} to{" "}
-            {Math.min(pagination.offset + pagination.limit, pagination.total)}{" "}
-            of {pagination.total} groups
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPrevPage}
-              disabled={pagination.offset === 0}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onNextPage}
-              disabled={!pagination.has_more}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : null
+        }
+      />
+      {pagination && onNextPage && onPrevPage && (
+        <DataTableServerPagination
+          pagination={pagination}
+          onNextPage={onNextPage}
+          onPrevPage={onPrevPage}
+        />
       )}
     </div>
   );
