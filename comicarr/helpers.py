@@ -4209,65 +4209,75 @@ def notify_ddl_stuck(item, age_minutes):
 
 
 def postprocess_main(queue):
+    import queue as queue_module
+
     while True:
+        try:
+            item = queue.get(timeout=5)
+        except queue_module.Empty:
+            continue
+
+        if item == "exit":
+            logger.info("Cleaning up workers for shutdown")
+            break
+
         if comicarr.APILOCK.locked():
-            time.sleep(5)
+            queue.put(item)  # re-enqueue
+            time.sleep(1)
+            continue
 
-        elif not comicarr.APILOCK.locked() and queue.qsize() >= 1:  # len(queue) > 1:
-            pp = None
-            item = queue.get(True)
-            logger.info("Now loading from post-processing queue: %s" % item)
-            if item == "exit":
-                logger.info("Cleaning up workers for shutdown")
-                break
+        pp = None
+        logger.info("Now loading from post-processing queue: %s" % item)
 
-            if not comicarr.APILOCK.locked():
-                try:
-                    pprocess = process.Process(
-                        item["nzb_name"],
-                        item["nzb_folder"],
-                        item["failed"],
-                        item["issueid"],
-                        item["comicid"],
-                        item["apicall"],
-                        item["ddl"],
-                        item["download_info"],
-                    )
-                except:
-                    pprocess = process.Process(
-                        item["nzb_name"],
-                        item["nzb_folder"],
-                        item["failed"],
-                        item["issueid"],
-                        item["comicid"],
-                        item["apicall"],
-                    )
-                pp = pprocess.post_process()
-                time.sleep(5)  # arbitrary sleep to let the process attempt to finish pp'ing
+        try:
+            pprocess = process.Process(
+                item["nzb_name"],
+                item["nzb_folder"],
+                item["failed"],
+                item["issueid"],
+                item["comicid"],
+                item["apicall"],
+                item["ddl"],
+                item["download_info"],
+            )
+        except Exception:
+            pprocess = process.Process(
+                item["nzb_name"],
+                item["nzb_folder"],
+                item["failed"],
+                item["issueid"],
+                item["comicid"],
+                item["apicall"],
+            )
+        pp = pprocess.post_process()
 
-            if pp is not None:
-                if pp["mode"] == "stop":
-                    # reset the lock so any subsequent items can pp and not keep the queue locked up.
-                    comicarr.APILOCK.release()
+        if pp is not None:
+            if pp["mode"] == "stop":
+                # reset the lock so any subsequent items can pp and not keep the queue locked up.
+                comicarr.APILOCK.release()
 
-            if comicarr.APILOCK.locked():
-                logger.info("Another item is post-processing still...")
-                time.sleep(15)
-                # comicarr.PP_QUEUE.put(item)
-        else:
-            time.sleep(5)
+        if comicarr.APILOCK.locked():
+            logger.info("Another item is post-processing still...")
+            time.sleep(15)
 
 
 def search_queue(queue):
-    while True:
-        if comicarr.SEARCHLOCK.locked():
-            time.sleep(5)
+    import queue as queue_module
 
-        elif not comicarr.SEARCHLOCK.locked() and queue.qsize() >= 1:  # len(queue) > 1:
-            item = queue.get(True)
-            if item == "exit":
-                logger.info("[SEARCH-QUEUE] Cleaning up workers for shutdown")
-                break
+    while True:
+        try:
+            item = queue.get(timeout=5)
+        except queue_module.Empty:
+            continue
+
+        if item == "exit":
+            logger.info("[SEARCH-QUEUE] Cleaning up workers for shutdown")
+            break
+
+        if comicarr.SEARCHLOCK.locked():
+            queue.put(item)  # re-enqueue
+            time.sleep(1)
+            continue
 
             gumbo_line = True
             # logger.fdebug('pack_issueids_dont_queue: %s' % comicarr.PACK_ISSUEIDS_DONT_QUEUE)
@@ -4327,42 +4337,42 @@ def search_queue(queue):
             if comicarr.SEARCHLOCK.locked():
                 logger.fdebug("[SEARCH-QUEUE] Another item is currently being searched....")
                 time.sleep(15)
-        else:
-            time.sleep(5)
 
 
 def worker_main(queue):
+    import queue as queue_module
+
     while True:
-        if queue.qsize() >= 1:
-            item = queue.get(True)
-            logger.info("Now loading from queue: %s" % item)
-            if item == "exit":
-                logger.info("Cleaning up workers for shutdown")
-                break
-            snstat = torrentinfo(torrent_hash=item["hash"], download=True)
-            if snstat["snatch_status"] == "IN PROGRESS":
-                logger.info("Still downloading in client....let us try again momentarily.")
-                time.sleep(30)
-                comicarr.SNATCHED_QUEUE.put(item)
-            elif any([snstat["snatch_status"] == "MONITOR FAIL", snstat["snatch_status"] == "MONITOR COMPLETE"]):
-                logger.info("File copied for post-processing - submitting as a direct pp.")
-                comicarr.PP_QUEUE.put(
-                    {
-                        "nzb_name": os.path.basename(snstat["copied_filepath"]),
-                        "nzb_folder": snstat[
-                            "copied_filepath"
-                        ],  # os.path.abspath(os.path.join(snstat['copied_filepath'], os.pardir)),
-                        "failed": False,
-                        "issueid": item["issueid"],
-                        "comicid": item["comicid"],
-                        "apicall": True,
-                        "ddl": False,
-                        "download_info": None,
-                    }
-                )
-                # threading.Thread(target=self.checkFolder, args=[os.path.abspath(os.path.join(snstat['copied_filepath'], os.pardir))]).start()
-        else:
-            time.sleep(15)
+        try:
+            item = queue.get(timeout=15)
+        except queue_module.Empty:
+            continue
+
+        logger.info("Now loading from queue: %s" % item)
+        if item == "exit":
+            logger.info("Cleaning up workers for shutdown")
+            break
+        snstat = torrentinfo(torrent_hash=item["hash"], download=True)
+        if snstat["snatch_status"] == "IN PROGRESS":
+            logger.info("Still downloading in client....let us try again momentarily.")
+            time.sleep(30)
+            comicarr.SNATCHED_QUEUE.put(item)
+        elif any([snstat["snatch_status"] == "MONITOR FAIL", snstat["snatch_status"] == "MONITOR COMPLETE"]):
+            logger.info("File copied for post-processing - submitting as a direct pp.")
+            comicarr.PP_QUEUE.put(
+                {
+                    "nzb_name": os.path.basename(snstat["copied_filepath"]),
+                    "nzb_folder": snstat[
+                        "copied_filepath"
+                    ],  # os.path.abspath(os.path.join(snstat['copied_filepath'], os.pardir)),
+                    "failed": False,
+                    "issueid": item["issueid"],
+                    "comicid": item["comicid"],
+                    "apicall": True,
+                    "ddl": False,
+                    "download_info": None,
+                }
+            )
 
 
 def nzb_monitor(queue):

@@ -454,3 +454,42 @@ def capture_logs(caplog):
 
     caplog.set_level(logging.DEBUG)
     return caplog
+
+
+# =============================================================================
+# FastAPI AppContext Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def test_context():
+    """
+    Create an AppContext instance with sensible test defaults.
+
+    Uses in-memory SQLite, no-op scheduler, and mock provider sessions.
+    Override fields by modifying the returned object.
+    """
+    from comicarr.app.core.context import AppContext
+
+    config = MagicMock()
+    config.API_KEY = "test_api_key_32chars_here_pad00"
+    config.ENABLE_HTTPS = False
+    config.HTTP_USERNAME = "testuser"
+    config.HTTP_PASSWORD = "testhash"
+    config.SECURE_DIR = str(Path(tempfile.gettempdir()) / "comicarr_test_secure")
+    config.DESTINATION_DIR = "/tmp/comics"
+    config.COMIC_DIR = "/tmp/comics"
+    config.OPDS_USERNAME = None
+    config.OPDS_PASSWORD = None
+
+    return AppContext(
+        prog_dir="/tmp/comicarr_test",
+        data_dir="/tmp/comicarr_test/data",
+        db_file=":memory:",
+        config=config,
+        scheduler=MagicMock(),
+        jwt_secret_key=b"test_secret_key_32_bytes_padding!",
+        jwt_generation=0,
+        sse_key="test_sse_key",
+        download_apikey="test_dl_key",
+    )

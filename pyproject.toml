@@ -7,12 +7,14 @@ requires-python = ">=3.10"
 
 dependencies = [
     "APScheduler>=3.6.3",
+    "a2wsgi>=1.7",
     "bcrypt>=5.0.0",
     "beautifulsoup4>=4.8.2",
     "cfscrape>=2.0.8",
     "cheroot>=8.2.1",
     "CherryPy>=18.5.0",
     "cryptography>=46.0.5",
+    "fastapi>=0.115.0",
     "feedparser>=5.2.1",
     "Mako>=1.1.0",
     "mokkari>=3.0.0",
@@ -21,16 +23,20 @@ dependencies = [
     "Pillow>=10.1",
     "portend>=2.6",
     "pycryptodome>=3.19.0",
+    "PyJWT>=2.8.0",
     "pystun>=0.1.0",
+    "python-multipart>=0.0.9",
     "pytz>=2019.3",
     "rarfile>=4.0",
     "requests[socks]>=2.22.0",
     "simplejson>=3.17.0",
     "SQLAlchemy>=2.0",
+    "sse-starlette>=3.0.0",
     "tenacity>=8.2.3",
     "tzlocal>=2.0.0",
     "urllib3<2",
     "user_agent2>=2021.12.11",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +44,7 @@ postgres = ["psycopg2-binary>=2.9"]
 mysql = ["mysqlclient>=2.1"]
 mysql-pure = ["PyMySQL>=1.0"]
 dev = [
+    "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",

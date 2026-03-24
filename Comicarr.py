@@ -591,7 +591,7 @@ def main():
         logger.info('[SETUP] Setup token: %s' % comicarr.SETUP_TOKEN)
         logger.info('[SETUP] Provide this token when setting up credentials via the web interface.')
 
-    # Try to start the server.
+    # Initialize CherryPy for the WSGI bridge (legacy routes)
     webstart.initialize(web_config)
 
     #check for version here after web server initialized so it doesn't try to repeatidly hit github
@@ -610,26 +610,30 @@ def main():
 
     signal.signal(signal.SIGTERM, handler_sigterm)
 
-    while True:
-        if not comicarr.SIGNAL:
-            try:
-                time.sleep(1)
-            except KeyboardInterrupt:
-                comicarr.GLOBAL_MESSAGES = {'status': 'success', 'event': 'shutdown', 'message': 'Now shutting down system.'}
-                time.sleep(1)
-                comicarr.SIGNAL = 'shutdown'
-        else:
-            logger.info('Received signal: ' + comicarr.SIGNAL)
-            if comicarr.SIGNAL == 'shutdown':
-                comicarr.GLOBAL_MESSAGES = {'status': 'success', 'event': 'shutdown', 'message': 'Now shutting down system.'}
-                time.sleep(2)
-                comicarr.shutdown()
-            elif comicarr.SIGNAL == 'restart':
-                comicarr.shutdown(restart=True)
-            else:
-                comicarr.shutdown(restart=True, update=True)
+    # Start FastAPI via uvicorn — replaces the CherryPy event loop
+    import uvicorn
 
-            comicarr.SIGNAL = None
+    ssl_kwargs = {}
+    if comicarr.CONFIG.ENABLE_HTTPS:
+        ssl_kwargs["ssl_certfile"] = comicarr.CONFIG.HTTPS_CERT
+        ssl_kwargs["ssl_keyfile"] = comicarr.CONFIG.HTTPS_KEY
+
+    uvicorn.run(
+        "comicarr.app.main:app",
+        host=comicarr.CONFIG.HTTP_HOST,
+        port=http_port,
+        log_level="info",
+        workers=1,  # Single worker — APScheduler is in-process
+        **ssl_kwargs,
+    )
+
+    # uvicorn.run() blocks until shutdown — handle post-shutdown cleanup
+    if comicarr.SIGNAL == 'restart':
+        comicarr.shutdown(restart=True)
+    elif comicarr.SIGNAL == 'update':
+        comicarr.shutdown(restart=True, update=True)
+    else:
+        comicarr.shutdown()
 
     return
 

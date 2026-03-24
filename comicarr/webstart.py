@@ -20,10 +20,8 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 
 import cherrypy
-import portend as portend
 
 import comicarr
 from comicarr import logger
@@ -147,9 +145,9 @@ def initialize(options):
         "tools.decode.on": True,
         "log.screen": options["cherrypy_logging"],
         "engine.autoreload.on": False,
-        "tools.setup_gate.on": True,
+        "tools.setup_gate.on": False,  # Handled by FastAPI SetupGateMiddleware
         "tools.samesite.on": True,
-        "tools.csrf.on": True,
+        "tools.csrf.on": False,  # Handled by FastAPI CSRFMiddleware
         "tools.response_headers.on": True,
         "tools.response_headers.headers": [
             ("X-Content-Type-Options", "nosniff"),
@@ -296,12 +294,7 @@ def initialize(options):
     # restroot.issue = restroot.comic.Issue()
     cherrypy.tree.mount(restroot, "/rest", config=rest_api)
 
-    try:
-        portend.Checker().assert_free(options["http_host"], options["http_port"])
-        cherrypy.server.start()
-    except Exception as e:
-        logger.error("[ERROR] %s" % e)
-        print("Failed to start on port: %i. Is something else running?" % (options["http_port"]))
-        sys.exit(1)
-
-    cherrypy.server.wait()
+    # CherryPy's WSGI app tree is now mounted. The HTTP server is NOT started
+    # here — uvicorn serves HTTP and bridges to CherryPy via a2wsgi.WSGIMiddleware.
+    # The cherrypy.tree WSGI app is used by FastAPI's lifespan to mount legacy routes.
+    logger.info("[WEBSTART] CherryPy WSGI app tree mounted (HTTP served by uvicorn)")
