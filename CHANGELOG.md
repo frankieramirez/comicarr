@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0](https://github.com/frankieramirez/comicarr/compare/v0.5.0...v0.6.0) (2026-03-24)
+
+
+### Features
+
+* Migrate all tables to DataTable component with OpenStatus data-table ([#62](https://github.com/frankieramirez/comicarr/issues/62)) ([f92ee50](https://github.com/frankieramirez/comicarr/commit/f92ee50f60e70f4f1591794d960462b5b26d8adb))
+
+
+### Bug Fixes
+
+* resolve weekly table KeyError and add version display to Settings ([#60](https://github.com/frankieramirez/comicarr/issues/60)) ([5662361](https://github.com/frankieramirez/comicarr/commit/5662361ac0f32aea98ed9c6660e7be1f92d0e9ca))
+
 ## [0.5.0](https://github.com/frankieramirez/comicarr/compare/v0.4.4...v0.5.0) (2026-03-24)
 
 
