@@ -227,8 +227,10 @@ def create_app():
         return JSONResponse(content={"status": "ok"})
 
     # Domain routers
+    from comicarr.app.metadata.router import router as metadata_router
     from comicarr.app.system.router import router as system_router
     app.include_router(system_router)
+    app.include_router(metadata_router)
 
     return app
 
