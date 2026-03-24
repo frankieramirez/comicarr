@@ -78,17 +78,17 @@ export default function UpcomingTable({
       id: "select",
       header: ({ table }: HeaderContext<UpcomingIssue, unknown>) => (
         <Checkbox
-          checked={table.getIsAllRowsSelected()}
-          indeterminate={
-            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          checked={
+            table.getIsAllRowsSelected() ||
+            (table.getIsSomeRowsSelected() && "indeterminate")
           }
-          onChange={table.getToggleAllRowsSelectedHandler()}
+          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
         />
       ),
       cell: ({ row }: CellContext<UpcomingIssue, unknown>) => (
         <Checkbox
           checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
           onClick={(e) => e.stopPropagation()}
         />
       ),

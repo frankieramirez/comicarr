@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -47,40 +48,42 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <Suspense fallback={null}>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Suspense fallback={null}>
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route
-                        path="/series/:comicId"
-                        element={<SeriesDetailPage />}
-                      />
-                      <Route path="/search" element={<SearchPage />} />
-                      <Route path="/upcoming" element={<UpcomingPage />} />
-                      <Route path="/wanted" element={<WantedPage />} />
-                      <Route path="/story-arcs" element={<StoryArcsPage />} />
-                      <Route
-                        path="/story-arcs/:storyArcId"
-                        element={<StoryArcDetailPage />}
-                      />
-                      <Route path="/import" element={<ImportPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                  </Suspense>
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Suspense>
+      <NuqsAdapter>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Suspense fallback={null}>
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route
+                          path="/series/:comicId"
+                          element={<SeriesDetailPage />}
+                        />
+                        <Route path="/search" element={<SearchPage />} />
+                        <Route path="/upcoming" element={<UpcomingPage />} />
+                        <Route path="/wanted" element={<WantedPage />} />
+                        <Route path="/story-arcs" element={<StoryArcsPage />} />
+                        <Route
+                          path="/story-arcs/:storyArcId"
+                          element={<StoryArcDetailPage />}
+                        />
+                        <Route path="/import" element={<ImportPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                      </Routes>
+                    </Suspense>
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </NuqsAdapter>
     </BrowserRouter>
   );
 }

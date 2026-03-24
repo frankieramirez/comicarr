@@ -68,17 +68,17 @@ export default function ImportTable({
       id: "select",
       header: ({ table }: HeaderContext<ImportGroup, unknown>) => (
         <Checkbox
-          checked={table.getIsAllRowsSelected()}
-          indeterminate={
-            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          checked={
+            table.getIsAllRowsSelected() ||
+            (table.getIsSomeRowsSelected() && "indeterminate")
           }
-          onChange={table.getToggleAllRowsSelectedHandler()}
+          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
         />
       ),
       cell: ({ row }: CellContext<ImportGroup, unknown>) => (
         <Checkbox
           checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
           onClick={(e) => e.stopPropagation()}
         />
       ),

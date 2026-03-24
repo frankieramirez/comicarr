@@ -48,7 +48,7 @@ export function SettingField({
           <Checkbox
             id={fieldId}
             checked={checked}
-            onChange={(e) => onChange(e.target.checked)}
+            onCheckedChange={(value) => onChange(!!value)}
             disabled={readOnly}
           />
           <Label

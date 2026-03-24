@@ -317,18 +317,19 @@ export default function IssuesTable({
         id: "select",
         header: ({ table }: HeaderContext<Issue, unknown>) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={
-              table.getIsSomePageRowsSelected() &&
-              !table.getIsAllPageRowsSelected()
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
             }
-            onChange={table.getToggleAllPageRowsSelectedHandler()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
           />
         ),
         cell: ({ row }: CellContext<Issue, unknown>) => (
           <Checkbox
             checked={row.getIsSelected()}
-            onChange={row.getToggleSelectedHandler()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
           />
         ),
         size: 40,

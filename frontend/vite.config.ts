@@ -17,7 +17,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-table': ['@tanstack/react-table'],
+          'vendor-table': ['@tanstack/react-table', 'nuqs', 'zod'],
         },
       },
     },
