@@ -857,9 +857,7 @@ class WebInterface(object):
         isCounts[6] = 0  # 6 failed
         isCounts[7] = 0  # 7 snatched
         # isCounts[8] = 0   #8 read
-        issues = db.raw_select_all(
-            "SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid]
-        )
+        issues = db.raw_select_all("SELECT Status FROM issues WHERE ComicID=? ORDER BY Int_IssueNumber DESC", [comicid])
         if comicarr.CONFIG.ANNUALS_ON:
             issues += db.raw_select_all(
                 "SELECT Status FROM annuals WHERE ComicID=? AND NOT DELETED ORDER BY Int_IssueNumber DESC", [comicid]
@@ -3583,9 +3581,7 @@ class WebInterface(object):
             if issue is None:
                 if comicarr.CONFIG.ANNUALS_ON:
                     if ReleaseComicID is None:
-                        issann = db.raw_select_one(
-                            "SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID]
-                        )
+                        issann = db.raw_select_one("SELECT * FROM annuals WHERE IssueID=? AND Deleted != 1", [IssueID])
                     else:
                         issann = db.raw_select_one(
                             "SELECT * FROM annuals WHERE IssueID=? AND ReleaseComicID=? AND Deleted != 1",
@@ -7165,9 +7161,7 @@ class WebInterface(object):
                 )
                 stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
-        watchlistchk = db.raw_select_all(
-            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID]
-        )
+        watchlistchk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID])
         if watchlistchk is not None:
             for watchchk in watchlistchk:
                 logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
@@ -7257,9 +7251,7 @@ class WebInterface(object):
     def ReadMassCopy(self, StoryArcID, StoryArcName):
         # this copies entire story arcs into the /cache/<storyarc> folder
         # alternatively, it will copy the issues individually directly to a 3rd party device (ie.tablet)
-        copylist = db.raw_select_all(
-            "SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID]
-        )
+        copylist = db.raw_select_all("SELECT * FROM readlist WHERE StoryArcID=? AND Status='Downloaded'", [StoryArcID])
         if copylist is None:
             logger.fdebug("You don't have any issues from " + StoryArcName + ". Aborting Mass Copy.")
             return

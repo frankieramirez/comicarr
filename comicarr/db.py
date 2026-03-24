@@ -220,7 +220,6 @@ def raw_execute(sql, args=None, executemany=False):
         return conn.execute(text(converted), params)
 
 
-
 # ---------------------------------------------------------------------------
 # Portable helpers
 # ---------------------------------------------------------------------------
