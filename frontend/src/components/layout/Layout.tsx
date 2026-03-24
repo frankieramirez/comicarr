@@ -17,7 +17,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Main content area */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-w-0">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {children}
           </div>

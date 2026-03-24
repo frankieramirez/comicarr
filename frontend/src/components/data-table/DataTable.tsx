@@ -30,7 +30,7 @@ export function DataTable<TData>({
   return (
     <div
       className={cn(
-        "rounded-lg border border-card-border bg-card card-shadow overflow-hidden",
+        "rounded-lg border border-card-border bg-card card-shadow overflow-hidden min-w-0",
         className,
       )}
     >
