@@ -4,6 +4,7 @@ import {
   useReactTable,
   getCoreRowModel,
   createColumnHelper,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import {
   ChevronUp,
@@ -13,9 +14,21 @@ import {
   Check,
   Loader2,
   ImageOff,
+  ExternalLink,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { DataTable } from "@/components/data-table/DataTable";
 import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
@@ -51,6 +64,84 @@ function CoverThumbnail({ comic }: { comic: SearchResult }) {
         onError={() => setImageError(true)}
       />
     </div>
+  );
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  comicvine: "CV",
+  metron: "Metron",
+  mangadex: "MangaDex",
+};
+
+function stripHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
+}
+
+function getDescription(comic: SearchResult): string | null {
+  if (comic.deck && comic.deck !== "None") return comic.deck;
+  if (comic.description) return stripHtml(comic.description);
+  return null;
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max).trimEnd() + "\u2026";
+}
+
+// Column visibility toggle for search results
+function SearchColumnVisibility({
+  columnVisibility,
+  onToggle,
+  isManga,
+}: {
+  columnVisibility: VisibilityState;
+  onToggle: (columnId: string) => void;
+  isManga: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggleableColumns = [
+    { id: "publisher", label: isManga ? "Author" : "Publisher" },
+    { id: "seriesStatus", label: "Status" },
+    { id: "contentRating", label: "Content Rating" },
+  ];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="icon" className="shadow-none">
+          <Settings2 className="h-4 w-4" />
+          <span className="sr-only">Toggle columns</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-[180px] p-2">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+            Toggle columns
+          </p>
+          {toggleableColumns.map((col) => (
+            <button
+              key={col.id}
+              onClick={() => onToggle(col.id)}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <div
+                className={`flex h-4 w-4 items-center justify-center rounded-sm border ${
+                  columnVisibility[col.id] !== false
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "opacity-50"
+                }`}
+              >
+                {columnVisibility[col.id] !== false && (
+                  <Check className="h-3 w-3" />
+                )}
+              </div>
+              <span>{col.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -275,6 +366,20 @@ export default function SearchResultsTable({
 }: SearchResultsTableProps) {
   const isManga = contentType === "manga";
   const issuesLabel = isManga ? "Chapters" : "Issues";
+  const publisherLabel = isManga ? "Author" : "Publisher";
+
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    publisher: true,
+    seriesStatus: false,
+    contentRating: false,
+  });
+
+  const handleToggleColumn = (columnId: string) => {
+    setColumnVisibility((prev) => ({
+      ...prev,
+      [columnId]: prev[columnId] === false,
+    }));
+  };
 
   const columns = useMemo(
     () => [
@@ -282,11 +387,13 @@ export default function SearchResultsTable({
         id: "cover",
         header: "",
         enableSorting: false,
+        enableHiding: false,
         size: 50,
         cell: ({ row }) => <CoverThumbnail comic={row.original} />,
       }),
       columnHelper.accessor("name", {
         id: "series",
+        enableHiding: false,
         header: () => (
           <ServerSortHeader
             columnId="series"
@@ -295,19 +402,83 @@ export default function SearchResultsTable({
             onSortChange={onSortChange}
           />
         ),
-        cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.name}</div>
-            {row.original.comicyear && (
-              <div className="text-sm text-muted-foreground">
-                {row.original.comicyear}
+        cell: ({ row }) => {
+          const comic = row.original;
+          const description = getDescription(comic);
+          const sourceLabel =
+            SOURCE_LABELS[comic.metadata_source ?? ""] ?? null;
+
+          const nameContent = (
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium truncate">{comic.name}</span>
+                {sourceLabel && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 font-normal shrink-0"
+                  >
+                    {sourceLabel}
+                  </Badge>
+                )}
+                {comic.url && (
+                  <a
+                    href={comic.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
-            )}
-          </div>
-        ),
+              {comic.comicyear && (
+                <div className="text-sm text-muted-foreground">
+                  {comic.comicyear}
+                </div>
+              )}
+              {description && (
+                <div className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[300px]">
+                  {truncate(description, 120)}
+                </div>
+              )}
+            </div>
+          );
+
+          if (description && description.length > 120) {
+            return (
+              <HoverCard openDelay={300}>
+                <HoverCardTrigger asChild>{nameContent}</HoverCardTrigger>
+                <HoverCardContent
+                  side="right"
+                  align="start"
+                  className="w-80 text-sm"
+                >
+                  <p className="font-medium mb-1">{comic.name}</p>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {description}
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
+            );
+          }
+
+          return nameContent;
+        },
+      }),
+      columnHelper.accessor("publisher", {
+        id: "publisher",
+        meta: { label: publisherLabel },
+        header: publisherLabel,
+        cell: ({ row }) => {
+          const pub = row.original.publisher;
+          if (!pub || pub === "Unknown") return <span>{"\u2014"}</span>;
+          return <span className="text-sm">{pub}</span>;
+        },
       }),
       columnHelper.accessor("comicyear", {
         id: "year",
+        meta: { label: "Year" },
         header: () => (
           <ServerSortHeader
             columnId="year"
@@ -320,6 +491,7 @@ export default function SearchResultsTable({
       }),
       columnHelper.accessor("issues", {
         id: "issues",
+        meta: { label: issuesLabel },
         header: () => (
           <ServerSortHeader
             columnId="issues"
@@ -333,10 +505,31 @@ export default function SearchResultsTable({
           return <span>{issues !== undefined ? issues : "\u2014"}</span>;
         },
       }),
-      columnHelper.display({
-        id: "status",
+      columnHelper.accessor("status", {
+        id: "seriesStatus",
+        meta: { label: "Status" },
         header: "Status",
+        cell: ({ getValue }) => {
+          const status = getValue();
+          if (!status) return <span>{"\u2014"}</span>;
+          return <span className="text-sm capitalize">{status}</span>;
+        },
+      }),
+      columnHelper.accessor("content_rating", {
+        id: "contentRating",
+        meta: { label: "Content Rating" },
+        header: "Rating",
+        cell: ({ getValue }) => {
+          const rating = getValue();
+          if (!rating) return <span>{"\u2014"}</span>;
+          return <span className="text-sm capitalize">{rating}</span>;
+        },
+      }),
+      columnHelper.display({
+        id: "inLibrary",
+        header: "Library",
         enableSorting: false,
+        enableHiding: false,
         cell: ({ row }) =>
           row.original.in_library ? (
             <Badge variant="default">In Library</Badge>
@@ -346,6 +539,7 @@ export default function SearchResultsTable({
         id: "actions",
         header: "",
         enableSorting: false,
+        enableHiding: false,
         cell: ({ row }) => (
           <div className="text-right">
             <ActionCell comic={row.original} contentType={contentType} />
@@ -353,7 +547,7 @@ export default function SearchResultsTable({
         ),
       }),
     ],
-    [contentType, issuesLabel, currentSort, onSortChange],
+    [contentType, issuesLabel, publisherLabel, currentSort, onSortChange],
   );
 
   const table = useReactTable({
@@ -361,7 +555,22 @@ export default function SearchResultsTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
+    state: {
+      columnVisibility,
+    },
+    onColumnVisibilityChange: setColumnVisibility,
   });
 
-  return <DataTable table={table} />;
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <SearchColumnVisibility
+          columnVisibility={columnVisibility}
+          onToggle={handleToggleColumn}
+          isManga={isManga}
+        />
+      </div>
+      <DataTable table={table} />
+    </div>
+  );
 }
