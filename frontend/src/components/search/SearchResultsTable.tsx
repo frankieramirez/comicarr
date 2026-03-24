@@ -108,8 +108,10 @@ function ActionCell({
   // Listen for SSE events when a comic is being added
   useEffect(() => {
     if (!isProcessing || !comicIdRef.current) return;
+    let cancelled = false;
 
     const handleAddById = (event: CustomEvent<string>) => {
+      if (cancelled) return;
       try {
         const data: AddByIdEventDetail = JSON.parse(event.detail);
 
@@ -141,6 +143,7 @@ function ActionCell({
     window.addEventListener("comic-added", handleAddById as EventListener);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("comic-added", handleAddById as EventListener);
     };
   }, [isProcessing, navigate, addToast]);

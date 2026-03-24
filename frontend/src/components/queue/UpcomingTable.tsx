@@ -16,16 +16,23 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
 import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
+import { useAuth } from "@/contexts/AuthContext";
 import type { UpcomingIssue } from "@/types";
 
-function CoverCell({ comicId }: { comicId: string | undefined }) {
+function CoverCell({
+  comicId,
+  apiKey,
+}: {
+  comicId: string | undefined;
+  apiKey: string | null;
+}) {
   const [imageError, setImageError] = useState(false);
 
   return (
     <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-      {!imageError && comicId ? (
+      {!imageError && comicId && apiKey ? (
         <img
-          src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
+          src={`/api?apikey=${apiKey}&cmd=getComic&id=${comicId}`}
           alt=""
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}
@@ -48,6 +55,7 @@ export default function UpcomingTable({
   issues = [],
   onSelectionChange,
 }: UpcomingTableProps) {
+  const { apiKey } = useAuth();
   const [sorting, setSorting] = useState<SortingState>([
     { id: "IssueDate", desc: false },
   ]);
@@ -90,7 +98,7 @@ export default function UpcomingTable({
       accessorKey: "cover",
       header: "",
       cell: ({ row }: CellContext<UpcomingIssue, unknown>) => (
-        <CoverCell comicId={row.original.ComicID} />
+        <CoverCell comicId={row.original.ComicID} apiKey={apiKey} />
       ),
       size: 60,
     },

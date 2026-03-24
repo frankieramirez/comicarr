@@ -18,16 +18,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useUnqueueIssue } from "@/hooks/useSeries";
+import { useAuth } from "@/contexts/AuthContext";
 import type { WantedIssue, PaginationMeta } from "@/types";
 
-function CoverCell({ comicId }: { comicId: string | undefined }) {
+function CoverCell({
+  comicId,
+  apiKey,
+}: {
+  comicId: string | undefined;
+  apiKey: string | null;
+}) {
   const [imageError, setImageError] = useState(false);
 
   return (
     <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-      {!imageError && comicId ? (
+      {!imageError && comicId && apiKey ? (
         <img
-          src={`/api?apikey=${localStorage.getItem("apiKey")}&cmd=getComic&id=${comicId}`}
+          src={`/api?apikey=${apiKey}&cmd=getComic&id=${comicId}`}
           alt=""
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}
@@ -57,6 +64,7 @@ export default function WantedTable({
   onSelectionChange,
 }: WantedTableProps) {
   const navigate = useNavigate();
+  const { apiKey } = useAuth();
   const [sorting, setSorting] = useState<SortingState>([
     { id: "DateAdded", desc: true },
   ]);
@@ -97,7 +105,7 @@ export default function WantedTable({
       accessorKey: "cover",
       header: "",
       cell: ({ row }: CellContext<WantedIssue, unknown>) => (
-        <CoverCell comicId={row.original.ComicID} />
+        <CoverCell comicId={row.original.ComicID} apiKey={apiKey} />
       ),
       size: 60,
     },

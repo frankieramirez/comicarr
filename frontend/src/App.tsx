@@ -1,23 +1,25 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
-import LoginPage from "@/pages/LoginPage";
-import HomePage from "@/pages/HomePage";
-import SeriesDetailPage from "@/pages/SeriesDetailPage";
-import SearchPage from "@/pages/SearchPage";
-import UpcomingPage from "@/pages/UpcomingPage";
-import WantedPage from "@/pages/WantedPage";
-import SettingsPage from "@/pages/SettingsPage";
-import StoryArcsPage from "@/pages/StoryArcsPage";
-import StoryArcDetailPage from "@/pages/StoryArcDetailPage";
-import ImportPage from "@/pages/ImportPage";
 import { ToastProvider } from "@/components/ui/toast";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useServerEvents } from "@/hooks/useServerEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const HomePage = lazy(() => import("@/pages/HomePage"));
+const SeriesDetailPage = lazy(() => import("@/pages/SeriesDetailPage"));
+const SearchPage = lazy(() => import("@/pages/SearchPage"));
+const UpcomingPage = lazy(() => import("@/pages/UpcomingPage"));
+const WantedPage = lazy(() => import("@/pages/WantedPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const StoryArcsPage = lazy(() => import("@/pages/StoryArcsPage"));
+const StoryArcDetailPage = lazy(() => import("@/pages/StoryArcDetailPage"));
+const ImportPage = lazy(() => import("@/pages/ImportPage"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -45,36 +47,40 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route
-                    path="/series/:comicId"
-                    element={<SeriesDetailPage />}
-                  />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/upcoming" element={<UpcomingPage />} />
-                  <Route path="/wanted" element={<WantedPage />} />
-                  <Route path="/story-arcs" element={<StoryArcsPage />} />
-                  <Route
-                    path="/story-arcs/:storyArcId"
-                    element={<StoryArcDetailPage />}
-                  />
-                  <Route path="/import" element={<ImportPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Suspense fallback={null}>
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route
+                        path="/series/:comicId"
+                        element={<SeriesDetailPage />}
+                      />
+                      <Route path="/search" element={<SearchPage />} />
+                      <Route path="/upcoming" element={<UpcomingPage />} />
+                      <Route path="/wanted" element={<WantedPage />} />
+                      <Route path="/story-arcs" element={<StoryArcsPage />} />
+                      <Route
+                        path="/story-arcs/:storyArcId"
+                        element={<StoryArcDetailPage />}
+                      />
+                      <Route path="/import" element={<ImportPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </Suspense>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
