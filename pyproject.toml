@@ -1,6 +1,6 @@
 [project]
 name = "comicarr"
-version = "0.4.4"
+version = "0.5.0"
 description = "Automated Comic Book Manager"
 readme = "README.md"
 requires-python = ">=3.10"

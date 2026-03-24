@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0](https://github.com/frankieramirez/comicarr/compare/v0.4.4...v0.5.0) (2026-03-24)
+
+
+### Features
+
+* Build complete Story Arcs frontend and fix backend gaps ([#58](https://github.com/frankieramirez/comicarr/issues/58)) ([6868e74](https://github.com/frankieramirez/comicarr/commit/6868e74b705019697df91c236c0e057850bae90c))
+
 ## [0.4.4](https://github.com/frankieramirez/comicarr/compare/v0.4.3...v0.4.4) (2026-03-24)
 
 
