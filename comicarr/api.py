@@ -1867,18 +1867,20 @@ class Api(object):
                 else:
                     span_years = "%s - %s" % (min_year, max_year)
 
-                arclist.append({
-                    "StoryArcID": row["StoryArcID"],
-                    "StoryArc": row["StoryArc"],
-                    "TotalIssues": total,
-                    "Have": have,
-                    "Total": total,
-                    "percent": percent,
-                    "SpanYears": span_years,
-                    "CV_ArcID": row["CV_ArcID"],
-                    "Publisher": row["Publisher"],
-                    "ArcImage": row["ArcImage"],
-                })
+                arclist.append(
+                    {
+                        "StoryArcID": row["StoryArcID"],
+                        "StoryArc": row["StoryArc"],
+                        "TotalIssues": total,
+                        "Have": have,
+                        "Total": total,
+                        "percent": percent,
+                        "SpanYears": span_years,
+                        "CV_ArcID": row["CV_ArcID"],
+                        "Publisher": row["Publisher"],
+                        "ArcImage": row["ArcImage"],
+                    }
+                )
             self.data = arclist
         else:
             # Detail mode — single arc with all issues
@@ -2025,8 +2027,7 @@ class Api(object):
         )
         # Count how many were actually updated
         queued_rows = db.raw_select_all(
-            "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
-            "AND Status = 'Wanted'",
+            "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status = 'Wanted'",
             [arc_id],
         )
         total_wanted = queued_rows[0]["count"] if queued_rows else 0
