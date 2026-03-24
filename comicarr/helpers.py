@@ -44,7 +44,7 @@ import rarfile
 import requests
 import sqlalchemy
 from PIL import Image
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import Integer, case, cast, delete, func, select, text, update
 
 import comicarr
 from comicarr import db, getcomics, getimage, nzbget, process, sabnzbd
@@ -3416,25 +3416,34 @@ def updatearc_locs(storyarcid, arc_issues):
 
 
 def spantheyears(storyarcid):
-    totalcnt = db.select_all(select(storyarcs).where(storyarcs.c.StoryArcID == storyarcid))
-    lowyear = 9999
-    maxyear = 0
-    for la in totalcnt:
-        if la["IssueDate"] is None or la["IssueDate"] == "0000-00-00":
-            continue
-        else:
-            if int(la["IssueDate"][:4]) > maxyear:
-                maxyear = int(la["IssueDate"][:4])
-            if int(la["IssueDate"][:4]) < lowyear:
-                lowyear = int(la["IssueDate"][:4])
+    year_expr = case(
+        (
+            (storyarcs.c.IssueDate.isnot(None)) & (storyarcs.c.IssueDate != "0000-00-00"),
+            cast(func.substr(storyarcs.c.IssueDate, 1, 4), Integer),
+        ),
+    )
+    stmt = (
+        select(
+            func.min(year_expr).label("min_year"),
+            func.max(year_expr).label("max_year"),
+            func.min(storyarcs.c.SeriesYear).label("fallback_year"),
+        )
+        .where(storyarcs.c.StoryArcID == storyarcid)
+        .where(storyarcs.c.Manual != "deleted")
+    )
+    row = db.select_one(stmt)
+    if row is None:
+        return None
 
-    if maxyear == 0:
-        spanyears = la["SeriesYear"]
-    elif lowyear == maxyear:
-        spanyears = str(maxyear)
+    min_year = row["min_year"]
+    max_year = row["max_year"]
+
+    if min_year is None or max_year is None:
+        return row["fallback_year"]
+    elif min_year == max_year:
+        return str(max_year)
     else:
-        spanyears = str(lowyear) + " - " + str(maxyear)  # la['SeriesYear'] + ' - ' + str(maxyear)
-    return spanyears
+        return "%s - %s" % (min_year, max_year)
 
 
 def arcformat(arc, spanyears, publisher):
