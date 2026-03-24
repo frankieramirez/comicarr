@@ -49,7 +49,7 @@ export function useServerEvents(
         eventSourceRef.current.close();
       }
 
-      const apiUrl = `/api?cmd=checkGlobalMessages&apikey=${sseKey}`;
+      const apiUrl = `/api/events/stream`;
       console.log("[SSE] Connecting to:", apiUrl);
 
       const evtSource = new EventSource(apiUrl);
@@ -62,7 +62,7 @@ export function useServerEvents(
 
         // Only verify session on reconnect, not initial connection
         if (hasConnectedRef.current) {
-          fetch("/auth/check_session")
+          fetch("/api/auth/check-session")
             .then((r) => r.json())
             .then((data) => {
               if (!data.authenticated) {

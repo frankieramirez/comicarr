@@ -226,6 +226,10 @@ def create_app():
     async def health_check():
         return JSONResponse(content={"status": "ok"})
 
+    # Domain routers
+    from comicarr.app.system.router import router as system_router
+    app.include_router(system_router)
+
     return app
 
 
