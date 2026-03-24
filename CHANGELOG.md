@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0](https://github.com/frankieramirez/comicarr/compare/v0.6.0...v0.7.0) (2026-03-24)
+
+
+### Features
+
+* Add content source toggles for comic-only or manga-only experience ([#63](https://github.com/frankieramirez/comicarr/issues/63)) ([d214139](https://github.com/frankieramirez/comicarr/commit/d2141394ea41689270aa8696a59a399a1f859320))
+
 ## [0.6.0](https://github.com/frankieramirez/comicarr/compare/v0.5.0...v0.6.0) (2026-03-24)
 
 
