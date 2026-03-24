@@ -2667,7 +2667,15 @@ class Api(object):
             5: "qBittorrent",
         }
 
+        try:
+            import importlib.metadata
+            version = importlib.metadata.version("comicarr")
+        except Exception:
+            version = "dev"
+
         config_data = {
+            # Version
+            "version": version,
             # General (read-only paths)
             "comic_dir": comicarr.CONFIG.COMIC_DIR,
             "destination_dir": comicarr.CONFIG.DESTINATION_DIR,

@@ -141,6 +141,11 @@ export default function SettingsPage() {
         <div className="flex items-center space-x-3 mb-2">
           <Settings className="h-6 w-6 text-muted-foreground" />
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          {config?.version && (
+            <span className="text-sm text-muted-foreground font-normal">
+              v{config.version}
+            </span>
+          )}
         </div>
         <p className="text-muted-foreground">
           Configure Comicarr preferences and integrations

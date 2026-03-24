@@ -3680,7 +3680,7 @@ class WebInterface(object):
     def pullSearch(self, week, year):
         # retrieve a list of all the issues that are in a Wanted state from the pull that we can search for.
         ps = db.raw_select_all(
-            "SELECT * from weekly WHERE Status='Wanted' AND weeknumber=? AND year=?", [int(week), year]
+            "SELECT IssueID FROM weekly WHERE STATUS='Wanted' AND weeknumber=? AND year=?", [int(week), year]
         )
         if ps is None:
             logger.info("No items are marked as Wanted on the pullist to be searched for at this time")
@@ -3739,7 +3739,9 @@ class WebInterface(object):
         popit = [True] if sa_inspect(db.get_engine()).has_table("weekly") else []
         if popit:
             w_results = db.raw_select_all(
-                "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weekinfo["weeknumber"]), weekinfo["year"]]
+                """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
+                       SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
+                FROM weekly WHERE weeknumber=? AND year=?""", [int(weekinfo["weeknumber"]), weekinfo["year"]]
             )
             if len(w_results) == 0:
                 logger.info(
@@ -3748,7 +3750,9 @@ class WebInterface(object):
                 repoll = self.pullrecreate(weeknumber=weekinfo["weeknumber"], year=weekinfo["year"])
                 if repoll["status"] == "success":
                     w_results = db.raw_select_all(
-                        "SELECT * from weekly WHERE weeknumber=? AND year=?",
+                        """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
+                       SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
+                FROM weekly WHERE weeknumber=? AND year=?""",
                         [int(weekinfo["weeknumber"]), weekinfo["year"]],
                     )
                 else:
@@ -3765,7 +3769,9 @@ class WebInterface(object):
                         repoll = self.manualpull()
                         if repoll["status"] == "success":
                             w_results = db.raw_select_all(
-                                "SELECT * from weekly WHERE weeknumber=? AND year=?",
+                                """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
+                       SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
+                FROM weekly WHERE weeknumber=? AND year=?""",
                                 [int(weekinfo["weeknumber"]), weekinfo["year"]],
                             )
                         else:
@@ -4035,10 +4041,11 @@ class WebInterface(object):
         logger.info("weeknumber: %s" % weeknumber)
         upcomingdata = db.raw_select_all(
             """
-            SELECT weeknumber, year, Status, IssueID, ComicID, Comic, Issue,
-                   ShipDate, DynamicName
+            SELECT weeknumber, year, STATUS AS "Status", IssueID, ComicID,
+                   COMIC AS "Comic", ISSUE AS "Issue", SHIPDATE AS "ShipDate",
+                   DynamicName
             FROM weekly
-            WHERE Issue IS NOT NULL AND Comic IS NOT NULL
+            WHERE ISSUE IS NOT NULL AND COMIC IS NOT NULL
               AND CAST(weeknumber as numeric) >= ?
               AND CAST(year as numeric) >= ?
             ORDER BY weeknumber DESC
@@ -4172,7 +4179,19 @@ class WebInterface(object):
                 )
 
         mism = db.raw_select_all(
-            "SELECT c.Type as BookType, c.ComicYear, c.ComicVersion, a.IssueDate, a.ReleaseDate, b.* FROM Comics as c LEFT JOIN Issues as a ON a.Comicid=c.ComicID INNER JOIN Weekly as b ON a.IssueID=b.IssueID WHERE b.Status='Mismatched' OR b.Status='Incomplete'"
+            """
+            SELECT c.Type AS "BookType", c.ComicYear, c.ComicVersion,
+                   a.IssueDate, a.ReleaseDate,
+                   b.STATUS AS "Status", b.COMIC AS "Comic", b.ISSUE AS "Issue",
+                   b.SHIPDATE AS "ShipDate", b.ComicID, b.IssueID,
+                   b.weeknumber, b.year, b.DynamicName,
+                   b.volume AS "Volume", b.seriesyear AS "SeriesYear",
+                   b.format AS "Format"
+            FROM Comics AS c
+            LEFT JOIN Issues AS a ON a.ComicID = c.ComicID
+            INNER JOIN Weekly AS b ON a.IssueID = b.IssueID
+            WHERE b.STATUS = 'Mismatched' OR b.STATUS = 'Incomplete'
+        """
         )
         mismatched = []
         for mm in mism:
@@ -4180,8 +4199,8 @@ class WebInterface(object):
             if mm["Status"] == "Mismatched":
                 if mm["ShipDate"] != mm["IssueDate"]:
                     mismatch_type = "Incorrect Dates (%s - %s)" % (mm["IssueDate"], mm["ShipDate"])
-                elif mm["Booktype"] != mm["Format"]:
-                    if all([mm["Booktype"] is not None, mm["Format"] is not None]):
+                elif mm["BookType"] != mm["Format"]:
+                    if all([mm["BookType"] is not None, mm["Format"] is not None]):
                         mismatch_type = "Incorrect BookTypes (%s - %s)" % (mm["BookType"], mm["Format"])
                 if mismatch_type is None:
                     if mm["ComicYear"] != mm["SeriesYear"]:
@@ -10887,7 +10906,9 @@ class WebInterface(object):
         weeklyresults = []
         if weeknumber is not None:
             w_results = db.raw_select_all(
-                "SELECT * from weekly WHERE weeknumber=? AND year=?", [int(weeknumber), int(year)]
+                """SELECT STATUS AS "Status", ComicID, IssueID, COMIC, ISSUE, PUBLISHER,
+                       SHIPDATE, DynamicName, weeknumber, year, volume, seriesyear, format
+                FROM weekly WHERE weeknumber=? AND year=?""", [int(weeknumber), int(year)]
             )
             watchlibrary = helpers.listLibrary()
             issueLibrary = helpers.listIssues(weeknumber, year)
@@ -11381,11 +11402,11 @@ class WebInterface(object):
     def weekly_publisherlisting(self, weeknumber, year):
         comiclist = []
         thelist = db.raw_select_all(
-            "SELECT Publisher FROM weekly WHERE weeknumber=? AND year=? GROUP BY Publisher ORDER BY Publisher ASC",
+            'SELECT PUBLISHER AS "Publisher" FROM weekly WHERE weeknumber=? AND year=? GROUP BY PUBLISHER ORDER BY PUBLISHER ASC',
             [weeknumber, year],
         )
         for ts in thelist:
-            comiclist.append({"name": ts["publisher"]})
+            comiclist.append({"name": ts["Publisher"]})
         return json.dumps(comiclist)
 
     weekly_publisherlisting.exposed = True

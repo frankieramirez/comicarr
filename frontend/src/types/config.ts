@@ -4,6 +4,9 @@
 
 /** Main configuration object (partial - add fields as needed) */
 export interface Config {
+  // Version
+  version?: string;
+
   // General
   comic_dir?: string;
   log_dir?: string;
