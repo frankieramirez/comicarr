@@ -36,7 +36,7 @@ from operator import itemgetter
 import cherrypy
 from cherrypy.lib.static import serve_download, serve_file
 from PIL import Image
-from sqlalchemy import delete, func, select
+from sqlalchemy import Integer, case, cast, delete, func, select
 
 import comicarr
 from comicarr import (
@@ -138,6 +138,11 @@ cmd_list = [
     "getReadList",
     "getStoryArc",
     "addStoryArc",
+    "delStoryArc",
+    "delArcIssue",
+    "setArcIssueStatus",
+    "wantAllArcIssues",
+    "refreshStoryArc",
     "listAnnualSeries",
     "getConfig",
     "setConfig",
@@ -1805,48 +1810,253 @@ class Api(object):
             self.data = self._failureResponse("NZBname does not exist within the cache directory. Unable to retrieve.")
             return
 
+    # --- Input validation patterns for story arc commands ---
+    _ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+    _ALLOWED_ARC_STATUSES = {"Wanted", "Read", "Skipped"}
+
     def _getStoryArc(self, **kwargs):
         if "id" not in kwargs:
-            if "customOnly" in kwargs and kwargs["customOnly"]:
-                stmt = (
-                    select(
-                        t_storyarcs.c.StoryArcID,
-                        t_storyarcs.c.StoryArc,
-                        func.max(t_storyarcs.c.ReadingOrder).label("HighestOrder"),
-                    )
-                    .where(t_storyarcs.c.StoryArcID.like("C%"))
-                    .group_by(t_storyarcs.c.StoryArcID)
-                    .order_by(t_storyarcs.c.StoryArc)
-                )
-            else:
-                stmt = (
-                    select(
-                        t_storyarcs.c.StoryArcID,
-                        t_storyarcs.c.StoryArc,
-                        func.max(t_storyarcs.c.ReadingOrder).label("HighestOrder"),
-                    )
-                    .group_by(t_storyarcs.c.StoryArcID)
-                    .order_by(t_storyarcs.c.StoryArc)
-                )
-            self.data = self._resultsFromQuery(stmt)
-        else:
-            self.id = kwargs["id"]
+            # List mode — single aggregate query (replaces 4N+1 pattern)
+            year_expr = case(
+                (
+                    (t_storyarcs.c.IssueDate.isnot(None)) & (t_storyarcs.c.IssueDate != "0000-00-00"),
+                    cast(func.substr(t_storyarcs.c.IssueDate, 1, 4), Integer),
+                ),
+            )
             stmt = (
                 select(
+                    t_storyarcs.c.StoryArcID,
                     t_storyarcs.c.StoryArc,
+                    t_storyarcs.c.CV_ArcID,
+                    func.max(t_storyarcs.c.Publisher).label("Publisher"),
+                    func.max(t_storyarcs.c.ArcImage).label("ArcImage"),
+                    func.count().label("Total"),
+                    func.sum(
+                        case(
+                            (t_storyarcs.c.Status.in_(["Downloaded", "Archived"]), 1),
+                            else_=0,
+                        )
+                    ).label("Have"),
+                    func.min(year_expr).label("min_year"),
+                    func.max(year_expr).label("max_year"),
+                )
+                .where(t_storyarcs.c.ComicName.isnot(None))
+                .where(t_storyarcs.c.Manual != "deleted")
+                .group_by(t_storyarcs.c.StoryArcID)
+                .order_by(t_storyarcs.c.StoryArc)
+            )
+            if "customOnly" in kwargs and kwargs["customOnly"]:
+                stmt = stmt.where(t_storyarcs.c.StoryArcID.like("C%"))
+
+            rows = db.select_all(stmt)
+            arclist = []
+            for row in rows:
+                total = row["Total"] or 0
+                have = row["Have"] or 0
+                try:
+                    percent = round((have * 100.0) / total, 1) if total > 0 else 0
+                except (ZeroDivisionError, TypeError):
+                    percent = 0
+
+                min_year = row["min_year"]
+                max_year = row["max_year"]
+                if min_year is None or max_year is None:
+                    span_years = None
+                elif min_year == max_year:
+                    span_years = str(max_year)
+                else:
+                    span_years = "%s - %s" % (min_year, max_year)
+
+                arclist.append({
+                    "StoryArcID": row["StoryArcID"],
+                    "StoryArc": row["StoryArc"],
+                    "TotalIssues": total,
+                    "Have": have,
+                    "Total": total,
+                    "percent": percent,
+                    "SpanYears": span_years,
+                    "CV_ArcID": row["CV_ArcID"],
+                    "Publisher": row["Publisher"],
+                    "ArcImage": row["ArcImage"],
+                })
+            self.data = arclist
+        else:
+            # Detail mode — single arc with all issues
+            self.id = kwargs["id"]
+            if not self._ID_PATTERN.match(str(self.id)):
+                self.data = self._failureResponse("Invalid StoryArcID")
+                return
+
+            # Get arc-level stats
+            year_expr = case(
+                (
+                    (t_storyarcs.c.IssueDate.isnot(None)) & (t_storyarcs.c.IssueDate != "0000-00-00"),
+                    cast(func.substr(t_storyarcs.c.IssueDate, 1, 4), Integer),
+                ),
+            )
+            stats_stmt = (
+                select(
+                    t_storyarcs.c.StoryArcID,
+                    func.max(t_storyarcs.c.StoryArc).label("StoryArc"),
+                    func.max(t_storyarcs.c.CV_ArcID).label("CV_ArcID"),
+                    func.max(t_storyarcs.c.Publisher).label("Publisher"),
+                    func.max(t_storyarcs.c.ArcImage).label("ArcImage"),
+                    func.count().label("Total"),
+                    func.sum(
+                        case(
+                            (t_storyarcs.c.Status.in_(["Downloaded", "Archived"]), 1),
+                            else_=0,
+                        )
+                    ).label("Have"),
+                    func.min(year_expr).label("min_year"),
+                    func.max(year_expr).label("max_year"),
+                )
+                .where(t_storyarcs.c.StoryArcID == self.id)
+                .where(t_storyarcs.c.Manual != "deleted")
+                .group_by(t_storyarcs.c.StoryArcID)
+            )
+            arc_row = db.select_one(stats_stmt)
+            if arc_row is None:
+                self.data = self._failureResponse("Story arc not found")
+                return
+
+            total = arc_row["Total"] or 0
+            have = arc_row["Have"] or 0
+            try:
+                percent = round((have * 100.0) / total, 1) if total > 0 else 0
+            except (ZeroDivisionError, TypeError):
+                percent = 0
+
+            min_year = arc_row["min_year"]
+            max_year = arc_row["max_year"]
+            if min_year is None or max_year is None:
+                span_years = None
+            elif min_year == max_year:
+                span_years = str(max_year)
+            else:
+                span_years = "%s - %s" % (min_year, max_year)
+
+            arc_summary = {
+                "StoryArcID": arc_row["StoryArcID"],
+                "StoryArc": arc_row["StoryArc"],
+                "TotalIssues": total,
+                "Have": have,
+                "Total": total,
+                "percent": percent,
+                "SpanYears": span_years,
+                "CV_ArcID": arc_row["CV_ArcID"],
+                "Publisher": arc_row["Publisher"],
+                "ArcImage": arc_row["ArcImage"],
+            }
+
+            # Get individual issues (exclude soft-deleted)
+            issues_stmt = (
+                select(
+                    t_storyarcs.c.IssueArcID,
                     t_storyarcs.c.ReadingOrder,
                     t_storyarcs.c.ComicID,
                     t_storyarcs.c.ComicName,
                     t_storyarcs.c.IssueNumber,
                     t_storyarcs.c.IssueID,
+                    t_storyarcs.c.Status,
                     t_storyarcs.c.IssueDate,
                     t_storyarcs.c.IssueName,
                     t_storyarcs.c.IssuePublisher,
+                    t_storyarcs.c.Location,
                 )
                 .where(t_storyarcs.c.StoryArcID == self.id)
+                .where(t_storyarcs.c.Manual != "deleted")
                 .order_by(t_storyarcs.c.ReadingOrder)
             )
-            self.data = db.select_all(stmt)
+            issues = db.select_all(issues_stmt)
+
+            self.data = {"arc": arc_summary, "issues": issues}
+        return
+
+    def _delStoryArc(self, **kwargs):
+        arc_id = kwargs.get("StoryArcID", "")
+        if not self._ID_PATTERN.match(str(arc_id)):
+            self.data = self._failureResponse("Invalid StoryArcID")
+            return
+        wi = webserve.WebInterface()
+        wi.removefromreadlist(StoryArcID=arc_id, ArcName=None)
+        self.data = self._successResponse("Story arc deleted")
+        return
+
+    def _delArcIssue(self, **kwargs):
+        issue_arc_id = kwargs.get("IssueArcID", "")
+        if not self._ID_PATTERN.match(str(issue_arc_id)):
+            self.data = self._failureResponse("Invalid IssueArcID")
+            return
+        wi = webserve.WebInterface()
+        wi.removefromreadlist(IssueArcID=issue_arc_id)
+        self.data = self._successResponse("Issue removed from arc")
+        return
+
+    def _setArcIssueStatus(self, **kwargs):
+        issue_arc_id = kwargs.get("IssueArcID", "")
+        status = kwargs.get("status", "")
+        if not self._ID_PATTERN.match(str(issue_arc_id)):
+            self.data = self._failureResponse("Invalid IssueArcID")
+            return
+        if status not in self._ALLOWED_ARC_STATUSES:
+            self.data = self._failureResponse("Invalid status")
+            return
+        db.upsert("storyarcs", {"Status": status}, {"IssueArcID": issue_arc_id})
+        self.data = self._successResponse("Status updated to %s" % status)
+        return
+
+    def _wantAllArcIssues(self, **kwargs):
+        arc_id = kwargs.get("StoryArcID", "")
+        if not self._ID_PATTERN.match(str(arc_id)):
+            self.data = self._failureResponse("Invalid StoryArcID")
+            return
+        # Find issues eligible to be Wanted (not already Downloaded/Archived/Snatched, not soft-deleted)
+        issues = db.rawdb.select_all(
+            "SELECT IssueArcID, Status FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
+            "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched')",
+            [arc_id],
+        )
+        queued = 0
+        skipped = 0
+        for iss in issues:
+            if iss["Status"] == "Wanted":
+                skipped += 1
+            else:
+                db.upsert("storyarcs", {"Status": "Wanted"}, {"IssueArcID": iss["IssueArcID"]})
+                queued += 1
+        # Trigger search via existing ReadGetWanted
+        if queued > 0:
+            wi = webserve.WebInterface()
+            threading.Thread(target=wi.ReadGetWanted, args=(arc_id,)).start()
+        self.data = self._successResponse({"queued": queued, "skipped": skipped})
+        return
+
+    def _refreshStoryArc(self, **kwargs):
+        arc_id = kwargs.get("StoryArcID", "")
+        if not self._ID_PATTERN.match(str(arc_id)):
+            self.data = self._failureResponse("Invalid StoryArcID")
+            return
+        # Look up the CV_ArcID and arc name from existing data
+        arc_row = db.rawdb.select_one(
+            "SELECT CV_ArcID, StoryArc, StoryArcID FROM storyarcs WHERE StoryArcID=? LIMIT 1", [arc_id]
+        )
+        if arc_row is None:
+            self.data = self._failureResponse("Story arc not found")
+            return
+        wi = webserve.WebInterface()
+        threading.Thread(
+            target=wi.addStoryArc_thread,
+            kwargs={
+                "arcid": arc_row["StoryArcID"],
+                "cvarcid": arc_row["CV_ArcID"],
+                "storyarcname": arc_row["StoryArc"],
+                "storyarcissues": None,
+                "arclist": None,
+                "arcrefresh": True,
+            },
+        ).start()
+        self.data = self._successResponse("Refreshing %s from ComicVine" % arc_row["StoryArc"])
         return
 
     def _addStoryArc(self, **kwargs):
