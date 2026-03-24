@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.3](https://github.com/frankieramirez/comicarr/compare/v0.4.2...v0.4.3) (2026-03-23)
+
+
+### Bug Fixes
+
+* dark mode issues in settings and remove placeholder UI ([#54](https://github.com/frankieramirez/comicarr/issues/54)) ([069f57e](https://github.com/frankieramirez/comicarr/commit/069f57e4955c28899d909a4957a3482f9612781e))
+
 ## [0.4.2](https://github.com/frankieramirez/comicarr/compare/v0.4.1...v0.4.2) (2026-03-23)
 
 
