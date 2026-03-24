@@ -45,7 +45,7 @@ export function useAddStoryArc(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: AddArcParams) => apiCall("addStoryArc", params),
+    mutationFn: (params: AddArcParams) => apiCall("addStoryArc", { ...params }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
     },
