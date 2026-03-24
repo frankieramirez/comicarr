@@ -2909,6 +2909,11 @@ class Api(object):
             "api_key": ("****" + comicarr.CONFIG.API_KEY[-4:])
             if comicarr.CONFIG.API_KEY and len(comicarr.CONFIG.API_KEY) >= 4
             else "****",
+            # Content source toggles
+            "comicvine_enabled": comicarr.CONFIG.COMICVINE_ENABLED,
+            "mangadex_enabled": comicarr.CONFIG.MANGADEX_ENABLED,
+            "mangadex_languages": comicarr.CONFIG.MANGADEX_LANGUAGES,
+            "mangadex_content_rating": comicarr.CONFIG.MANGADEX_CONTENT_RATING,
             # Comic Vine
             "comicvine_api": ("****" + comicarr.CONFIG.COMICVINE_API[-4:])
             if comicarr.CONFIG.COMICVINE_API and len(comicarr.CONFIG.COMICVINE_API) >= 4
@@ -2947,6 +2952,11 @@ class Api(object):
             "api_key",
             "launch_browser",
             "interface",
+            # Content source toggles
+            "comicvine_enabled",
+            "mangadex_enabled",
+            "mangadex_languages",
+            "mangadex_content_rating",
             "comicvine_api",
             "cv_verify",
             "cv_only",
