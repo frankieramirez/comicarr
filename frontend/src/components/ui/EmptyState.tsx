@@ -78,9 +78,9 @@ const VARIANT_CONFIGS: Record<
   },
   "story-arcs": {
     icon: BookOpen,
-    title: "Story Arcs Coming Soon",
+    title: "No story arcs tracked",
     description:
-      "Track your favorite story arcs across multiple series. This feature is under development.",
+      "Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues.",
   },
 };
 

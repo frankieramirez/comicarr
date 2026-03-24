@@ -254,6 +254,35 @@ export function useServerEvents(
         }
       });
 
+      // Event: storyarc_added - Story arc add/refresh completion
+      evtSource.addEventListener("storyarc_added", (e: MessageEvent) => {
+        if (!e.data) return;
+
+        try {
+          const data = JSON.parse(e.data) as {
+            status: string;
+            storyarcname?: string;
+            message?: string;
+          };
+          console.log("[SSE] storyarc_added event:", data);
+
+          queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
+
+          if (data.message) {
+            addToast({
+              type: data.status === "success" ? "success" : "error",
+              title:
+                data.status === "success"
+                  ? "Story Arc Updated"
+                  : "Story Arc Error",
+              description: data.message,
+            });
+          }
+        } catch (error) {
+          console.error("[SSE] Error parsing storyarc_added event:", error);
+        }
+      });
+
       // Event: shutdown - Server shutdown notification
       evtSource.addEventListener("shutdown", () => {
         console.log("[SSE] Server shutting down");

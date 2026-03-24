@@ -182,6 +182,63 @@ export interface ImportFile {
   MatchSource: string | null;
 }
 
+/** Story Arc status for individual issues */
+export type ArcIssueStatus =
+  | "Downloaded"
+  | "Wanted"
+  | "Skipped"
+  | "Archived"
+  | "Read"
+  | "Added";
+
+/** Story Arc summary (list view) */
+export interface StoryArc {
+  StoryArcID: string;
+  StoryArc: string;
+  TotalIssues: number;
+  Have: number;
+  Total: number;
+  percent: number;
+  SpanYears: string | null;
+  CV_ArcID: string | null;
+  Publisher: string | null;
+  ArcImage: string | null;
+}
+
+/** Story Arc issue (detail view) */
+export interface ArcIssue {
+  IssueArcID: string;
+  ReadingOrder: number;
+  ComicID: string;
+  ComicName: string;
+  IssueNumber: string;
+  IssueID: string;
+  Status: ArcIssueStatus;
+  IssueDate: string | null;
+  IssueName: string | null;
+  IssuePublisher: string | null;
+  Location: string | null;
+}
+
+/** Story Arc detail response */
+export interface StoryArcDetail {
+  arc: StoryArc;
+  issues: ArcIssue[];
+}
+
+/** Story Arc search result (from CV) */
+export interface ArcSearchResult {
+  id: string;
+  name: string;
+  publisher: string | null;
+  issues: string;
+  description: string | null;
+  image: string | null;
+  cvarcid: string;
+  arclist: string | null;
+  haveit: string | null;
+}
+
 /** Import group (grouped by DynamicName + Volume) */
 export interface ImportGroup {
   DynamicName: string;

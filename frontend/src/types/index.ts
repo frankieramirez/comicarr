@@ -34,6 +34,11 @@ export type {
   VolumeGroup,
   ImportFile,
   ImportGroup,
+  ArcIssueStatus,
+  StoryArc,
+  ArcIssue,
+  StoryArcDetail,
+  ArcSearchResult,
 } from "./entities";
 
 // Auth types
