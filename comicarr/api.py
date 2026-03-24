@@ -2012,7 +2012,7 @@ class Api(object):
             self.data = self._failureResponse("Invalid StoryArcID")
             return
         # Count already-wanted issues (skipped) and update eligible ones in bulk
-        skipped_rows = db.rawdb.select_all(
+        skipped_rows = db.raw_select_all(
             "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
             "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched') AND Status = 'Wanted'",
             [arc_id],
@@ -2024,7 +2024,7 @@ class Api(object):
             [arc_id],
         )
         # Count how many were actually updated
-        queued_rows = db.rawdb.select_all(
+        queued_rows = db.raw_select_all(
             "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
             "AND Status = 'Wanted'",
             [arc_id],
@@ -2044,7 +2044,7 @@ class Api(object):
             self.data = self._failureResponse("Invalid StoryArcID")
             return
         # Look up the CV_ArcID and arc name from existing data
-        arc_row = db.rawdb.select_one(
+        arc_row = db.raw_select_one(
             "SELECT CV_ArcID, StoryArc, StoryArcID FROM storyarcs WHERE StoryArcID=? LIMIT 1", [arc_id]
         )
         if arc_row is None:
