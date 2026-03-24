@@ -122,8 +122,9 @@ export type AdapterType = "nuqs" | "zustand";
  * Internal adapter with additional methods for providers
  * @internal
  */
-export interface InternalStoreAdapter<T extends Record<string, unknown>>
-  extends StoreAdapter<T> {
+export interface InternalStoreAdapter<
+  T extends Record<string, unknown>,
+> extends StoreAdapter<T> {
   /**
    * Internal method to sync external state (used by nuqs adapter)
    * @internal

@@ -3,8 +3,9 @@ import type { CreateAdapterOptions } from "../../adapter/types";
 /**
  * nuqs-specific adapter options
  */
-export interface NuqsAdapterOptions<T extends Record<string, unknown>>
-  extends CreateAdapterOptions<T> {
+export interface NuqsAdapterOptions<
+  T extends Record<string, unknown>,
+> extends CreateAdapterOptions<T> {
   /**
    * Use shallow routing (default: true)
    */

@@ -26,9 +26,9 @@ interface DataTableSheetRowActionProps<
   TData,
   TFields extends DataTableFilterField<TData>,
 > extends Omit<
-    React.ComponentPropsWithRef<typeof DropdownMenuTrigger>,
-    "value"
-  > {
+  React.ComponentPropsWithRef<typeof DropdownMenuTrigger>,
+  "value"
+> {
   fieldValue: TFields["value"];
   filterFields: TFields[];
   value: string | number | boolean;
