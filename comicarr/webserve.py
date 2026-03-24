@@ -1984,7 +1984,7 @@ class WebInterface(object):
             arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [arcid])
         else:
             arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE CV_ArcID=?", [cvarcid])
-        if arc_chk is None:
+        if not arc_chk:
             if arcrefresh:
                 logger.warn(
                     module
@@ -1996,7 +1996,7 @@ class WebInterface(object):
                     module + " No match in db based on ComicVine ID. Making sure and checking against Story Arc Name."
                 )
                 arc_chk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArc=?", [storyarcname])
-                if arc_chk is None:
+                if arc_chk:
                     logger.warn(module + " " + storyarcname + " already exists on your Story Arc Watchlist!")
                     raise cherrypy.HTTPRedirect("readlist")
         else:
@@ -2237,11 +2237,24 @@ class WebInterface(object):
         self.ArcWatchlist(storyarcid)
         if arcrefresh:
             logger.info("%s Successfully Refreshed %s" % (module, storyarcname))
+            comicarr.GLOBAL_MESSAGES = {
+                "status": "success",
+                "event": "storyarc_added",
+                "storyarcname": storyarcname,
+                "storyarcid": storyarcid,
+                "message": "Successfully refreshed %s" % storyarcname,
+            }
             return
         else:
             logger.info("%s Successfully Added %s" % (module, storyarcname))
+            comicarr.GLOBAL_MESSAGES = {
+                "status": "success",
+                "event": "storyarc_added",
+                "storyarcname": storyarcname,
+                "storyarcid": storyarcid,
+                "message": "Successfully added %s" % storyarcname,
+            }
             return json.dumps({"status": "success", "StoryArcName": storyarcname, "StoryArcID": storyarcid})
-            # raise cherrypy.HTTPRedirect("detailStoryArc?StoryArcID=%s&StoryArcName=%s" % (storyarcid, storyarcname))
 
     addStoryArc.exposed = True
 
@@ -6017,8 +6030,8 @@ class WebInterface(object):
             arcinfolist = mb.storyarcinfo(arcid)
             return json.dumps({"status": "success", "data": arcinfolist})
         except Exception as e:
-            logger.error("Error loading arc details for %s: %s" % (arcid, e))
-            return json.dumps({"status": "error", "message": str(e)})
+            logger.error("[STORYARC] Error loading arc details for %s: %s" % (arcid, e))
+            return json.dumps({"status": "error", "message": "Failed to load arc details"})
 
     load_arc_details.exposed = True
 
@@ -6043,8 +6056,8 @@ class WebInterface(object):
                 "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND (Status='Downloaded' or Status='Archived')",
                 [al["StoryArcID"]],
             )
-            havearc = havecnt[0][0]
-            totalarc = totalissues[0][0]
+            havearc = havecnt[0]["count"]
+            totalarc = totalissues[0]["count"]
             if not havearc:
                 havearc = 0
             try:
@@ -6115,8 +6128,8 @@ class WebInterface(object):
             spanyears = helpers.spantheyears(StoryArcID)
             helpers.arcformat(StoryArcName, spanyears, arcpub)
 
-        except:
-            pass
+        except Exception as e:
+            logger.error("[STORYARC] Error processing arc detail for %s: %s" % (StoryArcID, e))
 
         if len(issref) > 0:
             helpers.updatearc_locs(StoryArcID, issref)
@@ -6126,7 +6139,6 @@ class WebInterface(object):
             )
 
         if arcinfo:
-            arcdetail = self.storyarc_main(arcid=arcinfo[0]["CV_ArcID"])
             storyarcbanner = None
             filepath = None
             if arcinfo[0]["ArcImage"] is not None:
@@ -6139,8 +6151,8 @@ class WebInterface(object):
             if not os.path.exists(storyarc_imagepath):
                 try:
                     os.mkdir(storyarc_imagepath)
-                except:
-                    logger.warn("Unable to create storyarc image directory @ %s" % storyarc_imagepath)
+                except Exception as e:
+                    logger.warn("Unable to create storyarc image directory @ %s: %s" % (storyarc_imagepath, e))
 
             if os.path.exists(storyarc_imagepath):
                 if arcimage is True:
@@ -6268,7 +6280,7 @@ class WebInterface(object):
                         # reading_seq = oldreading_seq
                     else:
                         # valid_readingorder
-                        if valid_readingorder < old_reading_seq:
+                        if valid_readingorder < oldreading_seq:
                             reading_seq = int(rc["ReadingOrder"])
                         else:
                             reading_seq = oldreading_seq + 1
@@ -6392,9 +6404,9 @@ class WebInterface(object):
                     db.raw_execute("DELETE from storyarcs WHERE StoryArc=?", [ArcName])
                 else:
                     logger.warn("[DELETE-STRAGGLERS-OPTION] No ArcName provided - just deleting by Story Arc ID")
-            stid = "S" + str(StoryArcID) + "_%"
+            stid = "S" + str(StoryArcID) + r"\_%"
             # delete from the nzblog so it will always find the most current downloads. Nzblog has issueid, but starts with ArcID
-            db.raw_execute("DELETE from nzblog WHERE IssueID LIKE ?", [stid])
+            db.raw_execute("DELETE from nzblog WHERE IssueID LIKE ? ESCAPE '\\'", [stid])
             logger.info("[DELETE-ARC] Removed " + str(StoryArcID) + " from Story Arcs.")
         elif IssueArcID:
             if manual == "added":
@@ -7103,19 +7115,17 @@ class WebInterface(object):
         stupdate = []
         add_to_search_queue = []
         wantedlist = db.raw_select_all(
-            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
             [StoryArcID],
         )
         if wantedlist is not None:
             for want in wantedlist:
-                print(want)
                 issuechk = db.raw_select_one(
                     "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                     [want["IssueArcID"]],
                 )
                 SARC = want["StoryArc"]
                 IssueArcID = want["IssueArcID"]
-                want["Publisher"]
                 if issuechk is None:
                     # none means it's not a 'watched' series
                     s_comicid = want["ComicID"]  # None
@@ -7138,7 +7148,8 @@ class WebInterface(object):
                             issueyear = issdate[:4]
                             if not issueyear.startswith("19") and not issueyear.startswith("20"):
                                 issueyear = stdate[:4]
-                        except:
+                        except Exception as e:
+                            logger.fdebug("[STORYARC] Error parsing issue year: %s" % e)
                             issueyear = stdate[:4]
 
                     seriesyear = want["SeriesYear"]
@@ -7181,7 +7192,9 @@ class WebInterface(object):
                 )
                 stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
-        watchlistchk = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=? AND Status='Wanted'", [StoryArcID])
+        watchlistchk = db.raw_select_all(
+            "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status='Wanted'", [StoryArcID]
+        )
         if watchlistchk is not None:
             for watchchk in watchlistchk:
                 logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
@@ -7195,12 +7208,14 @@ class WebInterface(object):
                     # none means it's not a 'watched' series
                     try:
                         s_comicid = watchchk["ComicID"]
-                    except:
+                    except Exception as e:
+                        logger.fdebug("[STORYARC] Error getting ComicID: %s" % e)
                         s_comicid = None
 
                     try:
                         s_issueid = watchchk["IssueArcID"]
-                    except:
+                    except Exception as e:
+                        logger.fdebug("[STORYARC] Error getting IssueArcID: %s" % e)
                         s_issueid = None
 
                     actual_issueid = None
@@ -7211,10 +7226,12 @@ class WebInterface(object):
                     try:
                         issueyear = watchchk["IssueYEAR"]
                         logger.fdebug("issueYEAR : %s" % issueyear)
-                    except:
+                    except Exception as e:
+                        logger.fdebug("[STORYARC] Error getting IssueYEAR: %s" % e)
                         try:
                             issueyear = watchchk["IssueDate"][:4]
-                        except:
+                        except Exception as e:
+                            logger.fdebug("[STORYARC] Error getting IssueDate year: %s" % e)
                             issueyear = watchchk["ReleaseDate"][:4]
 
                     stdate = watchchk["ReleaseDate"]
@@ -7223,7 +7240,6 @@ class WebInterface(object):
                     logger.fdebug("comicname : %s" % watchchk["ComicName"])
                     logger.fdebug("issuenumber : %s" % watchchk["IssueNumber"])
                     logger.fdebug("comicyear : %s" % watchchk["SeriesYear"])
-                    # logger.info('publisher : ' + watchchk['IssuePublisher']) <-- no publisher in table
                     logger.fdebug("SARC : %s" % SARC)
                     logger.fdebug("IssueArcID : %s" % IssueArcID)
                     passinfo = {
@@ -7264,7 +7280,8 @@ class WebInterface(object):
                 if st["IssueID"]:
                     ctrlVal = {"IssueID": st["IssueID"]}
                     db.upsert("issues", newVal, ctrlVal)
-        comicarr.SEARCH_QUEUE.put((passinfo))
+        for item in add_to_search_queue:
+            comicarr.SEARCH_QUEUE.put(item)
 
     ReadGetWanted.exposed = True
 

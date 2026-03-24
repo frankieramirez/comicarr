@@ -1,56 +1,61 @@
-import { BookMarked, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useRef } from "react";
+import { useStoryArcs } from "@/hooks/useStoryArcs";
+import ArcSearch from "@/components/storyarcs/ArcSearch";
+import StoryArcCard from "@/components/storyarcs/StoryArcCard";
+import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StoryArcsPage() {
+  const { data: arcs, isLoading, error } = useStoryArcs();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchFocus = () => {
+    searchInputRef.current?.focus();
+  };
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16 page-transition">
-      <div className="text-center">
-        <div className="bg-muted rounded-full p-8 inline-flex mb-8">
-          <BookMarked className="w-16 h-16 text-muted-foreground" />
-        </div>
-
-        <h1 className="text-3xl font-bold text-foreground mb-4">Story Arcs</h1>
-
-        <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
-          Track your favorite story arcs that span across multiple series and
-          issues. This feature is currently under development.
+    <div className="space-y-8 page-transition">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground mb-1">Story Arcs</h1>
+        <p className="text-sm text-muted-foreground">
+          Track story arcs that span across multiple series.
         </p>
-
-        <div className="bg-card border border-card-border rounded-lg p-6 mb-8 text-left">
-          <h2 className="font-semibold text-foreground mb-4">
-            Planned Features
-          </h2>
-          <ul className="space-y-3 text-muted-foreground">
-            <li className="flex items-start">
-              <span className="text-primary mr-3">1.</span>
-              <span>Browse and search story arcs from Comic Vine</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-primary mr-3">2.</span>
-              <span>Track reading progress across arc issues</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-primary mr-3">3.</span>
-              <span>Automatically want issues that belong to tracked arcs</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-primary mr-3">4.</span>
-              <span>View arc completion status and missing issues</span>
-            </li>
-          </ul>
-        </div>
-
-        <a
-          href="https://github.com/frankieramirez/comicarr/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button variant="outline" className="inline-flex items-center">
-            <ExternalLink className="w-4 h-4 mr-2" />
-            View Roadmap on GitHub
-          </Button>
-        </a>
       </div>
+
+      {/* Search section */}
+      <ArcSearch searchInputRef={searchInputRef} />
+
+      {/* Arc list section */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-card-border bg-card overflow-hidden"
+            >
+              <Skeleton className="h-32" />
+              <div className="p-3 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-1.5 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-red-600">Failed to load story arcs</p>
+          <p className="text-sm text-muted-foreground mt-1">{error.message}</p>
+        </div>
+      ) : arcs && arcs.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {arcs.map((arc) => (
+            <StoryArcCard key={arc.StoryArcID} arc={arc} />
+          ))}
+        </div>
+      ) : (
+        <StoryArcEmptyState onSearchFocus={handleSearchFocus} />
+      )}
     </div>
   );
 }
