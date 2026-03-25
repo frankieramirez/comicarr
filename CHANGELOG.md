@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.1](https://github.com/frankieramirez/comicarr/compare/v0.9.0...v0.9.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* Include version in settings page config response ([#69](https://github.com/frankieramirez/comicarr/issues/69)) ([f59c89b](https://github.com/frankieramirez/comicarr/commit/f59c89b3d2bce81df233e989708f9543ad5f79b4))
+
 ## [0.9.0](https://github.com/frankieramirez/comicarr/compare/v0.8.0...v0.9.0) (2026-03-25)
 
 
