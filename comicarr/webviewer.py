@@ -14,6 +14,7 @@ from comicarr import (
     logger,
 )
 from comicarr.tables import comics, issues
+
 try:
     from comicarr.webserve import serve_template
 except ImportError:

@@ -10,6 +10,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import comicarr
+# Ensure LOG_LEVEL is set for tests (logger.info checks LOG_LEVEL > 0)
+if comicarr.LOG_LEVEL is None:
+    comicarr.LOG_LEVEL = 0
+
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.security import (
     COOKIE_NAME,
