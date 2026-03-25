@@ -6,7 +6,7 @@ import {
   type UseMutationResult,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import type { SearchResult, PaginationMeta } from "@/types";
 
 interface SearchResponse {
@@ -41,23 +41,16 @@ export function useSearchComics(
   const limit = 20; // Results per page
   const offset = (page - 1) * limit;
 
-  // Build query params - omit sort for relevance (null)
-  const params: Record<string, string> = {
-    name: query,
-    limit: limit.toString(),
-    offset: offset.toString(),
-  };
-  if (sortBy) {
-    params.sort = sortBy;
-  }
-
   return useQuery({
-    queryKey: ["search", query, page, sortBy], // Include page and sort in cache key
-    queryFn: () => apiCall<RawSearchResponse>("findComic", params),
+    queryKey: ["search", query, page, sortBy],
+    queryFn: () =>
+      apiRequest<RawSearchResponse>("POST", "/api/search/comics", {
+        name: query,
+        limit,
+        offset,
+        ...(sortBy ? { sort: sortBy } : {}),
+      }),
     // Transform backend field names to match frontend expectations
-    // Backend can return either:
-    // - Old format: array of comics
-    // - New format: {results: [...], pagination: {...}}
     select: (data: RawSearchResponse): SearchResponse => {
       // Handle old format (array) for backward compatibility
       if (Array.isArray(data)) {
@@ -83,8 +76,8 @@ export function useSearchComics(
         pagination: data.pagination || { total: 0, limit, offset, returned: 0 },
       };
     },
-    enabled: !!query && query.length > 2, // Only search if query is more than 2 chars
-    staleTime: 10 * 60 * 1000, // 10 minutes - search results don't change often
+    enabled: !!query && query.length > 2,
+    staleTime: 10 * 60 * 1000,
     ...options,
   });
 }
@@ -100,21 +93,19 @@ export function useSearchManga(
     UseQueryOptions<RawSearchResponse, Error, SearchResponse>
   > = {},
 ): UseQueryResult<SearchResponse> {
-  const limit = 20; // Results per page
+  const limit = 20;
   const offset = (page - 1) * limit;
 
   return useQuery({
-    queryKey: ["search", "manga", query, page, sortBy], // Include type in cache key
+    queryKey: ["search", "manga", query, page, sortBy],
     queryFn: () =>
-      apiCall<RawSearchResponse>("findManga", {
+      apiRequest<RawSearchResponse>("POST", "/api/search/manga", {
         name: query,
-        limit: limit.toString(),
-        offset: offset.toString(),
+        limit,
+        offset,
         sort: sortBy,
       }),
-    // Transform backend field names to match frontend expectations
     select: (data: RawSearchResponse): SearchResponse => {
-      // Handle old format (array) for backward compatibility
       if (Array.isArray(data)) {
         return {
           results: data.map((manga) => ({
@@ -129,7 +120,6 @@ export function useSearchManga(
           },
         };
       }
-      // Handle new format (object with pagination)
       return {
         results: (data.results || []).map((manga) => ({
           ...manga,
@@ -138,8 +128,8 @@ export function useSearchManga(
         pagination: data.pagination || { total: 0, limit, offset, returned: 0 },
       };
     },
-    enabled: !!query && query.length > 2, // Only search if query is more than 2 chars
-    staleTime: 10 * 60 * 1000, // 10 minutes - search results don't change often
+    enabled: !!query && query.length > 2,
+    staleTime: 10 * 60 * 1000,
     ...options,
   });
 }
@@ -151,9 +141,9 @@ export function useAddComic(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall("addComic", { id: comicId }),
+    mutationFn: (comicId: string) =>
+      apiRequest("POST", "/api/search/add", { id: comicId }),
     onSuccess: () => {
-      // Invalidate series list to show the newly added comic
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
@@ -166,9 +156,9 @@ export function useAddManga(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (mangaId: string) => apiCall("addManga", { id: mangaId }),
+    mutationFn: (mangaId: string) =>
+      apiRequest("POST", "/api/search/add-manga", { id: mangaId }),
     onSuccess: () => {
-      // Invalidate series list to show the newly added manga
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
