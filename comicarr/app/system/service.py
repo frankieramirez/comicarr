@@ -180,6 +180,15 @@ def get_safe_config(ctx):
         val = getattr(ctx.config, key, None)
         if val is not None:
             result[key] = val
+    version = ctx.current_version
+    if not version:
+        try:
+            from importlib.metadata import version as get_version
+            version = get_version("comicarr")
+        except Exception:
+            version = None
+    if version:
+        result["version"] = version
     return result
 
 
