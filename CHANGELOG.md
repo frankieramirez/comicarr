@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0](https://github.com/frankieramirez/comicarr/compare/v0.7.0...v0.8.0) (2026-03-24)
+
+
+### Features
+
+* Enrich search results with additional API metadata ([#65](https://github.com/frankieramirez/comicarr/issues/65)) ([e7fd739](https://github.com/frankieramirez/comicarr/commit/e7fd7395160aebc24a0abd098daf42fe43a574ff))
+
 ## [0.7.0](https://github.com/frankieramirez/comicarr/compare/v0.6.0...v0.7.0) (2026-03-24)
 
 
