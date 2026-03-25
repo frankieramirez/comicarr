@@ -151,10 +151,13 @@ def get_safe_config(ctx):
     safe_keys = [
         "COMIC_DIR",
         "DESTINATION_DIR",
+        "CACHE_DIR",
+        "LOG_DIR",
         "HTTP_HOST",
         "HTTP_PORT",
         "HTTP_ROOT",
         "ENABLE_HTTPS",
+        "HTTP_USERNAME",
         "AUTHENTICATION",
         "LAUNCH_BROWSER",
         "LOG_LEVEL",
@@ -173,14 +176,47 @@ def get_safe_config(ctx):
         "FOLDER_FORMAT",
         "FILE_FORMAT",
         "COMICVINE_API",
+        "COMICVINE_ENABLED",
+        "MANGADEX_ENABLED",
+        "CV_VERIFY",
+        "CV_ONLY",
+        "USE_METRON_SEARCH",
+        "METRON_USERNAME",
+        "MANGADEX_LANGUAGES",
+        "MANGADEX_CONTENT_RATING",
+        "PREFERRED_QUALITY",
+        "USE_MINSIZE",
+        "MINSIZE",
+        "USE_MAXSIZE",
+        "MAXSIZE",
+        "API_KEY",
         "ENABLE_META",
         "OPDS_ENABLE",
+        "NZB_DOWNLOADER",
+        "TORRENT_DOWNLOADER",
     ]
     result = {}
     for key in safe_keys:
         val = getattr(ctx.config, key, None)
         if val is not None:
             result[key] = val
+
+    # Add derived download client labels
+    nzb_labels = {0: "SABnzbd", 1: "NZBGet", 2: "Blackhole"}
+    torrent_labels = {0: "qBittorrent", 1: "Deluge", 2: "Transmission", 3: "rTorrent", 4: "uTorrent"}
+    nzb_val = getattr(ctx.config, "NZB_DOWNLOADER", None)
+    torrent_val = getattr(ctx.config, "TORRENT_DOWNLOADER", None)
+    if nzb_val is not None:
+        result["nzb_downloader_label"] = nzb_labels.get(nzb_val, "None")
+    if torrent_val is not None:
+        result["torrent_downloader_label"] = torrent_labels.get(torrent_val, "None")
+
+    # Add boolean indicator for METRON_PASSWORD (encrypted, not sent as plaintext)
+    metron_pw = getattr(ctx.config, "METRON_PASSWORD", None)
+    result["metron_password_set"] = bool(metron_pw)
+
+    # Lowercase all keys for frontend convention
+    result = {k.lower(): v for k, v in result.items()}
     version = ctx.current_version
     # Fall back to package metadata if version is missing or contains
     # unexpanded git export-subst placeholders (e.g. "%H$")
@@ -233,6 +269,19 @@ WRITABLE_CONFIG_KEYS = {
     "FOLDER_FORMAT",
     "FILE_FORMAT",
     "COMICVINE_API",
+    "COMICVINE_ENABLED",
+    "MANGADEX_ENABLED",
+    "CV_VERIFY",
+    "CV_ONLY",
+    "USE_METRON_SEARCH",
+    "METRON_USERNAME",
+    "MANGADEX_LANGUAGES",
+    "MANGADEX_CONTENT_RATING",
+    "PREFERRED_QUALITY",
+    "USE_MINSIZE",
+    "MINSIZE",
+    "USE_MAXSIZE",
+    "MAXSIZE",
     "ENABLE_META",
     "OPDS_ENABLE",
     "OPDS_PAGESIZE",
@@ -249,6 +298,10 @@ def update_config(ctx, key_values):
 
     if not ctx.config:
         return {"success": False, "error": "Config not loaded"}
+
+    # Normalize incoming keys to uppercase — frontend sends lowercase,
+    # but config internals use UPPERCASE.
+    key_values = {k.upper(): v for k, v in key_values.items()}
 
     # Filter to only writable keys — prevents privilege escalation via
     # overwriting HTTP_PASSWORD, API_KEY, AUTHENTICATION, etc.

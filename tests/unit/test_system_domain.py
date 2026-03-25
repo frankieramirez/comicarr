@@ -190,6 +190,19 @@ class TestInitialSetup:
 
 
 class TestConfigService:
+    def test_get_safe_config_returns_lowercase_keys(self):
+        """get_safe_config returns all keys in lowercase."""
+        ctx = _make_test_ctx()
+        ctx.config.COMIC_DIR = "/my/comics"
+        ctx.config.HTTP_PORT = 8090
+
+        result = system_service.get_safe_config(ctx)
+        assert "comic_dir" in result
+        assert "http_port" in result
+        # All keys should be lowercase
+        for key in result:
+            assert key == key.lower(), "Key %s should be lowercase" % key
+
     def test_get_safe_config_excludes_passwords(self):
         """get_safe_config returns config without sensitive fields."""
         ctx = _make_test_ctx()
@@ -197,11 +210,53 @@ class TestConfigService:
         ctx.config.HTTP_PORT = 8090
 
         result = system_service.get_safe_config(ctx)
-        assert "COMIC_DIR" in result
-        assert "HTTP_PORT" in result
-        # Passwords should not be present
+        assert "comic_dir" in result
+        assert "http_port" in result
+        # Passwords should not be present (check both cases)
+        assert "http_password" not in result
         assert "HTTP_PASSWORD" not in result
-        assert "API_KEY" not in result
+
+    def test_get_safe_config_includes_api_key(self):
+        """get_safe_config includes api_key for read-only display."""
+        ctx = _make_test_ctx()
+        result = system_service.get_safe_config(ctx)
+        assert "api_key" in result
+
+    def test_get_safe_config_includes_new_keys(self):
+        """get_safe_config includes all frontend-needed keys."""
+        ctx = _make_test_ctx()
+        ctx.config.COMICVINE_ENABLED = True
+        ctx.config.MANGADEX_ENABLED = False
+        ctx.config.PREFERRED_QUALITY = "high"
+
+        result = system_service.get_safe_config(ctx)
+        assert "comicvine_enabled" in result
+        assert "mangadex_enabled" in result
+        assert "preferred_quality" in result
+
+    def test_get_safe_config_includes_metron_password_set_indicator(self):
+        """get_safe_config returns metron_password_set boolean, not the actual password."""
+        ctx = _make_test_ctx()
+        ctx.config.METRON_PASSWORD = "gAAAAAsecretencrypted"
+        result = system_service.get_safe_config(ctx)
+        assert result["metron_password_set"] is True
+        assert "metron_password" not in result
+
+    def test_get_safe_config_metron_password_set_false_when_empty(self):
+        """metron_password_set is False when no password is configured."""
+        ctx = _make_test_ctx()
+        ctx.config.METRON_PASSWORD = None
+        result = system_service.get_safe_config(ctx)
+        assert result["metron_password_set"] is False
+
+    def test_get_safe_config_includes_download_client_labels(self):
+        """get_safe_config returns derived download client labels."""
+        ctx = _make_test_ctx()
+        ctx.config.NZB_DOWNLOADER = 0
+        ctx.config.TORRENT_DOWNLOADER = 1
+        result = system_service.get_safe_config(ctx)
+        assert result["nzb_downloader_label"] == "SABnzbd"
+        assert result["torrent_downloader_label"] == "Deluge"
 
     def test_get_safe_config_includes_version_from_context(self):
         """get_safe_config includes version when ctx.current_version is set."""
@@ -224,6 +279,42 @@ class TestConfigService:
         ctx = _make_test_ctx(current_version=None)
         result = system_service.get_safe_config(ctx)
         assert "version" not in result
+
+    def test_update_config_accepts_lowercase_keys(self):
+        """update_config normalizes lowercase keys to uppercase."""
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {"comic_dir": "/new/path"})
+        assert result["success"] is True
+        ctx.config.process_kwargs.assert_called_once()
+        args = ctx.config.process_kwargs.call_args[0][0]
+        assert "COMIC_DIR" in args
+
+    def test_update_config_accepts_uppercase_keys(self):
+        """update_config still accepts uppercase keys (backward compat)."""
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {"COMIC_DIR": "/new/path"})
+        assert result["success"] is True
+
+    def test_update_config_rejects_sensitive_keys_regardless_of_case(self):
+        """update_config rejects api_key, http_password in any casing."""
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {"api_key": "hacked", "http_password": "hacked"})
+        assert result["success"] is False
+        assert "No valid config keys" in result["error"]
+
+    def test_update_config_accepts_new_writable_keys(self):
+        """update_config accepts newly added writable keys."""
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {
+            "comicvine_enabled": True,
+            "preferred_quality": "high",
+            "use_minsize": True,
+            "minsize": 50,
+        })
+        assert result["success"] is True
+        args = ctx.config.process_kwargs.call_args[0][0]
+        assert "COMICVINE_ENABLED" in args
+        assert "PREFERRED_QUALITY" in args
 
     def test_get_job_info(self):
         """get_job_info returns scheduler job list."""
