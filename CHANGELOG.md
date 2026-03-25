@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0](https://github.com/frankieramirez/comicarr/compare/v0.8.0...v0.9.0) (2026-03-25)
+
+
+### Features
+
+* FastAPI migration with vertical domain decomposition ([07f79ad](https://github.com/frankieramirez/comicarr/commit/07f79ad07158f19a9b9f1bf035dc327381ce04ad))
+
 ## [0.8.0](https://github.com/frankieramirez/comicarr/compare/v0.7.0...v0.8.0) (2026-03-24)
 
 
