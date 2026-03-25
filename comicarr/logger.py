@@ -78,7 +78,6 @@ if not LOG_LANG.startswith("en"):
             logging.getLogger("apscheduler.threadpool").setLevel(logging.WARN)
             logging.getLogger("apscheduler.scheduler").propagate = False
             logging.getLogger("apscheduler.threadpool").propagate = False
-            logging.getLogger("cherrypy").propagate = False
             lg = logging.getLogger("comicarr")
             lg.setLevel(logging.DEBUG)
 

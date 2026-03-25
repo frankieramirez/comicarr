@@ -457,29 +457,8 @@ def main():
     #print('comicarr.MAINTENANCE_TOTAL: %s'%  comicarr.MAINTENANCE_DB_TOTAL)
     if comicarr.MAINTENANCE is True and (comicarr.MAINTENANCE_UPDATE or any([args_exportjson, args_importjson, args_update is True, args_importstatus is True, args_fixslashes is True, args_clearprovidertable is True, args_carepackage is True])):
         # Start up a temporary maintenance server for GUI display only.
-        maint_config = {
-            'http_port': int(comicarr.CONFIG.HTTP_PORT),
-            'http_host': comicarr.CONFIG.HTTP_HOST,
-            'http_root': comicarr.CONFIG.HTTP_ROOT,
-            'enable_https': comicarr.CONFIG.ENABLE_HTTPS,
-            'https_cert': comicarr.CONFIG.HTTPS_CERT,
-            'https_key': comicarr.CONFIG.HTTPS_KEY,
-            'https_chain': comicarr.CONFIG.HTTPS_CHAIN,
-            'http_username': comicarr.CONFIG.HTTP_USERNAME,
-            'http_password': comicarr.CONFIG.HTTP_PASSWORD,
-            'authentication': comicarr.CONFIG.AUTHENTICATION,
-            'login_timeout': comicarr.CONFIG.LOGIN_TIMEOUT
-        }
-
         loggermode = '[MAINTENANCE-MODE]'
         versioncheck.versionload()
-
-        # Try to start the maintenance server.
-        try:
-            from comicarr import maintenance_webstart
-            maintenance_webstart.initialize(maint_config)
-        except ImportError:
-            logger.warn('%s maintenance_webstart not available (CherryPy removed)' % loggermode)
 
         restart_method = True  #True will restart, False will shutdown.
 
@@ -543,12 +522,6 @@ def main():
 
         #restart automatically after maintenance has completed...
 
-        try:
-            from comicarr import maintenance_webstart
-            maintenance_webstart.shutdown()
-            logger.info('%s Maintenance webserver has been shut down.'% (loggermode))
-        except (ImportError, NameError):
-            pass
         comicarr.shutdown(restart=restart_method, maintenance=True)
 
     # Force the http port if neccessary
