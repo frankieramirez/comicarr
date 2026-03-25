@@ -19,6 +19,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
 
 from comicarr.app.core.context import AppContext
@@ -217,7 +218,16 @@ def create_app():
 
         class CachedStaticFiles(StaticFiles):
             async def get_response(self, path, scope):
-                response = await super().get_response(path, scope)
+                try:
+                    response = await super().get_response(path, scope)
+                except HTTPException as ex:
+                    if ex.status_code == 404:
+                        # SPA fallback: serve index.html so React Router
+                        # handles client-side routes like /settings, /login
+                        response = await super().get_response("index.html", scope)
+                        response.headers["Cache-Control"] = "no-cache"
+                        return response
+                    raise
                 if path.startswith("assets/"):
                     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
                 else:

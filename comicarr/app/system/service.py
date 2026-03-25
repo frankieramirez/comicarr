@@ -20,6 +20,7 @@ import hmac
 import json
 import os
 import platform
+from pathlib import Path
 import re
 import shlex
 import subprocess
@@ -188,6 +189,18 @@ def get_safe_config(ctx):
             from importlib.metadata import version as get_version
 
             version = get_version("comicarr")
+        except Exception:
+            version = None
+    # Final fallback: read version directly from pyproject.toml
+    if not version:
+        try:
+            import tomllib
+
+            pyproject = Path(__file__).resolve().parent.parent.parent.parent / "pyproject.toml"
+            if pyproject.is_file():
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                version = data.get("project", {}).get("version")
         except Exception:
             version = None
     if version:
