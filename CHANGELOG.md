@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.3](https://github.com/frankieramirez/comicarr/compare/v0.9.2...v0.9.3) (2026-03-25)
+
+
+### Bug Fixes
+
+* Resolve UnboundLocalError in job_management and KeyError in DDL health check ([#75](https://github.com/frankieramirez/comicarr/issues/75)) ([a649d50](https://github.com/frankieramirez/comicarr/commit/a649d509452dae57c16f995a051a5bd82e92e97d))
+
 ## [0.9.2](https://github.com/frankieramirez/comicarr/compare/v0.9.1...v0.9.2) (2026-03-25)
 
 
