@@ -69,6 +69,7 @@ ANNUALS_COLUMNS = [
 # Pagination helper
 # ---------------------------------------------------------------------------
 
+
 def paginated_query(stmt, limit=None, offset=None):
     """Execute a statement with optional pagination. Returns dict with results/total/has_more."""
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -100,6 +101,7 @@ def paginated_query(stmt, limit=None, offset=None):
 # Series (comics) queries
 # ---------------------------------------------------------------------------
 
+
 def list_comics():
     """List all comics ordered by sort name."""
     return db.select_all(select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName))
@@ -120,8 +122,9 @@ def get_comic(comic_id):
 def get_comic_for_delete(comic_id):
     """Get comic name/year/location for deletion confirmation."""
     return db.select_one(
-        select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation)
-        .where(t_comics.c.ComicID == comic_id)
+        select(t_comics.c.ComicName, t_comics.c.ComicYear, t_comics.c.ComicLocation).where(
+            t_comics.c.ComicID == comic_id
+        )
     )
 
 
@@ -133,9 +136,7 @@ def get_comic_name(comic_id):
 
 def get_comic_for_refresh(comic_id):
     """Get comic name/year for refresh validation."""
-    return db.select_one(
-        select(t_comics.c.ComicName, t_comics.c.ComicYear).where(t_comics.c.ComicID == comic_id)
-    )
+    return db.select_one(select(t_comics.c.ComicName, t_comics.c.ComicYear).where(t_comics.c.ComicID == comic_id))
 
 
 def delete_comic(comic_id):
@@ -159,6 +160,7 @@ def resume_comic(comic_id):
 # ---------------------------------------------------------------------------
 # Issue queries
 # ---------------------------------------------------------------------------
+
 
 def get_issues(comic_id):
     """Get all issues for a comic, ordered by issue number descending."""
@@ -184,6 +186,7 @@ def unqueue_issue(issue_id):
 # ---------------------------------------------------------------------------
 # Wanted queries
 # ---------------------------------------------------------------------------
+
 
 def get_wanted_issues(limit=None, offset=None):
     """Get all wanted issues joined with comic info."""
@@ -266,6 +269,7 @@ def get_wanted_annuals():
 # Import queries
 # ---------------------------------------------------------------------------
 
+
 def get_import_pending(limit=50, offset=0, include_ignored=False):
     """Get pending import files grouped by DynamicName/Volume with pagination."""
     ir = t_importresults
@@ -312,38 +316,42 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
 
         file_list = []
         for f in files:
-            file_list.append({
-                "impID": f["impID"],
-                "ComicFilename": f["ComicFilename"],
-                "ComicLocation": f["ComicLocation"],
-                "IssueNumber": f["IssueNumber"],
-                "ComicYear": f["ComicYear"],
-                "Status": f["Status"],
-                "IgnoreFile": f["IgnoreFile"] or 0,
-                "MatchConfidence": f["MatchConfidence"],
-                "SuggestedComicID": f["SuggestedComicID"],
-                "SuggestedComicName": f["SuggestedComicName"],
-                "SuggestedIssueID": f["SuggestedIssueID"],
-                "MatchSource": f["MatchSource"],
-            })
+            file_list.append(
+                {
+                    "impID": f["impID"],
+                    "ComicFilename": f["ComicFilename"],
+                    "ComicLocation": f["ComicLocation"],
+                    "IssueNumber": f["IssueNumber"],
+                    "ComicYear": f["ComicYear"],
+                    "Status": f["Status"],
+                    "IgnoreFile": f["IgnoreFile"] or 0,
+                    "MatchConfidence": f["MatchConfidence"],
+                    "SuggestedComicID": f["SuggestedComicID"],
+                    "SuggestedComicName": f["SuggestedComicName"],
+                    "SuggestedIssueID": f["SuggestedIssueID"],
+                    "MatchSource": f["MatchSource"],
+                }
+            )
 
         confidences = [f["MatchConfidence"] for f in file_list if f["MatchConfidence"] is not None]
         avg_confidence = sum(confidences) // len(confidences) if confidences else None
 
-        imports.append({
-            "DynamicName": dynamic_name,
-            "ComicName": result["ComicName"],
-            "Volume": volume,
-            "ComicYear": result["ComicYear"],
-            "FileCount": result["FileCount"],
-            "Status": result["Status"],
-            "SRID": result["SRID"],
-            "ComicID": result["ComicID"],
-            "MatchConfidence": avg_confidence,
-            "SuggestedComicID": result["SuggestedComicID"],
-            "SuggestedComicName": result["SuggestedComicName"],
-            "files": file_list,
-        })
+        imports.append(
+            {
+                "DynamicName": dynamic_name,
+                "ComicName": result["ComicName"],
+                "Volume": volume,
+                "ComicYear": result["ComicYear"],
+                "FileCount": result["FileCount"],
+                "Status": result["Status"],
+                "SRID": result["SRID"],
+                "ComicID": result["ComicID"],
+                "MatchConfidence": avg_confidence,
+                "SuggestedComicID": result["SuggestedComicID"],
+                "SuggestedComicName": result["SuggestedComicName"],
+                "files": file_list,
+            }
+        )
 
     return {
         "imports": imports,
@@ -388,6 +396,7 @@ def delete_import(imp_id):
 # REST-compat queries (full-row, no column projection)
 # ---------------------------------------------------------------------------
 
+
 def list_comics_full():
     """List all comics with all columns, ordered by sort name.
 
@@ -408,6 +417,4 @@ def get_issues_full(comic_id):
 
 def get_issue_full(comic_id, issue_id):
     """Get a single issue by comic and issue ID, all columns."""
-    return db.select_all(
-        select(t_issues).where(t_issues.c.ComicID == comic_id).where(t_issues.c.IssueID == issue_id)
-    )
+    return db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id).where(t_issues.c.IssueID == issue_id))

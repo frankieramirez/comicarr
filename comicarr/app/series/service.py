@@ -31,6 +31,7 @@ from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, w
 # Series CRUD
 # ---------------------------------------------------------------------------
 
+
 def list_comics(ctx, limit=None, offset=None):
     """List all comics, optionally with pagination."""
     if limit is not None:
@@ -65,6 +66,7 @@ def add_comic(ctx, comic_id):
         comic_id = re.sub("4050-", "", comic_id).strip()
 
     from comicarr import importer
+
     try:
         watch = [{"comicid": comic_id, "comicname": None}]
         importer.importer_thread(watch)
@@ -85,9 +87,7 @@ def delete_comic(ctx, comic_id, delete_directory=False):
     if not comic:
         return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
 
-    logger.fdebug(
-        "Deletion request received for %s (%s) [%s]" % (comic["ComicName"], comic["ComicYear"], comic_id)
-    )
+    logger.fdebug("Deletion request received for %s (%s) [%s]" % (comic["ComicName"], comic["ComicYear"], comic_id))
 
     try:
         series_queries.delete_comic(comic_id)
@@ -168,9 +168,11 @@ def refresh_comic(ctx, comic_id):
 # Issue management
 # ---------------------------------------------------------------------------
 
+
 def queue_issue(ctx, issue_id):
     """Mark an issue as Wanted and trigger search."""
     from comicarr import search
+
     series_queries.queue_issue(issue_id)
     search.searchforissue(issue_id)
     return {"success": True}
@@ -216,6 +218,7 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False):
 # ---------------------------------------------------------------------------
 # Import management
 # ---------------------------------------------------------------------------
+
 
 def get_import_pending(ctx, limit=50, offset=0, include_ignored=False):
     """Get pending import files grouped by DynamicName/Volume."""
@@ -274,9 +277,7 @@ def refresh_import(ctx):
     try:
         logger.info("[SERIES-IMPORT] Starting import directory scan for: %s" % import_dir)
         import_queue = queue.Queue()
-        threading.Thread(
-            target=librarysync.scanLibrary, name="API-ImportScan", args=[import_dir, import_queue]
-        ).start()
+        threading.Thread(target=librarysync.scanLibrary, name="API-ImportScan", args=[import_dir, import_queue]).start()
         return {"success": True, "message": "Import scan started for: %s" % import_dir}
     except Exception as e:
         logger.error("[SERIES-IMPORT] Error: %s" % e)
@@ -285,8 +286,10 @@ def refresh_import(ctx):
 
 # --- Extracted from helpers.py ---
 
+
 def ComicSort(comicorder=None, sequence=None, imported=None):
     from sqlalchemy import select
+
     if sequence:
         # if it's on startup, load the sql into a tuple for use to avoid record-locking
         i = 0
@@ -479,6 +482,7 @@ def updateComicLocation():
 
 def checkthepub(ComicID):
     from sqlalchemy import select
+
     publishers = ["marvel", "dc", "darkhorse"]
     pubchk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
     if pubchk is None:
@@ -496,6 +500,7 @@ def checkthepub(ComicID):
 
 def annual_update():
     from sqlalchemy import select
+
     annuallist = db.select_all(select(annuals).where(annuals.c.Deleted != 1))
     if annuallist is None:
         logger.info("no annuals to update.")
@@ -705,6 +710,7 @@ def havetotals(refreshit=None):
 
 def listPull(weeknumber, year):
     from sqlalchemy import select
+
     library = {}
     rows = db.select_all(select(weekly.c.ComicID).where(weekly.c.weeknumber == weeknumber, weekly.c.year == year))
     for row in rows:
@@ -714,6 +720,7 @@ def listPull(weeknumber, year):
 
 def listLibrary(comicid=None):
     from sqlalchemy import select
+
     library = {}
     if comicid is None:
         if comicarr.CONFIG.ANNUALS_ON is True:
@@ -776,6 +783,7 @@ def listLibrary(comicid=None):
 
 def listoneoffs(weeknumber, year):
     from sqlalchemy import select
+
     library = []
     stmt = (
         select(
@@ -810,6 +818,7 @@ def listoneoffs(weeknumber, year):
 
 def listIssues(weeknumber, year):
     from sqlalchemy import select
+
     library = []
     stmt = (
         select(
@@ -882,6 +891,7 @@ def listIssues(weeknumber, year):
 
 def incr_snatched(ComicID):
     from sqlalchemy import select
+
     incr_count = db.select_one(select(comics.c.Have).where(comics.c.ComicID == ComicID))
     logger.fdebug("Incrementing HAVE count total to : " + str(incr_count["Have"] + 1))
     newCtrl = {"ComicID": ComicID}
@@ -894,6 +904,7 @@ def get_issue_title(IssueID=None, ComicID=None, IssueNumber=None, IssueArcID=Non
     from sqlalchemy import select
 
     from comicarr.helpers import issuedigits
+
     if IssueID:
         issue = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
         if issue is None:
@@ -924,6 +935,7 @@ def latestdate_fix():
     from sqlalchemy import select
 
     from comicarr.helpers import filesafe
+
     datefix = []
     cnupdate = []
     comiclist = db.select_all(select(comics))
@@ -974,6 +986,7 @@ def latestdate_fix():
 
 def latestdate_update():
     from sqlalchemy import select
+
     stmt = (
         select(
             comics.c.ComicID,
@@ -1013,6 +1026,7 @@ def latestissue_update():
     from sqlalchemy import select
 
     from comicarr.helpers import issuedigits
+
     cck = db.select_all(select(comics.c.ComicID, comics.c.LatestIssue).where(comics.c.intLatestIssue.is_(None)))
 
     if cck:
@@ -1034,6 +1048,7 @@ def latestissue_update():
 
 def DateAddedFix():
     from sqlalchemy import update
+
     DA_A = datetime.datetime.today()
     DateAdded = DA_A.strftime("%Y-%m-%d")
 
@@ -1050,6 +1065,7 @@ def DateAddedFix():
 
 def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):
     from sqlalchemy import select
+
     the_list = []
     if bulk is False:
         sc = db.select_all(select(issues.c.IssueID).where(issues.c.ComicID == comicid, issues.c.Status == status_from))
@@ -1102,6 +1118,7 @@ def statusChange(status_from, status_to, comicid=None, bulk=False, api=True):
 
 def issue_status(IssueID):
     from sqlalchemy import select
+
     IssueID = str(IssueID)
 
     isschk = db.select_one(select(issues).where(issues.c.IssueID == IssueID))

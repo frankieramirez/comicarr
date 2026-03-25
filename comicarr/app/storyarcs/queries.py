@@ -166,6 +166,7 @@ def want_all_issues(arc_id):
 # Reading list queries
 # ---------------------------------------------------------------------------
 
+
 def get_readlist():
     """Get all reading list entries ordered by issue date."""
     stmt = select(
@@ -191,6 +192,7 @@ def remove_all_read():
 # ---------------------------------------------------------------------------
 # Upcoming / weekly queries
 # ---------------------------------------------------------------------------
+
 
 def get_upcoming(week, year, include_downloaded=False):
     """Get upcoming issues for a given week/year from weekly + comics tables."""

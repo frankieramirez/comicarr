@@ -70,7 +70,7 @@ def decimal_issue(iss):
             deciss = int(iss) * 1000
     else:
         iss_b4dec = iss[:iss_find]
-        iss_decval = iss[iss_find + 1:]
+        iss_decval = iss[iss_find + 1 :]
         if int(iss_decval) == 0:
             iss = iss_b4dec
             issdec = int(iss_decval)
@@ -105,6 +105,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
     """
     if log is None:
         import logging
+
         log = logging.getLogger("comicarr")
 
     if issue_exceptions is None:
@@ -343,9 +344,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                                 inu += 1
                             int_issnum = ordtot
                         else:
-                            log.error(
-                                issnum + " this has an alpha-numeric in the issue # which I cannot account for."
-                            )
+                            log.error(issnum + " this has an alpha-numeric in the issue # which I cannot account for.")
                             return 999999999999999
 
     return int_issnum

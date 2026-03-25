@@ -26,6 +26,7 @@ from comicarr.tables import snatched as t_snatched
 # Pagination helper (shared pattern with series/queries.py)
 # ---------------------------------------------------------------------------
 
+
 def _paginated_query(stmt, limit=None, offset=None):
     """Execute a statement with optional pagination."""
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -57,6 +58,7 @@ def _paginated_query(stmt, limit=None, offset=None):
 # Snatched history
 # ---------------------------------------------------------------------------
 
+
 def get_history(limit=None, offset=None):
     """Get download history ordered by date, optionally paginated."""
     stmt = select(t_snatched).order_by(t_snatched.c.DateAdded.desc())
@@ -77,6 +79,7 @@ def clear_history(status_type=None):
 # DDL queue
 # ---------------------------------------------------------------------------
 
+
 def get_ddl_queue():
     """Get all DDL queue items ordered by submit date."""
     stmt = select(t_ddl_info).order_by(t_ddl_info.c.submit_date.desc())
@@ -85,9 +88,7 @@ def get_ddl_queue():
 
 def get_ddl_item(item_id):
     """Get a single DDL queue item."""
-    return db.select_one(
-        select(t_ddl_info).where(t_ddl_info.c.ID == item_id)
-    )
+    return db.select_one(select(t_ddl_info).where(t_ddl_info.c.ID == item_id))
 
 
 def delete_ddl_item(item_id):
@@ -104,6 +105,7 @@ def update_ddl_status(item_id, status):
 # ---------------------------------------------------------------------------
 # Issue file lookup (for file download endpoint)
 # ---------------------------------------------------------------------------
+
 
 def get_issue_file_info(issue_id):
     """Look up the file location for an issue by joining comics and issues.

@@ -76,9 +76,17 @@ def checkFolder(folderpath=None, check_folder=None, postprocessor=None, queue_cl
     return
 
 
-def file_ops(path, dst, arc=False, one_off=False, multiple=False,
-             file_opts=None, arc_fileops=None, arc_fileops_softlink_relative=False,
-             os_detect=None):
+def file_ops(
+    path,
+    dst,
+    arc=False,
+    one_off=False,
+    multiple=False,
+    file_opts=None,
+    arc_fileops=None,
+    arc_fileops_softlink_relative=False,
+    os_detect=None,
+):
     """Perform file copy/move/link operations.
 
     Takes config values as parameters to stay free of global state.

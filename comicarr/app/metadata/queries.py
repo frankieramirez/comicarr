@@ -42,4 +42,5 @@ def get_comics_needing_images(limit=50):
 def update_comic_image(comic_id, image_path):
     """Update the cached image path for a comic."""
     from comicarr.tables import comics
+
     db.upsert(comics, {"ComicID": comic_id, "ComicImage": image_path})

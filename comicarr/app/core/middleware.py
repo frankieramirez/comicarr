@@ -39,10 +39,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method in ("POST", "PUT", "DELETE", "PATCH"):
             path = request.url.path
-            exempt = any(
-                path == prefix or path.startswith(prefix + "/")
-                for prefix in CSRF_EXEMPT_PREFIXES
-            )
+            exempt = any(path == prefix or path.startswith(prefix + "/") for prefix in CSRF_EXEMPT_PREFIXES)
             if not exempt:
                 if request.headers.get("X-Requested-With") != "ComicarrFrontend":
                     return JSONResponse(
@@ -55,18 +52,20 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
-    CSP = "; ".join([
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
-        "font-src 'self'",
-        "connect-src 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "object-src 'none'",
-    ])
+    CSP = "; ".join(
+        [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
+            "font-src 'self'",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",
+        ]
+    )
 
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
@@ -89,16 +88,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class SetupGateMiddleware(BaseHTTPMiddleware):
     """Block all requests except setup-related paths when first-run setup is pending."""
 
-    ALLOWED_PREFIXES = ("/", "/index.html", "/auth/setup", "/auth/check_setup", "/assets", "/favicon.ico", "/api/health")
+    ALLOWED_PREFIXES = (
+        "/",
+        "/index.html",
+        "/auth/setup",
+        "/auth/check_setup",
+        "/assets",
+        "/favicon.ico",
+        "/api/health",
+    )
 
     async def dispatch(self, request: Request, call_next):
         ctx = getattr(request.app.state, "ctx", None)
         if ctx and ctx.setup_token is not None:
             path = request.url.path
-            allowed = any(
-                path == prefix or path.startswith(prefix + "/")
-                for prefix in self.ALLOWED_PREFIXES
-            )
+            allowed = any(path == prefix or path.startswith(prefix + "/") for prefix in self.ALLOWED_PREFIXES)
             # Allow exact root path
             if path == "/":
                 allowed = True

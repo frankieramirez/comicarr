@@ -33,6 +33,7 @@ from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 # Download history
 # ---------------------------------------------------------------------------
 
+
 def get_history(ctx, limit=None, offset=None):
     """Get download history, optionally paginated."""
     if limit is not None:
@@ -63,9 +64,19 @@ def clear_history(ctx, status_type=None):
 # Post-processing
 # ---------------------------------------------------------------------------
 
-def force_process(ctx, nzb_name, nzb_folder, failed=False, issueid=None,
-                  comicid=None, ddl=False, oneoff=False,
-                  apc_version=None, comicrn_version=None):
+
+def force_process(
+    ctx,
+    nzb_name,
+    nzb_folder,
+    failed=False,
+    issueid=None,
+    comicid=None,
+    ddl=False,
+    oneoff=False,
+    apc_version=None,
+    comicrn_version=None,
+):
     """Queue a download for post-processing.
 
     For standard API calls, queues to PP_QUEUE for background processing.
@@ -93,25 +104,26 @@ def force_process(ctx, nzb_name, nzb_folder, failed=False, issueid=None,
         return {"success": True}
 
     # Standard mode — queue for background processing
-    logger.info(
-        "Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder)
+    logger.info("Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder))
+    comicarr.PP_QUEUE.put(
+        {
+            "nzb_name": nzb_name,
+            "nzb_folder": nzb_folder,
+            "issueid": issueid,
+            "failed": failed,
+            "oneoff": oneoff,
+            "comicid": comicid,
+            "apicall": True,
+            "ddl": ddl,
+        }
     )
-    comicarr.PP_QUEUE.put({
-        "nzb_name": nzb_name,
-        "nzb_folder": nzb_folder,
-        "issueid": issueid,
-        "failed": failed,
-        "oneoff": oneoff,
-        "comicid": comicid,
-        "apicall": True,
-        "ddl": ddl,
-    })
     return {"success": True, "message": "Successfully submitted request for post-processing for %s" % nzb_name}
 
 
 def process_issue(ctx, comicid, folder, issueid=None):
     """Post-process a specific issue."""
     from comicarr import process
+
     try:
         fp = process.Process(comicid, folder, issueid)
         result = fp.post_process()
@@ -124,6 +136,7 @@ def process_issue(ctx, comicid, folder, issueid=None):
 # ---------------------------------------------------------------------------
 # DDL queue management
 # ---------------------------------------------------------------------------
+
 
 def get_ddl_queue(ctx):
     """Get current DDL download queue."""
@@ -163,11 +176,13 @@ def queue_ddl_download(ctx, item_id, link, site):
     }
     db.upsert("ddl_info", vals, {"id": item_id})
 
-    comicarr.DDL_QUEUE.put({
-        "id": item_id,
-        "link": link,
-        "site": site,
-    })
+    comicarr.DDL_QUEUE.put(
+        {
+            "id": item_id,
+            "link": link,
+            "site": site,
+        }
+    )
 
     logger.info("[DOWNLOADS] Queued DDL download: %s (site=%s)" % (item_id, site))
     return {"success": True, "message": "DDL download queued: %s" % item_id}
@@ -207,6 +222,7 @@ def get_issue_file_path(ctx, issue_id):
 
 
 # --- Extracted from helpers.py ---
+
 
 def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=None, annualize=None, arc=False):
     from sqlalchemy import select
@@ -323,7 +339,10 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
             seriesfilename = series
         else:
             seriesfilename = comicnzb["AlternateFileName"]
-            logger.fdebug("Alternate File Naming has been enabled for this series. Will rename series title to : " + seriesfilename)
+            logger.fdebug(
+                "Alternate File Naming has been enabled for this series. Will rename series title to : "
+                + seriesfilename
+            )
         seriesyear = comicnzb["ComicYear"]
         comlocation = comicnzb["ComicLocation"]
         comversion = comicnzb["ComicVersion"]
@@ -423,7 +442,13 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
             if issue_except != "None":
                 prettycomiss = str(prettycomiss) + issue_except
         elif int(issueno) >= 10 and int(issueno) < 100:
-            if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL_N is None, comicarr.CONFIG.ZERO_LEVEL is False]):
+            if any(
+                [
+                    comicarr.CONFIG.ZERO_LEVEL_N == "none",
+                    comicarr.CONFIG.ZERO_LEVEL_N is None,
+                    comicarr.CONFIG.ZERO_LEVEL is False,
+                ]
+            ):
                 zeroadd = ""
             else:
                 zeroadd = "0"
@@ -509,10 +534,17 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     publisher = re.sub("!", "", publisher)
 
     file_values = {
-        "$Series": seriesfilename, "$Issue": prettycomiss, "$Year": issueyear,
-        "$series": series.lower(), "$Publisher": publisher, "$publisher": publisher.lower(),
-        "$VolumeY": "V" + str(seriesyear), "$VolumeN": comversion,
-        "$monthname": month_name, "$month": month, "$Annual": "Annual",
+        "$Series": seriesfilename,
+        "$Issue": prettycomiss,
+        "$Year": issueyear,
+        "$series": series.lower(),
+        "$Publisher": publisher,
+        "$publisher": publisher.lower(),
+        "$VolumeY": "V" + str(seriesyear),
+        "$VolumeN": comversion,
+        "$monthname": month_name,
+        "$month": month,
+        "$Annual": "Annual",
     }
 
     extensions = (".cbr", ".cbz", ".cb7")
@@ -615,7 +647,10 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
                 if filesz <= int(dupsize) and int(dupsize) != 0:
                     rtnval = {"action": "dupe_file", "to_dupe": filename}
                 else:
-                    rtnval = {"action": "dupe_src", "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"])}
+                    rtnval = {
+                        "action": "dupe_src",
+                        "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"]),
+                    }
     else:
         rtnval = {"action": "write"}
     return rtnval
@@ -686,7 +721,9 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id):
     iss["issues"] = issueinfo
 
     if len(iss["issues"]) == len(pack_issues):
-        logger.fdebug("Complete issue count of %s issues are available within this pack for %s" % (len(pack_issues), ComicName))
+        logger.fdebug(
+            "Complete issue count of %s issues are available within this pack for %s" % (len(pack_issues), ComicName)
+        )
 
     iss["issue_range"] = pack_issues
     iss["valid"] = valid
@@ -694,7 +731,9 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id):
 
 
 def reverse_the_pack_snatch(pack_id, comicid):
-    logger.info("[REVERSE UNO] Reversal of issues marked as Snatched via pack download reversing due to invalid link retrieval..")
+    logger.info(
+        "[REVERSE UNO] Reversal of issues marked as Snatched via pack download reversing due to invalid link retrieval.."
+    )
     reverselist = [issueid for issueid, packid in comicarr.PACK_ISSUEIDS_DONT_QUEUE.items() if pack_id == packid]
     for x in reverselist:
         db.upsert("issues", {"Status": "Skipped"}, {"IssueID": x})
@@ -740,13 +779,16 @@ def ddl_downloader(queue):
                 except Exception:
                     try:
                         from comicarr.helpers import human2bytes
+
                         remote_filesize = human2bytes(re.sub("/s", "", item["size"][:-1]).strip())
                     except Exception:
                         remote_filesize = 0
 
                 if any([item["link_type"] == "GC-Main", item["link_type"] == "GC_Mirror"]):
                     ddz = getcomics.GC()
-                    ddzstat = ddz.downloadit(item["id"], item["link"], item["mainlink"], item["resume"], item["issueid"], remote_filesize)
+                    ddzstat = ddz.downloadit(
+                        item["id"], item["link"], item["mainlink"], item["resume"], item["issueid"], remote_filesize
+                    )
                 elif item["link_type"] == "GC-Mega":
                     meganz = mega.MegaNZ()
                     ddzstat = meganz.ddl_download(item["link"], None, item["id"], item["issueid"], item["link_type"])
@@ -759,7 +801,9 @@ def ddl_downloader(queue):
 
             elif item["site"] == "DDL(External)":
                 meganz = mega.MegaNZ()
-                ddzstat = meganz.ddl_download(item["link"], item["filename"], item["id"], item["issueid"], item["link_type"])
+                ddzstat = meganz.ddl_download(
+                    item["link"], item["filename"], item["id"], item["issueid"], item["link_type"]
+                )
 
             if ddzstat["success"] and ddzstat["filename"] is not None:
                 filecondition = check_file_condition(ddzstat["path"])
@@ -775,16 +819,40 @@ def ddl_downloader(queue):
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
                 try:
                     if ddzstat["filename"] is None:
-                        comicarr.PP_QUEUE.put({"nzb_name": os.path.basename(ddzstat["path"]), "nzb_folder": ddzstat["path"], "failed": False, "issueid": None, "comicid": item["comicid"], "apicall": True, "ddl": True, "download_info": {"provider": "DDL", "id": item["id"]}})
+                        comicarr.PP_QUEUE.put(
+                            {
+                                "nzb_name": os.path.basename(ddzstat["path"]),
+                                "nzb_folder": ddzstat["path"],
+                                "failed": False,
+                                "issueid": None,
+                                "comicid": item["comicid"],
+                                "apicall": True,
+                                "ddl": True,
+                                "download_info": {"provider": "DDL", "id": item["id"]},
+                            }
+                        )
                     else:
-                        comicarr.PP_QUEUE.put({"nzb_name": ddzstat["filename"], "nzb_folder": ddzstat["path"], "failed": False, "issueid": item["issueid"], "comicid": item["comicid"], "apicall": True, "ddl": True, "download_info": {"provider": "DDL", "id": item["id"]}})
+                        comicarr.PP_QUEUE.put(
+                            {
+                                "nzb_name": ddzstat["filename"],
+                                "nzb_folder": ddzstat["path"],
+                                "failed": False,
+                                "issueid": item["issueid"],
+                                "comicid": item["comicid"],
+                                "apicall": True,
+                                "ddl": True,
+                                "download_info": {"provider": "DDL", "id": item["id"]},
+                            }
+                        )
                 except Exception as e:
                     logger.error("process error: %s [%s]" % (e, ddzstat))
 
                 comicarr.DDL_QUEUED.remove(item["id"])
                 comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
-                try: link_type_failure.pop(item["id"])
-                except KeyError: pass
+                try:
+                    link_type_failure.pop(item["id"])
+                except KeyError:
+                    pass
                 try:
                     pck_cnt = 0
                     if item["comicinfo"][0]["pack"] is True:
@@ -792,19 +860,29 @@ def ddl_downloader(queue):
                             if y == item["id"]:
                                 pck_cnt += 1
                                 del comicarr.PACK_ISSUEIDS_DONT_QUEUE[x]
-                except Exception: pass
+                except Exception:
+                    pass
                 ddl_cleanup(item["id"])
 
             elif all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is False]):
                 ddl_cleanup(item["id"])
             else:
                 if item["site"] == "DDL(GetComics)":
-                    try: ddzstat["links_exhausted"]
+                    try:
+                        ddzstat["links_exhausted"]
                     except KeyError:
-                        try: link_type_failure[item["id"]].append(item["link_type"])
-                        except KeyError: link_type_failure[item["id"]] = [item["link_type"]]
+                        try:
+                            link_type_failure[item["id"]].append(item["link_type"])
+                        except KeyError:
+                            link_type_failure[item["id"]] = [item["link_type"]]
                         ggc = getcomics.GC(comicid=item["comicid"], issueid=item["issueid"], oneoff=item["oneoff"])
-                        ggc.parse_downloadresults(item["id"], item["mainlink"], item["comicinfo"], item["packinfo"], link_type_failure[item["id"]])
+                        ggc.parse_downloadresults(
+                            item["id"],
+                            item["mainlink"],
+                            item["comicinfo"],
+                            item["packinfo"],
+                            link_type_failure[item["id"]],
+                        )
                     else:
                         nval = {"status": "Failed", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
                         db.upsert("ddl_info", nval, ctrlval)
@@ -816,7 +894,9 @@ def ddl_downloader(queue):
                     with db.get_engine().begin() as conn:
                         conn.execute(delete(ddl_info).where(ddl_info.c.ID == item["id"]))
                     comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
-                    comicarr.search.FailedMark(item["issueid"], item["comicid"], item["id"], ddzstat["filename"], item["site"])
+                    comicarr.search.FailedMark(
+                        item["issueid"], item["comicid"], item["id"], ddzstat["filename"], item["site"]
+                    )
         else:
             time.sleep(5)
 
@@ -857,13 +937,16 @@ def ddl_health_check():
         if age_minutes > threshold_minutes:
             if item["id"] in comicarr.DDL_STUCK_NOTIFIED:
                 continue
-            logger.warn("[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["id"]))
+            logger.warn(
+                "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["id"])
+            )
             notify_ddl_stuck(item, int(age_minutes))
             comicarr.DDL_STUCK_NOTIFIED.add(item["id"])
 
 
 def postprocess_main(queue):
     import queue as queue_module
+
     while True:
         try:
             item = queue.get(timeout=5)
@@ -879,9 +962,20 @@ def postprocess_main(queue):
         pp = None
         logger.info("Now loading from post-processing queue: %s" % item)
         try:
-            pprocess = process.Process(item["nzb_name"], item["nzb_folder"], item["failed"], item["issueid"], item["comicid"], item["apicall"], item["ddl"], item["download_info"])
+            pprocess = process.Process(
+                item["nzb_name"],
+                item["nzb_folder"],
+                item["failed"],
+                item["issueid"],
+                item["comicid"],
+                item["apicall"],
+                item["ddl"],
+                item["download_info"],
+            )
         except Exception:
-            pprocess = process.Process(item["nzb_name"], item["nzb_folder"], item["failed"], item["issueid"], item["comicid"], item["apicall"])
+            pprocess = process.Process(
+                item["nzb_name"], item["nzb_folder"], item["failed"], item["issueid"], item["comicid"], item["apicall"]
+            )
         pp = pprocess.post_process()
         if pp is not None:
             if pp["mode"] == "stop":
@@ -912,14 +1006,32 @@ def worker_main(queue):
             comicarr.SNATCHED_QUEUE.put(item)
         elif any([snstat["snatch_status"] == "MONITOR FAIL", snstat["snatch_status"] == "MONITOR COMPLETE"]):
             logger.info("File copied for post-processing - submitting as a direct pp.")
-            comicarr.PP_QUEUE.put({"nzb_name": os.path.basename(snstat["copied_filepath"]), "nzb_folder": snstat["copied_filepath"], "failed": False, "issueid": item["issueid"], "comicid": item["comicid"], "apicall": True, "ddl": False, "download_info": None})
+            comicarr.PP_QUEUE.put(
+                {
+                    "nzb_name": os.path.basename(snstat["copied_filepath"]),
+                    "nzb_folder": snstat["copied_filepath"],
+                    "failed": False,
+                    "issueid": item["issueid"],
+                    "comicid": item["comicid"],
+                    "apicall": True,
+                    "ddl": False,
+                    "download_info": None,
+                }
+            )
 
 
 def nzb_monitor(queue):
     while True:
         if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
             if comicarr.USE_SABNZBD is True:
-                sab_params = {"apikey": comicarr.CONFIG.SAB_APIKEY, "mode": "queue", "start": 0, "limit": 5, "search": None, "output": "json"}
+                sab_params = {
+                    "apikey": comicarr.CONFIG.SAB_APIKEY,
+                    "mode": "queue",
+                    "start": 0,
+                    "limit": 5,
+                    "search": None,
+                    "output": "json",
+                }
                 s = sabnzbd.SABnzbd(params=sab_params)
                 sabresponse = s.sender(chkstatus=True)
                 if sabresponse["status"] is False:
@@ -993,7 +1105,18 @@ def cdh_monitor(queue, item, nzstat, readd=False):
         else:
             logger.info("File failed - now initiating completed failed downloading handling.")
         try:
-            comicarr.PP_QUEUE.put({"nzb_name": nzstat["name"], "nzb_folder": nzstat["location"], "failed": nzstat["failed"], "issueid": nzstat["issueid"], "comicid": nzstat["comicid"], "apicall": nzstat["apicall"], "ddl": False, "download_info": nzstat["download_info"]})
+            comicarr.PP_QUEUE.put(
+                {
+                    "nzb_name": nzstat["name"],
+                    "nzb_folder": nzstat["location"],
+                    "failed": nzstat["failed"],
+                    "issueid": nzstat["issueid"],
+                    "comicid": nzstat["comicid"],
+                    "apicall": nzstat["apicall"],
+                    "ddl": False,
+                    "download_info": nzstat["download_info"],
+                }
+            )
         except Exception as e:
             logger.error("process error: %s" % e)
     return
@@ -1016,10 +1139,23 @@ def lookupthebitches(filelist, folder, nzbname, nzbid, prov, hash, pulldate):
         if parsedinfo["parse_status"] == "success":
             dyncheck = re.sub(r"[\|\s]", "", parsedinfo["dynamic_name"].lower()).strip()
             check = db.select_one(
-                select(weekly).where(weekly.c.DynamicName == dyncheck, weekly.c.weeknumber == weeknumber, weekly.c.year == year, weekly.c.STATUS != "Downloaded")
+                select(weekly).where(
+                    weekly.c.DynamicName == dyncheck,
+                    weekly.c.weeknumber == weeknumber,
+                    weekly.c.year == year,
+                    weekly.c.STATUS != "Downloaded",
+                )
             )
             if check is not None:
-                matchlist.append({"comicname": check["COMIC"], "issue": check["ISSUE"], "comicid": check["ComicID"], "issueid": check["IssueID"], "dynamicname": check["DynamicName"]})
+                matchlist.append(
+                    {
+                        "comicname": check["COMIC"],
+                        "issue": check["ISSUE"],
+                        "comicid": check["ComicID"],
+                        "issueid": check["IssueID"],
+                        "dynamicname": check["DynamicName"],
+                    }
+                )
 
     if len(matchlist) > 0:
         for x in matchlist:

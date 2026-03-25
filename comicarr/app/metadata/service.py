@@ -30,8 +30,9 @@ import comicarr
 from comicarr import db, getimage, logger, updater
 
 
-def search_comics(ctx, name, issue=None, type_="comic", mode="series",
-                  limit=None, offset=None, sort=None, content_type=None):
+def search_comics(
+    ctx, name, issue=None, type_="comic", mode="series", limit=None, offset=None, sort=None, content_type=None
+):
     """Search for comics across configured providers.
 
     Delegates to MangaDex for manga, or mb.findComic for comics/story arcs.
@@ -54,16 +55,27 @@ def search_comics(ctx, name, issue=None, type_="comic", mode="series",
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
             return {"error": "MangaDex integration is not enabled"}
         from comicarr import mangadex
+
         searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
     elif type_ == "story_arc":
         searchresults = mb.findComic(
-            name, mode, issue=None, search_type="story_arc",
-            limit=parsed_limit, offset=parsed_offset, sort=sort,
+            name,
+            mode,
+            issue=None,
+            search_type="story_arc",
+            limit=parsed_limit,
+            offset=parsed_offset,
+            sort=sort,
         )
     else:
         searchresults = mb.findComic(
-            name, mode, issue=issue, limit=parsed_limit,
-            offset=parsed_offset, sort=sort, content_type=content_type,
+            name,
+            mode,
+            issue=issue,
+            limit=parsed_limit,
+            offset=parsed_offset,
+            sort=sort,
+            content_type=content_type,
         )
 
     # Add in_library flag
@@ -76,6 +88,7 @@ def search_comics(ctx, name, issue=None, type_="comic", mode="series",
         return searchresults
     else:
         from operator import itemgetter
+
         searchresults = sorted(searchresults, key=itemgetter("comicyear", "issues"), reverse=True)
         searchresults = [add_in_library(c) for c in searchresults]
         return {"results": searchresults}
@@ -105,6 +118,7 @@ def get_series_image(ctx, series_id):
         return None
 
     from comicarr import metron
+
     return metron.get_series_image(series_id)
 
 
@@ -179,6 +193,7 @@ def get_artwork(ctx, comic_id):
     if img_data:
         try:
             from io import BytesIO
+
             img = Image.open(BytesIO(img_data))
             if img.get_format_mimetype():
                 with open(image_path, "wb") as f:
@@ -223,6 +238,7 @@ def group_metatag(ctx, comic_id):
 # ---------------------------------------------------------------------------
 # Metatag implementation (extracted from webserve.WebInterface)
 # ---------------------------------------------------------------------------
+
 
 def _do_manual_metatag(issueid, comicid=None, group=False):
     """Tag metadata for a single issue. Extracted from WebInterface.manual_metatag."""
@@ -376,9 +392,7 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                             comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None",
                         ]
                     ):
-                        if os.path.exists(
-                            os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))
-                        ):
+                        if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))):
                             secondary_folder = os.path.join(
                                 comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName)
                             )
@@ -489,12 +503,14 @@ def _do_bulk_metatag(ComicID, IssueIDs, threaded=False):
     placeholders = ",".join(["?" for _ in IssueIDs])
     query_params = [ComicID] + IssueIDs
     groupinfo = db.raw_select_all(
-        "SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN (%s) and Location IS NOT NULL" % placeholders,
+        "SELECT IssueID, Location FROM issues WHERE ComicID=? and IssueID IN (%s) and Location IS NOT NULL"
+        % placeholders,
         query_params,
     )
     if comicarr.CONFIG.ANNUALS_ON:
         groupinfo += db.raw_select_all(
-            "SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN (%s) and Location IS NOT NULL" % placeholders,
+            "SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN (%s) and Location IS NOT NULL"
+            % placeholders,
             query_params,
         )
 
@@ -503,10 +519,13 @@ def _do_bulk_metatag(ComicID, IssueIDs, threaded=False):
         return
 
     if comicarr.CONFIG.CV_BATCH_LIMIT_PROTECTION and len(groupinfo) > comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD:
-        warningMessage = "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits." % (
-            comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo)
+        warningMessage = (
+            "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits."
+            % (comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
         )
-        logger.warn("[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage))
+        logger.warn(
+            "[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage)
+        )
         comicarr.GLOBAL_MESSAGES = {
             "status": "failure",
             "comicname": cinfo["ComicName"],
@@ -580,10 +599,13 @@ def _do_group_metatag(ComicID, threaded=False):
         return
 
     if comicarr.CONFIG.CV_BATCH_LIMIT_PROTECTION and len(groupinfo) > comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD:
-        warningMessage = "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits." % (
-            comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo)
+        warningMessage = (
+            "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits."
+            % (comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
         )
-        logger.warn("[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage))
+        logger.warn(
+            "[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage)
+        )
         comicarr.GLOBAL_MESSAGES = {
             "status": "failure",
             "comicname": cinfo["ComicName"],
@@ -607,6 +629,7 @@ def _do_group_metatag(ComicID, threaded=False):
 
 
 # --- Extracted from helpers.py ---
+
 
 def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
     from xml.dom.minidom import parseString
@@ -661,7 +684,12 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
             else:
                 metadata_info = {"metadata_source": None, "metadata_type": None}
                 logger.warn("No metadata available in zipfile comment field.")
-                return {"IssueImage": IssueImage, "datamode": "file", "metadata": None, "metadata_source": metadata_info}
+                return {
+                    "IssueImage": IssueImage,
+                    "datamode": "file",
+                    "metadata": None,
+                    "metadata_source": metadata_info,
+                }
 
     logger.info("Tag returned as being: " + str(issuetag))
 
@@ -671,52 +699,93 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         metadata_info = {"metadata_source": None, "metadata_type": "comicinfo.xml"}
 
         for result in results:
-            try: issue_title = result.getElementsByTagName("Title")[0].firstChild.wholeText
-            except: issue_title = "None"
-            try: series_title = result.getElementsByTagName("Series")[0].firstChild.wholeText
-            except: series_title = "None"
-            try: series_volume = result.getElementsByTagName("Volume")[0].firstChild.wholeText
-            except: series_volume = "None"
-            try: issue_number = result.getElementsByTagName("Number")[0].firstChild.wholeText
-            except: issue_number = "None"
-            try: summary = result.getElementsByTagName("Summary")[0].firstChild.wholeText
-            except: summary = "None"
+            try:
+                issue_title = result.getElementsByTagName("Title")[0].firstChild.wholeText
+            except:
+                issue_title = "None"
+            try:
+                series_title = result.getElementsByTagName("Series")[0].firstChild.wholeText
+            except:
+                series_title = "None"
+            try:
+                series_volume = result.getElementsByTagName("Volume")[0].firstChild.wholeText
+            except:
+                series_volume = "None"
+            try:
+                issue_number = result.getElementsByTagName("Number")[0].firstChild.wholeText
+            except:
+                issue_number = "None"
+            try:
+                summary = result.getElementsByTagName("Summary")[0].firstChild.wholeText
+            except:
+                summary = "None"
             if "*List" in summary:
                 summary_cut = summary.find("*List")
                 summary = summary[:summary_cut]
-            try: notes = result.getElementsByTagName("Notes")[0].firstChild.wholeText
-            except: notes = "None"
+            try:
+                notes = result.getElementsByTagName("Notes")[0].firstChild.wholeText
+            except:
+                notes = "None"
             else:
-                if "CMXID" in notes: mtype = "Comixology"
-                elif any(["cvdb" in notes.lower(), "issue id" in notes.lower(), "comic vine" in notes.lower()]): mtype = "ComicVine"
-                else: mtype = None
+                if "CMXID" in notes:
+                    mtype = "Comixology"
+                elif any(["cvdb" in notes.lower(), "issue id" in notes.lower(), "comic vine" in notes.lower()]):
+                    mtype = "ComicVine"
+                else:
+                    mtype = None
                 metadata_info = {"metadata_source": mtype, "metadata_type": "comicinfo.xml"}
-            try: year = result.getElementsByTagName("Year")[0].firstChild.wholeText
-            except: year = "None"
-            try: month = result.getElementsByTagName("Month")[0].firstChild.wholeText
-            except: month = "None"
-            try: day = result.getElementsByTagName("Day")[0].firstChild.wholeText
-            except: day = "None"
-            try: writer = result.getElementsByTagName("Writer")[0].firstChild.wholeText
-            except: writer = None
-            try: penciller = result.getElementsByTagName("Penciller")[0].firstChild.wholeText
-            except: penciller = None
-            try: inker = result.getElementsByTagName("Inker")[0].firstChild.wholeText
-            except: inker = None
-            try: colorist = result.getElementsByTagName("Colorist")[0].firstChild.wholeText
-            except: colorist = None
-            try: letterer = result.getElementsByTagName("Letterer")[0].firstChild.wholeText
-            except: letterer = None
-            try: cover_artist = result.getElementsByTagName("CoverArtist")[0].firstChild.wholeText
-            except: cover_artist = None
-            try: editor = result.getElementsByTagName("Editor")[0].firstChild.wholeText
-            except: editor = None
-            try: publisher = result.getElementsByTagName("Publisher")[0].firstChild.wholeText
-            except: publisher = "None"
-            try: webpage = result.getElementsByTagName("Web")[0].firstChild.wholeText
-            except: webpage = "None"
-            try: pagecount = result.getElementsByTagName("PageCount")[0].firstChild.wholeText
-            except: pagecount = 0
+            try:
+                year = result.getElementsByTagName("Year")[0].firstChild.wholeText
+            except:
+                year = "None"
+            try:
+                month = result.getElementsByTagName("Month")[0].firstChild.wholeText
+            except:
+                month = "None"
+            try:
+                day = result.getElementsByTagName("Day")[0].firstChild.wholeText
+            except:
+                day = "None"
+            try:
+                writer = result.getElementsByTagName("Writer")[0].firstChild.wholeText
+            except:
+                writer = None
+            try:
+                penciller = result.getElementsByTagName("Penciller")[0].firstChild.wholeText
+            except:
+                penciller = None
+            try:
+                inker = result.getElementsByTagName("Inker")[0].firstChild.wholeText
+            except:
+                inker = None
+            try:
+                colorist = result.getElementsByTagName("Colorist")[0].firstChild.wholeText
+            except:
+                colorist = None
+            try:
+                letterer = result.getElementsByTagName("Letterer")[0].firstChild.wholeText
+            except:
+                letterer = None
+            try:
+                cover_artist = result.getElementsByTagName("CoverArtist")[0].firstChild.wholeText
+            except:
+                cover_artist = None
+            try:
+                editor = result.getElementsByTagName("Editor")[0].firstChild.wholeText
+            except:
+                editor = None
+            try:
+                publisher = result.getElementsByTagName("Publisher")[0].firstChild.wholeText
+            except:
+                publisher = "None"
+            try:
+                webpage = result.getElementsByTagName("Web")[0].firstChild.wholeText
+            except:
+                webpage = "None"
+            try:
+                pagecount = result.getElementsByTagName("PageCount")[0].firstChild.wholeText
+            except:
+                pagecount = 0
 
     elif issuetag == "comment":
         logger.info("CBL Tagging.")
@@ -725,25 +794,42 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         if data is None or data == "":
             return {"IssueImage": IssueImage}
         import ast
+
         ast_data = ast.literal_eval(str(data))
         ast_data["lastModified"]
         dt = ast_data["ComicBookInfo/1.0"]
-        try: publisher = dt["publisher"]
-        except: publisher = None
-        try: year = dt["publicationYear"]
-        except: year = None
-        try: month = dt["publicationMonth"]
-        except: month = None
-        try: day = dt["publicationDay"]
-        except: day = None
-        try: issue_title = dt["title"]
-        except: issue_title = None
-        try: series_title = dt["series"]
-        except: series_title = None
-        try: issue_number = dt["issue"]
-        except: issue_number = None
-        try: summary = dt["comments"]
-        except: summary = "None"
+        try:
+            publisher = dt["publisher"]
+        except:
+            publisher = None
+        try:
+            year = dt["publicationYear"]
+        except:
+            year = None
+        try:
+            month = dt["publicationMonth"]
+        except:
+            month = None
+        try:
+            day = dt["publicationDay"]
+        except:
+            day = None
+        try:
+            issue_title = dt["title"]
+        except:
+            issue_title = None
+        try:
+            series_title = dt["series"]
+        except:
+            series_title = None
+        try:
+            issue_number = dt["issue"]
+        except:
+            issue_number = None
+        try:
+            summary = dt["comments"]
+        except:
+            summary = "None"
         editor = None
         colorist = None
         artist = None
@@ -752,48 +838,94 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         cover_artist = None
         penciller = None
         inker = None
-        try: series_volume = dt["volume"]
-        except: series_volume = None
-        try: dt["credits"]
-        except: pass
+        try:
+            series_volume = dt["volume"]
+        except:
+            series_volume = None
+        try:
+            dt["credits"]
+        except:
+            pass
         else:
             for cl in dt["credits"]:
                 if cl["role"] == "Editor":
-                    if editor == "None": editor = cl["person"]
-                    else: editor += ", " + cl["person"]
+                    if editor == "None":
+                        editor = cl["person"]
+                    else:
+                        editor += ", " + cl["person"]
                 elif cl["role"] == "Colorist":
-                    if colorist == "None": colorist = cl["person"]
-                    else: colorist += ", " + cl["person"]
+                    if colorist == "None":
+                        colorist = cl["person"]
+                    else:
+                        colorist += ", " + cl["person"]
                 elif cl["role"] == "Artist":
-                    if artist == "None": artist = cl["person"]
-                    else: artist += ", " + cl["person"]
+                    if artist == "None":
+                        artist = cl["person"]
+                    else:
+                        artist += ", " + cl["person"]
                 elif cl["role"] == "Writer":
-                    if writer == "None": writer = cl["person"]
-                    else: writer += ", " + cl["person"]
+                    if writer == "None":
+                        writer = cl["person"]
+                    else:
+                        writer += ", " + cl["person"]
                 elif cl["role"] == "Letterer":
-                    if letterer == "None": letterer = cl["person"]
-                    else: letterer += ", " + cl["person"]
+                    if letterer == "None":
+                        letterer = cl["person"]
+                    else:
+                        letterer += ", " + cl["person"]
                 elif cl["role"] == "Cover":
-                    if cover_artist == "None": cover_artist = cl["person"]
-                    else: cover_artist += ", " + cl["person"]
+                    if cover_artist == "None":
+                        cover_artist = cl["person"]
+                    else:
+                        cover_artist += ", " + cl["person"]
                 elif cl["role"] == "Penciller":
-                    if penciller == "None": penciller = cl["person"]
-                    else: penciller += ", " + cl["person"]
+                    if penciller == "None":
+                        penciller = cl["person"]
+                    else:
+                        penciller += ", " + cl["person"]
                 elif cl["role"] == "Inker":
-                    if inker == "None": inker = cl["person"]
-                    else: inker += ", " + cl["person"]
-        try: notes = dt["notes"]
-        except: notes = "None"
-        try: webpage = dt["web"]
-        except: webpage = "None"
-        try: pagecount = dt["pagecount"]
-        except: pagecount = "None"
+                    if inker == "None":
+                        inker = cl["person"]
+                    else:
+                        inker += ", " + cl["person"]
+        try:
+            notes = dt["notes"]
+        except:
+            notes = "None"
+        try:
+            webpage = dt["web"]
+        except:
+            webpage = "None"
+        try:
+            pagecount = dt["pagecount"]
+        except:
+            pagecount = "None"
     else:
         logger.warn("Unable to locate any metadata within cbz file. Tag this file and try again if necessary.")
         return
 
     return {
-        "metadata": {"title": issue_title, "series": series_title, "volume": series_volume, "issue_number": issue_number, "summary": summary, "notes": notes, "year": year, "month": month, "day": day, "writer": writer, "penciller": penciller, "inker": inker, "colorist": colorist, "letterer": letterer, "cover_artist": cover_artist, "editor": editor, "publisher": publisher, "webpage": webpage, "pagecount": pagecount},
+        "metadata": {
+            "title": issue_title,
+            "series": series_title,
+            "volume": series_volume,
+            "issue_number": issue_number,
+            "summary": summary,
+            "notes": notes,
+            "year": year,
+            "month": month,
+            "day": day,
+            "writer": writer,
+            "penciller": penciller,
+            "inker": inker,
+            "colorist": colorist,
+            "letterer": letterer,
+            "cover_artist": cover_artist,
+            "editor": editor,
+            "publisher": publisher,
+            "webpage": webpage,
+            "pagecount": pagecount,
+        },
         "IssueImage": IssueImage,
         "datamode": "file",
         "metadata_source": metadata_info,
@@ -809,7 +941,9 @@ def getImage(comicid, url, issueid=None, thumbnail_path=None, apicall=False, ove
                     logger.info("Cache Directory successfully created at: %s" % comicarr.CONFIG.CACHE_DIR)
             except OSError:
                 if apicall is False:
-                    logger.error("Could not create cache dir. Check permissions of cache dir: %s" % comicarr.CONFIG.CACHE_DIR)
+                    logger.error(
+                        "Could not create cache dir. Check permissions of cache dir: %s" % comicarr.CONFIG.CACHE_DIR
+                    )
         coverfile = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
     else:
         coverfile = thumbnail_path
@@ -834,12 +968,16 @@ def getImage(comicid, url, issueid=None, thumbnail_path=None, apicall=False, ove
             logger.fdebug("comic image retrieval status code: %s" % statuscode)
         if statuscode != "200":
             if apicall is False:
-                logger.warn("Unable to download image from CV URL link: %s [Status Code returned: %s]" % (url, statuscode))
+                logger.warn(
+                    "Unable to download image from CV URL link: %s [Status Code returned: %s]" % (url, statuscode)
+                )
             coversize = 0
         else:
             if os.path.exists(coverfile) and overwrite:
-                try: os.remove(coverfile)
-                except Exception: pass
+                try:
+                    os.remove(coverfile)
+                except Exception:
+                    pass
             with open(coverfile, "wb") as f:
                 for chunk in r.iter_content(chunk_size=1024):
                     if chunk:
@@ -848,7 +986,8 @@ def getImage(comicid, url, issueid=None, thumbnail_path=None, apicall=False, ove
             statinfo = os.stat(coverfile)
             coversize = statinfo.st_size
 
-        try: Image.open(coverfile)
+        try:
+            Image.open(coverfile)
         except OSError:
             logger.warn("Truncated image retrieved - trying alternate image file.")
             return {"coversize": coversize, "status": "retry"}
@@ -868,22 +1007,57 @@ def publisherImages(publisher):
     comicpublisher = None
     if comicarr.CONFIG.INTERFACE == "default":
         if any([publisher == "Image", publisher == "Image Comics"]):
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-imagecomics.png", "publisher_image_alt": "Image", "publisher_imageH": "125", "publisher_imageW": "75"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-imagecomics.png",
+                "publisher_image_alt": "Image",
+                "publisher_imageH": "125",
+                "publisher_imageW": "75",
+            }
         elif publisher == "IDW Publishing":
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-idwpublish.png", "publisher_image_alt": "IDW", "publisher_imageH": "50", "publisher_imageW": "100"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-idwpublish.png",
+                "publisher_image_alt": "IDW",
+                "publisher_imageH": "50",
+                "publisher_imageW": "100",
+            }
         elif publisher == "Boom! Studios":
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-boom.jpg", "publisher_image_alt": "Boom!", "publisher_imageH": "50", "publisher_imageW": "100"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-boom.jpg",
+                "publisher_image_alt": "Boom!",
+                "publisher_imageH": "50",
+                "publisher_imageW": "100",
+            }
     else:
         if any([publisher == "Image", publisher == "Image Comics"]):
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-imagecomics_carbon.png", "publisher_image_alt": "Image", "publisher_imageH": "125", "publisher_imageW": "75"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-imagecomics_carbon.png",
+                "publisher_image_alt": "Image",
+                "publisher_imageH": "125",
+                "publisher_imageW": "75",
+            }
         elif publisher == "IDW Publishing":
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-idwpublish_carbon.png", "publisher_image_alt": "IDW", "publisher_imageH": "50", "publisher_imageW": "100"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-idwpublish_carbon.png",
+                "publisher_image_alt": "IDW",
+                "publisher_imageH": "50",
+                "publisher_imageW": "100",
+            }
         elif publisher == "Boom! Studios":
-            comicpublisher = {"publisher_image": "images/publisherlogos/logo-boom_carbon.png", "publisher_image_alt": "Boom!", "publisher_imageH": "50", "publisher_imageW": "100"}
+            comicpublisher = {
+                "publisher_image": "images/publisherlogos/logo-boom_carbon.png",
+                "publisher_image_alt": "Boom!",
+                "publisher_imageH": "50",
+                "publisher_imageW": "100",
+            }
 
     if comicpublisher is not None:
         return comicpublisher
 
     if comicpublisher is None:
-        comicpublisher = {"publisher_image": "images/publisherlogos/logo-blank_publisher.png", "publisher_image_alt": None, "publisher_imageH": "0", "publisher_imageW": "0"}
+        comicpublisher = {
+            "publisher_image": "images/publisherlogos/logo-blank_publisher.png",
+            "publisher_image_alt": None,
+            "publisher_imageH": "0",
+            "publisher_imageW": "0",
+        }
     return comicpublisher

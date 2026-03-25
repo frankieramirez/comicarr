@@ -28,8 +28,9 @@ from comicarr import db, logger
 from comicarr.tables import issues, ref32p
 
 
-def find_comic(ctx, name, issue=None, type_="comic", mode="series",
-               limit=None, offset=None, sort=None, content_type=None):
+def find_comic(
+    ctx, name, issue=None, type_="comic", mode="series", limit=None, offset=None, sort=None, content_type=None
+):
     """Search for comics across configured providers.
 
     Delegates to MangaDex for manga, or mb.findComic for comics/story arcs.
@@ -51,16 +52,27 @@ def find_comic(ctx, name, issue=None, type_="comic", mode="series",
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
             return {"error": "MangaDex integration is not enabled"}
         from comicarr import mangadex
+
         searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
     elif type_ == "story_arc":
         searchresults = mb.findComic(
-            name, mode, issue=None, search_type="story_arc",
-            limit=parsed_limit, offset=parsed_offset, sort=sort,
+            name,
+            mode,
+            issue=None,
+            search_type="story_arc",
+            limit=parsed_limit,
+            offset=parsed_offset,
+            sort=sort,
         )
     else:
         searchresults = mb.findComic(
-            name, mode, issue=issue, limit=parsed_limit,
-            offset=parsed_offset, sort=sort, content_type=content_type,
+            name,
+            mode,
+            issue=issue,
+            limit=parsed_limit,
+            offset=parsed_offset,
+            sort=sort,
+            content_type=content_type,
         )
 
     # Add in_library flag
@@ -105,6 +117,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 def add_comic(ctx, comic_id):
     """Add a comic to the watchlist via importer."""
     from comicarr import importer
+
     try:
         watch = [{"comicid": comic_id, "comicname": None}]
         importer.importer_thread(watch)
@@ -124,6 +137,7 @@ def add_manga(ctx, manga_id):
 
     try:
         from comicarr import importer
+
         result = importer.addMangaToDB(manga_id)
 
         if result and result.get("status") == "complete":
@@ -142,6 +156,7 @@ def add_manga(ctx, manga_id):
 def force_search(ctx):
     """Trigger a full search for all wanted issues."""
     from comicarr import search
+
     search.searchforissue()
     return {"success": True, "message": "Search initiated"}
 
@@ -149,6 +164,7 @@ def force_search(ctx):
 def force_rss(ctx):
     """Trigger an RSS feed check."""
     import threading
+
     try:
         rss = comicarr.rsscheckit.tehMain()
         threading.Thread(target=rss.run, args=(True,)).start()
@@ -161,10 +177,12 @@ def force_rss(ctx):
 def get_provider_stats(ctx):
     """Get provider search statistics."""
     from comicarr.app.search import queries as search_queries
+
     return search_queries.get_provider_stats()
 
 
 # --- Extracted from helpers.py ---
+
 
 def LoadAlternateSearchNames(seriesname_alt, comicid):
     # seriesname_alt = db.comics['AlternateSearch']
@@ -245,6 +263,7 @@ def checkthe_id(comicid=None, up_vals=None):
     from sqlalchemy import select
 
     from comicarr.helpers import now
+
     if not up_vals:
         chk = db.select_one(select(ref32p).where(ref32p.c.ComicID == comicid))
         if chk is None:
@@ -629,6 +648,7 @@ def search_queue(queue):
 
                     if local_check["status"]:
                         from comicarr.helpers import check_file_condition
+
                         fullpath = Path(local_check["filepath"]) / local_check["filename"]
                         filecondition = check_file_condition(fullpath)
                         if not filecondition["status"]:

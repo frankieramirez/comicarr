@@ -41,6 +41,7 @@ api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
 # Rate limiting
 # ---------------------------------------------------------------------------
 
+
 class LoginRateLimiter(object):
     def __init__(self, max_attempts=5, lockout_seconds=300):
         self._attempts = defaultdict(list)
@@ -83,6 +84,7 @@ class LoginRateLimiter(object):
 # JWT key management
 # ---------------------------------------------------------------------------
 
+
 def load_or_create_jwt_key(secure_dir):
     """Load JWT key from SECURE_DIR/jwt.key, or generate one.
 
@@ -103,6 +105,7 @@ def load_or_create_jwt_key(secure_dir):
 # ---------------------------------------------------------------------------
 # JWT token operations
 # ---------------------------------------------------------------------------
+
 
 def create_session_token(username, secret_key, generation, login_timeout=43800):
     """Create JWT with revocation support via generation counter."""
@@ -132,6 +135,7 @@ def validate_jwt_token(token, secret_key, current_generation):
 # FastAPI dependencies
 # ---------------------------------------------------------------------------
 
+
 def require_session(request: Request, ctx: AppContext = Depends(get_context)):
     """Dependency: require a valid JWT session cookie."""
     token = request.cookies.get(COOKIE_NAME)
@@ -149,6 +153,7 @@ def require_api_key(scope="full"):
     Scopes: "full" (persistent config key), "download" (ephemeral per-session),
     "sse" (ephemeral per app start).
     """
+
     def dependency(
         api_key: str = Depends(api_key_header),
         ctx: AppContext = Depends(get_context),
@@ -163,6 +168,7 @@ def require_api_key(scope="full"):
         expected = key_map.get(scope)
         if not expected or not hmac.compare_digest(api_key, expected):
             raise HTTPException(status_code=401, detail="Invalid API key")
+
     return dependency
 
 
@@ -219,6 +225,7 @@ def generate_ephemeral_key():
 
 
 # --- Extracted from helpers.py ---
+
 
 def apiremove(apistring, apitype):
     if apitype == "nzb":

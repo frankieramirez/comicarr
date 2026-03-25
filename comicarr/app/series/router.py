@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api", tags=["series"])
 # Series CRUD
 # ---------------------------------------------------------------------------
 
+
 @router.get("/series", dependencies=[Depends(require_session)])
 def list_series(
     limit: int = Query(None),
@@ -107,6 +108,7 @@ def refresh_series(comic_id: str, ctx: AppContext = Depends(get_context)):
 # Issue management
 # ---------------------------------------------------------------------------
 
+
 @router.put("/series/issues/{issue_id}/queue", dependencies=[Depends(require_session)])
 def queue_issue(issue_id: str, ctx: AppContext = Depends(get_context)):
     """Mark an issue as Wanted and trigger search."""
@@ -133,6 +135,7 @@ def get_wanted(
 # ---------------------------------------------------------------------------
 # Import management
 # ---------------------------------------------------------------------------
+
 
 @router.get("/import", dependencies=[Depends(require_session)])
 def get_import_pending(
@@ -221,6 +224,7 @@ def refresh_import(ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 # REST-compat endpoints (migrated from legacy /rest mount)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/watchlist", dependencies=[Depends(require_api_key("full"))])
 def rest_watchlist():

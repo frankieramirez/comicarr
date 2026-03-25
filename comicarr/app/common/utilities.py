@@ -126,8 +126,7 @@ def get_the_hash(filepath):
     return {"hash": thehash}
 
 
-def log_that_exception(except_info, db=None, now_func=None, log_dir=None,
-                       tail_func=None):
+def log_that_exception(except_info, db=None, now_func=None, log_dir=None, tail_func=None):
     """Format and store exception info to db and log file.
 
     Takes dependencies as parameters to stay free of global state.

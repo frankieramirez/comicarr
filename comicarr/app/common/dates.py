@@ -163,9 +163,15 @@ def date_conversion(originaldate):
     return hours
 
 
-def weekly_info(week=None, year=None, current=None,
-                weekfolder_loc=None, destination_dir=None,
-                weekfolder_format=None, sched_weekly_last=None):
+def weekly_info(
+    week=None,
+    year=None,
+    current=None,
+    weekfolder_loc=None,
+    destination_dir=None,
+    weekfolder_format=None,
+    sched_weekly_last=None,
+):
     """Calculate week start/end dates and navigation info.
 
     Takes config values as parameters to stay free of global state.

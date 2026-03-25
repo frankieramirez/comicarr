@@ -20,31 +20,37 @@ from fastapi.responses import JSONResponse
 
 class DomainError(Exception):
     """Base for all domain-specific errors."""
+
     pass
 
 
 class NotFoundError(DomainError):
     """Requested resource does not exist."""
+
     pass
 
 
 class ProviderTimeoutError(DomainError):
     """External provider (ComicVine, Metron, etc.) timed out."""
+
     pass
 
 
 class ConfigError(DomainError):
     """Configuration is invalid or missing required values."""
+
     pass
 
 
 class AuthError(DomainError):
     """Authentication or authorization failure."""
+
     pass
 
 
 class ValidationError(DomainError):
     """Input validation failed."""
+
     pass
 
 

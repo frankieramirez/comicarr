@@ -38,6 +38,7 @@ router = APIRouter(prefix="/api", tags=["system"])
 # Auth endpoints
 # ---------------------------------------------------------------------------
 
+
 # Login MUST be sync def — bcrypt takes ~250ms on NAS ARM hardware.
 # If async def, it blocks the entire event loop. FastAPI runs sync
 # handlers in a threadpool where threading.Lock is safe.
@@ -45,6 +46,7 @@ router = APIRouter(prefix="/api", tags=["system"])
 def login(request: Request, ctx: AppContext = Depends(get_context)):
     """JSON login — returns JWT in HttpOnly cookie."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     # Read body synchronously (we're in a threadpool)
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
@@ -118,6 +120,7 @@ _setup_lock = threading.Lock()
 def setup(request: Request, ctx: AppContext = Depends(get_context)):
     """First-run credential setup. Only works if no auth is configured."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
 
@@ -134,6 +137,7 @@ def setup(request: Request, ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 # SSE endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.get("/events/stream")
 async def event_stream(request: Request, ctx: AppContext = Depends(get_context)):
@@ -171,6 +175,7 @@ async def event_stream(request: Request, ctx: AppContext = Depends(get_context))
 # Config endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/config", dependencies=[Depends(require_session)])
 def get_config(ctx: AppContext = Depends(get_context)):
     """Return current configuration (safe subset)."""
@@ -181,6 +186,7 @@ def get_config(ctx: AppContext = Depends(get_context)):
 def update_config(request: Request, ctx: AppContext = Depends(get_context)):
     """Update configuration key-values."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
     result = system_service.update_config(ctx, body)
@@ -191,6 +197,7 @@ def update_config(request: Request, ctx: AppContext = Depends(get_context)):
 def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
     """Update Newznab/Torznab provider configuration."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
     result = system_service.update_providers(ctx, body)
@@ -201,11 +208,13 @@ def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
 # Admin endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/system/shutdown", dependencies=[Depends(require_session)])
 def shutdown_system(ctx: AppContext = Depends(get_context)):
     """Initiate graceful shutdown."""
     ctx.signal = "shutdown"
     import comicarr
+
     comicarr.SIGNAL = "shutdown"
     if ctx.event_bus:
         ctx.event_bus.publish_sync("shutdown", {"message": "Now shutting down system."})
@@ -217,6 +226,7 @@ def restart_system(ctx: AppContext = Depends(get_context)):
     """Initiate graceful restart."""
     ctx.signal = "restart"
     import comicarr
+
     comicarr.SIGNAL = "restart"
     if ctx.event_bus:
         ctx.event_bus.publish_sync("restart", {"message": "Now restarting system."})
@@ -245,6 +255,7 @@ def get_jobs(ctx: AppContext = Depends(get_context)):
 # Startup diagnostics & migration endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/system/diagnostics", dependencies=[Depends(require_session)])
 def get_startup_diagnostics(ctx: AppContext = Depends(get_context)):
     """Return startup diagnostics (db empty, migration dismissed)."""
@@ -255,6 +266,7 @@ def get_startup_diagnostics(ctx: AppContext = Depends(get_context)):
 def preview_migration(request: Request, ctx: AppContext = Depends(get_context)):
     """Validate a Mylar3 source path and return preview data."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
     path = body.get("path", "")
@@ -268,6 +280,7 @@ def preview_migration(request: Request, ctx: AppContext = Depends(get_context)):
 def start_migration(request: Request, ctx: AppContext = Depends(get_context)):
     """Start a migration in a background thread."""
     import asyncio
+
     loop = asyncio.get_event_loop()
     body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
     path = body.get("path", "")

@@ -164,12 +164,14 @@ from . import logger
 
 # --- Thin wrappers for functions that need comicarr globals ---
 
+
 def issuedigits(issnum):
     return _issuedigits_impl(issnum, issue_exceptions=comicarr.ISSUE_EXCEPTIONS, log=logger)
 
 
 def checkFolder(folderpath=None):
     from comicarr import postprocessor
+
     return _checkFolder_impl(
         folderpath=folderpath,
         check_folder=comicarr.CONFIG.CHECK_FOLDER,
@@ -179,7 +181,9 @@ def checkFolder(folderpath=None):
 
 def weekly_info(week=None, year=None, current=None):
     return _weekly_info_impl(
-        week=week, year=year, current=current,
+        week=week,
+        year=year,
+        current=current,
         weekfolder_loc=comicarr.CONFIG.WEEKFOLDER_LOC,
         destination_dir=comicarr.CONFIG.DESTINATION_DIR,
         weekfolder_format=comicarr.CONFIG.WEEKFOLDER_FORMAT,
@@ -189,7 +193,11 @@ def weekly_info(week=None, year=None, current=None):
 
 def file_ops(path, dst, arc=False, one_off=False, multiple=False):
     return _file_ops_impl(
-        path, dst, arc=arc, one_off=one_off, multiple=multiple,
+        path,
+        dst,
+        arc=arc,
+        one_off=one_off,
+        multiple=multiple,
         file_opts=comicarr.CONFIG.FILE_OPTS,
         arc_fileops=comicarr.CONFIG.ARC_FILEOPS,
         arc_fileops_softlink_relative=comicarr.CONFIG.ARC_FILEOPS_SOFTLINK_RELATIVE,
@@ -203,6 +211,9 @@ def crc(filename):
 
 def log_that_exception(except_info):
     return _log_that_exception_impl(
-        except_info, db=db, now_func=now,
-        log_dir=comicarr.CONFIG.LOG_DIR, tail_func=tail_that_log,
+        except_info,
+        db=db,
+        now_func=now,
+        log_dir=comicarr.CONFIG.LOG_DIR,
+        tail_func=tail_that_log,
     )

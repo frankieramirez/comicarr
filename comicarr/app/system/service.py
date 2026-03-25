@@ -120,11 +120,13 @@ def initial_setup(ctx, username, password, setup_token):
         return {"success": False, "error": "Password must be at least 8 characters"}
 
     hashed_password = encrypted.hash_password(password)
-    ctx.config.process_kwargs({
-        "http_username": username,
-        "http_password": hashed_password,
-        "authentication": 2,
-    })
+    ctx.config.process_kwargs(
+        {
+            "http_username": username,
+            "http_password": hashed_password,
+            "authentication": 2,
+        }
+    )
     ctx.config.writeconfig()
     ctx.config.configure(update=True, startup=False)
 
@@ -146,13 +148,32 @@ def get_safe_config(ctx):
         return {}
 
     safe_keys = [
-        "COMIC_DIR", "DESTINATION_DIR", "HTTP_HOST", "HTTP_PORT", "HTTP_ROOT",
-        "ENABLE_HTTPS", "AUTHENTICATION", "LAUNCH_BROWSER", "LOG_LEVEL",
-        "DOWNLOAD_SCAN_INTERVAL", "NZB_STARTUP_SEARCH", "SEARCH_INTERVAL",
-        "SEARCH_DELAY", "RSS_CHECK_INTERVAL", "AUTO_UPDATE", "ANNUALS_ON",
-        "WEEKFOLDER", "REPLACE_SPACES", "ZERO_LEVEL", "ZERO_LEVEL_N",
-        "LOWERCASE_FILENAMES", "FOLDER_FORMAT", "FILE_FORMAT",
-        "COMICVINE_API", "ENABLE_META", "OPDS_ENABLE",
+        "COMIC_DIR",
+        "DESTINATION_DIR",
+        "HTTP_HOST",
+        "HTTP_PORT",
+        "HTTP_ROOT",
+        "ENABLE_HTTPS",
+        "AUTHENTICATION",
+        "LAUNCH_BROWSER",
+        "LOG_LEVEL",
+        "DOWNLOAD_SCAN_INTERVAL",
+        "NZB_STARTUP_SEARCH",
+        "SEARCH_INTERVAL",
+        "SEARCH_DELAY",
+        "RSS_CHECK_INTERVAL",
+        "AUTO_UPDATE",
+        "ANNUALS_ON",
+        "WEEKFOLDER",
+        "REPLACE_SPACES",
+        "ZERO_LEVEL",
+        "ZERO_LEVEL_N",
+        "LOWERCASE_FILENAMES",
+        "FOLDER_FORMAT",
+        "FILE_FORMAT",
+        "COMICVINE_API",
+        "ENABLE_META",
+        "OPDS_ENABLE",
     ]
     result = {}
     for key in safe_keys:
@@ -212,6 +233,7 @@ def _reconfigure_schedulers(ctx):
 
     try:
         import comicarr
+
         comicarr.config.configure_schedulers()
     except Exception as e:
         logger.error("[SYSTEM] Error reconfiguring schedulers: %s" % e)
@@ -259,18 +281,21 @@ def get_job_info(ctx):
 
     jobs = []
     for job in ctx.scheduler.get_jobs():
-        jobs.append({
-            "id": job.id,
-            "name": job.name,
-            "next_run_time": str(job.next_run_time) if job.next_run_time else None,
-            "trigger": str(job.trigger),
-        })
+        jobs.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run_time": str(job.next_run_time) if job.next_run_time else None,
+                "trigger": str(job.trigger),
+            }
+        )
     return {"jobs": jobs}
 
 
 def get_startup_diagnostics(ctx):
     """Return startup diagnostics (db empty, migration dismissed)."""
     import comicarr as _comicarr
+
     return {
         "db_empty": _comicarr.DB_EMPTY,
         "migration_dismissed": getattr(ctx.config, "MIGRATION_DISMISSED", False) if ctx.config else False,
@@ -283,6 +308,7 @@ def preview_migration(ctx, path):
         return {"success": False, "error": "path parameter is required"}
 
     from comicarr import migration
+
     m = migration.Mylar3Migration(path)
     result = m.validate()
     if result.get("valid"):
@@ -318,6 +344,7 @@ def start_migration(ctx, path):
 def get_migration_progress(ctx):
     """Return current migration progress."""
     import comicarr as _comicarr
+
     return {
         "status": _comicarr.MIGRATION_STATUS,
         "current_table": _comicarr.MIGRATION_CURRENT_TABLE,
@@ -329,10 +356,12 @@ def get_migration_progress(ctx):
 
 # --- Extracted from helpers.py ---
 
+
 def upgrade_dynamic():
     dynamic_comiclist = []
     # update the comicdb to include the Dynamic Names (and any futher changes as required)
     from sqlalchemy import select
+
     clist = db.select_all(select(comics))
     for cl in clist:
         cl_d = comicarr.filechecker.FileChecker(watchcomic=cl["ComicName"])
@@ -607,6 +636,7 @@ def job_management(
     if startup is True:
         # on startup - db status will over-ride any settings to ensure persistent state
         from sqlalchemy import select
+
         job_info = db.select_all(
             select(jobhistory.c.JobName, jobhistory.c.status, jobhistory.c.prev_run_timestamp).distinct()
         )
@@ -930,6 +960,7 @@ def job_management(
 
 def stupidchk():
     from sqlalchemy import func, select
+
     with db.get_engine().connect() as conn:
         result_active = conn.execute(select(func.count()).select_from(comics).where(comics.c.Status == "Active"))
         comicarr.COUNT_COMICS = result_active.scalar()
@@ -941,6 +972,7 @@ def stupidchk():
 
 def get_free_space(folder):
     from comicarr.helpers import sizeof_fmt
+
     min_threshold = 100000000  # threshold for minimum amount of freespace available (#100mb)
     if platform.system() == "Windows":
         free_bytes = ctypes.c_ulonglong(0)

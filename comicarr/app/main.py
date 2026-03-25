@@ -153,8 +153,7 @@ async def lifespan(app: FastAPI):
             logger.error("[SHUTDOWN] Error stopping scheduler: %s" % e)
 
     # 2. Signal queue consumer threads to stop
-    for q in [ctx.snatched_queue, ctx.nzb_queue, ctx.pp_queue,
-              ctx.search_queue, ctx.ddl_queue]:
+    for q in [ctx.snatched_queue, ctx.nzb_queue, ctx.pp_queue, ctx.search_queue, ctx.ddl_queue]:
         try:
             q.put("exit")
         except Exception:
@@ -171,6 +170,7 @@ async def lifespan(app: FastAPI):
     # 4. Dispose database engine
     try:
         from comicarr import db
+
         engine = db.get_engine()
         if engine:
             engine.dispose()
@@ -213,6 +213,7 @@ def create_app():
     from comicarr.app.series.router import router as series_router
     from comicarr.app.storyarcs.router import router as storyarcs_router
     from comicarr.app.system.router import router as system_router
+
     app.include_router(system_router)
     app.include_router(metadata_router)
     app.include_router(storyarcs_router)
@@ -224,6 +225,7 @@ def create_app():
     # Static files — serve frontend SPA with aggressive caching for hashed assets
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
+
         class CachedStaticFiles(StaticFiles):
             async def get_response(self, path, scope):
                 response = await super().get_response(path, scope)

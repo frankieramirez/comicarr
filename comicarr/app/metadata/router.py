@@ -28,6 +28,7 @@ router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 # Search endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/search", dependencies=[Depends(require_session)])
 def search_comics(
     request_body: dict = None,
@@ -91,6 +92,7 @@ def search_manga(
 # Comic/issue info endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/comic/{comic_id}", dependencies=[Depends(require_session)])
 def get_comic_info(comic_id: str, ctx: AppContext = Depends(get_context)):
     """Get comic metadata from database."""
@@ -128,6 +130,7 @@ def get_series_image(series_id: str, ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 # Metatag endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/metatag", dependencies=[Depends(require_session)])
 def metatag_issue(

@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 # Comic / manga search
 # ---------------------------------------------------------------------------
 
+
 @router.post("/comics", dependencies=[Depends(require_session)])
 def search_comics(
     request_body: dict = None,
@@ -89,6 +90,7 @@ def search_manga(
 # Add comic / manga to library
 # ---------------------------------------------------------------------------
 
+
 @router.post("/add", dependencies=[Depends(require_session)])
 def add_comic(
     request_body: dict = None,
@@ -130,6 +132,7 @@ def add_manga(
 # ---------------------------------------------------------------------------
 # Force search / RSS
 # ---------------------------------------------------------------------------
+
 
 @router.post("/force", dependencies=[Depends(require_session)])
 def force_search(ctx: AppContext = Depends(get_context)):

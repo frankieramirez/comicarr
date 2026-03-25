@@ -28,6 +28,7 @@ router = APIRouter(prefix="/api", tags=["storyarcs"])
 # Story arc endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/storyarcs", dependencies=[Depends(require_session)])
 def list_story_arcs(
     custom_only: bool = Query(False, alias="customOnly"),
@@ -108,6 +109,7 @@ def refresh_story_arc(arc_id: str, ctx: AppContext = Depends(get_context)):
 # Reading list endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/readlist", dependencies=[Depends(require_session)])
 def get_readlist(ctx: AppContext = Depends(get_context)):
     """Get all reading list entries."""
@@ -145,6 +147,7 @@ def clear_read_issues(ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 # Upcoming endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/upcoming", dependencies=[Depends(require_session)])
 def get_upcoming(

@@ -51,18 +51,20 @@ def list_arcs(ctx, custom_only=False):
         else:
             span_years = "%s - %s" % (min_year, max_year)
 
-        arclist.append({
-            "StoryArcID": row["StoryArcID"],
-            "StoryArc": row["StoryArc"],
-            "TotalIssues": total,
-            "Have": have,
-            "Total": total,
-            "percent": percent,
-            "SpanYears": span_years,
-            "CV_ArcID": row["CV_ArcID"],
-            "Publisher": row["Publisher"],
-            "ArcImage": row["ArcImage"],
-        })
+        arclist.append(
+            {
+                "StoryArcID": row["StoryArcID"],
+                "StoryArc": row["StoryArc"],
+                "TotalIssues": total,
+                "Have": have,
+                "Total": total,
+                "percent": percent,
+                "SpanYears": span_years,
+                "CV_ArcID": row["CV_ArcID"],
+                "Publisher": row["Publisher"],
+                "ArcImage": row["ArcImage"],
+            }
+        )
     return arclist
 
 
@@ -165,6 +167,7 @@ def refresh_arc(ctx, arc_id):
 # Extracted from webserve.WebInterface (ReadGetWanted, addStoryArc)
 # ---------------------------------------------------------------------------
 
+
 def _read_get_wanted(StoryArcID):
     """Queue story arc issues as Wanted and add to search queue.
 
@@ -235,7 +238,8 @@ def _read_get_wanted(StoryArcID):
             add_to_search_queue.append(passinfo)
 
             logger.fdebug(
-                "Marking %s #%s (%s) as Wanted for future searches." % (want["ComicName"], want["IssueNumber"], want["SeriesYear"])
+                "Marking %s #%s (%s) as Wanted for future searches."
+                % (want["ComicName"], want["IssueNumber"], want["SeriesYear"])
             )
             stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
@@ -364,18 +368,25 @@ def _arc_watchlist(StoryArcID=None):
                 if not os.path.isfile(os.path.join(dstloc, "cvinfo")) or comicarr.CONFIG.CV_ONETIMER:
                     logger.fdebug("Generating cvinfo file for story-arc.")
                     with open(os.path.join(dstloc, "cvinfo"), "w") as text_file:
-                        if any(
-                            [ArcWatch[0]["StoryArcID"] == ArcWatch[0]["CV_ArcID"], ArcWatch[0]["CV_ArcID"] is None]
-                        ):
+                        if any([ArcWatch[0]["StoryArcID"] == ArcWatch[0]["CV_ArcID"], ArcWatch[0]["CV_ArcID"] is None]):
                             cvinfo_arcid = ArcWatch[0]["StoryArcID"]
                         else:
                             cvinfo_arcid = ArcWatch[0]["CV_ArcID"]
                         text_file.write(str(cvinfo_arcid))
 
 
-def _add_story_arc(arcid, arcrefresh=False, cvarcid=None, arclist=None,
-                   storyarcname=None, storyarcyear=None, storyarcpublisher=None,
-                   storyarcissues=None, desc=None, image=None):
+def _add_story_arc(
+    arcid,
+    arcrefresh=False,
+    cvarcid=None,
+    arclist=None,
+    storyarcname=None,
+    storyarcyear=None,
+    storyarcpublisher=None,
+    storyarcissues=None,
+    desc=None,
+    image=None,
+):
     """Add or refresh a story arc from ComicVine.
 
     Extracted from WebInterface.addStoryArc — standalone, no CherryPy deps.
@@ -432,9 +443,7 @@ def _add_story_arc(arcid, arcrefresh=False, cvarcid=None, arclist=None,
             os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs"), True
         )
         if not checkdirectory:
-            logger.warn(
-                "Error trying to validate/create cache storyarc directory. Aborting this process at this time."
-            )
+            logger.warn("Error trying to validate/create cache storyarc directory. Aborting this process at this time.")
             return
 
     coverfile = os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs", str(cvarcid) + "-banner.jpg")
@@ -457,9 +466,7 @@ def _add_story_arc(arcid, arcrefresh=False, cvarcid=None, arclist=None,
                 imageurl, params=None, stream=True, verify=comicarr.CONFIG.CV_VERIFY, headers=comicarr.CV_HEADERS
             )
         except Exception:
-            logger.warn(
-                "Unable to download image from CV URL link - possibly no arc picture is present: %s" % imageurl
-            )
+            logger.warn("Unable to download image from CV URL link - possibly no arc picture is present: %s" % imageurl)
         else:
             logger.fdebug("comic image retrieval status code: %s" % r.status_code)
 
@@ -655,6 +662,7 @@ def _add_story_arc(arcid, arcrefresh=False, cvarcid=None, arclist=None,
 # Reading list
 # ---------------------------------------------------------------------------
 
+
 def get_readlist(ctx):
     """Get all reading list entries."""
     return arc_queries.get_readlist()
@@ -663,6 +671,7 @@ def get_readlist(ctx):
 def add_to_readlist(ctx, issue_id):
     """Add an issue to the reading list."""
     from comicarr import readinglist
+
     read = readinglist.Readinglist(IssueID=issue_id)
     result = read.addtoreadlist()
     if result is not None:
@@ -688,6 +697,7 @@ def clear_read_issues(ctx):
 # Upcoming
 # ---------------------------------------------------------------------------
 
+
 def get_upcoming(ctx, include_downloaded=False):
     """Get upcoming issues for the current week."""
     today = datetime.date.today()
@@ -705,10 +715,12 @@ def get_upcoming(ctx, include_downloaded=False):
 
 # --- Extracted from helpers.py ---
 
+
 def listStoryArcs():
     library = {}
     # Get Distinct CV Arc IDs
     from sqlalchemy import select
+
     stmt = select(storyarcs.c.CV_ArcID).distinct()
     rows = db.select_all(stmt)
     for row in rows:
@@ -722,6 +734,7 @@ def manualArc(issueid, reading_order, storyarcid):
     from sqlalchemy import select
 
     from comicarr.helpers import issuedigits
+
     # import db
     if issueid.startswith("4000-"):
         issueid = issueid[5:]
@@ -998,6 +1011,7 @@ def updatearc_locs(storyarcid, arc_issues):
 
 def spantheyears(storyarcid):
     from sqlalchemy import Integer, case, cast, func, select
+
     year_expr = case(
         (
             (storyarcs.c.IssueDate.isnot(None)) & (storyarcs.c.IssueDate != "0000-00-00"),

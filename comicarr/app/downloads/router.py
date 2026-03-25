@@ -29,6 +29,7 @@ router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 # History endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/history", dependencies=[Depends(require_session)])
 def get_history(
     limit: int = Query(None),
@@ -51,6 +52,7 @@ def clear_history(
 # ---------------------------------------------------------------------------
 # Post-processing endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/process", dependencies=[Depends(require_session)])
 def force_process(
@@ -117,6 +119,7 @@ def process_issue(
 # DDL queue endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/queue", dependencies=[Depends(require_session)])
 def get_ddl_queue(ctx: AppContext = Depends(get_context)):
     """Get current DDL download queue."""
@@ -167,6 +170,7 @@ def delete_ddl_item(item_id: str, ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 # File download endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.get("/file/{issue_id}", dependencies=[Depends(require_session)])
 def download_file(issue_id: str, ctx: AppContext = Depends(get_context)):
