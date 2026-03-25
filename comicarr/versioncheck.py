@@ -237,9 +237,15 @@ def getVersion(ptv):
                 if not os.path.isfile(version_file):
                     current_version = None
                 else:
-                    cnt = 0
+                    # Check if .LAST_RELEASE has unexpanded export-subst placeholders
+                    # (happens when installed via git clone or Docker COPY instead of git archive)
                     with open(version_file, "r") as f:
-                        for i in f.readlines():
+                        raw = f.read()
+                    if "$Format:" in raw or "%H" in raw:
+                        logger.info("[LAST_RELEASE] File contains unexpanded git export-subst placeholders, skipping")
+                    else:
+                        cnt = 0
+                        for i in raw.splitlines():
                             logger.info("i: %s" % (i))
                             i.split()
                             if cnt == 0:

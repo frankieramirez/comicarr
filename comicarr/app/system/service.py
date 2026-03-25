@@ -181,7 +181,9 @@ def get_safe_config(ctx):
         if val is not None:
             result[key] = val
     version = ctx.current_version
-    if not version:
+    # Fall back to package metadata if version is missing or contains
+    # unexpanded git export-subst placeholders (e.g. "%H$")
+    if not version or "%" in version or "$" in version:
         try:
             from importlib.metadata import version as get_version
 
