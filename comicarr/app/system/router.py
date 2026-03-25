@@ -39,17 +39,13 @@ router = APIRouter(prefix="/api", tags=["system"])
 # ---------------------------------------------------------------------------
 
 
-# Login MUST be sync def — bcrypt takes ~250ms on NAS ARM hardware.
-# If async def, it blocks the entire event loop. FastAPI runs sync
-# handlers in a threadpool where threading.Lock is safe.
+# Login is async so it can await request.json(). The blocking bcrypt
+# call (~250ms on NAS ARM hardware) is offloaded to a threadpool via
+# asyncio.to_thread so it doesn't block the event loop.
 @router.post("/auth/login")
-def login(request: Request, ctx: AppContext = Depends(get_context)):
+async def login(request: Request, ctx: AppContext = Depends(get_context)):
     """JSON login — returns JWT in HttpOnly cookie."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    # Read body synchronously (we're in a threadpool)
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    body = await request.json()
 
     username = body.get("username")
     password = body.get("password")
@@ -61,8 +57,9 @@ def login(request: Request, ctx: AppContext = Depends(get_context)):
         )
 
     # Delegate to service (handles rate limiting, bcrypt, migration)
+    # Run in threadpool since verify_login does blocking bcrypt work
     ip = request.client.host if request.client else "unknown"
-    result = system_service.verify_login(ctx, username, password, ip)
+    result = await asyncio.to_thread(system_service.verify_login, ctx, username, password, ip)
 
     if not result["success"]:
         return JSONResponse(
