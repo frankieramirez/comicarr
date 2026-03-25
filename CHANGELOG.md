@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.7](https://github.com/frankieramirez/comicarr/compare/v0.9.6...v0.9.7) (2026-03-25)
+
+
+### Bug Fixes
+
+* Resolve settings page showing empty pre-filled values ([#84](https://github.com/frankieramirez/comicarr/issues/84)) ([cabc4bc](https://github.com/frankieramirez/comicarr/commit/cabc4bc75b9a75dbb925b393732c6b20bf614f9b))
+
 ## [0.9.6](https://github.com/frankieramirez/comicarr/compare/v0.9.5...v0.9.6) (2026-03-25)
 
 
