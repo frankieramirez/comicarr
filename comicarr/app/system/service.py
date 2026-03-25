@@ -184,6 +184,7 @@ def get_safe_config(ctx):
     if not version:
         try:
             from importlib.metadata import version as get_version
+
             version = get_version("comicarr")
         except Exception:
             version = None
