@@ -761,6 +761,7 @@ def job_management(
         jobname = jobinfo[: jobinfo.find("(") - 1].strip()
         jobstatus = jobinfo[jobinfo.find("],") + 2 : len(jobinfo) - 1].strip()
         next_the_run = False
+        prev_run_timestamp = None
 
         if jobname == "DB Updater":
             prev_run_timestamp = comicarr.SCHED_DBUPDATE_LAST

@@ -934,13 +934,13 @@ def ddl_health_check():
             continue
         age_minutes = (now - updated).total_seconds() / 60
         if age_minutes > threshold_minutes:
-            if item["id"] in comicarr.DDL_STUCK_NOTIFIED:
+            if item["ID"] in comicarr.DDL_STUCK_NOTIFIED:
                 continue
             logger.warn(
-                "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["id"])
+                "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["ID"])
             )
             notify_ddl_stuck(item, int(age_minutes))
-            comicarr.DDL_STUCK_NOTIFIED.add(item["id"])
+            comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
 
 
 def postprocess_main(queue):
