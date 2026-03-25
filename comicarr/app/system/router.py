@@ -114,21 +114,21 @@ _setup_lock = threading.Lock()
 
 
 @router.post("/auth/setup")
-def setup(request: Request, ctx: AppContext = Depends(get_context)):
+async def setup(request: Request, ctx: AppContext = Depends(get_context)):
     """First-run credential setup. Only works if no auth is configured."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    body = await request.json()
 
     username = body.get("username")
     password = body.get("password")
     setup_token = body.get("setup_token")
 
-    with _setup_lock:
-        result = system_service.initial_setup(ctx, username, password, setup_token)
-        status_code = 200 if result["success"] else 400
-        return JSONResponse(status_code=status_code, content=result)
+    def _run_setup():
+        with _setup_lock:
+            return system_service.initial_setup(ctx, username, password, setup_token)
+
+    result = await asyncio.to_thread(_run_setup)
+    status_code = 200 if result["success"] else 400
+    return JSONResponse(status_code=status_code, content=result)
 
 
 # ---------------------------------------------------------------------------
@@ -180,24 +180,18 @@ def get_config(ctx: AppContext = Depends(get_context)):
 
 
 @router.put("/config", dependencies=[Depends(require_session)])
-def update_config(request: Request, ctx: AppContext = Depends(get_context)):
+async def update_config(request: Request, ctx: AppContext = Depends(get_context)):
     """Update configuration key-values."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
-    result = system_service.update_config(ctx, body)
+    body = await request.json()
+    result = await asyncio.to_thread(system_service.update_config, ctx, body)
     return result
 
 
 @router.put("/config/providers", dependencies=[Depends(require_session)])
-def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
+async def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
     """Update Newznab/Torznab provider configuration."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
-    result = system_service.update_providers(ctx, body)
+    body = await request.json()
+    result = await asyncio.to_thread(system_service.update_providers, ctx, body)
     return result
 
 
@@ -268,28 +262,22 @@ def get_startup_diagnostics(ctx: AppContext = Depends(get_context)):
 
 
 @router.post("/system/migration/preview", dependencies=[Depends(require_session)])
-def preview_migration(request: Request, ctx: AppContext = Depends(get_context)):
+async def preview_migration(request: Request, ctx: AppContext = Depends(get_context)):
     """Validate a Mylar3 source path and return preview data."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    body = await request.json()
     path = body.get("path", "")
-    result = system_service.preview_migration(ctx, path)
+    result = await asyncio.to_thread(system_service.preview_migration, ctx, path)
     if result.get("success") is False:
         return JSONResponse(status_code=400, content=result)
     return result
 
 
 @router.post("/system/migration/start", dependencies=[Depends(require_session)])
-def start_migration(request: Request, ctx: AppContext = Depends(get_context)):
+async def start_migration(request: Request, ctx: AppContext = Depends(get_context)):
     """Start a migration in a background thread."""
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    body = await request.json()
     path = body.get("path", "")
-    result = system_service.start_migration(ctx, path)
+    result = await asyncio.to_thread(system_service.start_migration, ctx, path)
     if result.get("success") is False:
         return JSONResponse(status_code=400, content=result)
     return result
