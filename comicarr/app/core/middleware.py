@@ -19,12 +19,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-# Single exemption list — shared concept with CherryPy during transition
+# Exempt only specific endpoints that cannot send the CSRF header
+# (OPDS uses HTTP Basic auth, not cookies, so CSRF is not applicable)
 CSRF_EXEMPT_PREFIXES = (
-    "/api",
-    "/auth/login",
-    "/auth/setup",
-    "/legacy",  # CherryPy WSGI bridge handles its own CSRF
+    "/opds",
+    "/api/health",
 )
 
 
@@ -75,9 +74,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         response.headers["X-XSS-Protection"] = "0"
-        response.headers["Content-Security-Policy-Report-Only"] = self.CSP
+        response.headers["Content-Security-Policy"] = self.CSP
 
-        # HSTS when behind HTTPS
         ctx = getattr(request.app.state, "ctx", None)
         if ctx and ctx.config and getattr(ctx.config, "ENABLE_HTTPS", False):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -103,7 +101,6 @@ class SetupGateMiddleware(BaseHTTPMiddleware):
         if ctx and ctx.setup_token is not None:
             path = request.url.path
             allowed = any(path == prefix or path.startswith(prefix + "/") for prefix in self.ALLOWED_PREFIXES)
-            # Allow exact root path
             if path == "/":
                 allowed = True
             if not allowed:

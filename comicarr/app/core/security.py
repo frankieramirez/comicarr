@@ -21,7 +21,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import Depends, HTTPException, Request
@@ -36,10 +36,6 @@ COOKIE_NAME = "comicarr_session"
 http_basic = HTTPBasic(auto_error=False)
 api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
 
-
-# ---------------------------------------------------------------------------
-# Rate limiting
-# ---------------------------------------------------------------------------
 
 
 class LoginRateLimiter(object):
@@ -63,7 +59,6 @@ class LoginRateLimiter(object):
     def record_failure(self, ip):
         with self._lock:
             self._attempts[ip].append(time.monotonic())
-            # Evict stale entries if dict grows too large (IP spray defense)
             if len(self._attempts) > 10000:
                 self._prune_stale()
 
@@ -79,10 +74,6 @@ class LoginRateLimiter(object):
         with self._lock:
             self._attempts.pop(ip, None)
 
-
-# ---------------------------------------------------------------------------
-# JWT key management
-# ---------------------------------------------------------------------------
 
 
 def load_or_create_jwt_key(secure_dir):
@@ -102,14 +93,10 @@ def load_or_create_jwt_key(secure_dir):
     return key
 
 
-# ---------------------------------------------------------------------------
-# JWT token operations
-# ---------------------------------------------------------------------------
-
 
 def create_session_token(username, secret_key, generation, login_timeout=43800):
     """Create JWT with revocation support via generation counter."""
-    expire = datetime.utcnow() + timedelta(minutes=login_timeout)
+    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=login_timeout)
     return jwt.encode(
         {"sub": username, "exp": expire, "gen": generation},
         secret_key,
@@ -125,15 +112,11 @@ def validate_jwt_token(token, secret_key, current_generation):
     try:
         payload = jwt.decode(token, secret_key, algorithms=[JWT_ALGORITHM])
         if payload.get("gen") != current_generation:
-            return None  # Token from before revocation
+            return None
         return payload["sub"]
     except jwt.InvalidTokenError:
         return None
 
-
-# ---------------------------------------------------------------------------
-# FastAPI dependencies
-# ---------------------------------------------------------------------------
 
 
 def require_session(request: Request, ctx: AppContext = Depends(get_context)):
@@ -188,7 +171,6 @@ def require_opds_auth(
     username = credentials.username
     password = credentials.password
 
-    # Check OPDS-specific credentials first, then fall back to main credentials
     valid_users = {}
     if ctx.config:
         opds_user = getattr(ctx.config, "OPDS_USERNAME", None)
@@ -224,9 +206,6 @@ def generate_ephemeral_key():
     return secrets.token_hex(16)
 
 
-# --- Extracted from helpers.py ---
-
-
 def apiremove(apistring, apitype):
     if apitype == "nzb":
         value_regex = re.compile("(?<=apikey=)(?P<value>.*?)(?=$)")
@@ -246,11 +225,9 @@ def apiremove(apistring, apitype):
 
 
 def remove_apikey(payd, key):
-    # payload = some dictionary with payload values
-    # key = the key to replace with REDACTED (normally apikey)
-    for _k, _v in list(payd.items()):
+    """Replace a specific key's value with REDACTED in a dict."""
+    if key in payd:
         payd[key] = "REDACTED"
-
     return payd
 
 

@@ -105,12 +105,10 @@ def _build_context_from_globals():
         update_value=comicarr.UPDATE_VALUE or {},
     )
 
-    # JWT key — separate from Fernet master key
     secure_dir = getattr(comicarr.CONFIG, "SECURE_DIR", None) if comicarr.CONFIG else None
     if secure_dir:
         ctx.jwt_secret_key = load_or_create_jwt_key(secure_dir)
     else:
-        # Fallback for development/testing — generate ephemeral key
         ctx.jwt_secret_key = os.urandom(32)
 
     return ctx
@@ -119,32 +117,25 @@ def _build_context_from_globals():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan — startup and shutdown."""
-    # --- Startup ---
     loop = asyncio.get_running_loop()
+    executor = ThreadPoolExecutor(max_workers=20)
+    loop.set_default_executor(executor)
 
-    # Set thread pool to 20 during transition (matching APScheduler pool)
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=20))
-
-    # Build context from existing globals
     ctx = _build_context_from_globals()
 
-    # Set up EventBus with the running event loop
     event_bus = EventBus()
     event_bus.set_loop(loop)
     ctx.event_bus = event_bus
 
-    # Store context on app.state for dependency injection
     app.state.ctx = ctx
 
     yield
 
-    # --- Shutdown ---
     import comicarr
     from comicarr import logger
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown starting...")
 
-    # 1. Stop APScheduler
     if ctx.scheduler:
         try:
             ctx.scheduler.shutdown(wait=False)
@@ -152,14 +143,12 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error("[SHUTDOWN] Error stopping scheduler: %s" % e)
 
-    # 2. Signal queue consumer threads to stop
     for q in [ctx.snatched_queue, ctx.nzb_queue, ctx.pp_queue, ctx.search_queue, ctx.ddl_queue]:
         try:
             q.put("exit")
         except Exception:
             pass
 
-    # 3. Close provider sessions
     if ctx.cv_session:
         try:
             ctx.cv_session.close()
@@ -167,7 +156,6 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
-    # 4. Dispose database engine
     try:
         from comicarr import db
 
@@ -178,7 +166,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[SHUTDOWN] Error disposing database: %s" % e)
 
-    # 5. Propagate shutdown signal to legacy system
+    try:
+        executor.shutdown(wait=False)
+        logger.info("[SHUTDOWN] ThreadPoolExecutor shut down")
+    except Exception as e:
+        logger.error("[SHUTDOWN] Error shutting down executor: %s" % e)
+
     comicarr.SIGNAL = "shutdown"
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown complete")
@@ -192,20 +185,16 @@ def create_app():
         lifespan=lifespan,
     )
 
-    # Register middleware (order matters — outermost first)
     app.add_middleware(SetupGateMiddleware)
     app.add_middleware(CSRFMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # Register domain exception handlers
     register_exception_handlers(app)
 
-    # Health check — available before any domain routers
     @app.get("/api/health")
     async def health_check():
         return JSONResponse(content={"status": "ok"})
 
-    # Domain routers
     from comicarr.app.downloads.router import router as downloads_router
     from comicarr.app.metadata.router import router as metadata_router
     from comicarr.app.opds.router import router as opds_router
@@ -222,7 +211,6 @@ def create_app():
     app.include_router(downloads_router)
     app.include_router(opds_router)
 
-    # Static files — serve frontend SPA with aggressive caching for hashed assets
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
 
@@ -240,5 +228,4 @@ def create_app():
     return app
 
 
-# Module-level app instance for uvicorn to import
 app = create_app()

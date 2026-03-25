@@ -582,7 +582,6 @@ def main():
 
     signal.signal(signal.SIGTERM, handler_sigterm)
 
-    # Start FastAPI via uvicorn — replaces the CherryPy event loop
     import uvicorn
 
     ssl_kwargs = {}
@@ -595,11 +594,10 @@ def main():
         host=comicarr.CONFIG.HTTP_HOST,
         port=http_port,
         log_level="info",
-        workers=1,  # Single worker — APScheduler is in-process
+        workers=1,
         **ssl_kwargs,
     )
 
-    # uvicorn.run() blocks until shutdown — handle post-shutdown cleanup
     if comicarr.SIGNAL == 'restart':
         comicarr.shutdown(restart=True)
     elif comicarr.SIGNAL == 'update':
