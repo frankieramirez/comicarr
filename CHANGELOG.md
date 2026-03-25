@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.5](https://github.com/frankieramirez/comicarr/compare/v0.9.4...v0.9.5) (2026-03-25)
+
+
+### Bug Fixes
+
+* Skip unexpanded git export-subst placeholders in version display ([#79](https://github.com/frankieramirez/comicarr/issues/79)) ([4322e01](https://github.com/frankieramirez/comicarr/commit/4322e0107823d1e8edf578d922a1b0b2d7267ee2))
+
 ## [0.9.4](https://github.com/frankieramirez/comicarr/compare/v0.9.3...v0.9.4) (2026-03-25)
 
 
