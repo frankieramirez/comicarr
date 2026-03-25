@@ -458,7 +458,8 @@ export default function SearchResultsTable({
                 <HoverCardContent
                   side="right"
                   align="start"
-                  className="w-80 text-sm"
+                  collisionPadding={16}
+                  className="w-80 max-h-[50vh] overflow-y-auto text-sm"
                 >
                   <p className="font-medium mb-1">{comic.name}</p>
                   <p className="text-muted-foreground leading-relaxed">
