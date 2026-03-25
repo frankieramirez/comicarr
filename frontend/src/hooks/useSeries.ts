@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import type { Comic, SeriesDetail } from "@/types";
 
 /**
@@ -14,7 +14,7 @@ import type { Comic, SeriesDetail } from "@/types";
 export function useSeries(): UseQueryResult<Comic[]> {
   return useQuery({
     queryKey: ["series"],
-    queryFn: () => apiCall<Comic[]>("getIndex"),
+    queryFn: () => apiRequest<Comic[]>("GET", "/api/series"),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -27,7 +27,7 @@ export function useSeriesDetail(
 ): UseQueryResult<SeriesDetail> {
   return useQuery({
     queryKey: ["series", comicId],
-    queryFn: () => apiCall<SeriesDetail>("getComic", { id: comicId }),
+    queryFn: () => apiRequest<SeriesDetail>("GET", `/api/series/${comicId}`),
     enabled: !!comicId,
   });
 }
@@ -39,9 +39,9 @@ export function usePauseSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall("pauseComic", { id: comicId }),
+    mutationFn: (comicId: string) =>
+      apiRequest("PUT", `/api/series/${comicId}/pause`),
     onSuccess: (_, comicId) => {
-      // Invalidate both the series list and the specific series detail
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["series", comicId] });
     },
@@ -55,7 +55,8 @@ export function useResumeSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall("resumeComic", { id: comicId }),
+    mutationFn: (comicId: string) =>
+      apiRequest("PUT", `/api/series/${comicId}/resume`),
     onSuccess: (_, comicId) => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["series", comicId] });
@@ -70,7 +71,8 @@ export function useRefreshSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall("refreshComic", { id: comicId }),
+    mutationFn: (comicId: string) =>
+      apiRequest("POST", `/api/series/${comicId}/refresh`),
     onSuccess: (_, comicId) => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["series", comicId] });
@@ -85,7 +87,8 @@ export function useDeleteSeries(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) => apiCall("delComic", { id: comicId }),
+    mutationFn: (comicId: string) =>
+      apiRequest("DELETE", `/api/series/${comicId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
@@ -99,9 +102,9 @@ export function useQueueIssue(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (issueId: string) => apiCall("queueIssue", { id: issueId }),
+    mutationFn: (issueId: string) =>
+      apiRequest("PUT", `/api/series/issues/${issueId}/queue`),
     onSuccess: () => {
-      // Invalidate all series-related queries
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
     },
@@ -115,7 +118,8 @@ export function useUnqueueIssue(): UseMutationResult<unknown, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (issueId: string) => apiCall("unqueueIssue", { id: issueId }),
+    mutationFn: (issueId: string) =>
+      apiRequest("PUT", `/api/series/issues/${issueId}/unqueue`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });

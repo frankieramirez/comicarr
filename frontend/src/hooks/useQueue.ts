@@ -34,7 +34,11 @@ export function useWanted(
 ): UseQueryResult<WantedResponse> {
   return useQuery({
     queryKey: ["wanted", limit, offset],
-    queryFn: () => apiCall<WantedResponse>("getWanted", { limit, offset }),
+    queryFn: () =>
+      apiRequest<WantedResponse>(
+        "GET",
+        `/api/wanted?limit=${limit}&offset=${offset}`,
+      ),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -57,7 +61,7 @@ export function useBulkQueueIssues(): UseMutationResult<void, Error, string[]> {
     mutationFn: async (issueIds: string[]) => {
       // Process sequentially to avoid rate limiting
       for (const id of issueIds) {
-        await apiCall("queueIssue", { id });
+        await apiRequest("PUT", `/api/series/issues/${id}/queue`);
       }
     },
     onSuccess: () => {
@@ -78,7 +82,7 @@ export function useBulkUnqueueIssues(): UseMutationResult<
     mutationFn: async (issueIds: string[]) => {
       // Process sequentially to avoid rate limiting
       for (const id of issueIds) {
-        await apiCall("unqueueIssue", { id });
+        await apiRequest("PUT", `/api/series/issues/${id}/unqueue`);
       }
     },
     onSuccess: () => {

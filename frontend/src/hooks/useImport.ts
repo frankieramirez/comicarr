@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import type { ImportGroup, PaginationMeta } from "@/types";
 
 interface ImportPendingResponse {
@@ -29,6 +29,7 @@ interface DeleteImportResponse {
 }
 
 interface RefreshImportResponse {
+  success: boolean;
   message: string;
 }
 
@@ -41,11 +42,10 @@ export function useImportPending(
   return useQuery({
     queryKey: ["importPending", limit, offset, includeIgnored],
     queryFn: () =>
-      apiCall<ImportPendingResponse>("getImportPending", {
-        limit,
-        offset,
-        include_ignored: includeIgnored ? "true" : "false",
-      }),
+      apiRequest<ImportPendingResponse>(
+        "GET",
+        `/api/import?limit=${limit}&offset=${offset}&include_ignored=${includeIgnored}`,
+      ),
     staleTime: 30 * 1000, // 30 seconds - imports may change frequently
   });
 }
@@ -59,8 +59,8 @@ export function useMatchImport(): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ impIds, comicId, issueId }) =>
-      apiCall<MatchImportResponse>("matchImport", {
-        imp_ids: impIds.join(","),
+      apiRequest<MatchImportResponse>("POST", "/api/import/match", {
+        imp_ids: impIds,
         comic_id: comicId,
         issue_id: issueId,
       }),
@@ -78,9 +78,9 @@ export function useIgnoreImport(): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ impIds, ignore = true }) =>
-      apiCall<IgnoreImportResponse>("ignoreImport", {
-        imp_ids: impIds.join(","),
-        ignore: ignore ? "true" : "false",
+      apiRequest<IgnoreImportResponse>("POST", "/api/import/ignore", {
+        imp_ids: impIds,
+        ignore,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
@@ -96,8 +96,8 @@ export function useDeleteImport(): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (impIds: string[]) =>
-      apiCall<DeleteImportResponse>("deleteImport", {
-        imp_ids: impIds.join(","),
+      apiRequest<DeleteImportResponse>("DELETE", "/api/import", {
+        imp_ids: impIds,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
@@ -112,7 +112,8 @@ export function useRefreshImport(): UseMutationResult<
 > {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => apiCall<RefreshImportResponse>("refreshImport"),
+    mutationFn: () =>
+      apiRequest<RefreshImportResponse>("POST", "/api/import/refresh"),
     onSuccess: () => {
       // Delay invalidation to give scan time to start
       setTimeout(() => {
