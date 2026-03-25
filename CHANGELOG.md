@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.2](https://github.com/frankieramirez/comicarr/compare/v0.9.1...v0.9.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* Remove leftover CherryPy dependencies blocking Docker startup ([#73](https://github.com/frankieramirez/comicarr/issues/73)) ([c51526e](https://github.com/frankieramirez/comicarr/commit/c51526e30fabeaf9482e22b957e5586f92aff224))
+
 ## [0.9.1](https://github.com/frankieramirez/comicarr/compare/v0.9.0...v0.9.1) (2026-03-25)
 
 
