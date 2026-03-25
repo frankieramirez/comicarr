@@ -9,15 +9,11 @@
 APScheduler>=3.6.3
 beautifulsoup4>=4.8.2
 cfscrape>=2.0.8
-cheroot>=8.2.1
-CherryPy>=18.5.0
 feedparser>=5.2.1
-Mako>=1.1.0
 mokkari>=3.0.0
 natsort>=3.5.2
 packaging>=22.0
 Pillow>=10.1
-portend>=2.6
 pycryptodome>=3.19.0
 pystun>=0.1.0
 pytz>=2019.3

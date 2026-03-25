@@ -31,7 +31,6 @@ from email.utils import formatdate, make_msgid
 from http.client import HTTPSConnection
 from urllib.parse import urlencode
 
-import cherrypy
 import requests
 
 import comicarr
@@ -49,9 +48,6 @@ class PROWL:
         self.keys = comicarr.CONFIG.PROWL_KEYS
         self.priority = comicarr.CONFIG.PROWL_PRIORITY
         pass
-
-    def conf(self, options):
-        return cherrypy.config["config"].get("Prowl", options)
 
     def notify(self, message, event, module=None):
         if not comicarr.CONFIG.PROWL_ENABLED:
