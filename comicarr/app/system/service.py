@@ -20,12 +20,12 @@ import hmac
 import json
 import os
 import platform
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 from collections import namedtuple
+from pathlib import Path
 
 import comicarr
 from comicarr import db, logger

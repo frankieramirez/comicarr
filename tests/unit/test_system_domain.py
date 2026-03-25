@@ -218,8 +218,8 @@ class TestConfigService:
         mock_version.assert_called_once_with("comicarr")
 
     @patch("importlib.metadata.version", side_effect=Exception("not found"))
-    @patch("tomllib.load", side_effect=Exception("not found"))
-    def test_get_safe_config_omits_version_when_unavailable(self, mock_toml, mock_version):
+    @patch("pathlib.Path.is_file", return_value=False)
+    def test_get_safe_config_omits_version_when_unavailable(self, mock_isfile, mock_version):
         """get_safe_config omits version key when all sources fail."""
         ctx = _make_test_ctx(current_version=None)
         result = system_service.get_safe_config(ctx)
