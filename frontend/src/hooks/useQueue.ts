@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiCall, apiRequest } from "@/lib/api";
 import type { WantedIssue, UpcomingIssue, PaginationMeta } from "@/types";
 
 interface WantedResponse {
@@ -20,9 +20,9 @@ export function useUpcoming(
   return useQuery({
     queryKey: ["upcoming", includeDownloaded],
     queryFn: () =>
-      apiCall<UpcomingIssue[]>(
-        "getUpcoming",
-        includeDownloaded ? { include_downloaded_issues: "Y" } : {},
+      apiRequest<UpcomingIssue[]>(
+        "GET",
+        `/api/upcoming${includeDownloaded ? "?include_downloaded_issues=true" : ""}`,
       ),
     staleTime: 2 * 60 * 1000, // 2 minutes (more frequent than series)
   });

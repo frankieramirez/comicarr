@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import type { StoryArc, StoryArcDetail, ArcIssueStatus } from "@/types";
 
 /**
@@ -14,7 +14,7 @@ import type { StoryArc, StoryArcDetail, ArcIssueStatus } from "@/types";
 export function useStoryArcs(): UseQueryResult<StoryArc[]> {
   return useQuery({
     queryKey: ["storyArcs"],
-    queryFn: () => apiCall<StoryArc[]>("getStoryArc"),
+    queryFn: () => apiRequest<StoryArc[]>("GET", "/api/storyarcs"),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -27,7 +27,8 @@ export function useStoryArcDetail(
 ): UseQueryResult<StoryArcDetail> {
   return useQuery({
     queryKey: ["storyArcs", storyArcId],
-    queryFn: () => apiCall<StoryArcDetail>("getStoryArc", { id: storyArcId }),
+    queryFn: () =>
+      apiRequest<StoryArcDetail>("GET", `/api/storyarcs/${storyArcId}`),
     enabled: !!storyArcId,
   });
 }
@@ -40,7 +41,7 @@ export function useDelStoryArc(): UseMutationResult<unknown, Error, string> {
 
   return useMutation({
     mutationFn: (storyArcId: string) =>
-      apiCall("delStoryArc", { StoryArcID: storyArcId }),
+      apiRequest("DELETE", `/api/storyarcs/${storyArcId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
     },
@@ -58,8 +59,14 @@ export function useDelArcIssue(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ issueArcId }: { issueArcId: string; storyArcId: string }) =>
-      apiCall("delArcIssue", { IssueArcID: issueArcId }),
+    mutationFn: ({
+      issueArcId,
+      storyArcId,
+    }: {
+      issueArcId: string;
+      storyArcId: string;
+    }) =>
+      apiRequest("DELETE", `/api/storyarcs/${storyArcId}/issues/${issueArcId}`),
     onSuccess: (_, { storyArcId }) => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
       queryClient.invalidateQueries({ queryKey: ["storyArcs", storyArcId] });
@@ -87,7 +94,14 @@ export function useSetArcIssueStatus(
     }: {
       issueArcId: string;
       status: ArcIssueStatus;
-    }) => apiCall("setArcIssueStatus", { IssueArcID: issueArcId, status }),
+    }) =>
+      apiRequest(
+        "PUT",
+        `/api/storyarcs/${storyArcId}/issues/${issueArcId}/status`,
+        {
+          status,
+        },
+      ),
     onMutate: async ({ issueArcId, status }) => {
       await queryClient.cancelQueries({
         queryKey: ["storyArcs", storyArcId],
@@ -152,9 +166,10 @@ export function useWantAllArcIssues(): UseMutationResult<
 
   return useMutation({
     mutationFn: (storyArcId: string) =>
-      apiCall<WantAllResponse>("wantAllArcIssues", {
-        StoryArcID: storyArcId,
-      }),
+      apiRequest<WantAllResponse>(
+        "POST",
+        `/api/storyarcs/${storyArcId}/want-all`,
+      ),
     onSuccess: (_, storyArcId) => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
       queryClient.invalidateQueries({ queryKey: ["storyArcs", storyArcId] });
@@ -174,7 +189,7 @@ export function useRefreshStoryArc(): UseMutationResult<
 
   return useMutation({
     mutationFn: (storyArcId: string) =>
-      apiCall("refreshStoryArc", { StoryArcID: storyArcId }),
+      apiRequest("POST", `/api/storyarcs/${storyArcId}/refresh`),
     onSuccess: (_, storyArcId) => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
       queryClient.invalidateQueries({ queryKey: ["storyArcs", storyArcId] });

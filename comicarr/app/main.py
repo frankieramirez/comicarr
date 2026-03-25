@@ -228,9 +228,11 @@ def create_app():
 
     # Domain routers
     from comicarr.app.metadata.router import router as metadata_router
+    from comicarr.app.storyarcs.router import router as storyarcs_router
     from comicarr.app.system.router import router as system_router
     app.include_router(system_router)
     app.include_router(metadata_router)
+    app.include_router(storyarcs_router)
 
     return app
 
