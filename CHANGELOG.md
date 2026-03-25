@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.6](https://github.com/frankieramirez/comicarr/compare/v0.9.5...v0.9.6) (2026-03-25)
+
+
+### Bug Fixes
+
+* Constrain search result hover cards to prevent viewport overflow ([#81](https://github.com/frankieramirez/comicarr/issues/81)) ([b8e0362](https://github.com/frankieramirez/comicarr/commit/b8e036211671da2ddf763bf83e17f66fed11e45a))
+* Resolve SPA routing 404s on refresh and missing version display ([#83](https://github.com/frankieramirez/comicarr/issues/83)) ([5d70960](https://github.com/frankieramirez/comicarr/commit/5d709605f8d19b4caa5506c06e720cab13a65c28))
+
 ## [0.9.5](https://github.com/frankieramirez/comicarr/compare/v0.9.4...v0.9.5) (2026-03-25)
 
 
