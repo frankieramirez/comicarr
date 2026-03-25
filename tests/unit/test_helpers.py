@@ -12,67 +12,6 @@ from hypothesis import given, strategies as st, assume
 # when necessary to avoid import-time errors
 
 
-class TestCheckedFunction:
-    """Tests for the checked() function."""
-
-    def test_checked_with_true_value(self):
-        from comicarr.helpers import checked
-
-        assert checked(True) == "Checked"
-
-    def test_checked_with_false_value(self):
-        from comicarr.helpers import checked
-
-        assert checked(False) == ""
-
-    def test_checked_with_truthy_string(self):
-        from comicarr.helpers import checked
-
-        assert checked("yes") == "Checked"
-
-    def test_checked_with_empty_string(self):
-        from comicarr.helpers import checked
-
-        assert checked("") == ""
-
-    def test_checked_with_none(self):
-        from comicarr.helpers import checked
-
-        assert checked(None) == ""
-
-    def test_checked_with_number(self):
-        from comicarr.helpers import checked
-
-        assert checked(1) == "Checked"
-        assert checked(0) == ""
-
-
-class TestRadioFunction:
-    """Tests for the radio() function."""
-
-    def test_radio_matching_position(self):
-        from comicarr.helpers import radio
-
-        assert radio("option1", "option1") == "Checked"
-
-    def test_radio_non_matching_position(self):
-        from comicarr.helpers import radio
-
-        assert radio("option1", "option2") == ""
-
-    def test_radio_with_numbers(self):
-        from comicarr.helpers import radio
-
-        assert radio(1, 1) == "Checked"
-        assert radio(1, 2) == ""
-
-    def test_radio_with_none(self):
-        from comicarr.helpers import radio
-
-        assert radio(None, None) == "Checked"
-        assert radio(None, "value") == ""
-
-
 class TestLatinToAscii:
     """Tests for the latinToAscii() function."""
 

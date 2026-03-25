@@ -1162,7 +1162,7 @@ class GC(object):
         else:
             comicarr.DDL_LOCK.acquire()
 
-        comicarr.DDL_QUEUED.append(id)
+        comicarr.DDL_QUEUED.add(id)
         filename = None
         self.cookie_receipt()
         try:

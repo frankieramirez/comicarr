@@ -23,7 +23,6 @@ from comicarr.app.common.filesystem import (  # noqa: F401
     checkFolder,
     file_ops,
     is_path_within_allowed_dirs,
-    urlretrieve,
 )
 from comicarr.app.common.numbers import (  # noqa: F401
     bytes_to_mb,
@@ -46,7 +45,6 @@ from comicarr.app.common.strings import (  # noqa: F401
     replacetheslash,
 )
 from comicarr.app.common.utilities import (  # noqa: F401
-    checked,
     chunker,
     conversion,
     crc,
@@ -54,6 +52,4 @@ from comicarr.app.common.utilities import (  # noqa: F401
     get_the_hash,
     int_num,
     log_that_exception,
-    multikeysort,
-    radio,
 )

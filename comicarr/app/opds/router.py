@@ -18,7 +18,7 @@ dedicated route returning ``application/atom+xml`` responses.
 import glob
 import os
 from urllib.parse import quote_plus
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
@@ -57,26 +57,30 @@ def _opds_root():
 def _get_link(href=None, ltype=None, rel=None, title=None):
     parts = []
     if href:
-        parts.append('href="%s"' % href)
+        parts.append("href=%s" % quoteattr(href))
     if ltype:
-        parts.append('type="%s"' % ltype)
+        parts.append("type=%s" % quoteattr(ltype))
     if rel:
-        parts.append('rel="%s"' % rel)
+        parts.append("rel=%s" % quoteattr(rel))
     if title:
-        parts.append('title="%s"' % escape(title))
+        parts.append("title=%s" % quoteattr(title))
     return "<link %s/>" % " ".join(parts)
 
 
 def _entry_xml(entry):
-    """Render a single OPDS <entry> element."""
+    """Render a single OPDS <entry> element.
+
+    All text content is escaped via xml.sax.saxutils.escape() and all
+    href attribute values via quoteattr() to prevent XML injection.
+    """
     lines = ["<entry>"]
-    lines.append("  <title>%s</title>" % entry.get("title", ""))
-    lines.append("  <id>%s</id>" % entry.get("id", ""))
-    lines.append("  <updated>%s</updated>" % entry.get("updated", ""))
+    lines.append("  <title>%s</title>" % escape(str(entry.get("title", ""))))
+    lines.append("  <id>%s</id>" % escape(str(entry.get("id", ""))))
+    lines.append("  <updated>%s</updated>" % escape(str(entry.get("updated", ""))))
     if entry.get("author"):
         lines.append("  <author><name>%s</name></author>" % escape(str(entry["author"])))
     if entry.get("content"):
-        lines.append('  <content type="text">%s</content>' % entry["content"])
+        lines.append('  <content type="text">%s</content>' % escape(str(entry["content"])))
     href = entry.get("href", "")
     kind = entry.get("kind", "navigation")
     rel = entry.get("rel", "subsection")
@@ -95,35 +99,41 @@ def _entry_xml(entry):
             mime = "application/pdf"
         else:
             mime = "application/octet-stream"
-        lines.append('  <link href="%s" type="%s" rel="http://opds-spec.org/acquisition"/>' % (href, mime))
+        lines.append(
+            '  <link href=%s type=%s rel="http://opds-spec.org/acquisition"/>' % (quoteattr(href), quoteattr(mime))
+        )
     else:
-        lines.append('  <link href="%s" type="%s" rel="%s"/>' % (href, link_type, rel))
+        lines.append("  <link href=%s type=%s rel=%s/>" % (quoteattr(href), quoteattr(link_type), quoteattr(rel)))
     if entry.get("stream"):
         lines.append(
-            '  <link href="%s" type="image/jpeg"'
+            '  <link href=%s type="image/jpeg"'
             ' rel="http://vaemendis.net/opds-pse/stream"'
-            ' pse:count="%s"/>' % (entry["stream"], entry.get("pse_count", 0))
+            ' pse:count="%s"/>' % (quoteattr(entry["stream"]), entry.get("pse_count", 0))
         )
     if entry.get("image"):
-        lines.append('  <link href="%s" type="image/jpeg" rel="http://opds-spec.org/image"/>' % entry["image"])
+        lines.append('  <link href=%s type="image/jpeg" rel="http://opds-spec.org/image"/>' % quoteattr(entry["image"]))
     if entry.get("thumbnail"):
         lines.append(
-            '  <link href="%s" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>' % entry["thumbnail"]
+            '  <link href=%s type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
+            % quoteattr(entry["thumbnail"])
         )
     lines.append("</entry>")
     return "\n".join(lines)
 
 
 def _feed_xml(feed):
-    """Render a complete Atom/OPDS feed document from a feed dict."""
+    """Render a complete Atom/OPDS feed document from a feed dict.
+
+    Text content is escaped; attribute values use quoteattr().
+    """
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<feed xmlns="http://www.w3.org/2005/Atom"'
         ' xmlns:opds="http://opds-spec.org/2010/catalog"'
         ' xmlns:pse="http://vaemendis.net/opds-pse/ns">',
-        "  <title>%s</title>" % escape(feed.get("title", "")),
-        "  <id>%s</id>" % escape(feed.get("id", "")),
-        "  <updated>%s</updated>" % feed.get("updated", ""),
+        "  <title>%s</title>" % escape(str(feed.get("title", ""))),
+        "  <id>%s</id>" % escape(str(feed.get("id", ""))),
+        "  <updated>%s</updated>" % escape(str(feed.get("updated", ""))),
     ]
     for link in feed.get("links", []):
         lines.append(
@@ -349,10 +359,10 @@ def opds_publishers(
         if totaltitles > 0:
             entries.append(
                 {
-                    "title": escape("%s (%s)" % (publisher["ComicPublisher"], totaltitles)),
-                    "id": escape("publisher:%s" % publisher["ComicPublisher"]),
+                    "title": "%s (%s)" % (publisher["ComicPublisher"], totaltitles),
+                    "id": "publisher:%s" % publisher["ComicPublisher"],
                     "updated": lastupdated,
-                    "content": escape("%s (%s)" % (publisher["ComicPublisher"], totaltitles)),
+                    "content": "%s (%s)" % (publisher["ComicPublisher"], totaltitles),
                     "href": "%s?cmd=Publisher&amp;pubid=%s" % (opdsroot, quote_plus(publisher["ComicPublisher"])),
                     "kind": "navigation",
                     "rel": "subsection",
@@ -392,12 +402,10 @@ def opds_all_titles(
         if comic["haveissues"] > 0:
             entries.append(
                 {
-                    "title": escape(
-                        "%s (%s) (comicID: %s)" % (comic["ComicName"], comic["ComicYear"], comic["ComicID"])
-                    ),
-                    "id": escape("comic:%s (%s) [%s]" % (comic["ComicName"], comic["ComicYear"], comic["ComicID"])),
+                    "title": "%s (%s) (comicID: %s)" % (comic["ComicName"], comic["ComicYear"], comic["ComicID"]),
+                    "id": "comic:%s (%s) [%s]" % (comic["ComicName"], comic["ComicYear"], comic["ComicID"]),
                     "updated": comic["DateAdded"],
-                    "content": escape("%s (%s)" % (comic["ComicName"], comic["ComicYear"])),
+                    "content": "%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
                     "href": "%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic["ComicID"])),
                     "kind": "acquisition",
                     "rel": "subsection",
@@ -434,10 +442,10 @@ def opds_publisher(
         if comic["ComicPublisher"] == publisher and comic["haveissues"] > 0:
             entries.append(
                 {
-                    "title": escape("%s (%s)" % (comic["ComicName"], comic["ComicYear"])),
-                    "id": escape("comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"])),
+                    "title": "%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
+                    "id": "comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
                     "updated": comic["DateAdded"],
-                    "content": escape("%s (%s)" % (comic["ComicName"], comic["ComicYear"])),
+                    "content": "%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
                     "href": "%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic["ComicID"])),
                     "kind": "acquisition",
                     "rel": "subsection",
@@ -445,9 +453,9 @@ def opds_publisher(
             )
 
     feed = {}
-    pubname = "%s (%s)" % (escape(publisher), len(entries))
+    pubname = "%s (%s)" % (publisher, len(entries))
     feed["title"] = "Comicarr OPDS - %s" % pubname
-    feed["id"] = "publisher:%s" % escape(publisher)
+    feed["id"] = "publisher:%s" % publisher
     feed["updated"] = helpers.now()
 
     if len(entries) > (index + page_size):
@@ -522,14 +530,16 @@ def opds_comic(
             image = None
             thumbnail = None
             if "ReleaseComicID" not in issue:
-                title = escape(
-                    "%s (%s) #%s - %s"
-                    % (issue["ComicName"], comic["ComicYear"], issue["Issue_Number"], issue["IssueName"])
+                title = "%s (%s) #%s - %s" % (
+                    issue["ComicName"],
+                    comic["ComicYear"],
+                    issue["Issue_Number"],
+                    issue["IssueName"],
                 )
                 image = issue["ImageURL_ALT"]
                 thumbnail = issue["ImageURL"]
             else:
-                title = escape("Annual %s - %s" % (issue["Issue_Number"], issue["IssueName"]))
+                title = "Annual %s - %s" % (issue["Issue_Number"], issue["IssueName"])
 
             fileloc = os.path.join(comic["ComicLocation"], issue["Location"])
             if not os.path.isfile(fileloc):
@@ -552,13 +562,11 @@ def opds_comic(
 
             entries.append(
                 {
-                    "title": escape(title),
-                    "id": escape(
-                        "comic:%s (%s) [%s] - %s"
-                        % (issue["ComicName"], comic["ComicYear"], comic["ComicID"], issue["Issue_Number"])
-                    ),
+                    "title": title,
+                    "id": "comic:%s (%s) [%s] - %s"
+                    % (issue["ComicName"], comic["ComicYear"], comic["ComicID"], issue["Issue_Number"]),
                     "updated": updated,
-                    "content": escape("%s" % metainfo[0]["summary"]),
+                    "content": "%s" % metainfo[0]["summary"],
                     "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
                     % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["Location"])),
                     "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
@@ -573,9 +581,9 @@ def opds_comic(
             )
 
     feed = {}
-    comicname = "%s" % escape(comic["ComicName"])
+    comicname = "%s" % comic["ComicName"]
     feed["title"] = "Comicarr OPDS - %s" % comicname
-    feed["id"] = escape("comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"]))
+    feed["id"] = "comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"])
     feed["updated"] = comic["DateAdded"]
     links.append(_start_link(opdsroot))
     links.append(_self_link("%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic_id))))
@@ -608,9 +616,9 @@ def opds_recent(
     links = []
     entries = []
 
-    with db.get_engine().connect() as conn:
-        from sqlalchemy import select
+    from sqlalchemy import select
 
+    with db.get_engine().connect() as conn:
         stmt = (
             select(snatched)
             .where(snatched.c.Status.in_(["Post-Processed", "Downloaded"]))
@@ -622,22 +630,46 @@ def opds_recent(
     if index <= len(recents):
         number = 1
         subset = recents[index : (index + page_size)]
-        for issue_rec in subset:
-            with db.get_engine().connect() as conn:
-                from sqlalchemy import select
 
-                stmt = select(issues).where(issues.c.IssueID == issue_rec["IssueID"])
-                result = [dict(row._mapping) for row in conn.execute(stmt)]
-                issuebook = result[0] if result else None
-            if not issuebook:
-                with db.get_engine().connect() as conn:
-                    stmt = select(annuals).where(annuals.c.IssueID == issue_rec["IssueID"])
-                    result = [dict(row._mapping) for row in conn.execute(stmt)]
-                    issuebook = result[0] if result else None
+        # Batch-load all IssueIDs and ComicIDs for this page
+        issue_ids = [r["IssueID"] for r in subset if r.get("IssueID")]
+        comic_ids = [r["ComicID"] for r in subset if r.get("ComicID")]
+
+        issues_lookup = {}
+        annuals_lookup = {}
+        comics_lookup = {}
+
+        if issue_ids:
             with db.get_engine().connect() as conn:
-                stmt = select(comics).where(comics.c.ComicID == issue_rec["ComicID"])
-                result = [dict(row._mapping) for row in conn.execute(stmt)]
-                comic = result[0] if result else None
+                rows = [
+                    dict(row._mapping) for row in conn.execute(select(issues).where(issues.c.IssueID.in_(issue_ids)))
+                ]
+                for row in rows:
+                    issues_lookup[row["IssueID"]] = row
+
+                # Load annuals for any IssueIDs not found in issues
+                missing_ids = [iid for iid in issue_ids if iid not in issues_lookup]
+                if missing_ids:
+                    rows = [
+                        dict(row._mapping)
+                        for row in conn.execute(select(annuals).where(annuals.c.IssueID.in_(missing_ids)))
+                    ]
+                    for row in rows:
+                        annuals_lookup[row["IssueID"]] = row
+
+        if comic_ids:
+            with db.get_engine().connect() as conn:
+                rows = [
+                    dict(row._mapping) for row in conn.execute(select(comics).where(comics.c.ComicID.in_(comic_ids)))
+                ]
+                for row in rows:
+                    comics_lookup[row["ComicID"]] = row
+
+        for issue_rec in subset:
+            issuebook = issues_lookup.get(issue_rec["IssueID"])
+            if not issuebook:
+                issuebook = annuals_lookup.get(issue_rec["IssueID"])
+            comic = comics_lookup.get(issue_rec["ComicID"])
 
             updated = issue_rec["DateAdded"]
             image = None
@@ -646,40 +678,31 @@ def opds_recent(
             if issuebook:
                 if "ReleaseComicID" not in list(issuebook.keys()):
                     if issuebook["DateAdded"] is None:
-                        title = escape(
-                            "%03d: %s #%s - %s (In stores %s)"
-                            % (
-                                index + number,
-                                issuebook["ComicName"],
-                                issuebook["Issue_Number"],
-                                issuebook["IssueName"],
-                                issuebook["ReleaseDate"],
-                            )
-                        )
-                    else:
-                        title = escape(
-                            "%03d: %s #%s - %s (Added to Comicarr %s, in stores %s)"
-                            % (
-                                index + number,
-                                issuebook["ComicName"],
-                                issuebook["Issue_Number"],
-                                issuebook["IssueName"],
-                                issuebook["DateAdded"],
-                                issuebook["ReleaseDate"],
-                            )
-                        )
-                    image = issuebook.get("ImageURL_ALT")
-                    thumbnail = issuebook.get("ImageURL")
-                else:
-                    title = escape(
-                        "%03d: %s Annual %s - %s (In stores %s)"
-                        % (
+                        title = "%03d: %s #%s - %s (In stores %s)" % (
                             index + number,
                             issuebook["ComicName"],
                             issuebook["Issue_Number"],
                             issuebook["IssueName"],
                             issuebook["ReleaseDate"],
                         )
+                    else:
+                        title = "%03d: %s #%s - %s (Added to Comicarr %s, in stores %s)" % (
+                            index + number,
+                            issuebook["ComicName"],
+                            issuebook["Issue_Number"],
+                            issuebook["IssueName"],
+                            issuebook["DateAdded"],
+                            issuebook["ReleaseDate"],
+                        )
+                    image = issuebook.get("ImageURL_ALT")
+                    thumbnail = issuebook.get("ImageURL")
+                else:
+                    title = "%03d: %s Annual %s - %s (In stores %s)" % (
+                        index + number,
+                        issuebook["ComicName"],
+                        issuebook["Issue_Number"],
+                        issuebook["IssueName"],
+                        issuebook["ReleaseDate"],
                     )
 
                 number += 1
@@ -706,12 +729,10 @@ def opds_recent(
                 entries.append(
                     {
                         "title": title,
-                        "id": escape(
-                            "comic:%s (%s) - %s"
-                            % (issuebook["ComicName"], comic["ComicYear"], issuebook["Issue_Number"])
-                        ),
+                        "id": "comic:%s (%s) - %s"
+                        % (issuebook["ComicName"], comic["ComicYear"], issuebook["Issue_Number"]),
                         "updated": updated,
-                        "content": escape("%s" % metainfo[0]["summary"]),
+                        "content": "%s" % metainfo[0]["summary"],
                         "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
                         % (opdsroot, quote_plus(issuebook["IssueID"]), quote_plus(location)),
                         "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
@@ -727,7 +748,7 @@ def opds_recent(
 
     feed = {}
     feed["title"] = "Comicarr OPDS - New Arrivals"
-    feed["id"] = escape("New Arrivals")
+    feed["id"] = "New Arrivals"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link("%s?cmd=Recent" % opdsroot))
@@ -755,6 +776,9 @@ def opds_issue(
     file_path, filename, resolved_issue_id = _resolve_issue_file(issue_id)
     if file_path is None:
         return _error_xml("Issue Not Found")
+
+    if not _validate_file_path(file_path):
+        return Response(status_code=403)
 
     # Mark as read
     try:
@@ -790,6 +814,9 @@ def opds_stream(
     file_path, filename, resolved_issue_id = _resolve_issue_file(issue_id)
     if file_path is None:
         return _error_xml("Issue Not Found")
+
+    if not _validate_file_path(file_path):
+        return Response(status_code=403)
 
     if page is None:
         return _error_xml("No page number specified")
@@ -873,7 +900,7 @@ def opds_storyarcs(
         entries.append(
             {
                 "title": "%s (%s)" % (arc["StoryArcName"], arc["IssueCount"]),
-                "id": escape("storyarc:%s" % arc["StoryArcID"]),
+                "id": "storyarc:%s" % arc["StoryArcID"],
                 "updated": arc["updated"],
                 "content": "%s (%s)" % (arc["StoryArcName"], arc["IssueCount"]),
                 "href": "%s?cmd=StoryArc&amp;arcid=%s" % (opdsroot, quote_plus(arc["StoryArcID"])),
@@ -914,11 +941,52 @@ def opds_storyarc(
     links = []
     entries = []
 
-    with db.get_engine().connect() as conn:
-        from sqlalchemy import select
+    from sqlalchemy import select
 
+    with db.get_engine().connect() as conn:
         stmt = select(storyarcs).where(storyarcs.c.StoryArcID == arc_id).order_by(storyarcs.c.ReadingOrder)
         arclist = [dict(row._mapping) for row in conn.execute(stmt)]
+
+    # Batch-load all referenced IssueIDs and ComicIDs
+    all_issue_ids = [b["IssueID"] for b in arclist if b.get("IssueID")]
+    issues_lookup = {}
+    annuals_lookup = {}
+    comics_lookup = {}
+
+    if all_issue_ids:
+        with db.get_engine().connect() as conn:
+            rows = [
+                dict(row._mapping) for row in conn.execute(select(issues).where(issues.c.IssueID.in_(all_issue_ids)))
+            ]
+            for row in rows:
+                issues_lookup[row["IssueID"]] = row
+
+            missing_ids = [iid for iid in all_issue_ids if iid not in issues_lookup]
+            if missing_ids:
+                rows = [
+                    dict(row._mapping)
+                    for row in conn.execute(select(annuals).where(annuals.c.IssueID.in_(missing_ids)))
+                ]
+                for row in rows:
+                    annuals_lookup[row["IssueID"]] = row
+
+        # Collect all ComicIDs from issues and annuals lookups
+        all_comic_ids = set()
+        for row in issues_lookup.values():
+            if row.get("ComicID"):
+                all_comic_ids.add(row["ComicID"])
+        for row in annuals_lookup.values():
+            if row.get("ComicID"):
+                all_comic_ids.add(row["ComicID"])
+
+        if all_comic_ids:
+            with db.get_engine().connect() as conn:
+                rows = [
+                    dict(row._mapping)
+                    for row in conn.execute(select(comics).where(comics.c.ComicID.in_(list(all_comic_ids))))
+                ]
+                for row in rows:
+                    comics_lookup[row["ComicID"]] = row
 
     newarclist = []
     arcname = ""
@@ -938,42 +1006,32 @@ def opds_storyarc(
             issue["thumbnail"] = None
             issue["updated"] = book["IssueDate"]
         else:
-            with db.get_engine().connect() as conn:
-                stmt = select(issues).where(issues.c.IssueID == book["IssueID"])
-                result = [dict(row._mapping) for row in conn.execute(stmt)]
-                bookentry = result[0] if result else None
+            bookentry = issues_lookup.get(book["IssueID"])
             if bookentry:
                 if bookentry["Location"]:
-                    with db.get_engine().connect() as conn:
-                        stmt = select(comics).where(comics.c.ComicID == bookentry["ComicID"])
-                        result = [dict(row._mapping) for row in conn.execute(stmt)]
-                        comic = result[0] if result else None
-                    fileexists = True
-                    issue["fileloc"] = os.path.join(comic["ComicLocation"], bookentry["Location"])
-                    issue["filename"] = bookentry["Location"]
-                    issue["image"] = bookentry["ImageURL_ALT"]
-                    issue["thumbnail"] = bookentry["ImageURL"]
+                    comic = comics_lookup.get(bookentry["ComicID"])
+                    if comic:
+                        fileexists = True
+                        issue["fileloc"] = os.path.join(comic["ComicLocation"], bookentry["Location"])
+                        issue["filename"] = bookentry["Location"]
+                        issue["image"] = bookentry["ImageURL_ALT"]
+                        issue["thumbnail"] = bookentry["ImageURL"]
                 if bookentry["DateAdded"]:
                     issue["updated"] = bookentry["DateAdded"]
                 else:
                     issue["updated"] = bookentry["IssueDate"]
             else:
-                with db.get_engine().connect() as conn:
-                    stmt = select(annuals).where(annuals.c.IssueID == book["IssueID"])
-                    result = [dict(row._mapping) for row in conn.execute(stmt)]
-                    annualentry = result[0] if result else None
+                annualentry = annuals_lookup.get(book["IssueID"])
                 if annualentry:
                     if annualentry["Location"]:
-                        with db.get_engine().connect() as conn:
-                            stmt = select(comics).where(comics.c.ComicID == annualentry["ComicID"])
-                            result = [dict(row._mapping) for row in conn.execute(stmt)]
-                            comic = result[0] if result else None
-                        fileexists = True
-                        issue["fileloc"] = os.path.join(comic["ComicLocation"], annualentry["Location"])
-                        issue["filename"] = annualentry["Location"]
-                        issue["image"] = None
-                        issue["thumbnail"] = None
-                        issue["updated"] = annualentry["IssueDate"]
+                        comic = comics_lookup.get(annualentry["ComicID"])
+                        if comic:
+                            fileexists = True
+                            issue["fileloc"] = os.path.join(comic["ComicLocation"], annualentry["Location"])
+                            issue["filename"] = annualentry["Location"]
+                            issue["image"] = None
+                            issue["thumbnail"] = None
+                            issue["updated"] = annualentry["IssueDate"]
                     else:
                         if book["Location"]:
                             fileexists = True
@@ -1007,10 +1065,10 @@ def opds_storyarc(
                     pse_count = page_count(cb)
                 entries.append(
                     {
-                        "title": escape("%s - %s" % (issue["ReadingOrder"], issue["Title"])),
-                        "id": escape("comic:%s" % issue["IssueID"]),
+                        "title": "%s - %s" % (issue["ReadingOrder"], issue["Title"]),
+                        "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
-                        "content": escape("%s" % metainfo[0]["summary"]),
+                        "content": "%s" % metainfo[0]["summary"],
                         "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
                         % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
                         "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
@@ -1025,8 +1083,8 @@ def opds_storyarc(
                 )
 
     feed = {}
-    feed["title"] = "Comicarr OPDS - %s" % escape(arcname)
-    feed["id"] = escape("storyarc:%s" % arc_id)
+    feed["title"] = "Comicarr OPDS - %s" % arcname
+    feed["id"] = "storyarc:%s" % arc_id
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link("%s?cmd=StoryArc&amp;arcid=%s" % (opdsroot, quote_plus(arc_id))))
@@ -1059,11 +1117,44 @@ def opds_readlist(
     links = []
     entries = []
 
-    with db.get_engine().connect() as conn:
-        from sqlalchemy import select
+    from sqlalchemy import select
 
+    with db.get_engine().connect() as conn:
         stmt = select(readlist).where(readlist.c.Status != "Read")
         rlist = [dict(row._mapping) for row in conn.execute(stmt)]
+
+    # Batch-load all referenced IssueIDs and ComicIDs
+    rl_issue_ids = [b["IssueID"] for b in rlist if b.get("IssueID")]
+    rl_comic_ids = [b["ComicID"] for b in rlist if b.get("ComicID")]
+
+    rl_issues_lookup = {}
+    rl_annuals_lookup = {}
+    rl_comics_lookup = {}
+
+    if rl_issue_ids:
+        with db.get_engine().connect() as conn:
+            rows = [
+                dict(row._mapping) for row in conn.execute(select(issues).where(issues.c.IssueID.in_(rl_issue_ids)))
+            ]
+            for row in rows:
+                rl_issues_lookup[row["IssueID"]] = row
+
+            missing_ids = [iid for iid in rl_issue_ids if iid not in rl_issues_lookup]
+            if missing_ids:
+                rows = [
+                    dict(row._mapping)
+                    for row in conn.execute(select(annuals).where(annuals.c.IssueID.in_(missing_ids)))
+                ]
+                for row in rows:
+                    rl_annuals_lookup[row["IssueID"]] = row
+
+    if rl_comic_ids:
+        with db.get_engine().connect() as conn:
+            rows = [
+                dict(row._mapping) for row in conn.execute(select(comics).where(comics.c.ComicID.in_(rl_comic_ids)))
+            ]
+            for row in rows:
+                rl_comics_lookup[row["ComicID"]] = row
 
     readlist_items = []
     for book in rlist:
@@ -1071,16 +1162,10 @@ def opds_readlist(
         issue = {}
         issue["Title"] = "%s #%s" % (book["ComicName"], book["Issue_Number"])
         issue["IssueID"] = book["IssueID"]
-        with db.get_engine().connect() as conn:
-            stmt = select(comics).where(comics.c.ComicID == book["ComicID"])
-            result = [dict(row._mapping) for row in conn.execute(stmt)]
-            comic = result[0] if result else None
-        with db.get_engine().connect() as conn:
-            stmt = select(issues).where(issues.c.IssueID == book["IssueID"])
-            result = [dict(row._mapping) for row in conn.execute(stmt)]
-            bookentry = result[0] if result else None
+        comic = rl_comics_lookup.get(book["ComicID"])
+        bookentry = rl_issues_lookup.get(book["IssueID"])
         if bookentry:
-            if bookentry["Location"]:
+            if bookentry["Location"] and comic:
                 fileexists = True
                 issue["fileloc"] = os.path.join(comic["ComicLocation"], bookentry["Location"])
                 issue["filename"] = bookentry["Location"]
@@ -1091,12 +1176,9 @@ def opds_readlist(
             else:
                 issue["updated"] = bookentry["IssueDate"]
         else:
-            with db.get_engine().connect() as conn:
-                stmt = select(annuals).where(annuals.c.IssueID == book["IssueID"])
-                result = [dict(row._mapping) for row in conn.execute(stmt)]
-                annualentry = result[0] if result else None
+            annualentry = rl_annuals_lookup.get(book["IssueID"])
             if annualentry:
-                if annualentry["Location"]:
+                if annualentry["Location"] and comic:
                     fileexists = True
                     issue["fileloc"] = os.path.join(comic["ComicLocation"], annualentry["Location"])
                     issue["filename"] = annualentry["Location"]
@@ -1130,10 +1212,10 @@ def opds_readlist(
                     pse_count = page_count(cb)
                 entries.append(
                     {
-                        "title": escape(issue["Title"]),
-                        "id": escape("comic:%s" % issue["IssueID"]),
+                        "title": issue["Title"],
+                        "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
-                        "content": escape("%s" % metainfo[0]["summary"]),
+                        "content": "%s" % metainfo[0]["summary"],
                         "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
                         % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
                         "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
@@ -1149,7 +1231,7 @@ def opds_readlist(
 
     feed = {}
     feed["title"] = "Comicarr OPDS - ReadList"
-    feed["id"] = escape("ReadList")
+    feed["id"] = "ReadList"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link("%s?cmd=ReadList" % opdsroot))
@@ -1200,10 +1282,10 @@ def opds_oneoffs(
                 metainfo = [{"writer": None, "summary": ""}]
                 entries.append(
                     {
-                        "title": escape(issue["Title"]),
-                        "id": escape("comic:%s" % issue["IssueID"]),
+                        "title": issue["Title"],
+                        "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
-                        "content": escape("%s" % metainfo[0]["summary"]),
+                        "content": "%s" % metainfo[0]["summary"],
                         "href": "%s?cmd=deliverFile&amp;file=%s&amp;filename=%s"
                         % (opdsroot, quote_plus(issue["fileloc"]), quote_plus(issue["filename"])),
                         "kind": "acquisition",
@@ -1216,7 +1298,7 @@ def opds_oneoffs(
 
     feed = {}
     feed["title"] = "Comicarr OPDS - One-Offs"
-    feed["id"] = escape("OneOffs")
+    feed["id"] = "OneOffs"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link("%s?cmd=OneOffs" % opdsroot))
@@ -1283,3 +1365,25 @@ def _resolve_issue_file(issue_id):
 
     file_path = os.path.join(comic["ComicLocation"], issue["Location"])
     return file_path, issue["Location"], issue["IssueID"]
+
+
+def _validate_file_path(filepath):
+    """Check that filepath is inside an allowed comic directory.
+
+    Returns True if the path is within one of the configured directories,
+    False otherwise.
+    """
+    real_path = os.path.realpath(filepath)
+    allowed_dirs = [
+        os.path.realpath(d)
+        for d in [
+            getattr(comicarr.CONFIG, "DESTINATION_DIR", ""),
+            getattr(comicarr.CONFIG, "COMIC_DIR", ""),
+            getattr(comicarr.CONFIG, "STORYARC_LOCATION", ""),
+            getattr(comicarr.CONFIG, "GRABBAG_DIR", ""),
+        ]
+        if d
+    ]
+    if not allowed_dirs:
+        return False
+    return any(os.path.commonpath([real_path, d]) == d for d in allowed_dirs)

@@ -37,7 +37,6 @@ http_basic = HTTPBasic(auto_error=False)
 api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
 
 
-
 class LoginRateLimiter(object):
     def __init__(self, max_attempts=5, lockout_seconds=300):
         self._attempts = defaultdict(list)
@@ -75,7 +74,6 @@ class LoginRateLimiter(object):
             self._attempts.pop(ip, None)
 
 
-
 def load_or_create_jwt_key(secure_dir):
     """Load JWT key from SECURE_DIR/jwt.key, or generate one.
 
@@ -91,7 +89,6 @@ def load_or_create_jwt_key(secure_dir):
         f.write(key)
     os.chmod(key_path, 0o600)
     return key
-
 
 
 def create_session_token(username, secret_key, generation, login_timeout=43800):
@@ -116,7 +113,6 @@ def validate_jwt_token(token, secret_key, current_generation):
         return payload["sub"]
     except jwt.InvalidTokenError:
         return None
-
 
 
 def require_session(request: Request, ctx: AppContext = Depends(get_context)):

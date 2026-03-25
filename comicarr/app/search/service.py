@@ -459,7 +459,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                             logger.fdebug("New_Filepath: %s" % new_filepath)
                             shutil.copy(torrent_path, new_filepath)
                             torrent_info["copied_filepath"] = new_filepath
-                        except:
+                        except Exception:
                             logger.warn("Unexpected Error: %s" % sys.exc_info()[0])
                             logger.warn(
                                 "Unable to create temporary directory to perform meta-tagging. Processing cannot continue with given item at this time."

@@ -282,7 +282,7 @@ def weekly_info(
     try:
         con_startweek = "" + startweek.strftime(date_fmt)
         con_endweek = "" + endweek.strftime(date_fmt)
-    except:
+    except Exception:
         con_startweek = "" + startweek.strftime(date_fmt)
         con_endweek = "" + endweek.strftime(date_fmt)
 

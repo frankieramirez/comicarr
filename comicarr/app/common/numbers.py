@@ -115,11 +115,11 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
 
     try:
         issnum.isdigit()
-    except:
+    except Exception:
         try:
             isstest = str(issnum)
             isstest.isdigit()
-        except:
+        except Exception:
             return 9999999999
         else:
             issnum = str(issnum)

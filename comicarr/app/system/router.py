@@ -139,7 +139,7 @@ def setup(request: Request, ctx: AppContext = Depends(get_context)):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/events/stream")
+@router.get("/events/stream", dependencies=[Depends(require_session)])
 async def event_stream(request: Request, ctx: AppContext = Depends(get_context)):
     """Server-Sent Events stream. Uses sse-starlette for proper keepalive."""
     if ctx.event_bus is None:

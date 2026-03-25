@@ -43,7 +43,6 @@ from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
 from comicarr.app.common.filesystem import file_ops as _file_ops_impl
 from comicarr.app.common.filesystem import (  # noqa: F401
     is_path_within_allowed_dirs,
-    urlretrieve,
 )
 from comicarr.app.common.numbers import (  # noqa: F401
     bytes_to_mb,
@@ -68,14 +67,11 @@ from comicarr.app.common.strings import (  # noqa: F401
     replacetheslash,
 )
 from comicarr.app.common.utilities import (  # noqa: F401
-    checked,
     chunker,
     conversion,
     extract_logline,
     get_the_hash,
     int_num,
-    multikeysort,
-    radio,
 )
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl

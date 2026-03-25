@@ -40,19 +40,6 @@ def is_path_within_allowed_dirs(path, allowed_dirs):
     return False
 
 
-def urlretrieve(urlfile, fpath):
-    """Download a file from an open URL handle to a local path."""
-    chunk = 4096
-    f = open(fpath, "w")
-    while 1:
-        data = urlfile.read(chunk)
-        if not data:
-            print("done.")
-            break
-        f.write(data)
-        print("Read %s bytes" % len(data))
-
-
 def checkFolder(folderpath=None, check_folder=None, postprocessor=None, queue_cls=None):
     """Validate/create directory and run post-processing on snatched files.
 
@@ -240,7 +227,7 @@ def file_ops(
                     try:
                         shutil.copy(dst, path)
                         log.debug("Successfully copied file [" + dst + " --> " + path + "]")
-                    except:
+                    except Exception:
                         return False
 
             elif file_opts == "softlink":  # ie. shortcut.
@@ -260,7 +247,7 @@ def file_ops(
                     try:
                         shutil.copy(dst, path)
                         log.debug("Successfully copied file [" + dst + " --> " + path + "]")
-                    except:
+                    except Exception:
                         return False
 
     else:

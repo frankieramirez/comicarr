@@ -16,6 +16,7 @@ Uses SQLAlchemy Core via the existing db module.
 from sqlalchemy import delete, func, select
 
 from comicarr import db
+from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
 from comicarr.tables import annuals as t_annuals
 from comicarr.tables import comics as t_comics
 from comicarr.tables import importresults as t_importresults
@@ -63,38 +64,6 @@ ANNUALS_COLUMNS = [
     t_annuals.c.Status.label("status"),
     t_annuals.c.ComicName.label("comicName"),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Pagination helper
-# ---------------------------------------------------------------------------
-
-
-def paginated_query(stmt, limit=None, offset=None):
-    """Execute a statement with optional pagination. Returns dict with results/total/has_more."""
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    with db.get_engine().connect() as conn:
-        total = conn.execute(count_stmt).scalar() or 0
-
-    current_limit = int(limit) if limit is not None else total
-    current_offset = int(offset) if offset else 0
-
-    paginated_stmt = stmt
-    if limit is not None:
-        paginated_stmt = paginated_stmt.limit(int(limit))
-        if offset is not None and int(offset) > 0:
-            paginated_stmt = paginated_stmt.offset(int(offset))
-
-    results = db.select_all(paginated_stmt)
-    has_more = (current_offset + len(results)) < total
-
-    return {
-        "results": results,
-        "total": total,
-        "limit": current_limit,
-        "offset": current_offset,
-        "has_more": has_more,
-    }
 
 
 # ---------------------------------------------------------------------------

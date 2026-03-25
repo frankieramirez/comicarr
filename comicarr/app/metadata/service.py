@@ -35,63 +35,21 @@ def search_comics(
 ):
     """Search for comics across configured providers.
 
-    Delegates to MangaDex for manga, or mb.findComic for comics/story arcs.
-    Returns results with in_library boolean added.
+    Delegates to search domain's find_comic() to avoid duplicated logic.
     """
-    from comicarr import mb
+    from comicarr.app.search.service import find_comic
 
-    if not name:
-        return {"error": "Missing a Comic name"}
-
-    # Parse pagination
-    try:
-        parsed_limit = int(limit) if limit else None
-        parsed_offset = int(offset) if offset else None
-    except (ValueError, TypeError):
-        return {"error": "Invalid pagination parameters"}
-
-    # Route to appropriate provider
-    if content_type == "manga":
-        if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
-            return {"error": "MangaDex integration is not enabled"}
-        from comicarr import mangadex
-
-        searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
-    elif type_ == "story_arc":
-        searchresults = mb.findComic(
-            name,
-            mode,
-            issue=None,
-            search_type="story_arc",
-            limit=parsed_limit,
-            offset=parsed_offset,
-            sort=sort,
-        )
-    else:
-        searchresults = mb.findComic(
-            name,
-            mode,
-            issue=issue,
-            limit=parsed_limit,
-            offset=parsed_offset,
-            sort=sort,
-            content_type=content_type,
-        )
-
-    # Add in_library flag
-    def add_in_library(comic):
-        comic["in_library"] = comic.get("haveit") != "No"
-        return comic
-
-    if isinstance(searchresults, dict) and "results" in searchresults:
-        searchresults["results"] = [add_in_library(c) for c in searchresults["results"]]
-        return searchresults
-    else:
-        from operator import itemgetter
-
-        searchresults = sorted(searchresults, key=itemgetter("comicyear", "issues"), reverse=True)
-        searchresults = [add_in_library(c) for c in searchresults]
-        return {"results": searchresults}
+    return find_comic(
+        ctx,
+        name,
+        issue=issue,
+        type_=type_,
+        mode=mode,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        content_type=content_type,
+    )
 
 
 def search_manga(ctx, name, limit=None, offset=None, sort=None):
@@ -661,7 +619,7 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
                         data = inzipfile.read(infile)
                         issuetag = "xml"
                         break
-        except:
+        except Exception:
             metadata_info = {"metadata_source": None, "metadata_type": None}
             logger.info(
                 "ERROR. Unable to properly retrieve the cover for displaying. It's probably best to re-tag this file."
@@ -673,7 +631,7 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         try:
             dz = zipfile.ZipFile(filelocation, "r")
             data = dz.comment
-        except:
+        except Exception:
             metadata_info = {"metadata_source": "ComicVine", "metadata_type": None}
             logger.warn("Unable to extract any metadata from within file.")
             return {"IssueImage": IssueImage, "datamode": "file", "metadata": None, "metadata_source": metadata_info}
@@ -701,30 +659,30 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         for result in results:
             try:
                 issue_title = result.getElementsByTagName("Title")[0].firstChild.wholeText
-            except:
+            except Exception:
                 issue_title = "None"
             try:
                 series_title = result.getElementsByTagName("Series")[0].firstChild.wholeText
-            except:
+            except Exception:
                 series_title = "None"
             try:
                 series_volume = result.getElementsByTagName("Volume")[0].firstChild.wholeText
-            except:
+            except Exception:
                 series_volume = "None"
             try:
                 issue_number = result.getElementsByTagName("Number")[0].firstChild.wholeText
-            except:
+            except Exception:
                 issue_number = "None"
             try:
                 summary = result.getElementsByTagName("Summary")[0].firstChild.wholeText
-            except:
+            except Exception:
                 summary = "None"
             if "*List" in summary:
                 summary_cut = summary.find("*List")
                 summary = summary[:summary_cut]
             try:
                 notes = result.getElementsByTagName("Notes")[0].firstChild.wholeText
-            except:
+            except Exception:
                 notes = "None"
             else:
                 if "CMXID" in notes:
@@ -736,55 +694,55 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
                 metadata_info = {"metadata_source": mtype, "metadata_type": "comicinfo.xml"}
             try:
                 year = result.getElementsByTagName("Year")[0].firstChild.wholeText
-            except:
+            except Exception:
                 year = "None"
             try:
                 month = result.getElementsByTagName("Month")[0].firstChild.wholeText
-            except:
+            except Exception:
                 month = "None"
             try:
                 day = result.getElementsByTagName("Day")[0].firstChild.wholeText
-            except:
+            except Exception:
                 day = "None"
             try:
                 writer = result.getElementsByTagName("Writer")[0].firstChild.wholeText
-            except:
+            except Exception:
                 writer = None
             try:
                 penciller = result.getElementsByTagName("Penciller")[0].firstChild.wholeText
-            except:
+            except Exception:
                 penciller = None
             try:
                 inker = result.getElementsByTagName("Inker")[0].firstChild.wholeText
-            except:
+            except Exception:
                 inker = None
             try:
                 colorist = result.getElementsByTagName("Colorist")[0].firstChild.wholeText
-            except:
+            except Exception:
                 colorist = None
             try:
                 letterer = result.getElementsByTagName("Letterer")[0].firstChild.wholeText
-            except:
+            except Exception:
                 letterer = None
             try:
                 cover_artist = result.getElementsByTagName("CoverArtist")[0].firstChild.wholeText
-            except:
+            except Exception:
                 cover_artist = None
             try:
                 editor = result.getElementsByTagName("Editor")[0].firstChild.wholeText
-            except:
+            except Exception:
                 editor = None
             try:
                 publisher = result.getElementsByTagName("Publisher")[0].firstChild.wholeText
-            except:
+            except Exception:
                 publisher = "None"
             try:
                 webpage = result.getElementsByTagName("Web")[0].firstChild.wholeText
-            except:
+            except Exception:
                 webpage = "None"
             try:
                 pagecount = result.getElementsByTagName("PageCount")[0].firstChild.wholeText
-            except:
+            except Exception:
                 pagecount = 0
 
     elif issuetag == "comment":
@@ -800,35 +758,35 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         dt = ast_data["ComicBookInfo/1.0"]
         try:
             publisher = dt["publisher"]
-        except:
+        except Exception:
             publisher = None
         try:
             year = dt["publicationYear"]
-        except:
+        except Exception:
             year = None
         try:
             month = dt["publicationMonth"]
-        except:
+        except Exception:
             month = None
         try:
             day = dt["publicationDay"]
-        except:
+        except Exception:
             day = None
         try:
             issue_title = dt["title"]
-        except:
+        except Exception:
             issue_title = None
         try:
             series_title = dt["series"]
-        except:
+        except Exception:
             series_title = None
         try:
             issue_number = dt["issue"]
-        except:
+        except Exception:
             issue_number = None
         try:
             summary = dt["comments"]
-        except:
+        except Exception:
             summary = "None"
         editor = None
         colorist = None
@@ -840,11 +798,11 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
         inker = None
         try:
             series_volume = dt["volume"]
-        except:
+        except Exception:
             series_volume = None
         try:
             dt["credits"]
-        except:
+        except Exception:
             pass
         else:
             for cl in dt["credits"]:
@@ -890,15 +848,15 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
                         inker += ", " + cl["person"]
         try:
             notes = dt["notes"]
-        except:
+        except Exception:
             notes = "None"
         try:
             webpage = dt["web"]
-        except:
+        except Exception:
             webpage = "None"
         try:
             pagecount = dt["pagecount"]
-        except:
+        except Exception:
             pagecount = "None"
     else:
         logger.warn("Unable to locate any metadata within cbz file. Tag this file and try again if necessary.")

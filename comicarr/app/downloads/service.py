@@ -34,7 +34,7 @@ from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 # ---------------------------------------------------------------------------
 
 
-def get_history(ctx, limit=None, offset=None):
+def get_history(limit=None, offset=None):
     """Get download history, optionally paginated."""
     if limit is not None:
         paginated = dl_queries.get_history(limit=limit, offset=offset)
@@ -50,7 +50,7 @@ def get_history(ctx, limit=None, offset=None):
     return dl_queries.get_history()
 
 
-def clear_history(ctx, status_type=None):
+def clear_history(status_type=None):
     """Clear download history entries."""
     dl_queries.clear_history(status_type=status_type)
     if status_type:
@@ -66,7 +66,6 @@ def clear_history(ctx, status_type=None):
 
 
 def force_process(
-    ctx,
     nzb_name,
     nzb_folder,
     failed=False,
@@ -120,7 +119,7 @@ def force_process(
     return {"success": True, "message": "Successfully submitted request for post-processing for %s" % nzb_name}
 
 
-def process_issue(ctx, comicid, folder, issueid=None):
+def process_issue(comicid, folder, issueid=None):
     """Post-process a specific issue."""
     from comicarr import process
 
@@ -138,19 +137,19 @@ def process_issue(ctx, comicid, folder, issueid=None):
 # ---------------------------------------------------------------------------
 
 
-def get_ddl_queue(ctx):
+def get_ddl_queue():
     """Get current DDL download queue."""
     return dl_queries.get_ddl_queue()
 
 
-def delete_ddl_item(ctx, item_id):
+def delete_ddl_item(item_id):
     """Remove an item from the DDL queue."""
     dl_queries.delete_ddl_item(item_id)
     logger.info("[DOWNLOADS] Removed DDL item: %s" % item_id)
     return {"success": True}
 
 
-def requeue_ddl_item(ctx, item_id):
+def requeue_ddl_item(item_id):
     """Requeue a failed DDL download."""
     item = dl_queries.get_ddl_item(item_id)
     if not item:
@@ -161,7 +160,7 @@ def requeue_ddl_item(ctx, item_id):
     return {"success": True}
 
 
-def queue_ddl_download(ctx, item_id, link, site):
+def queue_ddl_download(item_id, link, site):
     """Queue a direct download link for processing.
 
     Inserts/updates ddl_info and puts the item on the DDL_QUEUE.
@@ -188,7 +187,7 @@ def queue_ddl_download(ctx, item_id, link, site):
     return {"success": True, "message": "DDL download queued: %s" % item_id}
 
 
-def get_issue_file_path(ctx, issue_id):
+def get_issue_file_path(issue_id):
     """Resolve the on-disk file path for an issue.
 
     Returns (path, filename) tuple or (None, None) if not found.
@@ -607,7 +606,7 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
     if dupchk["Status"] == "Downloaded" or dupchk["Status"] == "Archived":
         try:
             dupsize = dupchk["ComicSize"]
-        except:
+        except Exception:
             rtnval = {"action": "write"}
 
         if dupsize is None:
@@ -762,7 +761,7 @@ def ddl_downloader(queue):
                 logger.info("Cleaning up workers for shutdown")
                 break
             if item["id"] not in comicarr.DDL_QUEUED:
-                comicarr.DDL_QUEUED.append(item["id"])
+                comicarr.DDL_QUEUED.add(item["id"])
             try:
                 link_type_failure[item["id"]].append(item["link_type_failure"])
             except Exception:
@@ -847,7 +846,7 @@ def ddl_downloader(queue):
                 except Exception as e:
                     logger.error("process error: %s [%s]" % (e, ddzstat))
 
-                comicarr.DDL_QUEUED.remove(item["id"])
+                comicarr.DDL_QUEUED.discard(item["id"])
                 comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
                 try:
                     link_type_failure.pop(item["id"])

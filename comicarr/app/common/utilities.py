@@ -15,41 +15,6 @@ Pure functions — no comicarr imports, no side effects.
 
 import hashlib
 import re
-from operator import itemgetter
-
-
-def multikeysort(items, columns):
-    """Sort a list of dicts by multiple keys (prefix with '-' for descending)."""
-
-    comparers = [
-        ((itemgetter(col[1:].strip()), -1) if col.startswith("-") else (itemgetter(col.strip()), 1)) for col in columns
-    ]
-
-    def comparer(left, right):
-        for fn, mult in comparers:
-            result = cmp(fn(left), fn(right))
-            if result:
-                return mult * result
-        else:
-            return 0
-
-    return sorted(items, cmp=comparer)
-
-
-def checked(variable):
-    """Return 'Checked' if variable is truthy, else empty string."""
-    if variable:
-        return "Checked"
-    else:
-        return ""
-
-
-def radio(variable, pos):
-    """Return 'Checked' if variable equals pos, else empty string."""
-    if variable == pos:
-        return "Checked"
-    else:
-        return ""
 
 
 def extract_logline(s):
@@ -82,7 +47,7 @@ def conversion(value):
     if type(value) == str:
         try:
             value = value.decode("utf-8")
-        except:
+        except Exception:
             value = value.decode("windows-1252")
     return value
 

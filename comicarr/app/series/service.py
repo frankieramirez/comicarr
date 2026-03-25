@@ -522,10 +522,22 @@ def annual_update():
     return
 
 
+_havetotals_cache = None
+_havetotals_cache_time = 0
+
+
 def havetotals(refreshit=None):
+    global _havetotals_cache, _havetotals_cache_time
+    import time
+
     from sqlalchemy import delete, func, select
 
     from comicarr.helpers import today
+
+    # Return cached result if fresh (< 30s) and not a single-comic refresh
+    now = time.monotonic()
+    if _havetotals_cache is not None and (now - _havetotals_cache_time) < 30 and not refreshit:
+        return _havetotals_cache
 
     comics_list = []
 
@@ -666,7 +678,7 @@ def havetotals(refreshit=None):
                     comictype = comic["Corrected_Type"]
                 else:
                     comictype = comictype
-        except:
+        except Exception:
             comictype = None
 
         if any([comic["ComicVersion"] is None, comic["ComicVersion"] == "None", comic["ComicVersion"] == ""]):
@@ -705,6 +717,11 @@ def havetotals(refreshit=None):
                 "cv_removed": comic["cv_removed"],
             }
         )
+
+    if not refreshit:
+        _havetotals_cache = comics_list
+        _havetotals_cache_time = now
+
     return comics_list
 
 
@@ -767,7 +784,7 @@ def listLibrary(comicid=None):
         try:
             if row["ReleaseComicID"] is not None:
                 library[row["ReleaseComicID"]] = {"comicid": row["ComicID"], "status": row["Status"]}
-        except:
+        except Exception:
             pass
         try:
             name = row["ComicName"]
@@ -775,7 +792,7 @@ def listLibrary(comicid=None):
             if name and year:
                 name_key = "name:" + name.lower().strip() + ":" + str(year).strip()
                 library[name_key] = {"comicid": row["ComicID"], "status": row["Status"]}
-        except:
+        except Exception:
             pass
 
     return library
@@ -959,7 +976,7 @@ def latestdate_fix():
 
                     latestdate = (lat_year) + "-" + str(lat_month) + "-01"
                     datefix.append({"comicid": cl["ComicID"], "latestdate": latestdate})
-        except:
+        except Exception:
             datefix.append({"comicid": cl["ComicID"], "latestdate": "0000-00-00"})
 
     if len(datefix) > 0:

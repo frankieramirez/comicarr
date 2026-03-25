@@ -183,6 +183,41 @@ def get_safe_config(ctx):
     return result
 
 
+WRITABLE_CONFIG_KEYS = {
+    "COMIC_DIR",
+    "DESTINATION_DIR",
+    "HTTP_HOST",
+    "HTTP_PORT",
+    "HTTP_ROOT",
+    "ENABLE_HTTPS",
+    "LAUNCH_BROWSER",
+    "LOG_LEVEL",
+    "DOWNLOAD_SCAN_INTERVAL",
+    "NZB_STARTUP_SEARCH",
+    "SEARCH_INTERVAL",
+    "SEARCH_DELAY",
+    "RSS_CHECK_INTERVAL",
+    "DBUPDATE_INTERVAL",
+    "AUTO_UPDATE",
+    "ANNUALS_ON",
+    "WEEKFOLDER",
+    "REPLACE_SPACES",
+    "ZERO_LEVEL",
+    "ZERO_LEVEL_N",
+    "LOWERCASE_FILENAMES",
+    "FOLDER_FORMAT",
+    "FILE_FORMAT",
+    "COMICVINE_API",
+    "ENABLE_META",
+    "OPDS_ENABLE",
+    "OPDS_PAGESIZE",
+    "MULTIPLE_DEST_DIRS",
+    "CREATE_FOLDERS",
+    "CHECK_FOLDER",
+    "STORYARC_LOCATION",
+}
+
+
 def update_config(ctx, key_values):
     """Update configuration key-values and trigger scheduler reconfiguration."""
     import comicarr
@@ -190,11 +225,20 @@ def update_config(ctx, key_values):
     if not ctx.config:
         return {"success": False, "error": "Config not loaded"}
 
+    # Filter to only writable keys — prevents privilege escalation via
+    # overwriting HTTP_PASSWORD, API_KEY, AUTHENTICATION, etc.
+    rejected = [k for k in key_values if k not in WRITABLE_CONFIG_KEYS]
+    if rejected:
+        logger.info("[CONFIG] Rejected non-writable keys: %s" % rejected)
+    filtered = {k: v for k, v in key_values.items() if k in WRITABLE_CONFIG_KEYS}
+    if not filtered:
+        return {"success": False, "error": "No valid config keys provided"}
+
     # Apply scheduler change first (idempotent), then write config
     interval_keys = {"SEARCH_INTERVAL", "RSS_CHECK_INTERVAL", "DOWNLOAD_SCAN_INTERVAL", "DBUPDATE_INTERVAL"}
-    interval_changed = any(k in interval_keys for k in key_values)
+    interval_changed = any(k in interval_keys for k in filtered)
 
-    ctx.config.process_kwargs(key_values)
+    ctx.config.process_kwargs(filtered)
     ctx.config.writeconfig()
     ctx.config.configure(update=True, startup=False)
 
@@ -540,35 +584,35 @@ def script_env(mode, vars):
                     ]  # comicid/issueid are unknown for one-offs (should be fixable tho)
                 else:
                     comicarr_env["comicarr_comicid"] = "None"
-            except:
+            except Exception:
                 pass
             try:
                 if vars["comicinfo"]["issueid"] is not None:
                     comicarr_env["comicarr_issueid"] = vars["comicinfo"]["issueid"]
                 else:
                     comicarr_env["comicarr_issueid"] = "None"
-            except:
+            except Exception:
                 pass
             try:
                 if vars["comicinfo"]["issuearcid"] is not None:
                     comicarr_env["comicarr_issuearcid"] = vars["comicinfo"]["issuearcid"]
                 else:
                     comicarr_env["comicarr_issuearcid"] = "None"
-            except:
+            except Exception:
                 pass
             comicarr_env["comicarr_comicname"] = vars["comicinfo"]["comicname"]
             comicarr_env["comicarr_issuenumber"] = str(vars["comicinfo"]["issuenumber"])
             try:
                 comicarr_env["comicarr_comicvolume"] = str(vars["comicinfo"]["volume"])
-            except:
+            except Exception:
                 pass
             try:
                 comicarr_env["comicarr_seriesyear"] = str(vars["comicinfo"]["seriesyear"])
-            except:
+            except Exception:
                 pass
             try:
                 comicarr_env["comicarr_issuedate"] = str(vars["comicinfo"]["issuedate"])
-            except:
+            except Exception:
                 pass
 
         comicarr_env["comicarr_release_pack"] = str(vars["pack"])
@@ -771,7 +815,7 @@ def job_management(
 
         try:
             jobtimetmp = jobinfo.split("at: ")[1].split(".")[0].strip()
-        except:
+        except Exception:
             jobtime = None
         else:
             if next_the_run is False:

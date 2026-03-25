@@ -187,7 +187,6 @@ def cleanhtml(raw_html):
         if tag.name not in VALID_TAGS:
             tag.replaceWith(tag.renderContents())
     flipflop = soup.renderContents()
-    print(flipflop)
     return flipflop
 
 
@@ -202,13 +201,7 @@ def replacetheslash(data):
 
 def clean_url(url):
     """Remove leading/trailing whitespace from a URL string."""
-    leading = len(url) - len(url.lstrip(" "))
-    ending = len(url) - len(url.rstrip(" "))
-    if leading >= 1:
-        url = url[leading:]
-    if ending >= 1:
-        url = url[:-ending]
-    return url
+    return url.strip()
 
 
 def cleanHost(host, protocol=True, ssl=False, username=None, password=None):
@@ -244,7 +237,7 @@ def cleanHost(host, protocol=True, ssl=False, username=None, password=None):
                 log.error("Cleanhost error: auth already defined in url: %s, please remove BasicAuth from url.", host)
             else:
                 host = host.replace("://", "://%s:%s@" % (username, password), 1)
-        except:
+        except Exception:
             pass
 
     host = host.rstrip("/ ")

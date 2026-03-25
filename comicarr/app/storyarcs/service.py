@@ -30,59 +30,17 @@ from comicarr.tables import comics, issues, storyarcs
 ALLOWED_ARC_STATUSES = {"Wanted", "Read", "Skipped"}
 
 
-def list_arcs(ctx, custom_only=False):
-    """List all story arcs with aggregated stats and computed fields."""
-    rows = arc_queries.list_arcs(custom_only=custom_only)
-    arclist = []
-    for row in rows:
-        total = row["Total"] or 0
-        have = row["Have"] or 0
-        try:
-            percent = round((have * 100.0) / total, 1) if total > 0 else 0
-        except (ZeroDivisionError, TypeError):
-            percent = 0
-
-        min_year = row["min_year"]
-        max_year = row["max_year"]
-        if min_year is None or max_year is None:
-            span_years = None
-        elif min_year == max_year:
-            span_years = str(max_year)
-        else:
-            span_years = "%s - %s" % (min_year, max_year)
-
-        arclist.append(
-            {
-                "StoryArcID": row["StoryArcID"],
-                "StoryArc": row["StoryArc"],
-                "TotalIssues": total,
-                "Have": have,
-                "Total": total,
-                "percent": percent,
-                "SpanYears": span_years,
-                "CV_ArcID": row["CV_ArcID"],
-                "Publisher": row["Publisher"],
-                "ArcImage": row["ArcImage"],
-            }
-        )
-    return arclist
-
-
-def get_arc_detail(ctx, arc_id):
-    """Get a single story arc with summary stats and all issues."""
-    arc_row = arc_queries.get_arc_stats(arc_id)
-    if arc_row is None:
-        return None
-
-    total = arc_row["Total"] or 0
-    have = arc_row["Have"] or 0
+def _build_arc_summary(row):
+    """Build a summary dict from an arc row with aggregated stats."""
+    total = row["Total"] or 0
+    have = row["Have"] or 0
     try:
         percent = round((have * 100.0) / total, 1) if total > 0 else 0
     except (ZeroDivisionError, TypeError):
         percent = 0
 
-    min_year = arc_row["min_year"]
-    max_year = arc_row["max_year"]
+    min_year = row["min_year"]
+    max_year = row["max_year"]
     if min_year is None or max_year is None:
         span_years = None
     elif min_year == max_year:
@@ -90,39 +48,53 @@ def get_arc_detail(ctx, arc_id):
     else:
         span_years = "%s - %s" % (min_year, max_year)
 
-    arc_summary = {
-        "StoryArcID": arc_row["StoryArcID"],
-        "StoryArc": arc_row["StoryArc"],
+    return {
+        "StoryArcID": row["StoryArcID"],
+        "StoryArc": row["StoryArc"],
         "TotalIssues": total,
         "Have": have,
         "Total": total,
         "percent": percent,
         "SpanYears": span_years,
-        "CV_ArcID": arc_row["CV_ArcID"],
-        "Publisher": arc_row["Publisher"],
-        "ArcImage": arc_row["ArcImage"],
+        "CV_ArcID": row["CV_ArcID"],
+        "Publisher": row["Publisher"],
+        "ArcImage": row["ArcImage"],
     }
 
+
+def list_arcs(custom_only=False):
+    """List all story arcs with aggregated stats and computed fields."""
+    rows = arc_queries.list_arcs(custom_only=custom_only)
+    return [_build_arc_summary(row) for row in rows]
+
+
+def get_arc_detail(arc_id):
+    """Get a single story arc with summary stats and all issues."""
+    arc_row = arc_queries.get_arc_stats(arc_id)
+    if arc_row is None:
+        return None
+
+    arc_summary = _build_arc_summary(arc_row)
     issues = arc_queries.get_arc_issues(arc_id)
 
     return {"arc": arc_summary, "issues": issues}
 
 
-def delete_arc(ctx, arc_id, arc_name=None, delete_type=None):
+def delete_arc(arc_id, arc_name=None, delete_type=None):
     """Delete an entire story arc."""
     arc_queries.delete_arc(arc_id, arc_name=arc_name, delete_type=delete_type)
     logger.info("[DELETE-ARC] Removed %s from Story Arcs" % arc_id)
     return {"success": True}
 
 
-def delete_arc_issue(ctx, issue_arc_id, manual=None):
+def delete_arc_issue(issue_arc_id, manual=None):
     """Remove a single issue from a story arc (soft-delete by default)."""
     arc_queries.soft_delete_arc_issue(issue_arc_id, manual=manual)
     logger.info("[DELETE-ARC] Removed %s from the Story Arc" % issue_arc_id)
     return {"success": True}
 
 
-def set_issue_status(ctx, issue_arc_id, status):
+def set_issue_status(issue_arc_id, status):
     """Update the status of a single arc issue."""
     if status not in ALLOWED_ARC_STATUSES:
         return {"success": False, "error": "Invalid status"}
@@ -131,7 +103,7 @@ def set_issue_status(ctx, issue_arc_id, status):
     return {"success": True}
 
 
-def want_all_issues(ctx, arc_id):
+def want_all_issues(arc_id):
     """Mark all eligible arc issues as Wanted and trigger search."""
     queued, skipped = arc_queries.want_all_issues(arc_id)
 
@@ -142,7 +114,7 @@ def want_all_issues(ctx, arc_id):
     return {"success": True, "data": {"queued": queued, "skipped": skipped}}
 
 
-def refresh_arc(ctx, arc_id):
+def refresh_arc(arc_id):
     """Refresh a story arc from ComicVine in the background."""
     arc_row = arc_queries.get_arc_for_refresh(arc_id)
     if arc_row is None:
@@ -663,12 +635,12 @@ def _add_story_arc(
 # ---------------------------------------------------------------------------
 
 
-def get_readlist(ctx):
+def get_readlist():
     """Get all reading list entries."""
     return arc_queries.get_readlist()
 
 
-def add_to_readlist(ctx, issue_id):
+def add_to_readlist(issue_id):
     """Add an issue to the reading list."""
     from comicarr import readinglist
 
@@ -679,14 +651,14 @@ def add_to_readlist(ctx, issue_id):
     return {"success": True}
 
 
-def remove_from_readlist(ctx, issue_id):
+def remove_from_readlist(issue_id):
     """Remove an issue from the reading list."""
     arc_queries.remove_readlist_issue(issue_id)
     logger.info("[DELETE-READ-ISSUE] Removed %s from Reading List" % issue_id)
     return {"success": True}
 
 
-def clear_read_issues(ctx):
+def clear_read_issues():
     """Remove all issues marked as Read from the reading list."""
     arc_queries.remove_all_read()
     logger.info("[DELETE-ALL-READ] Removed all Read issues from Reading List")
@@ -698,7 +670,7 @@ def clear_read_issues(ctx):
 # ---------------------------------------------------------------------------
 
 
-def get_upcoming(ctx, include_downloaded=False):
+def get_upcoming(include_downloaded=False):
     """Get upcoming issues for the current week."""
     today = datetime.date.today()
     if today.strftime("%U") == "00":
@@ -933,7 +905,7 @@ def updatearc_locs(storyarcid, arc_issues):
                                 + ". Cannot validate location - some options will not be available for this item."
                             )
                             continue
-                    except:
+                    except Exception:
                         continue
 
                 arcinfo = None
