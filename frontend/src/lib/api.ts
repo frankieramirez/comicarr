@@ -3,28 +3,14 @@
  * Handles all API calls to the Comicarr backend
  */
 
-import type {
-  ApiParams,
-  LoginResponse,
-  LogoutResponse,
-  SessionResponse,
-} from "@/types";
+import type { LoginResponse, LogoutResponse, SessionResponse } from "@/types";
 
-const API_BASE = "/api";
 const AUTH_BASE = "/api/auth";
 
 /** Common headers for all requests — includes CSRF protection header */
 const COMMON_HEADERS: Record<string, string> = {
   "X-Requested-With": "ComicarrFrontend",
 };
-
-interface ApiResponseData {
-  success?: boolean;
-  data?: unknown;
-  error?: {
-    message?: string;
-  };
-}
 
 /**
  * User-friendly error messages for common HTTP status codes
@@ -106,55 +92,6 @@ export function isRetryableError(error: unknown): boolean {
     }
   }
   return false;
-}
-
-/**
- * Make an API call to Comicarr
- */
-export async function apiCall<T = unknown>(
-  cmd: string,
-  params: ApiParams = {},
-): Promise<T> {
-  const url = new URL(API_BASE, window.location.origin);
-  url.searchParams.set("cmd", cmd);
-
-  // Add API key from sessionStorage (except for getAPI command)
-  if (cmd !== "getAPI") {
-    const apiKey = sessionStorage.getItem("comicarr_api_key");
-    if (apiKey) {
-      url.searchParams.set("apikey", apiKey);
-    }
-  }
-
-  // Add additional parameters
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      url.searchParams.set(key, String(value));
-    }
-  });
-
-  try {
-    const response = await fetch(url, {
-      headers: COMMON_HEADERS,
-      credentials: "include", // Send session cookies
-    });
-
-    if (!response.ok) {
-      throw new ApiError(response.status);
-    }
-
-    const data: ApiResponseData = await response.json();
-
-    // Comicarr API returns {success: true/false, data: {...}, error: {...}}
-    if (data.success === false) {
-      throw new Error(data.error?.message || "API call failed");
-    }
-
-    return (data.data ?? data) as T;
-  } catch (error) {
-    console.error("API call failed:", { cmd, params, error });
-    throw error;
-  }
 }
 
 /**
@@ -300,10 +237,10 @@ export async function setupCredentials(
 }
 
 /**
- * Make a RESTful API request to new FastAPI endpoints.
+ * Make a RESTful API request to FastAPI endpoints.
  *
- * Use this for new domain endpoints (e.g., /api/series/{id}).
- * The legacy apiCall() function is preserved for CherryPy-era ?cmd= endpoints.
+ * All API calls go through this function. Auth is handled by
+ * the JWT session cookie (credentials: "include").
  */
 export async function apiRequest<T = unknown>(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
@@ -346,9 +283,10 @@ export async function apiRequest<T = unknown>(
  */
 export async function getSeriesImage(seriesId: string): Promise<string | null> {
   try {
-    const response = await apiCall<{ image: string | null }>("getSeriesImage", {
-      id: seriesId,
-    });
+    const response = await apiRequest<{ image: string | null }>(
+      "GET",
+      `/api/metadata/series-image/${seriesId}`,
+    );
     return response.image;
   } catch (error) {
     console.error("Failed to fetch series image:", error);

@@ -175,34 +175,31 @@ class TestGetIssueInfo:
 
 
 class TestMetatag:
-    @patch("comicarr.webserve.WebInterface")
-    def test_manual_metatag_success(self, mock_wi_cls):
-        """manual_metatag delegates to WebInterface."""
+    @patch("comicarr.app.metadata.service._do_manual_metatag")
+    def test_manual_metatag_success(self, mock_do_metatag):
+        """manual_metatag calls internal _do_manual_metatag."""
         ctx = _make_test_ctx()
-        mock_wi = MagicMock()
-        mock_wi_cls.return_value = mock_wi
 
         result = metadata_service.manual_metatag(ctx, "issue123", "comic456")
         assert result["success"] is True
-        mock_wi.manual_metatag.assert_called_once_with("issue123", comicid="comic456")
+        mock_do_metatag.assert_called_once_with("issue123", comicid="comic456")
 
-    @patch("comicarr.webserve.WebInterface")
-    def test_bulk_metatag_success(self, mock_wi_cls):
-        """bulk_metatag delegates to WebInterface with issue list."""
+    @patch("comicarr.app.metadata.service._do_bulk_metatag")
+    def test_bulk_metatag_success(self, mock_do_bulk):
+        """bulk_metatag calls internal _do_bulk_metatag."""
         ctx = _make_test_ctx()
-        mock_wi = MagicMock()
-        mock_wi_cls.return_value = mock_wi
 
         issue_ids = ["issue1", "issue2", "issue3"]
         result = metadata_service.bulk_metatag(ctx, "comic456", issue_ids)
         assert result["success"] is True
         assert result["count"] == 3
+        mock_do_bulk.assert_called_once_with("comic456", issue_ids)
 
-    @patch("comicarr.webserve.WebInterface")
-    def test_metatag_handles_error(self, mock_wi_cls):
+    @patch("comicarr.app.metadata.service._do_manual_metatag")
+    def test_metatag_handles_error(self, mock_do_metatag):
         """Metatag returns error on exception."""
         ctx = _make_test_ctx()
-        mock_wi_cls.return_value.manual_metatag.side_effect = Exception("tagging failed")
+        mock_do_metatag.side_effect = Exception("tagging failed")
 
         result = metadata_service.manual_metatag(ctx, "issue123")
         assert result["success"] is False

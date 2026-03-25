@@ -4,7 +4,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 
 /** Preview/validation response from previewMigration API */
 export interface PreviewMigrationResponse {
@@ -47,7 +47,11 @@ export function usePreviewMigration(): UseMutationResult<
 > {
   return useMutation({
     mutationFn: (path: string) =>
-      apiCall<PreviewMigrationResponse>("previewMigration", { path }),
+      apiRequest<PreviewMigrationResponse>(
+        "POST",
+        "/api/system/migration/preview",
+        { path },
+      ),
   });
 }
 
@@ -59,7 +63,9 @@ export function useStartMigration(): UseMutationResult<
 > {
   return useMutation({
     mutationFn: (path: string) =>
-      apiCall<{ status: string }>("startMigration", { path }),
+      apiRequest<{ status: string }>("POST", "/api/system/migration/start", {
+        path,
+      }),
   });
 }
 
@@ -69,7 +75,11 @@ export function useMigrationProgress(
 ): UseQueryResult<MigrationProgressResponse> {
   return useQuery({
     queryKey: ["migrationProgress"],
-    queryFn: () => apiCall<MigrationProgressResponse>("getMigrationProgress"),
+    queryFn: () =>
+      apiRequest<MigrationProgressResponse>(
+        "GET",
+        "/api/system/migration/progress",
+      ),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "complete" || status === "error" ? false : 1000;

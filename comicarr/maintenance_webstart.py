@@ -28,7 +28,11 @@ import portend as portend
 import comicarr
 from comicarr import logger
 from comicarr.helpers import create_https_certificates
-from comicarr.webserve import WebMaintenance
+try:
+    from comicarr.webserve import WebMaintenance
+except ImportError:
+    # webserve.py removed in FastAPI migration — maintenance mode is CherryPy-only legacy code
+    WebMaintenance = None
 
 
 def initialize(options):

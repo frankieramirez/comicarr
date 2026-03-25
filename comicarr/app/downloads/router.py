@@ -16,6 +16,7 @@ metadata (tagging), system (notifications) (Phase 6).
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
+from starlette.responses import FileResponse
 
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
@@ -131,7 +132,80 @@ def requeue_ddl_item(item_id: str, ctx: AppContext = Depends(get_context)):
     return result
 
 
+@router.post("/ddl", dependencies=[Depends(require_session)])
+def queue_ddl_download(
+    request_body: dict = None,
+    ctx: AppContext = Depends(get_context),
+):
+    """Queue a direct download link for processing."""
+    if request_body is None:
+        request_body = {}
+
+    item_id = request_body.get("id")
+    link = request_body.get("link")
+    site = request_body.get("site")
+
+    if not item_id:
+        return JSONResponse(status_code=400, content={"detail": "Missing id"})
+    if not link:
+        return JSONResponse(status_code=400, content={"detail": "Missing link"})
+    if not site:
+        return JSONResponse(status_code=400, content={"detail": "Missing site"})
+
+    result = dl_service.queue_ddl_download(ctx, item_id, link, site)
+    if not result["success"]:
+        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+    return result
+
+
 @router.delete("/{item_id}", dependencies=[Depends(require_session)])
 def delete_ddl_item(item_id: str, ctx: AppContext = Depends(get_context)):
     """Remove an item from the DDL queue."""
     return dl_service.delete_ddl_item(ctx, item_id)
+
+
+# ---------------------------------------------------------------------------
+# File download endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/file/{issue_id}", dependencies=[Depends(require_session)])
+def download_file(issue_id: str, ctx: AppContext = Depends(get_context)):
+    """Serve a downloaded issue file.
+
+    Looks up the file location from the database, validates the path
+    is within allowed directories, and streams the file.
+    """
+    import os
+
+    import comicarr
+
+    pathfile, filename = dl_service.get_issue_file_path(ctx, issue_id)
+    if pathfile is None:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "File not found for issue: %s" % issue_id},
+        )
+
+    # Validate path is within allowed directories
+    real_path = os.path.realpath(pathfile)
+    allowed_dirs = []
+    if comicarr.CONFIG.DESTINATION_DIR:
+        allowed_dirs.append(os.path.realpath(comicarr.CONFIG.DESTINATION_DIR))
+    if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
+        allowed_dirs.append(os.path.realpath(comicarr.CONFIG.MULTIPLE_DEST_DIRS))
+    if comicarr.CONFIG.GRABBAG_DIR:
+        allowed_dirs.append(os.path.realpath(comicarr.CONFIG.GRABBAG_DIR))
+    if comicarr.CONFIG.STORYARC_LOCATION:
+        allowed_dirs.append(os.path.realpath(comicarr.CONFIG.STORYARC_LOCATION))
+
+    if allowed_dirs and not any(real_path.startswith(d) for d in allowed_dirs):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "File path outside allowed directories"},
+        )
+
+    return FileResponse(
+        path=pathfile,
+        filename=filename,
+        media_type="application/octet-stream",
+    )

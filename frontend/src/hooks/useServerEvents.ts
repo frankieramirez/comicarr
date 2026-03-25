@@ -17,12 +17,10 @@ type UseServerEventsReturn = {
 };
 
 /**
- * Hook to manage Server-Sent Events (SSE) connection for real-time updates
+ * Hook to manage Server-Sent Events (SSE) connection for real-time updates.
+ * Auth is handled by the JWT cookie — no separate SSE key needed.
  */
-export function useServerEvents(
-  sseKey: string | null,
-  enabled = true,
-): UseServerEventsReturn {
+export function useServerEvents(enabled = true): UseServerEventsReturn {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
@@ -35,7 +33,7 @@ export function useServerEvents(
   const hasConnectedRef = useRef(false); // Track if we've connected before
 
   useEffect(() => {
-    if (!enabled || !sseKey) {
+    if (!enabled) {
       return;
     }
 
@@ -394,7 +392,7 @@ export function useServerEvents(
         eventSourceRef.current = null;
       }
     };
-  }, [sseKey, enabled, queryClient, addToast]);
+  }, [enabled, queryClient, addToast]);
 
   return { isConnected, isReconnecting };
 }

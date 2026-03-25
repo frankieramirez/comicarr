@@ -134,10 +134,8 @@ from comicarr import (
     filechecker,
     logger,
     maintenance,
-    maintenance_webstart,
     dependency_check,
     versioncheck,
-    webstart,
 )
 
 import argparse
@@ -476,8 +474,12 @@ def main():
         loggermode = '[MAINTENANCE-MODE]'
         versioncheck.versionload()
 
-        # Try to start the server.
-        maintenance_webstart.initialize(maint_config)
+        # Try to start the maintenance server.
+        try:
+            from comicarr import maintenance_webstart
+            maintenance_webstart.initialize(maint_config)
+        except ImportError:
+            logger.warn('%s maintenance_webstart not available (CherryPy removed)' % loggermode)
 
         restart_method = True  #True will restart, False will shutdown.
 
@@ -541,8 +543,12 @@ def main():
 
         #restart automatically after maintenance has completed...
 
-        maintenance_webstart.shutdown()
-        logger.info('%s Maintenance webserver has been shut down.'% (loggermode))
+        try:
+            from comicarr import maintenance_webstart
+            maintenance_webstart.shutdown()
+            logger.info('%s Maintenance webserver has been shut down.'% (loggermode))
+        except (ImportError, NameError):
+            pass
         comicarr.shutdown(restart=restart_method, maintenance=True)
 
     # Force the http port if neccessary
@@ -552,37 +558,6 @@ def main():
     else:
         http_port = int(comicarr.CONFIG.HTTP_PORT)
 
-    # Check if pyOpenSSL is installed. It is required for certificate generation
-    # and for cherrypy.
-    if comicarr.CONFIG.ENABLE_HTTPS:
-        try:
-            import OpenSSL
-        except ImportError:
-            logger.warn("The pyOpenSSL module is missing. Install this " \
-                "module to enable HTTPS. HTTPS will be disabled.")
-            comicarr.CONFIG.ENABLE_HTTPS = False
-
-    # Try to start the server. Will exit here is address is already in use.
-    web_config = {
-        'http_port': http_port,
-        'http_host': comicarr.CONFIG.HTTP_HOST,
-        'http_root': comicarr.CONFIG.HTTP_ROOT,
-        'enable_https': comicarr.CONFIG.ENABLE_HTTPS,
-        'https_cert': comicarr.CONFIG.HTTPS_CERT,
-        'https_key': comicarr.CONFIG.HTTPS_KEY,
-        'https_chain': comicarr.CONFIG.HTTPS_CHAIN,
-        'http_username': comicarr.CONFIG.HTTP_USERNAME,
-        'http_password': comicarr.CONFIG.HTTP_PASSWORD,
-        'authentication': comicarr.CONFIG.AUTHENTICATION,
-        'login_timeout': comicarr.CONFIG.LOGIN_TIMEOUT,
-        'cherrypy_logging': comicarr.CONFIG.CHERRYPY_LOGGING,
-        'opds_enable': comicarr.CONFIG.OPDS_ENABLE,
-        'opds_authentication': comicarr.CONFIG.OPDS_AUTHENTICATION,
-        'opds_username': comicarr.CONFIG.OPDS_USERNAME,
-        'opds_password': comicarr.CONFIG.OPDS_PASSWORD,
-        'opds_pagesize': comicarr.CONFIG.OPDS_PAGESIZE,
-    }
-
     # Generate setup token if first-run setup is needed
     if not comicarr.CONFIG.HTTP_USERNAME or not comicarr.CONFIG.HTTP_PASSWORD:
         import secrets
@@ -590,9 +565,6 @@ def main():
         logger.info('[SETUP] *** First-run setup required ***')
         logger.info('[SETUP] Setup token: %s' % comicarr.SETUP_TOKEN)
         logger.info('[SETUP] Provide this token when setting up credentials via the web interface.')
-
-    # Initialize CherryPy for the WSGI bridge (legacy routes)
-    webstart.initialize(web_config)
 
     #check for version here after web server initialized so it doesn't try to repeatidly hit github
     #for version info if it's already running

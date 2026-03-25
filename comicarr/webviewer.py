@@ -14,7 +14,11 @@ from comicarr import (
     logger,
 )
 from comicarr.tables import comics, issues
-from comicarr.webserve import serve_template
+try:
+    from comicarr.webserve import serve_template
+except ImportError:
+    # webserve.py removed in FastAPI migration — webviewer is CherryPy-only legacy code
+    serve_template = None
 
 
 class WebViewer(object):

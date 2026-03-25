@@ -382,3 +382,32 @@ def delete_import(imp_id):
     """Delete an import record."""
     with db.get_engine().begin() as conn:
         conn.execute(delete(t_importresults).where(t_importresults.c.impID == imp_id))
+
+
+# ---------------------------------------------------------------------------
+# REST-compat queries (full-row, no column projection)
+# ---------------------------------------------------------------------------
+
+def list_comics_full():
+    """List all comics with all columns, ordered by sort name.
+
+    Used by the legacy REST /comics endpoint which returns every column.
+    """
+    return db.select_all(select(t_comics).order_by(t_comics.c.ComicSortName))
+
+
+def get_comic_full(comic_id):
+    """Get a single comic with all columns."""
+    return db.select_all(select(t_comics).where(t_comics.c.ComicID == comic_id))
+
+
+def get_issues_full(comic_id):
+    """Get all issues for a comic with all columns."""
+    return db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
+
+
+def get_issue_full(comic_id, issue_id):
+    """Get a single issue by comic and issue ID, all columns."""
+    return db.select_all(
+        select(t_issues).where(t_issues.c.ComicID == comic_id).where(t_issues.c.IssueID == issue_id)
+    )

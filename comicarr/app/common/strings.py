@@ -13,6 +13,8 @@ String utilities extracted from helpers.py.
 Pure functions — no comicarr imports, no side effects.
 """
 
+import logging
+import platform
 import re
 import unicodedata
 
@@ -84,3 +86,91 @@ def replace_all(text, dic):
         if all([j != "None", j is not None]):
             text = text.replace(i, j)
     return text.rstrip()
+
+
+def cleanTitle(title):
+    """Normalize title replacing dots/dashes/slashes with spaces and title-case."""
+    title = re.sub(r"[\.\-\/\_]", " ", title).lower()
+    # Strip out extra whitespace
+    title = " ".join(title.split())
+    title = title.title()
+    return title
+
+
+def cleanhtml(raw_html):
+    """Strip HTML tags, keeping only valid paragraph/div content."""
+    from bs4 import BeautifulSoup
+
+    VALID_TAGS = ["div", "p"]
+
+    soup = BeautifulSoup(raw_html, "html.parser")
+
+    for tag in soup.findAll("p"):
+        if tag.name not in VALID_TAGS:
+            tag.replaceWith(tag.renderContents())
+    flipflop = soup.renderContents()
+    print(flipflop)
+    return flipflop
+
+
+def replacetheslash(data):
+    """Replace backslashes with forward slashes on Windows for web display."""
+    if platform.system() == "Windows":
+        slashreplaced = data.replace("\\", "/")
+    else:
+        slashreplaced = data
+    return slashreplaced
+
+
+def clean_url(url):
+    """Remove leading/trailing whitespace from a URL string."""
+    leading = len(url) - len(url.lstrip(" "))
+    ending = len(url) - len(url.rstrip(" "))
+    if leading >= 1:
+        url = url[leading:]
+    if ending >= 1:
+        url = url[:-ending]
+    return url
+
+
+def cleanHost(host, protocol=True, ssl=False, username=None, password=None):
+    """Return a cleaned up host with given url options set.
+
+    Taken verbatim from CouchPotato.
+    Changes protocol to https if ssl is set to True and http if ssl is set to false.
+    >>> cleanHost("localhost:80", ssl=True)
+    'https://localhost:80/'
+    >>> cleanHost("localhost:80", ssl=False)
+    'http://localhost:80/'
+
+    Username and password is managed with the username and password variables
+    >>> cleanHost("localhost:80", username="user", password="passwd")
+    'http://user:passwd@localhost:80/'
+
+    Output without scheme (protocol) can be forced with protocol=False
+    >>> cleanHost("localhost:80", protocol=False)
+    'localhost:80'
+    """
+    log = logging.getLogger("comicarr")
+
+    if "://" not in host and protocol:
+        host = ("https://" if ssl else "http://") + host
+
+    if not protocol:
+        host = host.split("://", 1)[-1]
+
+    if protocol and username and password:
+        try:
+            auth = re.findall("^(?:.+?//)(.+?):(.+?)@(?:.+)$", host)
+            if auth:
+                log.error("Cleanhost error: auth already defined in url: %s, please remove BasicAuth from url.", host)
+            else:
+                host = host.replace("://", "://%s:%s@" % (username, password), 1)
+        except:
+            pass
+
+    host = host.rstrip("/ ")
+    if protocol:
+        host += "/"
+
+    return host

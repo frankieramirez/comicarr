@@ -16,7 +16,10 @@ Uses SQLAlchemy Core via the existing db module.
 from sqlalchemy import delete, func, select
 
 from comicarr import db
+from comicarr.tables import annuals as t_annuals
+from comicarr.tables import comics as t_comics
 from comicarr.tables import ddl_info as t_ddl_info
+from comicarr.tables import issues as t_issues
 from comicarr.tables import snatched as t_snatched
 
 # ---------------------------------------------------------------------------
@@ -96,3 +99,31 @@ def delete_ddl_item(item_id):
 def update_ddl_status(item_id, status):
     """Update DDL queue item status."""
     db.upsert("ddl_info", {"status": status}, {"ID": item_id})
+
+
+# ---------------------------------------------------------------------------
+# Issue file lookup (for file download endpoint)
+# ---------------------------------------------------------------------------
+
+def get_issue_file_info(issue_id):
+    """Look up the file location for an issue by joining comics and issues.
+
+    Checks issues table first, then annuals. Returns a dict with
+    ComicLocation and Location, or None if not found.
+    """
+    stmt = (
+        select(t_comics.c.ComicLocation, t_issues)
+        .select_from(t_comics.join(t_issues, t_comics.c.ComicID == t_issues.c.ComicID))
+        .where(t_issues.c.IssueID == issue_id)
+    )
+    result = db.select_one(stmt)
+    if result:
+        return result
+
+    # Fall back to annuals
+    stmt = (
+        select(t_comics.c.ComicLocation, t_annuals)
+        .select_from(t_comics.join(t_annuals, t_comics.c.ComicID == t_annuals.c.ComicID))
+        .where(t_annuals.c.IssueID == issue_id)
+    )
+    return db.select_one(stmt)

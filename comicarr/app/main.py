@@ -8,20 +8,18 @@
 #  (at your option) any later version.
 
 """
-FastAPI application — lifespan, router composition, WSGI bridge.
-
-During the Strangler Fig transition, CherryPy is mounted as a WSGI
-sub-application. New FastAPI routes take priority; unmatched requests
-fall through to CherryPy.
+FastAPI application — lifespan, router composition, static file serving.
 """
 
 import asyncio
 import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
 
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.events import EventBus
@@ -118,22 +116,6 @@ def _build_context_from_globals():
     return ctx
 
 
-def _mount_cherrypy_wsgi(app):
-    """Mount CherryPy as a WSGI sub-application under /legacy.
-
-    During the Strangler Fig transition, unmatched FastAPI routes
-    fall through to CherryPy via this bridge.
-    """
-    try:
-        import cherrypy
-        from a2wsgi import WSGIMiddleware
-
-        cherrypy_wsgi_app = cherrypy.tree
-        app.mount("/legacy", WSGIMiddleware(cherrypy_wsgi_app))
-    except Exception:
-        pass  # CherryPy not initialized yet or not available
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan — startup and shutdown."""
@@ -153,9 +135,6 @@ async def lifespan(app: FastAPI):
 
     # Store context on app.state for dependency injection
     app.state.ctx = ctx
-
-    # Mount CherryPy WSGI bridge
-    _mount_cherrypy_wsgi(app)
 
     yield
 
@@ -229,6 +208,7 @@ def create_app():
     # Domain routers
     from comicarr.app.downloads.router import router as downloads_router
     from comicarr.app.metadata.router import router as metadata_router
+    from comicarr.app.opds.router import router as opds_router
     from comicarr.app.search.router import router as search_router
     from comicarr.app.series.router import router as series_router
     from comicarr.app.storyarcs.router import router as storyarcs_router
@@ -239,6 +219,21 @@ def create_app():
     app.include_router(series_router)
     app.include_router(search_router)
     app.include_router(downloads_router)
+    app.include_router(opds_router)
+
+    # Static files — serve frontend SPA with aggressive caching for hashed assets
+    frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+    if frontend_dist.is_dir():
+        class CachedStaticFiles(StaticFiles):
+            async def get_response(self, path, scope):
+                response = await super().get_response(path, scope)
+                if path.startswith("assets/"):
+                    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                else:
+                    response.headers["Cache-Control"] = "no-cache"
+                return response
+
+        app.mount("/", CachedStaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
     return app
 

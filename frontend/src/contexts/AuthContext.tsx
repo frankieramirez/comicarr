@@ -10,9 +10,9 @@ import {
   logout as apiLogout,
   checkSession,
   checkSetup,
-  apiCall,
+  apiRequest,
 } from "@/lib/api";
-import type { User, AuthContextValue, ApiKeyResponse } from "@/types";
+import type { User, AuthContextValue } from "@/types";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -27,27 +27,15 @@ interface StartupDiagnostics {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [sseKey, setSseKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [needsMigration, setNeedsMigration] = useState(false);
 
-  // Check session on mount and restore API key from sessionStorage
+  // Check session on mount (JWT cookie-based — no sessionStorage needed)
   useEffect(() => {
     const verifySession = async () => {
       try {
-        // Check if API key and SSE key exist in sessionStorage
-        const storedApiKey = sessionStorage.getItem("comicarr_api_key");
-        const storedSseKey = sessionStorage.getItem("comicarr_sse_key");
-        if (storedApiKey) {
-          setApiKey(storedApiKey);
-        }
-        if (storedSseKey) {
-          setSseKey(storedSseKey);
-        }
-
         // Check if first-run setup is needed
         const setupResult = await checkSetup();
         if (setupResult.needs_setup) {
@@ -62,8 +50,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           // Check if first-run migration is needed
           try {
-            const diag = await apiCall<StartupDiagnostics>(
-              "getStartupDiagnostics",
+            const diag = await apiRequest<StartupDiagnostics>(
+              "GET",
+              "/api/system/diagnostics",
             );
             if (diag.db_empty && !diag.migration_dismissed) {
               setNeedsMigration(true);
@@ -71,19 +60,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           } catch {
             // Non-critical — skip migration check
           }
-        } else {
-          // Clear API key and SSE key if session is invalid
-          sessionStorage.removeItem("comicarr_api_key");
-          sessionStorage.removeItem("comicarr_sse_key");
-          setApiKey(null);
-          setSseKey(null);
         }
       } catch (error) {
         console.error("Session verification failed:", error);
-        sessionStorage.removeItem("comicarr_api_key");
-        sessionStorage.removeItem("comicarr_sse_key");
-        setApiKey(null);
-        setSseKey(null);
       } finally {
         setIsLoading(false);
       }
@@ -101,27 +80,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const result = await apiLogin(username, password);
       if (result.success && result.username) {
         setUser({ username: result.username });
-
-        // Fetch API key and SSE key after successful login
-        try {
-          const apiKeyResult = await apiCall<ApiKeyResponse>("getAPI", {
-            username,
-            password,
-          });
-          if (apiKeyResult.apikey) {
-            setApiKey(apiKeyResult.apikey);
-            // Store API key in sessionStorage for persistence
-            sessionStorage.setItem("comicarr_api_key", apiKeyResult.apikey);
-          }
-          if (apiKeyResult.sse_key) {
-            setSseKey(apiKeyResult.sse_key);
-            // Store SSE key in sessionStorage for persistence
-            sessionStorage.setItem("comicarr_sse_key", apiKeyResult.sse_key);
-          }
-        } catch (error) {
-          console.error("Failed to fetch API key:", error);
-        }
-
         return { success: true };
       } else {
         return { success: false, error: result.error || "Login failed" };
@@ -143,25 +101,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error("Logout failed:", error);
     } finally {
       setUser(null);
-      setApiKey(null);
-      setSseKey(null);
-      sessionStorage.removeItem("comicarr_api_key");
-      sessionStorage.removeItem("comicarr_sse_key");
     }
   };
 
   const dismissMigration = () => {
     setNeedsMigration(false);
     // Persist dismissal to backend config
-    apiCall("setConfig", { MIGRATION_DISMISSED: "true" }).catch((err) => {
-      console.warn("Failed to persist migration dismissal:", err);
-    });
+    apiRequest("PUT", "/api/config", { MIGRATION_DISMISSED: "true" }).catch(
+      (err) => {
+        console.warn("Failed to persist migration dismissal:", err);
+      },
+    );
   };
 
   const value: AuthContextValue = {
     user,
-    apiKey,
-    sseKey,
     isAuthenticated: !!user,
     isLoading,
     isVerifying,

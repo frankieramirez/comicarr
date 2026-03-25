@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import type { ArcSearchResult } from "@/types";
 
 /**
@@ -17,8 +17,8 @@ export function useFindStoryArc(
   return useQuery({
     queryKey: ["arcSearch", query],
     queryFn: () =>
-      apiCall<ArcSearchResult[]>("findComic", {
-        query,
+      apiRequest<ArcSearchResult[]>("POST", "/api/search/comics", {
+        name: query,
         type: "story_arc",
       }),
     enabled: !!query && query.length > 2,
@@ -45,7 +45,8 @@ export function useAddStoryArc(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: AddArcParams) => apiCall("addStoryArc", { ...params }),
+    mutationFn: (params: AddArcParams) =>
+      apiRequest("POST", "/api/storyarcs", { ...params }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
     },

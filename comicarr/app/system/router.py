@@ -239,3 +239,45 @@ def get_logs(ctx: AppContext = Depends(get_context)):
 def get_jobs(ctx: AppContext = Depends(get_context)):
     """Return scheduled job information."""
     return system_service.get_job_info(ctx)
+
+
+# ---------------------------------------------------------------------------
+# Startup diagnostics & migration endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/system/diagnostics", dependencies=[Depends(require_session)])
+def get_startup_diagnostics(ctx: AppContext = Depends(get_context)):
+    """Return startup diagnostics (db empty, migration dismissed)."""
+    return system_service.get_startup_diagnostics(ctx)
+
+
+@router.post("/system/migration/preview", dependencies=[Depends(require_session)])
+def preview_migration(request: Request, ctx: AppContext = Depends(get_context)):
+    """Validate a Mylar3 source path and return preview data."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    path = body.get("path", "")
+    result = system_service.preview_migration(ctx, path)
+    if result.get("success") is False:
+        return JSONResponse(status_code=400, content=result)
+    return result
+
+
+@router.post("/system/migration/start", dependencies=[Depends(require_session)])
+def start_migration(request: Request, ctx: AppContext = Depends(get_context)):
+    """Start a migration in a background thread."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    body = asyncio.run_coroutine_threadsafe(request.json(), loop).result(timeout=5)
+    path = body.get("path", "")
+    result = system_service.start_migration(ctx, path)
+    if result.get("success") is False:
+        return JSONResponse(status_code=400, content=result)
+    return result
+
+
+@router.get("/system/migration/progress", dependencies=[Depends(require_session)])
+def get_migration_progress(ctx: AppContext = Depends(get_context)):
+    """Return current migration progress."""
+    return system_service.get_migration_progress(ctx)

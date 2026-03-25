@@ -5,17 +5,14 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import type { Config, ConfigUpdate } from "@/types";
 
 export function useConfig(): UseQueryResult<Config> {
   return useQuery({
     queryKey: ["config"],
-    queryFn: async () => {
-      const data = await apiCall<Config>("getConfig");
-      return data;
-    },
+    queryFn: () => apiRequest<Config>("GET", "/api/config"),
     staleTime: 10 * 60 * 1000, // 10 minutes
     retry: 1,
   });
@@ -30,16 +27,8 @@ export function useUpdateConfig(): UseMutationResult<
   const { addToast } = useToast();
 
   return useMutation({
-    mutationFn: async (configData: ConfigUpdate) => {
-      const data = await apiCall(
-        "setConfig",
-        configData as Record<
-          string,
-          string | number | boolean | undefined | null
-        >,
-      );
-      return data;
-    },
+    mutationFn: (configData: ConfigUpdate) =>
+      apiRequest("PUT", "/api/config", configData as Record<string, unknown>),
     onSuccess: () => {
       // Invalidate and refetch config
       queryClient.invalidateQueries({ queryKey: ["config"] });

@@ -10,8 +10,6 @@ export interface User {
 /** Auth context value */
 export interface AuthContextValue {
   user: User | null;
-  apiKey: string | null;
-  sseKey: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isVerifying: boolean;
@@ -34,8 +32,6 @@ export interface LoginCredentials {
 /** Auth state */
 export interface AuthState {
   user: User | null;
-  apiKey: string | null;
-  sseKey: string | null;
   isLoading: boolean;
   isVerifying: boolean;
 }

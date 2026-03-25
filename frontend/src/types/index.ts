@@ -10,9 +10,6 @@ export type {
   LoginResponse,
   LogoutResponse,
   SessionResponse,
-  ApiKeyResponse,
-  ApiCommand,
-  ApiParams,
 } from "./api";
 
 // Entity types

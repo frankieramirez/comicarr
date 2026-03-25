@@ -19,7 +19,8 @@ from fastapi.responses import JSONResponse
 
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
-from comicarr.app.core.security import require_session
+from comicarr.app.core.security import require_api_key, require_session
+from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
 
 router = APIRouter(prefix="/api", tags=["series"])
@@ -215,3 +216,55 @@ def refresh_import(ctx: AppContext = Depends(get_context)):
     if not result["success"]:
         return JSONResponse(status_code=400, content={"detail": result.get("error")})
     return result
+
+
+# ---------------------------------------------------------------------------
+# REST-compat endpoints (migrated from legacy /rest mount)
+# ---------------------------------------------------------------------------
+
+@router.get("/watchlist", dependencies=[Depends(require_api_key("full"))])
+def rest_watchlist():
+    """Return all comics enriched with havetotals data.
+
+    Migrated from REST.Watchlist — authenticates via X-Api-Key header.
+    """
+    return series_service.havetotals()
+
+
+@router.get("/comics", dependencies=[Depends(require_api_key("full"))])
+def rest_comics():
+    """Return all comics with every column.
+
+    Migrated from REST.Comics — authenticates via X-Api-Key header.
+    """
+    return series_queries.list_comics_full()
+
+
+@router.get("/comic/{comic_id}", dependencies=[Depends(require_api_key("full"))])
+def rest_comic(comic_id: str):
+    """Return a single comic with all columns.
+
+    Migrated from REST.Comic (no nested path) — authenticates via X-Api-Key header.
+    """
+    match = series_queries.get_comic_full(comic_id)
+    if match:
+        return match
+    return {"error": "No Comic with that ID"}
+
+
+@router.get("/comic/{comic_id}/issues", dependencies=[Depends(require_api_key("full"))])
+def rest_comic_issues(comic_id: str):
+    """Return all issues for a comic.
+
+    Migrated from REST.Comic with issuemode='issues'.
+    """
+    return series_queries.get_issues_full(comic_id)
+
+
+@router.get("/comic/{comic_id}/issue/{issue_id}", dependencies=[Depends(require_api_key("full"))])
+def rest_comic_issue(comic_id: str, issue_id: str):
+    """Return a single issue by comic and issue ID.
+
+    Migrated from REST.Comic with issuemode='issue' and issue_id.
+    """
+    return series_queries.get_issue_full(comic_id, issue_id)

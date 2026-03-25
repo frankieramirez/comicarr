@@ -38,10 +38,10 @@ const queryClient = new QueryClient({
  * Must be inside AuthProvider to access auth context
  */
 function AppContent() {
-  const { apiKey, sseKey } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  // Set up SSE connection when authenticated
-  useServerEvents(sseKey, !!(apiKey && sseKey));
+  // Set up SSE connection when authenticated (JWT cookie-based)
+  useServerEvents(isAuthenticated);
 
   // Set up global keyboard shortcuts
   useKeyboardShortcuts();

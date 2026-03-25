@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiCall } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 
 interface BulkMetatagParams {
   comicId: string;
@@ -11,9 +11,9 @@ export function useBulkMetatag() {
 
   return useMutation({
     mutationFn: async ({ comicId, issueIds }: BulkMetatagParams) => {
-      return apiCall("bulkMetatag", {
+      return apiRequest("POST", "/api/metadata/metatag/bulk", {
         id: comicId,
-        issue_ids: issueIds.join(","),
+        issue_ids: issueIds,
       });
     },
     onSuccess: (_, { comicId }) => {

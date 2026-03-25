@@ -1,7 +1,6 @@
 import { useState, SyntheticEvent } from "react";
 import { BookOpen, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface CoverCellProps {
   comicId?: string;
@@ -22,14 +21,9 @@ export function CoverCell({
   year,
   isManga,
 }: CoverCellProps) {
-  const { apiKey } = useAuth();
   const [imageError, setImageError] = useState(false);
 
-  const src =
-    imageUrl ||
-    (comicId && apiKey
-      ? `/api?apikey=${apiKey}&cmd=getComic&id=${comicId}`
-      : null);
+  const src = imageUrl || (comicId ? `/api/metadata/art/${comicId}` : null);
 
   const thumbnail = (
     <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
