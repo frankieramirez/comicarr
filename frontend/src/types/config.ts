@@ -37,6 +37,12 @@ export interface Config {
   transmission_username?: string;
   transmission_password?: string;
 
+  // Content source toggles
+  comicvine_enabled?: boolean;
+  mangadex_enabled?: boolean;
+  mangadex_languages?: string;
+  mangadex_content_rating?: string;
+
   // Comic Vine
   comicvine_api?: string;
 

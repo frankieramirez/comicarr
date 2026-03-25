@@ -44,9 +44,17 @@ export default function SettingsPage() {
     const comicvineApi = data.comicvine_api as string | undefined;
     const minsize = data.minsize as string | number | undefined;
     const maxsize = data.maxsize as string | number | undefined;
+    const comicvineEnabled = (data.comicvine_enabled as boolean) ?? true;
+    const mangadexEnabled = (data.mangadex_enabled as boolean) ?? false;
+
+    // At least one content source must be enabled
+    if (!comicvineEnabled && !mangadexEnabled) {
+      errors.comicvine_enabled =
+        "At least one content source (Comics or Manga) must be enabled";
+    }
 
     // Validate Comic Vine API key (should be 40 characters if provided)
-    if (comicvineApi && comicvineApi.length !== 40) {
+    if (comicvineEnabled && comicvineApi && comicvineApi.length !== 40) {
       errors.comicvine_api = "Comic Vine API key must be 40 characters";
     }
 
@@ -156,7 +164,7 @@ export default function SettingsPage() {
         <TabsList className="mb-6">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="interface">Interface</TabsTrigger>
-          <TabsTrigger value="api">API & Comic Vine</TabsTrigger>
+          <TabsTrigger value="api">API & Providers</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="clients">Download Clients</TabsTrigger>
         </TabsList>

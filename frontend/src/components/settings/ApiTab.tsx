@@ -57,8 +57,35 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
     }
   };
 
+  const comicvineEnabled = (formData.comicvine_enabled as boolean) ?? true;
+  const mangadexEnabled = (formData.mangadex_enabled as boolean) ?? false;
+
   return (
     <div className="space-y-6">
+      <SettingGroup
+        title="Content Sources"
+        description="Choose which content sources to enable. At least one must be active."
+      >
+        <SettingField
+          label="Comics (Comic Vine)"
+          type="checkbox"
+          checked={comicvineEnabled}
+          onChange={(checked) =>
+            onChange("comicvine_enabled", checked as boolean)
+          }
+          helpText="Enable comic search and metadata from Comic Vine"
+        />
+        <SettingField
+          label="Manga (MangaDex)"
+          type="checkbox"
+          checked={mangadexEnabled}
+          onChange={(checked) =>
+            onChange("mangadex_enabled", checked as boolean)
+          }
+          helpText="Enable manga search and metadata from MangaDex"
+        />
+      </SettingGroup>
+
       <SettingGroup
         title="Comicarr API Key"
         description="This key is used to authenticate API requests to Comicarr"
@@ -102,63 +129,95 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
         </div>
       </SettingGroup>
 
-      <SettingGroup
-        title="Comic Vine API"
-        description="Configure Comic Vine integration for metadata"
-      >
-        <SettingField
-          label="Comic Vine API Key"
-          value={formData.comicvine_api as string | undefined}
-          type="text"
-          onChange={(value) => onChange("comicvine_api", value as string)}
-          placeholder="Enter your 40-character Comic Vine API key"
-          helpText="Get your API key from https://comicvine.gamespot.com/api/"
-        />
-        <SettingField
-          label="Verify SSL"
-          type="checkbox"
-          checked={formData.cv_verify as boolean | undefined}
-          onChange={(checked) => onChange("cv_verify", checked as boolean)}
-          helpText="Verify SSL certificates when connecting to Comic Vine"
-        />
-        <SettingField
-          label="Comic Vine Only"
-          type="checkbox"
-          checked={formData.cv_only as boolean | undefined}
-          onChange={(checked) => onChange("cv_only", checked as boolean)}
-          helpText="Use only Comic Vine for metadata (ignore local cache)"
-        />
-      </SettingGroup>
+      {comicvineEnabled && (
+        <SettingGroup
+          title="Comic Vine"
+          description="Configure Comic Vine integration for metadata"
+        >
+          <SettingField
+            label="Comic Vine API Key"
+            value={formData.comicvine_api as string | undefined}
+            type="text"
+            onChange={(value) => onChange("comicvine_api", value as string)}
+            placeholder="Enter your 40-character Comic Vine API key"
+            helpText="Get your API key from https://comicvine.gamespot.com/api/"
+          />
+          <SettingField
+            label="Verify SSL"
+            type="checkbox"
+            checked={formData.cv_verify as boolean | undefined}
+            onChange={(checked) => onChange("cv_verify", checked as boolean)}
+            helpText="Verify SSL certificates when connecting to Comic Vine"
+          />
+          <SettingField
+            label="Comic Vine Only"
+            type="checkbox"
+            checked={formData.cv_only as boolean | undefined}
+            onChange={(checked) => onChange("cv_only", checked as boolean)}
+            helpText="Use only Comic Vine for metadata (ignore local cache)"
+          />
+        </SettingGroup>
+      )}
 
-      <SettingGroup
-        title="Metron"
-        description="Use Metron API for comic search (fixes sorting issues)"
-      >
-        <SettingField
-          label="Use Metron for Search"
-          type="checkbox"
-          checked={formData.use_metron_search as boolean | undefined}
-          onChange={(checked) =>
-            onChange("use_metron_search", checked as boolean)
-          }
-          helpText="Use Metron API instead of Comic Vine for search results"
-        />
-        <SettingField
-          label="Metron Username"
-          value={formData.metron_username as string | undefined}
-          type="text"
-          onChange={(value) => onChange("metron_username", value as string)}
-          placeholder="Your Metron username"
-          helpText="Register at https://metron.cloud"
-        />
-        <SettingField
-          label="Metron Password"
-          value={formData.metron_password as string | undefined}
-          type="password"
-          onChange={(value) => onChange("metron_password", value as string)}
-          placeholder="Your Metron password"
-        />
-      </SettingGroup>
+      {comicvineEnabled && (
+        <SettingGroup
+          title="Metron"
+          description="Use Metron API for comic search (fixes sorting issues)"
+        >
+          <SettingField
+            label="Use Metron for Search"
+            type="checkbox"
+            checked={formData.use_metron_search as boolean | undefined}
+            onChange={(checked) =>
+              onChange("use_metron_search", checked as boolean)
+            }
+            helpText="Use Metron API instead of Comic Vine for search results"
+          />
+          <SettingField
+            label="Metron Username"
+            value={formData.metron_username as string | undefined}
+            type="text"
+            onChange={(value) => onChange("metron_username", value as string)}
+            placeholder="Your Metron username"
+            helpText="Register at https://metron.cloud"
+          />
+          <SettingField
+            label="Metron Password"
+            value={formData.metron_password as string | undefined}
+            type="password"
+            onChange={(value) => onChange("metron_password", value as string)}
+            placeholder="Your Metron password"
+          />
+        </SettingGroup>
+      )}
+
+      {mangadexEnabled && (
+        <SettingGroup
+          title="MangaDex"
+          description="Configure MangaDex integration for manga metadata"
+        >
+          <SettingField
+            label="Languages"
+            value={formData.mangadex_languages as string | undefined}
+            type="text"
+            onChange={(value) =>
+              onChange("mangadex_languages", value as string)
+            }
+            placeholder="en"
+            helpText="Comma-separated language codes (e.g., en,ja)"
+          />
+          <SettingField
+            label="Content Rating"
+            value={formData.mangadex_content_rating as string | undefined}
+            type="text"
+            onChange={(value) =>
+              onChange("mangadex_content_rating", value as string)
+            }
+            placeholder="safe,suggestive"
+            helpText="Comma-separated ratings: safe, suggestive, erotica, pornographic"
+          />
+        </SettingGroup>
+      )}
     </div>
   );
 }

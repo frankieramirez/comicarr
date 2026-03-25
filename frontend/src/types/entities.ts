@@ -82,6 +82,9 @@ export interface SearchResult {
   in_library?: boolean;
   deck?: string | null;
   metadata_source?: string;
+  url?: string | null;
+  status?: string | null;
+  content_rating?: string | null;
 }
 
 /** Wanted issue (issue with extra fields from wanted queue) */

@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useContentSources } from "@/hooks/useContentSources";
 
 export type TypeFilter = "all" | "comic" | "manga";
 export type ProgressFilter = "all" | "0" | "partial" | "100";
@@ -35,6 +36,9 @@ export default function SeriesFilters({
   onStatusChange,
   counts,
 }: SeriesFiltersProps) {
+  const { comicsEnabled, mangaEnabled } = useContentSources();
+  const showTypeFilter = comicsEnabled && mangaEnabled;
+
   // Helper to format count
   const formatCount = (count: number | undefined) => {
     if (count === undefined || count === 0) return "";
@@ -43,48 +47,50 @@ export default function SeriesFilters({
 
   return (
     <div className="flex flex-wrap gap-3 items-center">
-      {/* Type Filter - Segmented Control */}
-      <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onTypeChange("all")}
-          className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-            typeFilter === "all"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Library className="w-4 h-4 mr-1.5" />
-          All{formatCount(counts?.type.all)}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onTypeChange("comic")}
-          className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-            typeFilter === "comic"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Book className="w-4 h-4 mr-1.5" />
-          Comics{formatCount(counts?.type.comic)}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onTypeChange("manga")}
-          className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-            typeFilter === "manga"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <BookOpen className="w-4 h-4 mr-1.5" />
-          Manga{formatCount(counts?.type.manga)}
-        </Button>
-      </div>
+      {/* Type Filter - only show when both content sources are enabled */}
+      {showTypeFilter && (
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onTypeChange("all")}
+            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
+              typeFilter === "all"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Library className="w-4 h-4 mr-1.5" />
+            All{formatCount(counts?.type.all)}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onTypeChange("comic")}
+            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
+              typeFilter === "comic"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Book className="w-4 h-4 mr-1.5" />
+            Comics{formatCount(counts?.type.comic)}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onTypeChange("manga")}
+            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
+              typeFilter === "manga"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <BookOpen className="w-4 h-4 mr-1.5" />
+            Manga{formatCount(counts?.type.manga)}
+          </Button>
+        </div>
+      )}
 
       {/* Progress Filter - Dropdown */}
       <Select

@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
+import { useContentSources } from "@/hooks/useContentSources";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ContentType } from "@/types/entities";
@@ -77,16 +78,29 @@ const mangaSortMapping: Record<string, string> = {
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { comicsEnabled, mangaEnabled } = useContentSources();
+
+  // Determine the default mode based on what's enabled
+  const defaultMode: ContentType = comicsEnabled ? "comic" : "manga";
 
   // Get parameters from URL
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "relevance";
-  const urlSearchMode = (searchParams.get("type") as ContentType) || "comic";
+  const urlSearchMode =
+    (searchParams.get("type") as ContentType) || defaultMode;
+
+  // If URL requests a disabled mode, fall back to the enabled one
+  const effectiveMode =
+    urlSearchMode === "manga" && !mangaEnabled
+      ? "comic"
+      : urlSearchMode === "comic" && !comicsEnabled
+        ? "manga"
+        : urlSearchMode;
 
   // Initialize search query from URL parameter
   const [searchQuery, setSearchQuery] = useState(urlQuery);
-  const [searchMode, setSearchMode] = useState<ContentType>(urlSearchMode);
+  const [searchMode, setSearchMode] = useState<ContentType>(effectiveMode);
 
   // Map sort to API format based on mode
   const comicApiSort = comicSortMapping[urlSort] ?? urlSort;
@@ -168,25 +182,27 @@ export default function SearchPage() {
         {searchMode === "manga" ? "Search Manga" : "Search Comics"}
       </h1>
 
-      {/* Content Type Toggle */}
-      <div className="flex gap-2">
-        <Button
-          variant={searchMode === "comic" ? "default" : "outline"}
-          onClick={() => handleSearchModeChange("comic")}
-          className="flex items-center"
-        >
-          <Book className="w-4 h-4 mr-2" />
-          Comics
-        </Button>
-        <Button
-          variant={searchMode === "manga" ? "default" : "outline"}
-          onClick={() => handleSearchModeChange("manga")}
-          className="flex items-center"
-        >
-          <BookOpen className="w-4 h-4 mr-2" />
-          Manga
-        </Button>
-      </div>
+      {/* Content Type Toggle - only show when both sources are enabled */}
+      {comicsEnabled && mangaEnabled && (
+        <div className="flex gap-2">
+          <Button
+            variant={searchMode === "comic" ? "default" : "outline"}
+            onClick={() => handleSearchModeChange("comic")}
+            className="flex items-center"
+          >
+            <Book className="w-4 h-4 mr-2" />
+            Comics
+          </Button>
+          <Button
+            variant={searchMode === "manga" ? "default" : "outline"}
+            onClick={() => handleSearchModeChange("manga")}
+            className="flex items-center"
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            Manga
+          </Button>
+        </div>
+      )}
 
       {/* Search Form */}
       <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
