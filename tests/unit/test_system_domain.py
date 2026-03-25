@@ -250,13 +250,35 @@ class TestConfigService:
         assert result["metron_password_set"] is False
 
     def test_get_safe_config_includes_download_client_labels(self):
-        """get_safe_config returns derived download client labels."""
+        """get_safe_config returns derived download client labels matching config.py enums."""
         ctx = _make_test_ctx()
         ctx.config.NZB_DOWNLOADER = 0
         ctx.config.TORRENT_DOWNLOADER = 1
         result = system_service.get_safe_config(ctx)
         assert result["nzb_downloader_label"] == "SABnzbd"
-        assert result["torrent_downloader_label"] == "Deluge"
+        assert result["torrent_downloader_label"] == "uTorrent"
+
+    def test_get_safe_config_download_labels_all_values(self):
+        """Verify all download client enum values map to correct labels."""
+        ctx = _make_test_ctx()
+        # NZB: 0=SABnzbd, 1=NZBGet, 2=Blackhole, 3=Disabled
+        for val, label in [(0, "SABnzbd"), (1, "NZBGet"), (2, "Blackhole"), (3, "Disabled")]:
+            ctx.config.NZB_DOWNLOADER = val
+            result = system_service.get_safe_config(ctx)
+            assert result["nzb_downloader_label"] == label, "NZB %d should be %s" % (val, label)
+        # Torrent: 0=Watchfolder, 1=uTorrent, 2=rTorrent, 3=Transmission, 4=Deluge, 5=qBittorrent
+        for val, label in [(0, "Watchfolder"), (1, "uTorrent"), (2, "rTorrent"),
+                           (3, "Transmission"), (4, "Deluge"), (5, "qBittorrent")]:
+            ctx.config.TORRENT_DOWNLOADER = val
+            result = system_service.get_safe_config(ctx)
+            assert result["torrent_downloader_label"] == label, "Torrent %d should be %s" % (val, label)
+
+    def test_get_safe_config_unknown_downloader_value(self):
+        """Unknown downloader enum values fall back to 'None' string."""
+        ctx = _make_test_ctx()
+        ctx.config.NZB_DOWNLOADER = 99
+        result = system_service.get_safe_config(ctx)
+        assert result["nzb_downloader_label"] == "None"
 
     def test_get_safe_config_includes_version_from_context(self):
         """get_safe_config includes version when ctx.current_version is set."""
@@ -301,6 +323,18 @@ class TestConfigService:
         result = system_service.update_config(ctx, {"api_key": "hacked", "http_password": "hacked"})
         assert result["success"] is False
         assert "No valid config keys" in result["error"]
+
+    def test_update_config_filters_sensitive_keys_from_mixed_payload(self):
+        """update_config applies valid keys and silently filters sensitive ones."""
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {
+            "comic_dir": "/new/path",
+            "api_key": "hacked",
+        })
+        assert result["success"] is True
+        args = ctx.config.process_kwargs.call_args[0][0]
+        assert "COMIC_DIR" in args
+        assert "API_KEY" not in args
 
     def test_update_config_accepts_new_writable_keys(self):
         """update_config accepts newly added writable keys."""

@@ -192,8 +192,14 @@ def get_safe_config(ctx):
         "API_KEY",
         "ENABLE_META",
         "OPDS_ENABLE",
+        "OPDS_PAGESIZE",
         "NZB_DOWNLOADER",
         "TORRENT_DOWNLOADER",
+        "DBUPDATE_INTERVAL",
+        "MULTIPLE_DEST_DIRS",
+        "CREATE_FOLDERS",
+        "CHECK_FOLDER",
+        "STORYARC_LOCATION",
     ]
     result = {}
     for key in safe_keys:
@@ -201,9 +207,9 @@ def get_safe_config(ctx):
         if val is not None:
             result[key] = val
 
-    # Add derived download client labels
-    nzb_labels = {0: "SABnzbd", 1: "NZBGet", 2: "Blackhole"}
-    torrent_labels = {0: "qBittorrent", 1: "Deluge", 2: "Transmission", 3: "rTorrent", 4: "uTorrent"}
+    # Add derived download client labels (must match config.py enums)
+    nzb_labels = {0: "SABnzbd", 1: "NZBGet", 2: "Blackhole", 3: "Disabled"}
+    torrent_labels = {0: "Watchfolder", 1: "uTorrent", 2: "rTorrent", 3: "Transmission", 4: "Deluge", 5: "qBittorrent"}
     nzb_val = getattr(ctx.config, "NZB_DOWNLOADER", None)
     torrent_val = getattr(ctx.config, "TORRENT_DOWNLOADER", None)
     if nzb_val is not None:
