@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+
 # Ensure LOG_LEVEL is set for tests (logger.info checks LOG_LEVEL > 0)
 if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
@@ -201,6 +202,27 @@ class TestConfigService:
         # Passwords should not be present
         assert "HTTP_PASSWORD" not in result
         assert "API_KEY" not in result
+
+    def test_get_safe_config_includes_version_from_context(self):
+        """get_safe_config includes version when ctx.current_version is set."""
+        ctx = _make_test_ctx(current_version="1.2.3")
+        result = system_service.get_safe_config(ctx)
+        assert result["version"] == "1.2.3"
+
+    @patch("importlib.metadata.version", return_value="0.8.0")
+    def test_get_safe_config_falls_back_to_importlib_metadata(self, mock_version):
+        """get_safe_config falls back to importlib.metadata when ctx.current_version is None."""
+        ctx = _make_test_ctx(current_version=None)
+        result = system_service.get_safe_config(ctx)
+        assert result["version"] == "0.8.0"
+        mock_version.assert_called_once_with("comicarr")
+
+    @patch("importlib.metadata.version", side_effect=Exception("not found"))
+    def test_get_safe_config_omits_version_when_unavailable(self, mock_version):
+        """get_safe_config omits version key when both sources fail."""
+        ctx = _make_test_ctx(current_version=None)
+        result = system_service.get_safe_config(ctx)
+        assert "version" not in result
 
     def test_get_job_info(self):
         """get_job_info returns scheduler job list."""
