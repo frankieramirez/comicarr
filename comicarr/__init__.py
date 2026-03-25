@@ -38,7 +38,6 @@ import time
 import webbrowser
 from datetime import timedelta
 
-import cherrypy
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -1719,7 +1718,6 @@ def halt():
 def shutdown(restart=False, update=False, maintenance=False):
 
     if maintenance is False:
-        cherrypy.engine.exit()
         halt()
 
     if not restart and not update:

@@ -172,7 +172,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[SHUTDOWN] Error shutting down executor: %s" % e)
 
-    comicarr.SIGNAL = "shutdown"
+    if not comicarr.SIGNAL:
+        comicarr.SIGNAL = "shutdown"
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown complete")
 

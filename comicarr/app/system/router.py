@@ -212,24 +212,32 @@ def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
 @router.post("/system/shutdown", dependencies=[Depends(require_session)])
 def shutdown_system(ctx: AppContext = Depends(get_context)):
     """Initiate graceful shutdown."""
-    ctx.signal = "shutdown"
+    import os
+    import signal
+
     import comicarr
 
+    ctx.signal = "shutdown"
     comicarr.SIGNAL = "shutdown"
     if ctx.event_bus:
         ctx.event_bus.publish_sync("shutdown", {"message": "Now shutting down system."})
+    os.kill(os.getpid(), signal.SIGTERM)
     return {"success": True, "message": "Shutdown initiated"}
 
 
 @router.post("/system/restart", dependencies=[Depends(require_session)])
 def restart_system(ctx: AppContext = Depends(get_context)):
     """Initiate graceful restart."""
-    ctx.signal = "restart"
+    import os
+    import signal
+
     import comicarr
 
+    ctx.signal = "restart"
     comicarr.SIGNAL = "restart"
     if ctx.event_bus:
         ctx.event_bus.publish_sync("restart", {"message": "Now restarting system."})
+    os.kill(os.getpid(), signal.SIGTERM)
     return {"success": True, "message": "Restart initiated"}
 
 
