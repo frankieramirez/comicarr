@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.4](https://github.com/frankieramirez/comicarr/compare/v0.9.3...v0.9.4) (2026-03-25)
+
+
+### Bug Fixes
+
+* Resolve asyncio.get_event_loop() errors in all system router endpoints ([#77](https://github.com/frankieramirez/comicarr/issues/77)) ([5965606](https://github.com/frankieramirez/comicarr/commit/596560658d09fdb6d97237a2edbe82eeded4f2d2))
+
 ## [0.9.3](https://github.com/frankieramirez/comicarr/compare/v0.9.2...v0.9.3) (2026-03-25)
 
 
