@@ -49,7 +49,7 @@ jobs:
         continue-on-error: true # Integration tests may have more dependencies
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.python-version == '3.11' # Only upload once
         with:
           files: ./coverage.xml
@@ -93,7 +93,7 @@ jobs:
         continue-on-error: true # Coverage may fail if no tests exist yet
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./frontend/coverage/lcov.info
           flags: frontend
