@@ -35,11 +35,6 @@ export default defineConfig({
     isolate: true,
     // Pool configuration for parallel execution
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-      },
-    },
   },
   resolve: {
     alias: {
