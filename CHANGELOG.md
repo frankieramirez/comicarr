@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.4](https://github.com/frankieramirez/comicarr/compare/v0.10.3...v0.10.4) (2026-04-06)
+
+
+### Bug Fixes
+
+* Resolve broken dashboard images and AI banner issues ([#106](https://github.com/frankieramirez/comicarr/issues/106)) ([8010da1](https://github.com/frankieramirez/comicarr/commit/8010da1524f9722fac65466d655cc3f19e128ee4))
+
 ## [0.10.3](https://github.com/frankieramirez/comicarr/compare/v0.10.2...v0.10.3) (2026-04-06)
 
 
