@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.3](https://github.com/frankieramirez/comicarr/compare/v0.10.2...v0.10.3) (2026-04-06)
+
+
+### Bug Fixes
+
+* Clean up 9 frontend ESLint warnings for zero-warning baseline ([#96](https://github.com/frankieramirez/comicarr/issues/96)) ([a547170](https://github.com/frankieramirez/comicarr/commit/a54717026c83e2f6689d790f122d6f157be99386))
+
 ## [0.10.2](https://github.com/frankieramirez/comicarr/compare/v0.10.1...v0.10.2) (2026-04-06)
 
 
