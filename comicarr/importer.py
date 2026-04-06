@@ -1058,6 +1058,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         dict with status information
     """
     from comicarr import mangadex
+    from comicarr.config import get_manga_destination
 
     logger.info("[MANGADEX] Adding manga with ID: %s" % mangaid)
 
@@ -1114,11 +1115,12 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
 
     # Build folder path if destination directory is set
-    if comicarr.CONFIG.DESTINATION_DIR:
+    manga_dest = get_manga_destination()
+    if manga_dest:
         folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
         folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
         folder_name = helpers.filesafe(folder_name)
-        comlocation = os.path.join(comicarr.CONFIG.DESTINATION_DIR, folder_name)
+        comlocation = os.path.join(manga_dest, folder_name)
 
         if comicarr.CONFIG.CREATE_FOLDERS:
             checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)

@@ -32,6 +32,8 @@ from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, updater, weeklypull
+from comicarr.config import get_manga_destination
+from comicarr.manga_parser import parse_manga_filename
 from comicarr.tables import (
     annuals,
     comics,
@@ -561,6 +563,12 @@ class PostProcessor(object):
             logger.fdebug("%s Now performing post-processing of %s sent from DDL" % (module, self.nzb_name))
 
         self.oneoffinlist = False
+
+        # --- Manga branch: if the comicid is a MangaDex ID, use manga-specific processing ---
+        if self.comicid is not None and str(self.comicid).startswith("md-"):
+            logger.fdebug("%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid))
+            self._log("Manga series detected - using manga post-processing path")
+            return self._process_manga()
 
         if any(
             [self.nzb_name == "Manual Run", self.issueid is not None, self.comicid is not None, self.apicall is True]
@@ -4134,6 +4142,202 @@ class PostProcessor(object):
             else:
                 self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
                 return self.queue.put(self.valreturn)
+
+    def _process_manga(self):
+        """Post-process a downloaded manga file.
+
+        Routes manga downloads to the manga destination directory,
+        matches files to chapters using the manga filename parser,
+        and updates chapter status to Downloaded.
+        """
+        module = self.module
+
+        # --- Look up the comic (manga series) record ---
+        comicnzb = db.select_one(select(comics).where(comics.c.ComicID == self.comicid))
+        if not comicnzb:
+            self._log("Cannot find manga series in database: %s" % self.comicid)
+            logger.error("%s Cannot find manga series: %s" % (module, self.comicid))
+            self.valreturn.append({"self.log": self.log, "mode": "stop"})
+            return self.queue.put(self.valreturn)
+
+        series_name = comicnzb["ComicName"]
+        logger.info("%s Processing manga download for: %s" % (module, series_name))
+
+        # --- Find files in the download directory ---
+        nzb_dir = self.nzb_folder
+        if not nzb_dir or not os.path.isdir(nzb_dir):
+            if self.nzb_name and os.path.isdir(self.nzb_name):
+                nzb_dir = self.nzb_name
+            else:
+                self._log("Download directory not found")
+                logger.error("%s Download directory not found: %s" % (module, nzb_dir))
+                self.valreturn.append({"self.log": self.log, "mode": "stop"})
+                return self.queue.put(self.valreturn)
+
+        manga_files = []
+        for root, _dirs, files in os.walk(nzb_dir):
+            for f in files:
+                if any(f.lower().endswith(ext) for ext in self.extensions):
+                    manga_files.append(os.path.join(root, f))
+
+        if not manga_files:
+            self._log("No manga files found in download directory")
+            logger.warn("%s No manga files in: %s" % (module, nzb_dir))
+            self.valreturn.append({"self.log": self.log, "mode": "stop"})
+            return self.queue.put(self.valreturn)
+
+        # --- Determine destination directory ---
+        manga_dest = get_manga_destination()
+        if not manga_dest:
+            self._log("No manga destination directory configured")
+            logger.error("%s No manga destination configured" % module)
+            self.valreturn.append({"self.log": self.log, "mode": "stop"})
+            return self.queue.put(self.valreturn)
+
+        series_folder = comicnzb.get("ComicLocation") or os.path.join(
+            manga_dest, helpers.filesafe(series_name) if hasattr(helpers, "filesafe") else re.sub(r'[<>:"/\\|?*]', "_", series_name)
+        )
+
+        # Ensure the series folder exists
+        if not os.path.isdir(series_folder):
+            try:
+                os.makedirs(series_folder, exist_ok=True)
+                logger.fdebug("%s Created manga series directory: %s" % (module, series_folder))
+            except OSError as e:
+                logger.warn("%s Failed to create directory %s: %s" % (module, series_folder, e))
+                self._log("Failed to create manga series directory")
+                self.valreturn.append({"self.log": self.log, "mode": "stop"})
+                return self.queue.put(self.valreturn)
+
+        # --- Process each manga file ---
+        processed = 0
+        last_matched_issueid = None
+        for filepath in manga_files:
+            filename = os.path.basename(filepath)
+            parsed = parse_manga_filename(filename)
+            self._log("Found manga file: %s" % filename)
+
+            # Move/copy file to series folder
+            dst = os.path.join(series_folder, filename)
+            try:
+                self.fileop(filepath, dst)
+                logger.info("%s Moved manga file: %s -> %s" % (module, filename, series_folder))
+            except Exception as e:
+                logger.error("%s Failed to move %s: %s" % (module, filename, e))
+                self._log("Failed to move/copy manga file: %s" % filename)
+                continue
+
+            # --- Match to a chapter/issue in the database ---
+            matching = None
+
+            # Try ChapterNumber column first
+            if parsed and parsed.get("chapter_number") is not None:
+                ch_num = parsed["chapter_number"]
+                ch_str = str(int(ch_num) if ch_num == int(ch_num) else ch_num)
+                matching = db.select_one(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.ChapterNumber == ch_str,
+                        )
+                    )
+                )
+                # Fall back to Issue_Number
+                if matching is None:
+                    matching = db.select_one(
+                        select(issues).where(
+                            and_(
+                                issues.c.ComicID == self.comicid,
+                                issues.c.Issue_Number == ch_str,
+                            )
+                        )
+                    )
+                    # Also try the float string form (e.g. "165.0")
+                    if matching is None and ch_str != str(ch_num):
+                        matching = db.select_one(
+                            select(issues).where(
+                                and_(
+                                    issues.c.ComicID == self.comicid,
+                                    issues.c.Issue_Number == str(ch_num),
+                                )
+                            )
+                        )
+
+            # Try VolumeNumber column
+            if matching is None and parsed and parsed.get("volume_number") is not None:
+                vol_str = str(parsed["volume_number"])
+                matching = db.select_one(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.VolumeNumber == vol_str,
+                        )
+                    )
+                )
+
+            if matching:
+                issueid = matching["IssueID"]
+                db.upsert(
+                    "issues",
+                    {"Status": "Downloaded", "Location": filename},
+                    {"IssueID": issueid},
+                )
+                logger.info(
+                    "%s Matched and marked downloaded: %s (IssueID: %s)"
+                    % (module, filename, issueid)
+                )
+                self._log("Matched to chapter IssueID: %s" % issueid)
+
+                # Clean up nzblog entry
+                with db.get_engine().begin() as conn:
+                    conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
+
+                # Update snatched table
+                db.upsert(
+                    "snatched",
+                    {"Status": "Post-Processed"},
+                    {"IssueID": issueid, "Status": "Snatched"},
+                )
+
+                last_matched_issueid = issueid
+                processed += 1
+            else:
+                logger.warn(
+                    "%s Unable to match %s to any chapter for %s"
+                    % (module, filename, series_name)
+                )
+
+        # Update Have count for the series
+        if processed > 0:
+            have_count = db.select_one(
+                select(func.count()).select_from(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.Status == "Downloaded",
+                    )
+                )
+            )
+            if have_count is not None:
+                count_val = list(have_count.values())[0] if hasattr(have_count, "values") else have_count[0]
+                db.upsert("comics", {"Have": count_val}, {"ComicID": self.comicid})
+
+        if processed > 0:
+            self._log("Post Processing SUCCESSFUL! %d file(s) processed" % processed)
+        else:
+            self._log("Manga post-processing complete: 0 files matched to chapters")
+        logger.info("%s Manga post-processing complete for %s: %d files" % (module, series_name, processed))
+
+        if self.apicall is True:
+            try:
+                comicarr.APILOCK.release()
+            except Exception:
+                pass
+
+        result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
+        if last_matched_issueid:
+            result["issueid"] = last_matched_issueid
+        self.valreturn.append(result)
+        return self.queue.put(self.valreturn)
 
     def Process_next(self, comicid, issueid, issuenumOG, ml=None, stat=None):
         if stat is None:

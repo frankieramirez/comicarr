@@ -1859,3 +1859,237 @@ def ddlrss_pack_detect(title, link):
         return {"title": title, "issues": issues, "pack": pack, "link": link}
     else:
         return
+
+
+# ---------------------------------------------------------------------------
+# Manga RSS / Chapter monitoring
+# ---------------------------------------------------------------------------
+
+
+def mangaCheck():
+    """Search for wanted manga chapters using the existing search infrastructure.
+
+    Queries the database for manga series (ContentType='manga') that have
+    chapters in 'Wanted' status, then triggers a search for each one via
+    the search pipeline.  Paused series are skipped.
+
+    Callable from the scheduler or manually.
+    """
+    from comicarr import search
+    from comicarr.tables import comics as t_comics
+    from comicarr.tables import issues as t_issues
+
+    logger.info("[MANGA-RSS] Starting manga wanted-chapter search")
+
+    # Get all active manga series
+    manga_series = db.select_all(
+        select(t_comics).where(
+            t_comics.c.ContentType == "manga",
+            t_comics.c.Status != "Paused",
+        )
+    )
+
+    if not manga_series:
+        logger.info("[MANGA-RSS] No active manga series found")
+        return
+
+    logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
+
+    total_searched = 0
+
+    for series in manga_series:
+        comic_id = series["ComicID"]
+        comic_name = series["ComicName"]
+        series_year = series.get("ComicYear") or str(datetime.now().year)
+
+        # Get wanted chapters for this series
+        wanted_statuses = ["Wanted"]
+        if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+            wanted_statuses.append("Failed")
+
+        wanted_chapters = db.select_all(
+            select(t_issues).where(
+                t_issues.c.ComicID == comic_id,
+                t_issues.c.Status.in_(wanted_statuses),
+            )
+        )
+
+        if not wanted_chapters:
+            continue
+
+        logger.info(
+            "[MANGA-RSS] %s has %d wanted chapter(s)" % (comic_name, len(wanted_chapters))
+        )
+
+        for chapter in wanted_chapters:
+            issue_id = chapter["IssueID"]
+            chapter_number = chapter.get("ChapterNumber") or chapter.get("Issue_Number", "1")
+            issue_date = chapter.get("IssueDate") or "0000-00-00"
+            store_date = chapter.get("ReleaseDate") or "0000-00-00"
+            digital_date = chapter.get("DigitalDate") or "0000-00-00"
+
+            # Skip chapters that are already downloaded/snatched (race condition guard)
+            isscheck = helpers.issue_status(issue_id)
+            if isscheck is True:
+                continue
+
+            try:
+                search.search_init(
+                    comic_name,
+                    str(chapter_number),
+                    str(series_year)[:4],
+                    str(series_year)[:4],
+                    series.get("ComicPublisher", ""),
+                    issue_date,
+                    store_date,
+                    issue_id,
+                    AlternateSearch=series.get("AlternateSearch"),
+                    UseFuzzy=series.get("UseFuzzy"),
+                    ComicVersion=series.get("ComicVersion"),
+                    smode="want",
+                    rsschecker="yes",
+                    ComicID=comic_id,
+                    filesafe=series.get("ComicName_Filesafe"),
+                    booktype="manga",
+                    digitaldate=digital_date,
+                )
+                total_searched += 1
+            except Exception as e:
+                logger.error(
+                    "[MANGA-RSS] Error searching for %s chapter %s: %s"
+                    % (comic_name, chapter_number, e)
+                )
+
+    logger.info("[MANGA-RSS] Manga search complete — searched %d chapter(s)" % total_searched)
+
+
+def mangadexNewChapterCheck():
+    """Poll MangaDex for new chapters not yet tracked in the database.
+
+    For each active manga series whose ComicID starts with 'md-', calls
+    the MangaDex API to retrieve the full chapter list and compares it
+    against existing issues in the database.  Any new chapters are inserted
+    as 'Wanted' issues.
+
+    Uses the built-in rate limiter in mangadex._rate_limit() to stay within
+    the MangaDex 5 req/s limit.
+
+    Callable from the scheduler or manually.
+    """
+    from comicarr import mangadex
+    from comicarr.tables import comics as t_comics
+    from comicarr.tables import issues as t_issues
+
+    logger.info("[MANGA-RSS] Starting MangaDex new-chapter check")
+
+    # Get all active manga series with MangaDex IDs
+    manga_series = db.select_all(
+        select(t_comics).where(
+            t_comics.c.ContentType == "manga",
+            t_comics.c.Status != "Paused",
+            t_comics.c.ComicID.like("md-%"),
+        )
+    )
+
+    if not manga_series:
+        logger.info("[MANGA-RSS] No active MangaDex manga series found")
+        return
+
+    logger.info(
+        "[MANGA-RSS] Checking MangaDex for new chapters across %d series" % len(manga_series)
+    )
+
+    total_new = 0
+
+    for series in manga_series:
+        comic_id = series["ComicID"]
+        comic_name = series["ComicName"]
+
+        # Get existing chapter numbers from the database for this series
+        existing_issues = db.select_all(
+            select(t_issues.c.IssueID, t_issues.c.ChapterNumber).where(
+                t_issues.c.ComicID == comic_id,
+            )
+        )
+
+        existing_chapter_nums = set()
+        existing_issue_ids = set()
+        for iss in existing_issues:
+            existing_issue_ids.add(iss["IssueID"])
+            ch = iss.get("ChapterNumber")
+            if ch is not None:
+                existing_chapter_nums.add(str(ch))
+
+        # Fetch chapters from MangaDex (rate-limited internally)
+        try:
+            mdx_chapters = mangadex.get_all_chapters(comic_id)
+        except Exception as e:
+            logger.error(
+                "[MANGA-RSS] Error fetching MangaDex chapters for %s: %s" % (comic_name, e)
+            )
+            continue
+
+        if not mdx_chapters:
+            logger.fdebug("[MANGA-RSS] No chapters returned from MangaDex for %s" % comic_name)
+            continue
+
+        new_count = 0
+        for ch in mdx_chapters:
+            ch_num = ch.get("chapter")
+
+            if ch_num is None:
+                continue
+
+            # Skip if we already track this chapter
+            if str(ch_num) in existing_chapter_nums:
+                continue
+
+            # Build an IssueID for the new chapter
+            issue_id = "md-%s-ch-%s" % (comic_id[3:], ch_num)
+            if issue_id in existing_issue_ids:
+                continue
+
+            # Determine chapter title
+            ch_title = ch.get("title") or ("Chapter %s" % ch_num)
+
+            # Determine dates
+            publish_at = ch.get("publish_at") or ch.get("created_at") or ""
+            issue_date = publish_at[:10] if len(publish_at) >= 10 else "0000-00-00"
+
+            # Insert the new chapter as Wanted
+            try:
+                db.upsert(
+                    "issues",
+                    {
+                        "ComicName": comic_name,
+                        "IssueName": ch_title,
+                        "Issue_Number": str(ch_num),
+                        "DateAdded": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Status": "Wanted",
+                        "ComicID": comic_id,
+                        "IssueDate": issue_date,
+                        "ReleaseDate": issue_date,
+                        "ChapterNumber": str(ch_num),
+                        "VolumeNumber": str(ch.get("volume")) if ch.get("volume") else None,
+                    },
+                    {"IssueID": issue_id},
+                )
+                new_count += 1
+                logger.fdebug(
+                    "[MANGA-RSS] Added wanted chapter %s for %s" % (ch_num, comic_name)
+                )
+            except Exception as e:
+                logger.error(
+                    "[MANGA-RSS] Error inserting chapter %s for %s: %s"
+                    % (ch_num, comic_name, e)
+                )
+
+        if new_count > 0:
+            logger.info(
+                "[MANGA-RSS] Added %d new wanted chapter(s) for %s" % (new_count, comic_name)
+            )
+            total_new += new_count
+
+    logger.info(
+        "[MANGA-RSS] MangaDex check complete — added %d new wanted chapter(s) total" % total_new
+    )

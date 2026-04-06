@@ -63,30 +63,6 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Content Sources"
-        description="Choose which content sources to enable. At least one must be active."
-      >
-        <SettingField
-          label="Comics (Comic Vine)"
-          type="checkbox"
-          checked={comicvineEnabled}
-          onChange={(checked) =>
-            onChange("comicvine_enabled", checked as boolean)
-          }
-          helpText="Enable comic search and metadata from Comic Vine"
-        />
-        <SettingField
-          label="Manga (MangaDex)"
-          type="checkbox"
-          checked={mangadexEnabled}
-          onChange={(checked) =>
-            onChange("mangadex_enabled", checked as boolean)
-          }
-          helpText="Enable manga search and metadata from MangaDex"
-        />
-      </SettingGroup>
-
-      <SettingGroup
         title="Comicarr API Key"
         description="This key is used to authenticate API requests to Comicarr"
       >

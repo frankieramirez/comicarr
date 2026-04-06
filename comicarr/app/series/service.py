@@ -284,6 +284,23 @@ def refresh_import(ctx):
         return {"success": False, "error": "Failed to start import scan: %s" % str(e)}
 
 
+def manga_library_scan(ctx):
+    """Trigger a manga library scan in the background."""
+    from comicarr import mangasync
+
+    manga_dir = getattr(comicarr.CONFIG, "MANGA_DIR", None) if comicarr.CONFIG else None
+    if not manga_dir:
+        return {"success": False, "error": "Manga directory not configured"}
+
+    try:
+        logger.info("[MANGA-SCAN] Starting manga library scan for: %s" % manga_dir)
+        threading.Thread(target=mangasync.mangaScan, name="API-MangaScan").start()
+        return {"success": True, "message": "Manga scan started for: %s" % manga_dir}
+    except Exception as e:
+        logger.error("[MANGA-SCAN] Error: %s" % e)
+        return {"success": False, "error": "Failed to start manga scan: %s" % str(e)}
+
+
 # --- Extracted from helpers.py ---
 
 
