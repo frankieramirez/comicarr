@@ -22,7 +22,6 @@ from datetime import datetime, timedelta
 import comicarr
 from comicarr import db, logger
 from comicarr.app.ai import service as ai_service
-from comicarr.app.ai.sanitize import sanitize_input
 from comicarr.app.ai.schemas import PullSuggestions
 from comicarr.app.ai.structured import request_structured
 
