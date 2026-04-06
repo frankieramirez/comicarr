@@ -19,6 +19,7 @@ from comicarr.app.core.security import require_session
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
+@router.get("", dependencies=[Depends(require_session)])
 @router.get("/", dependencies=[Depends(require_session)])
 def get_dashboard(ctx: AppContext = Depends(get_context)):
     """Return aggregated dashboard data for the home page."""
