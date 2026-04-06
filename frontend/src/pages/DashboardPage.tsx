@@ -28,6 +28,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {!data?.ai_configured && !isLoading && <AiDiscoveryBanner />}
+
       <CollectionStats stats={data?.stats} isLoading={isLoading} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -41,11 +43,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {data?.ai_configured ? (
-        <AiInsightsPanel activity={data?.ai_activity} />
-      ) : (
-        <AiDiscoveryBanner />
-      )}
+      {data?.ai_configured && <AiInsightsPanel activity={data?.ai_activity} />}
     </div>
   );
 }

@@ -25,7 +25,7 @@ export default function AiDiscoveryBanner() {
   if (dismissed) return null;
 
   return (
-    <Card className="mt-6 border-dashed">
+    <Card className="mb-6 border-dashed">
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className="rounded-full bg-muted p-2 shrink-0">

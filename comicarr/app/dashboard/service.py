@@ -79,7 +79,9 @@ def get_dashboard_data(ctx):
         logger.error("[DASHBOARD] Error fetching stats: %s" % e)
 
     # AI activity: last 5 entries (only if AI configured)
-    if comicarr.AI_CLIENT is not None:
+    # Check both runtime client and saved config (client requires restart)
+    ai_base_url = getattr(comicarr.CONFIG, "AI_BASE_URL", None)
+    if comicarr.AI_CLIENT is not None or ai_base_url:
         result["ai_configured"] = True
         try:
             activity = db.DBConnection().select(
