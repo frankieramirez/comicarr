@@ -8,6 +8,7 @@ import { InterfaceTab } from "@/components/settings/InterfaceTab";
 import { ApiTab } from "@/components/settings/ApiTab";
 import { SearchTab } from "@/components/settings/SearchTab";
 import { DownloadClientsTab } from "@/components/settings/DownloadClientsTab";
+import { AiTab } from "@/components/settings/AiTab";
 import { SaveButton } from "@/components/settings/SaveButton";
 import { Settings } from "lucide-react";
 
@@ -91,7 +92,12 @@ export default function SettingsPage() {
     }
 
     try {
-      await updateConfigMutation.mutateAsync(formData);
+      // Don't send empty ai_api_key — it would clear the saved key
+      const saveData = { ...formData };
+      if (!saveData.ai_api_key && config?.ai_api_key_set) {
+        delete saveData.ai_api_key;
+      }
+      await updateConfigMutation.mutateAsync(saveData);
       addToast({
         type: "success",
         message: "Settings saved successfully",
@@ -167,6 +173,7 @@ export default function SettingsPage() {
           <TabsTrigger value="api">API & Providers</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="clients">Download Clients</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -199,6 +206,14 @@ export default function SettingsPage() {
 
         <TabsContent value="clients">
           <DownloadClientsTab config={formData} />
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AiTab
+            config={(config ?? {}) as Record<string, unknown>}
+            formData={formData}
+            onChange={handleChange}
+          />
         </TabsContent>
       </Tabs>
 

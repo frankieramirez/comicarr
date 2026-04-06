@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.8](https://github.com/frankieramirez/comicarr/compare/v0.9.7...v0.9.8) (2026-04-05)
+
+
+### Bug Fixes
+
+* Remove deprecated Vitest 4 poolOptions config ([#95](https://github.com/frankieramirez/comicarr/issues/95)) ([ed5b56d](https://github.com/frankieramirez/comicarr/commit/ed5b56dd73baa0ee36ab524e155663e81d59da65))
+
 ## [0.9.7](https://github.com/frankieramirez/comicarr/compare/v0.9.6...v0.9.7) (2026-03-25)
 
 
