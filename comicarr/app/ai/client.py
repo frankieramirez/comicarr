@@ -45,7 +45,9 @@ def create_ai_clients(config):
 
     # Require https for non-localhost
     hostname = parsed.hostname or ""
-    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("192.168.") or hostname.startswith("10.")
+    is_local = (
+        hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("192.168.") or hostname.startswith("10.")
+    )
     if parsed.scheme != "https" and not is_local:
         logger.error("[AI-CLIENT] AI_BASE_URL requires https for non-local hosts: %s" % base_url)
         return (None, None)

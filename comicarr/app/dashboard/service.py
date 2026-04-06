@@ -42,21 +42,21 @@ def get_dashboard_data(ctx):
         )
         result["recently_downloaded"] = recent or []
     except Exception as e:
-        logger.error('[DASHBOARD] Error fetching recent downloads: %s' % e)
+        logger.error("[DASHBOARD] Error fetching recent downloads: %s" % e)
 
     # Upcoming: next 7 days from futureupcoming
     try:
-        today = datetime.now().strftime('%Y-%m-%d')
-        week_ahead = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+        today = datetime.now().strftime("%Y-%m-%d")
+        week_ahead = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         upcoming = db.DBConnection().select(
             "SELECT ComicName, IssueNumber, IssueDate, Publisher, ComicID, Status "
             "FROM futureupcoming WHERE IssueDate >= ? AND IssueDate <= ? "
             "ORDER BY IssueDate ASC LIMIT 20",
-            [today, week_ahead]
+            [today, week_ahead],
         )
         result["upcoming_releases"] = upcoming or []
     except Exception as e:
-        logger.error('[DASHBOARD] Error fetching upcoming: %s' % e)
+        logger.error("[DASHBOARD] Error fetching upcoming: %s" % e)
 
     # Stats: aggregate from comics
     try:
@@ -76,7 +76,7 @@ def get_dashboard_data(ctx):
                 "completion_pct": round(total_issues / total_expected * 100, 1) if total_expected > 0 else 0,
             }
     except Exception as e:
-        logger.error('[DASHBOARD] Error fetching stats: %s' % e)
+        logger.error("[DASHBOARD] Error fetching stats: %s" % e)
 
     # AI activity: last 5 entries (only if AI configured)
     if comicarr.AI_CLIENT is not None:
@@ -89,6 +89,6 @@ def get_dashboard_data(ctx):
             )
             result["ai_activity"] = activity or []
         except Exception as e:
-            logger.error('[DASHBOARD] Error fetching AI activity: %s' % e)
+            logger.error("[DASHBOARD] Error fetching AI activity: %s" % e)
 
     return result

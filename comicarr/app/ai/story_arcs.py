@@ -33,15 +33,15 @@ def generate_reading_order(arc_description):
     Returns empty list if AI is not configured or on error.
     """
     if comicarr.AI_CLIENT is None:
-        logger.fdebug('[AI-ARC] AI not configured, cannot generate reading order')
+        logger.fdebug("[AI-ARC] AI not configured, cannot generate reading order")
         return {"success": False, "error": "AI is not configured", "issues": []}
 
     if not comicarr.AI_CIRCUIT_BREAKER.allow_request():
-        logger.fdebug('[AI-ARC] Circuit breaker open, skipping reading order generation')
+        logger.fdebug("[AI-ARC] Circuit breaker open, skipping reading order generation")
         return {"success": False, "error": "AI service temporarily unavailable", "issues": []}
 
     if not comicarr.AI_RATE_LIMITER.can_request():
-        logger.fdebug('[AI-ARC] Rate limit reached, skipping reading order generation')
+        logger.fdebug("[AI-ARC] Rate limit reached, skipping reading order generation")
         return {"success": False, "error": "AI rate limit reached, try again later", "issues": []}
 
     sanitized = sanitize_input(arc_description, max_length=500)
@@ -68,23 +68,25 @@ def generate_reading_order(arc_description):
             user_prompt=user_prompt,
             schema_class=ReadingOrder,
             temperature=0.2,
-            timeout=getattr(comicarr.CONFIG, 'AI_TIMEOUT', 30) or 30,
+            timeout=getattr(comicarr.CONFIG, "AI_TIMEOUT", 30) or 30,
         )
         latency_ms = int((time.time() - start_time) * 1000)
         comicarr.AI_CIRCUIT_BREAKER.record_success()
 
         issues = []
         for item in result.issues:
-            issues.append({
-                "series_name": item.series_name,
-                "issue_number": item.issue_number,
-                "title": item.title,
-                "reading_order": item.reading_order_position,
-                "comic_id": None,
-                "issue_id": None,
-                "verified": False,
-                "library_status": "not_tracked",
-            })
+            issues.append(
+                {
+                    "series_name": item.series_name,
+                    "issue_number": item.issue_number,
+                    "title": item.title,
+                    "reading_order": item.reading_order_position,
+                    "comic_id": None,
+                    "issue_id": None,
+                    "verified": False,
+                    "library_status": "not_tracked",
+                }
+            )
 
         ai_service.log_activity(
             feature_type="storyarc",
@@ -107,14 +109,14 @@ def generate_reading_order(arc_description):
         ai_service.log_activity(
             feature_type="storyarc",
             action="Reading order generation failed for '%s'" % sanitized[:50],
-            model=getattr(comicarr.CONFIG, 'AI_MODEL', '') or '',
+            model=getattr(comicarr.CONFIG, "AI_MODEL", "") or "",
             prompt_tokens=0,
             completion_tokens=0,
             latency_ms=latency_ms,
             success=False,
             error_message=str(e)[:200],
         )
-        logger.error('[AI-ARC] Reading order generation error: %s' % e)
+        logger.error("[AI-ARC] Reading order generation error: %s" % e)
         return {"success": False, "error": str(e), "issues": []}
 
 
@@ -134,8 +136,7 @@ def enrich_with_providers(issues):
         try:
             # Search the comics table for a matching series
             results = db.DBConnection().select(
-                "SELECT ComicID, ComicName FROM comics WHERE ComicName LIKE ? LIMIT 5",
-                ["%%%s%%" % series_name]
+                "SELECT ComicID, ComicName FROM comics WHERE ComicName LIKE ? LIMIT 5", ["%%%s%%" % series_name]
             )
 
             if results:
@@ -148,7 +149,7 @@ def enrich_with_providers(issues):
                 if comic_id and issue_number:
                     issue_results = db.DBConnection().select(
                         "SELECT IssueID FROM issues WHERE ComicID = ? AND Issue_Number = ? LIMIT 1",
-                        [comic_id, issue_number]
+                        [comic_id, issue_number],
                     )
                     if issue_results:
                         issue["issue_id"] = issue_results[0].get("IssueID")
@@ -177,14 +178,10 @@ def map_to_library(issues):
         try:
             # Check the issues table for this specific issue
             if issue_id:
-                result = db.DBConnection().select(
-                    "SELECT Status FROM issues WHERE IssueID = ? LIMIT 1",
-                    [issue_id]
-                )
+                result = db.DBConnection().select("SELECT Status FROM issues WHERE IssueID = ? LIMIT 1", [issue_id])
             elif issue_number:
                 result = db.DBConnection().select(
-                    "SELECT Status FROM issues WHERE ComicID = ? AND Issue_Number = ? LIMIT 1",
-                    [comic_id, issue_number]
+                    "SELECT Status FROM issues WHERE ComicID = ? AND Issue_Number = ? LIMIT 1", [comic_id, issue_number]
                 )
             else:
                 result = None
@@ -201,7 +198,7 @@ def map_to_library(issues):
                 issue["library_status"] = "not_tracked"
 
         except Exception as e:
-            logger.error('[AI-ARC] Library mapping error: %s' % e)
+            logger.error("[AI-ARC] Library mapping error: %s" % e)
             issue["library_status"] = "not_tracked"
 
     return issues

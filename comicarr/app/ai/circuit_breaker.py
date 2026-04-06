@@ -25,7 +25,6 @@ STATE_HALF_OPEN = "half-open"
 
 
 class CircuitBreaker:
-
     def __init__(self, threshold=5, cooldown=300):
         self._threshold = threshold
         self._cooldown = cooldown

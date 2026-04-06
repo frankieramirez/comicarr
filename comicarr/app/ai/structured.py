@@ -31,9 +31,7 @@ def request_structured(client, model, system_prompt, user_prompt, schema_class, 
     Raises ``ValueError`` on validation failure or ``Exception`` on API error.
     """
     schema_json = json.dumps(schema_class.model_json_schema(), indent=2)
-    full_user_prompt = (
-        "%s\n\nRespond with valid JSON matching this schema:\n%s" % (user_prompt, schema_json)
-    )
+    full_user_prompt = "%s\n\nRespond with valid JSON matching this schema:\n%s" % (user_prompt, schema_json)
 
     response = client.chat.completions.create(
         model=model,

@@ -137,16 +137,16 @@ async def lifespan(app: FastAPI):
     from comicarr.app.ai.rate_limiter import AIRateLimiter
 
     ai_config = ctx.config
-    if ai_config and getattr(ai_config, 'AI_BASE_URL', None) and getattr(ai_config, 'AI_API_KEY', None):
+    if ai_config and getattr(ai_config, "AI_BASE_URL", None) and getattr(ai_config, "AI_API_KEY", None):
         sync_client, async_client = create_ai_clients(ai_config)
         if sync_client:
             cb = CircuitBreaker(
-                threshold=getattr(ai_config, 'AI_CIRCUIT_THRESHOLD', 5),
-                cooldown=getattr(ai_config, 'AI_CIRCUIT_COOLDOWN', 300),
+                threshold=getattr(ai_config, "AI_CIRCUIT_THRESHOLD", 5),
+                cooldown=getattr(ai_config, "AI_CIRCUIT_COOLDOWN", 300),
             )
             rl = AIRateLimiter(
-                rpm_limit=getattr(ai_config, 'AI_RPM_LIMIT', 20),
-                daily_token_limit=getattr(ai_config, 'AI_DAILY_TOKEN_LIMIT', 100000),
+                rpm_limit=getattr(ai_config, "AI_RPM_LIMIT", 20),
+                daily_token_limit=getattr(ai_config, "AI_DAILY_TOKEN_LIMIT", 100000),
             )
             ctx.ai_client = sync_client
             ctx.ai_async_client = async_client
@@ -154,11 +154,12 @@ async def lifespan(app: FastAPI):
             ctx.ai_rate_limiter = rl
             # Set module-level for background pipeline access
             import comicarr as _comicarr
+
             _comicarr.AI_CLIENT = sync_client
             _comicarr.AI_ASYNC_CLIENT = async_client
             _comicarr.AI_CIRCUIT_BREAKER = cb
             _comicarr.AI_RATE_LIMITER = rl
-            logger.info('[AI] Client initialized: %s' % getattr(ai_config, 'AI_BASE_URL', ''))
+            logger.info("[AI] Client initialized: %s" % getattr(ai_config, "AI_BASE_URL", ""))
 
     yield
 

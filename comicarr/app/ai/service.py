@@ -94,11 +94,15 @@ def get_ai_status():
     """Return a dict describing current AI configuration and usage state."""
     config = comicarr.CONFIG
 
-    configured = bool(
-        getattr(config, "AI_BASE_URL", None)
-        and getattr(config, "AI_API_KEY", None)
-        and getattr(config, "AI_MODEL", None)
-    ) if config else False
+    configured = (
+        bool(
+            getattr(config, "AI_BASE_URL", None)
+            and getattr(config, "AI_API_KEY", None)
+            and getattr(config, "AI_MODEL", None)
+        )
+        if config
+        else False
+    )
 
     circuit_state = "closed"
     cb = comicarr.AI_CIRCUIT_BREAKER

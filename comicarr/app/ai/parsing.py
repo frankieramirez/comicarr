@@ -31,10 +31,10 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
     if comicarr.AI_CLIENT is None:
         return None
     if not comicarr.AI_CIRCUIT_BREAKER.allow_request():
-        logger.fdebug('[AI-PARSE] Circuit breaker open — skipping AI parse')
+        logger.fdebug("[AI-PARSE] Circuit breaker open — skipping AI parse")
         return None
     if not comicarr.AI_RATE_LIMITER.can_request():
-        logger.fdebug('[AI-PARSE] Rate limit reached — skipping AI parse')
+        logger.fdebug("[AI-PARSE] Rate limit reached — skipping AI parse")
         return None
 
     sanitized_filename = sanitize_input(filename, max_length=500)
@@ -72,12 +72,13 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
                 feature_type="parsing",
                 action="AI parsed '%s' but no library match for '%s'" % (filename, result.series_name),
                 model=comicarr.CONFIG.AI_MODEL,
-                prompt_tokens=0, completion_tokens=0,
+                prompt_tokens=0,
+                completion_tokens=0,
                 latency_ms=latency_ms,
                 success=False,
                 error_message="No library match",
             )
-            logger.fdebug('[AI-PARSE] No library match for series: %s' % result.series_name)
+            logger.fdebug("[AI-PARSE] No library match for series: %s" % result.series_name)
             return None
 
         # Build parseit()-compatible dict
@@ -87,11 +88,14 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
             feature_type="parsing",
             action="AI parsed '%s' → %s #%s" % (filename, result.series_name, result.issue_number),
             model=comicarr.CONFIG.AI_MODEL,
-            prompt_tokens=0, completion_tokens=0,
+            prompt_tokens=0,
+            completion_tokens=0,
             latency_ms=latency_ms,
             success=True,
         )
-        logger.fdebug('[AI-PARSE] Successfully parsed: %s → %s #%s' % (filename, result.series_name, result.issue_number))
+        logger.fdebug(
+            "[AI-PARSE] Successfully parsed: %s → %s #%s" % (filename, result.series_name, result.issue_number)
+        )
 
         return parsed
 
@@ -102,12 +106,13 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
             feature_type="parsing",
             action="AI parse failed for '%s'" % filename,
             model=comicarr.CONFIG.AI_MODEL or "",
-            prompt_tokens=0, completion_tokens=0,
+            prompt_tokens=0,
+            completion_tokens=0,
             latency_ms=latency_ms,
             success=False,
             error_message=str(e)[:200],
         )
-        logger.error('[AI-PARSE] Error parsing filename: %s' % e)
+        logger.error("[AI-PARSE] Error parsing filename: %s" % e)
         return None
 
 
@@ -119,25 +124,22 @@ def _validate_against_library(series_name):
     # Exact match first
     result = db.DBConnection().select(
         "SELECT ComicID FROM comics WHERE ComicName = ? OR DynamicComicName = ? LIMIT 1",
-        [series_name, series_name.lower().strip()]
+        [series_name, series_name.lower().strip()],
     )
     if result:
         return True
 
     # Case-insensitive match
     result = db.DBConnection().select(
-        "SELECT ComicID FROM comics WHERE LOWER(ComicName) = LOWER(?) LIMIT 1",
-        [series_name]
+        "SELECT ComicID FROM comics WHERE LOWER(ComicName) = LOWER(?) LIMIT 1", [series_name]
     )
     if result:
         return True
 
     # Check AlternateSearch field (##-delimited)
-    result = db.DBConnection().select(
-        "SELECT AlternateSearch FROM comics WHERE AlternateSearch IS NOT NULL"
-    )
+    result = db.DBConnection().select("SELECT AlternateSearch FROM comics WHERE AlternateSearch IS NOT NULL")
     search_lower = series_name.lower()
-    for row in (result or []):
+    for row in result or []:
         alternates = (row.get("AlternateSearch") or "").split("##")
         for alt in alternates:
             if alt.strip().lower() == search_lower:

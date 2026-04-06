@@ -716,7 +716,7 @@ def search_init(
                 )
                 if ai_alternates:
                     logger.fdebug(
-                        '[AI-SEARCH] Retrying search with %d AI-generated alternates for %s'
+                        "[AI-SEARCH] Retrying search with %d AI-generated alternates for %s"
                         % (len(ai_alternates), ComicName)
                     )
                     # Append AI alternates to existing AlternateSearch
@@ -761,7 +761,7 @@ def search_init(
                             break
                         return ai_findit, ai_prov
             except Exception as e:
-                logger.error('[AI-SEARCH] Expansion fallback error: %s' % e)
+                logger.error("[AI-SEARCH] Expansion fallback error: %s" % e)
 
     return findit, "None"
 

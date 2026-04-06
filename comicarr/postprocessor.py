@@ -2897,9 +2897,10 @@ class PostProcessor(object):
                                 pre_cmtag_info = None
                                 try:
                                     from comicarr.app.ai.enrichment import _read_comicinfo
+
                                     pre_cmtag_info = _read_comicinfo(ofilename)
                                 except Exception as e:
-                                    logger.fdebug('[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s' % e)
+                                    logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
 
                                 try:
                                     from . import cmtag
@@ -2954,18 +2955,22 @@ class PostProcessor(object):
                                     # AI metadata enrichment
                                     try:
                                         from comicarr.app.ai.enrichment import enrich_metadata
+
                                         enriched_count = enrich_metadata(
                                             cbz_path=metaresponse,
                                             issue_id=issueid,
                                         )
                                         if enriched_count > 0:
-                                            logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                                            logger.fdebug(
+                                                "[POST-PROCESS] AI enriched %d metadata fields" % enriched_count
+                                            )
                                     except Exception as e:
-                                        logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+                                        logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
                                     # AI metadata conflict reconciliation
                                     try:
                                         from comicarr.app.ai.reconciliation import reconcile_metadata
+
                                         post_cmtag_info = _read_comicinfo(metaresponse)
                                         reconciled_count = reconcile_metadata(
                                             cbz_path=metaresponse,
@@ -2974,9 +2979,11 @@ class PostProcessor(object):
                                             post_cmtag_info=post_cmtag_info,
                                         )
                                         if reconciled_count > 0:
-                                            logger.fdebug('[POST-PROCESS] AI reconciled %d metadata fields' % reconciled_count)
+                                            logger.fdebug(
+                                                "[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count
+                                            )
                                     except Exception as e:
-                                        logger.error('[POST-PROCESS] AI reconciliation error: %s' % e)
+                                        logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
 
                                 dfilename = ofilename
                             else:
@@ -3764,12 +3771,13 @@ class PostProcessor(object):
                         pre_cmtag_info = None
                         try:
                             from comicarr.app.ai.enrichment import _read_comicinfo
+
                             if os.path.isfile(odir):
                                 pre_cmtag_info = _read_comicinfo(odir)
                             else:
                                 pre_cmtag_info = _read_comicinfo(os.path.join(odir, ofilename))
                         except Exception as e:
-                            logger.fdebug('[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s' % e)
+                            logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
 
                         try:
                             from . import cmtag
@@ -3826,18 +3834,20 @@ class PostProcessor(object):
                             # AI metadata enrichment
                             try:
                                 from comicarr.app.ai.enrichment import enrich_metadata
+
                                 enriched_count = enrich_metadata(
                                     cbz_path=metaresponse,
                                     issue_id=issueid,
                                 )
                                 if enriched_count > 0:
-                                    logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                                    logger.fdebug("[POST-PROCESS] AI enriched %d metadata fields" % enriched_count)
                             except Exception as e:
-                                logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+                                logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
                             # AI metadata conflict reconciliation
                             try:
                                 from comicarr.app.ai.reconciliation import reconcile_metadata
+
                                 post_cmtag_info = _read_comicinfo(metaresponse)
                                 reconciled_count = reconcile_metadata(
                                     cbz_path=metaresponse,
@@ -3846,9 +3856,9 @@ class PostProcessor(object):
                                     post_cmtag_info=post_cmtag_info,
                                 )
                                 if reconciled_count > 0:
-                                    logger.fdebug('[POST-PROCESS] AI reconciled %d metadata fields' % reconciled_count)
+                                    logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
                             except Exception as e:
-                                logger.error('[POST-PROCESS] AI reconciliation error: %s' % e)
+                                logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
 
                     dfilename = ofilename
                     if metaresponse:
@@ -4503,12 +4513,13 @@ class PostProcessor(object):
             pre_cmtag_info = None
             try:
                 from comicarr.app.ai.enrichment import _read_comicinfo
+
                 if ml is None:
                     pre_cmtag_info = _read_comicinfo(os.path.join(odir, ofilename))
                 else:
                     pre_cmtag_info = _read_comicinfo(ml["ComicLocation"])
             except Exception as e:
-                logger.fdebug('[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s' % e)
+                logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
 
             try:
                 # check for reading order here.
@@ -4621,18 +4632,20 @@ class PostProcessor(object):
                 # AI metadata enrichment
                 try:
                     from comicarr.app.ai.enrichment import enrich_metadata
+
                     enriched_count = enrich_metadata(
                         cbz_path=pcheck,
                         issue_id=issueid,
                     )
                     if enriched_count > 0:
-                        logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                        logger.fdebug("[POST-PROCESS] AI enriched %d metadata fields" % enriched_count)
                 except Exception as e:
-                    logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+                    logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
                 # AI metadata conflict reconciliation
                 try:
                     from comicarr.app.ai.reconciliation import reconcile_metadata
+
                     post_cmtag_info = _read_comicinfo(pcheck)
                     reconciled_count = reconcile_metadata(
                         cbz_path=pcheck,
@@ -4641,9 +4654,9 @@ class PostProcessor(object):
                         post_cmtag_info=post_cmtag_info,
                     )
                     if reconciled_count > 0:
-                        logger.fdebug('[POST-PROCESS] AI reconciled %d metadata fields' % reconciled_count)
+                        logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
                 except Exception as e:
-                    logger.error('[POST-PROCESS] AI reconciliation error: %s' % e)
+                    logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
 
         # Run Pre-script
 

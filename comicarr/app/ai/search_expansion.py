@@ -36,16 +36,16 @@ def expand_search_queries(comic_id, series_name, publisher=None, year=None):
     if comicarr.AI_CLIENT is None:
         return []
     if not comicarr.AI_CIRCUIT_BREAKER.allow_request():
-        logger.fdebug('[AI-SEARCH] Circuit breaker open, skipping expansion for %s' % comic_id)
+        logger.fdebug("[AI-SEARCH] Circuit breaker open, skipping expansion for %s" % comic_id)
         return []
     if not comicarr.AI_RATE_LIMITER.can_request():
-        logger.fdebug('[AI-SEARCH] Rate limit reached, skipping expansion for %s' % comic_id)
+        logger.fdebug("[AI-SEARCH] Rate limit reached, skipping expansion for %s" % comic_id)
         return []
 
     # Check if we already expanded this series (capped at 5 AI entries)
     existing_ai_expansions = _get_ai_expansions(comic_id)
     if len(existing_ai_expansions) >= 5:
-        logger.fdebug('[AI-SEARCH] Series %s already has 5 AI expansions, skipping' % comic_id)
+        logger.fdebug("[AI-SEARCH] Series %s already has 5 AI expansions, skipping" % comic_id)
         return []
 
     # Get current AlternateSearch values
@@ -120,7 +120,7 @@ def expand_search_queries(comic_id, series_name, publisher=None, year=None):
             success=False,
             error_message=str(e)[:200],
         )
-        logger.error('[AI-SEARCH] Expansion error: %s' % e)
+        logger.error("[AI-SEARCH] Expansion error: %s" % e)
         return []
 
 
@@ -130,10 +130,7 @@ def persist_successful_expansion(comic_id, successful_alternate):
     current = _get_alternate_search(comic_id)
     if successful_alternate.lower() not in {a.lower() for a in current}:
         new_value = "##".join(current + [successful_alternate]) if current else successful_alternate
-        db.DBConnection().action(
-            "UPDATE comics SET AlternateSearch = ? WHERE ComicID = ?",
-            [new_value, comic_id]
-        )
+        db.DBConnection().action("UPDATE comics SET AlternateSearch = ? WHERE ComicID = ?", [new_value, comic_id])
 
     # Track in ai_cache for counting AI expansions
     existing = _get_ai_expansions(comic_id)
@@ -141,9 +138,8 @@ def persist_successful_expansion(comic_id, successful_alternate):
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     db.DBConnection().action(
-        "INSERT OR REPLACE INTO ai_cache (cache_key, cache_type, data, created_at, expires_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ["expansion_%s" % comic_id, "expansion", json.dumps(existing), now, "9999-12-31"]
+        "INSERT OR REPLACE INTO ai_cache (cache_key, cache_type, data, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+        ["expansion_%s" % comic_id, "expansion", json.dumps(existing), now, "9999-12-31"],
     )
 
     logger.fdebug('[AI-SEARCH] Persisted expansion "%s" for comic %s' % (successful_alternate, comic_id))
@@ -151,10 +147,7 @@ def persist_successful_expansion(comic_id, successful_alternate):
 
 def _get_alternate_search(comic_id):
     """Get current AlternateSearch values for a comic."""
-    result = db.DBConnection().select(
-        "SELECT AlternateSearch FROM comics WHERE ComicID = ?",
-        [comic_id]
-    )
+    result = db.DBConnection().select("SELECT AlternateSearch FROM comics WHERE ComicID = ?", [comic_id])
     if result and result[0].get("AlternateSearch"):
         return [a.strip() for a in result[0]["AlternateSearch"].split("##") if a.strip()]
     return []
@@ -163,8 +156,7 @@ def _get_alternate_search(comic_id):
 def _get_ai_expansions(comic_id):
     """Get AI-generated expansions from cache."""
     result = db.DBConnection().select(
-        "SELECT data FROM ai_cache WHERE cache_key = ? AND cache_type = ?",
-        ["expansion_%s" % comic_id, "expansion"]
+        "SELECT data FROM ai_cache WHERE cache_key = ? AND cache_type = ?", ["expansion_%s" % comic_id, "expansion"]
     )
     if result and result[0].get("data"):
         try:

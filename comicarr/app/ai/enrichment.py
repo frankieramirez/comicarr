@@ -233,9 +233,7 @@ def _store_history(issue_id, enriched_fields):
 def revert_field(issue_id, field_name, cbz_path):
     """Revert an AI-enriched field back to blank."""
     # Validate issue exists
-    issue = db.DBConnection().select(
-        "SELECT IssueID FROM issues WHERE IssueID = ?", [issue_id]
-    )
+    issue = db.DBConnection().select("SELECT IssueID FROM issues WHERE IssueID = ?", [issue_id])
     if not issue:
         raise ValueError("Issue %s not found" % issue_id)
 

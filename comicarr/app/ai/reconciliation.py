@@ -28,8 +28,16 @@ from comicarr.app.ai.structured import request_structured
 
 # Fields eligible for AI reconciliation between ComicInfo.xml and CV.
 RECONCILABLE_FIELDS = [
-    "Title", "Summary", "Publisher", "Genre", "AgeRating",
-    "Writer", "Penciller", "Inker", "Colorist", "Letterer",
+    "Title",
+    "Summary",
+    "Publisher",
+    "Genre",
+    "AgeRating",
+    "Writer",
+    "Penciller",
+    "Inker",
+    "Colorist",
+    "Letterer",
 ]
 
 
@@ -82,7 +90,9 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
     user_prompt = "Select the best value for each conflicting metadata field:\n\n"
     for field, sources in conflicts.items():
         user_prompt += "%s:\n  Option A (ComicInfo.xml): %s\n  Option B (ComicVine): %s\n\n" % (
-            field, spotlight_wrap(sources["comicinfo"]), spotlight_wrap(sources["cv"])
+            field,
+            spotlight_wrap(sources["comicinfo"]),
+            spotlight_wrap(sources["cv"]),
         )
 
     start_time = time.time()
@@ -111,9 +121,7 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
                 resolved[field] = chosen
             else:
                 # AI synthesised a new value — reject it, CV wins
-                logger.fdebug(
-                    "[AI-RECONCILE] Rejected synthesised value for %s — CV wins" % field
-                )
+                logger.fdebug("[AI-RECONCILE] Rejected synthesised value for %s — CV wins" % field)
                 resolved[field] = sources["cv"]
 
         if not resolved:
@@ -137,9 +145,7 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
             entity_id=issue_id,
         )
 
-        logger.fdebug(
-            "[AI-RECONCILE] Reconciled %d fields for issue %s" % (len(resolved), issue_id)
-        )
+        logger.fdebug("[AI-RECONCILE] Reconciled %d fields for issue %s" % (len(resolved), issue_id))
         return len(resolved)
 
     except Exception as e:

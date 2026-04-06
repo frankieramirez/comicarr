@@ -202,11 +202,10 @@ def get_pattern_descriptions():
     lines = []
     for pid, pattern in QUERY_PATTERNS.items():
         params_str = ", ".join(pattern["params"])
-        defaults_str = ", ".join(
-            "%s=%s" % (k, v) for k, v in pattern.get("defaults", {}).items()
-        )
+        defaults_str = ", ".join("%s=%s" % (k, v) for k, v in pattern.get("defaults", {}).items())
         lines.append(
-            '- %s: %s (params: %s%s)' % (
+            "- %s: %s (params: %s%s)"
+            % (
                 pid,
                 pattern["description"],
                 params_str,

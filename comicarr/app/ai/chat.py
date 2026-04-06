@@ -88,7 +88,7 @@ def _extract_pattern_json(text):
             try:
                 data = json.loads(line)
                 if isinstance(data, dict) and "pattern_id" in data:
-                    remaining_lines = text.strip().split("\n")[i + 1:]
+                    remaining_lines = text.strip().split("\n")[i + 1 :]
                     remaining = "\n".join(remaining_lines).strip()
                     return data, remaining
             except (json.JSONDecodeError, ValueError):

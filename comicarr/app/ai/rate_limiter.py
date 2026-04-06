@@ -21,7 +21,6 @@ import time
 
 
 class AIRateLimiter:
-
     def __init__(self, rpm_limit=20, daily_token_limit=100000):
         self._rpm_limit = rpm_limit
         self._daily_token_limit = daily_token_limit
