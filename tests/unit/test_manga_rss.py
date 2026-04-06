@@ -14,10 +14,9 @@ Tests cover mangaCheck() and mangadexNewChapterCheck() — the two additive
 functions for manga series monitoring.
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
+from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -49,20 +48,8 @@ def _make_chapter(comic_id="md-abc123", issue_id="md-abc123-ch100", ch_num="100"
         "IssueDate": "2026-01-01",
         "ReleaseDate": "2026-01-01",
         "DigitalDate": "0000-00-00",
+        "VolumeNumber": None,
     }
-
-
-@pytest.fixture(autouse=True)
-def _isolate_module():
-    """Remove rsscheck from the module cache so each test gets a fresh import
-    with its own patches applied."""
-    mods_to_remove = [k for k in sys.modules if k.startswith("comicarr.rsscheck")]
-    for m in mods_to_remove:
-        del sys.modules[m]
-    yield
-    mods_to_remove = [k for k in sys.modules if k.startswith("comicarr.rsscheck")]
-    for m in mods_to_remove:
-        del sys.modules[m]
 
 
 # ---------------------------------------------------------------------------
@@ -80,8 +67,6 @@ class TestMangaCheck:
     def test_skips_when_no_manga_series(self, mock_search_init, mock_db, mock_helpers):
         mock_db.select_all.return_value = []
 
-        from comicarr.rsscheck import mangaCheck
-
         mangaCheck()
 
         mock_search_init.assert_not_called()
@@ -95,20 +80,16 @@ class TestMangaCheck:
         chapter = _make_chapter()
 
         mock_db.select_all.side_effect = [
-            [series],   # first call: manga series query
-            [chapter],  # second call: wanted chapters query
+            [series],
+            [chapter],
         ]
-        mock_helpers.issue_status.return_value = False  # not already downloaded
-
-        from comicarr.rsscheck import mangaCheck
+        mock_helpers.issue_status.return_value = False
 
         mangaCheck()
 
         assert mock_search_init.call_count == 1
         call_kwargs = mock_search_init.call_args
-        # First positional arg is comic name
         assert call_kwargs[0][0] == "One Piece"
-        # Check booktype kwarg
         assert call_kwargs[1]["booktype"] == "manga"
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
@@ -123,9 +104,7 @@ class TestMangaCheck:
             [series],
             [chapter],
         ]
-        mock_helpers.issue_status.return_value = True  # already downloaded
-
-        from comicarr.rsscheck import mangaCheck
+        mock_helpers.issue_status.return_value = True
 
         mangaCheck()
 
@@ -147,9 +126,6 @@ class TestMangaCheck:
         mock_helpers.issue_status.return_value = False
         mock_search_init.side_effect = [Exception("provider down"), None]
 
-        from comicarr.rsscheck import mangaCheck
-
-        # Should not raise even though first search fails
         mangaCheck()
 
         assert mock_search_init.call_count == 2
@@ -163,10 +139,8 @@ class TestMangaCheck:
 
         mock_db.select_all.side_effect = [
             [series],
-            [],  # no wanted chapters
+            [],
         ]
-
-        from comicarr.rsscheck import mangaCheck
 
         mangaCheck()
 
@@ -187,8 +161,6 @@ class TestMangadexNewChapterCheck:
     def test_skips_when_no_manga_series(self, mock_get_chapters, mock_db):
         mock_db.select_all.return_value = []
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
         mangadexNewChapterCheck()
 
         mock_get_chapters.assert_not_called()
@@ -198,10 +170,9 @@ class TestMangadexNewChapterCheck:
     def test_adds_new_chapters_as_wanted(self, mock_get_chapters, mock_db):
         series = _make_series()
 
-        # First call: manga series; second call: existing issues
         mock_db.select_all.side_effect = [
             [series],
-            [],  # no existing issues
+            [],
         ]
         mock_get_chapters.return_value = [
             {
@@ -220,15 +191,12 @@ class TestMangadexNewChapterCheck:
             },
         ]
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
         mangadexNewChapterCheck()
 
         assert mock_db.upsert.call_count == 2
 
-        # Verify first upsert call
         first_call = mock_db.upsert.call_args_list[0]
-        assert first_call[0][0] == "issues"  # table name
+        assert first_call[0][0] == "issues"
         value_dict = first_call[0][1]
         assert value_dict["ComicName"] == "One Piece"
         assert value_dict["ChapterNumber"] == "1"
@@ -244,18 +212,15 @@ class TestMangadexNewChapterCheck:
 
         mock_db.select_all.side_effect = [
             [series],
-            [{"IssueID": "md-abc123-ch1", "ChapterNumber": "1"}],  # ch 1 exists
+            [{"IssueID": "md-abc123-ch1", "ChapterNumber": "1"}],
         ]
         mock_get_chapters.return_value = [
             {"id": "ch-uuid-1", "chapter": "1", "volume": None, "title": "Ch 1"},
             {"id": "ch-uuid-2", "chapter": "2", "volume": None, "title": "Ch 2"},
         ]
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
         mangadexNewChapterCheck()
 
-        # Only chapter 2 should be inserted (chapter 1 already exists)
         assert mock_db.upsert.call_count == 1
         value_dict = mock_db.upsert.call_args_list[0][0][1]
         assert value_dict["ChapterNumber"] == "2"
@@ -271,9 +236,6 @@ class TestMangadexNewChapterCheck:
         ]
         mock_get_chapters.side_effect = Exception("API timeout")
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
-        # Should not raise
         mangadexNewChapterCheck()
 
         mock_db.upsert.assert_not_called()
@@ -291,8 +253,6 @@ class TestMangadexNewChapterCheck:
             {"id": "ch-uuid-1", "chapter": None, "volume": "1", "title": "Oneshot"},
         ]
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
         mangadexNewChapterCheck()
 
         mock_db.upsert.assert_not_called()
@@ -308,9 +268,6 @@ class TestMangadexNewChapterCheck:
         ]
         mock_get_chapters.return_value = None
 
-        from comicarr.rsscheck import mangadexNewChapterCheck
-
-        # Should not raise
         mangadexNewChapterCheck()
 
         mock_db.upsert.assert_not_called()
@@ -327,8 +284,6 @@ class TestMangadexNewChapterCheck:
         mock_get_chapters.return_value = [
             {"id": "ch-uuid-1", "chapter": "5", "volume": None, "title": "Ch 5"},
         ]
-
-        from comicarr.rsscheck import mangadexNewChapterCheck
 
         mangadexNewChapterCheck()
 
