@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0](https://github.com/frankieramirez/comicarr/compare/v0.9.8...v0.10.0) (2026-04-06)
+
+
+### Features
+
+* BYOK AI Suite — LLM-Powered Intelligence Layer ([#99](https://github.com/frankieramirez/comicarr/issues/99)) ([1e8e501](https://github.com/frankieramirez/comicarr/commit/1e8e5018b9e0509ca87c7f73f11a4cf1f3852253))
+
 ## [0.9.8](https://github.com/frankieramirez/comicarr/compare/v0.9.7...v0.9.8) (2026-04-05)
 
 
