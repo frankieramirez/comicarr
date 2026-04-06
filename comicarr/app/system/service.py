@@ -855,6 +855,7 @@ def job_management(
         jobstatus = jobinfo[jobinfo.find("],") + 2 : len(jobinfo) - 1].strip()
         next_the_run = False
         prev_run_timestamp = None
+        sched_status = "Waiting" if "next run" in jobstatus else "Paused"
 
         if jobname == "DB Updater":
             prev_run_timestamp = comicarr.SCHED_DBUPDATE_LAST
