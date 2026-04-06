@@ -38,7 +38,7 @@ from comicarr import db, logger
 from comicarr.tables import jobhistory
 
 
-def runGit(args, ptv=None):
+def runGit(args, ptv=None, suppress_errors=False):
 
     git_locations = []
     if ptv is not None:
@@ -68,13 +68,15 @@ def runGit(args, ptv=None):
             logger.debug("Git output: %s" % output)
             gitworked = True
         except Exception as e:
-            logger.error("Command %s didn't work [%s]" % (cmd_list, e))
+            if not suppress_errors:
+                logger.error("Command %s didn't work [%s]" % (cmd_list, e))
             gitworked = False
             output = None
             continue
         else:
             if all([output.stderr is not None, output.stderr != "", output.returncode > 0]):
-                logger.error("Encountered error: %s" % output.stderr)
+                if not suppress_errors:
+                    logger.error("Encountered error: %s" % output.stderr)
                 gitworked = False
 
         if all(
@@ -84,12 +86,14 @@ def runGit(args, ptv=None):
                 "not recognized as an internal or external command" in output.stdout,
             ]
         ):
-            logger.error("[%s] Unable to find git with command: %s" % (output.stdout, cmd))
+            if not suppress_errors:
+                logger.error("[%s] Unable to find git with command: %s" % (output.stdout, cmd))
             output = None
             gitworked = False
         elif ("fatal:" in output.stdout) or ("fatal:" in output.stderr):
-            logger.error("Error: %s" % output.stderr)
-            logger.error("Git returned bad info. Are you sure this is a git installation? [%s]" % output.stdout)
+            if not suppress_errors:
+                logger.error("Error: %s" % output.stderr)
+                logger.error("Git returned bad info. Are you sure this is a git installation? [%s]" % output.stdout)
             output = None
             gitworked = False
         elif gitworked:
@@ -117,13 +121,18 @@ def getVersion(ptv):
 
     elif os.path.isdir(os.path.join(comicarr.PROG_DIR, ".git")):
         comicarr.INSTALL_TYPE = "git"
-        output = runGit("describe --exact-match --tags 2> %s && git rev-parse HEAD --abbrev-ref HEAD" % os.devnull, ptv)
-        # output, err = runGit('rev-parse HEAD --abbrev-ref HEAD')
+        # Try exact tag match first, then get branch name separately
+        output = runGit("describe --exact-match --tags", ptv, suppress_errors=True)
+        if output:
+            branch_output = runGit("rev-parse --abbrev-ref HEAD", ptv)
+            if branch_output:
+                output = output.strip() + "\n" + branch_output.strip() + "\n"
+            else:
+                output = None
 
         if not output:
-            output = runGit(
-                "describe --exact-match --tags 2> %s || git rev-parse HEAD --abbrev-ref HEAD" % os.devnull, ptv
-            )
+            # Not on a tag — get commit hash and branch
+            output = runGit("rev-parse HEAD --abbrev-ref HEAD", ptv)
             if not output:
                 logger.error("Couldn't find latest installed version.")
                 cur_commit_hash = None

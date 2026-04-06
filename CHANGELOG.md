@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.2](https://github.com/frankieramirez/comicarr/compare/v0.10.1...v0.10.2) (2026-04-06)
+
+
+### Bug Fixes
+
+* Resolve startup errors in git detection and job scheduler ([#103](https://github.com/frankieramirez/comicarr/issues/103)) ([c5dcb6b](https://github.com/frankieramirez/comicarr/commit/c5dcb6b3e9d27eff5bd4808c4795ec4ce582fd8e))
+
 ## [0.10.1](https://github.com/frankieramirez/comicarr/compare/v0.10.0...v0.10.1) (2026-04-06)
 
 
