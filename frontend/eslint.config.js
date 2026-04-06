@@ -30,8 +30,18 @@ export default tseslint.config(
       ],
       'react-refresh/only-export-components': [
         'warn',
-        { allowConstantExport: true, allowExportNames: ['useAuth', 'useTheme', 'useToast', 'useSidebar'] },
+        { allowConstantExport: true, allowExportNames: ['useAuth', 'useTheme', 'useToast', 'useSidebar', 'buttonVariants'] },
       ],
+      // TanStack Table's useReactTable API is flagged by React Compiler as
+      // incompatible — this is expected and the compiler already skips
+      // memoization for these call sites automatically.
+      'react-hooks/incompatible-library': 'off',
+    },
+  },
+  {
+    files: ['tests/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 )

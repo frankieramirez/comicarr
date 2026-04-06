@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -268,23 +268,26 @@ export default function IssuesTable({
     }
   };
 
-  const handleWantVolume = async (volume: VolumeGroup) => {
-    const ids = volume.chapters
-      .map((ch) => ch.id ?? ch.IssueID)
-      .filter(Boolean) as string[];
-    try {
-      await bulkQueueMutation.mutateAsync(ids);
-      addToast({
-        type: "success",
-        message: `${ids.length} chapters from Volume ${volume.volume} marked as wanted`,
-      });
-    } catch (err) {
-      addToast({
-        type: "error",
-        message: `Failed to mark chapters: ${err instanceof Error ? err.message : "Unknown error"}`,
-      });
-    }
-  };
+  const handleWantVolume = useCallback(
+    async (volume: VolumeGroup) => {
+      const ids = volume.chapters
+        .map((ch) => ch.id ?? ch.IssueID)
+        .filter(Boolean) as string[];
+      try {
+        await bulkQueueMutation.mutateAsync(ids);
+        addToast({
+          type: "success",
+          message: `${ids.length} chapters from Volume ${volume.volume} marked as wanted`,
+        });
+      } catch (err) {
+        addToast({
+          type: "error",
+          message: `Failed to mark chapters: ${err instanceof Error ? err.message : "Unknown error"}`,
+        });
+      }
+    },
+    [bulkQueueMutation, addToast],
+  );
 
   // Chapters view columns
   const chapterColumns = useMemo(
