@@ -13,7 +13,7 @@ Story Arcs domain queries — storyarcs, readlist, weekly, upcoming tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import Integer, case, cast, func, select
+from sqlalchemy import Integer, case, cast, func, literal, select
 
 from comicarr import db
 from comicarr.tables import comics as t_comics
@@ -201,7 +201,8 @@ def get_upcoming(week, year, include_downloaded=False):
     else:
         status_list = ["Wanted"]
 
-    padded_weeknumber = func.right(func.concat("0", t_weekly.c.weeknumber), 2)
+    # SQLite-compatible zero-padded week number (replaces MySQL's right(concat(...)))
+    padded_weeknumber = func.substr(literal("0").op("||")(t_weekly.c.weeknumber), -2, 2)
 
     stmt = (
         select(
