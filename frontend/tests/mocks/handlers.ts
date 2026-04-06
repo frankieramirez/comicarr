@@ -140,6 +140,45 @@ export const handlers = [
   }),
 
   // -------------------------------------------------------------------------
+  // Dashboard endpoints
+  // -------------------------------------------------------------------------
+
+  http.get("/api/dashboard", () => {
+    return HttpResponse.json({
+      recently_downloaded: [
+        {
+          ComicName: "Spider-Man",
+          Issue_Number: "1",
+          DateAdded: "2026-04-05T12:00:00",
+          Status: "Snatched",
+          Provider: "nzb",
+          ComicID: "1",
+          IssueID: "101",
+          ComicImage: "https://example.com/spiderman.jpg",
+        },
+      ],
+      upcoming_releases: [
+        {
+          ComicName: "Batman",
+          IssueNumber: "5",
+          IssueDate: "2026-04-07",
+          Publisher: "DC Comics",
+          ComicID: "2",
+          Status: "Wanted",
+        },
+      ],
+      stats: {
+        total_series: 10,
+        total_issues: 250,
+        total_expected: 500,
+        completion_pct: 50.0,
+      },
+      ai_activity: [],
+      ai_configured: false,
+    });
+  }),
+
+  // -------------------------------------------------------------------------
   // Series endpoints
   // -------------------------------------------------------------------------
 

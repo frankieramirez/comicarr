@@ -562,6 +562,16 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
     if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         pullitcheck(forcecheck=forcecheck)
 
+    # Trigger AI pull list suggestions if configured
+    if comicarr.AI_CLIENT is not None:
+        try:
+            from comicarr.app.ai.pull_list import generate_suggestions
+
+            logger.fdebug("[AI-PULLLIST] Triggering suggestion generation after pull list update")
+            generate_suggestions()
+        except Exception as e:
+            logger.error("[AI-PULLLIST] Failed to generate suggestions after pull: %s" % e)
+
 
 def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurepull=None, issue=None):
     if futurepull is None:

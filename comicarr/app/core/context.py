@@ -62,6 +62,12 @@ class AppContext:
     metron_api: object = None
     fernet: object = None  # Fernet instance
 
+    # AI integration
+    ai_client: object = None  # OpenAI sync client
+    ai_async_client: object = None  # AsyncOpenAI async client
+    ai_circuit_breaker: object = None  # CircuitBreaker instance
+    ai_rate_limiter: object = None  # AIRateLimiter instance
+
     # In-memory state (migrated from globals)
     comic_sort: object = None  # COMICSORT
     publisher_imprints: dict = field(default_factory=dict)

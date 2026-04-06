@@ -53,6 +53,14 @@ export interface Config {
   // UI preferences
   theme?: "light" | "dark" | "system";
 
+  // AI
+  ai_base_url?: string;
+  ai_api_key?: string;
+  ai_model?: string;
+  ai_timeout?: number;
+  ai_rpm_limit?: number;
+  ai_daily_token_limit?: number;
+
   // Any additional config fields
   [key: string]: unknown;
 }

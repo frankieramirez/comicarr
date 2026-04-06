@@ -13,7 +13,7 @@ Story Arcs domain router — arc CRUD, reading list, upcoming endpoints.
 Small, well-bounded, minimal cross-domain dependencies (Phase 3).
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
 from comicarr.app.core.exceptions import NotFoundError
@@ -26,6 +26,53 @@ router = APIRouter(prefix="/api", tags=["storyarcs"])
 # ---------------------------------------------------------------------------
 # Story arc endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.post("/storyarcs/generate", dependencies=[Depends(require_session)])
+async def generate_story_arc(request: Request):
+    """Generate a reading order from a natural language arc description using AI."""
+    from comicarr.app.ai import story_arcs
+
+    body = await request.json()
+    description = body.get("description", "")
+
+    if not description or len(description.strip()) < 3:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Description must be at least 3 characters"},
+        )
+
+    # Generate reading order via AI
+    result = story_arcs.generate_reading_order(description)
+    if not result["success"]:
+        return JSONResponse(content=result)
+
+    # Enrich with provider data (ComicVine match)
+    issues = story_arcs.enrich_with_providers(result["issues"])
+
+    # Map against user's library
+    issues = story_arcs.map_to_library(issues)
+
+    return JSONResponse(content={"success": True, "issues": issues, "description": description})
+
+
+@router.post("/storyarcs/generate/save", dependencies=[Depends(require_session)])
+async def save_generated_arc(request: Request):
+    """Save a previously generated reading order to the storyarcs table."""
+    from comicarr.app.ai import story_arcs
+
+    body = await request.json()
+    arc_name = body.get("arc_name", "")
+    issues = body.get("issues", [])
+
+    if not arc_name or not issues:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "arc_name and issues are required"},
+        )
+
+    result = story_arcs.save_arc(arc_name, issues)
+    return JSONResponse(content=result)
 
 
 @router.get("/storyarcs", dependencies=[Depends(require_session)])

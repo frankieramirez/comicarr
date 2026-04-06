@@ -199,6 +199,7 @@ def search_init(
     digitaldate=None,
     booktype=None,
     ignore_booktype=False,
+    _ai_expanded=False,
 ):
 
     comicarr.COMICINFO = []
@@ -698,6 +699,69 @@ def search_init(
                 return findit, "None"
             elif comicarr.CONFIG.MODE_32P == 1 and searchmode == "api":
                 return findit, "None"
+
+        # AI search expansion: generate alternate queries when all providers fail
+        if not _ai_expanded and ComicID is not None:
+            try:
+                from comicarr.app.ai.search_expansion import (
+                    expand_search_queries,
+                    persist_successful_expansion,
+                )
+
+                ai_alternates = expand_search_queries(
+                    comic_id=ComicID,
+                    series_name=ComicName,
+                    publisher=Publisher,
+                    year=SeriesYear,
+                )
+                if ai_alternates:
+                    logger.fdebug(
+                        "[AI-SEARCH] Retrying search with %d AI-generated alternates for %s"
+                        % (len(ai_alternates), ComicName)
+                    )
+                    # Append AI alternates to existing AlternateSearch
+                    ai_alt_str = "##".join(ai_alternates)
+                    if AlternateSearch and AlternateSearch != "None":
+                        expanded_alt = AlternateSearch + "##" + ai_alt_str
+                    else:
+                        expanded_alt = ai_alt_str
+
+                    ai_findit, ai_prov = search_init(
+                        ComicName,
+                        IssueNumber,
+                        ComicYear,
+                        SeriesYear,
+                        Publisher,
+                        IssueDate,
+                        StoreDate,
+                        IssueID,
+                        AlternateSearch=expanded_alt,
+                        UseFuzzy=UseFuzzy,
+                        ComicVersion=ComicVersion,
+                        SARC=SARC,
+                        IssueArcID=IssueArcID,
+                        smode=smode,
+                        rsschecker=rsschecker,
+                        ComicID=ComicID,
+                        manualsearch=manualsearch,
+                        filesafe=filesafe,
+                        allow_packs=allow_packs,
+                        oneoff=oneoff,
+                        manual=manual,
+                        torrentid_32p=torrentid_32p,
+                        digitaldate=digitaldate,
+                        booktype=booktype,
+                        ignore_booktype=ignore_booktype,
+                        _ai_expanded=True,
+                    )
+                    if ai_findit.get("status") is True:
+                        # Determine which alternate worked by checking the result
+                        for alt in ai_alternates:
+                            persist_successful_expansion(ComicID, alt)
+                            break
+                        return ai_findit, ai_prov
+            except Exception as e:
+                logger.error("[AI-SEARCH] Expansion fallback error: %s" % e)
 
     return findit, "None"
 

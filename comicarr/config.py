@@ -465,6 +465,14 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "OPDS_PAGESIZE": (int, "OPDS", 30),
         "CBL_IMPORT_ISSUESONLY": (bool, "CBLImport", True),
         "CBL_IMPORT_IGNOREARCHIVED": (bool, "CBLImport", False),
+        "AI_BASE_URL": (str, "AI", None),
+        "AI_API_KEY": (str, "AI", None),
+        "AI_MODEL": (str, "AI", None),
+        "AI_TIMEOUT": (int, "AI", 30),
+        "AI_RPM_LIMIT": (int, "AI", 20),
+        "AI_DAILY_TOKEN_LIMIT": (int, "AI", 100000),
+        "AI_CIRCUIT_THRESHOLD": (int, "AI", 5),
+        "AI_CIRCUIT_COOLDOWN": (int, "AI", 300),
     }
 )
 
@@ -1213,6 +1221,7 @@ class Config(object):
                 "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url", self.MATTERMOST_WEBHOOK_URL),
                 "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url", self.DISCORD_WEBHOOK_URL),
                 "DATABASE_URL": ("Database", "database_url", self.DATABASE_URL),
+                "AI_API_KEY": ("AI", "ai_api_key", self.AI_API_KEY),
             }
         )
 
