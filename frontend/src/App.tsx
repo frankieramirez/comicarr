@@ -12,7 +12,8 @@ import { useServerEvents } from "@/hooks/useServerEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const SeriesListPage = lazy(() => import("@/pages/SeriesListPage"));
 const SeriesDetailPage = lazy(() => import("@/pages/SeriesDetailPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
 const UpcomingPage = lazy(() => import("@/pages/UpcomingPage"));
@@ -59,7 +60,8 @@ function AppContent() {
                   <Layout>
                     <Suspense fallback={null}>
                       <Routes>
-                        <Route path="/" element={<HomePage />} />
+                        <Route path="/" element={<DashboardPage />} />
+                        <Route path="/series" element={<SeriesListPage />} />
                         <Route
                           path="/series/:comicId"
                           element={<SeriesDetailPage />}

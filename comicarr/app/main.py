@@ -235,6 +235,7 @@ def create_app():
         return JSONResponse(content={"status": "ok"})
 
     from comicarr.app.ai.router import router as ai_router
+    from comicarr.app.dashboard.router import router as dashboard_router
     from comicarr.app.downloads.router import router as downloads_router
     from comicarr.app.metadata.router import router as metadata_router
     from comicarr.app.opds.router import router as opds_router
@@ -245,6 +246,7 @@ def create_app():
 
     app.include_router(system_router)
     app.include_router(ai_router)
+    app.include_router(dashboard_router)
     app.include_router(metadata_router)
     app.include_router(storyarcs_router)
     app.include_router(series_router)

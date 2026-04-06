@@ -170,7 +170,7 @@ function renderMinimal(
 export * from "@testing-library/react";
 
 // Override render with our custom render
-export { customRender as render, renderMinimal, createTestQueryClient };
+export { customRender as render, renderMinimal };
 
 // Export provider factories for custom setups
 export { createAllProviders, createMinimalProviders };

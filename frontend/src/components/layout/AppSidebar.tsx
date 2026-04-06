@@ -22,7 +22,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Home,
+  LayoutDashboard,
+  BookOpen,
   Search,
   Calendar,
   ListTodo,
@@ -63,7 +64,8 @@ export default function AppSidebar() {
   }
 
   const navItems: NavItem[] = [
-    { path: "/", label: "Series", icon: Home },
+    { path: "/", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/series", label: "Series", icon: BookOpen },
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
     { path: "/import", label: "Import", icon: FolderInput },
