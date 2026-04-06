@@ -132,8 +132,8 @@ async def lifespan(app: FastAPI):
 
     # Initialize AI client if configured
     from comicarr import logger
-    from comicarr.app.ai.client import create_ai_clients
     from comicarr.app.ai.circuit_breaker import CircuitBreaker
+    from comicarr.app.ai.client import create_ai_clients
     from comicarr.app.ai.rate_limiter import AIRateLimiter
 
     ai_config = ctx.config
