@@ -92,7 +92,12 @@ export default function SettingsPage() {
     }
 
     try {
-      await updateConfigMutation.mutateAsync(formData);
+      // Don't send empty ai_api_key — it would clear the saved key
+      const saveData = { ...formData };
+      if (!saveData.ai_api_key && config?.ai_api_key_set) {
+        delete saveData.ai_api_key;
+      }
+      await updateConfigMutation.mutateAsync(saveData);
       addToast({
         type: "success",
         message: "Settings saved successfully",

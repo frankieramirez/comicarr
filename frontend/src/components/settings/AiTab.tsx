@@ -27,6 +27,7 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
   const baseUrl = (formData.ai_base_url as string) || "";
   const apiKey = (formData.ai_api_key as string) || "";
   const model = (formData.ai_model as string) || "";
+  const apiKeyIsSet = (_config.ai_api_key_set as boolean) || false;
   const canTest = baseUrl.length > 0 && model.length > 0;
 
   const handleTestConnection = async () => {
@@ -71,11 +72,17 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
         />
         <SettingField
           label="API Key"
-          value={formData.ai_api_key as string | undefined}
+          value={apiKey}
           type="password"
           onChange={(value) => onChange("ai_api_key", value as string)}
-          placeholder="sk-..."
-          helpText="API key for the provider (leave empty if not required)"
+          placeholder={
+            apiKeyIsSet ? "Key saved (enter new value to change)" : "sk-..."
+          }
+          helpText={
+            apiKeyIsSet && !apiKey
+              ? "API key is configured. Enter a new value to change it."
+              : "API key for the provider (leave empty if not required)"
+          }
         />
         <SettingField
           label="Model Name"

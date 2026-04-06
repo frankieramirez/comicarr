@@ -33,12 +33,16 @@ async def ai_status():
 
 
 @router.post("/test", dependencies=[Depends(require_session)])
-async def ai_test(request: Request):
+async def ai_test(request: Request, ctx: AppContext = Depends(get_context)):
     """Test an AI connection with provided credentials."""
     body = await request.json()
     base_url = body.get("base_url", "")
     api_key = body.get("api_key", "")
     model = body.get("model", "")
+
+    # Fall back to saved API key if user didn't provide a new one
+    if not api_key and ctx.config:
+        api_key = getattr(ctx.config, "AI_API_KEY", "") or ""
 
     if not base_url or not api_key or not model:
         return JSONResponse(
