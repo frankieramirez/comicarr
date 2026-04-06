@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.1](https://github.com/frankieramirez/comicarr/compare/v0.10.0...v0.10.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* Replace MySQL-only right/concat with SQLite-compatible substr ([#101](https://github.com/frankieramirez/comicarr/issues/101)) ([4cd03a5](https://github.com/frankieramirez/comicarr/commit/4cd03a5c55541aaa5ce841595c43ab96caacec04))
+
 ## [0.10.0](https://github.com/frankieramirez/comicarr/compare/v0.9.8...v0.10.0) (2026-04-06)
 
 
