@@ -1614,6 +1614,20 @@ class FileChecker(object):
                     )
 
                 if not bythepass:
+                    # AI fallback — attempt LLM-based parsing before giving up
+                    try:
+                        from comicarr.app.ai.parsing import ai_parse_filename
+                        ai_result = ai_parse_filename(
+                            filename=filename,
+                            watchcomic=self.watchcomic,
+                        )
+                        if ai_result is not None:
+                            ai_result["sub"] = path_list
+                            ai_result["comiclocation"] = self.dir
+                            return ai_result
+                    except Exception as e:
+                        logger.error('[AI-PARSE] Fallback error: %s' % e)
+
                     if series_name is not None:
                         dreplace = self.dynamic_replace(series_name)["mod_seriesname"]
                     else:
