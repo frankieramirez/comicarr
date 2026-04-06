@@ -244,10 +244,12 @@ def create_app():
     from comicarr.app.series.router import router as series_router
     from comicarr.app.storyarcs.router import router as storyarcs_router
     from comicarr.app.system.router import router as system_router
+    from comicarr.app.weekly.router import router as weekly_router
 
     app.include_router(system_router)
     app.include_router(ai_router)
     app.include_router(dashboard_router)
+    app.include_router(weekly_router)
     app.include_router(metadata_router)
     app.include_router(storyarcs_router)
     app.include_router(series_router)
