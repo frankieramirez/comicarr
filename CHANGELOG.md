@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0](https://github.com/frankieramirez/comicarr/compare/v0.10.4...v0.11.0) (2026-04-06)
+
+
+### Features
+
+* Elevate manga to first-class citizen with full parity ([#110](https://github.com/frankieramirez/comicarr/issues/110)) ([ec68bbb](https://github.com/frankieramirez/comicarr/commit/ec68bbb9e1678e2d87d13d6ba1df4293d65035f1))
+
+
+### Bug Fixes
+
+* Add error fallback for broken images in Recent Downloads ([#108](https://github.com/frankieramirez/comicarr/issues/108)) ([8c63f74](https://github.com/frankieramirez/comicarr/commit/8c63f747a118bb921c0e7d41dd0243af2716497b))
+
 ## [0.10.4](https://github.com/frankieramirez/comicarr/compare/v0.10.3...v0.10.4) (2026-04-06)
 
 
