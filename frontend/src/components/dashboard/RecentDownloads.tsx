@@ -87,9 +87,9 @@ export default function RecentDownloads({
                 to={`/series/${item.ComicID}`}
                 className="flex items-center gap-3 rounded-lg p-2 -mx-2 transition-colors hover:bg-muted/50"
               >
-                {item.ComicImage ? (
+                {item.ComicID ? (
                   <img
-                    src={item.ComicImage}
+                    src={`/api/metadata/art/${item.ComicID}`}
                     alt={item.ComicName}
                     className="h-10 w-10 rounded object-cover"
                   />

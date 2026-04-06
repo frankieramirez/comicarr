@@ -121,6 +121,7 @@ class TestGetDashboardData:
     @patch("comicarr.app.dashboard.service.comicarr")
     def test_ai_not_configured(self, mock_comicarr, mock_db):
         mock_comicarr.AI_CLIENT = None
+        mock_comicarr.CONFIG.AI_BASE_URL = None
         fake_db = _FakeDBConnection(select_results={"snatched": [], "futureupcoming": []})
         mock_db.DBConnection.return_value = fake_db
 
@@ -135,6 +136,7 @@ class TestGetDashboardData:
     @patch("comicarr.app.dashboard.service.comicarr")
     def test_handles_empty_tables(self, mock_comicarr, mock_db):
         mock_comicarr.AI_CLIENT = None
+        mock_comicarr.CONFIG.AI_BASE_URL = None
         fake_db = _FakeDBConnection(
             select_results={"snatched": [], "futureupcoming": []},
             selectone_result=[],
