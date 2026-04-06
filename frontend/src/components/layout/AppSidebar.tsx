@@ -27,6 +27,7 @@ import {
   Search,
   Calendar,
   ListTodo,
+  Newspaper,
   Settings,
   LogOut,
   Moon,
@@ -68,6 +69,7 @@ export default function AppSidebar() {
     { path: "/series", label: "Series", icon: BookOpen },
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
+    { path: "/weekly", label: "Weekly", icon: Newspaper },
     { path: "/import", label: "Import", icon: FolderInput },
   ];
 

@@ -22,6 +22,7 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const StoryArcsPage = lazy(() => import("@/pages/StoryArcsPage"));
 const StoryArcDetailPage = lazy(() => import("@/pages/StoryArcDetailPage"));
 const ImportPage = lazy(() => import("@/pages/ImportPage"));
+const WeeklyPage = lazy(() => import("@/pages/WeeklyPage"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -74,6 +75,7 @@ function AppContent() {
                           path="/story-arcs/:storyArcId"
                           element={<StoryArcDetailPage />}
                         />
+                        <Route path="/weekly" element={<WeeklyPage />} />
                         <Route path="/import" element={<ImportPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
