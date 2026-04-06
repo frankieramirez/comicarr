@@ -14,10 +14,12 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          'vendor-table': ['@tanstack/react-table', 'nuqs', 'zod'],
+        manualChunks(id) {
+          if (id.includes('@tanstack/react-table') || id.includes('nuqs') || id.includes('zod')) {
+            return 'vendor-table'
+          }
         },
       },
     },

@@ -70,7 +70,7 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^6.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "@vitest/ui": "^4.1.0",
     "autoprefixer": "^10.4.23",
@@ -86,7 +86,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
-    "vite": "^7.2.4",
+    "vite": "^8.0.3",
     "vitest": "^4.1.0"
   }
 }
