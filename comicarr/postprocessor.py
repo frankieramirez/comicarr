@@ -566,7 +566,9 @@ class PostProcessor(object):
 
         # --- Manga branch: if the comicid is a MangaDex ID, use manga-specific processing ---
         if self.comicid is not None and str(self.comicid).startswith("md-"):
-            logger.fdebug("%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid))
+            logger.fdebug(
+                "%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid)
+            )
             self._log("Manga series detected - using manga post-processing path")
             return self._process_manga()
 
@@ -4292,10 +4294,7 @@ class PostProcessor(object):
                     {"Status": "Downloaded", "Location": filename},
                     {"IssueID": issueid},
                 )
-                logger.info(
-                    "%s Matched and marked downloaded: %s (IssueID: %s)"
-                    % (module, filename, issueid)
-                )
+                logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
                 self._log("Matched to chapter IssueID: %s" % issueid)
 
                 # Clean up nzblog entry
@@ -4312,15 +4311,14 @@ class PostProcessor(object):
                 last_matched_issueid = issueid
                 processed += 1
             else:
-                logger.warn(
-                    "%s Unable to match %s to any chapter for %s"
-                    % (module, filename, series_name)
-                )
+                logger.warn("%s Unable to match %s to any chapter for %s" % (module, filename, series_name))
 
         # Update Have count for the series
         if processed > 0:
             have_count = db.select_one(
-                select(func.count()).select_from(issues).where(
+                select(func.count())
+                .select_from(issues)
+                .where(
                     and_(
                         issues.c.ComicID == self.comicid,
                         issues.c.Status == "Downloaded",

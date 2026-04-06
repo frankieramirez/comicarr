@@ -89,9 +89,7 @@ def get_dashboard_data(ctx):
             result["stats"]["manga_series"] = manga_stats.get("manga_series", 0)
             result["stats"]["manga_have"] = manga_have
             result["stats"]["manga_total"] = manga_total
-            result["stats"]["manga_completion_pct"] = (
-                round(manga_have / manga_total * 100, 1) if manga_total > 0 else 0
-            )
+            result["stats"]["manga_completion_pct"] = round(manga_have / manga_total * 100, 1) if manga_total > 0 else 0
 
         # Comic-specific stats (non-manga)
         comic_stats = db.DBConnection().selectone(

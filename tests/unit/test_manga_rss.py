@@ -73,6 +73,7 @@ def _isolate_module():
 class TestMangaCheck:
     """Tests for mangaCheck() — wanted chapter search triggering."""
 
+    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.rsscheck.helpers")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
@@ -177,6 +178,7 @@ class TestMangaCheck:
 # ---------------------------------------------------------------------------
 
 
+@patch("comicarr.CONFIG", MagicMock())
 class TestMangadexNewChapterCheck:
     """Tests for mangadexNewChapterCheck() — MangaDex polling for new chapters."""
 

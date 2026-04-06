@@ -1916,9 +1916,7 @@ def mangaCheck():
         if not wanted_chapters:
             continue
 
-        logger.info(
-            "[MANGA-RSS] %s has %d wanted chapter(s)" % (comic_name, len(wanted_chapters))
-        )
+        logger.info("[MANGA-RSS] %s has %d wanted chapter(s)" % (comic_name, len(wanted_chapters)))
 
         for chapter in wanted_chapters:
             issue_id = chapter["IssueID"]
@@ -1957,10 +1955,7 @@ def mangaCheck():
                 )
                 total_searched += 1
             except Exception as e:
-                logger.error(
-                    "[MANGA-RSS] Error searching for %s chapter %s: %s"
-                    % (comic_name, chapter_number, e)
-                )
+                logger.error("[MANGA-RSS] Error searching for %s chapter %s: %s" % (comic_name, chapter_number, e))
 
     logger.info("[MANGA-RSS] Manga search complete — searched %d chapter(s)" % total_searched)
 
@@ -1997,9 +1992,7 @@ def mangadexNewChapterCheck():
         logger.info("[MANGA-RSS] No active MangaDex manga series found")
         return
 
-    logger.info(
-        "[MANGA-RSS] Checking MangaDex for new chapters across %d series" % len(manga_series)
-    )
+    logger.info("[MANGA-RSS] Checking MangaDex for new chapters across %d series" % len(manga_series))
 
     total_new = 0
 
@@ -2026,9 +2019,7 @@ def mangadexNewChapterCheck():
         try:
             mdx_chapters = mangadex.get_all_chapters(comic_id)
         except Exception as e:
-            logger.error(
-                "[MANGA-RSS] Error fetching MangaDex chapters for %s: %s" % (comic_name, e)
-            )
+            logger.error("[MANGA-RSS] Error fetching MangaDex chapters for %s: %s" % (comic_name, e))
             continue
 
         if not mdx_chapters:
@@ -2077,21 +2068,12 @@ def mangadexNewChapterCheck():
                     {"IssueID": issue_id},
                 )
                 new_count += 1
-                logger.fdebug(
-                    "[MANGA-RSS] Added wanted chapter %s for %s" % (ch_num, comic_name)
-                )
+                logger.fdebug("[MANGA-RSS] Added wanted chapter %s for %s" % (ch_num, comic_name))
             except Exception as e:
-                logger.error(
-                    "[MANGA-RSS] Error inserting chapter %s for %s: %s"
-                    % (ch_num, comic_name, e)
-                )
+                logger.error("[MANGA-RSS] Error inserting chapter %s for %s: %s" % (ch_num, comic_name, e))
 
         if new_count > 0:
-            logger.info(
-                "[MANGA-RSS] Added %d new wanted chapter(s) for %s" % (new_count, comic_name)
-            )
+            logger.info("[MANGA-RSS] Added %d new wanted chapter(s) for %s" % (new_count, comic_name))
             total_new += new_count
 
-    logger.info(
-        "[MANGA-RSS] MangaDex check complete — added %d new wanted chapter(s) total" % total_new
-    )
+    logger.info("[MANGA-RSS] MangaDex check complete — added %d new wanted chapter(s) total" % total_new)
