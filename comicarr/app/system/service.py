@@ -150,7 +150,9 @@ def get_safe_config(ctx):
 
     safe_keys = [
         "COMIC_DIR",
+        "MANGA_DIR",
         "DESTINATION_DIR",
+        "MANGA_DESTINATION_DIR",
         "CACHE_DIR",
         "LOG_DIR",
         "HTTP_HOST",

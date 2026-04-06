@@ -200,6 +200,9 @@ def search_init(
     booktype=None,
     ignore_booktype=False,
     _ai_expanded=False,
+    content_type=None,
+    chapter_number=None,
+    volume_number=None,
 ):
 
     comicarr.COMICINFO = []
@@ -247,6 +250,21 @@ def search_init(
         logger.fdebug("Story-ARC Search parameters:")
         logger.fdebug("Story-ARC: %s" % SARC)
         logger.fdebug("IssueArcID: %s" % IssueArcID)
+
+    # --- Manga content-type branch ---
+    # When searching for manga chapters, construct manga-specific query terms
+    # and inject them as AlternateSearch patterns. The rest of the search pipeline
+    # (providers, matching, snatching) works unchanged.
+    if content_type == "manga":
+        logger.fdebug("[SEARCH-MANGA] Manga content detected for %s" % ComicName)
+        manga_terms = _build_manga_search_terms(ComicName, chapter_number, volume_number)
+        if manga_terms:
+            manga_alt_str = "##".join(manga_terms)
+            logger.fdebug("[SEARCH-MANGA] Generated %d search variations: %s" % (len(manga_terms), manga_terms))
+            if AlternateSearch and AlternateSearch != "None":
+                AlternateSearch = manga_alt_str + "##" + AlternateSearch
+            else:
+                AlternateSearch = manga_alt_str
 
     provider_list = provider_order(initial_run=True)
     findit = {}
@@ -753,6 +771,9 @@ def search_init(
                         booktype=booktype,
                         ignore_booktype=ignore_booktype,
                         _ai_expanded=True,
+                        content_type=content_type,
+                        chapter_number=chapter_number,
+                        volume_number=volume_number,
                     )
                     if ai_findit.get("status") is True:
                         # Determine which alternate worked by checking the result
@@ -4359,6 +4380,76 @@ def searchforissue_checker(issueid, storedate, issuedate, digitaldate, info):
         return {"status": True, "reason": None}
     else:
         return {"status": False, "reason": "invalid issueid"}
+
+
+def _build_manga_search_terms(series_name, chapter_num, volume_num):
+    """Build manga-specific search query variations.
+
+    Returns a list of search term strings suitable for NZB/torrent providers.
+    Each variation covers a common manga release naming convention:
+      - chapter-only:   "Series Name" c001 / "Series Name" chapter 001
+      - volume-only:    "Series Name" v01
+      - combined:       "Series Name" v01c001
+
+    Args:
+        series_name: The manga series title (e.g. "One Piece").
+        chapter_num: Chapter number as string or None.
+        volume_num:  Volume number as string or None.
+
+    Returns:
+        List of search term strings (may be empty if both chapter and volume
+        are None).
+    """
+    terms = []
+    if not series_name:
+        return terms
+
+    # Normalize the series name — strip leading/trailing whitespace
+    name = series_name.strip()
+
+    # Zero-pad chapter and volume for consistent matching
+    ch_padded = None
+    if chapter_num is not None:
+        try:
+            ch_float = float(chapter_num)
+            if ch_float == int(ch_float):
+                ch_padded = "%03d" % int(ch_float)
+            else:
+                # Decimal chapters like 10.5 — pad integer part only
+                ch_padded = "%03d.%s" % (int(ch_float), str(round(ch_float % 1, 1))[2:])
+        except (ValueError, TypeError):
+            logger.fdebug("[SEARCH-MANGA] Could not parse chapter number: %s" % chapter_num)
+            ch_padded = str(chapter_num)
+
+    vol_padded = None
+    if volume_num is not None:
+        try:
+            vol_int = int(volume_num)
+            vol_padded = "%02d" % vol_int
+        except (ValueError, TypeError):
+            logger.fdebug("[SEARCH-MANGA] Could not parse volume number: %s" % volume_num)
+            vol_padded = str(volume_num)
+
+    # Build variations in priority order (most specific first)
+    if ch_padded and vol_padded:
+        # Combined: "Series Name" v01c001
+        terms.append("%s v%sc%s" % (name, vol_padded, ch_padded))
+
+    if ch_padded:
+        # Short chapter: "Series Name" c001
+        terms.append("%s c%s" % (name, ch_padded))
+        # Long chapter: "Series Name" chapter 001
+        terms.append("%s chapter %s" % (name, ch_padded))
+
+    if vol_padded:
+        # Volume only: "Series Name" v01
+        terms.append("%s v%s" % (name, vol_padded))
+
+    logger.fdebug(
+        "[SEARCH-MANGA] Built %d search terms for %s (ch=%s, vol=%s)" % (len(terms), name, chapter_num, volume_num)
+    )
+
+    return terms
 
 
 def get_findcomiciss(IssueNumber):

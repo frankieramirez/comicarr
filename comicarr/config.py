@@ -184,7 +184,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "METRON_USERNAME": (str, "Metron", None),
         "METRON_PASSWORD": (str, "Metron", None),
         "USE_METRON_SEARCH": (bool, "Metron", False),
-        "MANGADEX_ENABLED": (bool, "MangaDex", False),
+        "MANGADEX_ENABLED": (bool, "MangaDex", True),
         "MANGADEX_LANGUAGES": (str, "MangaDex", "en"),
         "MANGADEX_CONTENT_RATING": (str, "MangaDex", "safe,suggestive"),
         "LOG_DIR": (str, "Logs", None),
@@ -204,6 +204,8 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "CHGROUP": (str, "Perms", None),
         "ADD_COMICS": (bool, "Import", False),
         "COMIC_DIR": (str, "Import", None),
+        "MANGA_DIR": (str, "Import", None),
+        "MANGA_DESTINATION_DIR": (str, "General", None),
         "IMP_MOVE": (bool, "Import", False),
         "IMP_PATHS": (bool, "Import", False),
         "IMP_RENAME": (bool, "Import", False),
@@ -1516,6 +1518,9 @@ class Config(object):
             if any([self.DESTINATION_DIR is None, self.DESTINATION_DIR == ""]):
                 logger.info("[DOCKER-AWARE] Setting default comic location path to /comics")
                 self.DESTINATION_DIR = "/comics"
+            if any([self.MANGA_DESTINATION_DIR is None, self.MANGA_DESTINATION_DIR == ""]):
+                logger.info("[DOCKER-AWARE] Setting default manga location path to /manga")
+                self.MANGA_DESTINATION_DIR = "/manga"
             if all([self.NZB_DOWNLOADER == 0, self.SAB_DIRECTORY is None, self.SAB_DIRECT_UNPACK is False]):
                 logger.info("[DOCKER-AWARE] Setting default sabnzbd download directory location to /downloads")
                 self.SAB_DIRECT_UNPACK = True
@@ -2326,6 +2331,16 @@ class Config(object):
             if write is True:
                 logger.fdebug("writing: keys - %s: vals - %s" % (vals, ctrls))
                 db.upsert("provider_searches", vals, ctrls)
+
+
+def get_manga_destination():
+    """Return the manga destination directory using the fallback chain.
+
+    Fallback order: MANGA_DESTINATION_DIR -> MANGA_DIR -> DESTINATION_DIR.
+    MANGA_DIR is included in the fallback because users who only configure a
+    scan source directory expect downloads to land alongside existing files.
+    """
+    return comicarr.CONFIG.MANGA_DESTINATION_DIR or comicarr.CONFIG.MANGA_DIR or comicarr.CONFIG.DESTINATION_DIR
 
 
 def ddl_creations():

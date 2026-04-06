@@ -122,3 +122,53 @@ export function useRefreshImport(): UseMutationResult<
     },
   });
 }
+
+// Manga scan hooks
+
+interface MangaScanResponse {
+  success: boolean;
+  message: string;
+}
+
+interface MangaScanProgress {
+  status: string | null;
+  progress: {
+    total_files: number;
+    processed_files: number;
+    series_found: number;
+    series_matched: number;
+    series_imported: number;
+    current_series: string | null;
+    errors: string[];
+  };
+}
+
+export function useMangaScan(): UseMutationResult<
+  MangaScanResponse,
+  Error,
+  void
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<MangaScanResponse>("POST", "/api/import/manga/scan"),
+    onSuccess: () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["mangaScanProgress"] });
+        queryClient.invalidateQueries({ queryKey: ["series"] });
+      }, 2000);
+    },
+  });
+}
+
+export function useMangaScanProgress(
+  enabled = false,
+): UseQueryResult<MangaScanProgress> {
+  return useQuery({
+    queryKey: ["mangaScanProgress"],
+    queryFn: () =>
+      apiRequest<MangaScanProgress>("GET", "/api/import/manga/progress"),
+    enabled,
+    refetchInterval: enabled ? 2000 : false,
+  });
+}

@@ -221,6 +221,23 @@ def refresh_import(ctx: AppContext = Depends(get_context)):
     return result
 
 
+@router.post("/import/manga/scan", dependencies=[Depends(require_session)])
+def manga_scan(ctx: AppContext = Depends(get_context)):
+    """Trigger a manga library scan."""
+    result = series_service.manga_library_scan(ctx)
+    if not result["success"]:
+        return JSONResponse(status_code=400, content={"detail": result.get("error")})
+    return result
+
+
+@router.get("/import/manga/progress", dependencies=[Depends(require_session)])
+def manga_scan_progress(ctx: AppContext = Depends(get_context)):
+    """Get manga scan progress."""
+    from comicarr import mangasync
+
+    return mangasync.get_scan_progress()
+
+
 # ---------------------------------------------------------------------------
 # REST-compat endpoints (migrated from legacy /rest mount)
 # ---------------------------------------------------------------------------

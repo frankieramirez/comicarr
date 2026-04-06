@@ -58,7 +58,7 @@ def get_dashboard_data(ctx):
     except Exception as e:
         logger.error("[DASHBOARD] Error fetching upcoming: %s" % e)
 
-    # Stats: aggregate from comics
+    # Stats: aggregate from comics (combined + per content type)
     try:
         stats = db.DBConnection().selectone(
             "SELECT COUNT(*) as total_series, "
@@ -75,6 +75,33 @@ def get_dashboard_data(ctx):
                 "total_expected": total_expected,
                 "completion_pct": round(total_issues / total_expected * 100, 1) if total_expected > 0 else 0,
             }
+
+        # Manga-specific stats
+        manga_stats = db.DBConnection().selectone(
+            "SELECT COUNT(*) as manga_series, "
+            "COALESCE(SUM(Have), 0) as manga_have, "
+            "COALESCE(SUM(Total), 0) as manga_total "
+            "FROM comics WHERE Status != 'Paused' AND ContentType = 'manga'"
+        )
+        if manga_stats:
+            manga_total = manga_stats.get("manga_total", 0) or 0
+            manga_have = manga_stats.get("manga_have", 0) or 0
+            result["stats"]["manga_series"] = manga_stats.get("manga_series", 0)
+            result["stats"]["manga_have"] = manga_have
+            result["stats"]["manga_total"] = manga_total
+            result["stats"]["manga_completion_pct"] = round(manga_have / manga_total * 100, 1) if manga_total > 0 else 0
+
+        # Comic-specific stats (non-manga)
+        comic_stats = db.DBConnection().selectone(
+            "SELECT COUNT(*) as comic_series, "
+            "COALESCE(SUM(Have), 0) as comic_have, "
+            "COALESCE(SUM(Total), 0) as comic_total "
+            "FROM comics WHERE Status != 'Paused' AND (ContentType IS NULL OR ContentType = 'comic')"
+        )
+        if comic_stats:
+            result["stats"]["comic_series"] = comic_stats.get("comic_series", 0)
+            result["stats"]["comic_have"] = comic_stats.get("comic_have", 0) or 0
+            result["stats"]["comic_total"] = comic_stats.get("comic_total", 0) or 0
     except Exception as e:
         logger.error("[DASHBOARD] Error fetching stats: %s" % e)
 

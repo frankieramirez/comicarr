@@ -3,11 +3,40 @@ import { SettingField } from "./SettingField";
 
 interface GeneralTabProps {
   config: Record<string, unknown>;
+  formData: Record<string, unknown>;
+  onChange: (key: string, value: string | boolean) => void;
 }
 
-export function GeneralTab({ config }: GeneralTabProps) {
+export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
+  const comicvineEnabled = (formData.comicvine_enabled as boolean) ?? true;
+  const mangadexEnabled = (formData.mangadex_enabled as boolean) ?? false;
+
   return (
     <div className="space-y-6">
+      <SettingGroup
+        title="Content Sources"
+        description="Choose which content sources to enable. At least one must be active."
+      >
+        <SettingField
+          label="Comics (Comic Vine)"
+          type="checkbox"
+          checked={comicvineEnabled}
+          onChange={(checked) =>
+            onChange("comicvine_enabled", checked as boolean)
+          }
+          helpText="Enable comic search and metadata from Comic Vine"
+        />
+        <SettingField
+          label="Manga (MangaDex)"
+          type="checkbox"
+          checked={mangadexEnabled}
+          onChange={(checked) =>
+            onChange("mangadex_enabled", checked as boolean)
+          }
+          helpText="Enable manga search and metadata from MangaDex"
+        />
+      </SettingGroup>
+
       <SettingGroup
         title="Directories"
         description="These paths are configured in your config.ini file and are read-only."
@@ -25,6 +54,20 @@ export function GeneralTab({ config }: GeneralTabProps) {
           type="text"
           readOnly
           helpText="Default destination for downloaded comics"
+        />
+        <SettingField
+          label="Manga Directory"
+          value={config.manga_dir as string | undefined}
+          type="text"
+          readOnly
+          helpText="Location where your manga library is stored"
+        />
+        <SettingField
+          label="Manga Destination Directory"
+          value={config.manga_destination_dir as string | undefined}
+          type="text"
+          readOnly
+          helpText="Default destination for downloaded manga (falls back to Manga Directory, then Destination Directory)"
         />
         <SettingField
           label="Cache Directory"

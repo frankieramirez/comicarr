@@ -177,7 +177,11 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="general">
-          <GeneralTab config={formData} />
+          <GeneralTab
+            config={(config ?? {}) as Record<string, unknown>}
+            formData={formData}
+            onChange={handleChange}
+          />
         </TabsContent>
 
         <TabsContent value="interface">

@@ -1,14 +1,18 @@
-import { useState } from "react";
-import { RefreshCw, EyeOff, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { RefreshCw, EyeOff, Eye, BookOpen } from "lucide-react";
 import {
   useImportPending,
   useMatchImport,
   useIgnoreImport,
   useDeleteImport,
   useRefreshImport,
+  useMangaScan,
+  useMangaScanProgress,
 } from "@/hooks/useImport";
+import { useConfig } from "@/hooks/useConfig";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -39,6 +43,11 @@ export default function ImportPage() {
   const ignoreImportMutation = useIgnoreImport();
   const deleteImportMutation = useDeleteImport();
   const refreshImportMutation = useRefreshImport();
+  const mangaScanMutation = useMangaScan();
+  const { data: appConfig } = useConfig();
+  const mangaDirConfigured = !!appConfig?.manga_dir;
+  const [mangaScanning, setMangaScanning] = useState(false);
+  const { data: mangaProgress } = useMangaScanProgress(mangaScanning);
   const { addToast } = useToast();
 
   const handleRefreshImport = async () => {
@@ -55,6 +64,35 @@ export default function ImportPage() {
       });
     }
   };
+
+  const handleMangaScan = async () => {
+    try {
+      await mangaScanMutation.mutateAsync();
+      setMangaScanning(true);
+      addToast({
+        type: "info",
+        message: "Manga library scan started. This may take a few moments.",
+      });
+    } catch (err) {
+      addToast({
+        type: "error",
+        message: `Failed to start manga scan: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
+    }
+  };
+
+  // Stop polling when scan reaches a terminal state
+  const scanStatus = mangaProgress?.status;
+  const scanTerminal =
+    mangaScanning && (scanStatus === "completed" || scanStatus === "error");
+  useEffect(() => {
+    if (!scanTerminal) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync polling state with server-driven terminal status
+    setMangaScanning(false);
+    if (scanStatus === "error") {
+      addToast({ type: "error", message: "Manga scan failed" });
+    }
+  }, [scanTerminal, scanStatus, addToast]);
 
   const handleMatchClick = (group: ImportGroup) => {
     setMatchingGroup(group);
@@ -169,6 +207,49 @@ export default function ImportPage() {
           {(pagination?.total || imports.length) !== 1 ? "s" : ""}
         </p>
       </div>
+
+      <Card className="mb-6">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <h3 className="font-semibold">Manga Library Scan</h3>
+                <p className="text-sm text-muted-foreground">
+                  {mangaDirConfigured
+                    ? "Scan your manga directory to import existing collections"
+                    : "Configure a Manga Directory in Settings to enable scanning"}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleMangaScan}
+              disabled={
+                !mangaDirConfigured ||
+                mangaScanMutation.isPending ||
+                mangaScanning
+              }
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${mangaScanning ? "animate-spin" : ""}`}
+              />
+              Scan Manga Library
+            </Button>
+          </div>
+          {mangaScanning && mangaProgress?.progress && (
+            <div className="mt-4 text-sm text-muted-foreground space-y-1">
+              <p>
+                Series found: {mangaProgress.progress.series_found} | Matched:{" "}
+                {mangaProgress.progress.series_matched} | Imported:{" "}
+                {mangaProgress.progress.series_imported}
+              </p>
+              {mangaProgress.progress.current_series && (
+                <p>Processing: {mangaProgress.progress.current_series}</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
