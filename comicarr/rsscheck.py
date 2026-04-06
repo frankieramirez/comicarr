@@ -1897,15 +1897,14 @@ def mangaCheck():
 
     total_searched = 0
 
+    wanted_statuses = ["Wanted"]
+    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+        wanted_statuses.append("Failed")
+
     for series in manga_series:
         comic_id = series["ComicID"]
         comic_name = series["ComicName"]
         series_year = series.get("ComicYear") or str(datetime.now().year)
-
-        # Get wanted chapters for this series
-        wanted_statuses = ["Wanted"]
-        if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
-            wanted_statuses.append("Failed")
 
         wanted_chapters = db.select_all(
             select(t_issues).where(
@@ -1952,6 +1951,9 @@ def mangaCheck():
                     filesafe=series.get("ComicName_Filesafe"),
                     booktype="manga",
                     digitaldate=digital_date,
+                    content_type="manga",
+                    chapter_number=str(chapter_number),
+                    volume_number=chapter.get("VolumeNumber"),
                 )
                 total_searched += 1
             except Exception as e:
@@ -2045,7 +2047,7 @@ def mangadexNewChapterCheck():
                 continue
 
             # Build an IssueID for the new chapter
-            issue_id = "md-%s-ch-%s" % (comic_id[3:], ch_num)
+            issue_id = "%s-ch%s" % (comic_id, ch_num)
             if issue_id in existing_issue_ids:
                 continue
 

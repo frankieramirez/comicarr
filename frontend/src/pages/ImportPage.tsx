@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RefreshCw, EyeOff, Eye, BookOpen } from "lucide-react";
 import {
   useImportPending,
@@ -81,10 +81,18 @@ export default function ImportPage() {
     }
   };
 
-  // Stop polling when scan completes
-  if (mangaScanning && mangaProgress?.status === "completed") {
+  // Stop polling when scan reaches a terminal state
+  const scanStatus = mangaProgress?.status;
+  const scanTerminal =
+    mangaScanning && (scanStatus === "completed" || scanStatus === "error");
+  useEffect(() => {
+    if (!scanTerminal) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync polling state with server-driven terminal status
     setMangaScanning(false);
-  }
+    if (scanStatus === "error") {
+      addToast({ type: "error", message: "Manga scan failed" });
+    }
+  }, [scanTerminal, scanStatus, addToast]);
 
   const handleMatchClick = (group: ImportGroup) => {
     setMatchingGroup(group);

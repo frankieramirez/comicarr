@@ -4194,9 +4194,14 @@ class PostProcessor(object):
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
 
-        series_folder = comicnzb.get("ComicLocation") or os.path.join(
-            manga_dest, helpers.filesafe(series_name) if hasattr(helpers, "filesafe") else re.sub(r'[<>:"/\\|?*]', "_", series_name)
-        )
+        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+
+        # Validate series_folder is within manga destination
+        if not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
+            self._log("Series folder is outside manga destination — refusing to write")
+            logger.error("%s Series folder %s is outside manga destination %s" % (module, series_folder, manga_dest))
+            self.valreturn.append({"self.log": self.log, "mode": "stop"})
+            return self.queue.put(self.valreturn)
 
         # Ensure the series folder exists
         if not os.path.isdir(series_folder):
@@ -4217,6 +4222,11 @@ class PostProcessor(object):
             parsed = parse_manga_filename(filename)
             self._log("Found manga file: %s" % filename)
 
+            # Validate source path is within download directory
+            if not os.path.realpath(filepath).startswith(os.path.realpath(nzb_dir)):
+                logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
+                continue
+
             # Move/copy file to series folder
             dst = os.path.join(series_folder, filename)
             try:
@@ -4233,7 +4243,7 @@ class PostProcessor(object):
             # Try ChapterNumber column first
             if parsed and parsed.get("chapter_number") is not None:
                 ch_num = parsed["chapter_number"]
-                ch_str = str(int(ch_num) if ch_num == int(ch_num) else ch_num)
+                ch_str = "%g" % ch_num
                 matching = db.select_one(
                     select(issues).where(
                         and_(

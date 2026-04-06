@@ -38,7 +38,7 @@ def _make_series(comic_id="md-abc123", name="One Piece", year="1999", status="Ac
     }
 
 
-def _make_chapter(comic_id="md-abc123", issue_id="md-abc123-ch-100", ch_num="100", status="Wanted"):
+def _make_chapter(comic_id="md-abc123", issue_id="md-abc123-ch100", ch_num="100", status="Wanted"):
     return {
         "IssueID": issue_id,
         "ComicID": comic_id,
@@ -136,8 +136,8 @@ class TestMangaCheck:
     @patch("comicarr.search.search_init")
     def test_handles_search_error_gracefully(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
-        ch1 = _make_chapter(ch_num="100", issue_id="md-abc123-ch-100")
-        ch2 = _make_chapter(ch_num="101", issue_id="md-abc123-ch-101")
+        ch1 = _make_chapter(ch_num="100", issue_id="md-abc123-ch100")
+        ch2 = _make_chapter(ch_num="101", issue_id="md-abc123-ch101")
 
         mock_db.select_all.side_effect = [
             [series],
@@ -233,7 +233,7 @@ class TestMangadexNewChapterCheck:
         assert value_dict["Status"] == "Wanted"
         assert value_dict["VolumeNumber"] == "1"
         key_dict = first_call[0][2]
-        assert key_dict["IssueID"] == "md-abc123-ch-1"
+        assert key_dict["IssueID"] == "md-abc123-ch1"
 
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.mangadex.get_all_chapters")
@@ -242,7 +242,7 @@ class TestMangadexNewChapterCheck:
 
         mock_db.select_all.side_effect = [
             [series],
-            [{"IssueID": "md-abc123-ch-1", "ChapterNumber": "1"}],  # ch 1 exists
+            [{"IssueID": "md-abc123-ch1", "ChapterNumber": "1"}],  # ch 1 exists
         ]
         mock_get_chapters.return_value = [
             {"id": "ch-uuid-1", "chapter": "1", "volume": None, "title": "Ch 1"},

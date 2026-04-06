@@ -2336,15 +2336,11 @@ class Config(object):
 def get_manga_destination():
     """Return the manga destination directory using the fallback chain.
 
-    Fallback order: MANGA_DESTINATION_DIR -> MANGA_DIR -> DESTINATION_DIR
+    Fallback order: MANGA_DESTINATION_DIR -> MANGA_DIR -> DESTINATION_DIR.
+    MANGA_DIR is included in the fallback because users who only configure a
+    scan source directory expect downloads to land alongside existing files.
     """
-    dest = getattr(comicarr.CONFIG, "MANGA_DESTINATION_DIR", None)
-    if dest:
-        return dest
-    manga_dir = getattr(comicarr.CONFIG, "MANGA_DIR", None)
-    if manga_dir:
-        return manga_dir
-    return getattr(comicarr.CONFIG, "DESTINATION_DIR", None)
+    return comicarr.CONFIG.MANGA_DESTINATION_DIR or comicarr.CONFIG.MANGA_DIR or comicarr.CONFIG.DESTINATION_DIR
 
 
 def ddl_creations():

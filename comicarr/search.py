@@ -4415,8 +4415,8 @@ def _build_manga_search_terms(series_name, chapter_num, volume_num):
             if ch_float == int(ch_float):
                 ch_padded = "%03d" % int(ch_float)
             else:
-                # Decimal chapters like 10.5
-                ch_padded = "%06.1f" % ch_float
+                # Decimal chapters like 10.5 — pad integer part only
+                ch_padded = "%03d.%s" % (int(ch_float), str(round(ch_float % 1, 1))[2:])
         except (ValueError, TypeError):
             logger.fdebug("[SEARCH-MANGA] Could not parse chapter number: %s" % chapter_num)
             ch_padded = str(chapter_num)

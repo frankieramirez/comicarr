@@ -24,6 +24,7 @@ Mirrors librarysync.py but for manga content.
 
 import os
 import re
+import threading
 
 from sqlalchemy import select
 
@@ -44,10 +45,12 @@ MANGA_SCAN_PROGRESS = {
     "errors": [],
 }
 
+_SCAN_LOCK = threading.Lock()
+
 MANGA_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
 
 
-def mangaScan(dir=None, queue=None):
+def mangaScan(scan_dir=None, queue=None):
     """Scan a manga directory for existing manga files.
 
     Walks the directory tree, groups files by series (using parent directory
@@ -58,13 +61,19 @@ def mangaScan(dir=None, queue=None):
     """
     global MANGA_SCAN_STATUS, MANGA_SCAN_PROGRESS
 
-    manga_dir = dir or getattr(comicarr.CONFIG, "MANGA_DIR", None)
+    if not _SCAN_LOCK.acquire(blocking=False):
+        logger.warning("[MANGA-SCAN] Scan already in progress, skipping")
+        return {"status": "already_running"}
+
+    manga_dir = scan_dir or comicarr.CONFIG.MANGA_DIR
     if not manga_dir:
-        logger.warn("[MANGA-SCAN] No MANGA_DIR configured, skipping manga scan")
+        _SCAN_LOCK.release()
+        logger.warning("[MANGA-SCAN] No MANGA_DIR configured, skipping manga scan")
         return {"status": "skipped", "reason": "no_manga_dir"}
 
     if not os.path.isdir(manga_dir):
-        logger.warn("[MANGA-SCAN] Cannot find manga directory: %s" % manga_dir)
+        _SCAN_LOCK.release()
+        logger.warning("[MANGA-SCAN] Cannot find manga directory: %s" % manga_dir)
         return {"status": "error", "reason": "directory_not_found", "path": manga_dir}
 
     MANGA_SCAN_STATUS = "scanning"
@@ -80,16 +89,9 @@ def mangaScan(dir=None, queue=None):
 
     logger.info("[MANGA-SCAN] Starting manga library scan: %s" % manga_dir)
 
-    # Step 1: Walk directory and group files by series folder
-    series_map = _collect_series_files(manga_dir)
-
-    MANGA_SCAN_PROGRESS["series_found"] = len(series_map)
-    logger.info("[MANGA-SCAN] Found %d series directories" % len(series_map))
-
-    # Step 2: For each series, try to match against MangaDex and import
     results = {
         "status": "completed",
-        "series_found": len(series_map),
+        "series_found": 0,
         "series_matched": 0,
         "series_imported": 0,
         "chapters_marked_downloaded": 0,
@@ -97,33 +99,48 @@ def mangaScan(dir=None, queue=None):
         "errors": [],
     }
 
-    for series_name, files in series_map.items():
-        MANGA_SCAN_PROGRESS["current_series"] = series_name
+    try:
+        # Step 1: Walk directory and group files by series folder
+        series_map = _collect_series_files(manga_dir)
 
-        try:
-            match_result = _match_and_import_series(series_name, files)
-            if match_result["matched"]:
-                results["series_matched"] += 1
-                results["series_imported"] += 1
-                results["chapters_marked_downloaded"] += match_result.get("chapters_downloaded", 0)
-                MANGA_SCAN_PROGRESS["series_matched"] += 1
-                MANGA_SCAN_PROGRESS["series_imported"] += 1
-            else:
-                results["unmatched_series"].append(series_name)
-        except Exception as e:
-            logger.error("[MANGA-SCAN] Error processing series '%s': %s" % (series_name, e))
-            results["errors"].append({"series": series_name, "error": str(e)})
-            MANGA_SCAN_PROGRESS["errors"].append(str(e))
+        MANGA_SCAN_PROGRESS["series_found"] = len(series_map)
+        results["series_found"] = len(series_map)
+        logger.info("[MANGA-SCAN] Found %d series directories" % len(series_map))
 
-        MANGA_SCAN_PROGRESS["processed_files"] += len(files)
+        # Step 2: For each series, try to match against MangaDex and import
+        for series_name, files in series_map.items():
+            MANGA_SCAN_PROGRESS["current_series"] = series_name
 
-    MANGA_SCAN_STATUS = "completed"
-    MANGA_SCAN_PROGRESS["current_series"] = None
+            try:
+                match_result = _match_and_import_series(series_name, files)
+                if match_result["matched"]:
+                    results["series_matched"] += 1
+                    results["series_imported"] += 1
+                    results["chapters_marked_downloaded"] += match_result.get("chapters_downloaded", 0)
+                    MANGA_SCAN_PROGRESS["series_matched"] += 1
+                    MANGA_SCAN_PROGRESS["series_imported"] += 1
+                else:
+                    results["unmatched_series"].append(series_name)
+            except Exception as e:
+                logger.error("[MANGA-SCAN] Error processing series '%s': %s" % (series_name, e))
+                results["errors"].append({"series": series_name, "error": str(e)})
+                MANGA_SCAN_PROGRESS["errors"].append(str(e))
 
-    logger.info(
-        "[MANGA-SCAN] Scan complete. Matched: %d/%d series, %d chapters marked downloaded"
-        % (results["series_matched"], results["series_found"], results["chapters_marked_downloaded"])
-    )
+            MANGA_SCAN_PROGRESS["processed_files"] += len(files)
+
+        logger.info(
+            "[MANGA-SCAN] Scan complete. Matched: %d/%d series, %d chapters marked downloaded"
+            % (results["series_matched"], results["series_found"], results["chapters_marked_downloaded"])
+        )
+    except Exception as e:
+        logger.error("[MANGA-SCAN] Fatal error during scan: %s" % e)
+        results["status"] = "error"
+        results["errors"].append({"series": "scan", "error": str(e)})
+        MANGA_SCAN_PROGRESS["errors"].append(str(e))
+    finally:
+        MANGA_SCAN_STATUS = "completed" if results["status"] != "error" else "error"
+        MANGA_SCAN_PROGRESS["current_series"] = None
+        _SCAN_LOCK.release()
 
     return results
 
@@ -268,6 +285,7 @@ def _mark_chapters_downloaded(comic_id, files):
         return 0
 
     # Build lookup by chapter number and volume number
+    # Volume lookup maps to a list since multiple chapters share a volume
     chapter_lookup = {}
     volume_lookup = {}
     for issue in all_issues:
@@ -280,7 +298,10 @@ def _mark_chapters_downloaded(comic_id, files):
                 pass
         if vol:
             try:
-                volume_lookup[int(float(vol))] = issue
+                vol_key = int(float(vol))
+                if vol_key not in volume_lookup:
+                    volume_lookup[vol_key] = []
+                volume_lookup[vol_key].append(issue)
             except (ValueError, TypeError):
                 pass
 
@@ -289,25 +310,28 @@ def _mark_chapters_downloaded(comic_id, files):
             continue
 
         filename = os.path.basename(filepath)
-        matched_issue = None
+        matched_issues = []
 
         # Try chapter match first
         if parsed.get("chapter_number") is not None:
-            matched_issue = chapter_lookup.get(parsed["chapter_number"])
+            match = chapter_lookup.get(parsed["chapter_number"])
+            if match:
+                matched_issues = [match]
 
-        # Fall back to volume match
-        if not matched_issue and parsed.get("volume_number") is not None:
-            matched_issue = volume_lookup.get(parsed["volume_number"])
+        # Fall back to volume match — mark all chapters in the volume
+        if not matched_issues and parsed.get("volume_number") is not None:
+            matched_issues = volume_lookup.get(parsed["volume_number"], [])
 
-        if matched_issue and matched_issue.get("Status") != "Downloaded":
-            issue_id = matched_issue["IssueID"]
-            db.upsert(
-                "issues",
-                {"Status": "Downloaded", "Location": filename},
-                {"IssueID": issue_id},
-            )
-            count += 1
-            logger.fdebug("[MANGA-SCAN] Marked as downloaded: %s -> %s" % (filename, issue_id))
+        for matched_issue in matched_issues:
+            if matched_issue.get("Status") != "Downloaded":
+                issue_id = matched_issue["IssueID"]
+                db.upsert(
+                    "issues",
+                    {"Status": "Downloaded", "Location": filename},
+                    {"IssueID": issue_id},
+                )
+                count += 1
+                logger.fdebug("[MANGA-SCAN] Marked as downloaded: %s -> %s" % (filename, issue_id))
 
     # Update the Have count for the comic
     if count > 0:

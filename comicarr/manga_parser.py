@@ -44,23 +44,13 @@ _PAT_GROUP_FULL = re.compile(
     r"^\[(?P<group>[^\]]+)\]\s*"
     r"(?P<series>.+?)\s*"
     r"-\s*c(?P<chapter>\d+(?:\.\d+)?)"
-    r"(?:\s*-\s*c\d+(?:\.\d+)?)?"  # optional range end (ignored)
+    r"(?:\s*-\s*c?\d+(?:\.\d+)?)?"  # optional range end (ignored)
     r"(?:\s*\(v(?P<volume>\d+)\))?"
     r"(?:\s*\[(?P<quality>[^\]]+)\])?"
     r"\s*$",
     re.IGNORECASE,
 )
 
-# Pattern 2: [Group] Title - c001-003 [quality]  (no volume)
-_PAT_GROUP_CHAPTER = re.compile(
-    r"^\[(?P<group>[^\]]+)\]\s*"
-    r"(?P<series>.+?)\s*"
-    r"-\s*c(?P<chapter>\d+(?:\.\d+)?)"
-    r"(?:\s*-\s*c?\d+(?:\.\d+)?)?"  # optional range end
-    r"(?:\s*\[(?P<quality>[^\]]+)\])?"
-    r"\s*$",
-    re.IGNORECASE,
-)
 
 # Pattern 3: Title Vol.01 Ch.001  or  Title Vol 01 Ch 001
 _PAT_VOL_CH_ABBR = re.compile(
@@ -110,7 +100,6 @@ _PAT_BARE_NUMBER = re.compile(
 # Ordered list — first match wins.
 _PATTERNS = [
     _PAT_GROUP_FULL,
-    _PAT_GROUP_CHAPTER,
     _PAT_VOL_CH_ABBR,
     _PAT_V_C,
     _PAT_CHAPTER_LABEL,
@@ -141,7 +130,7 @@ def parse_manga_filename(filename):
         return None
 
     stem = stem.strip()
-    if not stem:
+    if not stem or len(stem) > 512:
         return None
 
     for pattern in _PATTERNS:
