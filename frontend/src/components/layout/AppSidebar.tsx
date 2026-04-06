@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Home,
+  BookOpen,
   Search,
   Calendar,
   ListTodo,
@@ -63,16 +63,13 @@ export default function AppSidebar() {
   }
 
   const navItems: NavItem[] = [
-    { path: "/", label: "Series", icon: Home },
+    { path: "/series", label: "Series", icon: BookOpen },
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
     { path: "/import", label: "Import", icon: FolderInput },
   ];
 
   const isActive = (path: string): boolean => {
-    if (path === "/") {
-      return location.pathname === "/";
-    }
     return location.pathname.startsWith(path);
   };
 
