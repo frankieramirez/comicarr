@@ -200,12 +200,23 @@ def get_safe_config(ctx):
         "CREATE_FOLDERS",
         "CHECK_FOLDER",
         "STORYARC_LOCATION",
+        "AI_BASE_URL",
+        "AI_MODEL",
+        "AI_TIMEOUT",
+        "AI_RPM_LIMIT",
+        "AI_DAILY_TOKEN_LIMIT",
+        "AI_CIRCUIT_THRESHOLD",
+        "AI_CIRCUIT_COOLDOWN",
     ]
     result = {}
     for key in safe_keys:
         val = getattr(ctx.config, key, None)
         if val is not None:
             result[key] = val
+
+    # AI API key: include boolean indicator, not the actual key
+    ai_key = getattr(ctx.config, "AI_API_KEY", None)
+    result["ai_api_key_set"] = bool(ai_key and ai_key != "None")
 
     # Add derived download client labels (must match config.py enums)
     nzb_labels = {0: "SABnzbd", 1: "NZBGet", 2: "Blackhole", 3: "Disabled"}
@@ -295,6 +306,14 @@ WRITABLE_CONFIG_KEYS = {
     "CREATE_FOLDERS",
     "CHECK_FOLDER",
     "STORYARC_LOCATION",
+    "AI_BASE_URL",
+    "AI_API_KEY",
+    "AI_MODEL",
+    "AI_TIMEOUT",
+    "AI_RPM_LIMIT",
+    "AI_DAILY_TOKEN_LIMIT",
+    "AI_CIRCUIT_THRESHOLD",
+    "AI_CIRCUIT_COOLDOWN",
 }
 
 

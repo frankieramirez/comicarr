@@ -23,6 +23,8 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 | Test backend | `pytest tests/unit -v` |
 | Test frontend | `cd frontend && npm run test:run` |
 | Lint backend | `ruff check comicarr/` |
+| Format check | `ruff format --check comicarr/` |
+| Format fix | `ruff format comicarr/` |
 | Lint frontend | `cd frontend && npm run lint` |
 | Typecheck | `cd frontend && npm run typecheck` |
 | Add dependency | `uv add <package>` |
@@ -37,6 +39,7 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 |Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages/:route pages,frontend/src/components/:React components (ui/,series/,settings/,search/,migration/,layout/,queue/,import/),frontend/src/hooks/:custom hooks,frontend/src/lib/:API client+utilities,frontend/src/contexts/:React contexts,frontend/src/types/:TypeScript types}
 |Tests:{tests/unit/:backend unit tests,tests/integration/:backend integration,frontend/tests/:frontend tests}
+|Docs:{docs/solutions/:documented solutions (bugs, best practices, workflow patterns), organized by category with YAML frontmatter}
 
 IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.
 
@@ -77,7 +80,7 @@ This is required because release-please parses PR titles (via squash merge) to d
 
 - **Do NOT use type hints** - None exist in the codebase currently
 - **Do NOT use bare `except:` clauses** - Always catch `Exception as e`
-- **Do NOT use Black/PEP8 auto-formatters** - No enforced formatter in this project
+- **Do NOT use Black or other external formatters** - Use `ruff format` only (enforced by CI)
 - **Do NOT use `bun` for frontend** - Use `npm` commands only
 - **Do NOT omit GPL license header** from new Python files
 - **Do NOT manually bump versions** - release-please handles this

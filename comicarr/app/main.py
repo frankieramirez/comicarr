@@ -130,6 +130,37 @@ async def lifespan(app: FastAPI):
 
     app.state.ctx = ctx
 
+    # Initialize AI client if configured
+    from comicarr import logger
+    from comicarr.app.ai.circuit_breaker import CircuitBreaker
+    from comicarr.app.ai.client import create_ai_clients
+    from comicarr.app.ai.rate_limiter import AIRateLimiter
+
+    ai_config = ctx.config
+    if ai_config and getattr(ai_config, "AI_BASE_URL", None) and getattr(ai_config, "AI_API_KEY", None):
+        sync_client, async_client = create_ai_clients(ai_config)
+        if sync_client:
+            cb = CircuitBreaker(
+                threshold=getattr(ai_config, "AI_CIRCUIT_THRESHOLD", 5),
+                cooldown=getattr(ai_config, "AI_CIRCUIT_COOLDOWN", 300),
+            )
+            rl = AIRateLimiter(
+                rpm_limit=getattr(ai_config, "AI_RPM_LIMIT", 20),
+                daily_token_limit=getattr(ai_config, "AI_DAILY_TOKEN_LIMIT", 100000),
+            )
+            ctx.ai_client = sync_client
+            ctx.ai_async_client = async_client
+            ctx.ai_circuit_breaker = cb
+            ctx.ai_rate_limiter = rl
+            # Set module-level for background pipeline access
+            import comicarr as _comicarr
+
+            _comicarr.AI_CLIENT = sync_client
+            _comicarr.AI_ASYNC_CLIENT = async_client
+            _comicarr.AI_CIRCUIT_BREAKER = cb
+            _comicarr.AI_RATE_LIMITER = rl
+            logger.info("[AI] Client initialized: %s" % getattr(ai_config, "AI_BASE_URL", ""))
+
     yield
 
     import comicarr
@@ -149,6 +180,13 @@ async def lifespan(app: FastAPI):
             q.put("exit")
         except Exception:
             pass
+
+    if ctx.ai_async_client:
+        try:
+            await ctx.ai_async_client.close()
+            logger.info("[SHUTDOWN] AI async client closed")
+        except Exception as e:
+            logger.error("[SHUTDOWN] Error closing AI client: %s" % e)
 
     if ctx.cv_session:
         try:
@@ -197,6 +235,8 @@ def create_app():
     async def health_check():
         return JSONResponse(content={"status": "ok"})
 
+    from comicarr.app.ai.router import router as ai_router
+    from comicarr.app.dashboard.router import router as dashboard_router
     from comicarr.app.downloads.router import router as downloads_router
     from comicarr.app.metadata.router import router as metadata_router
     from comicarr.app.opds.router import router as opds_router
@@ -204,8 +244,12 @@ def create_app():
     from comicarr.app.series.router import router as series_router
     from comicarr.app.storyarcs.router import router as storyarcs_router
     from comicarr.app.system.router import router as system_router
+    from comicarr.app.weekly.router import router as weekly_router
 
     app.include_router(system_router)
+    app.include_router(ai_router)
+    app.include_router(dashboard_router)
+    app.include_router(weekly_router)
     app.include_router(metadata_router)
     app.include_router(storyarcs_router)
     app.include_router(series_router)

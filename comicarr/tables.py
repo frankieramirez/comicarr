@@ -601,6 +601,56 @@ mylar_info = Table(
 )
 
 # ---------------------------------------------------------------------------
+# ai_activity_log
+# ---------------------------------------------------------------------------
+ai_activity_log = Table(
+    "ai_activity_log",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", Text),
+    Column("feature_type", Text),  # parsing|search|enrichment|reconciliation|insights|chat|arc|pulllist
+    Column("action_description", Text),
+    Column("model", Text),
+    Column("prompt_tokens", Integer),
+    Column("completion_tokens", Integer),
+    Column("latency_ms", Integer),
+    Column("success", Text),  # true|false
+    Column("error_message", Text),
+    Column("entity_type", Text),  # comic|issue|storyarc
+    Column("entity_id", Text),
+)
+
+# ---------------------------------------------------------------------------
+# ai_metadata_history
+# ---------------------------------------------------------------------------
+ai_metadata_history = Table(
+    "ai_metadata_history",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("entity_type", Text),  # issue|comic
+    Column("entity_id", Text),
+    Column("field_name", Text),
+    Column("original_value", Text),
+    Column("ai_value", Text),
+    Column("source", Text),  # enrichment|reconciliation
+    Column("provider", Text),  # cv|metron|comicinfo
+    Column("created_at", Text),
+)
+
+# ---------------------------------------------------------------------------
+# ai_cache
+# ---------------------------------------------------------------------------
+ai_cache = Table(
+    "ai_cache",
+    metadata,
+    Column("cache_key", Text, unique=True),
+    Column("cache_type", Text),  # insights|suggestions|expansion
+    Column("data", Text),  # JSON blob
+    Column("created_at", Text),
+    Column("expires_at", Text),
+)
+
+# ---------------------------------------------------------------------------
 # Indexes
 # ---------------------------------------------------------------------------
 
@@ -626,6 +676,11 @@ Index("issues_status_comicname", issues.c.Status, issues.c.ComicName)
 Index("issues_comicname", issues.c.ComicName)
 Index("storyarcs_status_comicname", storyarcs.c.Status, storyarcs.c.ComicName)
 Index("storyarcs_status_storyarc", storyarcs.c.Status, storyarcs.c.StoryArc)
+
+# AI indexes
+Index("ai_activity_timestamp", ai_activity_log.c.timestamp)
+Index("ai_activity_entity_id", ai_activity_log.c.entity_id)
+Index("ai_metadata_entity", ai_metadata_history.c.entity_type, ai_metadata_history.c.entity_id)
 
 # Lookup table: table name -> Table object (used by upsert shim)
 TABLE_MAP = {
@@ -653,6 +708,9 @@ TABLE_MAP = {
     "notifs": notifs,
     "provider_searches": provider_searches,
     "mylar_info": mylar_info,
+    "ai_activity_log": ai_activity_log,
+    "ai_metadata_history": ai_metadata_history,
+    "ai_cache": ai_cache,
 }
 
 
