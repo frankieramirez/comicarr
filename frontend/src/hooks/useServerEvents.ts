@@ -279,6 +279,20 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         }
       });
 
+      // Event: ai_activity - AI activity feed updates
+      evtSource.addEventListener("ai_activity", (e: MessageEvent) => {
+        if (!e.data) return;
+
+        try {
+          JSON.parse(e.data);
+          queryClient.invalidateQueries({ queryKey: ["ai", "activity"] });
+          queryClient.invalidateQueries({ queryKey: ["ai", "status"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        } catch (error) {
+          console.error("[SSE] Error parsing ai_activity event:", error);
+        }
+      });
+
       // Event: shutdown - Server shutdown notification
       evtSource.addEventListener("shutdown", () => {
         console.log("[SSE] Server shutting down");
