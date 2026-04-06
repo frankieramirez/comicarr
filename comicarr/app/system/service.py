@@ -917,6 +917,7 @@ def job_management(
                 comicarr.MONITOR_STATUS = "Paused"
             sched_status = comicarr.MONITOR_STATUS
 
+        jtime = None
         try:
             jobtimetmp = jobinfo.split("at: ")[1].split(".")[0].strip()
         except Exception:
@@ -941,7 +942,7 @@ def job_management(
                 "jobname": jobname,
                 "next_run_datetime": jobtime,
                 "prev_run_datetime": prev_run_time_utc,
-                "next_run_timestamp": jobtime,
+                "next_run_timestamp": jtime,
                 "prev_run_timestamp": prev_run_timestamp,
                 "status": sched_status,
             }

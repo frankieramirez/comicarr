@@ -117,13 +117,18 @@ def getVersion(ptv):
 
     elif os.path.isdir(os.path.join(comicarr.PROG_DIR, ".git")):
         comicarr.INSTALL_TYPE = "git"
-        output = runGit("describe --exact-match --tags 2> %s && git rev-parse HEAD --abbrev-ref HEAD" % os.devnull, ptv)
-        # output, err = runGit('rev-parse HEAD --abbrev-ref HEAD')
+        # Try exact tag match first, then get branch name separately
+        output = runGit("describe --exact-match --tags", ptv)
+        if output:
+            branch_output = runGit("rev-parse --abbrev-ref HEAD", ptv)
+            if branch_output:
+                output = output.strip() + "\n" + branch_output.strip() + "\n"
+            else:
+                output = None
 
         if not output:
-            output = runGit(
-                "describe --exact-match --tags 2> %s || git rev-parse HEAD --abbrev-ref HEAD" % os.devnull, ptv
-            )
+            # Not on a tag — get commit hash and branch
+            output = runGit("rev-parse HEAD --abbrev-ref HEAD", ptv)
             if not output:
                 logger.error("Couldn't find latest installed version.")
                 cur_commit_hash = None
