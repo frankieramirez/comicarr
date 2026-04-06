@@ -2942,6 +2942,18 @@ class PostProcessor(object):
                                     )
                                     self._log("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
 
+                                    # AI metadata enrichment
+                                    try:
+                                        from comicarr.app.ai.enrichment import enrich_metadata
+                                        enriched_count = enrich_metadata(
+                                            cbz_path=metaresponse,
+                                            issue_id=issueid,
+                                        )
+                                        if enriched_count > 0:
+                                            logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                                    except Exception as e:
+                                        logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+
                                 dfilename = ofilename
                             else:
                                 dfilename = ml["Filename"]
@@ -3775,6 +3787,18 @@ class PostProcessor(object):
                             )
                             self._log("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
 
+                            # AI metadata enrichment
+                            try:
+                                from comicarr.app.ai.enrichment import enrich_metadata
+                                enriched_count = enrich_metadata(
+                                    cbz_path=metaresponse,
+                                    issue_id=issueid,
+                                )
+                                if enriched_count > 0:
+                                    logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                            except Exception as e:
+                                logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+
                     dfilename = ofilename
                     if metaresponse:
                         src_location = odir
@@ -4531,6 +4555,19 @@ class PostProcessor(object):
                 ext = os.path.splitext(ofilename)[1]
                 self._log("Sucessfully wrote metadata to .cbz - Continuing..")
                 logger.info("%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename))
+
+                # AI metadata enrichment
+                try:
+                    from comicarr.app.ai.enrichment import enrich_metadata
+                    enriched_count = enrich_metadata(
+                        cbz_path=pcheck,
+                        issue_id=issueid,
+                    )
+                    if enriched_count > 0:
+                        logger.fdebug('[POST-PROCESS] AI enriched %d metadata fields' % enriched_count)
+                except Exception as e:
+                    logger.error('[POST-PROCESS] AI enrichment error: %s' % e)
+
         # Run Pre-script
 
         file_values = {
