@@ -1,5 +1,6 @@
+import { useState, SyntheticEvent } from "react";
 import { Link } from "react-router-dom";
-import { Download } from "lucide-react";
+import { Download, ImageOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +38,48 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
+}
+
+function DownloadRow({ item }: { item: DownloadItem }) {
+  const [imageError, setImageError] = useState(false);
+
+  const fallback = (
+    <div className="h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+      <ImageOff className="w-4 h-4 text-muted-foreground" />
+    </div>
+  );
+
+  return (
+    <Link
+      to={`/series/${item.ComicID}`}
+      className="flex items-center gap-3 rounded-lg p-2 -mx-2 transition-colors hover:bg-muted/50"
+    >
+      {item.ComicID && !imageError ? (
+        <img
+          src={`/api/metadata/art/${item.ComicID}`}
+          alt={item.ComicName}
+          className="h-10 w-10 rounded object-cover flex-shrink-0"
+          onError={(e: SyntheticEvent<HTMLImageElement>) => {
+            setImageError(true);
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : (
+        fallback
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{item.ComicName}</p>
+        <p className="text-xs text-muted-foreground">
+          #{item.Issue_Number} &middot; {formatDate(item.DateAdded)}
+        </p>
+      </div>
+      {item.Provider && (
+        <Badge variant="secondary" className="text-[10px] shrink-0">
+          {item.Provider}
+        </Badge>
+      )}
+    </Link>
+  );
 }
 
 export default function RecentDownloads({
@@ -82,36 +125,7 @@ export default function RecentDownloads({
         ) : (
           <div className="space-y-3">
             {items.map((item, idx) => (
-              <Link
-                key={`${item.IssueID}-${idx}`}
-                to={`/series/${item.ComicID}`}
-                className="flex items-center gap-3 rounded-lg p-2 -mx-2 transition-colors hover:bg-muted/50"
-              >
-                {item.ComicID ? (
-                  <img
-                    src={`/api/metadata/art/${item.ComicID}`}
-                    alt={item.ComicName}
-                    className="h-10 w-10 rounded object-cover"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
-                    <Download className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {item.ComicName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    #{item.Issue_Number} &middot; {formatDate(item.DateAdded)}
-                  </p>
-                </div>
-                {item.Provider && (
-                  <Badge variant="secondary" className="text-[10px] shrink-0">
-                    {item.Provider}
-                  </Badge>
-                )}
-              </Link>
+              <DownloadRow key={`${item.IssueID}-${idx}`} item={item} />
             ))}
           </div>
         )}
