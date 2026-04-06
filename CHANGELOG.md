@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.1](https://github.com/frankieramirez/comicarr/compare/v0.10.0...v0.10.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* Replace MySQL-only right/concat with SQLite-compatible substr ([#101](https://github.com/frankieramirez/comicarr/issues/101)) ([4cd03a5](https://github.com/frankieramirez/comicarr/commit/4cd03a5c55541aaa5ce841595c43ab96caacec04))
+
+## [0.10.0](https://github.com/frankieramirez/comicarr/compare/v0.9.8...v0.10.0) (2026-04-06)
+
+
+### Features
+
+* BYOK AI Suite — LLM-Powered Intelligence Layer ([#99](https://github.com/frankieramirez/comicarr/issues/99)) ([1e8e501](https://github.com/frankieramirez/comicarr/commit/1e8e5018b9e0509ca87c7f73f11a4cf1f3852253))
+
+## [0.9.8](https://github.com/frankieramirez/comicarr/compare/v0.9.7...v0.9.8) (2026-04-05)
+
+
+### Bug Fixes
+
+* Remove deprecated Vitest 4 poolOptions config ([#95](https://github.com/frankieramirez/comicarr/issues/95)) ([ed5b56d](https://github.com/frankieramirez/comicarr/commit/ed5b56dd73baa0ee36ab524e155663e81d59da65))
+
 ## [0.9.7](https://github.com/frankieramirez/comicarr/compare/v0.9.6...v0.9.7) (2026-03-25)
 
 

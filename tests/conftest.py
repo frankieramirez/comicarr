@@ -33,6 +33,7 @@ MOCK_MODULES = [
     "mega.Mega",
     "mediafire",
     "megaup",
+    "openai",
 ]
 
 for mod_name in MOCK_MODULES:
@@ -223,6 +224,41 @@ def temp_db(tmp_path) -> str:
             cv_status TEXT,
             Location TEXT,
             DynamicComicName TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            feature_type TEXT,
+            action_description TEXT,
+            model TEXT,
+            prompt_tokens INTEGER,
+            completion_tokens INTEGER,
+            latency_ms INTEGER,
+            success TEXT,
+            error_message TEXT,
+            entity_type TEXT,
+            entity_id TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_metadata_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT,
+            entity_id TEXT,
+            field_name TEXT,
+            original_value TEXT,
+            ai_value TEXT,
+            source TEXT,
+            provider TEXT,
+            created_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_cache (
+            cache_key TEXT UNIQUE,
+            cache_type TEXT,
+            data TEXT,
+            created_at TEXT,
+            expires_at TEXT
         );
     """
     )
@@ -481,6 +517,14 @@ def test_context():
     config.COMIC_DIR = "/tmp/comics"
     config.OPDS_USERNAME = None
     config.OPDS_PASSWORD = None
+    config.AI_BASE_URL = None
+    config.AI_API_KEY = None
+    config.AI_MODEL = None
+    config.AI_TIMEOUT = 30
+    config.AI_RPM_LIMIT = 20
+    config.AI_DAILY_TOKEN_LIMIT = 100000
+    config.AI_CIRCUIT_THRESHOLD = 5
+    config.AI_CIRCUIT_COOLDOWN = 300
 
     return AppContext(
         prog_dir="/tmp/comicarr_test",

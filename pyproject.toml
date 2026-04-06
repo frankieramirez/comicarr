@@ -1,6 +1,6 @@
 [project]
 name = "comicarr"
-version = "0.9.7"
+version = "0.10.1"
 description = "Automated Comic Book Manager"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ dependencies = [
     "feedparser>=5.2.1",
     "mokkari>=3.0.0",
     "natsort>=3.5.2",
+    "openai>=2.30.0",
     "packaging>=22.0",
     "Pillow>=10.1",
     "pycryptodome>=3.19.0",

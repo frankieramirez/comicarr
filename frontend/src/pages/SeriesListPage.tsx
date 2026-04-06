@@ -5,7 +5,7 @@ import SeriesTable from "@/components/series/SeriesTable";
 import { Button } from "@/components/ui/button";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 
-export default function HomePage() {
+export default function SeriesListPage() {
   const { data: series = [], isLoading, error } = useSeries();
 
   if (error) {

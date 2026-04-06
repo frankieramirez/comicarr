@@ -12,7 +12,8 @@ import { useServerEvents } from "@/hooks/useServerEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const SeriesListPage = lazy(() => import("@/pages/SeriesListPage"));
 const SeriesDetailPage = lazy(() => import("@/pages/SeriesDetailPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
 const UpcomingPage = lazy(() => import("@/pages/UpcomingPage"));
@@ -21,6 +22,7 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const StoryArcsPage = lazy(() => import("@/pages/StoryArcsPage"));
 const StoryArcDetailPage = lazy(() => import("@/pages/StoryArcDetailPage"));
 const ImportPage = lazy(() => import("@/pages/ImportPage"));
+const WeeklyPage = lazy(() => import("@/pages/WeeklyPage"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -59,7 +61,8 @@ function AppContent() {
                   <Layout>
                     <Suspense fallback={null}>
                       <Routes>
-                        <Route path="/" element={<HomePage />} />
+                        <Route path="/" element={<DashboardPage />} />
+                        <Route path="/series" element={<SeriesListPage />} />
                         <Route
                           path="/series/:comicId"
                           element={<SeriesDetailPage />}
@@ -72,6 +75,7 @@ function AppContent() {
                           path="/story-arcs/:storyArcId"
                           element={<StoryArcDetailPage />}
                         />
+                        <Route path="/weekly" element={<WeeklyPage />} />
                         <Route path="/import" element={<ImportPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />

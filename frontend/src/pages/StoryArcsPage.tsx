@@ -1,12 +1,15 @@
 import { useRef } from "react";
 import { useStoryArcs } from "@/hooks/useStoryArcs";
+import { useAiStatus } from "@/hooks/useAiStatus";
 import ArcSearch from "@/components/storyarcs/ArcSearch";
+import ArcGenerator from "@/components/storyarcs/ArcGenerator";
 import StoryArcCard from "@/components/storyarcs/StoryArcCard";
 import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StoryArcsPage() {
   const { data: arcs, isLoading, error } = useStoryArcs();
+  const { data: aiStatus } = useAiStatus();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleSearchFocus = () => {
@@ -21,6 +24,9 @@ export default function StoryArcsPage() {
           Track story arcs that span across multiple series.
         </p>
       </div>
+
+      {/* AI Arc Generator (shown when AI configured) */}
+      {aiStatus?.configured && <ArcGenerator />}
 
       {/* Search section */}
       <ArcSearch searchInputRef={searchInputRef} />
