@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.1](https://github.com/frankieramirez/comicarr/compare/v0.12.0...v0.12.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* Manga import chapter population, cover caching, and series bulk actions ([#115](https://github.com/frankieramirez/comicarr/issues/115)) ([39636de](https://github.com/frankieramirez/comicarr/commit/39636de83ded726118b3a65fc8527959624ce895))
+
 ## [0.12.0](https://github.com/frankieramirez/comicarr/compare/v0.11.1...v0.12.0) (2026-04-07)
 
 
