@@ -83,18 +83,20 @@ def find_comic(
     if isinstance(searchresults, dict) and "results" in searchresults:
         searchresults["results"] = [add_in_library(c) for c in searchresults["results"]]
         return searchresults
-    else:
+    elif searchresults:
         searchresults = sorted(searchresults, key=itemgetter("comicyear", "issues"), reverse=True)
         searchresults = [add_in_library(c) for c in searchresults]
         return {"results": searchresults}
+    else:
+        return {"error": "Search returned no results"}
 
 
 def find_manga(ctx, name, limit=None, offset=None, sort=None):
-    """Search for manga via MangaDex API."""
-    if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
-        return {"error": "MangaDex integration is not enabled"}
-
-    from comicarr import mangadex
+    """Search for manga via MAL (primary) or MangaDex (fallback)."""
+    mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
+    mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
+    if not ctx.config or not (mal_ok or mdex_ok):
+        return {"error": "Manga integration is not enabled"}
 
     try:
         parsed_limit = int(limit) if limit else None
@@ -102,11 +104,29 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
     except (ValueError, TypeError):
         return {"error": "Invalid pagination parameters"}
 
-    searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
-
     def add_in_library(manga):
         manga["in_library"] = manga.get("haveit") != "No"
         return manga
+
+    # Try MAL first if configured
+    mal_enabled = getattr(ctx.config, "MAL_ENABLED", False)
+    mal_client_id = getattr(ctx.config, "MAL_CLIENT_ID", None)
+
+    if mal_enabled and mal_client_id:
+        from comicarr import myanimelist
+
+        try:
+            searchresults = myanimelist.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
+            if isinstance(searchresults, dict) and "results" in searchresults:
+                searchresults["results"] = [add_in_library(m) for m in searchresults["results"]]
+                return searchresults
+        except Exception as e:
+            logger.error("[SEARCH] MAL search failed, falling back to MangaDex: %s" % e)
+
+    # Fall back to MangaDex
+    from comicarr import mangadex
+
+    searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
 
     if isinstance(searchresults, dict) and "results" in searchresults:
         searchresults["results"] = [add_in_library(m) for m in searchresults["results"]]
@@ -128,23 +148,29 @@ def add_comic(ctx, comic_id):
 
 
 def add_manga(ctx, manga_id):
-    """Add a manga by MangaDex ID."""
-    if not str(manga_id).startswith("md-"):
-        manga_id = "md-" + manga_id
-
-    if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
-        return {"success": False, "error": "MangaDex integration is not enabled"}
+    """Add a manga by MAL ID or MangaDex ID."""
+    mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
+    mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
+    if not ctx.config or not (mal_ok or mdex_ok):
+        return {"success": False, "error": "Manga integration is not enabled"}
 
     try:
         from comicarr import importer
 
-        result = importer.addMangaToDB(manga_id)
+        if str(manga_id).startswith("mal-"):
+            # MAL-sourced manga: fetch metadata from MAL, chapters from MangaDex
+            result = importer.addMangaToDB_MAL(manga_id)
+        else:
+            # MangaDex-sourced manga (existing flow)
+            if not str(manga_id).startswith("md-"):
+                manga_id = "md-" + manga_id
+            result = importer.addMangaToDB(manga_id)
 
         if result and result.get("status") == "complete":
             return {
                 "success": True,
                 "message": "Successfully added manga: %s" % result.get("comicname", manga_id),
-                "comicid": manga_id,
+                "comicid": result.get("comicid", manga_id),
                 "content_type": "manga",
             }
         return {"success": False, "error": "Failed to add manga: %s" % manga_id}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useCallback } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import {
   Search as SearchIcon,
   ChevronLeft,
@@ -7,6 +7,7 @@ import {
   BookOpen,
   Book,
   ArrowUpDown,
+  Settings,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -78,29 +79,35 @@ const mangaSortMapping: Record<string, string> = {
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { comicsEnabled, mangaEnabled } = useContentSources();
-
-  // Determine the default mode based on what's enabled
-  const defaultMode: ContentType = comicsEnabled ? "comic" : "manga";
+  const { comicsEnabled, comicsConfigured, mangaEnabled } = useContentSources();
 
   // Get parameters from URL
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "relevance";
-  const urlSearchMode =
-    (searchParams.get("type") as ContentType) || defaultMode;
 
-  // If URL requests a disabled mode, fall back to the enabled one
-  const effectiveMode =
-    urlSearchMode === "manga" && !mangaEnabled
+  // Derive search mode from URL, falling back based on what's enabled
+  const rawType = searchParams.get("type");
+  const urlType: ContentType | null =
+    rawType === "manga" ? "manga" : rawType === "comic" ? "comic" : null;
+  const searchMode: ContentType = urlType
+    ? urlType === "manga" && !mangaEnabled
       ? "comic"
-      : urlSearchMode === "comic" && !comicsEnabled
+      : urlType === "comic" && !comicsEnabled
         ? "manga"
-        : urlSearchMode;
+        : urlType
+    : comicsEnabled
+      ? "comic"
+      : "manga";
 
-  // Initialize search query from URL parameter
   const [searchQuery, setSearchQuery] = useState(urlQuery);
-  const [searchMode, setSearchMode] = useState<ContentType>(effectiveMode);
+  const [columnToggleEl, setColumnToggleEl] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const columnToggleCallback = useCallback(
+    (node: HTMLDivElement | null) => setColumnToggleEl(node),
+    [],
+  );
 
   // Map sort to API format based on mode
   const comicApiSort = comicSortMapping[urlSort] ?? urlSort;
@@ -143,13 +150,16 @@ export default function SearchPage() {
   };
 
   const handleSearchModeChange = (newMode: ContentType) => {
-    setSearchMode(newMode);
-    if (urlQuery) {
-      // Validate sort against new mode's options
-      const validSorts = SORT_OPTIONS[newMode].map((o) => o.value);
-      const newSort = validSorts.includes(urlSort) ? urlSort : "relevance";
-      setSearchParams({ q: urlQuery, page: "1", sort: newSort, type: newMode });
-    }
+    // Validate sort against new mode's options
+    const validSorts = SORT_OPTIONS[newMode].map((o) => o.value);
+    const newSort = validSorts.includes(urlSort) ? urlSort : "relevance";
+    const params: Record<string, string> = {
+      type: newMode,
+      sort: newSort,
+      page: "1",
+    };
+    if (urlQuery) params.q = urlQuery;
+    setSearchParams(params);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -176,7 +186,7 @@ export default function SearchPage() {
     : 0;
 
   return (
-    <div className="space-y-4 page-transition">
+    <div className="space-y-4 page-transition min-w-0 overflow-hidden">
       {/* Page Title */}
       <h1 className="text-3xl font-bold">
         {searchMode === "manga" ? "Search Manga" : "Search Comics"}
@@ -252,6 +262,7 @@ export default function SearchPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <div ref={columnToggleCallback} />
             </div>
           )}
         </div>
@@ -275,12 +286,31 @@ export default function SearchPage() {
       )}
 
       {/* Error State */}
-      {error && (
-        <div className="text-center py-12">
-          <p className="text-red-600 text-lg">Search failed</p>
-          <p className="text-muted-foreground text-sm mt-2">{error.message}</p>
-        </div>
-      )}
+      {error &&
+        (searchMode === "comic" && !comicsConfigured ? (
+          <div className="text-center py-12">
+            <Settings className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground text-lg">
+              Comic Vine API key required
+            </p>
+            <p className="text-muted-foreground/70 text-sm mt-2">
+              To search for comics, add your Comic Vine API key in{" "}
+              <Link
+                to="/settings"
+                className="text-primary underline underline-offset-2"
+              >
+                Settings &rarr; API
+              </Link>
+            </p>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-red-600 text-lg">Search failed</p>
+            <p className="text-muted-foreground text-sm mt-2">
+              {error.message}
+            </p>
+          </div>
+        ))}
 
       {/* No Results State */}
       {!isLoading && !error && urlQuery && searchResults.length === 0 && (
@@ -302,6 +332,7 @@ export default function SearchPage() {
             currentSort={urlSort}
             onSortChange={handleSortChange}
             contentType={searchMode}
+            columnToggleContainer={columnToggleEl}
           />
 
           {/* Pagination Controls */}

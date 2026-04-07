@@ -43,6 +43,11 @@ export interface Config {
   mangadex_languages?: string;
   mangadex_content_rating?: string;
 
+  // MyAnimeList
+  mal_enabled?: boolean;
+  mal_client_id?: string;
+  mal_client_id_set?: boolean;
+
   // Comic Vine
   comicvine_api?: string;
 

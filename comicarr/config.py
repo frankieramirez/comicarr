@@ -187,6 +187,8 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "MANGADEX_ENABLED": (bool, "MangaDex", True),
         "MANGADEX_LANGUAGES": (str, "MangaDex", "en"),
         "MANGADEX_CONTENT_RATING": (str, "MangaDex", "safe,suggestive"),
+        "MAL_ENABLED": (bool, "MAL", False),
+        "MAL_CLIENT_ID": (str, "MAL", None),
         "LOG_DIR": (str, "Logs", None),
         "MAX_LOGSIZE": (int, "Logs", 10000000),
         "MAX_LOGFILES": (int, "Logs", 5),

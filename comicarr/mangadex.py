@@ -314,14 +314,28 @@ def search_manga(name, limit=None, offset=None, sort=None):
             # Get cover URL
             cover_url = _extract_cover_url(manga)
 
+            # Get alt titles (all languages: romaji, Japanese, synonyms, etc.)
+            alt_titles = []
+            for alt in attributes.get("altTitles", []):
+                for lang_val in alt.values():
+                    if lang_val and lang_val != title:
+                        alt_titles.append(lang_val)
+
             # Get author/artist
             author = _extract_author(manga)
+
+            # Extract external links (MAL ID, etc.)
+            links = attributes.get("links", {})
+            mal_id = str(links.get("mal")) if links.get("mal") else None
 
             # Check if we already have this manga (using md- prefix)
             haveit = "No"
             mangadex_id = "md-" + manga_id
             if mangadex_id in comicLibrary:
                 haveit = comicLibrary[mangadex_id]
+            # Check by MAL ID
+            elif mal_id and ("mal-" + mal_id) in comicLibrary:
+                haveit = comicLibrary["mal-" + mal_id]
             # Also check by name and year
             elif title and year:
                 name_key = "name:" + title.lower().strip() + ":" + str(year).strip()
@@ -359,9 +373,11 @@ def search_manga(name, limit=None, offset=None, sort=None):
                     "status": status,
                     "content_rating": content_rating,
                     "content_type": "manga",
+                    "alt_titles": alt_titles,
                     "reading_direction": "rtl",  # Right-to-left for manga
                     "metadata_source": "mangadex",
                     "external_id": manga_id,
+                    "mal_id": mal_id,
                 }
             )
 
@@ -438,6 +454,9 @@ def get_manga_details(manga_id):
         if tag_name:
             tags.append(tag_name)
 
+    # Extract external links (MAL, AniList, etc.)
+    links = attributes.get("links", {})
+
     details = {
         "id": "md-" + manga_id,
         "mangadex_id": manga_id,
@@ -460,12 +479,93 @@ def get_manga_details(manga_id):
         "metadata_source": "mangadex",
         "created_at": attributes.get("createdAt"),
         "updated_at": attributes.get("updatedAt"),
+        "mal_id": str(links.get("mal")) if links.get("mal") else None,
+        "links": links,
     }
 
     # Cache the result
     _MANGA_CACHE[cache_key] = {"data": details, "timestamp": time.time()}
 
     return details
+
+
+def find_by_mal_id(mal_id, title_hint=None):
+    """Find MangaDex manga UUID by its MyAnimeList ID.
+
+    Searches MangaDex by title and checks each result's links.mal field
+    to find the matching entry.
+
+    Args:
+        mal_id: MAL numeric ID (string or int, without mal- prefix)
+        title_hint: Manga title to search MangaDex with
+
+    Returns:
+        MangaDex manga UUID (string) or None if not found
+    """
+    mal_id_str = str(mal_id)
+    if mal_id_str.startswith("mal-"):
+        mal_id_str = mal_id_str[4:]
+
+    if not title_hint:
+        logger.warn("[MANGADEX] find_by_mal_id called without title_hint for MAL %s" % mal_id_str)
+        return None
+
+    logger.info("[MANGADEX] Looking up MangaDex UUID for MAL ID %s (title: %s)" % (mal_id_str, title_hint))
+
+    params = {
+        "title": title_hint,
+        "limit": 10,
+        "includes[]": ["cover_art"],
+        "contentRating[]": _get_content_ratings(),
+        "order[relevance]": "desc",
+    }
+
+    data = _make_request("/manga", params=params)
+    if not data or data.get("result") != "ok":
+        return None
+
+    # First pass: exact MAL ID match via links
+    for manga in data.get("data", []):
+        links = manga.get("attributes", {}).get("links", {})
+        if str(links.get("mal", "")) == mal_id_str:
+            manga_uuid = manga.get("id")
+            logger.info("[MANGADEX] Found MAL %s -> MangaDex %s (via links.mal)" % (mal_id_str, manga_uuid))
+            return manga_uuid
+
+    # Second pass: fuzzy title match as fallback
+    from comicarr.mangasync import _name_similarity
+
+    best_uuid = None
+    best_score = 0.0
+    for manga in data.get("data", []):
+        attributes = manga.get("attributes", {})
+        candidate_title = _get_localized_string(attributes.get("title", {}))
+        if not candidate_title:
+            continue
+
+        # Check primary title
+        score = _name_similarity(title_hint, candidate_title)
+
+        # Check alt titles too
+        for alt in attributes.get("altTitles", []):
+            alt_title = _get_localized_string(alt)
+            if alt_title:
+                alt_score = _name_similarity(title_hint, alt_title)
+                score = max(score, alt_score)
+
+        if score > best_score:
+            best_score = score
+            best_uuid = manga.get("id")
+
+    if best_uuid and best_score >= 0.6:
+        logger.info(
+            "[MANGADEX] Found MAL %s -> MangaDex %s (via title match, %.1f%%)"
+            % (mal_id_str, best_uuid, best_score * 100)
+        )
+        return best_uuid
+
+    logger.info("[MANGADEX] No MangaDex match found for MAL %s" % mal_id_str)
+    return None
 
 
 def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):

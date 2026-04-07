@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
@@ -71,6 +72,7 @@ const SOURCE_LABELS: Record<string, string> = {
   comicvine: "CV",
   metron: "Metron",
   mangadex: "MangaDex",
+  mal: "MAL",
 };
 
 const htmlParser = new DOMParser();
@@ -160,6 +162,8 @@ interface SearchResultsTableProps {
   currentSort: string;
   onSortChange: (sort: string) => void;
   contentType: ContentType;
+  /** DOM element to portal the column toggle button into */
+  columnToggleContainer?: HTMLElement | null;
 }
 
 interface AddByIdEventDetail {
@@ -373,6 +377,7 @@ export default function SearchResultsTable({
   currentSort,
   onSortChange,
   contentType,
+  columnToggleContainer,
 }: SearchResultsTableProps) {
   const isManga = contentType === "manga";
   const issuesLabel = isManga ? "Chapters" : "Issues";
@@ -419,8 +424,8 @@ export default function SearchResultsTable({
             SOURCE_LABELS[comic.metadata_source ?? ""] ?? null;
 
           const nameContent = (
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 max-w-[350px]">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-medium truncate">{comic.name}</span>
                 {sourceLabel && (
                   <Badge
@@ -475,12 +480,15 @@ export default function SearchResultsTable({
       }),
       columnHelper.accessor("publisher", {
         id: "publisher",
+        size: 130,
         meta: { label: publisherLabel },
         header: publisherLabel,
         cell: ({ row }) => {
           const pub = row.original.publisher;
           if (!pub || pub === "Unknown") return <span>{"\u2014"}</span>;
-          return <span className="text-sm">{pub}</span>;
+          return (
+            <span className="text-sm line-clamp-2 max-w-[130px]">{pub}</span>
+          );
         },
       }),
       columnHelper.accessor("comicyear", {
@@ -533,16 +541,6 @@ export default function SearchResultsTable({
         },
       }),
       columnHelper.display({
-        id: "inLibrary",
-        header: "Library",
-        enableSorting: false,
-        enableHiding: false,
-        cell: ({ row }) =>
-          row.original.in_library ? (
-            <Badge variant="default">In Library</Badge>
-          ) : null,
-      }),
-      columnHelper.display({
         id: "actions",
         header: "",
         enableSorting: false,
@@ -568,16 +566,20 @@ export default function SearchResultsTable({
     onColumnVisibilityChange: setColumnVisibility,
   });
 
+  const columnToggle = (
+    <SearchColumnVisibility
+      columnVisibility={columnVisibility}
+      onToggle={handleToggleColumn}
+      isManga={isManga}
+    />
+  );
+
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <SearchColumnVisibility
-          columnVisibility={columnVisibility}
-          onToggle={handleToggleColumn}
-          isManga={isManga}
-        />
-      </div>
+    <>
+      {columnToggleContainer
+        ? createPortal(columnToggle, columnToggleContainer)
+        : null}
       <DataTable table={table} />
-    </div>
+    </>
   );
 }

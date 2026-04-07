@@ -186,6 +186,7 @@ def get_safe_config(ctx):
         "METRON_USERNAME",
         "MANGADEX_LANGUAGES",
         "MANGADEX_CONTENT_RATING",
+        "MAL_ENABLED",
         "PREFERRED_QUALITY",
         "USE_MINSIZE",
         "MINSIZE",
@@ -233,6 +234,10 @@ def get_safe_config(ctx):
     # Add boolean indicator for METRON_PASSWORD (encrypted, not sent as plaintext)
     metron_pw = getattr(ctx.config, "METRON_PASSWORD", None)
     result["metron_password_set"] = bool(metron_pw)
+
+    # Add boolean indicator for MAL_CLIENT_ID (not sent as plaintext)
+    mal_key = getattr(ctx.config, "MAL_CLIENT_ID", None)
+    result["MAL_CLIENT_ID_SET"] = bool(mal_key and mal_key != "None")
 
     # Lowercase all keys for frontend convention
     result = {k.lower(): v for k, v in result.items()}
@@ -296,6 +301,8 @@ WRITABLE_CONFIG_KEYS = {
     "METRON_USERNAME",
     "MANGADEX_LANGUAGES",
     "MANGADEX_CONTENT_RATING",
+    "MAL_ENABLED",
+    "MAL_CLIENT_ID",
     "PREFERRED_QUALITY",
     "USE_MINSIZE",
     "MINSIZE",

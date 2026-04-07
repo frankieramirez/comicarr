@@ -1335,6 +1335,8 @@ def dbcheck():
         ("ReadingDirection", "TEXT DEFAULT 'ltr'"),
         ("MetadataSource", "TEXT"),
         ("ExternalID", "TEXT"),
+        ("MangaDexID", "TEXT"),
+        ("MalID", "TEXT"),
         ("not_updated_db", "TEXT"),
     ]
     _ensure_columns(engine, "comics", comics_cols)
