@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.2](https://github.com/frankieramirez/comicarr/compare/v0.12.1...v0.12.2) (2026-04-07)
+
+
+### Code Refactoring
+
+* Redesign Import Management into Library Scan + Import Inbox ([#117](https://github.com/frankieramirez/comicarr/issues/117)) ([a2533ef](https://github.com/frankieramirez/comicarr/commit/a2533efb15e19cf8d744e06cdfbb27cd4cd99696))
+
 ## [0.12.1](https://github.com/frankieramirez/comicarr/compare/v0.12.0...v0.12.1) (2026-04-07)
 
 
