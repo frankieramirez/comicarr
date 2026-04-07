@@ -96,6 +96,63 @@ export function useDeleteSeries(): UseMutationResult<unknown, Error, string> {
 }
 
 /**
+ * Bulk delete multiple series
+ */
+export function useBulkDeleteSeries(): UseMutationResult<
+  unknown,
+  Error,
+  string[]
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      apiRequest("POST", "/api/series/bulk-delete", { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+  });
+}
+
+/**
+ * Bulk pause multiple series
+ */
+export function useBulkPauseSeries(): UseMutationResult<
+  unknown,
+  Error,
+  string[]
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      apiRequest("POST", "/api/series/bulk-pause", { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+  });
+}
+
+/**
+ * Bulk resume multiple series
+ */
+export function useBulkResumeSeries(): UseMutationResult<
+  unknown,
+  Error,
+  string[]
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      apiRequest("POST", "/api/series/bulk-resume", { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+  });
+}
+
+/**
  * Queue an issue (mark as wanted)
  */
 export function useQueueIssue(): UseMutationResult<unknown, Error, string> {
