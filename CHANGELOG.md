@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.1](https://github.com/frankieramirez/comicarr/compare/v0.11.0...v0.11.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* Make Import page scan cards symmetrical (Comic + Manga side-by-side) ([#111](https://github.com/frankieramirez/comicarr/issues/111)) ([4fedd0b](https://github.com/frankieramirez/comicarr/commit/4fedd0b2c3c720fe7038aec2cb3d5e3ff0e4b586))
+
 ## [0.11.0](https://github.com/frankieramirez/comicarr/compare/v0.10.4...v0.11.0) (2026-04-06)
 
 
