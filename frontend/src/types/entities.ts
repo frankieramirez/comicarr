@@ -242,6 +242,42 @@ export interface ArcSearchResult {
   haveit: string | null;
 }
 
+/** Library scan result (from comic/manga scan-then-select flow) */
+export interface ScanResultMatch {
+  comicid: string;
+  name: string;
+  year?: string;
+  publisher?: string;
+  issues?: string;
+  image?: string | null;
+  confidence: number;
+  source?: string;
+}
+
+export interface ScanResult {
+  series_name: string;
+  file_count: number;
+  matched: boolean;
+  already_in_library?: boolean;
+  existing_comic_id?: string;
+  match?: ScanResultMatch | null;
+  error?: string;
+}
+
+export interface ScanProgress {
+  status: string | null;
+  progress: {
+    total_files: number;
+    processed_files: number;
+    series_found: number;
+    series_matched: number;
+    current_series: string | null;
+    errors: string[];
+  };
+  scan_id: string | null;
+  results: ScanResult[] | null;
+}
+
 /** Import group (grouped by DynamicName + Volume) */
 export interface ImportGroup {
   DynamicName: string;

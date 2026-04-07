@@ -6,7 +6,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import type { ImportGroup, PaginationMeta } from "@/types";
+import type { ImportGroup, PaginationMeta, ScanProgress } from "@/types";
 
 interface ImportPendingResponse {
   imports: ImportGroup[];
@@ -130,18 +130,7 @@ interface MangaScanResponse {
   message: string;
 }
 
-interface MangaScanProgress {
-  status: string | null;
-  progress: {
-    total_files: number;
-    processed_files: number;
-    series_found: number;
-    series_matched: number;
-    series_imported: number;
-    current_series: string | null;
-    errors: string[];
-  };
-}
+type MangaScanProgress = ScanProgress;
 
 export function useMangaScan(): UseMutationResult<
   MangaScanResponse,
@@ -170,5 +159,87 @@ export function useMangaScanProgress(
       apiRequest<MangaScanProgress>("GET", "/api/import/manga/progress"),
     enabled,
     refetchInterval: enabled ? 2000 : false,
+  });
+}
+
+// Manga scan confirm hook
+interface ScanConfirmResponse {
+  success: boolean;
+  imported: number;
+  errors: { comicid: string; error: string }[];
+}
+
+export function useMangaScanConfirm(): UseMutationResult<
+  ScanConfirmResponse,
+  Error,
+  { scanId: string; selectedIds: string[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scanId, selectedIds }) =>
+      apiRequest<ScanConfirmResponse>("POST", "/api/import/manga/confirm", {
+        scan_id: scanId,
+        selected_ids: selectedIds,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mangaScanProgress"] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+  });
+}
+
+// Comic scan hooks
+
+interface ComicScanResponse {
+  success: boolean;
+  message: string;
+}
+
+export function useComicScan(): UseMutationResult<
+  ComicScanResponse,
+  Error,
+  void
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<ComicScanResponse>("POST", "/api/import/comic/scan"),
+    onSuccess: () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["comicScanProgress"] });
+        queryClient.invalidateQueries({ queryKey: ["series"] });
+      }, 2000);
+    },
+  });
+}
+
+export function useComicScanProgress(
+  enabled = false,
+): UseQueryResult<ScanProgress> {
+  return useQuery({
+    queryKey: ["comicScanProgress"],
+    queryFn: () =>
+      apiRequest<ScanProgress>("GET", "/api/import/comic/progress"),
+    enabled,
+    refetchInterval: enabled ? 2000 : false,
+  });
+}
+
+export function useComicScanConfirm(): UseMutationResult<
+  ScanConfirmResponse,
+  Error,
+  { scanId: string; selectedIds: string[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scanId, selectedIds }) =>
+      apiRequest<ScanConfirmResponse>("POST", "/api/import/comic/confirm", {
+        scan_id: scanId,
+        selected_ids: selectedIds,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["comicScanProgress"] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
   });
 }
