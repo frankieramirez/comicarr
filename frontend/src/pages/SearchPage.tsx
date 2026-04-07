@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import {
   Search as SearchIcon,
@@ -99,7 +99,13 @@ export default function SearchPage() {
       : "manga";
 
   const [searchQuery, setSearchQuery] = useState(urlQuery);
-  const columnToggleRef = useRef<HTMLDivElement>(null);
+  const [columnToggleEl, setColumnToggleEl] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const columnToggleCallback = useCallback(
+    (node: HTMLDivElement | null) => setColumnToggleEl(node),
+    [],
+  );
 
   // Map sort to API format based on mode
   const comicApiSort = comicSortMapping[urlSort] ?? urlSort;
@@ -254,7 +260,7 @@ export default function SearchPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <div ref={columnToggleRef} />
+              <div ref={columnToggleCallback} />
             </div>
           )}
         </div>
@@ -324,7 +330,7 @@ export default function SearchPage() {
             currentSort={urlSort}
             onSortChange={handleSortChange}
             contentType={searchMode}
-            columnToggleContainer={columnToggleRef.current}
+            columnToggleContainer={columnToggleEl}
           />
 
           {/* Pagination Controls */}

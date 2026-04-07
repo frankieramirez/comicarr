@@ -291,8 +291,7 @@ def _match_and_import_series(series_name, files):
 
     if not best_match or best_score < 0.6:
         logger.info(
-            "[MANGA-SCAN] No confident match for '%s' (best score: %.1f%%), skipping"
-            % (series_name, best_score * 100)
+            "[MANGA-SCAN] No confident match for '%s' (best score: %.1f%%), skipping" % (series_name, best_score * 100)
         )
         return {"matched": False}
 
