@@ -8,9 +8,12 @@ import {
   getPaginationRowModel,
   createColumnHelper,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
+import { Trash2, Pause, Play, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
@@ -25,6 +28,12 @@ import SeriesFilters, {
   type StatusFilter,
 } from "./SeriesFilters";
 import { useDebounce } from "@/hooks/use-debounce";
+import {
+  useBulkDeleteSeries,
+  useBulkPauseSeries,
+  useBulkResumeSeries,
+} from "@/hooks/useSeries";
+import { useToast } from "@/components/ui/toast";
 import type { Comic } from "@/types";
 
 const columnHelper = createColumnHelper<Comic>();
@@ -55,7 +64,14 @@ export default function SeriesTable({
   const [searchParams, setSearchParams] = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const debouncedFilter = useDebounce(globalFilter, 300);
+
+  const bulkDeleteMutation = useBulkDeleteSeries();
+  const bulkPauseMutation = useBulkPauseSeries();
+  const bulkResumeMutation = useBulkResumeSeries();
+  const { addToast } = useToast();
 
   const typeFilter = (searchParams.get("type") as TypeFilter) || "all";
   const progressFilter =
@@ -124,8 +140,92 @@ export default function SeriesTable({
     });
   }, [data, typeFilter, progressFilter, statusFilter]);
 
+  const selectedSeriesIds = useMemo(() => {
+    return Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  }, [rowSelection]);
+
+  const handleBulkDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    try {
+      await bulkDeleteMutation.mutateAsync(selectedSeriesIds);
+      addToast({
+        type: "success",
+        message: `${selectedSeriesIds.length} series deleted`,
+      });
+      setRowSelection({});
+      setConfirmDelete(false);
+    } catch {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to delete series",
+      });
+    }
+  };
+
+  const handleBulkPause = async () => {
+    try {
+      await bulkPauseMutation.mutateAsync(selectedSeriesIds);
+      addToast({
+        type: "success",
+        message: `${selectedSeriesIds.length} series paused`,
+      });
+      setRowSelection({});
+    } catch {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to pause series",
+      });
+    }
+  };
+
+  const handleBulkResume = async () => {
+    try {
+      await bulkResumeMutation.mutateAsync(selectedSeriesIds);
+      addToast({
+        type: "success",
+        message: `${selectedSeriesIds.length} series resumed`,
+      });
+      setRowSelection({});
+    } catch {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to resume series",
+      });
+    }
+  };
+
   const columns = useMemo(
     () => [
+      columnHelper.display({
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+          />
+        ),
+        cell: ({ row }) => (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+            />
+          </div>
+        ),
+        size: 40,
+        enableSorting: false,
+      }),
       columnHelper.accessor("ComicName", {
         header: ({ column }) => (
           <DataTableSortHeader column={column} title="Series" />
@@ -179,13 +279,19 @@ export default function SeriesTable({
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter: debouncedFilter },
+    state: { sorting, globalFilter: debouncedFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: (updater) => {
+      setConfirmDelete(false);
+      setRowSelection(updater);
+    },
+    getRowId: (row) => row.ComicID,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    enableRowSelection: true,
     initialState: { pagination: { pageSize: 20 } },
   });
 
@@ -228,6 +334,55 @@ export default function SeriesTable({
           </span>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedSeriesIds.length > 0 && (
+        <div className="flex items-center gap-4 px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedSeriesIds.length} series selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              {confirmDelete ? "Confirm Delete" : "Delete"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkPause}
+              disabled={bulkPauseMutation.isPending}
+            >
+              <Pause className="w-3 h-3 mr-1" />
+              Pause
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkResume}
+              disabled={bulkResumeMutation.isPending}
+            >
+              <Play className="w-3 h-3 mr-1" />
+              Resume
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setRowSelection({});
+                setConfirmDelete(false);
+              }}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DataTable
         table={table}

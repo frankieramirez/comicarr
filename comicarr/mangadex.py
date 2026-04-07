@@ -688,6 +688,46 @@ def get_manga_aggregate(manga_id, languages=None):
     return data
 
 
+def get_total_chapter_count(manga_id):
+    """
+    Get the total number of chapters for a manga, regardless of language.
+
+    Calls the MangaDex aggregate endpoint WITHOUT any translatedLanguage
+    filter, so it returns chapter counts across ALL languages. This is
+    the authoritative source for "how many chapters does this manga have"
+    even when English fan translations have been DMCA'd.
+
+    Args:
+        manga_id: MangaDex manga UUID (with or without md- prefix)
+
+    Returns:
+        int: Total unique chapter count, or 0 if the API call fails
+    """
+    if manga_id.startswith("md-"):
+        manga_id = manga_id[3:]
+
+    logger.info("[MANGADEX] Fetching language-unfiltered aggregate for manga: %s" % manga_id)
+
+    # Intentionally NO translatedLanguage[] param — we want ALL chapters
+    data = _make_request("/manga/%s/aggregate" % manga_id, params={})
+
+    if not data or data.get("result") != "ok":
+        logger.error("[MANGADEX] Failed to fetch unfiltered aggregate for manga %s" % manga_id)
+        return 0
+
+    # Count unique chapter numbers across all volumes
+    chapter_numbers = set()
+    for volume_key, volume_data in data.get("volumes", {}).items():
+        for ch_key, ch_data in volume_data.get("chapters", {}).items():
+            chapter_num = ch_data.get("chapter")
+            if chapter_num is not None:
+                chapter_numbers.add(str(chapter_num))
+
+    total = len(chapter_numbers)
+    logger.info("[MANGADEX] Unfiltered aggregate: %d total chapters for manga %s" % (total, manga_id))
+    return total
+
+
 def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     """
     Get all chapters for a manga (handles pagination automatically).

@@ -1045,6 +1045,166 @@ def addComictoDB(
 #                myDB.upsert("importresults", newValue, controlValue)
 
 
+def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapters, controlValueDict):
+    """Shared helper: fetch chapters and set Total/Have for a manga series.
+
+    Uses a multi-source approach:
+    1. Language-filtered chapters from MangaDex (for detailed issue rows)
+    2. Language-unfiltered aggregate from MangaDex (for authoritative Total)
+    3. MAL num_chapters as fallback (when MangaDex is unavailable)
+    4. Explicit 0 as terminal default (never leaves Total/Have as NULL)
+
+    Args:
+        mangaid: The comic ID used in the database (e.g. 'md-xxx' or 'mal-xxx')
+        manga_name: Display name for logging
+        mangadex_uuid: MangaDex UUID for chapter fetching (None if unavailable)
+        mal_num_chapters: Chapter count from MAL (None if not from MAL)
+        controlValueDict: Dict used as WHERE clause for db.upsert
+    """
+    from comicarr import mangadex
+
+    issue_count = 0
+    latest_chapter = None
+    latest_date = None
+
+    if mangadex_uuid:
+        # Strip md- prefix if present for MangaDex API calls
+        mdex_id = mangadex_uuid
+        if mdex_id.startswith("md-"):
+            mdex_id = mdex_id[3:]
+
+        # Track 1: Get language-filtered chapters for detailed issue rows
+        logger.info("[MANGA-IMPORT] Fetching chapters for: %s" % manga_name)
+        chapters = mangadex.get_all_chapters(mdex_id)
+
+        if chapters:
+            for chapter in chapters:
+                chapter_num = chapter.get("chapter")
+                if chapter_num is None:
+                    continue
+
+                issue_id = "%s-ch%s" % (mangaid, chapter_num)
+
+                issue_status = "Skipped"
+                if comicarr.CONFIG.AUTOWANT_ALL:
+                    issue_status = "Wanted"
+
+                release_date = (
+                    chapter.get("release_date") or chapter.get("publish_at", "")[:10]
+                    if chapter.get("publish_at")
+                    else None
+                )
+
+                issue_values = {
+                    "IssueID": issue_id,
+                    "ComicID": mangaid,
+                    "ComicName": manga_name,
+                    "Issue_Number": str(chapter_num),
+                    "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
+                    "ReleaseDate": release_date,
+                    "IssueDate": release_date,
+                    "Status": issue_status,
+                    "Int_IssueNumber": helpers.issuedigits(chapter_num),
+                    "ChapterNumber": str(chapter_num),
+                    "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
+                    "DateAdded": helpers.now(),
+                }
+
+                db.upsert("issues", issue_values, {"IssueID": issue_id})
+                issue_count += 1
+
+                # Track latest chapter
+                try:
+                    chapter_float = float(chapter_num)
+                    if latest_chapter is None:
+                        latest_chapter = chapter_num
+                        latest_date = release_date
+                    else:
+                        try:
+                            if chapter_float > float(latest_chapter):
+                                latest_chapter = chapter_num
+                                latest_date = release_date
+                        except ValueError:
+                            latest_chapter = chapter_num
+                            latest_date = release_date
+                except ValueError:
+                    if latest_chapter is None:
+                        latest_chapter = chapter_num
+                        latest_date = release_date
+
+            logger.info("[MANGA-IMPORT] Added %d chapters for %s" % (issue_count, manga_name))
+
+        # Track 2: Get language-unfiltered aggregate for authoritative Total
+        total_from_aggregate = mangadex.get_total_chapter_count(mdex_id)
+
+        if total_from_aggregate > 0:
+            total = max(total_from_aggregate, issue_count)
+
+            # Generate placeholder issues for chapters not in the language-filtered set
+            if total_from_aggregate > issue_count:
+                existing_chapters = set()
+                with db.get_engine().connect() as conn:
+                    stmt = select(issues.c.ChapterNumber).where(issues.c.ComicID == mangaid)
+                    for row in conn.execute(stmt):
+                        if row[0]:
+                            existing_chapters.add(str(row[0]))
+
+                for ch_num in range(1, total_from_aggregate + 1):
+                    ch_num_str = str(ch_num)
+                    if ch_num_str in existing_chapters:
+                        continue
+
+                    placeholder_id = "%s-ch%s" % (mangaid, ch_num_str)
+                    placeholder_values = {
+                        "IssueID": placeholder_id,
+                        "ComicID": mangaid,
+                        "ComicName": manga_name,
+                        "Issue_Number": ch_num_str,
+                        "IssueName": "Chapter %s" % ch_num_str,
+                        "Status": "Skipped",
+                        "Int_IssueNumber": helpers.issuedigits(ch_num_str),
+                        "ChapterNumber": ch_num_str,
+                        "DateAdded": helpers.now(),
+                    }
+                    db.upsert("issues", placeholder_values, {"IssueID": placeholder_id})
+
+                logger.info(
+                    "[MANGA-IMPORT] Generated %d placeholder chapters for %s (aggregate total: %d, language-filtered: %d)"
+                    % (total_from_aggregate - issue_count, manga_name, total_from_aggregate, issue_count)
+                )
+        else:
+            total = issue_count
+    else:
+        logger.warn("[MANGA-IMPORT] No MangaDex UUID for %s — cannot fetch chapters" % manga_name)
+        total = 0
+
+    # Fallback to MAL chapter count if we still have 0 total
+    if total == 0 and mal_num_chapters is not None:
+        try:
+            total = int(float(mal_num_chapters))
+            logger.info("[MANGA-IMPORT] Using MAL chapter count for %s: %d" % (manga_name, total))
+        except (ValueError, TypeError):
+            logger.error("[MANGA-IMPORT] Invalid MAL chapter count for %s: %s" % (manga_name, mal_num_chapters))
+
+    # Always set Total/Have — never leave as NULL
+    update_values = {
+        "Total": total,
+        "Have": 0,
+        "LatestIssue": str(latest_chapter) if latest_chapter else "0",
+        "LatestDate": latest_date or "Unknown",
+    }
+    db.upsert("comics", update_values, controlValueDict)
+
+    if total == 0:
+        logger.warn(
+            "[MANGA-IMPORT] 0 chapters found for %s (languages: %s). "
+            "Check MangaDex content rating and language settings."
+            % (manga_name, comicarr.CONFIG.MANGADEX_LANGUAGES or "en")
+        )
+
+    return {"total": total, "issue_count": issue_count, "latest_chapter": latest_chapter}
+
+
 def addMangaToDB(mangaid, imported=None, calledfrom=None):
     """
     Add a manga from MangaDex to the database.
@@ -1165,82 +1325,18 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
 
     db.upsert("comics", comic_values, controlValueDict)
 
-    # Now fetch and add chapters as issues
-    logger.info("[MANGADEX] Fetching chapters for: %s" % manga_name)
-    chapters = mangadex.get_all_chapters(mangaid)
+    # Cache cover image locally (Unit 1 fix — matches comic import pattern at line 587)
+    cover_url = manga.get("cover_url")
+    if cover_url:
+        try:
+            covercheck = helpers.getImage(mangaid, cover_url)
+            if covercheck["status"] == "retry":
+                logger.info("[MANGADEX] Retrying alternate cover image for: %s" % manga_name)
+        except Exception as e:
+            logger.warn("[MANGADEX] Failed to cache cover for %s: %s" % (manga_name, e))
 
-    if chapters:
-        issue_count = 0
-        latest_chapter = None
-        latest_date = None
-
-        for chapter in chapters:
-            chapter_num = chapter.get("chapter")
-            if chapter_num is None:
-                continue
-
-            # Create a unique issue ID using manga ID and chapter
-            issue_id = "%s-ch%s" % (mangaid, chapter_num)
-
-            # Determine issue status
-            issue_status = "Skipped"
-            if comicarr.CONFIG.AUTOWANT_ALL:
-                issue_status = "Wanted"
-
-            release_date = (
-                chapter.get("release_date") or chapter.get("publish_at", "")[:10] if chapter.get("publish_at") else None
-            )
-
-            issue_values = {
-                "IssueID": issue_id,
-                "ComicID": mangaid,
-                "ComicName": manga_name,
-                "Issue_Number": str(chapter_num),
-                "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
-                "ReleaseDate": release_date,
-                "IssueDate": release_date,
-                "Status": issue_status,
-                "Int_IssueNumber": helpers.issuedigits(chapter_num),
-                "ChapterNumber": str(chapter_num),
-                "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
-                "DateAdded": helpers.now(),
-            }
-
-            db.upsert("issues", issue_values, {"IssueID": issue_id})
-            issue_count += 1
-
-            # Track latest chapter
-            try:
-                chapter_float = float(chapter_num)
-                if latest_chapter is None:
-                    latest_chapter = chapter_num
-                    latest_date = release_date
-                else:
-                    try:
-                        if chapter_float > float(latest_chapter):
-                            latest_chapter = chapter_num
-                            latest_date = release_date
-                    except ValueError:
-                        # latest_chapter is non-numeric, update anyway
-                        latest_chapter = chapter_num
-                        latest_date = release_date
-            except ValueError:
-                # chapter_num is non-numeric (e.g., "oneshot", "special", "prologue")
-                # Skip numeric comparison but still track if it's the first chapter
-                if latest_chapter is None:
-                    latest_chapter = chapter_num
-                    latest_date = release_date
-
-        # Update comic with issue count and latest info
-        update_values = {
-            "Total": issue_count,
-            "Have": 0,
-            "LatestIssue": str(latest_chapter) if latest_chapter else "0",
-            "LatestDate": latest_date or "Unknown",
-        }
-        db.upsert("comics", update_values, controlValueDict)
-
-        logger.info("[MANGADEX] Added %d chapters for %s" % (issue_count, manga_name))
+    # Fetch and populate chapters using shared helper
+    _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, None, controlValueDict)
 
     # Update sort order
     helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
@@ -1380,88 +1476,19 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
 
     db.upsert("comics", comic_values, controlValueDict)
 
-    # Fetch chapters from MangaDex if we found a cross-reference
-    if mangadex_uuid:
-        logger.info("[MAL] Fetching chapters from MangaDex (UUID: %s) for: %s" % (mangadex_uuid, manga_name))
-        chapters = mangadex.get_all_chapters(mangadex_uuid)
+    # Cache cover image locally (Unit 1 fix — matches comic import pattern at line 587)
+    cover_url = manga.get("cover_url")
+    if cover_url:
+        try:
+            covercheck = helpers.getImage(mangaid, cover_url)
+            if covercheck["status"] == "retry":
+                logger.info("[MAL] Retrying alternate cover image for: %s" % manga_name)
+        except Exception as e:
+            logger.warn("[MAL] Failed to cache cover for %s: %s" % (manga_name, e))
 
-        if chapters:
-            issue_count = 0
-            latest_chapter = None
-            latest_date = None
-
-            for chapter in chapters:
-                chapter_num = chapter.get("chapter")
-                if chapter_num is None:
-                    continue
-
-                issue_id = "%s-ch%s" % (mangaid, chapter_num)
-
-                issue_status = "Skipped"
-                if comicarr.CONFIG.AUTOWANT_ALL:
-                    issue_status = "Wanted"
-
-                release_date = (
-                    chapter.get("release_date") or chapter.get("publish_at", "")[:10]
-                    if chapter.get("publish_at")
-                    else None
-                )
-
-                issue_values = {
-                    "IssueID": issue_id,
-                    "ComicID": mangaid,
-                    "ComicName": manga_name,
-                    "Issue_Number": str(chapter_num),
-                    "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
-                    "ReleaseDate": release_date,
-                    "IssueDate": release_date,
-                    "Status": issue_status,
-                    "Int_IssueNumber": helpers.issuedigits(chapter_num),
-                    "ChapterNumber": str(chapter_num),
-                    "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
-                    "DateAdded": helpers.now(),
-                }
-
-                db.upsert("issues", issue_values, {"IssueID": issue_id})
-                issue_count += 1
-
-                # Track latest chapter
-                try:
-                    chapter_float = float(chapter_num)
-                    if latest_chapter is None:
-                        latest_chapter = chapter_num
-                        latest_date = release_date
-                    else:
-                        try:
-                            if chapter_float > float(latest_chapter):
-                                latest_chapter = chapter_num
-                                latest_date = release_date
-                        except ValueError:
-                            latest_chapter = chapter_num
-                            latest_date = release_date
-                except ValueError:
-                    if latest_chapter is None:
-                        latest_chapter = chapter_num
-                        latest_date = release_date
-
-            update_values = {
-                "Total": issue_count,
-                "Have": 0,
-                "LatestIssue": str(latest_chapter) if latest_chapter else "0",
-                "LatestDate": latest_date or "Unknown",
-            }
-            db.upsert("comics", update_values, controlValueDict)
-
-            logger.info("[MAL] Added %d chapters for %s" % (issue_count, manga_name))
-    else:
-        logger.warn("[MAL] No MangaDex match for %s — series added without chapter data" % manga_name)
-        # Store num_chapters from MAL as a reference
-        num_chapters = manga.get("last_chapter")
-        if num_chapters:
-            try:
-                db.upsert("comics", {"Total": int(float(num_chapters)), "Have": 0}, controlValueDict)
-            except (ValueError, TypeError):
-                logger.error("[MAL] Invalid chapter count for %s: %s" % (manga_name, num_chapters))
+    # Fetch and populate chapters using shared helper
+    mal_num_chapters = manga.get("last_chapter")
+    _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapters, controlValueDict)
 
     # Update sort order
     helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
