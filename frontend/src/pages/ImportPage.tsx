@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, EyeOff, Eye, BookOpen } from "lucide-react";
+import { RefreshCw, EyeOff, Eye, BookOpen, Library } from "lucide-react";
 import {
   useImportPending,
   useMatchImport,
@@ -208,17 +208,41 @@ export default function ImportPage() {
         </p>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <Library className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <h3 className="font-semibold">Comic Library Scan</h3>
+                <p className="text-sm text-muted-foreground">
+                  Scan your comic directory to find unmatched files
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleRefreshImport}
+              disabled={refreshImportMutation.isPending}
+              className="w-full"
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${refreshImportMutation.isPending ? "animate-spin" : ""}`}
+              />
+              Scan Comic Library
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-3">
               <BookOpen className="w-5 h-5 text-muted-foreground" />
               <div>
                 <h3 className="font-semibold">Manga Library Scan</h3>
                 <p className="text-sm text-muted-foreground">
                   {mangaDirConfigured
                     ? "Scan your manga directory to import existing collections"
-                    : "Configure a Manga Directory in Settings to enable scanning"}
+                    : "Configure a Manga Directory in Settings to enable"}
                 </p>
               </div>
             </div>
@@ -229,59 +253,48 @@ export default function ImportPage() {
                 mangaScanMutation.isPending ||
                 mangaScanning
               }
+              className="w-full"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${mangaScanning ? "animate-spin" : ""}`}
               />
               Scan Manga Library
             </Button>
-          </div>
-          {mangaScanning && mangaProgress?.progress && (
-            <div className="mt-4 text-sm text-muted-foreground space-y-1">
-              <p>
-                Series found: {mangaProgress.progress.series_found} | Matched:{" "}
-                {mangaProgress.progress.series_matched} | Imported:{" "}
-                {mangaProgress.progress.series_imported}
-              </p>
-              {mangaProgress.progress.current_series && (
-                <p>Processing: {mangaProgress.progress.current_series}</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {mangaScanning && mangaProgress?.progress && (
+              <div className="mt-3 text-sm text-muted-foreground space-y-1">
+                <p>
+                  Series found: {mangaProgress.progress.series_found} | Matched:{" "}
+                  {mangaProgress.progress.series_matched} | Imported:{" "}
+                  {mangaProgress.progress.series_imported}
+                </p>
+                {mangaProgress.progress.current_series && (
+                  <p>Processing: {mangaProgress.progress.current_series}</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="show-ignored"
-              checked={showIgnored}
-              onChange={() => setShowIgnored(!showIgnored)}
-            />
-            <Label htmlFor="show-ignored" className="text-sm cursor-pointer">
-              {showIgnored ? (
-                <span className="flex items-center gap-1">
-                  <Eye className="w-4 h-4" /> Show Ignored
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <EyeOff className="w-4 h-4" /> Hide Ignored
-                </span>
-              )}
-            </Label>
-          </div>
-        </div>
-
-        <Button
-          onClick={handleRefreshImport}
-          disabled={refreshImportMutation.isPending}
-        >
-          <RefreshCw
-            className={`w-4 h-4 mr-2 ${refreshImportMutation.isPending ? "animate-spin" : ""}`}
+      <div className="flex items-center mb-4">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="show-ignored"
+            checked={showIgnored}
+            onChange={() => setShowIgnored(!showIgnored)}
           />
-          Scan Import Directory
-        </Button>
+          <Label htmlFor="show-ignored" className="text-sm cursor-pointer">
+            {showIgnored ? (
+              <span className="flex items-center gap-1">
+                <Eye className="w-4 h-4" /> Show Ignored
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <EyeOff className="w-4 h-4" /> Hide Ignored
+              </span>
+            )}
+          </Label>
+        </div>
       </div>
 
       {isLoading && (
