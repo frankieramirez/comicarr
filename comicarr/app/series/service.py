@@ -15,7 +15,6 @@ Module-level functions (not classes) — matches existing codebase style.
 
 import datetime
 import os
-import queue
 import re
 import shutil
 import threading
@@ -267,20 +266,19 @@ def delete_import(ctx, imp_ids):
 
 
 def refresh_import(ctx):
-    """Trigger an import directory scan in the background."""
-    from comicarr import librarysync
+    """Trigger an import inbox scan in the background."""
+    from comicarr import importinbox
 
     import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
     if not import_dir:
         return {"success": False, "error": "Import directory not configured"}
 
     try:
-        logger.info("[SERIES-IMPORT] Starting import directory scan for: %s" % import_dir)
-        import_queue = queue.Queue()
-        threading.Thread(target=librarysync.scanLibrary, name="API-ImportScan", args=[import_dir, import_queue]).start()
-        return {"success": True, "message": "Import scan started for: %s" % import_dir}
+        logger.info("[IMPORT-INBOX] Starting import inbox scan for: %s" % import_dir)
+        threading.Thread(target=importinbox.inboxScan, name="API-InboxScan").start()
+        return {"success": True, "message": "Import inbox scan started for: %s" % import_dir}
     except Exception as e:
-        logger.error("[SERIES-IMPORT] Error: %s" % e)
+        logger.error("[IMPORT-INBOX] Error: %s" % e)
         return {"success": False, "error": "Failed to start import scan: %s" % str(e)}
 
 
