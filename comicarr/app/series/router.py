@@ -99,6 +99,24 @@ def resume_series(comic_id: str, ctx: AppContext = Depends(get_context)):
 # Bulk series operations
 # ---------------------------------------------------------------------------
 
+MAX_BULK_IDS = 100
+
+
+def _validate_bulk_ids(request_body):
+    """Validate and extract IDs from a bulk operation request body."""
+    if not isinstance(request_body, dict):
+        return None, JSONResponse(status_code=422, content={"detail": "Request body must be a JSON object"})
+    ids = request_body.get("ids")
+    if not ids or not isinstance(ids, list):
+        return None, JSONResponse(status_code=400, content={"detail": "Missing ids array"})
+    if len(ids) > MAX_BULK_IDS:
+        return None, JSONResponse(
+            status_code=422, content={"detail": "Maximum %d IDs per bulk operation" % MAX_BULK_IDS}
+        )
+    if not all(isinstance(i, str) and i.strip() for i in ids):
+        return None, JSONResponse(status_code=422, content={"detail": "All IDs must be non-empty strings"})
+    return ids, None
+
 
 @router.post("/series/bulk-delete", dependencies=[Depends(require_session)])
 def bulk_delete_series(
@@ -106,17 +124,17 @@ def bulk_delete_series(
     ctx: AppContext = Depends(get_context),
 ):
     """Delete multiple series at once."""
-    if not request_body or not request_body.get("ids"):
-        return JSONResponse(status_code=400, content={"detail": "Missing ids array"})
+    ids, error = _validate_bulk_ids(request_body)
+    if error:
+        return error
 
-    ids = request_body["ids"]
     results = []
     for comic_id in ids:
         result = series_service.delete_comic(ctx, comic_id)
         results.append({"id": comic_id, "success": result.get("success", False)})
 
     succeeded = sum(1 for r in results if r["success"])
-    return {"success": True, "deleted": succeeded, "total": len(ids), "results": results}
+    return {"success": succeeded > 0, "deleted": succeeded, "total": len(ids), "results": results}
 
 
 @router.post("/series/bulk-pause", dependencies=[Depends(require_session)])
@@ -125,13 +143,14 @@ def bulk_pause_series(
     ctx: AppContext = Depends(get_context),
 ):
     """Pause multiple series at once."""
-    if not request_body or not request_body.get("ids"):
-        return JSONResponse(status_code=400, content={"detail": "Missing ids array"})
+    ids, error = _validate_bulk_ids(request_body)
+    if error:
+        return error
 
-    for comic_id in request_body["ids"]:
+    for comic_id in ids:
         series_service.pause_comic(ctx, comic_id)
 
-    return {"success": True, "count": len(request_body["ids"])}
+    return {"success": True, "count": len(ids)}
 
 
 @router.post("/series/bulk-resume", dependencies=[Depends(require_session)])
@@ -140,13 +159,14 @@ def bulk_resume_series(
     ctx: AppContext = Depends(get_context),
 ):
     """Resume multiple series at once."""
-    if not request_body or not request_body.get("ids"):
-        return JSONResponse(status_code=400, content={"detail": "Missing ids array"})
+    ids, error = _validate_bulk_ids(request_body)
+    if error:
+        return error
 
-    for comic_id in request_body["ids"]:
+    for comic_id in ids:
         series_service.resume_comic(ctx, comic_id)
 
-    return {"success": True, "count": len(request_body["ids"])}
+    return {"success": True, "count": len(ids)}
 
 
 @router.post("/series/{comic_id}/refresh", dependencies=[Depends(require_session)])

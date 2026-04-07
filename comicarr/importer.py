@@ -1144,8 +1144,8 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
             if total_from_aggregate > issue_count:
                 existing_chapters = set()
                 with db.get_engine().connect() as conn:
-                    stmt = text("SELECT ChapterNumber FROM issues WHERE ComicID = :cid")
-                    for row in conn.execute(stmt, {"cid": mangaid}):
+                    stmt = select(issues.c.ChapterNumber).where(issues.c.ComicID == mangaid)
+                    for row in conn.execute(stmt):
                         if row[0]:
                             existing_chapters.add(str(row[0]))
 

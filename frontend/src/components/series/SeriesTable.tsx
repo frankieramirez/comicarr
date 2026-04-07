@@ -141,13 +141,8 @@ export default function SeriesTable({
   }, [data, typeFilter, progressFilter, statusFilter]);
 
   const selectedSeriesIds = useMemo(() => {
-    return Object.keys(rowSelection)
-      .map((index) => {
-        const comic = filteredData[parseInt(index)];
-        return comic?.ComicID;
-      })
-      .filter(Boolean) as string[];
-  }, [rowSelection, filteredData]);
+    return Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  }, [rowSelection]);
 
   const handleBulkDelete = async () => {
     if (!confirmDelete) {
@@ -287,7 +282,11 @@ export default function SeriesTable({
     state: { sorting, globalFilter: debouncedFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      setConfirmDelete(false);
+      setRowSelection(updater);
+    },
+    getRowId: (row) => row.ComicID,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -340,8 +339,7 @@ export default function SeriesTable({
       {selectedSeriesIds.length > 0 && (
         <div className="flex items-center gap-4 px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
           <span className="text-sm font-medium">
-            {selectedSeriesIds.length}{" "}
-            {selectedSeriesIds.length !== 1 ? "series" : "series"} selected
+            {selectedSeriesIds.length} series selected
           </span>
           <div className="flex items-center gap-2">
             <Button
