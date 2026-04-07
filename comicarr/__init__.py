@@ -155,6 +155,7 @@ CHECKENABLED = False
 _INITIALIZED = False
 started = False
 MONITOR_STATUS = "Waiting"
+IMPORTINBOX_STATUS = "Waiting"
 SEARCH_STATUS = "Waiting"
 RSS_STATUS = "Waiting"
 WEEKLY_STATUS = "Waiting"
@@ -410,6 +411,7 @@ def initialize(config_file):
             FEED_32P, \
             FEEDINFO_32P, \
             MONITOR_STATUS, \
+            IMPORTINBOX_STATUS, \
             SEARCH_STATUS, \
             RSS_STATUS, \
             WEEKLY_STATUS, \
@@ -867,6 +869,16 @@ def start():
             )
             MONITOR_SCHEDULER.pause()
 
+            from comicarr import importinbox
+
+            IMPORTINBOX_SCHEDULER = SCHED.add_job(
+                func=importinbox.run,
+                id="importinbox",
+                name="Import Inbox Scanner",
+                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.IMPORT_SCAN_INTERVAL), timezone="UTC"),
+            )
+            IMPORTINBOX_SCHEDULER.pause()
+
             # load up the previous runs from the job sql table so we know stuff...
             monitors = helpers.job_management(startup=True)
 
@@ -1036,6 +1048,29 @@ def start():
                         % (helpers.utc_date_to_local(rss_diff), CONFIG.RSS_CHECKINTERVAL)
                     )
                     RSS_SCHEDULER.modify(next_run_time=rss_diff)
+
+            # Run Import Inbox scanner on schedule if IMPORT_DIR is configured
+            if IMPORTINBOX_STATUS != "Paused":
+                if CONFIG.IMPORT_DIR is not None:
+                    if CONFIG.IMPORT_SCAN_INTERVAL > 0:
+                        logger.info(
+                            "[IMPORT-INBOX] Enabling import inbox scanner for: "
+                            + str(CONFIG.IMPORT_DIR)
+                            + " every "
+                            + str(CONFIG.IMPORT_SCAN_INTERVAL)
+                            + " minutes."
+                        )
+                        IMPORTINBOX_SCHEDULER.resume()
+                    else:
+                        logger.info(
+                            "[IMPORT-INBOX] Import scan interval set to 0, disabling scheduled scanning"
+                        )
+                        IMPORTINBOX_SCHEDULER.pause()
+                else:
+                    logger.fdebug(
+                        "[IMPORT-INBOX] No IMPORT_DIR configured, disabling scheduled scanning"
+                    )
+                    IMPORTINBOX_SCHEDULER.pause()
 
             if VERSION_STATUS != "Paused":
                 VERSION_SCHEDULER.resume()
