@@ -165,6 +165,7 @@ FORCE_STATUS = {}
 RSS_SCHEDULER = None
 WEEKLY_SCHEDULER = None
 MONITOR_SCHEDULER = None
+IMPORTINBOX_SCHEDULER = None
 SEARCH_SCHEDULER = None
 VERSION_SCHEDULER = None
 UPDATER_SCHEDULER = None
@@ -1062,14 +1063,10 @@ def start():
                         )
                         IMPORTINBOX_SCHEDULER.resume()
                     else:
-                        logger.info(
-                            "[IMPORT-INBOX] Import scan interval set to 0, disabling scheduled scanning"
-                        )
+                        logger.info("[IMPORT-INBOX] Import scan interval set to 0, disabling scheduled scanning")
                         IMPORTINBOX_SCHEDULER.pause()
                 else:
-                    logger.fdebug(
-                        "[IMPORT-INBOX] No IMPORT_DIR configured, disabling scheduled scanning"
-                    )
+                    logger.fdebug("[IMPORT-INBOX] No IMPORT_DIR configured, disabling scheduled scanning")
                     IMPORTINBOX_SCHEDULER.pause()
 
             if VERSION_STATUS != "Paused":

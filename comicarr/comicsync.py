@@ -143,8 +143,7 @@ def comicScan(scan_dir=None):
         COMIC_SCAN_RESULTS = results["scan_results"]
 
         logger.info(
-            "[COMIC-SCAN] Scan complete. Matched: %d/%d series"
-            % (results["series_matched"], results["series_found"])
+            "[COMIC-SCAN] Scan complete. Matched: %d/%d series" % (results["series_matched"], results["series_found"])
         )
     except Exception as e:
         logger.error("[COMIC-SCAN] Fatal error during scan: %s" % e)
@@ -293,10 +292,7 @@ def _match_series(series_name, files, existing_series):
     best_match, best_score = _find_best_match(series_name, comic_list)
 
     if not best_match or best_score < 0.5:
-        logger.info(
-            "[COMIC-SCAN] No confident match for '%s' (best score: %.1f%%)"
-            % (series_name, best_score * 100)
-        )
+        logger.info("[COMIC-SCAN] No confident match for '%s' (best score: %.1f%%)" % (series_name, best_score * 100))
         return result
 
     confidence = int(best_score * 100)
@@ -313,8 +309,7 @@ def _match_series(series_name, files, existing_series):
 
     if best_score < 1.0:
         logger.info(
-            "[COMIC-SCAN] Fuzzy match for '%s' -> '%s' (%d%%)"
-            % (series_name, best_match.get("name", ""), confidence)
+            "[COMIC-SCAN] Fuzzy match for '%s' -> '%s' (%d%%)" % (series_name, best_match.get("name", ""), confidence)
         )
     else:
         logger.info(
@@ -423,10 +418,17 @@ def import_selected_series(selected_ids, scan_id):
     if not COMIC_SCAN_RESULTS:
         return {"success": False, "error": "No scan results available"}
 
+    # Whitelist: only allow IDs that appeared in the scan results
+    allowed_ids = {r["match"]["comicid"] for r in COMIC_SCAN_RESULTS if r.get("matched") and r.get("match")}
+
     imported = 0
     errors = []
 
     for comic_id in selected_ids:
+        if comic_id not in allowed_ids:
+            logger.warning("[COMIC-SCAN] Rejected ID not in scan results: %s" % comic_id)
+            errors.append({"comicid": comic_id, "error": "ID not found in scan results"})
+            continue
         try:
             logger.info("[COMIC-SCAN] Importing series: %s" % comic_id)
             importer.addComictoDB(comic_id)

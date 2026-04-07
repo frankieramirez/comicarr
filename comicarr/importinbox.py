@@ -21,10 +21,10 @@ auto-imports high-confidence matches against library series, and queues
 unmatched/low-confidence files into importresults for manual review.
 """
 
+import hashlib
 import os
 import threading
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from sqlalchemy import select
@@ -105,9 +105,7 @@ def inboxScan():
         total_files = sum(len(files) for files in file_groups.values())
         INBOX_SCAN_PROGRESS["total_files"] = total_files
         results["total_files"] = total_files
-        logger.info(
-            "[IMPORT-INBOX] Found %d files in %d groups" % (total_files, len(file_groups))
-        )
+        logger.info("[IMPORT-INBOX] Found %d files in %d groups" % (total_files, len(file_groups)))
 
         if not file_groups:
             logger.info("[IMPORT-INBOX] No comic files found in import directory")
@@ -119,9 +117,7 @@ def inboxScan():
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {}
                 for group_name, files in file_groups.items():
-                    future = executor.submit(
-                        _match_group, group_name, files, series_list
-                    )
+                    future = executor.submit(_match_group, group_name, files, series_list)
                     futures[future] = group_name
 
                 for future in as_completed(futures):
@@ -135,9 +131,7 @@ def inboxScan():
                         INBOX_SCAN_PROGRESS["auto_imported"] += match_result["auto_imported"]
                         INBOX_SCAN_PROGRESS["queued_for_review"] += match_result["queued_for_review"]
                     except Exception as e:
-                        logger.error(
-                            "[IMPORT-INBOX] Error processing group '%s': %s" % (group_name, e)
-                        )
+                        logger.error("[IMPORT-INBOX] Error processing group '%s': %s" % (group_name, e))
                         results["errors"].append({"group": group_name, "error": str(e)})
                         INBOX_SCAN_PROGRESS["errors"].append(str(e))
 
@@ -273,10 +267,15 @@ def _match_group(group_name, files, series_list):
     return result
 
 
+def _filepath_to_impid(filepath):
+    """Generate a deterministic impID from a filepath for dedup across re-scans."""
+    return hashlib.sha256(filepath.encode("utf-8")).hexdigest()[:32]
+
+
 def _auto_import_file(filepath, series, confidence):
     """Record an auto-imported file in importresults with status=Imported."""
     filename = os.path.basename(filepath)
-    imp_id = str(uuid.uuid4())
+    imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
 
     db.upsert(
@@ -297,15 +296,13 @@ def _auto_import_file(filepath, series, confidence):
         {"impID": imp_id},
     )
 
-    logger.fdebug(
-        "[IMPORT-INBOX] Auto-imported: %s -> %s" % (filename, series.get("ComicName", ""))
-    )
+    logger.fdebug("[IMPORT-INBOX] Auto-imported: %s -> %s" % (filename, series.get("ComicName", "")))
 
 
 def _queue_for_review(filepath, group_name, suggested_id, suggested_name, confidence):
     """Queue a file in importresults for manual review."""
     filename = os.path.basename(filepath)
-    imp_id = str(uuid.uuid4())
+    imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
 
     db.upsert(
@@ -329,9 +326,6 @@ def _queue_for_review(filepath, group_name, suggested_id, suggested_name, confid
 
 def run():
     """Entry point for APScheduler — wraps inboxScan with graceful skip."""
-    from comicarr.app.common.dates import now
-    from comicarr.app.system.service import job_management
-
     import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
     if not import_dir:
         logger.info("[IMPORT-INBOX] Import directory not configured, skipping scan")
@@ -342,8 +336,6 @@ def run():
         inboxScan()
     except Exception as e:
         logger.error("[IMPORT-INBOX] Scheduled scan failed: %s" % e)
-    finally:
-        job_management(write=True, job="importinbox", last_run_completed=now())
 
 
 def get_scan_progress():

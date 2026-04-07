@@ -196,7 +196,7 @@ class TestImportSelectedManga:
     def test_import_selected(self, mangasync):
         mangasync.MANGA_SCAN_ID = "12345"
         mangasync.MANGA_SCAN_RESULTS = [
-            {"series_name": "One Piece", "match": {"comicid": "md-100"}},
+            {"series_name": "One Piece", "matched": True, "match": {"comicid": "md-100"}},
         ]
 
         with patch("comicarr.importer.addMangaToDB") as mock_import:
@@ -209,7 +209,7 @@ class TestImportSelectedManga:
     def test_import_mal_series(self, mangasync):
         mangasync.MANGA_SCAN_ID = "12345"
         mangasync.MANGA_SCAN_RESULTS = [
-            {"series_name": "Bleach", "match": {"comicid": "mal-200"}},
+            {"series_name": "Bleach", "matched": True, "match": {"comicid": "mal-200"}},
         ]
 
         with patch("comicarr.importer.addMangaToDB_MAL") as mock_import:
@@ -235,7 +235,9 @@ class TestImportSelectedManga:
 
     def test_results_cleared_after_import(self, mangasync):
         mangasync.MANGA_SCAN_ID = "12345"
-        mangasync.MANGA_SCAN_RESULTS = [{"series_name": "Test"}]
+        mangasync.MANGA_SCAN_RESULTS = [
+            {"series_name": "Test", "matched": True, "match": {"comicid": "md-100"}},
+        ]
 
         with patch("comicarr.importer.addMangaToDB"):
             mangasync.import_selected_manga(["md-100"], "12345")

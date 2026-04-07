@@ -239,8 +239,8 @@ class TestImportSelectedSeries:
     def test_import_selected(self, comicsync):
         comicsync.COMIC_SCAN_ID = "12345"
         comicsync.COMIC_SCAN_RESULTS = [
-            {"series_name": "Batman", "match": {"comicid": "cv-100"}},
-            {"series_name": "Superman", "match": {"comicid": "cv-200"}},
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+            {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
         with patch("comicarr.importer.addComictoDB") as mock_import:
@@ -253,8 +253,8 @@ class TestImportSelectedSeries:
     def test_skips_unselected(self, comicsync):
         comicsync.COMIC_SCAN_ID = "12345"
         comicsync.COMIC_SCAN_RESULTS = [
-            {"series_name": "Batman", "match": {"comicid": "cv-100"}},
-            {"series_name": "Superman", "match": {"comicid": "cv-200"}},
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+            {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
         with patch("comicarr.importer.addComictoDB") as mock_import:
@@ -280,7 +280,9 @@ class TestImportSelectedSeries:
 
     def test_results_cleared_after_import(self, comicsync):
         comicsync.COMIC_SCAN_ID = "12345"
-        comicsync.COMIC_SCAN_RESULTS = [{"series_name": "Batman"}]
+        comicsync.COMIC_SCAN_RESULTS = [
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+        ]
 
         with patch("comicarr.importer.addComictoDB"):
             comicsync.import_selected_series(["cv-100"], "12345")

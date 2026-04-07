@@ -1438,7 +1438,7 @@ class Config(object):
 
         if self.IMPORT_DIR:
             if not os.path.isdir(self.IMPORT_DIR):
-                logger.warn("[CONFIG] Import directory does not exist: %s" % self.IMPORT_DIR)
+                logger.warning("[CONFIG] Import directory does not exist: %s" % self.IMPORT_DIR)
             else:
                 overlap_dirs = {
                     "COMIC_DIR": self.COMIC_DIR,
@@ -1446,10 +1446,18 @@ class Config(object):
                     "DESTINATION_DIR": self.DESTINATION_DIR,
                     "CHECK_FOLDER": self.CHECK_FOLDER if hasattr(self, "CHECK_FOLDER") else None,
                 }
+                real_import = os.path.realpath(self.IMPORT_DIR)
                 for name, path in overlap_dirs.items():
-                    if path and os.path.realpath(self.IMPORT_DIR) == os.path.realpath(path):
-                        logger.warn(
-                            "[CONFIG] IMPORT_DIR cannot be the same as %s (%s). Import Inbox disabled." % (name, path)
+                    if not path:
+                        continue
+                    real_other = os.path.realpath(path)
+                    if (
+                        real_import == real_other
+                        or real_import.startswith(real_other + os.sep)
+                        or real_other.startswith(real_import + os.sep)
+                    ):
+                        logger.warning(
+                            "[CONFIG] IMPORT_DIR overlaps with %s (%s). Import Inbox disabled." % (name, path)
                         )
                         self.IMPORT_DIR = None
                         break

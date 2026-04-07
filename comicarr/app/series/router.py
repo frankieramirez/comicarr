@@ -324,10 +324,12 @@ def manga_scan_confirm(
     selected_ids = request_body.get("selected_ids", [])
     scan_id = request_body.get("scan_id")
 
+    if not isinstance(selected_ids, list) or not all(isinstance(i, str) for i in selected_ids):
+        return JSONResponse(status_code=400, content={"detail": "selected_ids must be a list of strings"})
     if not selected_ids:
         return JSONResponse(status_code=400, content={"detail": "No series selected"})
-    if not scan_id:
-        return JSONResponse(status_code=400, content={"detail": "Missing scan_id"})
+    if not scan_id or not isinstance(scan_id, str):
+        return JSONResponse(status_code=400, content={"detail": "Missing or invalid scan_id"})
 
     result = series_service.manga_scan_confirm(ctx, selected_ids, scan_id)
     if not result["success"]:
@@ -365,10 +367,12 @@ def comic_scan_confirm(
     selected_ids = request_body.get("selected_ids", [])
     scan_id = request_body.get("scan_id")
 
+    if not isinstance(selected_ids, list) or not all(isinstance(i, str) for i in selected_ids):
+        return JSONResponse(status_code=400, content={"detail": "selected_ids must be a list of strings"})
     if not selected_ids:
         return JSONResponse(status_code=400, content={"detail": "No series selected"})
-    if not scan_id:
-        return JSONResponse(status_code=400, content={"detail": "Missing scan_id"})
+    if not scan_id or not isinstance(scan_id, str):
+        return JSONResponse(status_code=400, content={"detail": "Missing or invalid scan_id"})
 
     result = series_service.comic_scan_confirm(ctx, selected_ids, scan_id)
     if not result["success"]:

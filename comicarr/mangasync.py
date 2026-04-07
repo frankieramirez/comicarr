@@ -25,6 +25,7 @@ Mirrors librarysync.py but for manga content.
 import os
 import re
 import threading
+import time
 
 from sqlalchemy import select
 
@@ -153,8 +154,6 @@ def mangaScan(scan_dir=None, queue=None):
             MANGA_SCAN_PROGRESS["processed_files"] += len(files)
 
         # Store new series results for user selection
-        import time
-
         MANGA_SCAN_ID = str(int(time.time()))
         MANGA_SCAN_RESULTS = results["scan_results"]
 
@@ -330,7 +329,11 @@ def _match_series(series_name, files):
 
     # Fall back to MangaDex
     logger.info("[MANGA-SCAN] Searching MangaDex for: %s" % series_name)
-    search_results = mangadex.search_manga(series_name, limit=5)
+    try:
+        search_results = mangadex.search_manga(series_name, limit=5)
+    except Exception as e:
+        logger.error("[MANGA-SCAN] MangaDex search failed for '%s': %s" % (series_name, e))
+        return result
 
     if not search_results or not search_results.get("results"):
         logger.info("[MANGA-SCAN] No match found for: %s" % series_name)
@@ -339,9 +342,7 @@ def _match_series(series_name, files):
     best_match, best_score = _find_best_match(series_name, search_results["results"])
 
     if not best_match or best_score < 0.6:
-        logger.info(
-            "[MANGA-SCAN] No confident match for '%s' (best score: %.1f%%)" % (series_name, best_score * 100)
-        )
+        logger.info("[MANGA-SCAN] No confident match for '%s' (best score: %.1f%%)" % (series_name, best_score * 100))
         return result
 
     manga_id = best_match.get("comicid", "")
@@ -351,13 +352,11 @@ def _match_series(series_name, files):
     confidence = int(best_score * 100)
     if best_score < 1.0:
         logger.info(
-            "[MANGA-SCAN] Fuzzy match for '%s' -> '%s' (%d%%)"
-            % (series_name, best_match.get("name", ""), confidence)
+            "[MANGA-SCAN] Fuzzy match for '%s' -> '%s' (%d%%)" % (series_name, best_match.get("name", ""), confidence)
         )
     else:
         logger.info(
-            "[MANGA-SCAN] Matched '%s' to MangaDex: %s (%s)"
-            % (series_name, best_match.get("name", ""), manga_id)
+            "[MANGA-SCAN] Matched '%s' to MangaDex: %s (%s)" % (series_name, best_match.get("name", ""), manga_id)
         )
 
     result["matched"] = True
@@ -525,10 +524,17 @@ def import_selected_manga(selected_ids, scan_id):
     if not MANGA_SCAN_RESULTS:
         return {"success": False, "error": "No scan results available"}
 
+    # Whitelist: only allow IDs that appeared in the scan results
+    allowed_ids = {r["match"]["comicid"] for r in MANGA_SCAN_RESULTS if r.get("matched") and r.get("match")}
+
     imported = 0
     errors = []
 
     for manga_id in selected_ids:
+        if manga_id not in allowed_ids:
+            logger.warning("[MANGA-SCAN] Rejected ID not in scan results: %s" % manga_id)
+            errors.append({"comicid": manga_id, "error": "ID not found in scan results"})
+            continue
         try:
             logger.info("[MANGA-SCAN] Importing series: %s" % manga_id)
             if str(manga_id).startswith("mal-"):
