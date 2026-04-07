@@ -1458,7 +1458,10 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
         # Store num_chapters from MAL as a reference
         num_chapters = manga.get("last_chapter")
         if num_chapters:
-            db.upsert("comics", {"Total": int(num_chapters), "Have": 0}, controlValueDict)
+            try:
+                db.upsert("comics", {"Total": int(float(num_chapters)), "Have": 0}, controlValueDict)
+            except (ValueError, TypeError):
+                logger.error("[MAL] Invalid chapter count for %s: %s" % (manga_name, num_chapters))
 
     # Update sort order
     helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)

@@ -87,7 +87,9 @@ export default function SearchPage() {
   const urlSort = searchParams.get("sort") || "relevance";
 
   // Derive search mode from URL, falling back based on what's enabled
-  const urlType = searchParams.get("type") as ContentType | null;
+  const rawType = searchParams.get("type");
+  const urlType: ContentType | null =
+    rawType === "manga" ? "manga" : rawType === "comic" ? "comic" : null;
   const searchMode: ContentType = urlType
     ? urlType === "manga" && !mangaEnabled
       ? "comic"

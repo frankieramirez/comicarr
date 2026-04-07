@@ -835,8 +835,8 @@ def listLibrary(comicid=None):
             mangadex_id = row.get("MangaDexID")
             if mangadex_id:
                 library["md-" + str(mangadex_id)] = {"comicid": row["ComicID"], "status": row["Status"]}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.fdebug("[SERIES] Cross-index by MAL/MangaDex ID failed for %s: %s" % (row.get("ComicID"), e))
 
     return library
 

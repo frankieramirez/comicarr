@@ -25,6 +25,7 @@ API Documentation: https://myanimelist.net/apiconfig/references/api/v2
 """
 
 import time
+from datetime import datetime
 
 import requests
 
@@ -213,8 +214,6 @@ def search_manga(name, limit=None, offset=None, sort=None):
         # Build year range
         yearRange = [str(year)]
         if str(year).isdigit():
-            from datetime import datetime
-
             current_year = datetime.now().year
             for y in range(int(year), min(int(year) + 30, current_year + 1)):
                 if str(y) not in yearRange:

@@ -73,7 +73,10 @@ export default function SeriesDetailPage() {
   const isPaused = comic.Status?.toLowerCase() === "paused";
 
   // Check if this is a manga (either by ContentType field or ComicID prefix)
-  const isManga = comic.ContentType === "manga" || comicId?.startsWith("md-");
+  const isManga =
+    comic.ContentType === "manga" ||
+    comicId?.startsWith("md-") ||
+    comicId?.startsWith("mal-");
   const itemLabel = isManga ? "Chapters" : "Issues";
 
   const handlePauseResume = async () => {

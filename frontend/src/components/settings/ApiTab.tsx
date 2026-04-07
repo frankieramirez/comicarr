@@ -167,28 +167,26 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
         </SettingGroup>
       )}
 
-      {mangadexEnabled && (
-        <SettingGroup
-          title="MyAnimeList"
-          description="Use MAL as primary manga metadata source for better search coverage"
-        >
-          <SettingField
-            label="Enable MAL"
-            type="checkbox"
-            checked={formData.mal_enabled as boolean | undefined}
-            onChange={(checked) => onChange("mal_enabled", checked as boolean)}
-            helpText="Use MyAnimeList for manga search and metadata (MangaDex still provides chapter data)"
-          />
-          <SettingField
-            label="MAL Client ID"
-            value={formData.mal_client_id as string | undefined}
-            type="text"
-            onChange={(value) => onChange("mal_client_id", value as string)}
-            placeholder="Your MAL API Client ID"
-            helpText="Get your Client ID from https://myanimelist.net/apiconfig"
-          />
-        </SettingGroup>
-      )}
+      <SettingGroup
+        title="MyAnimeList"
+        description="Use MAL as primary manga metadata source for better search coverage"
+      >
+        <SettingField
+          label="Enable MAL"
+          type="checkbox"
+          checked={formData.mal_enabled as boolean | undefined}
+          onChange={(checked) => onChange("mal_enabled", checked as boolean)}
+          helpText="Use MyAnimeList for manga search and metadata (MangaDex still provides chapter data)"
+        />
+        <SettingField
+          label="MAL Client ID"
+          value={formData.mal_client_id as string | undefined}
+          type="password"
+          onChange={(value) => onChange("mal_client_id", value as string)}
+          placeholder="Your MAL API Client ID"
+          helpText="Get your Client ID from https://myanimelist.net/apiconfig"
+        />
+      </SettingGroup>
 
       {mangadexEnabled && (
         <SettingGroup

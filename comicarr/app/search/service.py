@@ -93,7 +93,9 @@ def find_comic(
 
 def find_manga(ctx, name, limit=None, offset=None, sort=None):
     """Search for manga via MAL (primary) or MangaDex (fallback)."""
-    if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
+    mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
+    mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
+    if not ctx.config or not (mal_ok or mdex_ok):
         return {"error": "Manga integration is not enabled"}
 
     try:
@@ -115,7 +117,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 
         try:
             searchresults = myanimelist.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
-            if isinstance(searchresults, dict) and searchresults.get("results"):
+            if isinstance(searchresults, dict) and "results" in searchresults:
                 searchresults["results"] = [add_in_library(m) for m in searchresults["results"]]
                 return searchresults
         except Exception as e:
@@ -147,7 +149,9 @@ def add_comic(ctx, comic_id):
 
 def add_manga(ctx, manga_id):
     """Add a manga by MAL ID or MangaDex ID."""
-    if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
+    mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
+    mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
+    if not ctx.config or not (mal_ok or mdex_ok):
         return {"success": False, "error": "Manga integration is not enabled"}
 
     try:

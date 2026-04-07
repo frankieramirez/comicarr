@@ -6,7 +6,9 @@ export function useContentSources() {
   return {
     comicsEnabled: config?.comicvine_enabled ?? true,
     comicsConfigured: !!(cvKey && cvKey.length > 0),
-    mangaEnabled: config?.mangadex_enabled ?? false,
+    mangaEnabled:
+      (config?.mangadex_enabled ?? false) ||
+      (config?.mal_enabled as boolean | undefined) === true,
     isLoaded: !!config,
   };
 }
