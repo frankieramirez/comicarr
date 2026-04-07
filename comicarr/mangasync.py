@@ -32,6 +32,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db, logger
 from comicarr.manga_parser import parse_manga_filename
+from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.tables import comics, issues
 
 # Scan status globals (for UI polling)
@@ -52,7 +53,7 @@ MANGA_SCAN_ID = None
 
 _SCAN_LOCK = threading.Lock()
 
-MANGA_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
+MANGA_EXTENSIONS = COMIC_EXTENSIONS
 
 
 def mangaScan(scan_dir=None, queue=None):
@@ -228,34 +229,8 @@ def _guess_series_from_filename(filename):
 
 
 def _find_best_match(series_name, results):
-    """Find the best matching result from a search results list.
-
-    Checks primary title and alt titles for each result using fuzzy matching.
-
-    Returns (best_match_dict, best_score) or (None, 0.0).
-    """
-    best_match = None
-    best_score = 0.0
-    normalized_search = _normalize_title(series_name)
-
-    for result in results:
-        candidate_names = [result.get("name", "")]
-        candidate_names.extend(result.get("alt_titles", []))
-
-        for candidate in candidate_names:
-            if not candidate:
-                continue
-            normalized_candidate = _normalize_title(candidate)
-
-            if normalized_search == normalized_candidate:
-                return result, 1.0
-
-            score = _name_similarity(series_name, candidate)
-            if score > best_score:
-                best_score = score
-                best_match = result
-
-    return best_match, best_score
+    """Find the best matching result from a search results list."""
+    return find_best_match(series_name, results)
 
 
 def _check_existing_series(series_name, files):
@@ -369,53 +344,6 @@ def _match_series(series_name, files):
         "source": "mangadex",
     }
     return result
-
-
-def _normalize_title(name):
-    """Normalize a title for comparison: lowercase, strip punctuation and common particles."""
-    name = name.lower().strip()
-    # Remove common subtitle separators and everything after
-    # e.g. "Hajime no Ippo: The Fighting!" -> "hajime no ippo"
-    name = re.split(r"\s*[:\-–—~]\s*", name)[0]
-    # Remove punctuation
-    name = re.sub(r"[^\w\s]", "", name)
-    # Collapse whitespace
-    name = re.sub(r"\s+", " ", name).strip()
-    return name
-
-
-def _name_similarity(name1, name2):
-    """Similarity score between two names (0.0 to 1.0).
-
-    Uses SequenceMatcher on normalized strings for character-level similarity,
-    combined with Jaccard word overlap to handle word reordering.
-    """
-    from difflib import SequenceMatcher
-
-    n1 = _normalize_title(name1)
-    n2 = _normalize_title(name2)
-
-    if not n1 or not n2:
-        return 0.0
-
-    # Exact match after normalization
-    if n1 == n2:
-        return 1.0
-
-    # Character-level sequence similarity
-    seq_score = SequenceMatcher(None, n1, n2).ratio()
-
-    # Word-level Jaccard similarity (handles reordering)
-    s1 = set(n1.split())
-    s2 = set(n2.split())
-    jaccard = len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0
-
-    # Containment check: if one name fully contains the other
-    containment = 0.0
-    if n1 in n2 or n2 in n1:
-        containment = min(len(n1), len(n2)) / max(len(n1), len(n2))
-
-    return max(seq_score, jaccard, containment)
 
 
 def _mark_chapters_downloaded(comic_id, files):
@@ -546,12 +474,13 @@ def import_selected_manga(selected_ids, scan_id):
             logger.error("[MANGA-SCAN] Failed to import %s: %s" % (manga_id, e))
             errors.append({"comicid": manga_id, "error": str(e)})
 
-    # Clear results after import
-    MANGA_SCAN_RESULTS = None
-    MANGA_SCAN_ID = None
+    # Only clear results if all imports succeeded
+    if not errors:
+        MANGA_SCAN_RESULTS = None
+        MANGA_SCAN_ID = None
 
     return {
-        "success": True,
+        "success": len(errors) == 0,
         "imported": imported,
         "errors": errors,
     }

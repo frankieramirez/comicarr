@@ -31,6 +31,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger
+from comicarr.scanutil import COMIC_EXTENSIONS, name_similarity, normalize_title
 from comicarr.tables import comics
 
 # Scan status globals (for UI polling)
@@ -45,8 +46,6 @@ INBOX_SCAN_PROGRESS = {
 }
 
 _SCAN_LOCK = threading.Lock()
-
-COMIC_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
 
 # Auto-import threshold (matches comicsync/mangasync ConfidenceBadge green)
 AUTO_IMPORT_CONFIDENCE = 80
@@ -212,14 +211,12 @@ def _match_group(group_name, files, series_list):
 
     Returns dict with auto_imported and queued_for_review counts.
     """
-    from comicarr.comicsync import _name_similarity, _normalize_title
-
     result = {"auto_imported": 0, "queued_for_review": 0}
 
     best_match = None
     best_score = 0.0
 
-    normalized_group = _normalize_title(group_name)
+    normalized_group = normalize_title(group_name)
 
     for series in series_list:
         for name_field in ["ComicName", "ComicSortName", "DynamicName"]:
@@ -227,13 +224,13 @@ def _match_group(group_name, files, series_list):
             if not candidate:
                 continue
 
-            normalized_candidate = _normalize_title(candidate)
+            normalized_candidate = normalize_title(candidate)
             if normalized_group == normalized_candidate:
                 best_match = series
                 best_score = 1.0
                 break
 
-            score = _name_similarity(group_name, candidate)
+            score = name_similarity(group_name, candidate)
             if score > best_score:
                 best_score = score
                 best_match = series

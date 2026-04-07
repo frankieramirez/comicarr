@@ -33,6 +33,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger
+from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.tables import comics
 
 # Scan status globals (for UI polling)
@@ -51,8 +52,6 @@ COMIC_SCAN_RESULTS = None
 COMIC_SCAN_ID = None
 
 _SCAN_LOCK = threading.Lock()
-
-COMIC_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
 
 
 def comicScan(scan_dir=None):
@@ -222,13 +221,13 @@ def _load_existing_series():
                 row_dict = dict(row._mapping)
                 name = row_dict.get("ComicName", "")
                 if name:
-                    existing[_normalize_title(name)] = row_dict["ComicID"]
+                    existing[normalize_title(name)] = row_dict["ComicID"]
                 sort_name = row_dict.get("ComicSortName", "")
                 if sort_name:
-                    existing[_normalize_title(sort_name)] = row_dict["ComicID"]
+                    existing[normalize_title(sort_name)] = row_dict["ComicID"]
                 dynamic_name = row_dict.get("DynamicName", "")
                 if dynamic_name:
-                    existing[_normalize_title(dynamic_name)] = row_dict["ComicID"]
+                    existing[normalize_title(dynamic_name)] = row_dict["ComicID"]
     except Exception as e:
         logger.error("[COMIC-SCAN] Error loading existing series: %s" % e)
     return existing
@@ -250,7 +249,7 @@ def _match_series(series_name, files, existing_series):
     }
 
     # Check if series already exists in library
-    normalized = _normalize_title(series_name)
+    normalized = normalize_title(series_name)
     if normalized in existing_series:
         result["already_in_library"] = True
         result["existing_comic_id"] = existing_series[normalized]
@@ -289,7 +288,7 @@ def _match_series(series_name, files, existing_series):
         return result
 
     # Find best match using fuzzy name matching
-    best_match, best_score = _find_best_match(series_name, comic_list)
+    best_match, best_score = find_best_match(series_name, comic_list)
 
     if not best_match or best_score < 0.5:
         logger.info("[COMIC-SCAN] No confident match for '%s' (best score: %.1f%%)" % (series_name, best_score * 100))
@@ -318,78 +317,6 @@ def _match_series(series_name, files, existing_series):
         )
 
     return result
-
-
-def _find_best_match(series_name, results):
-    """Find the best matching result from ComicVine search results.
-
-    Returns (best_match_dict, best_score) or (None, 0.0).
-    """
-    best_match = None
-    best_score = 0.0
-    normalized_search = _normalize_title(series_name)
-
-    for result in results:
-        candidate = result.get("name", "")
-        if not candidate:
-            continue
-
-        normalized_candidate = _normalize_title(candidate)
-
-        if normalized_search == normalized_candidate:
-            return result, 1.0
-
-        score = _name_similarity(series_name, candidate)
-        if score > best_score:
-            best_score = score
-            best_match = result
-
-    return best_match, best_score
-
-
-def _normalize_title(name):
-    """Normalize a title for comparison: lowercase, strip punctuation and common particles."""
-    name = name.lower().strip()
-    # Remove common subtitle separators and everything after
-    name = re.split(r"\s*[:\-–—~]\s*", name)[0]
-    # Remove punctuation
-    name = re.sub(r"[^\w\s]", "", name)
-    # Collapse whitespace
-    name = re.sub(r"\s+", " ", name).strip()
-    return name
-
-
-def _name_similarity(name1, name2):
-    """Similarity score between two names (0.0 to 1.0).
-
-    Uses SequenceMatcher on normalized strings for character-level similarity,
-    combined with Jaccard word overlap to handle word reordering.
-    """
-    from difflib import SequenceMatcher
-
-    n1 = _normalize_title(name1)
-    n2 = _normalize_title(name2)
-
-    if not n1 or not n2:
-        return 0.0
-
-    if n1 == n2:
-        return 1.0
-
-    # Character-level sequence similarity
-    seq_score = SequenceMatcher(None, n1, n2).ratio()
-
-    # Word-level Jaccard similarity (handles reordering)
-    s1 = set(n1.split())
-    s2 = set(n2.split())
-    jaccard = len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0
-
-    # Containment check: if one name fully contains the other
-    containment = 0.0
-    if n1 in n2 or n2 in n1:
-        containment = min(len(n1), len(n2)) / max(len(n1), len(n2))
-
-    return max(seq_score, jaccard, containment)
 
 
 def import_selected_series(selected_ids, scan_id):
@@ -437,12 +364,13 @@ def import_selected_series(selected_ids, scan_id):
             logger.error("[COMIC-SCAN] Failed to import %s: %s" % (comic_id, e))
             errors.append({"comicid": comic_id, "error": str(e)})
 
-    # Clear results after import
-    COMIC_SCAN_RESULTS = None
-    COMIC_SCAN_ID = None
+    # Only clear results if all imports succeeded
+    if not errors:
+        COMIC_SCAN_RESULTS = None
+        COMIC_SCAN_ID = None
 
     return {
-        "success": True,
+        "success": len(errors) == 0,
         "imported": imported,
         "errors": errors,
     }
