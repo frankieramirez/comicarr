@@ -765,14 +765,21 @@ def listLibrary(comicid=None):
                     comics.c.Status,
                     comics.c.ComicName,
                     comics.c.ComicYear,
+                    comics.c.MalID,
+                    comics.c.MangaDexID,
                 )
                 .outerjoin(annuals, comics.c.ComicID == annuals.c.ComicID)
                 .group_by(comics.c.ComicID)
             )
         else:
-            stmt = select(comics.c.ComicID, comics.c.Status, comics.c.ComicName, comics.c.ComicYear).group_by(
-                comics.c.ComicID
-            )
+            stmt = select(
+                comics.c.ComicID,
+                comics.c.Status,
+                comics.c.ComicName,
+                comics.c.ComicYear,
+                comics.c.MalID,
+                comics.c.MangaDexID,
+            ).group_by(comics.c.ComicID)
     else:
         cleaned_id = re.sub("4050-", "", comicid).strip()
         if comicarr.CONFIG.ANNUALS_ON is True:
@@ -783,6 +790,8 @@ def listLibrary(comicid=None):
                     comics.c.Status,
                     comics.c.ComicName,
                     comics.c.ComicYear,
+                    comics.c.MalID,
+                    comics.c.MangaDexID,
                 )
                 .outerjoin(annuals, comics.c.ComicID == annuals.c.ComicID)
                 .where(comics.c.ComicID == cleaned_id)
@@ -790,7 +799,14 @@ def listLibrary(comicid=None):
             )
         else:
             stmt = (
-                select(comics.c.ComicID, comics.c.Status, comics.c.ComicName, comics.c.ComicYear)
+                select(
+                    comics.c.ComicID,
+                    comics.c.Status,
+                    comics.c.ComicName,
+                    comics.c.ComicYear,
+                    comics.c.MalID,
+                    comics.c.MangaDexID,
+                )
                 .where(comics.c.ComicID == cleaned_id)
                 .group_by(comics.c.ComicID)
             )
@@ -809,6 +825,16 @@ def listLibrary(comicid=None):
             if name and year:
                 name_key = "name:" + name.lower().strip() + ":" + str(year).strip()
                 library[name_key] = {"comicid": row["ComicID"], "status": row["Status"]}
+        except Exception:
+            pass
+        # Cross-index by MAL and MangaDex IDs for cross-provider haveit detection
+        try:
+            mal_id = row.get("MalID")
+            if mal_id:
+                library["mal-" + str(mal_id)] = {"comicid": row["ComicID"], "status": row["Status"]}
+            mangadex_id = row.get("MangaDexID")
+            if mangadex_id:
+                library["md-" + str(mangadex_id)] = {"comicid": row["ComicID"], "status": row["Status"]}
         except Exception:
             pass
 

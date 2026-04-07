@@ -193,8 +193,39 @@ def _guess_series_from_filename(filename):
     return name if name else None
 
 
+def _find_best_match(series_name, results):
+    """Find the best matching result from a search results list.
+
+    Checks primary title and alt titles for each result using fuzzy matching.
+
+    Returns (best_match_dict, best_score) or (None, 0.0).
+    """
+    best_match = None
+    best_score = 0.0
+    normalized_search = _normalize_title(series_name)
+
+    for result in results:
+        candidate_names = [result.get("name", "")]
+        candidate_names.extend(result.get("alt_titles", []))
+
+        for candidate in candidate_names:
+            if not candidate:
+                continue
+            normalized_candidate = _normalize_title(candidate)
+
+            if normalized_search == normalized_candidate:
+                return result, 1.0
+
+            score = _name_similarity(series_name, candidate)
+            if score > best_score:
+                best_score = score
+                best_match = result
+
+    return best_match, best_score
+
+
 def _match_and_import_series(series_name, files):
-    """Match a series against MangaDex and import it.
+    """Match a series against MAL (if enabled) or MangaDex and import it.
 
     Returns dict with 'matched' bool and details.
     """
@@ -213,32 +244,63 @@ def _match_and_import_series(series_name, files):
         chapters_downloaded = _mark_chapters_downloaded(existing["ComicID"], files)
         return {"matched": True, "chapters_downloaded": chapters_downloaded, "already_existed": True}
 
-    # Search MangaDex for the series
+    # Try MAL first if enabled
+    mal_enabled = getattr(comicarr.CONFIG, "MAL_ENABLED", False)
+    mal_client_id = getattr(comicarr.CONFIG, "MAL_CLIENT_ID", None)
+
+    if mal_enabled and mal_client_id:
+        from comicarr import myanimelist
+
+        logger.info("[MANGA-SCAN] Searching MAL for: %s" % series_name)
+        try:
+            search_results = myanimelist.search_manga(series_name, limit=5)
+            if search_results and search_results.get("results"):
+                best_match, best_score = _find_best_match(series_name, search_results["results"])
+                if best_match and best_score >= 0.6:
+                    manga_id = best_match.get("comicid", "")
+                    if manga_id:
+                        if best_score < 1.0:
+                            logger.info(
+                                "[MANGA-SCAN] MAL fuzzy match for '%s' -> '%s' (%.1f%%)"
+                                % (series_name, best_match.get("name", ""), best_score * 100)
+                            )
+                        logger.info(
+                            "[MANGA-SCAN] Matched '%s' to MAL: %s (%s)"
+                            % (series_name, best_match.get("name", ""), manga_id)
+                        )
+                        importer.addMangaToDB_MAL(manga_id)
+                        chapters_downloaded = _mark_chapters_downloaded(manga_id, files)
+                        return {
+                            "matched": True,
+                            "chapters_downloaded": chapters_downloaded,
+                            "source": "mal",
+                            "matched_name": best_match.get("name", ""),
+                        }
+        except Exception as e:
+            logger.error("[MANGA-SCAN] MAL search failed for '%s': %s" % (series_name, e))
+
+    # Fall back to MangaDex
     logger.info("[MANGA-SCAN] Searching MangaDex for: %s" % series_name)
     search_results = mangadex.search_manga(series_name, limit=5)
 
     if not search_results or not search_results.get("results"):
-        logger.info("[MANGA-SCAN] No MangaDex match found for: %s" % series_name)
+        logger.info("[MANGA-SCAN] No match found for: %s" % series_name)
         return {"matched": False}
 
-    # Auto-match on high confidence: exact name match (case-insensitive)
-    best_match = None
-    for result in search_results["results"]:
-        result_name = result.get("name", "")
-        if result_name.lower() == series_name.lower():
-            best_match = result
-            break
+    best_match, best_score = _find_best_match(series_name, search_results["results"])
 
-    # Fall back to first result if no exact match
-    if not best_match:
-        best_match = search_results["results"][0]
-        confidence = _name_similarity(series_name, best_match.get("name", ""))
-        if confidence < 0.7:
-            logger.info(
-                "[MANGA-SCAN] Low confidence match for '%s' -> '%s' (%.1f%%), skipping"
-                % (series_name, best_match.get("name", ""), confidence * 100)
-            )
-            return {"matched": False}
+    if not best_match or best_score < 0.6:
+        logger.info(
+            "[MANGA-SCAN] No confident match for '%s' (best score: %.1f%%), skipping"
+            % (series_name, best_score * 100)
+        )
+        return {"matched": False}
+
+    if best_score < 1.0:
+        logger.info(
+            "[MANGA-SCAN] Fuzzy match for '%s' -> '%s' (%.1f%%)"
+            % (series_name, best_match.get("name", ""), best_score * 100)
+        )
 
     manga_id = best_match.get("comicid", "")
     if not manga_id:
@@ -246,24 +308,57 @@ def _match_and_import_series(series_name, files):
 
     logger.info("[MANGA-SCAN] Matched '%s' to MangaDex: %s (%s)" % (series_name, best_match.get("name", ""), manga_id))
 
-    # Import the manga using existing addMangaToDB
     importer.addMangaToDB(manga_id)
-
-    # After import, mark chapters as Downloaded for files found on disk
     chapters_downloaded = _mark_chapters_downloaded(manga_id, files)
 
     return {"matched": True, "chapters_downloaded": chapters_downloaded, "mangadex_name": best_match.get("name", "")}
 
 
+def _normalize_title(name):
+    """Normalize a title for comparison: lowercase, strip punctuation and common particles."""
+    name = name.lower().strip()
+    # Remove common subtitle separators and everything after
+    # e.g. "Hajime no Ippo: The Fighting!" -> "hajime no ippo"
+    name = re.split(r"\s*[:\-–—~]\s*", name)[0]
+    # Remove punctuation
+    name = re.sub(r"[^\w\s]", "", name)
+    # Collapse whitespace
+    name = re.sub(r"\s+", " ", name).strip()
+    return name
+
+
 def _name_similarity(name1, name2):
-    """Simple similarity score between two names (0.0 to 1.0)."""
-    s1 = set(name1.lower().split())
-    s2 = set(name2.lower().split())
-    if not s1 or not s2:
+    """Similarity score between two names (0.0 to 1.0).
+
+    Uses SequenceMatcher on normalized strings for character-level similarity,
+    combined with Jaccard word overlap to handle word reordering.
+    """
+    from difflib import SequenceMatcher
+
+    n1 = _normalize_title(name1)
+    n2 = _normalize_title(name2)
+
+    if not n1 or not n2:
         return 0.0
-    intersection = s1 & s2
-    union = s1 | s2
-    return len(intersection) / len(union)
+
+    # Exact match after normalization
+    if n1 == n2:
+        return 1.0
+
+    # Character-level sequence similarity
+    seq_score = SequenceMatcher(None, n1, n2).ratio()
+
+    # Word-level Jaccard similarity (handles reordering)
+    s1 = set(n1.split())
+    s2 = set(n2.split())
+    jaccard = len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0
+
+    # Containment check: if one name fully contains the other
+    containment = 0.0
+    if n1 in n2 or n2 in n1:
+        containment = min(len(n1), len(n2)) / max(len(n1), len(n2))
+
+    return max(seq_score, jaccard, containment)
 
 
 def _mark_chapters_downloaded(comic_id, files):

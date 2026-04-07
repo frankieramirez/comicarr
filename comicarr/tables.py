@@ -104,6 +104,8 @@ comics = Table(
     Column("ReadingDirection", Text, server_default="ltr"),
     Column("MetadataSource", Text),
     Column("ExternalID", Text),
+    Column("MangaDexID", Text),
+    Column("MalID", Text),
 )
 
 # ---------------------------------------------------------------------------

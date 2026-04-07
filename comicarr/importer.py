@@ -1250,6 +1250,224 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
 
 
+def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
+    """Add a manga from MyAnimeList to the database, with chapters from MangaDex.
+
+    1. Fetch metadata from MAL (title, images, synopsis, status, authors)
+    2. Find corresponding MangaDex entry for chapter data
+    3. Store in comics table with MetadataSource="mal"
+    4. Fetch chapters from MangaDex and store as issues
+
+    Args:
+        mangaid: MAL manga ID (prefixed with 'mal-')
+        imported: Import information if coming from file import
+        calledfrom: Calling context
+
+    Returns:
+        dict with status information
+    """
+    from comicarr import mangadex, myanimelist
+    from comicarr.config import get_manga_destination
+
+    logger.info("[MAL] Adding manga with ID: %s" % mangaid)
+
+    mal_numeric_id = myanimelist.strip_mal_prefix(str(mangaid))
+    if not str(mangaid).startswith("mal-"):
+        mangaid = "mal-%s" % mal_numeric_id
+
+    controlValueDict = {"ComicID": mangaid}
+
+    # Check if manga already exists
+    with db.get_engine().connect() as conn:
+        stmt = select(comics).where(comics.c.ComicID == mangaid)
+        dbmanga = next((dict(row._mapping) for row in conn.execute(stmt)), None)
+
+    if dbmanga is not None:
+        if dbmanga["Status"] == "Active":
+            series_status = "Active"
+        elif dbmanga["Status"] == "Paused":
+            series_status = "Paused"
+        else:
+            series_status = "Loading"
+        comlocation = dbmanga["ComicLocation"]
+    else:
+        series_status = "Loading"
+        comlocation = None
+
+    # Set loading status
+    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
+
+    # Fetch manga details from MAL
+    manga = myanimelist.get_manga_details(mangaid)
+
+    if not manga:
+        logger.error("[MAL] Error fetching manga details for: %s" % mangaid)
+        db.upsert(
+            "comics",
+            {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
+            controlValueDict,
+        )
+        return {"status": "incomplete"}
+
+    manga_name = manga.get("name", "Unknown")
+    manga_year = manga.get("year") or "0000"
+    description = manga.get("description", "No description available")
+
+    logger.info("[MAL] Now adding: %s (%s)" % (manga_name, manga_year))
+
+    # Generate sort name
+    if manga_name.startswith("The "):
+        sortname = manga_name[4:]
+    else:
+        sortname = manga_name
+
+    # Generate dynamic name for matching
+    dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
+
+    # Build folder path if destination directory is set
+    manga_dest = get_manga_destination()
+    if manga_dest:
+        folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
+        folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
+        folder_name = helpers.filesafe(folder_name)
+        comlocation = os.path.join(manga_dest, folder_name)
+
+        if comicarr.CONFIG.CREATE_FOLDERS:
+            checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
+            if not checkdirectory:
+                logger.warn("[MAL] Error creating directory for %s" % manga_name)
+    elif comlocation is None:
+        comlocation = None
+
+    # Map status
+    md_status = manga.get("status", "unknown")
+    status_mapping = {"ongoing": "Continuing", "completed": "Ended", "hiatus": "Continuing", "cancelled": "Ended"}
+    comic_published = status_mapping.get(md_status, "Unknown")
+
+    # Resolve MangaDex UUID for chapter data
+    mangadex_uuid = mangadex.find_by_mal_id(mal_numeric_id, title_hint=manga_name)
+
+    # Prepare comic values
+    comic_values = {
+        "ComicID": mangaid,
+        "ComicName": manga_name,
+        "ComicSortName": sortname,
+        "ComicYear": str(manga_year),
+        "Status": series_status if series_status != "Loading" else "Active",
+        "ComicPublished": comic_published,
+        "ComicPublisher": manga.get("author", "Unknown"),
+        "Description": description[:4000] if description else None,
+        "ComicImage": manga.get("cover_url"),
+        "ComicImageURL": manga.get("cover_url"),
+        "DetailURL": manga.get("url"),
+        "DynamicComicName": dynamic_name,
+        "ComicLocation": comlocation,
+        "Type": "Manga",
+        "ContentType": "manga",
+        "ReadingDirection": "rtl",
+        "MetadataSource": "mal",
+        "ExternalID": mal_numeric_id,
+        "MalID": mal_numeric_id,
+        "MangaDexID": mangadex_uuid,
+        "LastUpdated": helpers.now(),
+        "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
+    }
+
+    # Store alternate titles as AlternateSearch
+    alt_titles = manga.get("alt_titles", [])
+    if alt_titles:
+        comic_values["AlternateSearch"] = "##".join(alt_titles[:5])
+
+    db.upsert("comics", comic_values, controlValueDict)
+
+    # Fetch chapters from MangaDex if we found a cross-reference
+    if mangadex_uuid:
+        logger.info("[MAL] Fetching chapters from MangaDex (UUID: %s) for: %s" % (mangadex_uuid, manga_name))
+        chapters = mangadex.get_all_chapters(mangadex_uuid)
+
+        if chapters:
+            issue_count = 0
+            latest_chapter = None
+            latest_date = None
+
+            for chapter in chapters:
+                chapter_num = chapter.get("chapter")
+                if chapter_num is None:
+                    continue
+
+                issue_id = "%s-ch%s" % (mangaid, chapter_num)
+
+                issue_status = "Skipped"
+                if comicarr.CONFIG.AUTOWANT_ALL:
+                    issue_status = "Wanted"
+
+                release_date = (
+                    chapter.get("release_date") or chapter.get("publish_at", "")[:10]
+                    if chapter.get("publish_at")
+                    else None
+                )
+
+                issue_values = {
+                    "IssueID": issue_id,
+                    "ComicID": mangaid,
+                    "ComicName": manga_name,
+                    "Issue_Number": str(chapter_num),
+                    "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
+                    "ReleaseDate": release_date,
+                    "IssueDate": release_date,
+                    "Status": issue_status,
+                    "Int_IssueNumber": helpers.issuedigits(chapter_num),
+                    "ChapterNumber": str(chapter_num),
+                    "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
+                    "DateAdded": helpers.now(),
+                }
+
+                db.upsert("issues", issue_values, {"IssueID": issue_id})
+                issue_count += 1
+
+                # Track latest chapter
+                try:
+                    chapter_float = float(chapter_num)
+                    if latest_chapter is None:
+                        latest_chapter = chapter_num
+                        latest_date = release_date
+                    else:
+                        try:
+                            if chapter_float > float(latest_chapter):
+                                latest_chapter = chapter_num
+                                latest_date = release_date
+                        except ValueError:
+                            latest_chapter = chapter_num
+                            latest_date = release_date
+                except ValueError:
+                    if latest_chapter is None:
+                        latest_chapter = chapter_num
+                        latest_date = release_date
+
+            update_values = {
+                "Total": issue_count,
+                "Have": 0,
+                "LatestIssue": str(latest_chapter) if latest_chapter else "0",
+                "LatestDate": latest_date or "Unknown",
+            }
+            db.upsert("comics", update_values, controlValueDict)
+
+            logger.info("[MAL] Added %d chapters for %s" % (issue_count, manga_name))
+    else:
+        logger.warn("[MAL] No MangaDex match for %s — series added without chapter data" % manga_name)
+        # Store num_chapters from MAL as a reference
+        num_chapters = manga.get("last_chapter")
+        if num_chapters:
+            db.upsert("comics", {"Total": int(num_chapters), "Have": 0}, controlValueDict)
+
+    # Update sort order
+    helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
+
+    logger.info("[MAL] Successfully added manga: %s" % manga_name)
+
+    return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
+
+
 def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
     # this is for importing via GCD only and not using CV.
     # used when volume spanning is discovered for a Comic (and can't be added using CV).

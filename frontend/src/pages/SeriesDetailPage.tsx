@@ -110,7 +110,7 @@ export default function SeriesDetailPage() {
     if (!comicId) return;
     try {
       await deleteMutation.mutateAsync(comicId);
-      navigate("/");
+      navigate("/series");
     } catch {
       addToast({
         type: "error",
