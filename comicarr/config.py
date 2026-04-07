@@ -126,6 +126,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "DOWNLOAD_SCAN_INTERVAL": (int, "Scheduler", 5),
         "CHECK_GITHUB_INTERVAL": (int, "Scheduler", 360),
         "BLOCKLIST_TIMER": (int, "Scheduler", 3600),
+        "IMPORT_SCAN_INTERVAL": (int, "Scheduler", 30),
         "ALT_PULL": (int, "Weekly", 2),
         "PULL_REFRESH": (str, "Weekly", None),
         "WEEKFOLDER": (bool, "Weekly", False),
@@ -213,6 +214,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "IMP_RENAME": (bool, "Import", False),
         "IMP_METADATA": (bool, "Import", False),  # should default to False - this is enabled for testing only.
         "IMP_SERIESFOLDERS": (bool, "Import", True),
+        "IMPORT_DIR": (str, "Import", None),
         "DUPECONSTRAINT": (str, "Duplicates", None),
         "DDUMP": (bool, "Duplicates", False),
         "DUPLICATE_DUMP": (str, "Duplicates", None),
@@ -1433,6 +1435,24 @@ class Config(object):
                     "[Backup Location Check] Could not create backup directory. Check permissions for creation of : %s"
                     % self.BACKUP_LOCATION
                 )
+
+        if self.IMPORT_DIR:
+            if not os.path.isdir(self.IMPORT_DIR):
+                logger.warn("[CONFIG] Import directory does not exist: %s" % self.IMPORT_DIR)
+            else:
+                overlap_dirs = {
+                    "COMIC_DIR": self.COMIC_DIR,
+                    "MANGA_DIR": self.MANGA_DIR,
+                    "DESTINATION_DIR": self.DESTINATION_DIR,
+                    "CHECK_FOLDER": self.CHECK_FOLDER if hasattr(self, "CHECK_FOLDER") else None,
+                }
+                for name, path in overlap_dirs.items():
+                    if path and os.path.realpath(self.IMPORT_DIR) == os.path.realpath(path):
+                        logger.warn(
+                            "[CONFIG] IMPORT_DIR cannot be the same as %s (%s). Import Inbox disabled." % (name, path)
+                        )
+                        self.IMPORT_DIR = None
+                        break
 
         if all([self.STORYARCDIR is True, self.DESTINATION_DIR is not None]):
             if os.path.exists(self.DESTINATION_DIR):

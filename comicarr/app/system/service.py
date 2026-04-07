@@ -210,6 +210,12 @@ def get_safe_config(ctx):
         "AI_DAILY_TOKEN_LIMIT",
         "AI_CIRCUIT_THRESHOLD",
         "AI_CIRCUIT_COOLDOWN",
+        "IMPORT_DIR",
+        "IMPORT_SCAN_INTERVAL",
+        "IMP_MOVE",
+        "IMP_RENAME",
+        "IMP_METADATA",
+        "IMP_SERIESFOLDERS",
     ]
     result = {}
     for key in safe_keys:

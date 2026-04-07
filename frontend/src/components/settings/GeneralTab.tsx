@@ -70,6 +70,13 @@ export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
           helpText="Default destination for downloaded manga (falls back to Manga Directory, then Destination Directory)"
         />
         <SettingField
+          label="Import Directory"
+          value={config.import_dir as string | undefined}
+          type="text"
+          readOnly
+          helpText="Drop folder for new comic/manga files to auto-import"
+        />
+        <SettingField
           label="Cache Directory"
           value={config.cache_dir as string | undefined}
           type="text"

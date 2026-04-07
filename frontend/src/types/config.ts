@@ -55,6 +55,13 @@ export interface Config {
   newznab?: NewznabProvider[];
   torznab?: TorznabProvider[];
 
+  // Import
+  import_dir?: string;
+  import_scan_interval?: number;
+  manga_dir?: string;
+  manga_destination_dir?: string;
+  destination_dir?: string;
+
   // UI preferences
   theme?: "light" | "dark" | "system";
 
