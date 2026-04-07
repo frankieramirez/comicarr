@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0](https://github.com/frankieramirez/comicarr/compare/v0.11.1...v0.12.0) (2026-04-07)
+
+
+### Features
+
+* Add MyAnimeList as primary manga metadata provider ([#113](https://github.com/frankieramirez/comicarr/issues/113)) ([5a68333](https://github.com/frankieramirez/comicarr/commit/5a68333540a8d13a5339440f38aaba9819705882))
+
 ## [0.11.1](https://github.com/frankieramirez/comicarr/compare/v0.11.0...v0.11.1) (2026-04-07)
 
 
