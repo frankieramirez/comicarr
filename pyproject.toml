@@ -40,7 +40,7 @@ postgres = ["psycopg2-binary>=2.9"]
 mysql = ["mysqlclient>=2.1"]
 mysql-pure = ["PyMySQL>=1.0"]
 dev = [
-    "httpx>=0.27.0",
+    "httpx>=0.28.1",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
