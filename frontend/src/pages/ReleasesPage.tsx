@@ -41,7 +41,8 @@ type ReleasesView = "mine" | "all";
 
 export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentView = (searchParams.get("view") as ReleasesView) || "mine";
+  const viewParam = searchParams.get("view");
+  const currentView: ReleasesView = viewParam === "all" ? "all" : "mine";
 
   const setView = (view: ReleasesView) => {
     setSearchParams({ view });
@@ -209,7 +210,7 @@ function MyReleasesView() {
 }
 
 function AllReleasesView() {
-  const { data: weekly, isLoading, error } = useWeeklyPullList();
+  const { data: weekly, isLoading, error, refetch } = useWeeklyPullList();
   const { data: aiStatus } = useAiStatus();
 
   if (error) {
@@ -217,7 +218,7 @@ function AllReleasesView() {
       <ErrorDisplay
         error={error}
         title="Unable to load weekly pull list"
-        onRetry={() => window.location.reload()}
+        onRetry={() => refetch()}
       />
     );
   }

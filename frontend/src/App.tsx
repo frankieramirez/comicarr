@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   useParams,
+  useLocation,
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
@@ -44,7 +45,32 @@ const queryClient = new QueryClient({
 /** Redirect old /series/:comicId URLs to /library/:comicId */
 function SeriesRedirect() {
   const { comicId } = useParams();
-  return <Navigate to={`/library/${comicId}`} replace />;
+  const location = useLocation();
+  return (
+    <Navigate
+      to={{
+        pathname: `/library/${comicId}`,
+        search: location.search,
+        hash: location.hash,
+      }}
+      replace
+    />
+  );
+}
+
+/** Redirect old /series URLs to /library */
+function SeriesListRedirect() {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={{
+        pathname: "/library",
+        search: location.search,
+        hash: location.hash,
+      }}
+      replace
+    />
+  );
 }
 
 /**
@@ -85,7 +111,7 @@ function AppContent() {
                         />
                         <Route
                           path="/series"
-                          element={<Navigate to="/library" replace />}
+                          element={<SeriesListRedirect />}
                         />
                         <Route path="/search" element={<SearchPage />} />
                         <Route path="/releases" element={<ReleasesPage />} />

@@ -111,9 +111,9 @@ export function MediaManagementTab({
           type="number"
           value={formData.dbupdate_interval as number | undefined}
           onChange={(v) =>
-            onChange("dbupdate_interval", parseInt(v as string) || 24)
+            onChange("dbupdate_interval", parseInt(v as string) || 1440)
           }
-          helpText="How often to update series metadata from providers (default: 24 hours)"
+          helpText="How often to update series metadata from providers, in minutes (default: 1440 = 24 hours)"
         />
       </SettingGroup>
 

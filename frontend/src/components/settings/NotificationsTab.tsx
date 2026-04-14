@@ -422,7 +422,9 @@ export function NotificationsTab({
               label="Encryption"
               type="select"
               value={formData.email_enc as number | undefined}
-              onChange={(v) => onChange("email_enc", parseInt(v as string))}
+              onChange={(v) =>
+                onChange("email_enc", parseInt(v as string) || 0)
+              }
               options={[
                 { value: 0, label: "None" },
                 { value: 1, label: "TLS/SSL" },
@@ -432,13 +434,13 @@ export function NotificationsTab({
             <SettingField
               label="Notify on grab"
               type="checkbox"
-              checked={(formData.email_ongrab as boolean) ?? true}
+              checked={(formData.email_ongrab as boolean) ?? false}
               onChange={(v) => onChange("email_ongrab", v as boolean)}
             />
             <SettingField
               label="Notify on post-processing"
               type="checkbox"
-              checked={(formData.email_onpost as boolean) ?? true}
+              checked={(formData.email_onpost as boolean) ?? false}
               onChange={(v) => onChange("email_onpost", v as boolean)}
             />
           </>

@@ -15,7 +15,9 @@ type ActivityView = "queue" | "history";
 
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentView = (searchParams.get("view") as ActivityView) || "queue";
+  const viewParam = searchParams.get("view");
+  const currentView: ActivityView =
+    viewParam === "history" ? "history" : "queue";
 
   const setView = (view: ActivityView) => {
     setSearchParams({ view });

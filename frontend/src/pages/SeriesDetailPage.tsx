@@ -58,7 +58,7 @@ export default function SeriesDetailPage() {
         <p className="text-muted-foreground text-sm mt-2">
           {error?.message || "Series not found"}
         </p>
-        <Link to="/" className="mt-4 inline-block">
+        <Link to="/library" className="mt-4 inline-block">
           <Button variant="outline">Back to Library</Button>
         </Link>
       </div>
