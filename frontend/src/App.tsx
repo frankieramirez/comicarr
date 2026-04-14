@@ -22,13 +22,12 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const SeriesListPage = lazy(() => import("@/pages/SeriesListPage"));
 const SeriesDetailPage = lazy(() => import("@/pages/SeriesDetailPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
-const UpcomingPage = lazy(() => import("@/pages/UpcomingPage"));
+const ReleasesPage = lazy(() => import("@/pages/ReleasesPage"));
 const WantedPage = lazy(() => import("@/pages/WantedPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const StoryArcsPage = lazy(() => import("@/pages/StoryArcsPage"));
 const StoryArcDetailPage = lazy(() => import("@/pages/StoryArcDetailPage"));
 const ImportPage = lazy(() => import("@/pages/ImportPage"));
-const WeeklyPage = lazy(() => import("@/pages/WeeklyPage"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -88,14 +87,23 @@ function AppContent() {
                           element={<Navigate to="/library" replace />}
                         />
                         <Route path="/search" element={<SearchPage />} />
-                        <Route path="/upcoming" element={<UpcomingPage />} />
+                        <Route path="/releases" element={<ReleasesPage />} />
+                        <Route
+                          path="/upcoming"
+                          element={
+                            <Navigate to="/releases?view=mine" replace />
+                          }
+                        />
+                        <Route
+                          path="/weekly"
+                          element={<Navigate to="/releases?view=all" replace />}
+                        />
                         <Route path="/wanted" element={<WantedPage />} />
                         <Route path="/story-arcs" element={<StoryArcsPage />} />
                         <Route
                           path="/story-arcs/:storyArcId"
                           element={<StoryArcDetailPage />}
                         />
-                        <Route path="/weekly" element={<WeeklyPage />} />
                         <Route path="/import" element={<ImportPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />

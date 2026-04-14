@@ -27,7 +27,6 @@ import {
   Search,
   Calendar,
   ListTodo,
-  Newspaper,
   Settings,
   LogOut,
   Moon,
@@ -67,9 +66,8 @@ export default function AppSidebar() {
   const navItems: NavItem[] = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
     { path: "/library", label: "Library", icon: BookOpen },
-    { path: "/upcoming", label: "Upcoming", icon: Calendar },
+    { path: "/releases", label: "Releases", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
-    { path: "/weekly", label: "Weekly", icon: Newspaper },
     { path: "/import", label: "Import", icon: FolderInput },
   ];
 
