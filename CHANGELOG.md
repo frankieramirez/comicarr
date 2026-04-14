@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0](https://github.com/frankieramirez/comicarr/compare/v0.14.0...v0.15.0) (2026-04-14)
+
+
+### Features
+
+* Add list/grid view toggle to library page ([#133](https://github.com/frankieramirez/comicarr/issues/133)) ([7c76e2b](https://github.com/frankieramirez/comicarr/commit/7c76e2bc3cfbbd2747c336b97a351872657a3e99))
+
 ## [0.14.0](https://github.com/frankieramirez/comicarr/compare/v0.13.0...v0.14.0) (2026-04-14)
 
 
