@@ -27,7 +27,7 @@ jobs:
   # trigger other workflows — the standalone sync-uv-lock.yml never fired.
   sync-uv-lock:
     needs: release-please
-    if: ${{ !needs.release-please.outputs.release_created }}
+    if: ${{ needs.release-please.outputs.release_created != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Find release PR branch
@@ -36,7 +36,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          BRANCH=$(gh pr list --label "autorelease: pending" --json headRefName --jq '.[0].headRefName // empty')
+          BRANCH=$(
+            gh pr list \
+              --state open \
+              --label "autorelease: pending" \
+              --base main \
+              --limit 1 \
+              --json headRefName \
+              --jq '.[0].headRefName // empty'
+          )
           if [ -z "$BRANCH" ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
           else

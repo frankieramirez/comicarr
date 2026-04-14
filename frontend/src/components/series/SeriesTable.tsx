@@ -99,6 +99,12 @@ export default function SeriesTable({
     }),
   );
   const [searchInput, setSearchInput] = useState(search);
+
+  // Sync URL-driven search changes (e.g. browser back/forward) into the input
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -305,7 +311,7 @@ export default function SeriesTable({
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter: search, rowSelection, pagination },
+    state: { sorting, globalFilter: searchInput, rowSelection, pagination },
     onSortingChange: (updaterOrValue) => {
       const newSorting =
         typeof updaterOrValue === "function"
@@ -335,13 +341,17 @@ export default function SeriesTable({
     enableRowSelection: true,
   });
 
-  // Clamp page to valid range if URL has a page beyond available data
+  const pageCount = table.getPageCount();
+
+  // Clamp page to valid range (handles negative values and out-of-bounds)
   useEffect(() => {
-    const maxPage = Math.max(0, table.getPageCount() - 1);
-    if (params.page > maxPage && table.getPageCount() > 0) {
-      setParams({ page: maxPage > 0 ? maxPage : null });
+    const maxPage = Math.max(0, pageCount - 1);
+    const clampedPage = Math.min(Math.max(params.page, 0), maxPage);
+
+    if (clampedPage !== params.page) {
+      setParams({ page: clampedPage === 0 ? null : clampedPage });
     }
-  }, [filteredData.length, params.page, table, setParams]);
+  }, [pageCount, params.page, setParams]);
 
   if (isLoading) {
     return (
