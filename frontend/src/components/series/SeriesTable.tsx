@@ -110,10 +110,6 @@ export default function SeriesTable({
   const sorting: SortingState = params.sort ? [params.sort] : [];
   const isGridView = params.view === "grid";
   const pageSize = isGridView ? 24 : 20;
-  const pagination = useMemo(
-    () => ({ pageIndex: params.page, pageSize }),
-    [params.page, pageSize],
-  );
 
   const filterCounts = useMemo(() => {
     const counts = {
@@ -163,6 +159,19 @@ export default function SeriesTable({
       return true;
     });
   }, [data, typeFilter, progressFilter, statusFilter]);
+
+  // Pre-clamp page to valid range during render so the table always gets a
+  // valid pageIndex, even before the URL-sync effect fires.
+  const maxPageEstimate = Math.max(
+    0,
+    Math.ceil(filteredData.length / pageSize) - 1,
+  );
+  const effectivePage = Math.min(Math.max(params.page, 0), maxPageEstimate);
+
+  const pagination = useMemo(
+    () => ({ pageIndex: effectivePage, pageSize }),
+    [effectivePage, pageSize],
+  );
 
   const selectedSeriesIds = useMemo(() => {
     return Object.keys(rowSelection).filter((id) => rowSelection[id]);
@@ -319,7 +328,10 @@ export default function SeriesTable({
         typeof updaterOrValue === "function"
           ? updaterOrValue(pagination)
           : updaterOrValue;
-      setParams({ page: newPagination.pageIndex });
+      const newPage = newPagination.pageIndex;
+      if (newPage !== effectivePage) {
+        setParams({ page: newPage === 0 ? null : newPage });
+      }
     },
     onRowSelectionChange: (updater) => {
       setConfirmDelete(false);
@@ -335,7 +347,9 @@ export default function SeriesTable({
 
   const pageCount = table.getPageCount();
 
-  // Clamp page to valid range (handles negative values and out-of-bounds)
+  // Sync URL when page is out of bounds (e.g. search filter reduced results).
+  // The table already renders the clamped effectivePage, so this only fixes
+  // the URL — it is not on the critical render path.
   useEffect(() => {
     const maxPage = Math.max(0, pageCount - 1);
     const clampedPage = Math.min(Math.max(params.page, 0), maxPage);
@@ -343,7 +357,9 @@ export default function SeriesTable({
     if (clampedPage !== params.page) {
       setParams({ page: clampedPage === 0 ? null : clampedPage });
     }
-  }, [pageCount, params.page, setParams]);
+    // setParams is a stable setter from useQueryStates — safe to omit
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageCount, params.page]);
 
   if (isLoading) {
     return (
