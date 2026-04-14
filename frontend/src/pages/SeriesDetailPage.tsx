@@ -6,7 +6,6 @@ import {
   Play,
   RefreshCw,
   Trash2,
-  Home,
   BookOpen,
 } from "lucide-react";
 import {
@@ -59,8 +58,8 @@ export default function SeriesDetailPage() {
         <p className="text-muted-foreground text-sm mt-2">
           {error?.message || "Series not found"}
         </p>
-        <Link to="/" className="mt-4 inline-block">
-          <Button variant="outline">Back to Series</Button>
+        <Link to="/library" className="mt-4 inline-block">
+          <Button variant="outline">Back to Library</Button>
         </Link>
       </div>
     );
@@ -113,7 +112,7 @@ export default function SeriesDetailPage() {
     if (!comicId) return;
     try {
       await deleteMutation.mutateAsync(comicId);
-      navigate("/series");
+      navigate("/library");
     } catch {
       addToast({
         type: "error",
@@ -128,10 +127,10 @@ export default function SeriesDetailPage() {
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center text-sm">
         <Link
-          to="/"
+          to="/library"
           className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Home className="w-4 h-4 mr-1" />
+          <BookOpen className="w-4 h-4 mr-1" />
           Library
         </Link>
         <ChevronRight className="w-4 h-4 mx-2 text-muted-foreground/50" />

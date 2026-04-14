@@ -220,12 +220,12 @@ export default function ArcIssueTable({
                           <>
                             <div className="my-1 border-t border-card-border" />
                             <Link
-                              to={`/series/${issue.ComicID}`}
+                              to={`/library/${issue.ComicID}`}
                               className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
                               onClick={() => setOpenMenuId(null)}
                             >
                               <ExternalLink className="w-4 h-4" />
-                              View in Series
+                              View in Library
                             </Link>
                           </>
                         )}

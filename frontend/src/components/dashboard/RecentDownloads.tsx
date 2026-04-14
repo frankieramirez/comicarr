@@ -51,7 +51,7 @@ function DownloadRow({ item }: { item: DownloadItem }) {
 
   return (
     <Link
-      to={`/series/${item.ComicID}`}
+      to={`/library/${item.ComicID}`}
       className="flex items-center gap-3 rounded-lg p-2 -mx-2 transition-colors hover:bg-muted/50"
     >
       {item.ComicID && !imageError ? (

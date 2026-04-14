@@ -26,7 +26,7 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
           type="select"
           options={qualityOptions}
           onChange={(value) =>
-            onChange("preferred_quality", parseInt(value as string))
+            onChange("preferred_quality", parseInt(value as string) || 0)
           }
           helpText="Filter search results by quality preference"
         />

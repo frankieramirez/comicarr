@@ -221,7 +221,7 @@ function ActionCell({
 
         if (data.comicid === comicIdRef.current) {
           if (data.status === "success") {
-            navigate(`/series/${comicIdRef.current}`);
+            navigate(`/library/${comicIdRef.current}`);
             setIsProcessing(false);
             comicIdRef.current = null;
           } else if (data.status === "failure") {

@@ -27,7 +27,8 @@ import {
   Search,
   Calendar,
   ListTodo,
-  Newspaper,
+  BookMarked,
+  Activity,
   Settings,
   LogOut,
   Moon,
@@ -64,12 +65,16 @@ export default function AppSidebar() {
     icon: LucideIcon;
   }
 
-  const navItems: NavItem[] = [
+  const primaryNav: NavItem[] = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/series", label: "Series", icon: BookOpen },
-    { path: "/upcoming", label: "Upcoming", icon: Calendar },
+    { path: "/library", label: "Library", icon: BookOpen },
+    { path: "/releases", label: "Releases", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
-    { path: "/weekly", label: "Weekly", icon: Newspaper },
+    { path: "/story-arcs", label: "Story Arcs", icon: BookMarked },
+  ];
+
+  const managementNav: NavItem[] = [
+    { path: "/activity", label: "Activity", icon: Activity },
     { path: "/import", label: "Import", icon: FolderInput },
   ];
 
@@ -137,7 +142,26 @@ export default function AppSidebar() {
       {/* Main Navigation */}
       <SidebarContent className="px-2 pt-2">
         <SidebarMenu>
-          {navItems.map(({ path, label, icon: Icon }) => (
+          {primaryNav.map(({ path, label, icon: Icon }) => (
+            <SidebarMenuItem key={path}>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive(path)}
+                tooltip={label}
+              >
+                <Link to={path} onClick={handleNavClick}>
+                  <Icon className="w-4 h-4" />
+                  <span>{label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+
+        <SidebarSeparator className="my-2" />
+
+        <SidebarMenu>
+          {managementNav.map(({ path, label, icon: Icon }) => (
             <SidebarMenuItem key={path}>
               <SidebarMenuButton
                 asChild

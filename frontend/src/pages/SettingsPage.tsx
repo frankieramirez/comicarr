@@ -9,6 +9,8 @@ import { ApiTab } from "@/components/settings/ApiTab";
 import { SearchTab } from "@/components/settings/SearchTab";
 import { DownloadClientsTab } from "@/components/settings/DownloadClientsTab";
 import { AiTab } from "@/components/settings/AiTab";
+import { NotificationsTab } from "@/components/settings/NotificationsTab";
+import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 import { SaveButton } from "@/components/settings/SaveButton";
 import { Settings } from "lucide-react";
 
@@ -172,6 +174,8 @@ export default function SettingsPage() {
           <TabsTrigger value="interface">Interface</TabsTrigger>
           <TabsTrigger value="api">API & Providers</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="clients">Download Clients</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
         </TabsList>
@@ -202,6 +206,22 @@ export default function SettingsPage() {
 
         <TabsContent value="search">
           <SearchTab
+            config={(config ?? {}) as Record<string, unknown>}
+            formData={formData}
+            onChange={handleChange}
+          />
+        </TabsContent>
+
+        <TabsContent value="media">
+          <MediaManagementTab
+            config={(config ?? {}) as Record<string, unknown>}
+            formData={formData}
+            onChange={handleChange}
+          />
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <NotificationsTab
             config={(config ?? {}) as Record<string, unknown>}
             formData={formData}
             onChange={handleChange}

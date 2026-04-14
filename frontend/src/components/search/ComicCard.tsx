@@ -38,7 +38,7 @@ export default function ComicCard({ comic }: ComicCardProps) {
         if (data.comicid === comicIdRef.current) {
           if (data.status === "success") {
             // Navigate to series detail page
-            navigate(`/series/${comicIdRef.current}`);
+            navigate(`/library/${comicIdRef.current}`);
             setIsProcessing(false);
             comicIdRef.current = null;
           } else if (data.status === "failure") {
