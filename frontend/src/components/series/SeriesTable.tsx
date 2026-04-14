@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
@@ -10,6 +10,14 @@ import {
   type SortingState,
   type RowSelectionState,
 } from "@tanstack/react-table";
+import {
+  useQueryState,
+  useQueryStates,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+  createParser,
+} from "nuqs";
 import { Trash2, Pause, Play, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,7 +35,7 @@ import SeriesFilters, {
   type ProgressFilter,
   type StatusFilter,
 } from "./SeriesFilters";
-import { useDebounce } from "@/hooks/use-debounce";
+import { SORT_DELIMITER } from "@/lib/delimiters";
 import {
   useBulkDeleteSeries,
   useBulkPauseSeries,
@@ -37,6 +45,25 @@ import { useToast } from "@/components/ui/toast";
 import type { Comic } from "@/types";
 
 const columnHelper = createColumnHelper<Comic>();
+
+const sortParser = createParser({
+  parse(value: string) {
+    const [id, direction] = value.split(SORT_DELIMITER);
+    if (!id) return null;
+    return { id, desc: direction === "desc" };
+  },
+  serialize(value: { id: string; desc: boolean }) {
+    return `${value.id}${SORT_DELIMITER}${value.desc ? "desc" : "asc"}`;
+  },
+});
+
+const seriesParams = {
+  page: parseAsInteger.withDefault(0),
+  sort: sortParser,
+  type: parseAsStringLiteral(["comic", "manga"] as const),
+  progress: parseAsStringLiteral(["0", "partial", "100"] as const),
+  status: parseAsStringLiteral(["Active", "Paused", "Ended"] as const),
+};
 
 interface SeriesTableProps {
   data?: Comic[];
@@ -61,34 +88,33 @@ export default function SeriesTable({
   isLoading,
 }: SeriesTableProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [params, setParams] = useQueryStates(seriesParams, {
+    history: "replace",
+  });
+  const [search, setSearch] = useQueryState(
+    "search",
+    parseAsString.withDefault("").withOptions({
+      history: "replace",
+      throttleMs: 300,
+    }),
+  );
+  const [searchInput, setSearchInput] = useState(search);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const debouncedFilter = useDebounce(globalFilter, 300);
 
   const bulkDeleteMutation = useBulkDeleteSeries();
   const bulkPauseMutation = useBulkPauseSeries();
   const bulkResumeMutation = useBulkResumeSeries();
   const { addToast } = useToast();
 
-  const typeFilter = (searchParams.get("type") as TypeFilter) || "all";
-  const progressFilter =
-    (searchParams.get("progress") as ProgressFilter) || "all";
-  const statusFilter = (searchParams.get("status") as StatusFilter) || "all";
+  const typeFilter: TypeFilter = params.type ?? "all";
+  const progressFilter: ProgressFilter = params.progress ?? "all";
+  const statusFilter: StatusFilter = params.status ?? "all";
 
-  const updateFilter = useCallback(
-    (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams);
-      if (value === "all") {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-      setSearchParams(params, { replace: true });
-    },
-    [searchParams, setSearchParams],
+  const sorting: SortingState = params.sort ? [params.sort] : [];
+  const pagination = useMemo(
+    () => ({ pageIndex: params.page, pageSize: 20 }),
+    [params.page],
   );
 
   const filterCounts = useMemo(() => {
@@ -279,9 +305,24 @@ export default function SeriesTable({
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter: debouncedFilter, rowSelection },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    state: { sorting, globalFilter: search, rowSelection, pagination },
+    onSortingChange: (updaterOrValue) => {
+      const newSorting =
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(sorting)
+          : updaterOrValue;
+      setParams({
+        sort: newSorting.length > 0 ? newSorting[0] : null,
+        page: null,
+      });
+    },
+    onPaginationChange: (updaterOrValue) => {
+      const newPagination =
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(pagination)
+          : updaterOrValue;
+      setParams({ page: newPagination.pageIndex });
+    },
     onRowSelectionChange: (updater) => {
       setConfirmDelete(false);
       setRowSelection(updater);
@@ -292,8 +333,15 @@ export default function SeriesTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: true,
-    initialState: { pagination: { pageSize: 20 } },
   });
+
+  // Clamp page to valid range if URL has a page beyond available data
+  useEffect(() => {
+    const maxPage = Math.max(0, table.getPageCount() - 1);
+    if (params.page > maxPage && table.getPageCount() > 0) {
+      setParams({ page: maxPage > 0 ? maxPage : null });
+    }
+  }, [filteredData.length, params.page, table, setParams]);
 
   if (isLoading) {
     return (
@@ -317,16 +365,35 @@ export default function SeriesTable({
           typeFilter={typeFilter}
           progressFilter={progressFilter}
           statusFilter={statusFilter}
-          onTypeChange={(value) => updateFilter("type", value)}
-          onProgressChange={(value) => updateFilter("progress", value)}
-          onStatusChange={(value) => updateFilter("status", value)}
+          onTypeChange={(value) =>
+            setParams({
+              type: value === "all" ? null : value,
+              page: null,
+            })
+          }
+          onProgressChange={(value) =>
+            setParams({
+              progress: value === "all" ? null : value,
+              page: null,
+            })
+          }
+          onStatusChange={(value) =>
+            setParams({
+              status: value === "all" ? null : value,
+              page: null,
+            })
+          }
           counts={filterCounts}
         />
         <div className="flex items-center gap-2">
           <Input
             placeholder="Search series..."
-            value={globalFilter ?? ""}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setSearch(e.target.value || null);
+              setParams({ page: null });
+            }}
             className="w-[200px]"
           />
           <span className="text-sm text-muted-foreground whitespace-nowrap">
