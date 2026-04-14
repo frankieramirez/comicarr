@@ -1,5 +1,11 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useParams,
+} from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -35,6 +41,12 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Redirect old /series/:comicId URLs to /library/:comicId */
+function SeriesRedirect() {
+  const { comicId } = useParams();
+  return <Navigate to={`/library/${comicId}`} replace />;
+}
+
 /**
  * AppContent component - handles SSE connection and keyboard shortcuts
  * Must be inside AuthProvider to access auth context
@@ -62,10 +74,18 @@ function AppContent() {
                     <Suspense fallback={null}>
                       <Routes>
                         <Route path="/" element={<DashboardPage />} />
-                        <Route path="/series" element={<SeriesListPage />} />
+                        <Route path="/library" element={<SeriesListPage />} />
+                        <Route
+                          path="/library/:comicId"
+                          element={<SeriesDetailPage />}
+                        />
                         <Route
                           path="/series/:comicId"
-                          element={<SeriesDetailPage />}
+                          element={<SeriesRedirect />}
+                        />
+                        <Route
+                          path="/series"
+                          element={<Navigate to="/library" replace />}
                         />
                         <Route path="/search" element={<SearchPage />} />
                         <Route path="/upcoming" element={<UpcomingPage />} />

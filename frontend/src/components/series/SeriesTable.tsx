@@ -463,7 +463,7 @@ export default function SeriesTable({
 
       <DataTable
         table={table}
-        onRowClick={(row) => navigate(`/series/${row.ComicID}`)}
+        onRowClick={(row) => navigate(`/library/${row.ComicID}`)}
       />
 
       <div className="flex items-center justify-between">

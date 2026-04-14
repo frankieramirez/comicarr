@@ -66,7 +66,7 @@ export default function AppSidebar() {
 
   const navItems: NavItem[] = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/series", label: "Series", icon: BookOpen },
+    { path: "/library", label: "Library", icon: BookOpen },
     { path: "/upcoming", label: "Upcoming", icon: Calendar },
     { path: "/wanted", label: "Wanted", icon: ListTodo },
     { path: "/weekly", label: "Weekly", icon: Newspaper },

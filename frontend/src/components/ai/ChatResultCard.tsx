@@ -28,7 +28,7 @@ export function ChatResultCard({ result, onNavigate }: ChatResultCardProps) {
   const handleClick = () => {
     if (comicId) {
       if (onNavigate) onNavigate();
-      navigate(`/series/${comicId}`);
+      navigate(`/library/${comicId}`);
     }
   };
 

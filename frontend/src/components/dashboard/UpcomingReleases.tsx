@@ -80,7 +80,7 @@ export default function UpcomingReleases({
             {items.map((item, idx) => (
               <Link
                 key={`${item.ComicID}-${item.IssueNumber}-${idx}`}
-                to={`/series/${item.ComicID}`}
+                to={`/library/${item.ComicID}`}
                 className="flex items-center gap-3 rounded-lg p-2 -mx-2 transition-colors hover:bg-muted/50"
               >
                 <div className="flex-1 min-w-0">
