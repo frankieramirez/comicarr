@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0](https://github.com/frankieramirez/comicarr/compare/v0.13.0...v0.14.0) (2026-04-14)
+
+
+### Features
+
+* Restructure information architecture for modern UX ([#131](https://github.com/frankieramirez/comicarr/issues/131)) ([896c788](https://github.com/frankieramirez/comicarr/commit/896c788107d4e48742e5253d9eb6398c233db79e))
+
 ## [0.13.0](https://github.com/frankieramirez/comicarr/compare/v0.12.2...v0.13.0) (2026-04-14)
 
 
