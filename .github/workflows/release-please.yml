@@ -22,6 +22,54 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  # Sync uv.lock after release-please bumps pyproject.toml version.
+  # This runs in the same workflow because GITHUB_TOKEN events don't
+  # trigger other workflows — the standalone sync-uv-lock.yml never fired.
+  sync-uv-lock:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find release PR branch
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          BRANCH=$(
+            gh pr list \
+              --state open \
+              --label "autorelease: pending" \
+              --base main \
+              --limit 1 \
+              --json headRefName \
+              --jq '.[0].headRefName // empty'
+          )
+          if [ -z "$BRANCH" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v6
+        if: steps.pr.outputs.found == 'true'
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+
+      - uses: astral-sh/setup-uv@v7
+        if: steps.pr.outputs.found == 'true'
+
+      - name: Sync uv.lock
+        if: steps.pr.outputs.found == 'true'
+        run: |
+          uv lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git diff --cached --quiet || git commit -m "chore: sync uv.lock with pyproject.toml version"
+          git push
+
   docker-build:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
