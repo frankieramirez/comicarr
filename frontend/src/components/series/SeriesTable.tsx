@@ -90,10 +90,20 @@ export default function SeriesTable({
   );
   const [searchInput, setSearchInput] = useState(search);
 
-  // Sync URL-driven search changes (e.g. browser back/forward) into the input
+  // Local page state for immediate UI response. The nuqs `setParams` update
+  // goes through `startTransition` inside the React Router adapter, which can
+  // silently defer the state commit in React 19 production builds. By keeping
+  // a direct React state we guarantee the table re-renders on page change.
+  const [localPage, setLocalPage] = useState(params.page);
+
+  // Sync URL-driven changes (e.g. browser back/forward) into local state
   useEffect(() => {
     setSearchInput(search);
   }, [search]);
+
+  useEffect(() => {
+    setLocalPage(params.page);
+  }, [params.page]);
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -166,7 +176,7 @@ export default function SeriesTable({
     0,
     Math.ceil(filteredData.length / pageSize) - 1,
   );
-  const effectivePage = Math.min(Math.max(params.page, 0), maxPageEstimate);
+  const effectivePage = Math.min(Math.max(localPage, 0), maxPageEstimate);
 
   const pagination = useMemo(
     () => ({ pageIndex: effectivePage, pageSize }),
@@ -318,6 +328,7 @@ export default function SeriesTable({
         typeof updaterOrValue === "function"
           ? updaterOrValue(sorting)
           : updaterOrValue;
+      setLocalPage(0);
       setParams({
         sort: newSorting.length > 0 ? newSorting[0] : null,
         page: null,
@@ -330,6 +341,7 @@ export default function SeriesTable({
           : updaterOrValue;
       const newPage = newPagination.pageIndex;
       if (newPage !== effectivePage) {
+        setLocalPage(newPage);
         setParams({ page: newPage === 0 ? null : newPage });
       }
     },
@@ -347,19 +359,17 @@ export default function SeriesTable({
 
   const pageCount = table.getPageCount();
 
-  // Sync URL when page is out of bounds (e.g. search filter reduced results).
-  // The table already renders the clamped effectivePage, so this only fixes
-  // the URL — it is not on the critical render path.
+  // Clamp page when out of bounds (e.g. search filter reduced results).
   useEffect(() => {
     const maxPage = Math.max(0, pageCount - 1);
-    const clampedPage = Math.min(Math.max(params.page, 0), maxPage);
+    const clampedPage = Math.min(Math.max(localPage, 0), maxPage);
 
-    if (clampedPage !== params.page) {
+    if (clampedPage !== localPage) {
+      setLocalPage(clampedPage);
       setParams({ page: clampedPage === 0 ? null : clampedPage });
     }
-    // setParams is a stable setter from useQueryStates — safe to omit
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageCount, params.page]);
+  }, [pageCount, localPage]);
 
   if (isLoading) {
     return (
@@ -395,24 +405,27 @@ export default function SeriesTable({
           typeFilter={typeFilter}
           progressFilter={progressFilter}
           statusFilter={statusFilter}
-          onTypeChange={(value) =>
+          onTypeChange={(value) => {
+            setLocalPage(0);
             setParams({
               type: value === "all" ? null : value,
               page: null,
-            })
-          }
-          onProgressChange={(value) =>
+            });
+          }}
+          onProgressChange={(value) => {
+            setLocalPage(0);
             setParams({
               progress: value === "all" ? null : value,
               page: null,
-            })
-          }
-          onStatusChange={(value) =>
+            });
+          }}
+          onStatusChange={(value) => {
+            setLocalPage(0);
             setParams({
               status: value === "all" ? null : value,
               page: null,
-            })
-          }
+            });
+          }}
           counts={filterCounts}
         />
         <div className="flex items-center gap-2">
@@ -437,6 +450,7 @@ export default function SeriesTable({
               variant="ghost"
               size="sm"
               onClick={() => {
+                setLocalPage(0);
                 setParams({ view: "grid", page: null });
                 setRowSelection({});
               }}
@@ -456,6 +470,7 @@ export default function SeriesTable({
             onChange={(e) => {
               setSearchInput(e.target.value);
               setSearch(e.target.value || null);
+              setLocalPage(0);
               setParams({ page: null });
             }}
             className="w-[200px]"
