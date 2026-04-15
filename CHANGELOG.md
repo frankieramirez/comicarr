@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.1](https://github.com/frankieramirez/comicarr/compare/v0.15.0...v0.15.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* Resolve library pagination not responding to clicks ([#135](https://github.com/frankieramirez/comicarr/issues/135)) ([db39a8b](https://github.com/frankieramirez/comicarr/commit/db39a8ba8cb30a0486fb9c7080540efd4b3a3fcd))
+
 ## [0.15.0](https://github.com/frankieramirez/comicarr/compare/v0.14.0...v0.15.0) (2026-04-14)
 
 
