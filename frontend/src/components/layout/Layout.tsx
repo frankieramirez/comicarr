@@ -6,6 +6,7 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { ActivityFeedDrawer } from "@/components/ai/ActivityFeedDrawer";
 import { ChatPanel } from "@/components/ai/ChatPanel";
 import { Bell, MessageCircle } from "lucide-react";
+import { isMockEnabled } from "@/lib/mockData";
 
 const FULL_BLEED_ROUTES = ["/", "/library"];
 
@@ -21,6 +22,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const showAiBell = aiStatus?.configured === true;
   const fullBleed = FULL_BLEED_ROUTES.includes(pathname);
+  const mock = isMockEnabled();
 
   return (
     <SidebarProvider>
@@ -68,6 +70,20 @@ export default function Layout({ children }: LayoutProps) {
             queue: <span className="text-foreground">—</span>
           </span>
           <div className="ml-auto flex items-center gap-3">
+            {mock && (
+              <span
+                className="px-1.5 py-0.5 rounded-sm border font-mono text-[10px] tracking-wider uppercase"
+                style={{
+                  borderColor: "var(--primary)",
+                  color: "var(--primary)",
+                  background:
+                    "color-mix(in oklab, var(--primary) 12%, transparent)",
+                }}
+                title="Mock data — disable with ?mock=0"
+              >
+                mock
+              </span>
+            )}
             {showAiBell && (
               <>
                 <button

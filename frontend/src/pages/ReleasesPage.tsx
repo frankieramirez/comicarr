@@ -52,7 +52,7 @@ function Tab({
     <button
       type="button"
       onClick={onClick}
-      className="relative px-3 pb-2.5 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
+      className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
       style={{
         color: active ? "var(--foreground)" : "var(--muted-foreground)",
       }}
@@ -126,7 +126,7 @@ export default function ReleasesPage() {
       </div>
 
       {/* Tab row */}
-      <div className="px-5 border-b border-border flex items-end gap-1">
+      <div className="px-5 pt-3 border-b border-border flex items-end gap-6">
         <Tab
           active={currentView === "mine"}
           label="Mine"

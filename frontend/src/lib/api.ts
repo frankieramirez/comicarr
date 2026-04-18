@@ -4,6 +4,7 @@
  */
 
 import type { LoginResponse, LogoutResponse, SessionResponse } from "@/types";
+import { isMockEnabled, mockApiResponse } from "@/lib/mockData";
 
 const AUTH_BASE = "/api/auth";
 
@@ -247,6 +248,15 @@ export async function apiRequest<T = unknown>(
   path: string,
   body?: Record<string, unknown> | null,
 ): Promise<T> {
+  if (isMockEnabled()) {
+    const mocked = mockApiResponse(method, path);
+    if (mocked !== undefined) {
+      return mocked as T;
+    }
+    // Fall through for unmocked endpoints — in mock mode the backend may
+    // not be running, so most writes will 502. That's fine for browsing.
+  }
+
   const url = new URL(path, window.location.origin);
 
   const options: RequestInit = {
