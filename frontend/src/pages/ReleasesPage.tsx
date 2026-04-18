@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, Calendar } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import {
   useUpcoming,
   useForceSearch,
@@ -12,10 +12,8 @@ import { apiRequest } from "@/lib/api";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import { useToast } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import UpcomingTable from "@/components/queue/UpcomingTable";
-import FilterBar from "@/components/queue/FilterBar";
 import BulkActionBar from "@/components/queue/BulkActionBar";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import EmptyState from "@/components/ui/EmptyState";
@@ -39,6 +37,69 @@ function useWeeklyPullList() {
 
 type ReleasesView = "mine" | "all";
 
+function Tab({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative px-3 pb-2.5 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
+      style={{
+        color: active ? "var(--foreground)" : "var(--muted-foreground)",
+      }}
+    >
+      <span>{label}</span>
+      {count !== undefined && (
+        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+          {count}
+        </span>
+      )}
+      <span
+        className="absolute left-0 right-0 bottom-0 h-[2px]"
+        style={{
+          background: active ? "var(--primary)" : "transparent",
+        }}
+      />
+    </button>
+  );
+}
+
+function ToggleChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-mono text-[11px] px-2.5 py-1 rounded-full border"
+      style={{
+        borderColor: active ? "var(--primary)" : "var(--border)",
+        color: active ? "var(--primary)" : "var(--muted-foreground)",
+        background: active
+          ? "color-mix(in oklab, var(--primary) 12%, transparent)"
+          : "transparent",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get("view");
@@ -49,38 +110,38 @@ export default function ReleasesPage() {
   };
 
   return (
-    <div className="page-transition">
-      <div className="flex items-center gap-3 mb-6">
-        <Calendar className="w-6 h-6 text-muted-foreground" />
+    <div className="page-transition -mx-4 sm:-mx-6 lg:-mx-8 -my-8">
+      {/* Header */}
+      <div className="px-5 py-3.5 border-b border-border flex items-center gap-3">
         <div>
-          <h1 className="text-[32px] font-bold tracking-tight">Releases</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div className="text-[18px] font-semibold tracking-tight leading-none">
+            Releases
+          </div>
+          <div className="font-mono text-[11px] text-muted-foreground mt-1.5">
             {currentView === "mine"
-              ? "This week's releases for your library"
-              : "This week's new releases industry-wide"}
-          </p>
+              ? "this week · your library"
+              : "this week · industry-wide"}
+          </div>
         </div>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant={currentView === "mine" ? "default" : "outline"}
+      {/* Tab row */}
+      <div className="px-5 border-b border-border flex items-end gap-1">
+        <Tab
+          active={currentView === "mine"}
+          label="Mine"
           onClick={() => setView("mine")}
-          size="sm"
-        >
-          My Releases
-        </Button>
-        <Button
-          variant={currentView === "all" ? "default" : "outline"}
+        />
+        <Tab
+          active={currentView === "all"}
+          label="Industry"
           onClick={() => setView("all")}
-          size="sm"
-        >
-          All Releases
-        </Button>
+        />
       </div>
 
-      {currentView === "mine" ? <MyReleasesView /> : <AllReleasesView />}
+      <div className="px-5 py-4">
+        {currentView === "mine" ? <MyReleasesView /> : <AllReleasesView />}
+      </div>
     </div>
   );
 }
@@ -148,37 +209,62 @@ function MyReleasesView() {
     }
   };
 
-  const handleClearSelection = () => {
-    setSelectedIds([]);
-  };
-
   return (
-    <>
-      <FilterBar
-        showAll={includeDownloaded}
-        onToggleFilter={setIncludeDownloaded}
-        onRefresh={refetch}
-        isRefreshing={isLoading}
-      />
-
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-muted-foreground">
-          {issues.length} issue{issues.length !== 1 ? "s" : ""} this week
+    <div>
+      {/* Controls row */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
+          Filter
         </div>
-        <Button
+        <ToggleChip
+          active={!includeDownloaded}
+          label="wanted only"
+          onClick={() => setIncludeDownloaded(false)}
+        />
+        <ToggleChip
+          active={includeDownloaded}
+          label="include downloaded"
+          onClick={() => setIncludeDownloaded(true)}
+        />
+
+        <div className="ml-auto font-mono text-[11px] text-muted-foreground">
+          {issues.length} issue{issues.length !== 1 ? "s" : ""}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isLoading}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] border text-[11px] font-mono"
+          style={{
+            borderColor: "var(--border)",
+            color: "var(--muted-foreground)",
+          }}
+        >
+          <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
+          refresh
+        </button>
+
+        <button
+          type="button"
           onClick={handleForceSearch}
           disabled={forceSearchMutation.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+          style={{
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+          }}
         >
-          <Search className="w-4 h-4 mr-2" />
-          Force Search All
-        </Button>
+          <Search className="w-3.5 h-3.5" />
+          Force search
+        </button>
       </div>
 
       {isLoading && (
-        <div className="space-y-4">
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
+        <div className="space-y-2">
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
         </div>
       )}
 
@@ -202,10 +288,10 @@ function MyReleasesView() {
         selectedCount={selectedIds.length}
         onMarkWanted={handleBulkQueue}
         onSkip={handleBulkUnqueue}
-        onClear={handleClearSelection}
+        onClear={() => setSelectedIds([])}
         isLoading={bulkQueueMutation.isPending || bulkUnqueueMutation.isPending}
       />
-    </>
+    </div>
   );
 }
 
@@ -226,7 +312,7 @@ function AllReleasesView() {
   return (
     <>
       {aiStatus?.configured && (
-        <div className="mb-8">
+        <div className="mb-6">
           <AiSuggestions />
         </div>
       )}
@@ -234,67 +320,68 @@ function AllReleasesView() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
       ) : !weekly || weekly.length === 0 ? (
-        <div className="rounded-lg border border-card-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">
-            No pull list data available. Run a weekly pull list update from
-            Settings.
-          </p>
-        </div>
+        <EmptyState
+          variant="custom"
+          eyebrow="PULL LIST · EMPTY"
+          title="No pull list data"
+          description="Run a weekly pull list update from Settings to populate this view."
+        />
       ) : (
-        <div className="rounded-lg border border-card-border overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-card-border bg-muted/50">
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                  Title
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                  Issue
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                  Publisher
-                </th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {weekly.map((issue, index) => (
-                <tr
-                  key={`${issue.COMIC}-${issue.ISSUE}-${index}`}
-                  className="border-b border-card-border last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-2.5 text-sm font-medium">
-                    {issue.COMIC}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                    #{issue.ISSUE}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                    {issue.PUBLISHER}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        issue.STATUS === "Wanted"
-                          ? "bg-yellow-500/10 text-yellow-600"
-                          : issue.STATUS === "Downloaded"
-                            ? "bg-green-500/10 text-green-600"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {issue.STATUS || "Available"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div
+          className="rounded-[6px] border overflow-hidden"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div
+            className="grid font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground px-4 py-2 border-b"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--card)",
+              gridTemplateColumns: "1fr 80px 160px 100px",
+            }}
+          >
+            <div>title</div>
+            <div>issue</div>
+            <div>publisher</div>
+            <div>status</div>
+          </div>
+          {weekly.map((issue, index) => {
+            const status = issue.STATUS || "Available";
+            const statusColor =
+              status === "Wanted"
+                ? "var(--primary)"
+                : status === "Downloaded"
+                  ? "var(--status-active)"
+                  : "var(--muted-foreground)";
+            return (
+              <div
+                key={`${issue.COMIC}-${issue.ISSUE}-${index}`}
+                className="grid items-center px-4 py-2 text-[12px] border-b last:border-b-0"
+                style={{
+                  borderColor: "var(--border-soft, var(--border))",
+                  gridTemplateColumns: "1fr 80px 160px 100px",
+                }}
+              >
+                <div className="font-medium truncate">{issue.COMIC}</div>
+                <div className="font-mono text-[11px] text-muted-foreground">
+                  #{issue.ISSUE}
+                </div>
+                <div className="text-muted-foreground truncate">
+                  {issue.PUBLISHER}
+                </div>
+                <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: statusColor }}
+                  />
+                  <span style={{ color: statusColor }}>{status}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
