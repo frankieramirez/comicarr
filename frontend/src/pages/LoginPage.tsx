@@ -9,15 +9,52 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import Logo from "@/components/Logo";
 import { setupCredentials } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import GridShader from "@/components/login/GridShader";
+import Logo from "@/components/Logo";
+
+function MonoLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted-foreground mb-1.5">
+      {children}
+    </div>
+  );
+}
+
+function FieldShell({
+  icon: Icon,
+  children,
+  focused,
+}: {
+  icon: typeof User;
+  children: React.ReactNode;
+  focused?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-md border bg-background transition-all"
+      style={{
+        borderColor: focused ? "var(--primary)" : "var(--border)",
+        boxShadow: focused
+          ? "0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent)"
+          : undefined,
+      }}
+    >
+      <Icon
+        className="w-[13px] h-[13px] shrink-0"
+        style={{ color: "var(--muted-foreground)" }}
+      />
+      {children}
+    </div>
+  );
+}
 
 function SetupForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [focus, setFocus] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,12 +66,10 @@ function SetupForm() {
       setError("Please enter both username and password");
       return;
     }
-
     if (password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
-
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -44,8 +79,6 @@ function SetupForm() {
     try {
       const result = await setupCredentials(username, password);
       if (result.success) {
-        // Server is restarting to enable auth sessions.
-        // Poll until it's back, then redirect to login.
         setError("");
         const pollUntilReady = async () => {
           for (let i = 0; i < 30; i++) {
@@ -57,10 +90,9 @@ function SetupForm() {
                 return;
               }
             } catch {
-              // Server still restarting
+              // still restarting
             }
           }
-          // Fallback after 60s
           window.location.href = "/";
         };
         pollUntilReady();
@@ -75,108 +107,116 @@ function SetupForm() {
   };
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-        <ShieldCheck className="w-4 h-4" />
-        <span>Create your admin account to get started</span>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-2 -mt-2 mb-2 font-mono text-[11px] text-muted-foreground">
+        <ShieldCheck
+          className="w-3.5 h-3.5"
+          style={{ color: "var(--primary)" }}
+        />
+        <span>first-run · create admin</span>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <label
-            htmlFor="setup-username"
-            className="text-sm font-medium text-foreground"
-          >
-            Username
-          </label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              id="setup-username"
-              type="text"
-              placeholder="Choose a username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="username"
-              className="pl-10"
-            />
-          </div>
-        </div>
+      <div>
+        <MonoLabel>Username</MonoLabel>
+        <FieldShell icon={User} focused={focus === "u"}>
+          <input
+            type="text"
+            placeholder="Choose a username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onFocus={() => setFocus("u")}
+            onBlur={() => setFocus(null)}
+            disabled={isSubmitting}
+            autoComplete="username"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)]"
+          />
+        </FieldShell>
+      </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="setup-password"
-            className="text-sm font-medium text-foreground"
-          >
-            Password
-          </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              id="setup-password"
-              type="password"
-              placeholder="Choose a password (min 8 characters)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="new-password"
-              className="pl-10"
-            />
-          </div>
-        </div>
+      <div>
+        <MonoLabel>Password</MonoLabel>
+        <FieldShell icon={Lock} focused={focus === "p"}>
+          <input
+            type="password"
+            placeholder="min 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onFocus={() => setFocus("p")}
+            onBlur={() => setFocus(null)}
+            disabled={isSubmitting}
+            autoComplete="new-password"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)] tracking-[0.15em]"
+          />
+        </FieldShell>
+      </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="setup-confirm-password"
-            className="text-sm font-medium text-foreground"
-          >
-            Confirm Password
-          </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              id="setup-confirm-password"
-              type="password"
-              placeholder="Confirm your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="new-password"
-              className="pl-10"
-            />
-          </div>
-        </div>
+      <div>
+        <MonoLabel>Confirm password</MonoLabel>
+        <FieldShell icon={Lock} focused={focus === "c"}>
+          <input
+            type="password"
+            placeholder="confirm"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onFocus={() => setFocus("c")}
+            onBlur={() => setFocus(null)}
+            disabled={isSubmitting}
+            autoComplete="new-password"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)] tracking-[0.15em]"
+          />
+        </FieldShell>
+      </div>
 
-        {error && (
-          <div className="flex items-start gap-3 p-3 text-sm text-[var(--status-error)] bg-[var(--status-error-bg)] border border-[var(--status-error)]/20 rounded-lg">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          className="w-full h-11 text-base font-medium"
-          disabled={isSubmitting}
+      {error && (
+        <div
+          className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
+          style={{
+            color: "var(--status-error)",
+            background: "var(--status-error-bg)",
+            borderColor:
+              "color-mix(in oklab, var(--status-error) 30%, transparent)",
+          }}
         >
-          {isSubmitting && !error ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {username ? "Restarting server..." : "Creating account..."}
-            </>
-          ) : (
-            "Create Account"
-          )}
-        </Button>
-      </form>
-    </div>
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span className="font-mono">{error}</span>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-[13px] font-semibold disabled:opacity-60"
+        style={{
+          background: "var(--primary)",
+          color: "var(--primary-foreground)",
+        }}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {username ? "Restarting server…" : "Creating account…"}
+          </>
+        ) : (
+          <>
+            <span>Create account</span>
+            <Kbd
+              className="!bg-black/10 !border-black/20 !text-black/70"
+              style={{ color: "rgba(0,0,0,0.7)" }}
+            >
+              ↵
+            </Kbd>
+          </>
+        )}
+      </button>
+    </form>
   );
 }
 
 function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [focus, setFocus] = useState<string | null>(null);
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const { login, isVerifying } = useAuth();
   const navigate = useNavigate();
@@ -184,14 +224,11 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
     if (!username.trim() || !password.trim()) {
       setError("Please enter both username and password");
       return;
     }
-
     const result = await login(username, password);
-
     if (result.success) {
       navigate("/");
     } else {
@@ -200,78 +237,103 @@ function LoginForm() {
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <label
-            htmlFor="username"
-            className="text-[13px] font-medium text-[var(--muted-foreground)]"
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <MonoLabel>Username</MonoLabel>
+        <FieldShell icon={User} focused={focus === "u"}>
+          <input
+            type="text"
+            placeholder="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onFocus={() => setFocus("u")}
+            onBlur={() => setFocus(null)}
+            disabled={isVerifying}
+            autoComplete="username"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)]"
+          />
+        </FieldShell>
+      </div>
+
+      <div>
+        <MonoLabel>Password</MonoLabel>
+        <FieldShell icon={Lock} focused={focus === "p"}>
+          <input
+            type={showPw ? "text" : "password"}
+            placeholder="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onFocus={() => setFocus("p")}
+            onBlur={() => setFocus(null)}
+            disabled={isVerifying}
+            autoComplete="current-password"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)] tracking-[0.15em]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((s) => !s)}
+            className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+            tabIndex={-1}
           >
-            Username
-          </label>
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[var(--text-muted,#6B6B70)]" />
-            <Input
-              id="username"
-              type="text"
-              placeholder="Enter your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={isVerifying}
-              autoComplete="username"
-              className="pl-11 h-12 bg-[var(--surface-elevated,var(--secondary))] border-[var(--border-elevated,var(--border))] rounded-lg"
-            />
-          </div>
-        </div>
+            {showPw ? "hide" : "show"}
+          </button>
+        </FieldShell>
+      </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="text-[13px] font-medium text-[var(--muted-foreground)]"
-          >
-            Password
-          </label>
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[var(--text-muted,#6B6B70)]" />
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isVerifying}
-              autoComplete="current-password"
-              className="pl-11 h-12 bg-[var(--surface-elevated,var(--secondary))] border-[var(--border-elevated,var(--border))] rounded-lg"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="flex items-start gap-3 p-3 text-sm text-[var(--status-error)] bg-[var(--status-error-bg)] border border-[var(--status-error)]/20 rounded-lg">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          className="w-full h-12 text-[15px] font-semibold bg-gradient-to-r from-[#FF5C00] to-[#FF8A4C] hover:from-[#FF6A1A] hover:to-[#FF9560] text-white border-0 rounded-lg gap-2"
-          disabled={isVerifying}
+      {error && (
+        <div
+          className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
+          style={{
+            color: "var(--status-error)",
+            background: "var(--status-error-bg)",
+            borderColor:
+              "color-mix(in oklab, var(--status-error) 30%, transparent)",
+          }}
         >
-          {isVerifying ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Signing in...
-            </>
-          ) : (
-            <>
-              Sign in
-              <ArrowRight className="w-[18px] h-[18px]" />
-            </>
-          )}
-        </Button>
-      </form>
-    </div>
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span className="font-mono">{error}</span>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={isVerifying}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-[13px] font-semibold disabled:opacity-60"
+        style={{
+          background: "var(--primary)",
+          color: "var(--primary-foreground)",
+        }}
+      >
+        {isVerifying ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Signing in…
+          </>
+        ) : (
+          <>
+            <span>Continue</span>
+            <Kbd className="!bg-black/10 !border-black/20 !text-black/70">
+              ↵
+            </Kbd>
+          </>
+        )}
+      </button>
+
+      <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground pt-1">
+        <button
+          type="button"
+          className="hover:text-foreground"
+          tabIndex={-1}
+          onClick={(e) => e.preventDefault()}
+        >
+          forgot password
+        </button>
+        <span className="inline-flex items-center gap-1.5">
+          <ArrowRight className="w-3 h-3" />
+          <span>sso</span>
+        </span>
+      </div>
+    </form>
   );
 }
 
@@ -279,37 +341,48 @@ export default function LoginPage() {
   const { needsSetup } = useAuth();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden px-4">
-      {/* Background radial glow */}
+    <div className="min-h-screen w-full bg-background text-foreground relative overflow-hidden grid place-items-center px-4">
+      {/* Interactive shader grid backdrop */}
+      <GridShader />
+
+      {/* Card */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="relative z-10 w-full max-w-[380px] p-6 rounded-[10px] border bg-card"
         style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(255,92,0,0.03), transparent)",
+          borderColor: "var(--border)",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
         }}
-      />
-
-      {/* Single card containing everything */}
-      <div className="w-full max-w-[420px] relative z-10 bg-[#141417] rounded-2xl border border-[#1F1F23] shadow-[0_4px_40px_rgba(255,92,0,0.03)] px-10 py-12 flex flex-col items-center gap-8">
-        {/* Brand section */}
-        <div className="flex flex-col items-center gap-3">
-          <Logo className="h-10 text-white" />
-          <p className="text-[#8B8B90] text-sm">
-            {needsSetup
-              ? "Welcome! Set up your account to get started."
-              : "Your comic book library manager"}
-          </p>
+      >
+        {/* Brand row */}
+        <div className="flex items-center gap-2 mb-6">
+          <Logo className="h-4 w-auto text-foreground" />
+          <span className="ml-auto font-mono text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded-sm">
+            v0.15.1
+          </span>
         </div>
 
-        {/* Form section */}
-        <div className="w-full">
-          {needsSetup ? <SetupForm /> : <LoginForm />}
+        <div className="text-[18px] font-semibold tracking-tight mb-1">
+          {needsSetup ? "Create admin" : "Sign in"}
+        </div>
+        <div className="text-[12px] text-muted-foreground mb-4">
+          {needsSetup
+            ? "Set up your first account to unlock the library."
+            : "Access your home server library."}
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-[#4A4A4E]">
-          Automated comic book management
-        </p>
+        {needsSetup ? <SetupForm /> : <LoginForm />}
+      </div>
+
+      {/* Bottom status strip */}
+      <div className="absolute left-5 right-5 bottom-5 flex justify-between font-mono text-[10px] text-muted-foreground z-10 pointer-events-none">
+        <span className="flex items-center gap-1.5">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: "var(--status-active)" }}
+          />
+          HOME.LAN
+        </span>
+        <span>COMICARR · READY</span>
       </div>
     </div>
   );

@@ -6,9 +6,9 @@ import {
   Search,
   Library,
   ListTodo,
+  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 type EmptyStateVariant =
   | "library"
@@ -29,6 +29,7 @@ interface EmptyStateAction {
 interface EmptyStateProps {
   variant?: EmptyStateVariant;
   icon?: LucideIcon;
+  eyebrow?: string;
   title?: string;
   description?: string;
   action?: EmptyStateAction;
@@ -39,6 +40,7 @@ const VARIANT_CONFIGS: Record<
   Exclude<EmptyStateVariant, "custom">,
   {
     icon: LucideIcon;
+    eyebrow: string;
     title: string;
     description: string;
     action?: EmptyStateAction;
@@ -46,50 +48,54 @@ const VARIANT_CONFIGS: Record<
 > = {
   library: {
     icon: Library,
-    title: "Your library is empty",
+    eyebrow: "LIBRARY · EMPTY",
+    title: "No series tracked yet",
     description:
-      "Search for comics to add them to your library and start tracking your collection.",
-    action: { label: "Search Comics", to: "/search" },
+      "Search the providers you've connected and add series to start monitoring issues.",
+    action: { label: "Add series", to: "/search" },
   },
   wanted: {
     icon: ListTodo,
+    eyebrow: "WANTED · EMPTY",
     title: "No wanted issues",
     description:
-      "Mark issues as wanted from your series to see them here. Comicarr will automatically search for them.",
+      "Mark issues as wanted from a series and Comicarr will search for them automatically.",
   },
   upcoming: {
     icon: Calendar,
-    title: "No upcoming releases",
+    eyebrow: "UPCOMING · EMPTY",
+    title: "No releases this week",
     description:
-      "Add more series to your library to see upcoming releases for this week.",
-    action: { label: "Browse Series", to: "/search" },
+      "Add more series to surface upcoming issues on the weekly schedule.",
+    action: { label: "Browse series", to: "/search" },
   },
   search: {
     icon: Search,
+    eyebrow: "SEARCH · NO MATCH",
     title: "No results found",
     description:
-      "Try adjusting your search terms or filters to find what you're looking for.",
+      "Adjust the query or filters — try the series title, author, or publisher.",
   },
   issues: {
     icon: BookOpen,
-    title: "No issues found",
+    eyebrow: "ISSUES · EMPTY",
+    title: "No issues indexed",
     description:
-      "This series doesn't have any issues yet. Try refreshing the series data.",
+      "This series has no issues tracked yet. Refresh to pull the latest metadata.",
   },
   "story-arcs": {
     icon: BookOpen,
+    eyebrow: "ARCS · EMPTY",
     title: "No story arcs tracked",
     description:
-      "Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues.",
+      "Search for arcs above to track reading progress across series and issues.",
   },
 };
 
-/**
- * Flexible empty state component for various contexts
- */
 export default function EmptyState({
   variant = "custom",
   icon: CustomIcon,
+  eyebrow: customEyebrow,
   title: customTitle,
   description: customDescription,
   action: customAction,
@@ -98,31 +104,57 @@ export default function EmptyState({
   const config = variant !== "custom" ? VARIANT_CONFIGS[variant] : null;
 
   const Icon = CustomIcon || config?.icon || BookOpen;
+  const eyebrow = customEyebrow || config?.eyebrow || "EMPTY";
   const title = customTitle || config?.title || "Nothing here yet";
   const description = customDescription || config?.description || "";
   const action = customAction || config?.action;
 
+  const cta = action && (
+    <span
+      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[5px] text-[12px] font-semibold"
+      style={{
+        background: "var(--primary)",
+        color: "var(--primary-foreground)",
+      }}
+    >
+      {action.label}
+      <ArrowRight className="w-3.5 h-3.5" />
+    </span>
+  );
+
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="bg-muted rounded-full p-6 mb-6">
-        <Icon className="w-12 h-12 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div
+        className="w-11 h-11 rounded-full grid place-items-center mb-5"
+        style={{
+          border: "1px solid var(--border)",
+          background: "var(--secondary)",
+        }}
+      >
+        <Icon
+          className="w-4 h-4"
+          style={{ color: "var(--muted-foreground)" }}
+          strokeWidth={1.5}
+        />
       </div>
-      <h3 className="text-xl font-semibold text-foreground mb-2">{title}</h3>
-      <p className="text-muted-foreground max-w-md mb-6">{description}</p>
+      <div className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground mb-2">
+        {eyebrow}
+      </div>
+      <h3 className="text-[15px] font-semibold text-foreground mb-1.5 tracking-tight">
+        {title}
+      </h3>
+      {description && (
+        <p className="text-[12px] text-muted-foreground max-w-[340px] mb-5 leading-relaxed">
+          {description}
+        </p>
+      )}
       {action &&
         (action.to ? (
-          <Link to={action.to}>
-            <Button variant={action.variant || "default"}>
-              {action.label}
-            </Button>
-          </Link>
+          <Link to={action.to}>{cta}</Link>
         ) : action.onClick ? (
-          <Button
-            variant={action.variant || "default"}
-            onClick={action.onClick}
-          >
-            {action.label}
-          </Button>
+          <button type="button" onClick={action.onClick}>
+            {cta}
+          </button>
         ) : null)}
       {children}
     </div>

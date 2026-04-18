@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @plugin "tailwindcss-animate";
 
@@ -7,6 +7,7 @@
 
 :root {
   font-family:
+    "Inter Tight",
     "Inter",
     system-ui,
     -apple-system,
@@ -14,8 +15,9 @@
     "Segoe UI",
     Roboto,
     sans-serif;
-  --radius: 0.625rem;
-  --font-mono: "DM Mono", ui-monospace, monospace;
+  letter-spacing: -0.005em;
+  --radius: 0.375rem;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
@@ -23,8 +25,8 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.67 0.16 58);
-  --primary-foreground: oklch(0.99 0.02 95);
+  --primary: #e04a0a;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
@@ -154,67 +156,68 @@ body {
 }
 
 .dark {
-  --background: #0a0a0b;
-  --foreground: #ffffff;
-  --card: #141417;
-  --card-foreground: #ffffff;
-  --popover: #141417;
-  --popover-foreground: #ffffff;
-  --primary: #ff5c00;
+  --background: #0b0d12;
+  --foreground: #e8eaf0;
+  --card: #12151c;
+  --card-foreground: #e8eaf0;
+  --popover: #12151c;
+  --popover-foreground: #e8eaf0;
+  --primary: #ff6a1f;
   --primary-foreground: #ffffff;
-  --secondary: #1a1a1d;
-  --secondary-foreground: #adadb0;
-  --muted: #1a1a1d;
-  --muted-foreground: #8b8b90;
-  --accent: #1a1a1d;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --border: #1f1f23;
-  --input: #1a1a1d;
-  --ring: #ff5c00;
+  --secondary: #181c25;
+  --secondary-foreground: #8a92a5;
+  --muted: #181c25;
+  --muted-foreground: #8a92a5;
+  --accent: #181c25;
+  --accent-foreground: #e8eaf0;
+  --destructive: #ff6b6b;
+  --border: #232834;
+  --input: #181c25;
+  --ring: #ff6a1f;
   --chart-1: #ff8a4c;
-  --chart-2: #ff5c00;
-  --chart-3: #22c55e;
-  --chart-4: #adadb0;
-  --chart-5: #6b6b70;
-  --sidebar: #141417;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ff5c00;
+  --chart-2: #ff6a1f;
+  --chart-3: #53d37d;
+  --chart-4: #6ea8ff;
+  --chart-5: #565d6f;
+  --sidebar: #12151c;
+  --sidebar-foreground: #e8eaf0;
+  --sidebar-primary: #ff6a1f;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1a1a1d;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1f1f23;
-  --sidebar-ring: #ff5c00;
+  --sidebar-accent: #181c25;
+  --sidebar-accent-foreground: #e8eaf0;
+  --sidebar-border: #232834;
+  --sidebar-ring: #ff6a1f;
 
   /* Surface layers */
-  --surface-deep: #111113;
-  --surface-elevated: #1a1a1d;
-  --border-elevated: #2a2a2e;
-  --text-tertiary: #8b8b90;
-  --text-muted: #6b6b70;
-  --text-disabled: #4a4a4e;
+  --surface-deep: #0b0d12;
+  --surface-elevated: #181c25;
+  --border-elevated: #232834;
+  --border-soft: #1a1f2a;
+  --text-tertiary: #8a92a5;
+  --text-muted: #565d6f;
+  --text-disabled: #3a4050;
 
   /* Status Badges - Dark Mode */
-  --status-active: #22c55e;
-  --status-active-bg: #22c55e18;
-  --status-wanted: #ff5c00;
-  --status-wanted-bg: #ff5c0018;
-  --status-downloaded: #22c55e;
-  --status-downloaded-bg: #22c55e18;
-  --status-paused: #8b8b90;
-  --status-paused-bg: #6b6b7018;
-  --status-ended: #8b8b90;
-  --status-ended-bg: #6b6b7018;
-  --status-error: #ef4444;
-  --status-error-bg: #ef444418;
-  --status-skipped: #6b6b70;
-  --status-skipped-bg: #6b6b7018;
+  --status-active: #53d37d;
+  --status-active-bg: #53d37d18;
+  --status-wanted: #ff6a1f;
+  --status-wanted-bg: #ff6a1f1f;
+  --status-downloaded: #53d37d;
+  --status-downloaded-bg: #53d37d18;
+  --status-paused: #ffb547;
+  --status-paused-bg: #ffb54718;
+  --status-ended: #8a92a5;
+  --status-ended-bg: #565d6f18;
+  --status-error: #ff6b6b;
+  --status-error-bg: #ff6b6b18;
+  --status-skipped: #565d6f;
+  --status-skipped-bg: #565d6f18;
 
   /* Effects */
-  --glassmorphism-bg: rgba(10, 10, 11, 0.85);
+  --glassmorphism-bg: rgba(11, 13, 18, 0.85);
 
   /* Gradient */
-  --gradient-brand: linear-gradient(135deg, #ff5c00, #ff8a4c);
+  --gradient-brand: linear-gradient(135deg, #ff6a1f, #ff8a4c);
   --success: hsl(217.2 32.6% 17.5%);
   --warning: hsl(24.6 95% 53.1%);
   --error: hsl(0 84.2% 60.2%);
@@ -250,6 +253,25 @@ body {
 }
 
 @layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+  }
+
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .mono-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+
   .glass-nav {
     background: var(--glassmorphism-bg);
     backdrop-filter: var(--glassmorphism-blur);
