@@ -6,6 +6,7 @@ import ArcGenerator from "@/components/storyarcs/ArcGenerator";
 import StoryArcCard from "@/components/storyarcs/StoryArcCard";
 import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function StoryArcsPage() {
   const { data: arcs, isLoading, error } = useStoryArcs();
@@ -16,52 +17,62 @@ export default function StoryArcsPage() {
     searchInputRef.current?.focus();
   };
 
+  const count = arcs?.length ?? 0;
+
   return (
-    <div className="space-y-8 page-transition">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground mb-1">Story Arcs</h1>
-        <p className="text-sm text-muted-foreground">
-          Track story arcs that span across multiple series.
-        </p>
-      </div>
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition">
+      <PageHeader
+        title="Story Arcs"
+        meta={
+          isLoading
+            ? "loading…"
+            : `${count} arc${count === 1 ? "" : "s"} tracked`
+        }
+      />
 
-      {/* AI Arc Generator (shown when AI configured) */}
-      {aiStatus?.configured && <ArcGenerator />}
+      <div className="px-5 py-4 space-y-6">
+        {aiStatus?.configured && <ArcGenerator />}
 
-      {/* Search section */}
-      <ArcSearch searchInputRef={searchInputRef} />
+        <ArcSearch searchInputRef={searchInputRef} />
 
-      {/* Arc list section */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-card-border bg-card overflow-hidden"
-            >
-              <Skeleton className="h-32" />
-              <div className="p-3 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-                <Skeleton className="h-1.5 w-full" />
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[6px] border border-border bg-card overflow-hidden"
+              >
+                <Skeleton className="h-32" />
+                <div className="p-3 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-1.5 w-full" />
+                </div>
               </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="py-12 text-center">
+            <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-muted-foreground mb-2">
+              ARCS · ERROR
             </div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className="text-center py-12">
-          <p className="text-red-600">Failed to load story arcs</p>
-          <p className="text-sm text-muted-foreground mt-1">{error.message}</p>
-        </div>
-      ) : arcs && arcs.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {arcs.map((arc) => (
-            <StoryArcCard key={arc.StoryArcID} arc={arc} />
-          ))}
-        </div>
-      ) : (
-        <StoryArcEmptyState onSearchFocus={handleSearchFocus} />
-      )}
+            <div className="text-[15px] font-semibold">
+              Failed to load story arcs
+            </div>
+            <div className="font-mono text-[11px] text-muted-foreground mt-1">
+              {error.message}
+            </div>
+          </div>
+        ) : arcs && arcs.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {arcs.map((arc) => (
+              <StoryArcCard key={arc.StoryArcID} arc={arc} />
+            ))}
+          </div>
+        ) : (
+          <StoryArcEmptyState onSearchFocus={handleSearchFocus} />
+        )}
+      </div>
     </div>
   );
 }

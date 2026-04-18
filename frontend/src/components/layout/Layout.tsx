@@ -8,7 +8,7 @@ import { ChatPanel } from "@/components/ai/ChatPanel";
 import { Bell, MessageCircle } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
-const FULL_BLEED_ROUTES = ["/", "/library"];
+const FULL_BLEED_ROUTES = ["/", "/library", "/settings"];
 
 interface LayoutProps {
   children: React.ReactNode;

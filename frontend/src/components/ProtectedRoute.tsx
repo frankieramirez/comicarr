@@ -1,7 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { MigrationWizard } from "@/components/migration/MigrationWizard";
-import Layout from "@/components/layout/Layout";
+import OnboardingDialog from "@/components/onboarding/OnboardingDialog";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,20 +10,16 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, needsMigration, dismissMigration } =
     useAuth();
 
-  // Show loading state while checking session
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div
-            className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <div className="inline-flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+          <span
+            className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-solid border-current border-r-transparent"
             role="status"
-          >
-            <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
-              Loading...
-            </span>
-          </div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
+            aria-label="Loading"
+          />
+          checking session…
         </div>
       </div>
     );
@@ -34,16 +29,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // Gate: show migration wizard instead of children when DB is empty
-  if (needsMigration) {
-    return (
-      <Layout>
-        <div className="p-8 max-w-4xl">
-          <MigrationWizard onDismiss={dismissMigration} />
-        </div>
-      </Layout>
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <OnboardingDialog open={needsMigration} onFinish={dismissMigration} />
+    </>
+  );
 }

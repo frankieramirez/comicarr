@@ -4,13 +4,8 @@ import {
   Search as SearchIcon,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
-  Book,
-  ArrowUpDown,
   Settings,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -22,9 +17,11 @@ import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
 import { useContentSources } from "@/hooks/useContentSources";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
+import { Kbd } from "@/components/ui/kbd";
 import type { ContentType } from "@/types/entities";
 
-// Sort option definition
 interface SortOption {
   value: string;
   label: string;
@@ -55,7 +52,6 @@ const SORT_OPTIONS: Record<ContentType, SortOption[]> = {
   manga: MANGA_SORT_OPTIONS,
 };
 
-// Map frontend sort values to ComicVine API format
 const comicSortMapping: Record<string, string | null> = {
   relevance: null,
   year_desc: "start_year:desc",
@@ -66,7 +62,6 @@ const comicSortMapping: Record<string, string | null> = {
   name_desc: "name:desc",
 };
 
-// Map frontend sort values to MangaDex API format
 const mangaSortMapping: Record<string, string> = {
   relevance: "relevance",
   year_desc: "year_desc",
@@ -81,12 +76,10 @@ export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { comicsEnabled, comicsConfigured, mangaEnabled } = useContentSources();
 
-  // Get parameters from URL
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
   const urlSort = searchParams.get("sort") || "relevance";
 
-  // Derive search mode from URL, falling back based on what's enabled
   const rawType = searchParams.get("type");
   const urlType: ContentType | null =
     rawType === "manga" ? "manga" : rawType === "comic" ? "comic" : null;
@@ -109,32 +102,23 @@ export default function SearchPage() {
     [],
   );
 
-  // Map sort to API format based on mode
   const comicApiSort = comicSortMapping[urlSort] ?? urlSort;
   const mangaApiSort = mangaSortMapping[urlSort] || "relevance";
 
-  // Use comic search for comic mode
   const comicSearch = useSearchComics(
     searchMode === "comic" ? urlQuery : "",
     urlPage,
     comicApiSort,
   );
-
-  // Use manga search for manga mode
   const mangaSearch = useSearchManga(
     searchMode === "manga" ? urlQuery : "",
     urlPage,
     mangaApiSort,
   );
-
-  // Select the active search based on search mode
   const activeSearch = searchMode === "manga" ? mangaSearch : comicSearch;
-
   const { data, isLoading, error } = activeSearch;
   const searchResults = data?.results || [];
   const pagination = data?.pagination;
-
-  // Get sort options for current mode
   const sortOptions = SORT_OPTIONS[searchMode];
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
@@ -150,7 +134,6 @@ export default function SearchPage() {
   };
 
   const handleSearchModeChange = (newMode: ContentType) => {
-    // Validate sort against new mode's options
     const validSorts = SORT_OPTIONS[newMode].map((o) => o.value);
     const newSort = validSorts.includes(urlSort) ? urlSort : "relevance";
     const params: Record<string, string> = {
@@ -176,7 +159,6 @@ export default function SearchPage() {
     setSearchParams(params);
   };
 
-  // Calculate pagination info from server metadata
   const totalPages = pagination
     ? Math.ceil(pagination.total / pagination.limit)
     : 0;
@@ -185,73 +167,79 @@ export default function SearchPage() {
     ? pagination.offset + (pagination.returned ?? 0)
     : 0;
 
-  return (
-    <div className="space-y-4 page-transition min-w-0 overflow-hidden">
-      {/* Page Title */}
-      <h1 className="text-3xl font-bold">
-        {searchMode === "manga" ? "Search Manga" : "Search Comics"}
-      </h1>
+  const showBothTabs = comicsEnabled && mangaEnabled;
 
-      {/* Content Type Toggle - only show when both sources are enabled */}
-      {comicsEnabled && mangaEnabled && (
-        <div className="flex gap-2">
-          <Button
-            variant={searchMode === "comic" ? "default" : "outline"}
+  return (
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition min-w-0 overflow-hidden">
+      <PageHeader
+        title="Search"
+        meta={
+          urlQuery
+            ? isLoading
+              ? `searching "${urlQuery}"…`
+              : `${pagination?.total ?? 0} results for "${urlQuery}"`
+            : "find comics and manga to add"
+        }
+      />
+
+      {showBothTabs && (
+        <TabRow>
+          <Tab
+            active={searchMode === "comic"}
+            label="Comics"
             onClick={() => handleSearchModeChange("comic")}
-            className="flex items-center"
-          >
-            <Book className="w-4 h-4 mr-2" />
-            Comics
-          </Button>
-          <Button
-            variant={searchMode === "manga" ? "default" : "outline"}
+          />
+          <Tab
+            active={searchMode === "manga"}
+            label="Manga"
             onClick={() => handleSearchModeChange("manga")}
-            className="flex items-center"
-          >
-            <BookOpen className="w-4 h-4 mr-2" />
-            Manga
-          </Button>
-        </div>
+          />
+        </TabRow>
       )}
 
-      {/* Search Form */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
-        <Input
-          type="text"
-          placeholder={`Enter ${searchMode} name...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
-        />
-        <Button
-          type="submit"
-          disabled={searchQuery.trim().length < 3}
-          className="flex items-center"
-        >
-          <SearchIcon className="w-4 h-4 mr-2" />
-          Search
-        </Button>
-      </form>
+      <div className="px-5 py-4 space-y-4">
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 flex-1 max-w-2xl px-3 py-2 rounded-[5px] border bg-card"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-[var(--text-muted)]"
+            />
+            <Kbd>↵</Kbd>
+          </div>
+          <button
+            type="submit"
+            disabled={searchQuery.trim().length < 3}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+            style={{
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+          >
+            <SearchIcon className="w-3.5 h-3.5" />
+            Search
+          </button>
+        </form>
 
-      {/* Sort Dropdown + Results Count */}
-      {urlQuery && (pagination || isLoading) && (
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground">
-            {isLoading ? (
-              "Searching..."
-            ) : (
-              <>
-                Showing {startIndex}-{endIndex} of {pagination?.total || 0}{" "}
-                results for &ldquo;{urlQuery}&rdquo;
-              </>
-            )}
-          </p>
-
-          {!isLoading && (
+        {/* Sort + results meta */}
+        {urlQuery && (pagination || isLoading) && !isLoading && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-mono text-[11px] text-muted-foreground">
+              showing {startIndex}–{endIndex} of {pagination?.total || 0}
+            </div>
             <div className="flex items-center gap-2">
-              <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+              <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
+                sort
+              </span>
               <Select value={urlSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="h-7 text-[11px] w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,119 +252,107 @@ export default function SearchPage() {
               </Select>
               <div ref={columnToggleCallback} />
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="rounded-lg border border-card-border bg-card card-shadow overflow-hidden">
-          <div className="bg-muted/50 px-6 py-3 border-b border-card-border">
-            <Skeleton className="h-4 w-full max-w-md" />
           </div>
-          {[...Array(10)].map((_, i) => (
-            <div
-              key={i}
-              className="px-6 py-4 border-b border-card-border last:border-0"
-            >
-              <Skeleton className="h-6 w-full" />
-            </div>
+        )}
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10" />
+            ))}
+          </div>
+        )}
+
+        {/* Errors */}
+        {error &&
+          (searchMode === "comic" && !comicsConfigured ? (
+            <EmptyState
+              variant="custom"
+              icon={Settings}
+              eyebrow="PROVIDER · NOT CONFIGURED"
+              title="Comic Vine API key required"
+              description="Add a Comic Vine API key in Settings → API to search comics."
+              action={{ label: "Open settings", to: "/settings" }}
+            />
+          ) : (
+            <EmptyState
+              variant="custom"
+              eyebrow="SEARCH · ERROR"
+              title="Search failed"
+              description={error.message}
+            />
           ))}
-        </div>
-      )}
 
-      {/* Error State */}
-      {error &&
-        (searchMode === "comic" && !comicsConfigured ? (
-          <div className="text-center py-12">
-            <Settings className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg">
-              Comic Vine API key required
-            </p>
-            <p className="text-muted-foreground/70 text-sm mt-2">
-              To search for comics, add your Comic Vine API key in{" "}
-              <Link
-                to="/settings"
-                className="text-primary underline underline-offset-2"
-              >
-                Settings &rarr; API
-              </Link>
-            </p>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-red-600 text-lg">Search failed</p>
-            <p className="text-muted-foreground text-sm mt-2">
-              {error.message}
-            </p>
-          </div>
-        ))}
-
-      {/* No Results State */}
-      {!isLoading && !error && urlQuery && searchResults.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">
-            No results found for &ldquo;{urlQuery}&rdquo;
-          </p>
-          <p className="text-gray-400 text-sm mt-2">
-            Try a different search term or check your spelling.
-          </p>
-        </div>
-      )}
-
-      {/* Results Table */}
-      {!isLoading && !error && searchResults.length > 0 && (
-        <div>
-          <SearchResultsTable
-            results={searchResults}
-            currentSort={urlSort}
-            onSortChange={handleSortChange}
-            contentType={searchMode}
-            columnToggleContainer={columnToggleEl}
+        {/* No results */}
+        {!isLoading && !error && urlQuery && searchResults.length === 0 && (
+          <EmptyState
+            variant="search"
+            eyebrow="SEARCH · NO MATCH"
+            description={`No results for "${urlQuery}". Try a different query or check spelling.`}
           />
+        )}
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-card-border">
-              <Button
-                variant="outline"
-                onClick={() => handlePageChange(urlPage - 1)}
-                disabled={urlPage === 1}
+        {/* Results */}
+        {!isLoading && !error && searchResults.length > 0 && (
+          <div>
+            <SearchResultsTable
+              results={searchResults}
+              currentSort={urlSort}
+              onSortChange={handleSortChange}
+              contentType={searchMode}
+              columnToggleContainer={columnToggleEl}
+            />
+
+            {totalPages > 1 && (
+              <div
+                className="flex items-center justify-between mt-4 pt-3 border-t font-mono text-[11px] text-muted-foreground"
+                style={{ borderColor: "var(--border)" }}
               >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Previous
-              </Button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
+                  style={{ borderColor: "var(--border)" }}
+                  onClick={() => handlePageChange(urlPage - 1)}
+                  disabled={urlPage === 1}
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                  prev
+                </button>
+                <span>
+                  page {urlPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
+                  style={{ borderColor: "var(--border)" }}
+                  onClick={() => handlePageChange(urlPage + 1)}
+                  disabled={urlPage >= totalPages}
+                >
+                  next
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-              <span className="text-sm text-muted-foreground">
-                Page {urlPage} of {totalPages}
-              </span>
+        {/* Initial empty state */}
+        {!urlQuery && (
+          <EmptyState
+            variant="custom"
+            icon={SearchIcon}
+            eyebrow="SEARCH · READY"
+            title={`Find ${searchMode === "manga" ? "manga" : "comics"} to add`}
+            description="Type at least 3 characters to search across your configured providers."
+          />
+        )}
+      </div>
 
-              <Button
-                variant="outline"
-                onClick={() => handlePageChange(urlPage + 1)}
-                disabled={urlPage >= totalPages}
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Empty State - No Search Yet */}
-      {!urlQuery && (
-        <div className="text-center py-12">
-          <SearchIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-muted-foreground text-lg">
-            Enter a search term to find{" "}
-            {searchMode === "manga" ? "manga" : "comics"}
-          </p>
-          <p className="text-gray-400 text-sm mt-2">
-            Search requires at least 3 characters
-          </p>
-        </div>
-      )}
+      {/* Hidden link for config navigation used by error branches */}
+      <Link to="/settings" className="sr-only">
+        settings
+      </Link>
     </div>
   );
 }

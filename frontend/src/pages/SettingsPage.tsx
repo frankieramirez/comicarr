@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
 import { useToast } from "@/components/ui/toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { InterfaceTab } from "@/components/settings/InterfaceTab";
@@ -12,29 +11,53 @@ import { AiTab } from "@/components/settings/AiTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 import { SaveButton } from "@/components/settings/SaveButton";
-import { Settings } from "lucide-react";
+import PageHeader from "@/components/layout/PageHeader";
+import { Kbd } from "@/components/ui/kbd";
+
+type SectionId =
+  | "general"
+  | "interface"
+  | "api"
+  | "search"
+  | "media"
+  | "notifications"
+  | "clients"
+  | "ai"
+  | "about";
+
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "interface", label: "Interface" },
+  { id: "api", label: "API & providers" },
+  { id: "search", label: "Search" },
+  { id: "media", label: "Media" },
+  { id: "notifications", label: "Notifications" },
+  { id: "clients", label: "Download clients" },
+  { id: "ai", label: "AI" },
+  { id: "about", label: "About" },
+];
 
 export default function SettingsPage() {
   const { data: config, isLoading, error } = useConfig();
   const updateConfigMutation = useUpdateConfig();
   const { addToast } = useToast();
 
+  const [section, setSection] = useState<SectionId>("general");
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [originalData, setOriginalData] = useState<Record<string, unknown>>({});
 
-  // Initialize form data when config is loaded
   useEffect(() => {
     if (config && Object.keys(formData).length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync external data to local form state
       setFormData(config);
-
       setOriginalData(config);
     }
   }, [config, formData]);
 
-  const isDirty = useMemo(() => {
-    return JSON.stringify(formData) !== JSON.stringify(originalData);
-  }, [formData, originalData]);
+  const isDirty = useMemo(
+    () => JSON.stringify(formData) !== JSON.stringify(originalData),
+    [formData, originalData],
+  );
 
   const handleChange = (key: string, value: string | boolean | number) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -50,27 +73,19 @@ export default function SettingsPage() {
     const comicvineEnabled = (data.comicvine_enabled as boolean) ?? true;
     const mangadexEnabled = (data.mangadex_enabled as boolean) ?? false;
 
-    // At least one content source must be enabled
     if (!comicvineEnabled && !mangadexEnabled) {
       errors.comicvine_enabled =
         "At least one content source (Comics or Manga) must be enabled";
     }
-
-    // Validate Comic Vine API key (should be 40 characters if provided)
     if (comicvineEnabled && comicvineApi && comicvineApi.length !== 40) {
       errors.comicvine_api = "Comic Vine API key must be 40 characters";
     }
-
-    // Validate min/max size
     if (data.use_minsize && (!minsize || parseInt(String(minsize)) <= 0)) {
       errors.minsize = "Minimum size must be a positive number";
     }
-
     if (data.use_maxsize && (!maxsize || parseInt(String(maxsize)) <= 0)) {
       errors.maxsize = "Maximum size must be a positive number";
     }
-
-    // Validate min < max if both are enabled
     if (
       data.use_minsize &&
       data.use_maxsize &&
@@ -78,32 +93,25 @@ export default function SettingsPage() {
     ) {
       errors.minsize = "Minimum size must be less than maximum size";
     }
-
     return errors;
   };
 
   const handleSave = async () => {
     const errors = validateForm(formData);
     if (Object.keys(errors).length > 0) {
-      const errorMessage = Object.values(errors)[0];
       addToast({
         type: "error",
-        message: `Validation error: ${errorMessage}`,
+        message: `Validation error: ${Object.values(errors)[0]}`,
       });
       return;
     }
-
     try {
-      // Don't send empty ai_api_key — it would clear the saved key
       const saveData = { ...formData };
       if (!saveData.ai_api_key && config?.ai_api_key_set) {
         delete saveData.ai_api_key;
       }
       await updateConfigMutation.mutateAsync(saveData);
-      addToast({
-        type: "success",
-        message: "Settings saved successfully",
-      });
+      addToast({ type: "success", message: "Settings saved successfully" });
       setOriginalData(formData);
     } catch (err) {
       addToast({
@@ -115,23 +123,15 @@ export default function SettingsPage() {
 
   const handleCancel = () => {
     setFormData(originalData);
-    addToast({
-      type: "info",
-      message: "Changes discarded",
-    });
+    addToast({ type: "info", message: "Changes discarded" });
   };
 
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="mb-6">
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+        <Skeleton className="h-6 w-48 mb-2" />
+        <Skeleton className="h-4 w-96 mb-6" />
+        <Skeleton className="h-[480px] w-full" />
       </div>
     );
   }
@@ -139,107 +139,81 @@ export default function SettingsPage() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-[var(--status-error-bg)] border border-[var(--status-error)] rounded-lg p-4">
-          <h3 className="text-destructive font-semibold mb-2">
-            Error Loading Settings
-          </h3>
-          <p className="text-destructive text-sm">
-            {error.message || "Failed to load configuration. Please try again."}
-          </p>
+        <div
+          className="rounded-[6px] border p-4"
+          style={{
+            borderColor:
+              "color-mix(in oklab, var(--status-error) 30%, transparent)",
+            background: "var(--status-error-bg)",
+            color: "var(--status-error)",
+          }}
+        >
+          <div className="font-semibold mb-1">Error loading settings</div>
+          <div className="text-[12px]">
+            {error.message || "Failed to load configuration."}
+          </div>
         </div>
       </div>
     );
   }
 
+  const configPath =
+    (config?.config_path as string | undefined) || "/config/config.ini";
+  const version = config?.version ? `comicarr v${config.version}` : "comicarr";
+
+  const configData = (config ?? {}) as Record<string, unknown>;
+  const tabProps = { config: configData, formData, onChange: handleChange };
+
   return (
-    <div className="p-6 page-transition">
-      <div className="mb-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <Settings className="h-6 w-6 text-muted-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          {config?.version && (
-            <span className="text-sm text-muted-foreground font-normal">
-              v{config.version}
-            </span>
-          )}
+    <div className="h-full flex flex-col page-transition">
+      <PageHeader title="Settings" meta={`${version} · config ${configPath}`} />
+
+      <div
+        className="grid flex-1 min-h-0"
+        style={{ gridTemplateColumns: "220px 1fr" }}
+      >
+        {/* Left rail */}
+        <aside
+          className="border-r py-3 px-2 overflow-auto"
+          style={{ borderColor: "var(--border)" }}
+        >
+          {SECTIONS.map((s) => {
+            const active = section === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSection(s.id)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[5px] text-[13px] text-left"
+                style={{
+                  color: active
+                    ? "var(--foreground)"
+                    : "var(--muted-foreground)",
+                  background: active ? "var(--secondary)" : "transparent",
+                }}
+              >
+                <span className="flex-1 truncate">{s.label}</span>
+                {active && <Kbd>↵</Kbd>}
+              </button>
+            );
+          })}
+        </aside>
+
+        {/* Content panel */}
+        <div className="overflow-auto">
+          <div className="px-6 py-6 max-w-3xl">
+            {section === "general" && <GeneralTab {...tabProps} />}
+            {section === "interface" && <InterfaceTab {...tabProps} />}
+            {section === "api" && <ApiTab {...tabProps} />}
+            {section === "search" && <SearchTab {...tabProps} />}
+            {section === "media" && <MediaManagementTab {...tabProps} />}
+            {section === "notifications" && <NotificationsTab {...tabProps} />}
+            {section === "clients" && <DownloadClientsTab config={formData} />}
+            {section === "ai" && <AiTab {...tabProps} />}
+            {section === "about" && <AboutSection config={configData} />}
+          </div>
         </div>
-        <p className="text-muted-foreground">
-          Configure Comicarr preferences and integrations
-        </p>
       </div>
-
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="interface">Interface</TabsTrigger>
-          <TabsTrigger value="api">API & Providers</TabsTrigger>
-          <TabsTrigger value="search">Search</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="clients">Download Clients</TabsTrigger>
-          <TabsTrigger value="ai">AI</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="general">
-          <GeneralTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="interface">
-          <InterfaceTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="api">
-          <ApiTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="search">
-          <SearchTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="media">
-          <MediaManagementTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="notifications">
-          <NotificationsTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="clients">
-          <DownloadClientsTab config={formData} />
-        </TabsContent>
-
-        <TabsContent value="ai">
-          <AiTab
-            config={(config ?? {}) as Record<string, unknown>}
-            formData={formData}
-            onChange={handleChange}
-          />
-        </TabsContent>
-      </Tabs>
 
       <SaveButton
         isDirty={isDirty}
@@ -247,8 +221,46 @@ export default function SettingsPage() {
         onCancel={handleCancel}
         isSaving={updateConfigMutation.isPending}
       />
-
-      {isDirty && <div className="h-20" />}
     </div>
+  );
+}
+
+function AboutSection({ config }: { config: Record<string, unknown> }) {
+  const rows: Array<[string, string]> = [
+    ["version", (config.version as string) || "—"],
+    [
+      "config path",
+      (config.config_path as string | undefined) || "/config/config.ini",
+    ],
+    ["data directory", (config.data_dir as string | undefined) || "—"],
+    ["python", (config.python_version as string | undefined) || "—"],
+  ];
+
+  return (
+    <section>
+      <div className="mb-4">
+        <div className="text-[13px] font-semibold tracking-tight">About</div>
+        <div className="text-[12px] text-muted-foreground mt-0.5">
+          Build and environment info.
+        </div>
+      </div>
+      <div
+        className="rounded-[6px] border divide-y"
+        style={{ borderColor: "var(--border)" }}
+      >
+        {rows.map(([k, v]) => (
+          <div
+            key={k}
+            className="grid items-center px-3.5 py-2.5 font-mono text-[11.5px]"
+            style={{ gridTemplateColumns: "160px 1fr" }}
+          >
+            <div className="text-muted-foreground tracking-[0.05em] uppercase text-[10px]">
+              {k}
+            </div>
+            <div className="truncate">{v}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

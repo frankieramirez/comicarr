@@ -7,8 +7,6 @@ import {
   useDeleteImport,
 } from "@/hooks/useImport";
 import { useToast } from "@/components/ui/toast";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ImportTable from "@/components/import/ImportTable";
 import ImportBulkActions from "@/components/import/ImportBulkActions";
@@ -16,7 +14,30 @@ import MatchModal from "@/components/import/MatchModal";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import LibraryScanSection from "@/components/import/LibraryScanSection";
 import ImportInboxSection from "@/components/import/ImportInboxSection";
+import PageHeader from "@/components/layout/PageHeader";
 import type { ImportGroup } from "@/types";
+
+function SectionHeader({
+  label,
+  title,
+  meta,
+}: {
+  label: string;
+  title: string;
+  meta?: string;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-muted-foreground mb-1">
+        {label}
+      </div>
+      <div className="text-[14px] font-semibold tracking-tight">{title}</div>
+      {meta && (
+        <div className="text-[12px] text-muted-foreground mt-0.5">{meta}</div>
+      )}
+    </div>
+  );
+}
 
 export default function ImportPage() {
   const [page, setPage] = useState(0);
@@ -47,9 +68,7 @@ export default function ImportPage() {
 
   const handleMatch = async (comicId: string, comicName: string) => {
     if (!matchingGroup) return;
-
     const impIds = matchingGroup.files.map((f) => f.impID);
-
     try {
       await matchImportMutation.mutateAsync({ impIds, comicId });
       addToast({
@@ -107,12 +126,11 @@ export default function ImportPage() {
   const handleBulkDelete = async () => {
     if (
       !window.confirm(
-        `Are you sure you want to delete ${selectedIds.length} import record${selectedIds.length !== 1 ? "s" : ""}? This will not delete the actual files.`,
+        `Delete ${selectedIds.length} import record${selectedIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
       )
     ) {
       return;
     }
-
     try {
       await deleteImportMutation.mutateAsync(selectedIds);
       addToast({
@@ -128,113 +146,122 @@ export default function ImportPage() {
     }
   };
 
-  const handleClearSelection = () => {
-    setSelectedIds([]);
-  };
-
-  const handleNextPage = () => {
-    setPage((p) => p + 1);
-    setSelectedIds([]);
-  };
-
-  const handlePrevPage = () => {
-    setPage((p) => Math.max(0, p - 1));
-    setSelectedIds([]);
-  };
+  const pendingCount = pagination?.total ?? imports.length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 page-transition">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
-          Import Management
-        </h1>
-        <p className="text-muted-foreground">
-          Scan libraries, process incoming files, and manage pending imports
-        </p>
-      </div>
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition">
+      <PageHeader
+        title="Import"
+        meta={
+          isLoading
+            ? "loading…"
+            : `${pendingCount} file${pendingCount === 1 ? "" : "s"} awaiting review`
+        }
+      />
 
-      {/* Library Scan Section */}
-      <div className="mb-8">
-        <LibraryScanSection />
-      </div>
+      <div className="px-5 py-5 space-y-8">
+        {/* Library scan */}
+        <section>
+          <SectionHeader
+            label="LIBRARY · SCAN"
+            title="Scan existing directories"
+            meta="Find and import series already present on disk."
+          />
+          <LibraryScanSection />
+        </section>
 
-      {/* Import Inbox Section */}
-      <div className="mb-8">
-        <ImportInboxSection />
-      </div>
+        {/* Inbox */}
+        <section>
+          <SectionHeader
+            label="INBOX · AUTO-MATCH"
+            title="Monitor an import directory"
+            meta="Drop files into a watched folder to auto-match against your library."
+          />
+          <ImportInboxSection />
+        </section>
 
-      {/* Pending Imports Section */}
-      <div>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground">
-            Pending Imports
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {pagination?.total || imports.length} file
-            {(pagination?.total || imports.length) !== 1 ? "s" : ""} awaiting
-            review
-          </p>
-        </div>
+        {/* Pending */}
+        <section>
+          <SectionHeader
+            label="PENDING · REVIEW"
+            title="Files awaiting review"
+            meta={`${pendingCount} file${pendingCount === 1 ? "" : "s"} need a match before being imported.`}
+          />
 
-        <div className="flex items-center mb-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="show-ignored"
-              checked={showIgnored}
-              onChange={() => setShowIgnored(!showIgnored)}
-            />
-            <Label htmlFor="show-ignored" className="text-sm cursor-pointer">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setShowIgnored(!showIgnored)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-mono text-[11px]"
+              style={{
+                borderColor: showIgnored ? "var(--primary)" : "var(--border)",
+                color: showIgnored
+                  ? "var(--primary)"
+                  : "var(--muted-foreground)",
+                background: showIgnored
+                  ? "color-mix(in oklab, var(--primary) 12%, transparent)"
+                  : "transparent",
+              }}
+            >
               {showIgnored ? (
-                <span className="flex items-center gap-1">
-                  <Eye className="w-4 h-4" /> Show Ignored
-                </span>
+                <>
+                  <Eye className="w-3 h-3" />
+                  showing ignored
+                </>
               ) : (
-                <span className="flex items-center gap-1">
-                  <EyeOff className="w-4 h-4" /> Hide Ignored
-                </span>
+                <>
+                  <EyeOff className="w-3 h-3" />
+                  ignored hidden
+                </>
               )}
-            </Label>
+            </button>
           </div>
-        </div>
 
-        {isLoading && (
-          <div className="space-y-4">
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-          </div>
-        )}
+          {isLoading && (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-12" />
+              ))}
+            </div>
+          )}
 
-        {error && (
-          <ErrorDisplay
-            error={error}
-            title="Unable to load pending imports"
-            onRetry={() => refetch()}
+          {error && (
+            <ErrorDisplay
+              error={error}
+              title="Unable to load pending imports"
+              onRetry={() => refetch()}
+            />
+          )}
+
+          {!isLoading && !error && (
+            <ImportTable
+              imports={imports}
+              pagination={pagination}
+              onNextPage={() => {
+                setPage((p) => p + 1);
+                setSelectedIds([]);
+              }}
+              onPrevPage={() => {
+                setPage((p) => Math.max(0, p - 1));
+                setSelectedIds([]);
+              }}
+              onSelectionChange={setSelectedIds}
+              onMatchClick={handleMatchClick}
+            />
+          )}
+
+          <ImportBulkActions
+            selectedCount={selectedIds.length}
+            onIgnore={handleBulkIgnore}
+            onUnignore={handleBulkUnignore}
+            onDelete={handleBulkDelete}
+            onClear={() => setSelectedIds([])}
+            isLoading={
+              ignoreImportMutation.isPending || deleteImportMutation.isPending
+            }
+            showUnignore={showIgnored}
           />
-        )}
-
-        {!isLoading && !error && (
-          <ImportTable
-            imports={imports}
-            pagination={pagination}
-            onNextPage={handleNextPage}
-            onPrevPage={handlePrevPage}
-            onSelectionChange={setSelectedIds}
-            onMatchClick={handleMatchClick}
-          />
-        )}
-
-        <ImportBulkActions
-          selectedCount={selectedIds.length}
-          onIgnore={handleBulkIgnore}
-          onUnignore={handleBulkUnignore}
-          onDelete={handleBulkDelete}
-          onClear={handleClearSelection}
-          isLoading={
-            ignoreImportMutation.isPending || deleteImportMutation.isPending
-          }
-          showUnignore={showIgnored}
-        />
+        </section>
       </div>
 
       <MatchModal

@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import {
   useWanted,
   useForceSearch,
   useBulkUnqueueIssues,
 } from "@/hooks/useQueue";
 import { useToast } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import WantedTable from "@/components/queue/WantedTable";
 import BulkActionBar from "@/components/queue/BulkActionBar";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import PageHeader from "@/components/layout/PageHeader";
+import { Kbd } from "@/components/ui/kbd";
 
 export default function WantedPage() {
   const [page, setPage] = useState(0);
@@ -20,26 +20,25 @@ export default function WantedPage() {
   const limit = 50;
   const offset = page * limit;
 
-  const { data, isLoading, error } = useWanted(limit, offset);
+  const { data, isLoading, error, refetch } = useWanted(limit, offset);
   const issues = data?.issues || [];
   const pagination = data?.pagination;
 
-  const forceSearchMutation = useForceSearch();
-  const bulkUnqueueMutation = useBulkUnqueueIssues();
+  const forceSearch = useForceSearch();
+  const bulkUnqueue = useBulkUnqueueIssues();
   const { addToast } = useToast();
 
-  // Filter issues by search query (client-side)
   const filteredIssues = searchQuery
     ? issues.filter(
-        (issue) =>
-          issue.ComicName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          issue.Issue_Number?.toLowerCase().includes(searchQuery.toLowerCase()),
+        (i) =>
+          i.ComicName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          i.Issue_Number?.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : issues;
 
   const handleBulkUnqueue = async () => {
     try {
-      await bulkUnqueueMutation.mutateAsync(selectedIds);
+      await bulkUnqueue.mutateAsync(selectedIds);
       addToast({
         type: "success",
         message: `${selectedIds.length} issue${selectedIds.length !== 1 ? "s" : ""} skipped`,
@@ -56,7 +55,7 @@ export default function WantedPage() {
   const handleForceSearch = async () => {
     if (window.confirm("Manual search may take several minutes. Continue?")) {
       try {
-        await forceSearchMutation.mutateAsync();
+        await forceSearch.mutateAsync();
         addToast({
           type: "info",
           message: "Search started for all wanted issues",
@@ -70,79 +69,110 @@ export default function WantedPage() {
     }
   };
 
-  const handleClearSelection = () => {
-    setSelectedIds([]);
-  };
-
-  const handleNextPage = () => {
-    setPage((p) => p + 1);
-    setSelectedIds([]);
-  };
-
-  const handlePrevPage = () => {
-    setPage((p) => Math.max(0, p - 1));
-    setSelectedIds([]);
-  };
+  const total = pagination?.total ?? issues.length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 page-transition">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
-          Wanted Issues
-        </h1>
-        <p className="text-muted-foreground">
-          {pagination?.total || issues.length} wanted issue
-          {(pagination?.total || issues.length) !== 1 ? "s" : ""} in queue
-        </p>
-      </div>
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition">
+      <PageHeader
+        title="Wanted"
+        meta={
+          isLoading
+            ? "loading…"
+            : `${total} issue${total === 1 ? "" : "s"} in queue`
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] border font-mono text-[11px] text-muted-foreground"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <RefreshCw
+                className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`}
+              />
+              refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleForceSearch}
+              disabled={forceSearch.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+              style={{
+                background: "var(--primary)",
+                color: "var(--primary-foreground)",
+              }}
+            >
+              <Search className="w-3.5 h-3.5" />
+              Force search
+            </button>
+          </>
+        }
+      />
 
-      <div className="flex items-center justify-between mb-4">
-        <Input
-          placeholder="Search wanted issues..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-md"
-        />
-        <Button
-          onClick={handleForceSearch}
-          disabled={forceSearchMutation.isPending}
-        >
-          <Search className="w-4 h-4 mr-2" />
-          Force Search All
-        </Button>
-      </div>
-
-      {isLoading && (
-        <div className="space-y-4">
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
+      <div className="px-5 py-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div
+            className="flex items-center gap-2 flex-1 max-w-md px-2.5 py-1.5 rounded-[5px] border bg-card"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <Search className="w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Filter wanted issues…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-[var(--text-muted)]"
+            />
+            <Kbd>/</Kbd>
+          </div>
+          {searchQuery && (
+            <div className="font-mono text-[11px] text-muted-foreground">
+              {filteredIssues.length} match
+              {filteredIssues.length === 1 ? "" : "es"}
+            </div>
+          )}
         </div>
-      )}
 
-      {error && (
-        <ErrorDisplay
-          error={error}
-          title="Unable to load wanted issues"
-          onRetry={() => window.location.reload()}
-        />
-      )}
+        {isLoading && (
+          <div className="space-y-2">
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
+          </div>
+        )}
 
-      {!isLoading && !error && (
-        <WantedTable
-          issues={filteredIssues}
-          pagination={pagination}
-          onNextPage={handleNextPage}
-          onPrevPage={handlePrevPage}
-          onSelectionChange={setSelectedIds}
-        />
-      )}
+        {error && (
+          <ErrorDisplay
+            error={error}
+            title="Unable to load wanted issues"
+            onRetry={() => refetch()}
+          />
+        )}
+
+        {!isLoading && !error && (
+          <WantedTable
+            issues={filteredIssues}
+            pagination={pagination}
+            onNextPage={() => {
+              setPage((p) => p + 1);
+              setSelectedIds([]);
+            }}
+            onPrevPage={() => {
+              setPage((p) => Math.max(0, p - 1));
+              setSelectedIds([]);
+            }}
+            onSelectionChange={setSelectedIds}
+          />
+        )}
+      </div>
 
       <BulkActionBar
         selectedCount={selectedIds.length}
         onSkip={handleBulkUnqueue}
-        onClear={handleClearSelection}
-        isLoading={bulkUnqueueMutation.isPending}
+        onClear={() => setSelectedIds([])}
+        isLoading={bulkUnqueue.isPending}
       />
     </div>
   );

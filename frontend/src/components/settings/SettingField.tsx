@@ -1,5 +1,5 @@
+import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,39 +41,105 @@ export function SettingField({
 }: SettingFieldProps) {
   const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
-  const renderField = () => {
-    if (type === "checkbox") {
-      return (
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id={fieldId}
-            checked={checked}
-            onCheckedChange={(value) => onChange(!!value)}
-            disabled={readOnly}
-          />
-          <Label
-            htmlFor={fieldId}
-            className="text-sm font-medium cursor-pointer"
-          >
-            {label}
-          </Label>
-        </div>
-      );
-    }
+  // Checkbox: circular accent check + label + help text + right-aligned spacing
+  if (type === "checkbox") {
+    return (
+      <label
+        htmlFor={fieldId}
+        className="flex items-start gap-3 py-2.5 px-3 rounded-[6px] border cursor-pointer select-none"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--card)",
+        }}
+      >
+        <input
+          id={fieldId}
+          type="checkbox"
+          checked={!!checked}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={readOnly}
+          className="sr-only peer"
+        />
+        <span
+          className="mt-0.5 shrink-0 w-4 h-4 rounded-[3px] grid place-items-center border"
+          style={{
+            borderColor: checked ? "var(--primary)" : "var(--border)",
+            background: checked ? "var(--primary)" : "transparent",
+          }}
+        >
+          {checked && (
+            <Check
+              className="w-3 h-3"
+              strokeWidth={3}
+              style={{ color: "var(--primary-foreground)" }}
+            />
+          )}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[13px] font-medium">{label}</span>
+          {helpText && (
+            <span className="block text-[11.5px] text-muted-foreground mt-0.5">
+              {helpText}
+            </span>
+          )}
+          {error && (
+            <span
+              className="block text-[11.5px] mt-0.5"
+              style={{ color: "var(--status-error)" }}
+            >
+              {error}
+            </span>
+          )}
+        </span>
+      </label>
+    );
+  }
 
-    if (type === "select") {
-      return (
-        <div className="space-y-2">
-          <Label htmlFor={fieldId} className="text-sm font-medium">
-            {label}
-          </Label>
+  // Read-only inline row: label on left, input + tag on right
+  if (readOnly) {
+    return (
+      <div
+        className="grid gap-4 py-3 items-center"
+        style={{ gridTemplateColumns: "200px 1fr" }}
+      >
+        <div>
+          <div className="text-[12.5px] font-medium">{label}</div>
+          {helpText && (
+            <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              {helpText}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex-1 font-mono text-[12px] px-3 py-1.5 rounded-[5px] border bg-card"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {value || "—"}
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+            read-only
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Select field
+  if (type === "select") {
+    return (
+      <div className="py-2.5">
+        <Label htmlFor={fieldId} className="text-[12.5px] font-medium">
+          {label}
+        </Label>
+        <div className="mt-1.5">
           <Select
             value={value?.toString()}
             onValueChange={onChange}
             disabled={readOnly}
           >
-            <SelectTrigger id={fieldId} className={readOnly ? "bg-muted" : ""}>
-              <SelectValue placeholder={placeholder || "Select..."} />
+            <SelectTrigger id={fieldId}>
+              <SelectValue placeholder={placeholder || "Select…"} />
             </SelectTrigger>
             <SelectContent>
               {options.map((option) => (
@@ -84,32 +150,46 @@ export function SettingField({
             </SelectContent>
           </Select>
         </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={fieldId} className="text-sm font-medium">
-          {label}
-        </Label>
-        <Input
-          id={fieldId}
-          type={type}
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          placeholder={placeholder}
-          className={readOnly ? "bg-muted" : ""}
-        />
+        {helpText && (
+          <p className="text-[11px] text-muted-foreground mt-1">{helpText}</p>
+        )}
+        {error && (
+          <p
+            className="text-[11px] mt-1"
+            style={{ color: "var(--status-error)" }}
+          >
+            {error}
+          </p>
+        )}
       </div>
     );
-  };
+  }
 
+  // Text / password / number
   return (
-    <div className="space-y-1">
-      {renderField()}
-      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+    <div className="py-2.5">
+      <Label htmlFor={fieldId} className="text-[12.5px] font-medium">
+        {label}
+      </Label>
+      <Input
+        id={fieldId}
+        type={type}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1.5"
+      />
+      {helpText && (
+        <p className="text-[11px] text-muted-foreground mt-1">{helpText}</p>
+      )}
+      {error && (
+        <p
+          className="text-[11px] mt-1"
+          style={{ color: "var(--status-error)" }}
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }
