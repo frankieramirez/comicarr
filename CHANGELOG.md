@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.17.0](https://github.com/frankieramirez/comicarr/compare/v0.16.0...v0.17.0) (2026-04-19)
+
+
+### Features
+
+* Align library, releases, and wanted tables with redesign ([#139](https://github.com/frankieramirez/comicarr/issues/139)) ([4993293](https://github.com/frankieramirez/comicarr/commit/4993293c9956277704f17bdd2a4160eb6d4d94eb))
+
 ## [0.16.0](https://github.com/frankieramirez/comicarr/compare/v0.15.1...v0.16.0) (2026-04-19)
 
 
