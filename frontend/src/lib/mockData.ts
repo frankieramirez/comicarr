@@ -463,7 +463,7 @@ function seriesDetail(id: string) {
   if (!cover) return null;
   const issues = ISSUES_BY_COMIC.get(id) || [];
   return {
-    series: coverToComic(cover),
+    comic: coverToComic(cover),
     issues,
   };
 }
