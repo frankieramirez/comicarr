@@ -34,7 +34,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import SeriesFilters, {
@@ -556,20 +555,6 @@ export default function SeriesTable({
                 </button>
               </>
             )}
-            <div className="ml-auto flex items-center gap-3">
-              <span className="flex items-center gap-1">
-                <Kbd>↑↓</Kbd> navigate
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd>↵</Kbd> open
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd>E</Kbd> edit
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd>⌫</Kbd> delete
-              </span>
-            </div>
           </div>
         </>
       )}
@@ -740,7 +725,9 @@ interface CoverThumbProps {
 }
 
 function CoverThumb({ url, alt }: CoverThumbProps) {
-  const [errored, setErrored] = useState(false);
+  const [erroredUrl, setErroredUrl] = useState<string | null>(null);
+  const errored = erroredUrl !== null && erroredUrl === url;
+
   return (
     <div className="w-[32px] h-[44px] bg-muted rounded-sm overflow-hidden flex-shrink-0">
       {url && !errored ? (
@@ -749,7 +736,7 @@ function CoverThumb({ url, alt }: CoverThumbProps) {
           alt={alt || ""}
           className="w-full h-full object-cover"
           loading="lazy"
-          onError={() => setErrored(true)}
+          onError={() => setErroredUrl(url)}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">
