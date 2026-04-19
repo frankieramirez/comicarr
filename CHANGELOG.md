@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0](https://github.com/frankieramirez/comicarr/compare/v0.15.1...v0.16.0) (2026-04-19)
+
+
+### Features
+
+* Major frontend redesign ([#137](https://github.com/frankieramirez/comicarr/issues/137)) ([255438c](https://github.com/frankieramirez/comicarr/commit/255438c9794787cfbd260c167d4a4c3398b9181c))
+
 ## [0.15.1](https://github.com/frankieramirez/comicarr/compare/v0.15.0...v0.15.1) (2026-04-15)
 
 
