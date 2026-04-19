@@ -98,17 +98,22 @@ export default function SeriesDetailPage() {
   const completionPct = total > 0 ? Math.round((have / total) * 100) : 0;
   const slug = (comic.ComicName || "").toLowerCase().replace(/\s+/g, "-");
 
-  const haveCount = issues.filter((i) => i.Status === "Downloaded").length;
-  const missingCount = issues.filter((i) => i.Status !== "Downloaded").length;
-  const monitoredCount = issues.filter((i) => i.Status !== "Skipped").length;
+  const getStatus = (i: Issue) => i.status ?? i.Status;
+  const haveCount = issues.filter((i) => getStatus(i) === "Downloaded").length;
+  const missingCount = issues.filter(
+    (i) => getStatus(i) !== "Downloaded",
+  ).length;
+  const monitoredCount = issues.filter(
+    (i) => getStatus(i) !== "Skipped",
+  ).length;
 
   const filteredIssues =
     filter === "have"
-      ? issues.filter((i) => i.Status === "Downloaded")
+      ? issues.filter((i) => getStatus(i) === "Downloaded")
       : filter === "missing"
-        ? issues.filter((i) => i.Status !== "Downloaded")
+        ? issues.filter((i) => getStatus(i) !== "Downloaded")
         : filter === "monitored"
-          ? issues.filter((i) => i.Status !== "Skipped")
+          ? issues.filter((i) => getStatus(i) !== "Skipped")
           : issues;
 
   const handlePauseResume = async () => {
@@ -473,12 +478,17 @@ export default function SeriesDetailPage() {
           </div>
         ) : (
           filteredIssues.map((issue) => {
-            const haveIt = issue.Status === "Downloaded";
-            const wanted = issue.Status === "Wanted";
+            const status = getStatus(issue);
+            const haveIt = status === "Downloaded";
+            const wanted = status === "Wanted";
+            const issueId = issue.id ?? issue.IssueID;
+            const issueNumber = issue.number ?? issue.Issue_Number;
+            const issueName = issue.name ?? issue.IssueName;
+            const issueDate = issue.issueDate ?? issue.IssueDate;
             const arc = issue.Arc || "—";
             return (
               <div
-                key={issue.IssueID}
+                key={issueId}
                 className="px-5 py-2 grid gap-3 items-center border-b text-[12px]"
                 style={{
                   gridTemplateColumns: "40px 40px 1fr 140px 110px 110px",
@@ -493,14 +503,14 @@ export default function SeriesDetailPage() {
                   className="font-mono"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  #{String(issue.Issue_Number).padStart(2, "0")}
+                  #{String(issueNumber ?? "").padStart(2, "0")}
                 </div>
                 <div className="truncate">
                   <Link
-                    to={`/library/${comicId}/issue/${issue.IssueID}`}
+                    to={`/library/${comicId}/issue/${issueId}`}
                     className="hover:text-primary transition-colors"
                   >
-                    {issue.IssueName || `Issue ${issue.Issue_Number}`}
+                    {issueName || `Issue ${issueNumber}`}
                   </Link>
                 </div>
                 <div
@@ -513,7 +523,7 @@ export default function SeriesDetailPage() {
                   className="font-mono text-[10px]"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  {issue.IssueDate || "—"}
+                  {issueDate || "—"}
                 </div>
                 <div
                   className="inline-flex items-center gap-1.5 font-mono text-[10px]"
