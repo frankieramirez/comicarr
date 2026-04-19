@@ -112,7 +112,7 @@ export function SettingField({
             className="flex-1 min-w-0 font-mono text-[12px] px-3 py-1.5 rounded-[5px] border bg-card break-all"
             style={{ borderColor: "var(--border)" }}
           >
-            {value || "—"}
+            {value ?? "—"}
           </div>
           <span className="font-mono text-[10px] text-muted-foreground shrink-0">
             read-only
@@ -171,7 +171,7 @@ export function SettingField({
       <Input
         id={fieldId}
         type={type}
-        value={value || ""}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="mt-1.5"

@@ -64,7 +64,7 @@ export default function SeriesListPage() {
             <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
             <span>Add</span>
             <Kbd
-              className="!bg-black/10 !border-black/20 !text-black/70"
+              className="bg-black/10! border-black/20! text-black/70!"
               style={{ color: "rgba(0,0,0,0.7)" }}
             >
               N

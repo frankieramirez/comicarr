@@ -1,42 +1,14 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { useDashboard } from "@/hooks/useDashboard";
 
-type TimeRange = "24h" | "7d" | "30d" | "All";
-
-function Spark({ color, points }: { color: string; points: number[] }) {
-  if (points.length === 0) return null;
-  const max = Math.max(...points, 1);
-  const coords = points
-    .map((v, i) => {
-      const x = (i * 80) / Math.max(1, points.length - 1);
-      const y = 24 - (v / max) * 20;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg viewBox="0 0 80 24" width="80" height="24" className="shrink-0">
-      <polyline fill="none" stroke={color} strokeWidth="1.2" points={coords} />
-    </svg>
-  );
-}
-
 function Kpi({
   label,
   value,
-  delta,
-  deltaColor,
-  spark,
-  sparkColor,
   borderLeft,
 }: {
   label: string;
   value: string;
-  delta?: string;
-  deltaColor?: string;
-  spark?: number[];
-  sparkColor?: string;
   borderLeft?: boolean;
 }) {
   return (
@@ -46,22 +18,6 @@ function Kpi({
         <div className="text-[26px] font-semibold tracking-tight leading-none">
           {value}
         </div>
-        {delta && (
-          <div
-            className="font-mono text-[11px] pb-1"
-            style={{ color: deltaColor }}
-          >
-            {delta}
-          </div>
-        )}
-        {spark && (
-          <div className="ml-auto">
-            <Spark
-              color={sparkColor || "var(--status-active)"}
-              points={spark}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -69,7 +25,6 @@ function Kpi({
 
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboard();
-  const [range, setRange] = useState<TimeRange>("7d");
 
   if (error) {
     return (
@@ -94,8 +49,6 @@ export default function DashboardPage() {
     /snatch|queue|wanted/i.test(d.Status),
   ).length;
 
-  const ranges: TimeRange[] = ["24h", "7d", "30d", "All"];
-
   return (
     <div className="h-full flex flex-col page-transition">
       {/* Page header */}
@@ -110,27 +63,6 @@ export default function DashboardPage() {
               : `${activeSeries} series · ${totalIssues} issues · ${queueCount} in queue`}
           </div>
         </div>
-        <div className="ml-auto flex gap-1.5">
-          {ranges.map((r) => {
-            const active = r === range;
-            return (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className="font-mono text-[11px] px-2.5 py-1 rounded-[4px] border"
-                style={{
-                  borderColor: active ? "var(--primary)" : "var(--border)",
-                  color: active ? "var(--primary)" : "var(--muted-foreground)",
-                  background: active
-                    ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                    : "transparent",
-                }}
-              >
-                {r}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* KPI strip */}
@@ -138,38 +70,18 @@ export default function DashboardPage() {
         <Kpi
           label="Active series"
           value={isLoading ? "—" : String(activeSeries)}
-          delta={stats ? "+0" : undefined}
-          deltaColor="var(--status-active)"
-          spark={[4, 6, 5, 7, 6, 8, 9, 8, 10, 11, 10, 12]}
-          sparkColor="var(--status-active)"
         />
         <Kpi
           label="Issues"
           value={isLoading ? "—" : String(totalIssues)}
-          delta={stats ? "+0" : undefined}
-          deltaColor="var(--status-active)"
-          spark={[20, 22, 21, 23, 25, 24, 26, 27, 29, 30, 32, 34]}
-          sparkColor="var(--status-active)"
           borderLeft
         />
         <Kpi
           label="Completion"
           value={isLoading ? "—" : `${completion.toFixed(1)}%`}
-          delta="+0.0%"
-          deltaColor="var(--primary)"
-          spark={[30, 32, 33, 35, 36, 38, 39, 40, 41, 42, 42, 43]}
-          sparkColor="var(--primary)"
           borderLeft
         />
-        <Kpi
-          label="Queue"
-          value={String(queueCount)}
-          delta={queueCount > 0 ? `${queueCount}` : "0"}
-          deltaColor="var(--status-paused)"
-          spark={[8, 6, 5, 7, 4, 3, 5, 4, 3, 2, 3, 3]}
-          sparkColor="var(--status-paused)"
-          borderLeft
-        />
+        <Kpi label="Queue" value={String(queueCount)} borderLeft />
       </div>
 
       {/* Two-column body */}

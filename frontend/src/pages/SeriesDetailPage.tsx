@@ -106,7 +106,9 @@ export default function SeriesDetailPage() {
       ? issues.filter((i) => i.Status === "Downloaded")
       : filter === "missing"
         ? issues.filter((i) => i.Status !== "Downloaded")
-        : issues;
+        : filter === "monitored"
+          ? issues.filter((i) => i.Status !== "Skipped")
+          : issues;
 
   const handlePauseResume = async () => {
     if (!comicId) return;
@@ -254,7 +256,9 @@ export default function SeriesDetailPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[5px] text-[12px] font-semibold"
+              disabled
+              title="Bulk search is not yet wired up"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[5px] text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               style={{
                 background: "var(--primary)",
                 color: "var(--primary-foreground)",
@@ -470,7 +474,7 @@ export default function SeriesDetailPage() {
           filteredIssues.map((issue) => {
             const haveIt = issue.Status === "Downloaded";
             const wanted = issue.Status === "Wanted";
-            const arc = (issue as unknown as { Arc?: string }).Arc || "—";
+            const arc = issue.Arc || "—";
             return (
               <div
                 key={issue.IssueID}

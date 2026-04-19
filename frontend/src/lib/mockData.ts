@@ -327,8 +327,7 @@ function buildIssues(c: MockCover): Issue[] {
       ImageURL: coverSvgDataUri(c, 80, 120),
       ImageURL_ALT: null,
       Int_IssueNumber: i,
-      // Arc is not part of Issue type but UI may read it via loose property
-      ...({ Arc: arc } as Record<string, string>),
+      Arc: arc,
     });
   }
   return issues;
@@ -499,7 +498,8 @@ export function mockApiResponse(
   method: string,
   path: string,
 ): unknown | undefined {
-  const url = path.split("?")[0];
+  const parsed = new URL(path, "http://mock.local");
+  const url = parsed.pathname;
   const m = method.toUpperCase();
 
   if (m === "GET" && url === "/api/auth/check-setup") {
@@ -527,7 +527,19 @@ export function mockApiResponse(
     return SERIES;
   }
   if (m === "GET" && url === "/api/wanted") {
-    return wantedIssues();
+    const all = wantedIssues();
+    const limit = Number(parsed.searchParams.get("limit") ?? 50);
+    const offset = Number(parsed.searchParams.get("offset") ?? 0);
+    const issues = all.slice(offset, offset + limit);
+    return {
+      issues,
+      pagination: {
+        total: all.length,
+        limit,
+        offset,
+        has_more: offset + issues.length < all.length,
+      },
+    };
   }
   if (m === "GET" && url === "/api/weekly") {
     return upcomingReleases().map((u) => ({

@@ -13,10 +13,14 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     });
   } else {
     navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((r) => {
-        if (r.active?.scriptURL?.endsWith("/mock-sw.js")) {
-          r.unregister();
-        }
+      const mockRegs = regs.filter((r) =>
+        r.active?.scriptURL?.endsWith("/mock-sw.js"),
+      );
+      if (mockRegs.length === 0) return;
+      Promise.all(mockRegs.map((r) => r.unregister())).then(() => {
+        // An active SW continues to intercept fetches on the current page
+        // until navigation/reload — reload so mock mode truly turns off.
+        if (navigator.serviceWorker.controller) window.location.reload();
       });
     });
   }

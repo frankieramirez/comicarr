@@ -12,7 +12,6 @@ import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 import { SaveButton } from "@/components/settings/SaveButton";
 import PageHeader from "@/components/layout/PageHeader";
-import { Kbd } from "@/components/ui/kbd";
 
 type SectionId =
   | "general"
@@ -219,7 +218,6 @@ export default function SettingsPage() {
                 }}
               >
                 <span className="flex-1 truncate">{s.label}</span>
-                {active && <Kbd>↵</Kbd>}
               </button>
             );
           })}

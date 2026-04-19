@@ -8,8 +8,18 @@ import { ChatPanel } from "@/components/ai/ChatPanel";
 import { Bell, MessageCircle } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
-const FULL_BLEED_ROUTES = ["/", "/library", "/settings"];
-const FULL_BLEED_PREFIXES = ["/library/", "/series/"];
+const FULL_BLEED_ROUTES = [
+  "/",
+  "/library",
+  "/settings",
+  "/search",
+  "/releases",
+  "/wanted",
+  "/story-arcs",
+  "/activity",
+  "/import",
+];
+const FULL_BLEED_PREFIXES = ["/library/", "/series/", "/story-arcs/"];
 
 interface LayoutProps {
   children: React.ReactNode;

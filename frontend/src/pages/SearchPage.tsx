@@ -213,6 +213,7 @@ export default function SearchPage() {
             <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
+              aria-label={`Search ${searchMode === "manga" ? "manga" : "comics"}`}
               placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

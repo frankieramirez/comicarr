@@ -191,7 +191,12 @@ export default function ImportPage() {
           <div className="flex items-center gap-3 mb-4">
             <button
               type="button"
-              onClick={() => setShowIgnored(!showIgnored)}
+              aria-pressed={showIgnored}
+              onClick={() => {
+                setShowIgnored((prev) => !prev);
+                setPage(0);
+                setSelectedIds([]);
+              }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-mono text-[11px]"
               style={{
                 borderColor: showIgnored ? "var(--primary)" : "var(--border)",

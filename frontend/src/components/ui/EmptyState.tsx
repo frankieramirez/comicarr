@@ -109,13 +109,24 @@ export default function EmptyState({
   const description = customDescription || config?.description || "";
   const action = customAction || config?.action;
 
+  const isOutline = action?.variant === "outline";
   const cta = action && (
     <span
-      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[5px] text-[12px] font-semibold"
-      style={{
-        background: "var(--primary)",
-        color: "var(--primary-foreground)",
-      }}
+      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-[5px] text-[12px] font-semibold ${
+        isOutline ? "border" : ""
+      }`}
+      style={
+        isOutline
+          ? {
+              borderColor: "var(--border)",
+              background: "transparent",
+              color: "var(--foreground)",
+            }
+          : {
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }
+      }
     >
       {action.label}
       <ArrowRight className="w-3.5 h-3.5" />

@@ -32,6 +32,23 @@ function hash(str) {
   return Math.abs(h);
 }
 
+function escapeXml(text) {
+  return text.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
+}
+
 function coverSvg(id) {
   const cover = COVERS[id];
   let c1, c2, accent, label;
@@ -60,7 +77,7 @@ function coverSvg(id) {
     </defs>
     <rect width="${w}" height="${h}" fill="url(#p)"/>
     <rect x="0" y="${h * 0.62}" width="${w}" height="${h * 0.38}" fill="rgba(0,0,0,0.45)"/>
-    <text x="${w * 0.08}" y="${h * 0.78}" fill="${accent}" font-family="Inter, sans-serif" font-weight="800" font-size="20" letter-spacing="-0.5">${label}</text>
+    <text x="${w * 0.08}" y="${h * 0.78}" fill="${accent}" font-family="Inter, sans-serif" font-weight="800" font-size="20" letter-spacing="-0.5">${escapeXml(label)}</text>
     <text x="${w * 0.08}" y="${h * 0.94}" fill="rgba(255,255,255,0.65)" font-family="ui-monospace, Menlo, monospace" font-size="11">MOCK</text>
   </svg>`;
 }

@@ -94,7 +94,7 @@ function DenseTable({
 }) {
   return (
     <div
-      className="rounded-[6px] border overflow-hidden"
+      className="rounded-[6px] border overflow-x-auto"
       style={{ borderColor: "var(--border)" }}
     >
       <div

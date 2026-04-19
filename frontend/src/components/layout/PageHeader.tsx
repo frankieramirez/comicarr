@@ -44,7 +44,10 @@ interface TabRowProps {
 
 export function TabRow({ children }: TabRowProps) {
   return (
-    <div className="px-5 pt-3 border-b border-border flex items-end gap-6">
+    <div
+      role="tablist"
+      className="px-5 pt-3 border-b border-border flex items-end gap-6"
+    >
       {children}
     </div>
   );
@@ -61,6 +64,8 @@ export function Tab({ active, label, onClick, meta }: TabProps) {
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
       style={{

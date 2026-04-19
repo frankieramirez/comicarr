@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { setupCredentials } from "@/lib/api";
+import { checkSetup, setupCredentials } from "@/lib/api";
 import { Kbd } from "@/components/ui/kbd";
 import GridShader from "@/components/login/GridShader";
 import Logo from "@/components/Logo";
@@ -84,8 +84,8 @@ function SetupForm() {
           for (let i = 0; i < 30; i++) {
             await new Promise((r) => setTimeout(r, 2000));
             try {
-              const resp = await fetch("/auth/check_setup");
-              if (resp.ok) {
+              const resp = await checkSetup();
+              if (!resp.needs_setup) {
                 window.location.href = "/";
                 return;
               }
@@ -200,7 +200,7 @@ function SetupForm() {
           <>
             <span>Create account</span>
             <Kbd
-              className="!bg-black/10 !border-black/20 !text-black/70"
+              className="bg-black/10! border-black/20! text-black/70!"
               style={{ color: "rgba(0,0,0,0.7)" }}
             >
               ↵
@@ -273,7 +273,8 @@ function LoginForm() {
             type="button"
             onClick={() => setShowPw((s) => !s)}
             className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
+            aria-pressed={showPw}
+            aria-label={showPw ? "Hide password" : "Show password"}
           >
             {showPw ? "hide" : "show"}
           </button>
@@ -312,7 +313,7 @@ function LoginForm() {
         ) : (
           <>
             <span>Continue</span>
-            <Kbd className="!bg-black/10 !border-black/20 !text-black/70">
+            <Kbd className="bg-black/10! border-black/20! text-black/70!">
               ↵
             </Kbd>
           </>

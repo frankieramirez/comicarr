@@ -53,6 +53,8 @@ export interface Issue {
   ImageURL?: string | null;
   ImageURL_ALT?: string | null;
   Int_IssueNumber?: number | null;
+  // Story arc label, populated by mock data today and (optionally) by the API.
+  Arc?: string | null;
   // Chapter/Volume fields for manga support
   chapterNumber?: string | null;
   volumeNumber?: string | null;
