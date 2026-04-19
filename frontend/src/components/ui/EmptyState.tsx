@@ -161,9 +161,18 @@ export default function EmptyState({
       )}
       {action &&
         (action.to ? (
-          <Link to={action.to}>{cta}</Link>
+          <Link
+            to={action.to}
+            className="rounded-[5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {cta}
+          </Link>
         ) : action.onClick ? (
-          <button type="button" onClick={action.onClick}>
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="rounded-[5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             {cta}
           </button>
         ) : null)}

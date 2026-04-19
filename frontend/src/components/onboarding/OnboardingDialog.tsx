@@ -16,6 +16,7 @@ import {
   usePreviewMigration,
   useStartMigration,
   useMigrationProgress,
+  type MigrationStatus,
 } from "@/hooks/useMigration";
 import { Kbd } from "@/components/ui/kbd";
 import Logo from "@/components/Logo";
@@ -367,6 +368,7 @@ function MigrateStep({
           />
           <input
             type="text"
+            aria-label="Mylar3 data directory path"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             onKeyDown={(e) => {
@@ -588,7 +590,7 @@ function DoneStep({
   onFinish,
   onRetry,
 }: {
-  progress?: { status: string; error?: string };
+  progress?: { status: MigrationStatus; error?: string };
   onFinish: () => void;
   onRetry: () => void;
 }) {

@@ -46,7 +46,7 @@ const FilterField = forwardRef<HTMLInputElement, FilterFieldProps>(
   ) {
     return (
       <div
-        className={`flex items-center gap-2 flex-1 ${CAP_CLASS[widthCap]} h-8 px-2.5 rounded-[5px] border bg-card ${className}`}
+        className={`flex items-center gap-2 flex-1 ${CAP_CLASS[widthCap]} h-8 px-2.5 rounded-[5px] border bg-card focus-within:border-[var(--ring)] focus-within:ring-2 focus-within:ring-ring/40 transition-[box-shadow,border-color] ${className}`}
         style={{ borderColor: "var(--border)" }}
       >
         <Search

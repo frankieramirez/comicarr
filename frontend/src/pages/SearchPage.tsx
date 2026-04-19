@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Search as SearchIcon,
   ChevronLeft,
@@ -345,11 +345,6 @@ export default function SearchPage() {
           />
         </div>
       )}
-
-      {/* Hidden link for config navigation used by error branches */}
-      <Link to="/settings" className="sr-only">
-        settings
-      </Link>
     </div>
   );
 }

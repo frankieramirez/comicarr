@@ -95,21 +95,6 @@ export default function DashboardPage() {
             <div className="font-mono text-[10px] text-[var(--text-muted)] tracking-wider uppercase">
               {downloads.length} events
             </div>
-            <div className="ml-auto flex gap-1.5">
-              {["All", "Download", "Import", "Match"].map((l, i) => (
-                <span
-                  key={l}
-                  className="text-[11px] px-2 py-0.5 rounded-full border"
-                  style={{
-                    borderColor: i === 0 ? "var(--border)" : "transparent",
-                    color:
-                      i === 0 ? "var(--foreground)" : "var(--muted-foreground)",
-                  }}
-                >
-                  {l}
-                </span>
-              ))}
-            </div>
           </div>
 
           {isLoading && (
@@ -249,47 +234,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-      </div>
-
-      {/* Health row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            name: "Comic Vine",
-            color: "var(--status-active)",
-            meta: "healthy",
-          },
-          { name: "MangaDex", color: "var(--status-active)", meta: "healthy" },
-          {
-            name: "Prowlarr",
-            color: "var(--status-paused)",
-            meta: "—",
-          },
-          {
-            name: "SABnzbd",
-            color: "var(--status-active)",
-            meta: `${queueCount} active`,
-          },
-        ].map((h, i) => (
-          <div
-            key={h.name}
-            className="px-5 py-4"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--border)" : undefined,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: h.color }}
-              />
-              <div className="text-[12px] font-medium">{h.name}</div>
-            </div>
-            <div className="font-mono text-[10px] text-muted-foreground mt-1">
-              {h.meta}
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

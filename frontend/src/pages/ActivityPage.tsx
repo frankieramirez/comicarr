@@ -105,8 +105,8 @@ function DenseTable({
           gridTemplateColumns: gridTemplate,
         }}
       >
-        {headers.map((h) => (
-          <div key={h}>{h}</div>
+        {headers.map((h, i) => (
+          <div key={`${h}-${i}`}>{h}</div>
         ))}
       </div>
       {children}

@@ -25,13 +25,13 @@ export default function PageHeader({
         <div className="text-[18px] font-semibold tracking-tight leading-none">
           {title}
         </div>
-        {meta && (
+        {meta != null && (
           <div className="font-mono text-[11px] text-muted-foreground mt-1.5 truncate">
             {meta}
           </div>
         )}
       </div>
-      {actions && (
+      {actions != null && (
         <div className="ml-auto flex items-center gap-2">{actions}</div>
       )}
     </div>
@@ -40,12 +40,20 @@ export default function PageHeader({
 
 interface TabRowProps {
   children: ReactNode;
+  ariaLabel?: string;
 }
 
-export function TabRow({ children }: TabRowProps) {
+/**
+ * Row of page-level view toggles. These intentionally use plain button
+ * semantics with `aria-pressed` (see Tab) rather than the full ARIA tab
+ * pattern — there are no separate tabpanel elements with focus/arrow-key
+ * navigation, so `role="tablist"` would over-promise.
+ */
+export function TabRow({ children, ariaLabel }: TabRowProps) {
   return (
     <div
-      role="tablist"
+      role="group"
+      aria-label={ariaLabel ?? "View toggles"}
       className="px-5 pt-3 border-b border-border flex items-end gap-6"
     >
       {children}
@@ -64,16 +72,15 @@ export function Tab({ active, label, onClick, meta }: TabProps) {
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
-      className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
+      className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{
         color: active ? "var(--foreground)" : "var(--muted-foreground)",
       }}
     >
       <span>{label}</span>
-      {meta && (
+      {meta != null && (
         <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
           {meta}
         </span>

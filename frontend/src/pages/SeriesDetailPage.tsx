@@ -100,6 +100,7 @@ export default function SeriesDetailPage() {
 
   const haveCount = issues.filter((i) => i.Status === "Downloaded").length;
   const missingCount = issues.filter((i) => i.Status !== "Downloaded").length;
+  const monitoredCount = issues.filter((i) => i.Status !== "Skipped").length;
 
   const filteredIssues =
     filter === "have"
@@ -419,7 +420,7 @@ export default function SeriesDetailPage() {
               ["all", `All ${total}`],
               ["have", `Have ${haveCount}`],
               ["missing", `Missing ${missingCount}`],
-              ["monitored", `Monitored ${total}`],
+              ["monitored", `Monitored ${monitoredCount}`],
             ] as const
           ).map(([key, label]) => {
             const active = filter === key;

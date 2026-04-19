@@ -350,12 +350,14 @@ function recentDownloads() {
     ComicImage: string | null;
   }> = [];
   const sample = [COVERS[0], COVERS[1], COVERS[2], COVERS[3], COVERS[6]];
+  // `/api/downloads/queue` returns [] in mock mode, so keep the activity
+  // feed in sync: no "Snatched" entries that would imply queued work.
   const actions = [
     "Downloaded",
     "Downloaded",
     "Post-Processed",
     "Post-Processed",
-    "Snatched",
+    "Downloaded",
     "Downloaded",
     "Post-Processed",
   ];
@@ -474,21 +476,40 @@ function seriesDetail(id: string) {
  */
 export function isMockEnabled(): boolean {
   if (typeof window === "undefined") return false;
+
+  // Query param always wins over storage. Storage is purely a convenience
+  // so the flag survives reloads; if it throws (private browsing, quota,
+  // etc.), honor the URL and keep going rather than silently disabling.
+  let paramMock: "1" | "0" | null = null;
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("mock") === "1") {
+    const raw = params.get("mock");
+    if (raw === "1") paramMock = "1";
+    else if (raw === "0") paramMock = "0";
+  } catch {
+    // URL parse failure — treat as "no param set".
+  }
+
+  try {
+    if (paramMock === "1") {
       localStorage.setItem("comicarr:mock", "1");
       return true;
     }
-    if (params.get("mock") === "0") {
+    if (paramMock === "0") {
       localStorage.removeItem("comicarr:mock");
       return false;
     }
     return localStorage.getItem("comicarr:mock") === "1";
   } catch {
-    return false;
+    // Storage unavailable — respect the URL param if present.
+    return paramMock === "1";
   }
 }
+
+// Session state used by mock auth endpoints below. Lives in module scope
+// so logout actually sticks within a single browser session even though
+// there's no real backend to keep it.
+let mockAuthenticated = true;
 
 /**
  * Match an incoming request to a mock payload. Returns `undefined` to signal
@@ -506,12 +527,16 @@ export function mockApiResponse(
     return { needs_setup: false };
   }
   if (m === "GET" && url === "/api/auth/check-session") {
-    return { success: true, authenticated: true, username: "mock-admin" };
+    return mockAuthenticated
+      ? { success: true, authenticated: true, username: "mock-admin" }
+      : { success: true, authenticated: false };
   }
   if (m === "POST" && url === "/api/auth/login") {
+    mockAuthenticated = true;
     return { success: true, username: "mock-admin" };
   }
   if (m === "POST" && url === "/api/auth/logout") {
+    mockAuthenticated = false;
     return { success: true };
   }
   if (m === "GET" && url === "/api/migration/check") {

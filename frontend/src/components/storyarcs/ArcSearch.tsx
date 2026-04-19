@@ -43,7 +43,7 @@ export default function ArcSearch({ searchInputRef }: ArcSearchProps) {
         value={query}
         onChange={handleChange}
         shortcut="/"
-        loading={isLoading && query.length > 2}
+        loading={isLoading && debouncedQuery.length > 2}
       />
 
       {results && results.length > 0 && (
