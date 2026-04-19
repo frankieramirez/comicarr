@@ -458,105 +458,108 @@ export default function SeriesTable({
           />
         </div>
       ) : (
-        <>
-          <div
-            className="px-5 py-2 grid items-center gap-3 border-b border-border bg-muted/30 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70"
-            style={{ gridTemplateColumns: GRID_COLS }}
-          >
-            <Checkbox
-              checked={
-                table.getIsAllPageRowsSelected() ||
-                (table.getIsSomePageRowsSelected() && "indeterminate")
-              }
-              onCheckedChange={(value) =>
-                table.toggleAllPageRowsSelected(!!value)
-              }
-            />
-            <span />
-            <SortHeader
-              label="title"
-              active={sorting[0]?.id === "ComicName"}
-              desc={sorting[0]?.id === "ComicName" && sorting[0].desc}
-              onClick={() => toggleSort("ComicName")}
-            />
-            <SortHeader
-              label="publisher"
-              active={sorting[0]?.id === "ComicPublisher"}
-              desc={sorting[0]?.id === "ComicPublisher" && sorting[0].desc}
-              onClick={() => toggleSort("ComicPublisher")}
-            />
-            <SortHeader
-              label="status"
-              active={sorting[0]?.id === "Status"}
-              desc={sorting[0]?.id === "Status" && sorting[0].desc}
-              onClick={() => toggleSort("Status")}
-            />
-            <span>issues</span>
-            <span>progress</span>
-            <span className="text-right">
-              <SortHeader
-                label="yr"
-                active={sorting[0]?.id === "ComicYear"}
-                desc={sorting[0]?.id === "ComicYear" && sorting[0].desc}
-                onClick={() => toggleSort("ComicYear")}
-                align="right"
+        <div className="flex-1 min-h-0 overflow-auto">
+          <div className="min-w-[820px] flex flex-col min-h-full">
+            <div
+              className="sticky top-0 z-10 px-5 py-2 grid items-center gap-3 border-b border-border bg-muted/30 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70"
+              style={{ gridTemplateColumns: GRID_COLS }}
+            >
+              <Checkbox
+                aria-label="Select all series on page"
+                checked={
+                  table.getIsAllPageRowsSelected() ||
+                  (table.getIsSomePageRowsSelected() && "indeterminate")
+                }
+                onCheckedChange={(value) =>
+                  table.toggleAllPageRowsSelected(!!value)
+                }
               />
-            </span>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-auto">
-            {pageRows.length === 0 ? (
-              <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                No results.
-              </div>
-            ) : (
-              pageRows.map((row) => (
-                <SeriesRow
-                  key={row.id}
-                  row={row}
-                  onClick={() => navigate(`/library/${row.original.ComicID}`)}
+              <span />
+              <SortHeader
+                label="title"
+                active={sorting[0]?.id === "ComicName"}
+                desc={sorting[0]?.id === "ComicName" && sorting[0].desc}
+                onClick={() => toggleSort("ComicName")}
+              />
+              <SortHeader
+                label="publisher"
+                active={sorting[0]?.id === "ComicPublisher"}
+                desc={sorting[0]?.id === "ComicPublisher" && sorting[0].desc}
+                onClick={() => toggleSort("ComicPublisher")}
+              />
+              <SortHeader
+                label="status"
+                active={sorting[0]?.id === "Status"}
+                desc={sorting[0]?.id === "Status" && sorting[0].desc}
+                onClick={() => toggleSort("Status")}
+              />
+              <span>issues</span>
+              <span>progress</span>
+              <span className="text-right">
+                <SortHeader
+                  label="yr"
+                  active={sorting[0]?.id === "ComicYear"}
+                  desc={sorting[0]?.id === "ComicYear" && sorting[0].desc}
+                  onClick={() => toggleSort("ComicYear")}
+                  align="right"
                 />
-              ))
-            )}
-          </div>
+              </span>
+            </div>
 
-          {/* Footer */}
-          <div className="px-5 py-1.5 border-t border-border bg-muted/30 flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
-            <span>
-              {pageRows.length} of {totalFiltered} shown
-            </span>
-            {selectedSeriesIds.length > 0 && (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{selectedSeriesIds.length} selected</span>
-              </>
-            )}
-            {pageCount > 1 && (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>
-                  page {effectivePage + 1} of {pageCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  className="px-1 hover:text-foreground disabled:opacity-40"
-                >
-                  prev
-                </button>
-                <button
-                  type="button"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  className="px-1 hover:text-foreground disabled:opacity-40"
-                >
-                  next
-                </button>
-              </>
-            )}
+            <div className="flex-1">
+              {pageRows.length === 0 ? (
+                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  No results.
+                </div>
+              ) : (
+                pageRows.map((row) => (
+                  <SeriesRow
+                    key={row.id}
+                    row={row}
+                    onClick={() => navigate(`/library/${row.original.ComicID}`)}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 z-10 px-5 py-1.5 border-t border-border bg-muted/30 flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+              <span>
+                {pageRows.length} of {totalFiltered} shown
+              </span>
+              {selectedSeriesIds.length > 0 && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span>{selectedSeriesIds.length} selected</span>
+                </>
+              )}
+              {pageCount > 1 && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span>
+                    page {effectivePage + 1} of {pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="px-1 hover:text-foreground disabled:opacity-40"
+                  >
+                    prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="px-1 hover:text-foreground disabled:opacity-40"
+                  >
+                    next
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -640,6 +643,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
     >
       <div onClick={(e) => e.stopPropagation()}>
         <Checkbox
+          aria-label={`Select ${comic.ComicName}`}
           checked={isSelected}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
         />
