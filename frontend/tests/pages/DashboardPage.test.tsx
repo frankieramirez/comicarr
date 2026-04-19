@@ -1,5 +1,5 @@
 /**
- * Tests for the DashboardPage component.
+ * Tests for the DashboardPage component (Direction B redesign).
  *
  * Uses getByText / queryByText which throw or return null respectively.
  * No @testing-library/jest-dom needed.
@@ -26,78 +26,44 @@ describe("DashboardPage", () => {
     });
   });
 
-  it("renders collection stats", async () => {
+  it("renders KPI strip with stats", async () => {
     render(<DashboardPage />);
 
+    // KPI labels appear immediately; values arrive once the query resolves.
     await waitFor(() => {
-      expect(screen.getByText("Active Series")).toBeTruthy();
-      expect(screen.getByText("Issues Collected")).toBeTruthy();
-      expect(screen.getByText("Completion")).toBeTruthy();
+      expect(screen.getByText("50.0%")).toBeTruthy();
     });
 
+    expect(screen.getByText("Active series")).toBeTruthy();
+    expect(screen.getByText("Issues")).toBeTruthy();
+    expect(screen.getByText("Completion")).toBeTruthy();
+    expect(screen.getByText("Queue")).toBeTruthy();
     expect(screen.getByText("10")).toBeTruthy();
     expect(screen.getByText("250")).toBeTruthy();
-    expect(screen.getByText("50%")).toBeTruthy();
   });
 
-  it("renders recent downloads section", async () => {
+  it("renders queue & recent activity section", async () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Recent Downloads")).toBeTruthy();
-      expect(screen.getByText("Spider-Man")).toBeTruthy();
+      expect(screen.getByText("Queue & recent activity")).toBeTruthy();
+    });
+
+    // Activity row title is "<ComicName> #<Issue_Number>" inside a Link.
+    await waitFor(() => {
+      expect(screen.getByText("Spider-Man #1")).toBeTruthy();
     });
   });
 
-  it("renders upcoming releases section", async () => {
+  it("renders this-week upcoming list", async () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Upcoming This Week")).toBeTruthy();
+      expect(screen.getByText("This week")).toBeTruthy();
+    });
+
+    await waitFor(() => {
       expect(screen.getByText("Batman")).toBeTruthy();
-    });
-  });
-
-  it("shows discovery banner when AI is not configured", async () => {
-    render(<DashboardPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("AI Features Available")).toBeTruthy();
-    });
-  });
-
-  it("shows AI activity panel when AI is configured", async () => {
-    server.use(
-      http.get("/api/dashboard", () => {
-        return HttpResponse.json({
-          recently_downloaded: [],
-          upcoming_releases: [],
-          stats: {
-            total_series: 5,
-            total_issues: 100,
-            total_expected: 200,
-            completion_pct: 50.0,
-          },
-          ai_activity: [
-            {
-              timestamp: "2026-04-05T12:00:00",
-              feature_type: "search",
-              action_description: "Expanded search query",
-              prompt_tokens: 100,
-              completion_tokens: 50,
-              success: true,
-            },
-          ],
-          ai_configured: true,
-        });
-      }),
-    );
-
-    render(<DashboardPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("AI Activity")).toBeTruthy();
-      expect(screen.getByText("Expanded search query")).toBeTruthy();
     });
   });
 
@@ -122,22 +88,16 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("No recent downloads")).toBeTruthy();
-      expect(
-        screen.getByText("No upcoming releases this week"),
-      ).toBeTruthy();
+      expect(screen.getByText("no recent activity")).toBeTruthy();
+      expect(screen.getByText("nothing upcoming this week")).toBeTruthy();
     });
   });
 
-  it("hides discovery banner when dismissed", async () => {
-    localStorage.setItem("dismissed_ai_banner", "true");
-
+  it("renders command hint card", async () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Dashboard")).toBeTruthy();
+      expect(screen.getByText(/COMMAND HINT/)).toBeTruthy();
     });
-
-    expect(screen.queryByText("AI Features Available")).toBeNull();
   });
 });
