@@ -76,10 +76,8 @@ export default function SeriesListPage() {
       </div>
 
       {/* Table body */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        <div className="px-5 py-4">
-          <SeriesTable data={series} isLoading={isLoading} />
-        </div>
+      <div className="flex-1 min-h-0 flex flex-col">
+        <SeriesTable data={series} isLoading={isLoading} />
       </div>
     </div>
   );
