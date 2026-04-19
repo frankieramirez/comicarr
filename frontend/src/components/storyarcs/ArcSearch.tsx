@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Search, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useFindStoryArc } from "@/hooks/useArcSearch";
+import FilterField from "@/components/ui/FilterField";
 import ArcSearchResultCard from "./ArcSearchResultCard";
 
 interface ArcSearchProps {
@@ -37,20 +36,15 @@ export default function ArcSearch({ searchInputRef }: ArcSearchProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          ref={searchInputRef}
-          type="text"
-          placeholder="Search story arcs on ComicVine..."
-          value={query}
-          onChange={handleChange}
-          className="pl-10"
-        />
-        {isLoading && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-        )}
-      </div>
+      <FilterField
+        ref={searchInputRef}
+        placeholder="Search story arcs on ComicVine…"
+        aria-label="Search story arcs"
+        value={query}
+        onChange={handleChange}
+        shortcut="/"
+        loading={isLoading && query.length > 2}
+      />
 
       {results && results.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -61,7 +55,7 @@ export default function ArcSearch({ searchInputRef }: ArcSearchProps) {
       )}
 
       {debouncedQuery.length > 2 && !isLoading && results?.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-6">
+        <p className="text-[12px] text-muted-foreground text-center py-6">
           No story arcs found for &ldquo;{debouncedQuery}&rdquo;
         </p>
       )}

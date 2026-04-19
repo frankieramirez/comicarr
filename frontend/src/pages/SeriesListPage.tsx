@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { Plus, Search as SearchIcon } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import FilterField from "@/components/ui/FilterField";
 import { Kbd } from "@/components/ui/kbd";
 
 export default function SeriesListPage() {
@@ -44,13 +45,14 @@ export default function SeriesListPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div
-            className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-[5px] border bg-card text-[12px] text-muted-foreground w-[220px]"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <SearchIcon className="w-3 h-3 shrink-0" />
-            <span className="truncate">Filter series…</span>
-            <Kbd className="ml-auto">/</Kbd>
+          <div className="hidden sm:flex w-[240px]">
+            <FilterField
+              placeholder="Filter series…"
+              aria-label="Filter series"
+              shortcut="/"
+              widthCap="full"
+              disabled
+            />
           </div>
 
           <Link

@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Settings,
 } from "lucide-react";
+import FilterField from "@/components/ui/FilterField";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,6 @@ import SearchResultsTable from "@/components/search/SearchResultsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
-import { Kbd } from "@/components/ui/kbd";
 import type { ContentType } from "@/types/entities";
 
 interface SortOption {
@@ -206,21 +206,14 @@ export default function SearchPage() {
           onSubmit={handleSearch}
           className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[560px]"
         >
-          <div
-            className="flex items-center gap-2 flex-1 px-2.5 h-8 rounded-[5px] border bg-card"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              aria-label={`Search ${searchMode === "manga" ? "manga" : "comics"}`}
-              placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-[var(--text-muted)]"
-            />
-            <Kbd>↵</Kbd>
-          </div>
+          <FilterField
+            aria-label={`Search ${searchMode === "manga" ? "manga" : "comics"}`}
+            placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            shortcut="↵"
+            widthCap="full"
+          />
           <button
             type="submit"
             disabled={searchQuery.trim().length < 3}

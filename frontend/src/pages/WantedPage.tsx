@@ -11,7 +11,7 @@ import WantedTable from "@/components/queue/WantedTable";
 import BulkActionBar from "@/components/queue/BulkActionBar";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import PageHeader from "@/components/layout/PageHeader";
-import { Kbd } from "@/components/ui/kbd";
+import FilterField from "@/components/ui/FilterField";
 
 export default function WantedPage() {
   const [page, setPage] = useState(0);
@@ -113,20 +113,13 @@ export default function WantedPage() {
 
       <div className="px-5 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <div
-            className="flex items-center gap-2 flex-1 max-w-md px-2.5 py-1.5 rounded-[5px] border bg-card"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <Search className="w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Filter wanted issues…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-[var(--text-muted)]"
-            />
-            <Kbd>/</Kbd>
-          </div>
+          <FilterField
+            placeholder="Filter wanted issues…"
+            aria-label="Filter wanted issues"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            shortcut="/"
+          />
           {searchQuery && (
             <div className="font-mono text-[11px] text-muted-foreground">
               {filteredIssues.length} match
