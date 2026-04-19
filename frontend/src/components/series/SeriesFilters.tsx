@@ -1,11 +1,9 @@
-import { Book, BookOpen, Library } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { useContentSources } from "@/hooks/useContentSources";
 
@@ -20,11 +18,52 @@ interface SeriesFiltersProps {
   onTypeChange: (value: TypeFilter) => void;
   onProgressChange: (value: ProgressFilter) => void;
   onStatusChange: (value: StatusFilter) => void;
-  counts?: {
-    type: Record<TypeFilter, number>;
-    progress: Record<ProgressFilter, number>;
-    status: Record<StatusFilter, number>;
-  };
+  resultCount?: number;
+  sortLabel?: string;
+}
+
+interface ChipProps {
+  label: string;
+  value: string;
+  active: boolean;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}
+
+function FilterChip({
+  label,
+  value,
+  active,
+  onValueChange,
+  options,
+}: ChipProps) {
+  const display = options.find((o) => o.value === value)?.label ?? value;
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger
+        className={`h-auto py-[3px] px-2 rounded-full font-mono text-[11px] gap-1.5 w-auto shadow-none transition-colors ${
+          active
+            ? "border-primary/60 text-primary bg-primary/10"
+            : "border-border text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <span className="text-muted-foreground/60">{label}:</span>
+        <span>{display}</span>
+        <ChevronDown className="w-3 h-3 opacity-60" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem
+            key={o.value}
+            value={o.value}
+            className="font-mono text-xs"
+          >
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export default function SeriesFilters({
@@ -34,121 +73,90 @@ export default function SeriesFilters({
   onTypeChange,
   onProgressChange,
   onStatusChange,
-  counts,
+  resultCount,
+  sortLabel,
 }: SeriesFiltersProps) {
   const { comicsEnabled, mangaEnabled } = useContentSources();
   const showTypeFilter = comicsEnabled && mangaEnabled;
 
-  // Helper to format count
-  const formatCount = (count: number | undefined) => {
-    if (count === undefined || count === 0) return "";
-    return ` (${count})`;
-  };
-
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      {/* Type Filter - only show when both content sources are enabled */}
+    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+      <span className="text-muted-foreground/60 uppercase tracking-wider pr-1">
+        filter
+      </span>
+
       {showTypeFilter && (
-        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTypeChange("all")}
-            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-              typeFilter === "all"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Library className="w-4 h-4 mr-1.5" />
-            All{formatCount(counts?.type.all)}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTypeChange("comic")}
-            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-              typeFilter === "comic"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Book className="w-4 h-4 mr-1.5" />
-            Comics{formatCount(counts?.type.comic)}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTypeChange("manga")}
-            className={`h-8 px-3 rounded-md text-sm font-medium transition-colors ${
-              typeFilter === "manga"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="w-4 h-4 mr-1.5" />
-            Manga{formatCount(counts?.type.manga)}
-          </Button>
-        </div>
+        <FilterChip
+          label="type"
+          value={typeFilter}
+          active={typeFilter !== "all"}
+          onValueChange={(v) => onTypeChange(v as TypeFilter)}
+          options={[
+            { value: "all", label: "all" },
+            { value: "comic", label: "comic" },
+            { value: "manga", label: "manga" },
+          ]}
+        />
       )}
 
-      {/* Progress Filter - Dropdown */}
-      <Select
-        value={progressFilter}
-        onValueChange={(value) => onProgressChange(value as ProgressFilter)}
-      >
-        <SelectTrigger className="w-[140px] h-9">
-          <SelectValue placeholder="Progress" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Progress</SelectItem>
-          <SelectItem value="0">
-            Not Started{formatCount(counts?.progress["0"])}
-          </SelectItem>
-          <SelectItem value="partial">
-            In Progress{formatCount(counts?.progress.partial)}
-          </SelectItem>
-          <SelectItem value="100">
-            Complete{formatCount(counts?.progress["100"])}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Status Filter - Dropdown */}
-      <Select
+      <FilterChip
+        label="status"
         value={statusFilter}
-        onValueChange={(value) => onStatusChange(value as StatusFilter)}
-      >
-        <SelectTrigger className="w-[130px] h-9">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="Active">
-            Active{formatCount(counts?.status.Active)}
-          </SelectItem>
-          <SelectItem value="Paused">
-            Paused{formatCount(counts?.status.Paused)}
-          </SelectItem>
-          <SelectItem value="Ended">
-            Ended{formatCount(counts?.status.Ended)}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+        active={statusFilter !== "all"}
+        onValueChange={(v) => onStatusChange(v as StatusFilter)}
+        options={[
+          { value: "all", label: "any" },
+          { value: "Active", label: "active" },
+          { value: "Paused", label: "paused" },
+          { value: "Ended", label: "ended" },
+        ]}
+      />
 
-      {/* Active Filters Indicator */}
-      {(progressFilter !== "all" || statusFilter !== "all") && (
-        <Button
-          variant="ghost"
-          size="sm"
+      <FilterChip
+        label="progress"
+        value={progressFilter}
+        active={progressFilter !== "all"}
+        onValueChange={(v) => onProgressChange(v as ProgressFilter)}
+        options={[
+          { value: "all", label: "any" },
+          { value: "0", label: "not started" },
+          { value: "partial", label: "in progress" },
+          { value: "100", label: "complete" },
+        ]}
+      />
+
+      {(typeFilter !== "all" ||
+        progressFilter !== "all" ||
+        statusFilter !== "all") && (
+        <button
+          type="button"
           onClick={() => {
+            onTypeChange("all");
             onProgressChange("all");
             onStatusChange("all");
           }}
-          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground/60 hover:text-foreground ml-1 px-1"
         >
-          Clear filters
-        </Button>
+          clear
+        </button>
+      )}
+
+      {(resultCount !== undefined || sortLabel) && (
+        <div className="ml-auto flex items-center gap-1.5 text-muted-foreground">
+          {resultCount !== undefined && (
+            <span>
+              {resultCount} result{resultCount === 1 ? "" : "s"}
+            </span>
+          )}
+          {resultCount !== undefined && sortLabel && (
+            <span className="text-muted-foreground/50">·</span>
+          )}
+          {sortLabel && (
+            <span>
+              sort: <span className="text-foreground">{sortLabel}</span>
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

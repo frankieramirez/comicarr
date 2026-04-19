@@ -111,8 +111,8 @@ export default function WantedPage() {
         }
       />
 
-      <div className="px-5 py-4">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="px-5 py-2.5 border-b border-border flex items-center gap-3">
+        <div className="flex-1 max-w-md">
           <FilterField
             placeholder="Filter wanted issues…"
             aria-label="Filter wanted issues"
@@ -120,46 +120,48 @@ export default function WantedPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             shortcut="/"
           />
-          {searchQuery && (
-            <div className="font-mono text-[11px] text-muted-foreground">
-              {filteredIssues.length} match
-              {filteredIssues.length === 1 ? "" : "es"}
-            </div>
-          )}
         </div>
-
-        {isLoading && (
-          <div className="space-y-2">
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
+        {searchQuery && (
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {filteredIssues.length} match
+            {filteredIssues.length === 1 ? "" : "es"}
           </div>
         )}
+      </div>
 
-        {error && (
+      {isLoading && (
+        <div className="px-5 py-4 space-y-2">
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+        </div>
+      )}
+
+      {error && (
+        <div className="px-5 py-4">
           <ErrorDisplay
             error={error}
             title="Unable to load wanted issues"
             onRetry={() => refetch()}
           />
-        )}
+        </div>
+      )}
 
-        {!isLoading && !error && (
-          <WantedTable
-            issues={filteredIssues}
-            pagination={pagination}
-            onNextPage={() => {
-              setPage((p) => p + 1);
-              setSelectedIds([]);
-            }}
-            onPrevPage={() => {
-              setPage((p) => Math.max(0, p - 1));
-              setSelectedIds([]);
-            }}
-            onSelectionChange={setSelectedIds}
-          />
-        )}
-      </div>
+      {!isLoading && !error && (
+        <WantedTable
+          issues={filteredIssues}
+          pagination={pagination}
+          onNextPage={() => {
+            setPage((p) => p + 1);
+            setSelectedIds([]);
+          }}
+          onPrevPage={() => {
+            setPage((p) => Math.max(0, p - 1));
+            setSelectedIds([]);
+          }}
+          onSelectionChange={setSelectedIds}
+        />
+      )}
 
       <BulkActionBar
         selectedCount={selectedIds.length}

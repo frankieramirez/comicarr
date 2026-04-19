@@ -139,7 +139,7 @@ export default function ReleasesPage() {
         />
       </div>
 
-      <div className="px-5 py-4">
+      <div>
         {currentView === "mine" ? <MyReleasesView /> : <AllReleasesView />}
       </div>
     </div>
@@ -211,9 +211,9 @@ function MyReleasesView() {
 
   return (
     <div>
-      {/* Controls row */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
+      {/* Full-width filter bar */}
+      <div className="px-5 py-2.5 border-b border-border flex items-center gap-2 flex-wrap">
+        <div className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 pr-1">
           Filter
         </div>
         <ToggleChip
@@ -227,41 +227,45 @@ function MyReleasesView() {
           onClick={() => setIncludeDownloaded(true)}
         />
 
-        <div className="ml-auto font-mono text-[11px] text-muted-foreground">
-          {issues.length} issue{issues.length !== 1 ? "s" : ""}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {issues.length} issue{issues.length !== 1 ? "s" : ""}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] border text-[11px] font-mono"
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            <RefreshCw
+              className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`}
+            />
+            refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={handleForceSearch}
+            disabled={forceSearchMutation.isPending}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+            style={{
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+          >
+            <Search className="w-3.5 h-3.5" />
+            Force search
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] border text-[11px] font-mono"
-          style={{
-            borderColor: "var(--border)",
-            color: "var(--muted-foreground)",
-          }}
-        >
-          <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
-          refresh
-        </button>
-
-        <button
-          type="button"
-          onClick={handleForceSearch}
-          disabled={forceSearchMutation.isPending}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
-          style={{
-            background: "var(--primary)",
-            color: "var(--primary-foreground)",
-          }}
-        >
-          <Search className="w-3.5 h-3.5" />
-          Force search
-        </button>
       </div>
 
       {isLoading && (
-        <div className="space-y-2">
+        <div className="px-5 py-4 space-y-2">
           <Skeleton className="h-14" />
           <Skeleton className="h-14" />
           <Skeleton className="h-14" />
@@ -269,11 +273,13 @@ function MyReleasesView() {
       )}
 
       {error && (
-        <ErrorDisplay
-          error={error}
-          title="Unable to load your releases"
-          onRetry={() => refetch()}
-        />
+        <div className="px-5 py-4">
+          <ErrorDisplay
+            error={error}
+            title="Unable to load your releases"
+            onRetry={() => refetch()}
+          />
+        </div>
       )}
 
       {!isLoading && !error && issues.length === 0 && (
@@ -312,13 +318,13 @@ function AllReleasesView() {
   return (
     <>
       {aiStatus?.configured && (
-        <div className="mb-6">
+        <div className="px-5 py-4">
           <AiSuggestions />
         </div>
       )}
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="px-5 py-4 space-y-2">
           {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
@@ -331,15 +337,11 @@ function AllReleasesView() {
           description="Run a weekly pull list update from Settings to populate this view."
         />
       ) : (
-        <div
-          className="rounded-[6px] border overflow-hidden"
-          style={{ borderColor: "var(--border)" }}
-        >
+        <div>
           <div
-            className="grid font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground px-4 py-2 border-b"
+            className="grid font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 px-5 py-2 border-b bg-muted/30"
             style={{
               borderColor: "var(--border)",
-              background: "var(--card)",
               gridTemplateColumns: "1fr 80px 160px 100px",
             }}
           >
@@ -359,9 +361,8 @@ function AllReleasesView() {
             return (
               <div
                 key={`${issue.COMIC}-${issue.ISSUE}-${index}`}
-                className="grid items-center px-4 py-2 text-[12px] border-b last:border-b-0"
+                className="grid items-center px-5 py-2 text-[12px] border-b border-border/50"
                 style={{
-                  borderColor: "var(--border-soft, var(--border))",
                   gridTemplateColumns: "1fr 80px 160px 100px",
                 }}
               >
