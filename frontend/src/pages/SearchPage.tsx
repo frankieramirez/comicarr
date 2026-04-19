@@ -170,7 +170,7 @@ export default function SearchPage() {
   const showBothTabs = comicsEnabled && mangaEnabled;
 
   return (
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition min-w-0 overflow-hidden">
+    <div className="page-transition min-w-0 overflow-hidden">
       <PageHeader
         title="Search"
         meta={

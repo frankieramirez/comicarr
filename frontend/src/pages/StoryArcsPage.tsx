@@ -20,7 +20,7 @@ export default function StoryArcsPage() {
   const count = arcs?.length ?? 0;
 
   return (
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition">
+    <div className="page-transition">
       <PageHeader
         title="Story Arcs"
         meta={

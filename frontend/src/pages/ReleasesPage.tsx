@@ -110,7 +110,7 @@ export default function ReleasesPage() {
   };
 
   return (
-    <div className="page-transition -mx-4 sm:-mx-6 lg:-mx-8 -my-8">
+    <div className="page-transition">
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-border flex items-center gap-3">
         <div>

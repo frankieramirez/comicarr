@@ -53,7 +53,7 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-8 page-transition">
+    <div className="page-transition">
       <PageHeader
         title="Activity"
         meta={
