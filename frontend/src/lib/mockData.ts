@@ -517,6 +517,9 @@ export function mockApiResponse(
   if (m === "GET" && url === "/api/migration/check") {
     return { needs_migration: false };
   }
+  if (m === "GET" && url === "/api/system/diagnostics") {
+    return { db_empty: false, migration_dismissed: true };
+  }
   if (m === "GET" && url === "/api/ai/status") {
     return { configured: false };
   }

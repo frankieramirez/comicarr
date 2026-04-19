@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Library, BookOpen } from "lucide-react";
+import {
+  RefreshCw,
+  Library,
+  BookOpen,
+  FolderOpen,
+  Loader2,
+  type LucideIcon,
+} from "lucide-react";
 import {
   useComicScan,
   useComicScanProgress,
@@ -10,14 +17,12 @@ import {
 } from "@/hooks/useImport";
 import { useConfig } from "@/hooks/useConfig";
 import { useToast } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import LibraryScanResults from "./LibraryScanResults";
 
 export default function LibraryScanSection() {
   const { data: appConfig } = useConfig();
-  const comicDirConfigured = !!appConfig?.comic_dir;
-  const mangaDirConfigured = !!appConfig?.manga_dir;
+  const comicDir = appConfig?.comic_dir as string | undefined;
+  const mangaDir = appConfig?.manga_dir as string | undefined;
   const { addToast } = useToast();
 
   // Comic scan state
@@ -32,7 +37,6 @@ export default function LibraryScanSection() {
   const { data: mangaProgress } = useMangaScanProgress(mangaScanning);
   const mangaConfirmMutation = useMangaScanConfirm();
 
-  // Comic scan terminal state
   const comicStatus = comicProgress?.status;
   const comicTerminal =
     comicScanning && (comicStatus === "completed" || comicStatus === "error");
@@ -45,7 +49,6 @@ export default function LibraryScanSection() {
     }
   }, [comicTerminal, comicStatus, addToast]);
 
-  // Manga scan terminal state
   const mangaStatus = mangaProgress?.status;
   const mangaTerminal =
     mangaScanning && (mangaStatus === "completed" || mangaStatus === "error");
@@ -62,10 +65,7 @@ export default function LibraryScanSection() {
     try {
       await comicScanMutation.mutateAsync();
       setComicScanning(true);
-      addToast({
-        type: "info",
-        message: "Comic library scan started.",
-      });
+      addToast({ type: "info", message: "Comic library scan started." });
     } catch (err) {
       addToast({
         type: "error",
@@ -78,10 +78,7 @@ export default function LibraryScanSection() {
     try {
       await mangaScanMutation.mutateAsync();
       setMangaScanning(true);
-      addToast({
-        type: "info",
-        message: "Manga library scan started.",
-      });
+      addToast({ type: "info", message: "Manga library scan started." });
     } catch (err) {
       addToast({
         type: "error",
@@ -132,96 +129,42 @@ export default function LibraryScanSection() {
   const mangaScanId = mangaProgress?.scan_id;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Library Scan</h2>
-        <p className="text-sm text-muted-foreground">
-          Scan your existing directories to find and import series
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <Library className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <h3 className="font-semibold">Comic Library</h3>
-                <p className="text-sm text-muted-foreground">
-                  {comicDirConfigured
-                    ? "Scan your comic directory and select series to import"
-                    : "Configure a Comic Directory in Settings to enable"}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleComicScan}
-              disabled={
-                !comicDirConfigured ||
-                comicScanMutation.isPending ||
-                comicScanning
-              }
-              className="w-full"
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${comicScanning ? "animate-spin" : ""}`}
-              />
-              Scan Comic Library
-            </Button>
-            {comicScanning && comicProgress?.progress && (
-              <div className="mt-3 text-sm text-muted-foreground space-y-1">
-                <p>
-                  Series found: {comicProgress.progress.series_found} | Matched:{" "}
-                  {comicProgress.progress.series_matched}
-                </p>
-                {comicProgress.progress.current_series && (
-                  <p>Processing: {comicProgress.progress.current_series}</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <BookOpen className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <h3 className="font-semibold">Manga Library</h3>
-                <p className="text-sm text-muted-foreground">
-                  {mangaDirConfigured
-                    ? "Scan your manga directory and select series to import"
-                    : "Configure a Manga Directory in Settings to enable"}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleMangaScan}
-              disabled={
-                !mangaDirConfigured ||
-                mangaScanMutation.isPending ||
-                mangaScanning
-              }
-              className="w-full"
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${mangaScanning ? "animate-spin" : ""}`}
-              />
-              Scan Manga Library
-            </Button>
-            {mangaScanning && mangaProgress?.progress && (
-              <div className="mt-3 text-sm text-muted-foreground space-y-1">
-                <p>
-                  Series found: {mangaProgress.progress.series_found} | Matched:{" "}
-                  {mangaProgress.progress.series_matched}
-                </p>
-                {mangaProgress.progress.current_series && (
-                  <p>Processing: {mangaProgress.progress.current_series}</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+        <ScanTile
+          icon={Library}
+          label="Comic library"
+          path={comicDir}
+          notConfiguredHint="Set Comic Directory in Settings → Media"
+          busy={comicScanMutation.isPending || comicScanning}
+          onScan={handleComicScan}
+          progress={
+            comicScanning
+              ? {
+                  found: comicProgress?.progress?.series_found,
+                  matched: comicProgress?.progress?.series_matched,
+                  current: comicProgress?.progress?.current_series,
+                }
+              : undefined
+          }
+        />
+        <ScanTile
+          icon={BookOpen}
+          label="Manga library"
+          path={mangaDir}
+          notConfiguredHint="Set Manga Directory in Settings → Media"
+          busy={mangaScanMutation.isPending || mangaScanning}
+          onScan={handleMangaScan}
+          progress={
+            mangaScanning
+              ? {
+                  found: mangaProgress?.progress?.series_found,
+                  matched: mangaProgress?.progress?.series_matched,
+                  current: mangaProgress?.progress?.current_series,
+                }
+              : undefined
+          }
+        />
       </div>
 
       {comicResults && comicResults.length > 0 && comicScanId && (
@@ -244,5 +187,137 @@ export default function LibraryScanSection() {
         />
       )}
     </div>
+  );
+}
+
+interface ScanTileProps {
+  icon: LucideIcon;
+  label: string;
+  path?: string;
+  notConfiguredHint: string;
+  busy: boolean;
+  onScan: () => void;
+  progress?: {
+    found?: number;
+    matched?: number;
+    current?: string | null;
+  };
+}
+
+function ScanTile({
+  icon: Icon,
+  label,
+  path,
+  notConfiguredHint,
+  busy,
+  onScan,
+  progress,
+}: ScanTileProps) {
+  const configured = !!path;
+
+  return (
+    <div
+      className="rounded-[6px] border px-3.5 py-3"
+      style={{ borderColor: "var(--border)", background: "var(--card)" }}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="w-7 h-7 rounded-[5px] grid place-items-center shrink-0"
+          style={{
+            background: "var(--secondary)",
+            color: "var(--muted-foreground)",
+          }}
+        >
+          <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-medium leading-tight">{label}</div>
+          {configured ? (
+            <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[10.5px] text-muted-foreground truncate">
+              <FolderOpen className="w-3 h-3 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">{path}</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {notConfiguredHint}
+            </div>
+          )}
+        </div>
+
+        <ScanButton configured={configured} busy={busy} onClick={onScan} />
+      </div>
+
+      {progress && (
+        <div
+          className="mt-3 pt-2.5 border-t font-mono text-[11px] text-muted-foreground flex items-center gap-3"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <Loader2
+            className="w-3 h-3 animate-spin shrink-0"
+            style={{ color: "var(--primary)" }}
+          />
+          <span>
+            found <span className="text-foreground">{progress.found ?? 0}</span>{" "}
+            · matched{" "}
+            <span className="text-foreground">{progress.matched ?? 0}</span>
+          </span>
+          {progress.current && (
+            <span
+              className="truncate ml-auto"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {progress.current}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScanButton({
+  configured,
+  busy,
+  onClick,
+}: {
+  configured: boolean;
+  busy: boolean;
+  onClick: () => void;
+}) {
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border font-mono text-[10.5px] tracking-[0.05em] uppercase shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+        style={{
+          borderColor: "var(--border)",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        <span>not set</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border text-[11.5px] font-medium shrink-0 hover:bg-secondary transition-colors disabled:opacity-70"
+      style={{
+        borderColor: "var(--border)",
+        color: "var(--foreground)",
+      }}
+    >
+      <RefreshCw
+        className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
+        style={{ color: busy ? "var(--primary)" : "var(--muted-foreground)" }}
+        strokeWidth={2}
+      />
+      <span>{busy ? "scanning" : "scan"}</span>
+    </button>
   );
 }
