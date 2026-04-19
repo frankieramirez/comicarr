@@ -197,11 +197,17 @@ export default function SearchPage() {
         </TabRow>
       )}
 
-      <div className="px-5 py-4 space-y-4">
-        {/* Search form */}
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
+      {/* Compact search form + sort controls */}
+      <div
+        className="px-5 py-2.5 border-b flex items-center gap-3 flex-wrap"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <form
+          onSubmit={handleSearch}
+          className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[560px]"
+        >
           <div
-            className="flex items-center gap-2 flex-1 max-w-2xl px-3 py-2 rounded-[5px] border bg-card"
+            className="flex items-center gap-2 flex-1 px-2.5 h-8 rounded-[5px] border bg-card"
             style={{ borderColor: "var(--border)" }}
           >
             <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
@@ -210,63 +216,59 @@ export default function SearchPage() {
               placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-[var(--text-muted)]"
+              className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-[var(--text-muted)]"
             />
             <Kbd>↵</Kbd>
           </div>
           <button
             type="submit"
             disabled={searchQuery.trim().length < 3}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+            className="inline-flex items-center gap-1 px-3 h-8 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
             style={{
               background: "var(--primary)",
               color: "var(--primary-foreground)",
             }}
           >
-            <SearchIcon className="w-3.5 h-3.5" />
             Search
           </button>
         </form>
-
-        {/* Sort + results meta */}
-        {urlQuery && (pagination || isLoading) && !isLoading && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="font-mono text-[11px] text-muted-foreground">
-              showing {startIndex}–{endIndex} of {pagination?.total || 0}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
-                sort
-              </span>
-              <Select value={urlSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="h-7 text-[11px] w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div ref={columnToggleCallback} />
-            </div>
+        {urlQuery && pagination && !isLoading && (
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {startIndex}–{endIndex} of {pagination.total}
           </div>
         )}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
+            sort
+          </span>
+          <Select value={urlSort} onValueChange={handleSortChange}>
+            <SelectTrigger className="h-8 text-[11px] w-[150px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div ref={columnToggleCallback} />
+        </div>
+      </div>
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="space-y-2">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-10" />
-            ))}
-          </div>
-        )}
+      {/* Results area — full-bleed */}
+      {isLoading && (
+        <div className="p-5 space-y-2">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-14" />
+          ))}
+        </div>
+      )}
 
-        {/* Errors */}
-        {error &&
-          (searchMode === "comic" && !comicsConfigured ? (
+      {error && (
+        <div className="p-5">
+          {searchMode === "comic" && !comicsConfigured ? (
             <EmptyState
               variant="custom"
               icon={Settings}
@@ -282,63 +284,64 @@ export default function SearchPage() {
               title="Search failed"
               description={error.message}
             />
-          ))}
+          )}
+        </div>
+      )}
 
-        {/* No results */}
-        {!isLoading && !error && urlQuery && searchResults.length === 0 && (
+      {!isLoading && !error && urlQuery && searchResults.length === 0 && (
+        <div className="p-5">
           <EmptyState
             variant="search"
             eyebrow="SEARCH · NO MATCH"
             description={`No results for "${urlQuery}". Try a different query or check spelling.`}
           />
-        )}
+        </div>
+      )}
 
-        {/* Results */}
-        {!isLoading && !error && searchResults.length > 0 && (
-          <div>
-            <SearchResultsTable
-              results={searchResults}
-              currentSort={urlSort}
-              onSortChange={handleSortChange}
-              contentType={searchMode}
-              columnToggleContainer={columnToggleEl}
-            />
-
-            {totalPages > 1 && (
-              <div
-                className="flex items-center justify-between mt-4 pt-3 border-t font-mono text-[11px] text-muted-foreground"
+      {!isLoading && !error && searchResults.length > 0 && (
+        <>
+          <SearchResultsTable
+            results={searchResults}
+            currentSort={urlSort}
+            onSortChange={handleSortChange}
+            contentType={searchMode}
+            columnToggleContainer={columnToggleEl}
+          />
+          {totalPages > 1 && (
+            <div
+              className="flex items-center justify-between px-5 py-3 border-t font-mono text-[11px] text-muted-foreground"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
                 style={{ borderColor: "var(--border)" }}
+                onClick={() => handlePageChange(urlPage - 1)}
+                disabled={urlPage === 1}
               >
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
-                  style={{ borderColor: "var(--border)" }}
-                  onClick={() => handlePageChange(urlPage - 1)}
-                  disabled={urlPage === 1}
-                >
-                  <ChevronLeft className="w-3 h-3" />
-                  prev
-                </button>
-                <span>
-                  page {urlPage} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
-                  style={{ borderColor: "var(--border)" }}
-                  onClick={() => handlePageChange(urlPage + 1)}
-                  disabled={urlPage >= totalPages}
-                >
-                  next
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                <ChevronLeft className="w-3 h-3" />
+                prev
+              </button>
+              <span>
+                page {urlPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border disabled:opacity-50"
+                style={{ borderColor: "var(--border)" }}
+                onClick={() => handlePageChange(urlPage + 1)}
+                disabled={urlPage >= totalPages}
+              >
+                next
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
-        {/* Initial empty state */}
-        {!urlQuery && (
+      {!urlQuery && (
+        <div className="p-5">
           <EmptyState
             variant="custom"
             icon={SearchIcon}
@@ -346,8 +349,8 @@ export default function SearchPage() {
             title={`Find ${searchMode === "manga" ? "manga" : "comics"} to add`}
             description="Type at least 3 characters to search across your configured providers."
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Hidden link for config navigation used by error branches */}
       <Link to="/settings" className="sr-only">

@@ -502,11 +502,20 @@ export function mockApiResponse(
   const url = path.split("?")[0];
   const m = method.toUpperCase();
 
-  if (m === "GET" && url === "/api/auth/check_setup") {
+  if (m === "GET" && url === "/api/auth/check-setup") {
     return { needs_setup: false };
   }
-  if (m === "GET" && url === "/api/auth/session") {
-    return { authenticated: true, username: "mock-admin" };
+  if (m === "GET" && url === "/api/auth/check-session") {
+    return { success: true, authenticated: true, username: "mock-admin" };
+  }
+  if (m === "POST" && url === "/api/auth/login") {
+    return { success: true, username: "mock-admin" };
+  }
+  if (m === "POST" && url === "/api/auth/logout") {
+    return { success: true };
+  }
+  if (m === "GET" && url === "/api/migration/check") {
+    return { needs_migration: false };
   }
   if (m === "GET" && url === "/api/ai/status") {
     return { configured: false };

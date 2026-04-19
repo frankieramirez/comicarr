@@ -140,9 +140,10 @@ export default function AppSidebar() {
           onSubmit={handleSearchSubmit}
           className="group-data-[collapsible=icon]:hidden"
         >
-          <div className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-sidebar-border bg-secondary/60">
+          <div className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-sidebar-border bg-secondary/60 transition-colors focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-[color-mix(in_oklab,var(--primary)_28%,transparent)]">
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <SidebarInput
+              data-global-search="true"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

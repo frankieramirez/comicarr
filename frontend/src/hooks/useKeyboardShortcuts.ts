@@ -67,16 +67,18 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // 'Ctrl+K' or 'Cmd+K' - Quick navigation (future enhancement)
-      // Commented out for now, can be implemented later with a command palette
-      /*
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      // 'Ctrl+K' or 'Cmd+K' - Focus global search (sidebar)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        // Open command palette / quick nav
-        console.log('[Keyboard] Quick nav triggered');
+        const globalSearch = document.querySelector<HTMLInputElement>(
+          'input[data-global-search="true"]',
+        );
+        if (globalSearch) {
+          globalSearch.focus();
+          globalSearch.select();
+        }
         return;
       }
-      */
     };
 
     // Add event listener

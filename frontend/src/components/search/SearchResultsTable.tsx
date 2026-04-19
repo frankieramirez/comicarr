@@ -1,12 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useReactTable,
-  getCoreRowModel,
-  createColumnHelper,
-  type VisibilityState,
-} from "@tanstack/react-table";
 import {
   ChevronUp,
   ChevronDown,
@@ -16,57 +9,10 @@ import {
   Loader2,
   ImageOff,
   ExternalLink,
-  Settings2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { DataTable } from "@/components/data-table/DataTable";
 import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
 import type { SearchResult, ContentType } from "@/types";
-
-const columnHelper = createColumnHelper<SearchResult>();
-
-// Lazy-loaded cover thumbnail component
-function CoverThumbnail({ comic }: { comic: SearchResult }) {
-  const [imageError, setImageError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  const imageUrl = comic.comicthumb || comic.image || comic.comicimage;
-
-  if (!imageUrl || imageError) {
-    return (
-      <div className="w-10 h-14 bg-muted rounded flex items-center justify-center flex-shrink-0">
-        <ImageOff className="w-4 h-4 text-muted-foreground/50" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
-      <img
-        src={imageUrl}
-        alt={comic.name}
-        className={`w-full h-full object-cover transition-opacity duration-200 ${
-          isLoaded ? "opacity-100" : "opacity-0"
-        }`}
-        loading="lazy"
-        onLoad={() => setIsLoaded(true)}
-        onError={() => setImageError(true)}
-      />
-    </div>
-  );
-}
 
 const SOURCE_LABELS: Record<string, string> = {
   comicvine: "CV",
@@ -102,77 +48,6 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trimEnd() + "\u2026";
 }
 
-// Column visibility toggle for search results
-function SearchColumnVisibility({
-  columnVisibility,
-  onToggle,
-  isManga,
-}: {
-  columnVisibility: VisibilityState;
-  onToggle: (columnId: string) => void;
-  isManga: boolean;
-}) {
-  const toggleableColumns = [
-    { id: "publisher", label: isManga ? "Author" : "Publisher" },
-    { id: "seriesStatus", label: "Status" },
-    { id: "contentRating", label: "Content Rating" },
-  ];
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="shadow-none">
-          <Settings2 className="h-4 w-4" />
-          <span className="sr-only">Toggle columns</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent side="bottom" align="end" className="w-[180px] p-2">
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-            Toggle columns
-          </p>
-          {toggleableColumns.map((col) => (
-            <button
-              key={col.id}
-              onClick={() => onToggle(col.id)}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-            >
-              <div
-                className={`flex h-4 w-4 items-center justify-center rounded-sm border ${
-                  columnVisibility[col.id] !== false
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "opacity-50"
-                }`}
-              >
-                {columnVisibility[col.id] !== false && (
-                  <Check className="h-3 w-3" />
-                )}
-              </div>
-              <span>{col.label}</span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-interface SearchResultsTableProps {
-  results: SearchResult[];
-  currentSort: string;
-  onSortChange: (sort: string) => void;
-  contentType: ContentType;
-  /** DOM element to portal the column toggle button into */
-  columnToggleContainer?: HTMLElement | null;
-}
-
-interface AddByIdEventDetail {
-  comicid: string;
-  status: "success" | "failure";
-  message?: string;
-}
-
-// Map column IDs to API sort values
 const SORT_COLUMN_MAP: Record<string, { asc: string; desc: string }> = {
   series: { asc: "name_asc", desc: "name_desc" },
   year: { asc: "year_asc", desc: "year_desc" },
@@ -190,8 +65,49 @@ function getColumnSort(
   return false;
 }
 
-// Action cell component to handle add-to-library logic
-function ActionCell({
+function CoverThumbnail({ comic }: { comic: SearchResult }) {
+  const [imageError, setImageError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const imageUrl = comic.comicthumb || comic.image || comic.comicimage;
+
+  if (!imageUrl || imageError) {
+    return (
+      <div
+        className="w-10 h-[56px] rounded-[3px] border flex items-center justify-center shrink-0"
+        style={{ borderColor: "var(--border)", background: "var(--card)" }}
+      >
+        <ImageOff className="w-3.5 h-3.5 text-muted-foreground/50" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="w-10 h-[56px] rounded-[3px] overflow-hidden shrink-0 border"
+      style={{ borderColor: "var(--border)", background: "var(--card)" }}
+    >
+      <img
+        src={imageUrl}
+        alt={comic.name}
+        className={`w-full h-full object-cover transition-opacity duration-200 ${
+          isLoaded ? "opacity-100" : "opacity-0"
+        }`}
+        loading="lazy"
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
+interface AddByIdEventDetail {
+  comicid: string;
+  status: "success" | "failure";
+  message?: string;
+}
+
+function AddButton({
   comic,
   contentType,
 }: {
@@ -209,7 +125,6 @@ function ActionCell({
   const isManga = contentType === "manga";
   const itemLabel = isManga ? "Manga" : "Comic";
 
-  // Listen for SSE events when a comic is being added
   useEffect(() => {
     if (!isProcessing || !comicIdRef.current) return;
     let cancelled = false;
@@ -218,7 +133,6 @@ function ActionCell({
       if (cancelled) return;
       try {
         const data: AddByIdEventDetail = JSON.parse(event.detail);
-
         if (data.comicid === comicIdRef.current) {
           if (data.status === "success") {
             navigate(`/library/${comicIdRef.current}`);
@@ -242,25 +156,20 @@ function ActionCell({
     };
 
     window.addEventListener("comic-added", handleAddById as EventListener);
-
     return () => {
       cancelled = true;
       window.removeEventListener("comic-added", handleAddById as EventListener);
     };
   }, [isProcessing, navigate, addToast]);
 
-  const handleAddComic = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-
     try {
       comicIdRef.current = comic.comicid ?? comic.id ?? null;
       setIsProcessing(true);
-
-      if (isManga) {
+      if (isManga)
         await addMangaMutation.mutateAsync(comic.comicid ?? comic.id);
-      } else {
-        await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
-      }
+      else await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
       setIsAdded(true);
       addToast({
         type: "success",
@@ -280,43 +189,65 @@ function ActionCell({
     }
   };
 
+  const base =
+    "inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] border font-mono text-[11px] transition-colors";
+
   if (isAdded) {
     return (
-      <Button variant="outline" size="sm" disabled>
-        <Check className="w-3 h-3 mr-1" />
-        Added
-      </Button>
+      <button
+        type="button"
+        disabled
+        className={base}
+        style={{
+          borderColor: "var(--border)",
+          color: "var(--status-active)",
+        }}
+      >
+        <Check className="w-3 h-3" />
+        added
+      </button>
     );
   }
 
   if (isProcessing) {
     return (
-      <Button variant="outline" size="sm" disabled>
-        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-        Processing...
-      </Button>
+      <button
+        type="button"
+        disabled
+        className={base}
+        style={{
+          borderColor: "var(--border)",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        <Loader2 className="w-3 h-3 animate-spin" />
+        adding…
+      </button>
     );
   }
 
   const isPending = isManga
     ? addMangaMutation.isPending
     : addComicMutation.isPending;
+
   return (
-    <Button
-      onClick={handleAddComic}
+    <button
+      type="button"
+      onClick={handleAdd}
       disabled={isPending}
-      variant="outline"
-      size="sm"
-      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+      className={`${base} hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]`}
+      style={{
+        borderColor: "var(--primary)",
+        color: "var(--primary)",
+      }}
     >
-      <Plus className="w-3 h-3 mr-1" />
-      {isPending ? "Adding..." : "Add"}
-    </Button>
+      <Plus className="w-3 h-3" />
+      {isPending ? "adding…" : "add"}
+    </button>
   );
 }
 
-// Server-side sort header for search results
-function ServerSortHeader({
+function SortHeader({
   columnId,
   title,
   currentSort,
@@ -329,7 +260,6 @@ function ServerSortHeader({
 }) {
   const mapping = SORT_COLUMN_MAP[columnId];
   if (!mapping) return <span>{title}</span>;
-
   const sortState = getColumnSort(columnId, currentSort);
   const ariaSort =
     sortState === "asc"
@@ -344,96 +274,123 @@ function ServerSortHeader({
     else onSortChange(mapping.desc);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleClick();
-    }
-  };
-
   return (
-    <div
-      className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
-      role="button"
-      tabIndex={0}
-      aria-sort={ariaSort}
+    <button
+      type="button"
       onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      aria-sort={ariaSort}
+      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
     >
       <span>{title}</span>
       {sortState === "asc" ? (
-        <ChevronUp className="w-4 h-4" />
+        <ChevronUp className="w-3 h-3" />
       ) : sortState === "desc" ? (
-        <ChevronDown className="w-4 h-4" />
+        <ChevronDown className="w-3 h-3" />
       ) : (
-        <ChevronsUpDown className="w-4 h-4 text-muted-foreground/50" />
+        <ChevronsUpDown className="w-3 h-3 opacity-50" />
       )}
-    </div>
+    </button>
   );
 }
+
+interface SearchResultsTableProps {
+  results: SearchResult[];
+  currentSort: string;
+  onSortChange: (sort: string) => void;
+  contentType: ContentType;
+  /** Unused — retained for API compatibility. */
+  columnToggleContainer?: HTMLElement | null;
+}
+
+const GRID = "40px 56px 1fr 160px 70px 70px 100px";
 
 export default function SearchResultsTable({
   results,
   currentSort,
   onSortChange,
   contentType,
-  columnToggleContainer,
 }: SearchResultsTableProps) {
   const isManga = contentType === "manga";
   const issuesLabel = isManga ? "Chapters" : "Issues";
   const publisherLabel = isManga ? "Author" : "Publisher";
 
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    publisher: true,
-    seriesStatus: false,
-    contentRating: false,
-  });
-
-  const handleToggleColumn = (columnId: string) => {
-    setColumnVisibility((prev) => ({
-      ...prev,
-      [columnId]: prev[columnId] === false,
-    }));
-  };
-
-  const columns = useMemo(
-    () => [
-      columnHelper.display({
-        id: "cover",
-        header: "",
-        enableSorting: false,
-        enableHiding: false,
-        size: 50,
-        cell: ({ row }) => <CoverThumbnail comic={row.original} />,
-      }),
-      columnHelper.accessor("name", {
-        id: "series",
-        enableHiding: false,
-        header: () => (
-          <ServerSortHeader
+  return (
+    <div>
+      {/* Header */}
+      <div
+        className="grid items-center gap-3 px-5 py-2 font-mono text-[10px] tracking-[0.08em] uppercase border-b"
+        style={{
+          gridTemplateColumns: GRID,
+          borderColor: "var(--border)",
+          color: "var(--text-muted)",
+        }}
+      >
+        <div />
+        <div />
+        <div>
+          <SortHeader
             columnId="series"
             title="Series"
             currentSort={currentSort}
             onSortChange={onSortChange}
           />
-        ),
-        cell: ({ row }) => {
-          const comic = row.original;
-          const description = getDescription(comic);
-          const sourceLabel =
-            SOURCE_LABELS[comic.metadata_source ?? ""] ?? null;
+        </div>
+        <div>{publisherLabel}</div>
+        <div>
+          <SortHeader
+            columnId="year"
+            title="Year"
+            currentSort={currentSort}
+            onSortChange={onSortChange}
+          />
+        </div>
+        <div>
+          <SortHeader
+            columnId="issues"
+            title={issuesLabel}
+            currentSort={currentSort}
+            onSortChange={onSortChange}
+          />
+        </div>
+        <div />
+      </div>
 
-          const nameContent = (
-            <div className="min-w-0 max-w-[350px]">
+      {/* Rows */}
+      {results.map((comic, idx) => {
+        const description = getDescription(comic);
+        const sourceLabel = SOURCE_LABELS[comic.metadata_source ?? ""] ?? null;
+        const issues = comic.issues ?? comic.count_of_issues;
+        return (
+          <div
+            key={comic.comicid ?? comic.id ?? idx}
+            className="grid items-center gap-3 px-5 py-2.5 border-b hover:bg-secondary/30 transition-colors text-[12px]"
+            style={{
+              gridTemplateColumns: GRID,
+              borderColor: "var(--border)",
+            }}
+          >
+            <div
+              className="font-mono text-[10px]"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {String(idx + 1).padStart(2, "0")}
+            </div>
+            <CoverThumbnail comic={comic} />
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="font-medium truncate">{comic.name}</span>
+                <span className="font-medium truncate text-[13px]">
+                  {comic.name}
+                </span>
                 {sourceLabel && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] px-1.5 py-0 font-normal shrink-0"
+                  <span
+                    className="shrink-0 font-mono text-[9px] tracking-[0.05em] uppercase px-1.5 py-0.5 rounded-[3px] border"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--muted-foreground)",
+                    }}
                   >
                     {sourceLabel}
-                  </Badge>
+                  </span>
                 )}
                 {comic.url && isSafeUrl(comic.url) && (
                   <a
@@ -441,7 +398,7 @@ export default function SearchResultsTable({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-muted-foreground hover:text-foreground shrink-0"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
                     aria-label={`Open ${comic.name} on provider site`}
                   >
                     <ExternalLink className="w-3 h-3" />
@@ -449,137 +406,37 @@ export default function SearchResultsTable({
                 )}
               </div>
               {description && (
-                <div className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[300px]">
-                  {truncate(description, 120)}
+                <div
+                  className="text-[11.5px] truncate mt-0.5"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  {truncate(description, 140)}
                 </div>
               )}
             </div>
-          );
-
-          if (description && description.length > 120) {
-            return (
-              <HoverCard openDelay={300}>
-                <HoverCardTrigger asChild>{nameContent}</HoverCardTrigger>
-                <HoverCardContent
-                  side="right"
-                  align="start"
-                  collisionPadding={16}
-                  className="w-80 max-h-[50vh] overflow-y-auto text-sm"
-                >
-                  <p className="font-medium mb-1">{comic.name}</p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {description}
-                  </p>
-                </HoverCardContent>
-              </HoverCard>
-            );
-          }
-
-          return nameContent;
-        },
-      }),
-      columnHelper.accessor("publisher", {
-        id: "publisher",
-        size: 130,
-        meta: { label: publisherLabel },
-        header: publisherLabel,
-        cell: ({ row }) => {
-          const pub = row.original.publisher;
-          if (!pub || pub === "Unknown") return <span>{"\u2014"}</span>;
-          return (
-            <span className="text-sm line-clamp-2 max-w-[130px]">{pub}</span>
-          );
-        },
-      }),
-      columnHelper.accessor("comicyear", {
-        id: "year",
-        meta: { label: "Year" },
-        header: () => (
-          <ServerSortHeader
-            columnId="year"
-            title="Year"
-            currentSort={currentSort}
-            onSortChange={onSortChange}
-          />
-        ),
-        cell: ({ getValue }) => <span>{getValue() || "\u2014"}</span>,
-      }),
-      columnHelper.accessor("issues", {
-        id: "issues",
-        meta: { label: issuesLabel },
-        header: () => (
-          <ServerSortHeader
-            columnId="issues"
-            title={issuesLabel}
-            currentSort={currentSort}
-            onSortChange={onSortChange}
-          />
-        ),
-        cell: ({ row }) => {
-          const issues = row.original.issues ?? row.original.count_of_issues;
-          return <span>{issues !== undefined ? issues : "\u2014"}</span>;
-        },
-      }),
-      columnHelper.accessor("status", {
-        id: "seriesStatus",
-        meta: { label: "Status" },
-        header: "Status",
-        cell: ({ getValue }) => {
-          const status = getValue();
-          if (!status) return <span>{"\u2014"}</span>;
-          return <span className="text-sm capitalize">{status}</span>;
-        },
-      }),
-      columnHelper.accessor("content_rating", {
-        id: "contentRating",
-        meta: { label: "Content Rating" },
-        header: "Rating",
-        cell: ({ getValue }) => {
-          const rating = getValue();
-          if (!rating) return <span>{"\u2014"}</span>;
-          return <span className="text-sm capitalize">{rating}</span>;
-        },
-      }),
-      columnHelper.display({
-        id: "actions",
-        header: "",
-        enableSorting: false,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <div className="text-right">
-            <ActionCell comic={row.original} contentType={contentType} />
+            <div
+              className="truncate"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              {comic.publisher && comic.publisher !== "Unknown"
+                ? comic.publisher
+                : "—"}
+            </div>
+            <div
+              className="font-mono text-[11px]"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              {comic.comicyear || "—"}
+            </div>
+            <div className="font-mono text-[11px]">
+              {issues !== undefined ? issues : "—"}
+            </div>
+            <div className="flex justify-end">
+              <AddButton comic={comic} contentType={contentType} />
+            </div>
           </div>
-        ),
-      }),
-    ],
-    [contentType, issuesLabel, publisherLabel, currentSort, onSortChange],
-  );
-
-  const table = useReactTable({
-    data: results,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualSorting: true,
-    state: {
-      columnVisibility,
-    },
-    onColumnVisibilityChange: setColumnVisibility,
-  });
-
-  const columnToggle = (
-    <SearchColumnVisibility
-      columnVisibility={columnVisibility}
-      onToggle={handleToggleColumn}
-      isManga={isManga}
-    />
-  );
-
-  return (
-    <>
-      {columnToggleContainer
-        ? createPortal(columnToggle, columnToggleContainer)
-        : null}
-      <DataTable table={table} />
-    </>
+        );
+      })}
+    </div>
   );
 }

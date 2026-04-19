@@ -9,6 +9,7 @@ import { Bell, MessageCircle } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
 const FULL_BLEED_ROUTES = ["/", "/library", "/settings"];
+const FULL_BLEED_PREFIXES = ["/library/", "/series/"];
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,7 +22,9 @@ export default function Layout({ children }: LayoutProps) {
   const { pathname } = useLocation();
 
   const showAiBell = aiStatus?.configured === true;
-  const fullBleed = FULL_BLEED_ROUTES.includes(pathname);
+  const fullBleed =
+    FULL_BLEED_ROUTES.includes(pathname) ||
+    FULL_BLEED_PREFIXES.some((p) => pathname.startsWith(p));
   const mock = isMockEnabled();
 
   return (

@@ -168,13 +168,39 @@ export default function SettingsPage() {
     <div className="h-full flex flex-col page-transition">
       <PageHeader title="Settings" meta={`${version} · config ${configPath}`} />
 
+      {/* Mobile section chips — horizontal scroll */}
       <div
-        className="grid flex-1 min-h-0"
-        style={{ gridTemplateColumns: "220px 1fr" }}
+        className="md:hidden border-b overflow-x-auto"
+        style={{ borderColor: "var(--border)" }}
       >
-        {/* Left rail */}
+        <div className="flex items-center gap-1.5 px-4 py-2 whitespace-nowrap">
+          {SECTIONS.map((s) => {
+            const active = section === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSection(s.id)}
+                className="px-2.5 py-1 rounded-full border text-[12px] transition-colors shrink-0"
+                style={{
+                  borderColor: active ? "var(--primary)" : "var(--border)",
+                  color: active ? "var(--primary)" : "var(--muted-foreground)",
+                  background: active
+                    ? "color-mix(in oklab, var(--primary) 12%, transparent)"
+                    : "transparent",
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid flex-1 min-h-0 grid-cols-1 md:[grid-template-columns:220px_1fr]">
+        {/* Desktop left rail */}
         <aside
-          className="border-r py-3 px-2 overflow-auto"
+          className="hidden md:block border-r py-3 px-2 overflow-auto"
           style={{ borderColor: "var(--border)" }}
         >
           {SECTIONS.map((s) => {
@@ -200,8 +226,8 @@ export default function SettingsPage() {
         </aside>
 
         {/* Content panel */}
-        <div className="overflow-auto">
-          <div className="px-6 py-6 max-w-3xl">
+        <div className="overflow-auto min-w-0">
+          <div className="px-4 py-5 md:px-6 md:py-6 max-w-3xl pb-24">
             {section === "general" && <GeneralTab {...tabProps} />}
             {section === "interface" && <InterfaceTab {...tabProps} />}
             {section === "api" && <ApiTab {...tabProps} />}
@@ -251,13 +277,12 @@ function AboutSection({ config }: { config: Record<string, unknown> }) {
         {rows.map(([k, v]) => (
           <div
             key={k}
-            className="grid items-center px-3.5 py-2.5 font-mono text-[11.5px]"
-            style={{ gridTemplateColumns: "160px 1fr" }}
+            className="grid gap-1 sm:gap-0 sm:items-center px-3.5 py-2.5 font-mono text-[11.5px] grid-cols-1 sm:[grid-template-columns:160px_1fr]"
           >
             <div className="text-muted-foreground tracking-[0.05em] uppercase text-[10px]">
               {k}
             </div>
-            <div className="truncate">{v}</div>
+            <div className="truncate break-all">{v}</div>
           </div>
         ))}
       </div>

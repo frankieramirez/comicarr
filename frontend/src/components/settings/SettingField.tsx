@@ -95,13 +95,10 @@ export function SettingField({
     );
   }
 
-  // Read-only inline row: label on left, input + tag on right
+  // Read-only inline row: label on left, input + tag on right (stacks on mobile)
   if (readOnly) {
     return (
-      <div
-        className="grid gap-4 py-3 items-center"
-        style={{ gridTemplateColumns: "200px 1fr" }}
-      >
+      <div className="grid gap-2 sm:gap-4 py-3 sm:items-center grid-cols-1 sm:[grid-template-columns:200px_1fr]">
         <div>
           <div className="text-[12.5px] font-medium">{label}</div>
           {helpText && (
@@ -110,9 +107,9 @@ export function SettingField({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className="flex-1 font-mono text-[12px] px-3 py-1.5 rounded-[5px] border bg-card"
+            className="flex-1 min-w-0 font-mono text-[12px] px-3 py-1.5 rounded-[5px] border bg-card break-all"
             style={{ borderColor: "var(--border)" }}
           >
             {value || "—"}
