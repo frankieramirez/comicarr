@@ -63,9 +63,9 @@ export interface Issue {
   number?: string;
   name?: string;
   releaseDate?: string;
-  issueDate?: string;
+  issueDate?: string | null;
   status?: string;
-  imageURL?: string;
+  imageURL?: string | null;
   comicName?: string;
 }
 
