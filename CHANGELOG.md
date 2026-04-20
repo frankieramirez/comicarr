@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.17.1](https://github.com/frankieramirez/comicarr/compare/v0.17.0...v0.17.1) (2026-04-20)
+
+
+### Bug Fixes
+
+* Render issue rows on series detail page ([#141](https://github.com/frankieramirez/comicarr/issues/141)) ([ba24726](https://github.com/frankieramirez/comicarr/commit/ba247265a9a4f7dad0a8767be56201b3646aabd0))
+
 ## [0.17.0](https://github.com/frankieramirez/comicarr/compare/v0.16.0...v0.17.0) (2026-04-19)
 
 
