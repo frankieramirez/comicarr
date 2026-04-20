@@ -63,7 +63,10 @@ export interface Issue {
   number?: string;
   name?: string;
   releaseDate?: string;
+  issueDate?: string | null;
   status?: string;
+  imageURL?: string | null;
+  comicName?: string;
 }
 
 /** Search result from findComic */
