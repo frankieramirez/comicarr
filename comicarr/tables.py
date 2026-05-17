@@ -653,6 +653,36 @@ ai_cache = Table(
 )
 
 # ---------------------------------------------------------------------------
+# pipeline_journal
+# ---------------------------------------------------------------------------
+# Durable, forward-only transition record for the snatch -> download ->
+# post-process pipeline. One row per release_key. Survives process restart so
+# an in-flight item completes exactly once. stage is totally ordered via
+# stage_rank (the conditional advance-only WHERE + the PP-consumer atomic
+# claim). status/retry_count/next_retry_at are reserved-nullable for a future
+# operator status / retry-backoff layer (R9) and are unpopulated now.
+pipeline_journal = Table(
+    "pipeline_journal",
+    metadata,
+    Column("release_key", Text, unique=True),
+    Column("issueid", Text),
+    Column("provider", Text),
+    Column("downloader_type", Text),
+    Column("nzbname", Text),
+    Column("hash", Text),
+    Column("stage", Text),  # snatched|downloaded|post_processing|moved|post_processed|failed
+    Column("stage_rank", Integer),  # derived from stage; drives the monotonic guard
+    Column("payload_json", Text),  # reconstruct the SNATCHED_QUEUE/PP_QUEUE item
+    Column("fail_reason", Text),  # nullable
+    Column("updated_date", Text),
+    # Reserved-nullable (R9) — unpopulated now:
+    Column("status", Text),
+    Column("retry_count", Integer),
+    Column("next_retry_at", Text),
+    UniqueConstraint("release_key", name="uq_pipeline_journal_release_key"),
+)
+
+# ---------------------------------------------------------------------------
 # Indexes
 # ---------------------------------------------------------------------------
 
@@ -671,6 +701,7 @@ Index("storyarcs_cv_arcid", storyarcs.c.CV_ArcID)
 Index("failed_issueid", failed.c.IssueID)
 Index("upcoming_issuedate", upcoming.c.IssueDate)
 Index("upcoming_issueid", upcoming.c.IssueID)
+Index("pipeline_journal_stage", pipeline_journal.c.stage)
 
 # Case-insensitive indexes (SQLite uses COLLATE NOCASE on column definition;
 # PostgreSQL functional indexes are created separately in db.py)
@@ -713,6 +744,7 @@ TABLE_MAP = {
     "ai_activity_log": ai_activity_log,
     "ai_metadata_history": ai_metadata_history,
     "ai_cache": ai_cache,
+    "pipeline_journal": pipeline_journal,
 }
 
 
