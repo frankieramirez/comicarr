@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.18.0](https://github.com/frankieramirez/comicarr/compare/v0.17.1...v0.18.0) (2026-05-17)
+
+
+### Features
+
+* Restart-durable download/post-process pipeline ([#156](https://github.com/frankieramirez/comicarr/issues/156)) ([49b569f](https://github.com/frankieramirez/comicarr/commit/49b569fe37970862c61408836bc43dce2c0456fd))
+
 ## [0.17.1](https://github.com/frankieramirez/comicarr/compare/v0.17.0...v0.17.1) (2026-04-20)
 
 
