@@ -267,7 +267,15 @@ class TestProcessMangaChapterMatch:
 
         mock_conn = MagicMock()
 
+        # U9: the per-match nzblog-delete begin() block now CO-COMMITS the
+        # journal `post_processed` transition (conn-mode). `db` is fully mocked
+        # in this test (so the real journal write cannot run), and conn-mode
+        # _journal_pp correctly RE-RAISES on failure — so stub the façade write
+        # to a benign no-op here. This test pins the issues-upsert + success
+        # log, not the journal seam (covered by test_pp_complete_ordering.py /
+        # test_journal_pp_seam.py).
         with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")), \
+             patch("comicarr.app.downloads.journal.record_transition", return_value=True), \
              patch("comicarr.postprocessor.db") as mock_db:
             # select_one calls: 1) comic lookup, 2) chapter match, 3) have count
             mock_db.select_one.side_effect = [comic_row, issue_row, have_count]
