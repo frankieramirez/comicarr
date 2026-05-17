@@ -770,7 +770,74 @@ def ddl_downloader(queue):
             logger.info("Now loading request from DDL queue: %s" % item["series"])
             ctrlval = {"id": item["id"]}
             val = {"status": "Downloading", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
-            db.upsert("ddl_info", val, ctrlval)
+
+            # --- DDL snatch: ddl_info status='Downloading' + journal snatched ---
+            # Unlike the NZB/torrent seam (where db.upsert owns its own txn so
+            # the journal write is ordered-LAST), the DDL "download started"
+            # write is atomic-capable: a single explicit begin() block writes
+            # the ddl_info row AND the journal `snatched` row together, so there
+            # is NO residual window. We bypass db.upsert and build the same
+            # dialect-aware ON CONFLICT it would (ddl_info upsert key = ["ID"],
+            # see comicarr/tables.py UPSERT_KEYS) directly on the connection,
+            # then co-commit the journal transition on the SAME conn. If the
+            # block raises, BOTH rows roll back — no half-write. NOTE: the
+            # ddl_info conflict key column is "ID" (see comicarr/tables.py:496,
+            # UPSERT_KEYS["ddl_info"] == ["ID"]); the legacy ctrlval dict uses
+            # lowercase "id" — we build correctly-cased values here so this
+            # atomic block is correct on SQLite.
+            from comicarr.app.downloads import journal
+            from comicarr.tables import ddl_info
+
+            ddl_set_values = dict(val)
+            ddl_all_values = {**val, "ID": item["id"]}
+            dialect = db.get_dialect()
+            if dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert as _ddl_insert
+
+                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
+                ddl_stmt = ddl_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddl_set_values)
+            elif dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _ddl_insert
+
+                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
+                ddl_stmt = ddl_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddl_set_values)
+            elif dialect == "mysql":
+                from sqlalchemy.dialects.mysql import insert as _ddl_insert
+
+                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
+                ddl_stmt = ddl_stmt.on_duplicate_key_update(**ddl_set_values)
+            else:
+                raise ValueError("Unsupported dialect for DDL upsert: %s" % dialect)
+
+            ddl_issueid = item.get("issueid")
+            ddl_payload = {
+                "issueid": ddl_issueid,
+                "comicid": item.get("comicid"),
+                "provider": "DDL",
+                "id": item["id"],
+                "series": item.get("series"),
+                "filename": item.get("filename"),
+                "ddl": True,
+            }
+            ddl_rkey = journal.release_key(
+                ddl_issueid,
+                "DDL",
+                nzbname=item.get("filename"),
+                hash=None,
+                discriminant=item["id"],
+            )
+            with db.get_engine().begin() as conn:
+                conn.execute(ddl_stmt)
+                journal.record_transition(
+                    ddl_rkey,
+                    journal.SNATCHED,
+                    payload=ddl_payload,
+                    conn=conn,
+                    issueid=ddl_issueid,
+                    provider="DDL",
+                    downloader_type="ddl",
+                    nzbname=item.get("filename"),
+                )
 
             if item["site"] == "DDL(GetComics)":
                 try:

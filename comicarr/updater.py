@@ -34,10 +34,12 @@ from comicarr.tables import (
     comics,
     issues,
     jobhistory,
-    nzblog,
     storyarcs,
     upcoming,
     weekly,
+)
+from comicarr.tables import (
+    nzblog as nzblog_tbl,
 )
 
 
@@ -1232,7 +1234,7 @@ def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, pro
         newValue["AltNZBName"] = alt_nzbname
 
     # check if it exists already in the log.
-    chkd = db.select_one(select(nzblog).where((nzblog.c.IssueID == IssueID) & (nzblog.c.PROVIDER == prov)))
+    chkd = db.select_one(select(nzblog_tbl).where((nzblog_tbl.c.IssueID == IssueID) & (nzblog_tbl.c.PROVIDER == prov)))
     if chkd is None:
         pass
     else:
@@ -1240,9 +1242,18 @@ def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, pro
         if any([altnames is None, altnames == ""]):
             # we need to wipe the entry so we can re-update with the alt-nzbname if required
             with db.get_engine().begin() as conn:
-                conn.execute(nzblog.delete().where((nzblog.c.IssueID == IssueID) & (nzblog.c.PROVIDER == prov)))
+                conn.execute(
+                    nzblog_tbl.delete().where((nzblog_tbl.c.IssueID == IssueID) & (nzblog_tbl.c.PROVIDER == prov))
+                )
             logger.fdebug("Deleted stale entry from nzblog for IssueID: " + str(IssueID) + " [" + prov + "]")
     db.upsert("nzblog", newValue, controlValue)
+
+    # Return the resolved identity actually persisted to the nzblog row. For
+    # one-offs IssueID was just synthesized from CONFIG.HIGHCOUNT above and is
+    # otherwise lost to callers; surfacing it lets the snatch seam / U6 anchor
+    # reconstruction reason about exactly what landed durably (U2). Existing
+    # callers ignore the return — behavior is unchanged.
+    return {"IssueID": IssueID, "NZBName": NZBName, "PROVIDER": prov}
 
 
 def foundsearch(
@@ -1259,6 +1270,7 @@ def foundsearch(
     comicname=None,
     issuenumber=None,
     pullinfo=None,
+    nzbname=None,
 ):
     # When doing a Force Search (Wanted tab), the resulting search calls this to update.
 
@@ -1419,6 +1431,60 @@ def foundsearch(
             "tables": "tables",
             "message": global_line,
         }
+
+        # --- Durable pipeline journal: snatched (U2) ---------------------------
+        # STRICTLY LAST on this seam: every db.upsert("snatched"/"nzblog"/...)
+        # above has already opened-and-committed its OWN transaction (see
+        # comicarr/db.py:242-294), and nzblog() (which always runs before
+        # foundsearch at the snatch seam) has likewise committed. This journal
+        # write is a SEPARATE transaction issued after all of them — it is NOT
+        # bundled into the real snatch, so a journal lock-exhaustion can never
+        # roll back the durable snatch. The residual window (snatch committed,
+        # journal not yet) is recoverable by U6 anchor reconstruction and is
+        # expected, not a bug. release_key uses the same IssueID that landed in
+        # the snatched table (IssueArcID for story_arc) so U6 can rebuild it
+        # from the durable snatched/nzblog rows. For synthetic-HIGHCOUNT
+        # one-offs (non-reproducible IssueID) the payload dict is the
+        # collision-resistant discriminant and the journal row is authoritative.
+        try:
+            from comicarr.app.downloads import journal
+
+            journal_issueid = snatchedupdate.get("IssueID")
+            payload = {
+                "issueid": journal_issueid,
+                "comicid": ComicID,
+                "provider": provider,
+                "hash": hash,
+                "nzbname": nzbname,
+                "mode": mode,
+                "comicname": ComicName,
+                "issuenumber": IssueNum,
+            }
+            rkey = journal.release_key(
+                journal_issueid,
+                provider,
+                nzbname=nzbname,
+                hash=hash,
+                discriminant=hash or nzbname or payload,
+            )
+            journal.record_transition(
+                rkey,
+                journal.SNATCHED,
+                payload=payload,
+                issueid=journal_issueid,
+                provider=provider,
+                nzbname=nzbname,
+                hash=hash,
+            )
+        except Exception as e:
+            # A journal write failing its 5-retry cap (or any error) must NOT
+            # roll back the already-committed snatched/nzblog rows — log loudly
+            # and continue; U6 anchor reconstruction closes this window.
+            logger.error(
+                "%s Journal snatched transition failed for %s (IssueID=%s "
+                "provider=%s) — durable snatch is intact, recoverable at "
+                "startup: %s" % (module, ComicName, snatchedupdate.get("IssueID"), provider, e)
+            )
     else:
         if down == "PP":
             logger.info(module + " Setting status to Post-Processed in history.")
