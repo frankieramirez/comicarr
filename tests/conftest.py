@@ -489,7 +489,24 @@ def capture_logs(caplog):
     import logging
 
     caplog.set_level(logging.DEBUG)
-    return caplog
+
+    # comicarr's logger sets propagate=False once initLogger() runs (which an
+    # earlier test in the session may trigger), after which caplog's
+    # root-attached handler captures nothing. Bind caplog's handler directly to
+    # the "comicarr" logger so capture is independent of global logger state /
+    # test order, then restore on teardown for isolation.
+    comicarr_logger = logging.getLogger("comicarr")
+    prev_propagate = comicarr_logger.propagate
+    prev_level = comicarr_logger.level
+    comicarr_logger.propagate = True
+    comicarr_logger.setLevel(logging.DEBUG)
+    comicarr_logger.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        comicarr_logger.removeHandler(caplog.handler)
+        comicarr_logger.propagate = prev_propagate
+        comicarr_logger.setLevel(prev_level)
 
 
 # =============================================================================

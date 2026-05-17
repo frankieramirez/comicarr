@@ -4339,6 +4339,10 @@ class PostProcessor(object):
                 if any(f.lower().endswith(ext) for ext in self.extensions):
                     manga_files.append(os.path.join(root, f))
 
+        # Deterministic, name-ordered processing so chapters import in order
+        # (ch1 before ch2) regardless of filesystem walk order across platforms.
+        manga_files.sort()
+
         if not manga_files:
             self._log("No manga files found in download directory")
             logger.warn("%s No manga files in: %s" % (module, nzb_dir))
