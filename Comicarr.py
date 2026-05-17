@@ -558,6 +558,20 @@ def main():
     # Start the background threads
     comicarr.start()
 
+    # Startup recovery replay (U6). MUST run here: after comicarr.start()
+    # returns (start() is one unbroken `with INIT_LOCK:` block, so the lock is
+    # now released — replay never acquires INIT_LOCK and cannot starve a
+    # concurrent SIGTERM halt()), and after credential decryption (encrypt_items
+    # ran inside comicarr.initialize() above, so downloader-client creds are no
+    # longer ciphertext), and before uvicorn.run() (workers are already running
+    # so re-enqueued/STILL items are picked up by the live monitors). Idempotent
+    # and re-runnable; a per-row failure is logged and skipped, never fatal.
+    try:
+        from comicarr.app.downloads import recovery
+        recovery.replay_pipeline()
+    except Exception as e:
+        logger.error('[RECOVERY] Startup replay raised — continuing startup (resumable next start): %s' % e)
+
     signal.signal(signal.SIGTERM, handler_sigterm)
 
     import uvicorn
