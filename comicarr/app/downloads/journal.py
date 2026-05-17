@@ -96,7 +96,7 @@ def stage_rank(stage):
 # ---------------------------------------------------------------------------
 
 
-def _is_synthetic_oneoff(issueid):
+def is_synthetic_oneoff(issueid):
     """A one-off carries a synthetic CONFIG.HIGHCOUNT IssueID (>= 900000)
     that is not persisted and diverges across restart."""
     if issueid is None:
@@ -123,7 +123,7 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     """
     rel = (nzbname or hash or "").strip()
 
-    if _is_synthetic_oneoff(issueid):
+    if is_synthetic_oneoff(issueid):
         disc = _coerce_discriminant(discriminant)
         if not disc:
             logger.warn(

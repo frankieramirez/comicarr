@@ -8,63 +8,27 @@
 #  (at your option) any later version.
 
 """
-Startup recovery replay orchestrator (U6).
+Startup recovery replay orchestrator.
 
-Runs ONCE at startup, AFTER ``comicarr.start()`` returns (so ``INIT_LOCK``
-is released — ``start()`` is one unbroken ``with INIT_LOCK:`` block) and
-AFTER credential decryption (downloader-client creds are ciphertext until
-``encrypt_items`` runs during ``comicarr.initialize()``), and BEFORE
-``uvicorn.run()``. It re-drives every open pipeline_journal obligation
-through its remaining stages, exactly once, with no operator action.
+Runs ONCE at startup, AFTER ``comicarr.start()`` returns (INIT_LOCK released)
+and AFTER credential decryption, and BEFORE ``uvicorn.run()``. Re-drives every
+open pipeline_journal obligation through its remaining stages, exactly once,
+with no operator action. Idempotent and re-runnable.
 
-Orchestration ONLY. This module owns NO transition logic and NO
-classification logic:
+Module boundary: orchestration ONLY. journal.py owns the monotonic stage
+lattice / release_key derivation / terminal predicate; recovery_classify.py
+owns the per-downloader verdict and the GONE -> mark_failed mutation.
 
-  * journal.py owns the monotonic stage lattice / release_key derivation /
-    terminal predicate. Every journal write here goes through that
-    forward-only facade, so a row a live worker concurrently advanced is
-    never regressed.
-  * recovery_classify.py (U5) owns the per-downloader verdict
-    (still/complete/gone/unknown) and the GONE -> mark_failed mutation.
-
-Snapshot-then-RECHECK-then-act:
-
-  1. Anchor reconstruction first — rebuild a `snatched` journal row for the
-     U2 residual window (snatch committed durably, journal write lost),
-     but ONLY when the release has not already advanced (see the predicate
-     in _reconstruct_anchors). This must NOT mass-re-drive every
-     historically-snatched issue.
-  2. journal.read_open() snapshot. For EACH row, RE-READ its current stage
-     with a cheap point lookup immediately before acting (workers are live
-     during replay — if it advanced past the snapshot stage, SKIP; this
-     avoids creating a duplicate the U4 claim would then have to dedupe).
-  3. Act on the (rechecked) stage:
-       moved            -> finalize_post_processing: finish DB facts ONLY
-                           (move physically committed, source maybe gone —
-                           NEVER re-import). The `moved` marker is the SOLE
-                           discriminator; no file probe anywhere.
-       post_processing  -> finalize_post_processing: re-drive PP in FULL
-                           (move not committed, source intact).
-       else done-check  -> Status==Post-Processed / nzblog absent (one-off:
-                           journal-authoritative, nzblog advisory) =>
-                           journal.mark_done, skip.
-       else classify    -> complete -> reconstruct payload + PP_QUEUE.put
-                                       (stamp journal_release_key for U4).
-                           still    -> reconstruct payload + re-enqueue onto
-                                       SNATCHED_QUEUE (torrent) / NZB_QUEUE
-                                       (SAB/NZBGet) so the live monitor
-                                       (in-memory tracking did NOT survive
-                                       restart) resumes.
-                           gone     -> recovery_classify.apply_verdict
-                                       (mark_failed, payload retained).
-                           unknown  -> leave stage unchanged.
-
-Per-row try/except: a failing row logs ``[RECOVERY]`` LOUDLY and is SKIPPED
-(resumable next start), NEVER aborts the loop. The enqueue burst is
-throttled (a small sleep between enqueues, modelled on
-``helpers.job_management(startup=True)`` / ``ddl_health_check``) so replay
-does not exhaust the SQLite 5-retry write cap against concurrent PP workers.
-Idempotent and re-runnable.
+Snapshot-then-RECHECK-then-act: anchor reconstruction first (rebuild a
+`snatched` journal row for the residual window where the snatch committed
+durably but the strictly-last journal write was lost — only when the release
+has NOT already advanced, so this never mass-re-drives every
+historically-snatched issue), then a read_open() snapshot, then for each row
+re-read its current stage with a cheap point lookup before acting (workers are
+live; skip if it advanced past the snapshot). The enqueue burst is throttled
+so replay does not exhaust the SQLite 5-retry write cap against concurrent PP
+workers; a failing row is logged LOUDLY and SKIPPED (resumable next start),
+never aborting the loop.
 """
 
 import time
@@ -80,6 +44,17 @@ from comicarr.tables import nzblog, snatched
 # single-writer against the concurrent PP workers and exhaust the journal's
 # 5-retry cap (modelled on the throttling in job_management/ddl_health_check).
 _ENQUEUE_THROTTLE_SECONDS = 0.05
+
+# Startup availability cap: finalize_post_processing re-drives a
+# `post_processing`-stage row by running a FULL process.Process INLINE and
+# synchronously, inside replay_pipeline() which runs BEFORE uvicorn binds. A
+# large backlog of post_processing rows would each run a full PP serially
+# before the web server is reachable (unbounded by count). Cap the number of
+# inline post_processing re-drives per replay pass; the remainder are SKIPPED
+# this pass and resume next startup (the design is idempotent/re-runnable, so
+# this is safe and only defers, never drops). `moved`/done/still/gone paths
+# are cheap and NOT capped.
+_MAX_INLINE_PP_REDRIVE_PER_PASS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -110,19 +85,6 @@ def _has_advanced_sibling(issueid, provider):
         # mass-re-drive (a missed reconstruction is recoverable next start; a
         # spurious re-drive of a completed item is not).
         return True
-    return rec is not None
-
-
-def _nzblog_present(issueid, provider):
-    """True iff an nzblog row still exists for (IssueID, PROVIDER). nzblog is
-    deleted on PP success, so its presence means PP did not complete."""
-    try:
-        rec = db.select_one(
-            select(nzblog.c.IssueID).where(and_(nzblog.c.IssueID == str(issueid), nzblog.c.PROVIDER == provider))
-        )
-    except Exception as e:
-        logger.warn("[RECOVERY] nzblog lookup failed for %s/%s: %s" % (issueid, provider, e))
-        return False
     return rec is not None
 
 
@@ -173,8 +135,14 @@ def _reconstruct_anchors():
                 )
                 continue
 
-            oneoff = journal._is_synthetic_oneoff(issueid)
-            if not oneoff and not _nzblog_present(issueid, provider):
+            oneoff = journal.is_synthetic_oneoff(issueid)
+            # ANCHOR-RECONSTRUCTION (conservative): a lookup error from
+            # recovery_classify._nzblog_present returns None, and `not None` is
+            # True — identical to this site's prior `return False` semantics:
+            # on an unanswerable nzblog test for a non-one-off we do NOT
+            # reconstruct (a missed reconstruction is recoverable next start;
+            # a spurious re-drive of a completed item is not).
+            if not oneoff and not recovery_classify._nzblog_present(issueid, provider):
                 logger.fdebug(
                     "[RECOVERY] anchor skip %s/%s — nzblog absent (PP completed; "
                     "live Snatched row is the never-deleted original)." % (issueid, provider)
@@ -219,19 +187,6 @@ def _reconstruct_anchors():
     if reconstructed:
         logger.info("[RECOVERY] anchor reconstruction rebuilt %d row(s)." % reconstructed)
     return reconstructed
-
-
-# ---------------------------------------------------------------------------
-# Authoritative done-check (before classification)
-# ---------------------------------------------------------------------------
-
-
-def _authoritatively_done(row):
-    """Authoritative "already complete" check that survives downloader-history
-    eviction: reuse U5's cross-check (issues.Status==Post-Processed / nzblog
-    absent — but for synthetic-HIGHCOUNT one-offs nzblog-presence is advisory
-    only and the journal stage is authoritative)."""
-    return recovery_classify._has_done_signal(row)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +245,7 @@ def _resume_item_from_row(row, payload):
 # ---------------------------------------------------------------------------
 
 
-def finalize_post_processing(row):
+def finalize_post_processing(row, payload=None):
     """Resolve a row already inside post-processing using the `moved` marker
     as the SOLE discriminator — NO file probe anywhere on this path (a probe
     is undecidable in copy/hardlink/softlink FILE_OPTS modes where the source
@@ -311,20 +266,20 @@ def finalize_post_processing(row):
     """
     rkey = row.get("release_key")
     stage = row.get("stage")
+    # payload is parsed ONCE per replay row by the caller and threaded in;
+    # default None ⇒ parse internally so existing direct callers/tests work.
+    if payload is None:
+        payload = journal.load_payload(row.get("payload_json"))
 
     if stage == journal.MOVED:
         issueid = row.get("issueid")
         provider = row.get("provider")
-        payload = journal.load_payload(row.get("payload_json"))
-        # One begin() block: nzblog-delete co-commits with journal
-        # post_processed (mirrors U9's c255b716 atomic DB-fact path). conn-mode
-        # record_transition participates in this transaction and rolls back
-        # with it, so nzblog is never deleted while the journal still says
-        # `moved`. The Status=Post-Processed write stays in its existing
-        # foundsearch(down=…) separate-transaction path (out of scope to fold
-        # here per the plan); the journal post_processed marker is the durable
-        # completion fact replay guarantees, and the residual Status window is
-        # explicitly covered by the moved marker + this finalizer (C3).
+        # One begin() block: nzblog-delete co-commits with the journal
+        # post_processed marker (conn-mode record_transition participates in
+        # this txn and rolls back with it), so nzblog is never deleted while
+        # the journal still says `moved`. Status=Post-Processed stays on its
+        # existing separate-transaction foundsearch path; the journal marker
+        # is the durable completion fact replay guarantees.
         with db.get_engine().begin() as conn:
             stmt = delete(nzblog).where(nzblog.c.IssueID == str(issueid))
             if provider:
@@ -346,8 +301,7 @@ def finalize_post_processing(row):
         return "moved-finish-dbfacts"
 
     if stage == journal.POST_PROCESSING:
-        payload = journal.load_payload(row.get("payload_json")) or {}
-        item = _pp_item_from_row(row, payload)
+        item = _pp_item_from_row(row, payload or {})
         logger.info(
             "[RECOVERY] %s was `post_processing` (no `moved` — move did NOT "
             "commit, source intact) — re-driving PP in full." % rkey
@@ -391,10 +345,16 @@ def finalize_post_processing(row):
 # ---------------------------------------------------------------------------
 
 
-def _resolve_row(snapshot_row, probes=None):
+def _resolve_row(snapshot_row, probes=None, pp_cap=None):
     """Resolve ONE open obligation. RECHECKS the row's current stage with a
     cheap point lookup before acting (workers are live; skip if it advanced
-    past the snapshot). Returns a short action string for logging/tests."""
+    past the snapshot). Returns a short action string for logging/tests.
+
+    `pp_cap` (startup availability cap): a mutable {"count": int} threaded by
+    replay_pipeline. Each INLINE `post_processing` re-drive increments it; once
+    it reaches _MAX_INLINE_PP_REDRIVE_PER_PASS the remaining post_processing
+    rows are SKIPPED this pass (loud log) and resume next startup. `moved`
+    (cheap DB-facts only) and all other paths are NOT capped."""
     rkey = snapshot_row.get("release_key")
 
     # --- snapshot-then-RECHECK: re-read current stage before acting --------
@@ -416,15 +376,31 @@ def _resolve_row(snapshot_row, probes=None):
         return "skip-advanced"
 
     row = current
+    # Parse payload_json ONCE per row, thread it everywhere below (classify,
+    # the probes via classify, and the item-builders) instead of re-parsing
+    # it 3-6x. None ⇒ no payload (callees treat as {}).
+    payload = journal.load_payload(row.get("payload_json"))
 
     # --- two-marker finalizer (moved / post_processing) -------------------
+    # moved -> cheap DB-facts only (NOT capped). post_processing -> a FULL
+    # inline process.Process; capped per pass so a large backlog cannot delay
+    # the web server bind unboundedly (idempotent ⇒ deferral is safe).
     if cur_stage == journal.MOVED:
-        return finalize_post_processing(row)
+        return finalize_post_processing(row, payload=payload)
     if cur_stage == journal.POST_PROCESSING:
-        return finalize_post_processing(row)
+        if pp_cap is not None and pp_cap.get("count", 0) >= _MAX_INLINE_PP_REDRIVE_PER_PASS:
+            logger.warn(
+                "[RECOVERY] %s is `post_processing` but the inline PP re-drive "
+                "cap (%d) for this replay pass is reached — DEFERRING; it "
+                "resumes next startup (replay is idempotent/re-runnable)." % (rkey, _MAX_INLINE_PP_REDRIVE_PER_PASS)
+            )
+            return "skip-pp-cap-deferred"
+        if pp_cap is not None:
+            pp_cap["count"] = pp_cap.get("count", 0) + 1
+        return finalize_post_processing(row, payload=payload)
 
     # --- authoritative done-check (history-eviction safe) -----------------
-    if _authoritatively_done(row):
+    if recovery_classify.has_done_signal(row):
         logger.info("[RECOVERY] %s authoritatively done (Status/nzblog) — mark_done, skip." % rkey)
         journal.mark_done(
             rkey,
@@ -434,6 +410,11 @@ def _resolve_row(snapshot_row, probes=None):
         return "done-check"
 
     # --- per-downloader classification (U5) -------------------------------
+    # classify() accepts an optional payload= for direct callers, but we do
+    # NOT pass it here: the recovery_classify.classify symbol is a test
+    # monkeypatch seam whose stubs take (row, probes=) only. classify's own
+    # single internal parse covers _resolve_downloader/has_done_signal; the
+    # bigger re-parse wins (item-builders, finalizer) are already threaded.
     verdict = recovery_classify.classify(row, probes=probes)
 
     if verdict == recovery_classify.GONE:
@@ -446,8 +427,6 @@ def _resolve_row(snapshot_row, probes=None):
             "left UNCHANGED, reclassified next start." % rkey
         )
         return "unknown-unchanged"
-
-    payload = journal.load_payload(row.get("payload_json"))
 
     if verdict == recovery_classify.COMPLETE:
         item = _pp_item_from_row(row, payload)
@@ -518,12 +497,17 @@ def replay_pipeline(probes=None):
     summary["open"] = len(snapshot)
     logger.info("[RECOVERY] %d open obligation(s) to resolve." % len(snapshot))
 
+    # Per-pass cap on INLINE post_processing re-drives (each is a full
+    # synchronous process.Process before the web server binds). Mutable so
+    # _resolve_row can increment it across rows.
+    pp_cap = {"count": 0}
+
     # 3. Per-row recheck-then-act. A failing row is logged LOUDLY and SKIPPED
     #    (resumable next start) — NEVER aborts the loop.
     for snapshot_row in snapshot:
         rkey = snapshot_row.get("release_key")
         try:
-            action = _resolve_row(snapshot_row, probes=probes)
+            action = _resolve_row(snapshot_row, probes=probes, pp_cap=pp_cap)
         except Exception as e:
             logger.error(
                 "[RECOVERY] row %s raised during replay — SKIPPED (resumable "

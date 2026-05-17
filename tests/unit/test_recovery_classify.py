@@ -161,7 +161,7 @@ def test_inflight_oneoff_nzblog_absence_not_treated_as_done():
     )
     # Even with no nzblog row (absent), a one-off must not be promoted to
     # done via the nzblog-absence signal: the done-signal check returns False.
-    assert recovery_classify._has_done_signal(row) is False
+    assert recovery_classify.has_done_signal(row) is False
     # Probe says still -> STILL (journal-authoritative in-flight).
     assert recovery_classify.classify(row, probes=_probe("still")) == recovery_classify.STILL
 

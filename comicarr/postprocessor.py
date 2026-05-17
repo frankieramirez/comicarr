@@ -127,49 +127,31 @@ class PostProcessor(object):
 
         self.issuearcid = None
 
-        # U4: canonical release_key threaded from postprocess_main's atomic
-        # claim. When present it is PREFERRED over re-derivation so the U3
+        # Canonical release_key threaded from postprocess_main's atomic claim.
+        # When present it is PREFERRED over re-derivation so the
         # `moved`/`post_processed` markers advance the SAME row the claim
         # advanced (single-derivation invariant). None for manual/API/ComicRN
         # PP that has no journal row — those fall back to re-derivation, which
         # is a safe monotonic no-op worst case.
-        if journal_release_key is not None:
-            self.journal_release_key = journal_release_key
-        else:
-            self.journal_release_key = None
+        self.journal_release_key = journal_release_key
 
     def _journal_release_key(self, issueid=None, issuearcid=None):
-        """Derive the journal release_key for this PP item (U3/U4).
+        """Derive the journal release_key for this PP item.
 
-        U4: a canonical release_key threaded from postprocess_main's atomic
-        claim (self.journal_release_key) is PREFERRED over re-derivation so
-        these markers advance the SAME journal row the PP-consumer claim
-        advanced — the single-derivation invariant. The PostProcessor does
-        not receive provider/hash (see comicarr/process.py — only nzb_name,
-        nzb_folder, issueid, comicid are threaded in), so a re-derived key
-        could diverge from the claimed row; the threaded key closes that.
-        Fall back to re-derivation ONLY when no canonical key was threaded
-        (manual / API / ComicRN PP with no journal row) — a divergent key in
-        that case is a safe, behavior-neutral monotonic no-op worst case.
-
-        ADDITIVE / INERT. The PostProcessor does not receive download_info /
-        provider / hash (see comicarr/process.py:60 — only nzb_name,
-        nzb_folder, issueid, comicid are threaded in), so per the plan's
-        guidance ("if a site genuinely lacks an identifier, prefer
-        derive_release_key on whatever item dict is in scope; document the
-        choice") we build the key from the identity fields that ARE in scope
-        here: the issueid (or story-arc IssueArcID), comicid and nzb_name.
-        Cross-seam row alignment with the `downloaded` row written at the
-        snatch/download seams is a U4/U6 concern; in U3 nothing consumes these
-        rows, so a divergent key is a safe, behavior-neutral, monotonic no-op
-        worst case — never an observable change.
+        A canonical release_key threaded from postprocess_main's atomic claim
+        (self.journal_release_key) is PREFERRED over re-derivation so these
+        markers advance the SAME journal row the PP-consumer claim advanced
+        (single-derivation invariant). The PostProcessor does not receive
+        provider/hash (only nzb_name, nzb_folder, issueid, comicid are threaded
+        in), so a re-derived key could diverge from the claimed row; the
+        threaded key closes that. Re-derive ONLY when no canonical key was
+        threaded (manual/API/ComicRN PP with no journal row) — a divergent key
+        in that case is a safe, behavior-neutral monotonic no-op worst case.
         """
         from comicarr.app.downloads import journal
 
-        # U4: prefer the canonical key threaded from the PP-consumer atomic
-        # claim — this is THE row the claim advanced; the markers must land on
-        # it. Re-derivation below is only the fallback for an unjournaled
-        # (manual/API/ComicRN) PP.
+        # Prefer the canonical key threaded from the PP-consumer atomic claim
+        # (the row the claim advanced); re-derive only for unjournaled PP.
         if getattr(self, "journal_release_key", None):
             return self.journal_release_key
 
@@ -183,21 +165,20 @@ class PostProcessor(object):
         return journal.derive_release_key(ident)
 
     def _journal_pp(self, stage, issueid=None, issuearcid=None, payload=None, conn=None):
-        """Record a PP-marker journal transition (U3/U9).
+        """Record a PP-marker journal transition.
 
         The façade is monotonic (a late/duplicate/regressing write is a logged
         no-op). The `post_processing` (pre-move) and `moved` (post-move-pre-
-        tidyup) markers stay additive — a journal failure there must never
-        abort post-processing, so it is logged and swallowed.
+        tidyup) markers are additive — a journal failure there must never abort
+        post-processing, so it is logged and swallowed.
 
-        U9: when `conn` is supplied this write JOINS the caller's explicit
-        `db.get_engine().begin()` block so the journal `post_processed`
-        transition CO-COMMITS atomically with the `nzblog`-delete in that
-        block (the C3 DB-fact set). In that mode a failure MUST propagate so
-        the whole block rolls back — `nzblog` must never be deleted while the
-        journal still says `post_processing`/`moved`. The swallow-and-continue
-        contract applies ONLY to the own-transaction (conn is None) additive
-        markers, exactly as in U3.
+        CONTRACT: when `conn` is supplied this write JOINS the caller's
+        explicit begin() block so the journal `post_processed` transition
+        CO-COMMITS atomically with the `nzblog`-delete in that block. In that
+        mode a failure MUST propagate so the whole block rolls back — nzblog
+        must never be deleted while the journal still says
+        post_processing/moved. The swallow-and-continue contract applies ONLY
+        to the own-transaction (conn is None) additive markers.
         """
         from comicarr.app.downloads import journal
 
@@ -223,12 +204,9 @@ class PostProcessor(object):
             )
             logger.fdebug("%s [JOURNAL] %s for %s" % (self.module, stage, rkey))
         except Exception as e:
-            # U9: inside a caller txn (conn given) the journal write co-commits
-            # with the nzblog-delete — a failure must roll the whole block
-            # back, NEVER be swallowed (a swallowed failure would delete
-            # nzblog while the journal still said post_processing/moved, the
-            # exact C3 window this unit closes). The additive own-txn markers
-            # keep the U3 inert swallow-and-continue contract.
+            # conn-mode: must roll the whole block back (a swallowed failure
+            # would delete nzblog while the journal still said
+            # post_processing/moved). Own-txn additive markers swallow.
             if conn is not None:
                 raise
             logger.error("%s [JOURNAL] %s transition failed (inert, continuing): %s" % (self.module, stage, e))
@@ -3173,10 +3151,7 @@ class PostProcessor(object):
                         )
                         # this is also for issues that are part of a story arc, and don't belong to a watchlist series (ie. one-off's)
 
-                        # --- Durable pipeline journal: post_processing (U3) -
-                        # ADDITIVE: written BEFORE the destructive story-arc
-                        # one-off move. Keyed on this ml entry's IssueArcID.
-                        # Inert; no existing ordering moved.
+                        # pre-move marker
                         self._journal_pp("post_processing", issuearcid=ml["IssueArcID"])
 
                         try:
@@ -3202,9 +3177,7 @@ class PostProcessor(object):
                             )
                             return
 
-                        # --- Durable pipeline journal: moved (U3) -----------
-                        # ADDITIVE: after helpers.file_ops success, BEFORE
-                        # tidyup deletes the source. Inert; no ordering moved.
+                        # post-move, pre-tidyup marker
                         self._journal_pp("moved", issuearcid=ml["IssueArcID"])
 
                         # tidyup old path
@@ -3221,21 +3194,10 @@ class PostProcessor(object):
                         # if it was downloaded outside of comicarr and/or not from the storyarc section, it will be a normal issueid in the nzblog
                         # IssArcID = 'S' + str(ml['IssueArcID'])
                         #
-                        # --- C3 DB-fact set (U9) -----------------------------
-                        # ONE explicit begin() block scoped to the nzblog
-                        # deletes + journal `post_processed` ONLY. The journal
-                        # transition CO-COMMITS with the nzblog deletes so the
-                        # pre-existing nzblog-deleted-while-journal-still-says-
-                        # `moved` window (AE2/C3) is unreachable: a failure
-                        # rolls BOTH back (conn-mode _journal_pp re-raises).
-                        # This site is INLINE-STATUS: the storyarcs upsert +
-                        # foundsearch(mode='story_arc') run in SEPARATE txns
-                        # AFTER this block — out of scope to fold in (per the
-                        # plan). Recovery argument: a crash after this block
-                        # but before the storyarcs/foundsearch upsert leaves
-                        # the journal terminal (`post_processed`) with Status
-                        # lagging — the finalizer treats it done via the
-                        # marker, never a file/destination probe.
+                        # journal post_processed co-commits with the nzblog
+                        # delete in one begin() so the row is never terminal
+                        # while nzblog is still present (conn-mode _journal_pp
+                        # re-raises ⇒ a failure rolls both back).
                         with db.get_engine().begin() as conn:
                             conn.execute(
                                 delete(nzblog).where(
@@ -3304,14 +3266,8 @@ class PostProcessor(object):
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
 
-                    # --- Durable pipeline journal: post_processed (U3/U9) ---
-                    # For the move path (STORYARCDIR & COPY2ARCDIR) the
-                    # terminal marker was already CO-COMMITTED with the nzblog
-                    # deletes inside the C3 begin() block above — this trailing
-                    # write is then a monotonic no-op. It is RETAINED because
-                    # it is the SOLE terminal marker for the `else` no-move
-                    # branch (~else: no destructive op, no nzblog delete, so
-                    # no C3 block runs). Own-txn / additive — safe to keep.
+                    # terminal marker (no-op if co-committed above; sole
+                    # marker on the no-move branch)
                     self._journal_pp("post_processed", issuearcid=ml["IssueArcID"])
 
         if (
@@ -4078,11 +4034,7 @@ class PostProcessor(object):
                         "%s[%s] %s into directory : %s" % (module, comicarr.CONFIG.FILE_OPTS, ofilename, grab_dst)
                     )
 
-                    # --- Durable pipeline journal: post_processing (U3) -----
-                    # ADDITIVE: written BEFORE the destructive story-arc /
-                    # one-off move. Keyed on the story-arc IssueArcID when
-                    # present, else the oneoff IssueID. Inert; no ordering
-                    # moved.
+                    # pre-move marker
                     self._journal_pp("post_processing", issueid=issueid, issuearcid=issuearcid)
 
                     try:
@@ -4100,32 +4052,17 @@ class PostProcessor(object):
                         self.valreturn.append({"self.log": self.log, "mode": "stop"})
                         return self.queue.put(self.valreturn)
 
-                    # --- Durable pipeline journal: moved (U3) ---------------
-                    # ADDITIVE: after helpers.file_ops success, BEFORE tidyup
-                    # deletes the source. Inert; no ordering moved.
+                    # post-move, pre-tidyup marker
                     self._journal_pp("moved", issueid=issueid, issuearcid=issuearcid)
 
                     # tidyup old path
                     if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                         self.tidyup(src_location, True, filename=os.path.basename(orig_filename))
 
-                    # delete entry from nzblog table
-                    #
-                    # --- C3 DB-fact set (U9) -----------------------------
-                    # ONE explicit begin() block scoped to the nzblog-delete +
-                    # journal `post_processed` ONLY: the terminal transition
-                    # CO-COMMITS with the nzblog-delete so there is no
-                    # reachable state with nzblog deleted while the journal
-                    # still says `moved` (AE2/C3). conn-mode _journal_pp
-                    # re-raises on failure -> the whole block rolls back.
-                    # This site is INLINE-STATUS: the storyarcs+foundsearch OR
-                    # weekly+oneoffhistory upserts run in SEPARATE txns AFTER
-                    # this block (and MAY commit before it on a partial run) —
-                    # out of scope to fold in. Recovery: a crash after the
-                    # block leaves the journal terminal with the inline Status
-                    # possibly lagging OR already committed; the finalizer
-                    # treats it done via the `post_processed` marker, never a
-                    # destination probe.
+                    # journal post_processed co-commits with the nzblog delete
+                    # in one begin() so the row is never terminal while nzblog
+                    # is still present (conn-mode _journal_pp re-raises ⇒ a
+                    # failure rolls both back).
                     with db.get_engine().begin() as conn:
                         conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
                         self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid, conn=conn)
@@ -4193,12 +4130,8 @@ class PostProcessor(object):
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
 
-                    # --- Durable pipeline journal: post_processed (U3/U9) ---
-                    # The terminal marker was already CO-COMMITTED with the
-                    # nzblog-delete in the C3 begin() block above; this
-                    # trailing own-txn write is now a monotonic no-op. RETAINED
-                    # as a defensive backstop (and to keep the marker visible
-                    # at the exit point) — it cannot regress or double-write.
+                    # terminal marker (no-op if co-committed above; sole
+                    # marker on the no-move branch)
                     self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid)
 
                     self.valreturn.append({"self.log": self.log, "mode": "stop"})
@@ -4406,12 +4339,9 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
 
-        # --- Durable pipeline journal: post_processing (U3) ----------------
-        # ADDITIVE: written BEFORE the destructive per-file move loop. Manga
-        # PP matches per-chapter, so the release-level marker is keyed on the
-        # PostProcessor's own identity (self.issueid/comicid/nzb_name); the
-        # per-chapter post_processed below keys on the matched IssueID. Inert;
-        # no existing ordering moved.
+        # pre-move marker (release-level: manga matches per-chapter, so this
+        # is keyed on the PostProcessor identity; per-chapter post_processed
+        # below keys on the matched IssueID)
         self._journal_pp("post_processing")
 
         # --- Process each manga file ---
@@ -4437,11 +4367,8 @@ class PostProcessor(object):
                 self._log("Failed to move/copy manga file: %s" % filename)
                 continue
 
-            # --- Durable pipeline journal: moved (U3) ----------------------
-            # ADDITIVE: after a per-file move succeeds (manga has no tidyup
-            # source-delete — the move IS the relocation). Release-level
-            # marker on the PostProcessor identity; brackets every destructive
-            # per-file move on this path. Inert; no existing ordering moved.
+            # post-move marker (manga has no tidyup source-delete — the move
+            # IS the relocation; release-level, brackets each per-file move)
             self._journal_pp("moved")
 
             # --- Match to a chapter/issue in the database ---
@@ -4502,22 +4429,10 @@ class PostProcessor(object):
                 logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
                 self._log("Matched to chapter IssueID: %s" % issueid)
 
-                # Clean up nzblog entry
-                #
-                # --- C3 DB-fact set (U9) -----------------------------------
-                # Manga PP is per-chapter: this matched chapter's nzblog-delete
-                # CO-COMMITS with its journal `post_processed` (keyed on this
-                # chapter's IssueID) in ONE begin() block so there is no
-                # reachable state with this chapter's nzblog deleted while its
-                # journal still says `moved`. conn-mode _journal_pp re-raises
-                # on failure -> the whole block rolls back. This site is
-                # INLINE-STATUS: the issues `Status=Downloaded` upsert ALREADY
-                # committed (separate txn) BEFORE this block, and the snatched
-                # `Status=Post-Processed` upsert runs in a SEPARATE txn AFTER
-                # it — opposite ordering to the foundsearch case; out of scope
-                # to fold in. Recovery: a crash here leaves issues.Status
-                # already Downloaded with the journal terminal; the finalizer
-                # treats the chapter done via the marker, never a probe.
+                # per-chapter: this chapter's journal post_processed
+                # co-commits with its nzblog delete in one begin() so the row
+                # is never terminal while nzblog is still present (conn-mode
+                # _journal_pp re-raises ⇒ a failure rolls both back).
                 with db.get_engine().begin() as conn:
                     conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
                     self._journal_pp("post_processed", issueid=issueid, conn=conn)
@@ -4562,16 +4477,10 @@ class PostProcessor(object):
             except Exception:
                 pass
 
-        # --- Durable pipeline journal: post_processed (U3/U9) --------------
-        # Terminal marker ONLY when at least one chapter was actually
-        # processed. For every matched chapter the terminal marker was already
-        # CO-COMMITTED with that chapter's nzblog-delete inside the per-match
-        # C3 begin() block above, so this trailing write (keyed on the LAST
-        # matched chapter) is now a monotonic no-op backstop. If nothing
-        # matched/moved (a move failure or no-match run) the terminal marker is
-        # intentionally NOT written so the release-level row stays at
-        # post_processing for the replay finalizer to re-drive — the move-
-        # failure / no-terminal contract is preserved.
+        # terminal marker (no-op if co-committed above). MUST stay gated on
+        # processed > 0: if nothing matched/moved the row deliberately stays
+        # at post_processing so the replay finalizer re-drives it (the
+        # move-failure / no-terminal contract).
         if processed > 0:
             self._journal_pp("post_processed", issueid=last_matched_issueid)
 
@@ -5209,10 +5118,7 @@ class PostProcessor(object):
         logger.fdebug("%s Source: %s" % (module, src))
         logger.fdebug("%s Destination: %s" % (module, dst))
 
-        # --- Durable pipeline journal: post_processing (U3) ----------------
-        # ADDITIVE: written BEFORE the destructive move (this is also the U4
-        # atomic-claim site in a later phase). Inert here — nothing consumes
-        # it and no existing ordering is moved.
+        # pre-move marker
         self._journal_pp("post_processing", issueid=issueid)
 
         if ml is None:
@@ -5251,11 +5157,7 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
 
-            # --- Durable pipeline journal: moved (U3) -----------------------
-            # ADDITIVE: written immediately AFTER helpers.file_ops returned
-            # success and BEFORE tidyup deletes the source — a positive
-            # "physical move committed" signal. Inert; no existing ordering
-            # moved.
+            # post-move, pre-tidyup marker
             self._journal_pp("moved", issueid=issueid)
 
             # tidyup old path
@@ -5299,9 +5201,7 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
             logger.info("%s %s successful to : %s" % (module, comicarr.CONFIG.FILE_OPTS, dst))
 
-            # --- Durable pipeline journal: moved (U3) -----------------------
-            # ADDITIVE: after helpers.file_ops success, before tidyup deletes
-            # the source. Inert; no existing ordering moved.
+            # post-move, pre-tidyup marker
             self._journal_pp("moved", issueid=issueid)
 
             if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
@@ -5331,27 +5231,11 @@ class PostProcessor(object):
         else:
             self.fileop = shutil.move
 
-        # delete entry from nzblog table
-        #
-        # --- C3 DB-fact set (U9) -----------------------------------------
-        # ONE explicit begin() block scoped to the nzblog-delete + journal
-        # `post_processed` ONLY. The terminal transition (keyed on this
-        # release's issueid — the SAME row the U4 atomic claim / pre-move
-        # `post_processing` marker advanced) CO-COMMITS with the nzblog-delete,
-        # so there is no reachable state with nzblog deleted while the journal
-        # still says `moved` — the pre-existing AE2/C3 window is closed.
-        # conn-mode _journal_pp re-raises on failure -> the whole block rolls
-        # back (source intact, replay-safe).
-        #
-        # This site is FOUNDSEARCH-DELEGATED: the `Status=Post-Processed`
-        # write is delegated to updater.foundsearch(down=downtype) BELOW in a
-        # SEPARATE transaction (and the issues/annuals upsert further down,
-        # also separate). Folding foundsearch's multi-upsert branch into this
-        # block is out of scope (per the plan). Recovery argument: a crash
-        # AFTER this block but BEFORE foundsearch leaves Status unset while the
-        # journal is already terminal (`post_processed`) — the finalizer
-        # recognizes the item as done via the marker and finishes DB facts
-        # only, NEVER a destination/file probe.
+        # journal post_processed co-commits with the nzblog delete in one
+        # begin() so the row is never terminal while nzblog is still present
+        # (conn-mode _journal_pp re-raises ⇒ a failure rolls both back).
+        # Status=Post-Processed is delegated to updater.foundsearch below in a
+        # separate txn; the finalizer recognizes done via the marker.
         with db.get_engine().begin() as conn:
             conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
             self._journal_pp("post_processed", issueid=issueid, conn=conn)
@@ -5467,32 +5351,16 @@ class PostProcessor(object):
                             logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e))
                             return
 
-                        # --- Durable pipeline journal: moved (U3) -----------
-                        # ADDITIVE: brackets the SECONDARY (COPY2ARCDIR)
-                        # destructive file_ops on the story-arc exit path —
-                        # the plan requires markers to bracket EVERY
-                        # destructive file_ops, not only the primary move. The
-                        # pre-move post_processing marker above already covers
-                        # this path (monotonic — a duplicate is a no-op).
+                        # post-move marker, secondary (COPY2ARCDIR) move —
+                        # markers must bracket EVERY destructive file_ops
                         self._journal_pp("moved", issuearcid=arcinfo["IssueArcID"])
                     else:
                         grab_dst = dst
 
-                    # delete entry from nzblog table in case it was forced via the Story Arc Page
-                    #
-                    # --- C3 DB-fact set, SECONDARY op (U9) ------------------
-                    # The COPY2ARCDIR branch performs an ADDITIONAL destructive
-                    # helpers.file_ops (bracketed by the `moved` marker keyed
-                    # on arcinfo["IssueArcID"] above) and this SECOND
-                    # nzblog-delete. Per the plan the second nzblog-delete +
-                    # its journal advance also live in an explicit begin()
-                    # block: the journal `post_processed` keyed on THIS
-                    # arcinfo["IssueArcID"] (a SEPARATE release identity from
-                    # the primary issueid handled in the block above)
-                    # CO-COMMITS with this story-arc nzblog-delete so no
-                    # partial story-arc destination is left with nzblog deleted
-                    # while its journal still says `moved`. The storyarcs
-                    # upsert below is INLINE / separate-txn (out of scope).
+                    # secondary (story-arc) op: journal post_processed keyed on
+                    # arcinfo["IssueArcID"] co-commits with this story-arc
+                    # nzblog delete in one begin() so the row is never terminal
+                    # while nzblog is still present.
                     IssArcID = "S" + str(arcinfo["IssueArcID"])
                     with db.get_engine().begin() as conn:
                         conn.execute(
@@ -5577,13 +5445,8 @@ class PostProcessor(object):
         logger.info("%s Post-Processing completed for: %s %s" % (module, series, dispiss))
         self._log("Post Processing SUCCESSFUL! ")
 
-        # --- Durable pipeline journal: post_processed (U3/U9) --------------
-        # The terminal marker (keyed on this release's issueid) was already
-        # CO-COMMITTED with the primary nzblog-delete inside the C3 begin()
-        # block above; this trailing own-txn write is now a monotonic no-op
-        # backstop (it cannot regress or double-write). RETAINED so the
-        # terminal marker remains visible at the function exit and as defence
-        # in depth if the begin() block path is ever restructured.
+        # terminal marker (no-op if co-committed above; sole marker on the
+        # no-move branch)
         self._journal_pp("post_processed", issueid=issueid)
 
         self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})

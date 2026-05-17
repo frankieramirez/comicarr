@@ -606,3 +606,59 @@ def test_anchor_already_journaled_not_duplicated(queues):
     assert summary["reconstructed"] == 0
     # The existing (not duplicated) row is still resolved normally.
     assert len(_drain(queues["nzb"])) == 1
+
+
+# ---------------------------------------------------------------------------
+# Startup availability cap — excess inline post_processing re-drives deferred
+# ---------------------------------------------------------------------------
+
+
+def test_post_processing_redrive_capped_per_pass_and_rerun_processes_rest(queues, monkeypatch):
+    """A backlog of `post_processing` rows must not run unbounded full inline
+    PP before the web server binds: replay caps inline re-drives per pass,
+    defers the excess (loud log), and a re-run processes the remainder
+    (replay is idempotent/re-runnable)."""
+    cap = recovery._MAX_INLINE_PP_REDRIVE_PER_PASS
+    total = cap + 3
+    keys = []
+    for i in range(total):
+        rkey = journal.release_key("PPC%d" % i, "nzb.su", nzbname="C%d.cbz" % i)
+        keys.append(rkey)
+        _insert_journal(
+            rkey,
+            journal.POST_PROCESSING,
+            payload={"issueid": "PPC%d" % i, "comicid": "C1", "nzb_name": "C%d.cbz" % i, "nzb_folder": "/dl/C%d" % i},
+            issueid="PPC%d" % i,
+            provider="nzb.su",
+            downloader_type="nzb",
+        )
+
+    processed = []
+    import comicarr.process as process_mod
+
+    class _FakeProc:
+        def __init__(self, nzb_name, nzb_folder, *a, journal_release_key=None, **k):
+            self._rkey = journal_release_key
+
+        def post_process(self):
+            processed.append(self._rkey)
+            # Mark this row terminal so a re-run does not re-drive it (the
+            # finalizer's real C3 block does this; the FakeProc must emulate
+            # idempotency so the second pass only picks up the deferred rows).
+            journal.mark_done(self._rkey)
+            return None
+
+    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+
+    # Pass 1: only `cap` rows re-driven inline; the rest deferred.
+    s1 = recovery.replay_pipeline(probes=_probe("complete"))
+    assert len(processed) == cap
+    assert s1["actions"].get("post_processing-redrive") == cap
+    assert s1["actions"].get("skip-pp-cap-deferred") == total - cap
+
+    # Pass 2: the deferred rows now resume and are processed.
+    s2 = recovery.replay_pipeline(probes=_probe("complete"))
+    assert len(processed) == total
+    assert s2["actions"].get("post_processing-redrive") == total - cap
+    assert "skip-pp-cap-deferred" not in s2["actions"]
+    assert sorted(processed) == sorted(keys)
