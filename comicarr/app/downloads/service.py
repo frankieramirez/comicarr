@@ -853,6 +853,16 @@ def ddl_downloader(queue):
                             e,
                         )
                     )
+                    # Item is abandoned (cap exceeded, not requeued): mirror the
+                    # normal teardown's in-memory cleanup so it does not stay
+                    # marked queued / stuck-notified / link-failed for the rest
+                    # of the process lifetime.
+                    comicarr.DDL_QUEUED.discard(item["id"])
+                    comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                    try:
+                        link_type_failure.pop(item["id"])
+                    except KeyError:
+                        pass
                     continue
                 logger.error(
                     "[DOWNLOADS-DDL] snatch atomic block failed for %s (id=%s) "
@@ -867,6 +877,16 @@ def ddl_downloader(queue):
                         e,
                     )
                 )
+                # Requeued for an idempotent retry: clear stale per-attempt
+                # in-memory state (stuck-notify + link-failure) so it does not
+                # drift for the process lifetime, but keep the DDL_QUEUED
+                # membership intact so the re-put item's dedup state stays
+                # consistent (line ~772 re-adds it harmlessly on reprocess).
+                comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                try:
+                    link_type_failure.pop(item["id"])
+                except KeyError:
+                    pass
                 comicarr.DDL_QUEUE.put(item)
                 continue
 
@@ -990,6 +1010,16 @@ def ddl_downloader(queue):
                                 e,
                             )
                         )
+                        # Item is abandoned (cap exceeded, not requeued):
+                        # mirror the normal teardown's in-memory cleanup so it
+                        # does not stay marked queued / stuck-notified /
+                        # link-failed for the rest of the process lifetime.
+                        comicarr.DDL_QUEUED.discard(item["id"])
+                        comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                        try:
+                            link_type_failure.pop(item["id"])
+                        except KeyError:
+                            pass
                         continue
                     logger.error(
                         "[DOWNLOADS-DDL] downloaded atomic block failed for %s "
@@ -1014,6 +1044,17 @@ def ddl_downloader(queue):
                     # the cap above rather than hot-looping. No finer-grained
                     # "journal-only retry" path exists by design (keeping a
                     # single recoverable restart point).
+                    # Requeued for an idempotent retry: clear stale per-attempt
+                    # in-memory state (stuck-notify + link-failure) so it does
+                    # not drift for the process lifetime, but keep the
+                    # DDL_QUEUED membership intact so the re-put item's dedup
+                    # state stays consistent (line ~772 re-adds it harmlessly
+                    # on reprocess).
+                    comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                    try:
+                        link_type_failure.pop(item["id"])
+                    except KeyError:
+                        pass
                     comicarr.DDL_QUEUE.put(item)
                     continue
 

@@ -558,6 +558,12 @@ def main():
     # Start the background threads
     comicarr.start()
 
+    # Register the SIGTERM handler before startup replay: replay_pipeline()
+    # below can spend real time probing downloaders and inline-redriving PP,
+    # so a SIGTERM during that window must be caught here to preserve any
+    # pending restart/update intent (handler_sigterm guards comicarr.SIGNAL).
+    signal.signal(signal.SIGTERM, handler_sigterm)
+
     # Startup recovery replay (U6). MUST run here: after comicarr.start()
     # returns (start() is one unbroken `with INIT_LOCK:` block, so the lock is
     # now released — replay never acquires INIT_LOCK and cannot starve a
@@ -571,8 +577,6 @@ def main():
         recovery.replay_pipeline()
     except Exception as e:
         logger.error('[RECOVERY] Startup replay raised — continuing startup (resumable next start): %s' % e)
-
-    signal.signal(signal.SIGTERM, handler_sigterm)
 
     import uvicorn
 

@@ -242,9 +242,19 @@ def _ddl_item(idv="ddl-1", issueid="DI1"):
 def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     """On DDL download success the ddl_info status='Completed' row and the
     journal `downloaded` row are committed together in the one begin() block,
-    and the journal write precedes PP_QUEUE.put."""
+    and the journal write precedes PP_QUEUE.put (ordering asserted via a spy
+    on record_transition vs PP_QUEUE.put — the U3 download-seam guarantee)."""
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    order = []
+    real_record = journal.record_transition
+
+    def _spy_record(*a, **k):
+        order.append(("journal", a[1] if len(a) > 1 else k.get("stage")))
+        return real_record(*a, **k)
+
     fake_pp_queue = MagicMock()
+    fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
     monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
 
@@ -261,7 +271,8 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     q = queuelib.Queue()
     q.put(_ddl_item())
     q.put("exit")
-    service.ddl_downloader(q)
+    with patch.object(journal, "record_transition", side_effect=_spy_record):
+        service.ddl_downloader(q)
 
     ddl_rows = _rows(ddl_info)
     assert len(ddl_rows) == 1
@@ -274,6 +285,15 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     assert jr["provider"] == "DDL"
     assert jr["downloader_type"] == "ddl"
     fake_pp_queue.put.assert_called_once()
+    # The journal `downloaded` write must land strictly BEFORE the PP_QUEUE.put
+    # handoff — the atomic begin() block commits the `downloaded` row first,
+    # then PP is enqueued (the snatch block earlier in ddl_downloader also
+    # records `snatched`, so assert relative ordering rather than equality).
+    assert ("journal", journal.DOWNLOADED) in order
+    assert ("pp_put", None) in order
+    assert order.index(("journal", journal.DOWNLOADED)) < order.index(("pp_put", None))
+    # Nothing is enqueued for PP before the downloaded write.
+    assert order[order.index(("pp_put", None)) - 1] == ("journal", journal.DOWNLOADED)
 
 
 def test_ddl_complete_atomic_rollback_on_journal_failure(monkeypatch):
@@ -281,9 +301,18 @@ def test_ddl_complete_atomic_rollback_on_journal_failure(monkeypatch):
     rolls back BOTH the ddl_info write and the journal row (no half-write)
     AND the ddl_downloader loop SURVIVES (the raise is caught + logged +
     continue, not propagated to kill the worker). The pre-existing
-    'Downloading' row remains (it was a separate prior txn)."""
+    'Downloading' row remains (it was a separate prior txn).
+
+    Requeue invariant: because the journal write failed inside the atomic
+    block, the loop hits `continue` BEFORE the PP_QUEUE.put handoff — so the
+    item is NEVER put on PP_QUEUE, and is re-put on DDL_QUEUE so it stays
+    genuinely recoverable (the GetComics DDL path has no foundsearch row for
+    replay to rescan)."""
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
-    monkeypatch.setattr(comicarr, "PP_QUEUE", MagicMock(), raising=False)
+    fake_pp_queue = MagicMock()
+    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    fake_ddl_queue = MagicMock()
+    monkeypatch.setattr(comicarr, "DDL_QUEUE", fake_ddl_queue, raising=False)
     monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
 
     with get_engine().begin() as conn:
@@ -310,6 +339,15 @@ def test_ddl_complete_atomic_rollback_on_journal_failure(monkeypatch):
     assert len(ddl_rows) == 1
     assert ddl_rows[0]["status"] == "Downloading"
     assert _rows(pipeline_journal) == []
+
+    # Requeue invariant: the PP handoff never happened (continue fires before
+    # the PP_QUEUE.put), and the item was re-put on DDL_QUEUE so it remains
+    # recoverable rather than silently lost.
+    fake_pp_queue.put.assert_not_called()
+    fake_ddl_queue.put.assert_called_once()
+    requeued_item = fake_ddl_queue.put.call_args[0][0]
+    assert requeued_item["id"] == "ddl-1"
+    assert requeued_item["_journal_retry"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +430,56 @@ def test_second_downloaded_after_post_processed_is_noop():
     won = journal.record_transition(rkey, journal.DOWNLOADED, issueid="IM1")
     assert won is False
     assert _stage_of(rkey) == "post_processed"
+
+
+# ---------------------------------------------------------------------------
+# Secondary story-arc write must NOT ride the threaded primary key
+# ---------------------------------------------------------------------------
+
+
+def test_secondary_arc_write_advances_arc_row_not_primary_claimed_row():
+    """The secondary COPY2ARCDIR writes pass an explicit `issuearcid` and must
+    terminalize the ARC row (whose own "S<IssueArcID>" nzblog entry is being
+    deleted), NOT the primary claimed ISSUE row.
+
+    With a threaded U4 release_key present, a `_journal_pp(...,
+    issuearcid=...)` write must re-derive an ARC-scoped key (anchored on the
+    arc id, matching the arc's durable snatched row IssueID==IssueArcID) and
+    advance that distinct row — leaving the primary threaded row untouched.
+    The PRIMARY path (no explicit issuearcid) must still return the single
+    threaded key, preserving the U4 single-derivation invariant."""
+    threaded = "I1|nzbprov"  # the canonical key from postprocess_main's claim
+    pp = _make_pp(issueid="I1", comicid="C1")
+    pp.journal_release_key = threaded
+
+    # Primary path: no explicit arc override → returns the threaded key
+    # (U4 single-derivation invariant intact).
+    assert pp._journal_release_key() == threaded
+    assert pp._journal_release_key(issueid="I1") == threaded
+
+    # Secondary story-arc write: explicit issuearcid → re-derived ARC key,
+    # distinct from the primary threaded key.
+    arc_key = pp._journal_release_key(issuearcid="ARC9")
+    assert arc_key != threaded
+    assert arc_key == journal.release_key("ARC9", "")
+
+    # Drive the primary row to terminal on the threaded key.
+    pp._journal_pp("post_processing", issueid="I1")
+    pp._journal_pp("moved", issueid="I1")
+    pp._journal_pp("post_processed", issueid="I1")
+    assert _stage_of(threaded) == "post_processed"
+
+    # The secondary arc write advances the ARC row, NOT the primary row.
+    pp._journal_pp("post_processing", issuearcid="ARC9")
+    pp._journal_pp("moved", issuearcid="ARC9")
+    pp._journal_pp("post_processed", issuearcid="ARC9")
+    assert _stage_of(arc_key) == "post_processed"
+
+    # Two distinct rows — the primary claimed row was never advanced by the
+    # secondary arc write.
+    assert arc_key != threaded
+    assert _journal_row(threaded) is not None
+    assert _journal_row(arc_key) is not None
 
 
 # ---------------------------------------------------------------------------

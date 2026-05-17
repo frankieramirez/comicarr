@@ -13,6 +13,7 @@ FastAPI application — lifespan, router composition, static file serving.
 
 import asyncio
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -59,6 +60,12 @@ def _drain_worker_pools(timeout):
     import comicarr
     from comicarr import logger
 
+    # Shared monotonic deadline so the TOTAL drain is bounded by ``timeout``,
+    # not ``timeout * len(_WORKER_POOLS)``. Each pool gets only the time
+    # remaining until the deadline; once exhausted, remaining pools are left
+    # for the terminal hard-kill backstop.
+    deadline = time.monotonic() + timeout
+
     for pool_attr in _WORKER_POOLS:
         pool = getattr(comicarr, pool_attr, None)
         if pool is None:
@@ -69,8 +76,12 @@ def _drain_worker_pools(timeout):
         except Exception as e:
             logger.fdebug("[SHUTDOWN] pool.is_alive() check failed for %s: %s" % (pool_attr, e))
             continue
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warn("[SHUTDOWN] Drain deadline exhausted; leaving %s for hard-kill backstop" % pool_attr)
+            continue
         try:
-            pool.join(timeout)
+            pool.join(remaining)
             logger.fdebug("[SHUTDOWN] Drained worker pool %s" % pool_attr)
         except AssertionError as e:
             # Must NOT short-circuit the drain — just log and continue so the

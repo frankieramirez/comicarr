@@ -664,17 +664,17 @@ ai_cache = Table(
 pipeline_journal = Table(
     "pipeline_journal",
     metadata,
-    Column("release_key", Text),
+    Column("release_key", Text, nullable=False),
     Column("issueid", Text),
     Column("provider", Text),
     Column("downloader_type", Text),
     Column("nzbname", Text),
     Column("hash", Text),
-    Column("stage", Text),  # snatched|downloaded|post_processing|moved|post_processed|failed
-    Column("stage_rank", Integer),  # derived from stage; drives the monotonic guard
+    Column("stage", Text, nullable=False),  # snatched|downloaded|post_processing|moved|post_processed|failed
+    Column("stage_rank", Integer, nullable=False),  # derived from stage; drives the monotonic guard
     Column("payload_json", Text),  # reconstruct the SNATCHED_QUEUE/PP_QUEUE item
     Column("fail_reason", Text),  # nullable
-    Column("updated_date", Text),
+    Column("updated_date", Text, nullable=False),
     # Reserved-nullable (R9) — unpopulated now:
     Column("status", Text),
     Column("retry_count", Integer),

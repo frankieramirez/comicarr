@@ -827,7 +827,7 @@ def test_nzblog_present_matches_S_prefixed_story_arc():
     reads "nzblog absent => PP done" and silently drops the in-flight arc."""
     with get_engine().begin() as conn:
         conn.execute(nzblog.insert().values(IssueID="S302", PROVIDER="nzb.su"))
-    assert recovery_classify._nzblog_present("302", "nzb.su") is True
+    assert recovery_classify._nzblog_present("302", "nzb.su", story_arc=True) is True
     # Plain issueid still matched (regression).
     with get_engine().begin() as conn:
         conn.execute(nzblog.insert().values(IssueID="303", PROVIDER="nzb.su"))

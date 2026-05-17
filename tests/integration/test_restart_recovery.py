@@ -458,8 +458,10 @@ def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once
 
     # ---- The live PP consumer wins the REAL U4 atomic claim and completes
     # the item; then the process crashes AGAIN (the journal is now terminal,
-    # but the never-deleted live `Snatched` row still exists). --------------
-    assert journal.record_transition(rkey, journal.DOWNLOADED) is True
+    # but the never-deleted live `Snatched` row still exists). Replay's
+    # COMPLETE branch already advanced the row to `downloaded` before the
+    # PP_QUEUE.put, so the consumer's claim is purely downloaded->post_processing.
+    assert journal.read_one(rkey)["stage"] == journal.DOWNLOADED
     assert journal.record_transition(rkey, journal.POST_PROCESSING) is True, (
         "AE3: the real downloaded->post_processing atomic claim must succeed once"
     )

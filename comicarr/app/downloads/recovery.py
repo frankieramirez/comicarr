@@ -253,6 +253,27 @@ def _reconstruct_anchors():
                     "authoritative; reconstructing as in-flight." % (issueid, provider)
                 )
 
+            # Preserve the downloader IDENTITY when synthesizing the anchor.
+            # updater.foundsearch writes a `snatched` row for a DDL snatch too
+            # (search.py ~1712, provider="DDL(GetComics)"/"DDL(External)",
+            # Hash=None), so a lost-journal DDL snatch surfaces here. The prior
+            # unconditional `nzb` hardcode + DDL-marker-less payload routed it
+            # through the NZB probe / NZB_QUEUE instead of _probe_ddl /
+            # DDL_QUEUE, breaking DDL restart recovery. Derive: torrent if a
+            # Hash is present, else ddl if the durable provider is a DDL
+            # provider (substring — the snatched.Provider column carries the
+            # raw "DDL(GetComics)"/"DDL(External)" name, not the normalized
+            # "DDL"), else nzb. For DDL, also stamp the markers
+            # _resolve_downloader / _resume_item_from_row key off so the
+            # reconstructed row classifies and resumes onto DDL_QUEUE.
+            is_ddl = "DDL" in str(provider or "").upper()
+            if srow.get("Hash"):
+                downloader_type = "torrent"
+            elif is_ddl:
+                downloader_type = "ddl"
+            else:
+                downloader_type = "nzb"
+
             payload = {
                 "issueid": issueid,
                 "comicid": srow.get("ComicID"),
@@ -262,13 +283,20 @@ def _reconstruct_anchors():
                 "comicname": srow.get("ComicName"),
                 "issuenumber": srow.get("Issue_Number"),
             }
+            if is_ddl:
+                # _resume_item_from_row keys off payload["ddl"] /
+                # download_info.provider == "DDL"; _probe_ddl falls back to
+                # ddl_info.issueid (durably upserted by getcomics.py before
+                # DDL_QUEUE.put, so it survives the lost-journal window).
+                payload["ddl"] = True
+                payload["download_info"] = {"provider": "DDL"}
             journal.record_transition(
                 rkey,
                 journal.SNATCHED,
                 payload=payload,
                 issueid=issueid,
                 provider=provider,
-                downloader_type="torrent" if srow.get("Hash") else "nzb",
+                downloader_type=downloader_type,
                 nzbname=srow.get("FolderName"),
                 hash=srow.get("Hash"),
             )
@@ -600,11 +628,31 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "unknown-unchanged"
 
     if verdict == recovery_classify.COMPLETE:
+        # Advance to `downloaded` BEFORE the PP enqueue. classify() can return
+        # COMPLETE while this journal row is still `snatched` (the row was
+        # rebuilt by anchor reconstruction, or the original downloaded-stage
+        # write was the one lost). The U4 PP consumer only claims a
+        # `downloaded -> post_processing` row, so enqueuing a still-`snatched`
+        # row would make it lose the claim and silently drop. The monotonic
+        # guard makes this a safe no-op when the row is already >= downloaded;
+        # it only advances a still-`snatched` recovered row so the U4 claim
+        # works. release_key (rkey) is authoritative and is what the PP item
+        # carries as journal_release_key (the U3/U4/U6 propagated-key
+        # contract — never re-derived).
+        journal.record_transition(
+            rkey,
+            journal.DOWNLOADED,
+            payload=payload,
+            issueid=row.get("issueid"),
+            provider=row.get("provider"),
+            downloader_type=row.get("downloader_type"),
+        )
         item = _pp_item_from_row(row, payload)
         comicarr.PP_QUEUE.put(item)
         logger.info(
-            "[RECOVERY] %s -> COMPLETE (done at downloader) — re-enqueued for "
-            "PP (journal_release_key stamped for the U4 atomic claim)." % rkey
+            "[RECOVERY] %s -> COMPLETE (done at downloader) — recorded "
+            "`downloaded` then re-enqueued for PP (journal_release_key stamped "
+            "for the U4 atomic claim)." % rkey
         )
         return "complete-pp-enqueued"
 

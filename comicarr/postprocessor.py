@@ -147,13 +147,47 @@ class PostProcessor(object):
         threaded key closes that. Re-derive ONLY when no canonical key was
         threaded (manual/API/ComicRN PP with no journal row) — a divergent key
         in that case is a safe, behavior-neutral monotonic no-op worst case.
+
+        EXCEPTION — explicit story-arc override: the secondary COPY2ARCDIR
+        writes pass an explicit `issuearcid` and are supposed to terminalize
+        the ARC row whose own `nzblog` ("S<IssueArcID>") entry is being
+        deleted, NOT the primary claimed ISSUE row. Returning the threaded
+        primary key for those would advance the wrong row and break the
+        delete-and-terminalize-the-same-item invariant on COPY2ARCDIR
+        recovery. So when an explicit `issuearcid` override is supplied we
+        RE-DERIVE the key for the arc row. The primary path (no explicit
+        issuearcid/issueid override) still returns the single threaded key, so
+        the U4 single-derivation invariant — claim/markers/snatch all share
+        the one key — is preserved unchanged.
         """
         from comicarr.app.downloads import journal
 
+        # Secondary story-arc write: an explicit issuearcid override targets
+        # the ARC row (its own "S<IssueArcID>" nzblog entry is being deleted),
+        # not the primary claimed issue row — re-derive for that arc row.
+        explicit_arc_override = issuearcid is not None and issuearcid != self.issuearcid
+
         # Prefer the canonical key threaded from the PP-consumer atomic claim
-        # (the row the claim advanced); re-derive only for unjournaled PP.
-        if self.journal_release_key:
+        # (the row the claim advanced) for the PRIMARY item; re-derive for the
+        # secondary arc write and for unjournaled PP.
+        if self.journal_release_key and not explicit_arc_override:
             return self.journal_release_key
+
+        # For an explicit story-arc override, the arc's durable `snatched`
+        # row is written with IssueID == IssueArcID (the bare arc id, NOT the
+        # "S"-prefixed nzblog form — updater.foundsearch, see recovery.py
+        # ~94-99), so the canonical arc release_key derives from the arc id.
+        # Anchor the derivation on the arc id so the re-derived key advances
+        # the ARC row, not the primary claimed issue row.
+        if explicit_arc_override:
+            ident = {
+                "issueid": issuearcid,
+                "IssueArcID": issuearcid,
+                "comicid": self.comicid,
+                "nzbname": self.nzb_name,
+                "ddl": getattr(self, "ddl", False),
+            }
+            return journal.derive_release_key(ident)
 
         ident = {
             "issueid": issueid if issueid is not None else self.issueid,
