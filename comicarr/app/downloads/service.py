@@ -953,6 +953,17 @@ def ddl_downloader(queue):
                 logger.fdebug("[DOWNLOADS-DDL] Journaled downloaded for %s" % ddlc_rkey)
 
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
+                # U4 producer/consumer key contract: `ddlc_rkey` is the EXACT
+                # key written to the `downloaded` journal row in the block
+                # above (always executed when ddzstat["success"] is True,
+                # which gates this branch too — so it is always bound here).
+                # It is propagated onto the PP_QUEUE item as
+                # `journal_release_key` so postprocess_main's atomic claim
+                # advances THIS row, not a divergent re-derived orphan (the
+                # DDL PP item carries issueid=None on the no-filename path —
+                # re-derivation could never reproduce the one-off key, which
+                # is keyed on the downloader id discriminant). One variable
+                # (`ddlc_rkey`), propagated, never re-derived.
                 try:
                     if ddzstat["filename"] is None:
                         comicarr.PP_QUEUE.put(
@@ -965,6 +976,7 @@ def ddl_downloader(queue):
                                 "apicall": True,
                                 "ddl": True,
                                 "download_info": {"provider": "DDL", "id": item["id"]},
+                                "journal_release_key": ddlc_rkey,
                             }
                         )
                     else:
@@ -978,6 +990,7 @@ def ddl_downloader(queue):
                                 "apicall": True,
                                 "ddl": True,
                                 "download_info": {"provider": "DDL", "id": item["id"]},
+                                "journal_release_key": ddlc_rkey,
                             }
                         )
                 except Exception as e:
@@ -1097,6 +1110,111 @@ def postprocess_main(queue):
             continue
         pp = None
         logger.info("Now loading from post-processing queue: %s" % item)
+
+        # --- U4: PP-consumer idempotency guard (atomic claim) --------------
+        # This is the single convergence point of every duplicate-enqueue
+        # source (replay re-enqueue, torrent self-re-enqueue, NZB/DDL handoff,
+        # and two PP-pool threads dequeuing the same release_key at stage
+        # `downloaded` simultaneously). The guard is an ATOMIC COMPARE-AND-SET,
+        # not a read-then-process: a single conditional monotonic advance
+        # `downloaded -> post_processing` via the U1 façade. Exactly ONE of N
+        # concurrent callers wins (record_transition returns True); every
+        # loser — already >= post_processing (incl. moved/post_processed),
+        # terminal `failed`, or a concurrent winner took it — gets False and
+        # DROPS the item (no second process.Process). This single write IS the
+        # C3 pre-move `post_processing` marker; U3/U9's in-postprocessor.py
+        # `post_processing` call becomes a redundant-but-safe monotonic no-op
+        # for the journaled path.
+        #
+        # CANONICAL KEY SOURCE — the producer/consumer key contract.
+        #   The release_key is NOT re-derived from the PP item for journaled
+        #   downloads. A PP_QUEUE item carries NO provider / hash / original
+        #   nzbname, so a re-derivation here (issueid|None|nzb_name) would
+        #   DIVERGE from the K1 key written at the snatch seam (U2) and the
+        #   `downloaded` write (U3) — issueid|provider|nzbname-or-hash. That
+        #   divergence would leave the real K1 row stuck at `downloaded`
+        #   forever, create/advance a DIFFERENT orphan row, and on restart U6
+        #   replay would RE-DRIVE the already-post-processed K1 item: the
+        #   exactly-once guarantee (R5) would be silently void.
+        #
+        #   Therefore every PP_QUEUE producer that journals `downloaded`
+        #   (worker_main torrent put, cdh_monitor NZB put, the two DDL puts)
+        #   stamps the EXACT `downloaded`-write rkey onto the item as
+        #   `journal_release_key`. We consume that propagated key verbatim —
+        #   one variable, propagated, never re-derived for journaled items.
+        #
+        #   FALLBACK (genuinely unjournaled PP only): the manual/API producer
+        #   force_process(:107) and ComicRN do NOT journal and have NO row, so
+        #   they do NOT stamp a key. ONLY when `journal_release_key` is absent
+        #   do we derive from the guaranteed field intersection
+        #   {nzb_name, nzb_folder, failed, issueid, comicid, apicall} (NOT
+        #   download_info/ddl/provider/hash — never on a PP item; the 8-arg
+        #   path below and the 2-arg fallback both have only these). For that
+        #   unjournaled path the conditional advance is an insert-if-absent /
+        #   monotonic no-op — the correct, behavior-neutral outcome (the
+        #   plan's "genuinely new release with no journal row wins the claim"
+        #   clause applies to THIS path only).
+        #
+        # The resolved canonical key string is threaded into process.Process
+        # -> PostProcessor so U3's moved/post_processed markers advance the
+        # SAME row this claim advanced (single-derivation invariant).
+        #
+        # Defense-in-depth: a journal read/write FAILURE inside the guard must
+        # NOT crash the PP worker — it is caught, logged loudly, and we fall
+        # through to PP (whose existing Status in ("Wanted","Snatched") guard
+        # in postprocessor.py is the fallback). The atomic claim is the
+        # primary guarantee; the Status guard is the secondary safety net.
+        canonical_release_key = None
+        try:
+            from comicarr.app.downloads import journal
+
+            propagated_key = item.get("journal_release_key")
+            if propagated_key:
+                # Journaled download: consume the exact key the producer
+                # stamped from its `downloaded` write. NEVER re-derive here.
+                canonical_release_key = propagated_key
+            else:
+                # Genuinely unjournaled PP (manual/API force_process:107 /
+                # ComicRN — no journal row exists). Derive from the guaranteed
+                # field intersection; the advance is insert-if-absent / no-op.
+                claim_ident = {
+                    "issueid": item.get("issueid"),
+                    "comicid": item.get("comicid"),
+                    "nzbname": item.get("nzb_name"),
+                }
+                canonical_release_key = journal.derive_release_key(claim_ident)
+            won = journal.record_transition(
+                canonical_release_key,
+                journal.POST_PROCESSING,
+                payload={
+                    "nzb_name": item.get("nzb_name"),
+                    "nzb_folder": item.get("nzb_folder"),
+                    "failed": item.get("failed"),
+                    "issueid": item.get("issueid"),
+                    "comicid": item.get("comicid"),
+                    "apicall": item.get("apicall"),
+                },
+                issueid=item.get("issueid"),
+            )
+            if won is False:
+                # Lost the claim (already >= post_processing / terminal, or a
+                # concurrent winner took it). Drop the item — no second
+                # process.Process. This is the exactly-once convergence point.
+                logger.info(
+                    "[DOWNLOADS-PP] Idempotency claim LOST for %s — already "
+                    "post-processing/processed or claimed concurrently; "
+                    "dropping duplicate." % canonical_release_key
+                )
+                continue
+            logger.fdebug("[DOWNLOADS-PP] Idempotency claim WON for %s" % canonical_release_key)
+        except Exception as e:
+            # Journal unreachable mid-claim — do NOT crash the worker. Fall
+            # through to PP; the existing Status guard is the fallback.
+            logger.error(
+                "[DOWNLOADS-PP] Journal error during idempotency claim (falling through to Status guard): %s" % e
+            )
+            canonical_release_key = None
+
         try:
             pprocess = process.Process(
                 item["nzb_name"],
@@ -1107,10 +1225,17 @@ def postprocess_main(queue):
                 item["apicall"],
                 item["ddl"],
                 item["download_info"],
+                journal_release_key=canonical_release_key,
             )
         except Exception:
             pprocess = process.Process(
-                item["nzb_name"], item["nzb_folder"], item["failed"], item["issueid"], item["comicid"], item["apicall"]
+                item["nzb_name"],
+                item["nzb_folder"],
+                item["failed"],
+                item["issueid"],
+                item["comicid"],
+                item["apicall"],
+                journal_release_key=canonical_release_key,
             )
         pp = pprocess.post_process()
         if pp is not None:
@@ -1152,6 +1277,18 @@ def worker_main(queue):
             # torrent SNATCHED_QUEUE item dict in scope here (issueid + hash);
             # release_key is derived via the single journal façade so it
             # matches the row the snatch seam wrote.
+            #
+            # U4 producer/consumer key contract: the EXACT rkey written to
+            # the `downloaded` journal row here is propagated onto the
+            # PP_QUEUE item as `journal_release_key` so postprocess_main's
+            # atomic claim advances THIS row (the snatch/downloaded row) — it
+            # must NOT re-derive a divergent key from the PP item (which
+            # carries no provider/hash and would orphan the K1 row, voiding
+            # exactly-once). One variable (`rkey`), propagated, never
+            # re-derived. None only if the journal write itself failed —
+            # then the consumer fallback re-derivation handles it (the same
+            # behavior as a genuinely unjournaled item).
+            torrent_journal_release_key = None
             try:
                 from comicarr.app.downloads import journal
 
@@ -1181,6 +1318,7 @@ def worker_main(queue):
                     nzbname=item.get("nzbname"),
                     hash=item.get("hash"),
                 )
+                torrent_journal_release_key = rkey
                 logger.fdebug("[DOWNLOADS-WORKER] Journaled downloaded for %s" % rkey)
             except Exception as e:
                 # A journal failure must NOT block the PP handoff (additive /
@@ -1197,6 +1335,7 @@ def worker_main(queue):
                     "apicall": True,
                     "ddl": False,
                     "download_info": None,
+                    "journal_release_key": torrent_journal_release_key,
                 }
             )
 
@@ -1296,6 +1435,15 @@ def cdh_monitor(queue, item, nzstat, readd=False):
         # advances; replay/U5 classifies it from there. Identity comes from
         # the resolved nzstat dict (issueid + download_info provider/hash).
         di = nzstat.get("download_info") or {}
+        #
+        # U4 producer/consumer key contract: the EXACT rkey written to the
+        # `downloaded` journal row here is propagated onto the PP_QUEUE item
+        # as `journal_release_key` so postprocess_main's atomic claim
+        # advances THIS row — it must NOT re-derive a divergent key from the
+        # PP item (which carries no provider/hash). One variable (`rkey`),
+        # propagated, never re-derived. None only if the journal write itself
+        # failed — then the consumer fallback re-derivation handles it.
+        cdh_journal_release_key = None
         try:
             from comicarr.app.downloads import journal
 
@@ -1328,6 +1476,7 @@ def cdh_monitor(queue, item, nzstat, readd=False):
                 nzbname=di.get("nzbname") or nzstat.get("name"),
                 hash=di.get("hash"),
             )
+            cdh_journal_release_key = rkey
             logger.fdebug("[DOWNLOADS-CDH] Journaled downloaded for %s" % rkey)
         except Exception as e:
             # A journal failure must NOT block the PP handoff (additive /
@@ -1345,6 +1494,7 @@ def cdh_monitor(queue, item, nzstat, readd=False):
                     "apicall": nzstat["apicall"],
                     "ddl": False,
                     "download_info": nzstat["download_info"],
+                    "journal_release_key": cdh_journal_release_key,
                 }
             )
         except Exception as e:

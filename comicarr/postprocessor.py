@@ -61,7 +61,16 @@ class PostProcessor(object):
     FILE_NAME = 3
 
     def __init__(
-        self, nzb_name, nzb_folder, issueid=None, module=None, queue=None, comicid=None, apicall=False, ddl=False
+        self,
+        nzb_name,
+        nzb_folder,
+        issueid=None,
+        module=None,
+        queue=None,
+        comicid=None,
+        apicall=False,
+        ddl=False,
+        journal_release_key=None,
     ):
         """
         Creates a new post processor with the given file path and optionally an NZB name.
@@ -118,8 +127,30 @@ class PostProcessor(object):
 
         self.issuearcid = None
 
+        # U4: canonical release_key threaded from postprocess_main's atomic
+        # claim. When present it is PREFERRED over re-derivation so the U3
+        # `moved`/`post_processed` markers advance the SAME row the claim
+        # advanced (single-derivation invariant). None for manual/API/ComicRN
+        # PP that has no journal row — those fall back to re-derivation, which
+        # is a safe monotonic no-op worst case.
+        if journal_release_key is not None:
+            self.journal_release_key = journal_release_key
+        else:
+            self.journal_release_key = None
+
     def _journal_release_key(self, issueid=None, issuearcid=None):
-        """Derive the journal release_key for this PP item (U3).
+        """Derive the journal release_key for this PP item (U3/U4).
+
+        U4: a canonical release_key threaded from postprocess_main's atomic
+        claim (self.journal_release_key) is PREFERRED over re-derivation so
+        these markers advance the SAME journal row the PP-consumer claim
+        advanced — the single-derivation invariant. The PostProcessor does
+        not receive provider/hash (see comicarr/process.py — only nzb_name,
+        nzb_folder, issueid, comicid are threaded in), so a re-derived key
+        could diverge from the claimed row; the threaded key closes that.
+        Fall back to re-derivation ONLY when no canonical key was threaded
+        (manual / API / ComicRN PP with no journal row) — a divergent key in
+        that case is a safe, behavior-neutral monotonic no-op worst case.
 
         ADDITIVE / INERT. The PostProcessor does not receive download_info /
         provider / hash (see comicarr/process.py:60 — only nzb_name,
@@ -134,6 +165,13 @@ class PostProcessor(object):
         worst case — never an observable change.
         """
         from comicarr.app.downloads import journal
+
+        # U4: prefer the canonical key threaded from the PP-consumer atomic
+        # claim — this is THE row the claim advanced; the markers must land on
+        # it. Re-derivation below is only the fallback for an unjournaled
+        # (manual/API/ComicRN) PP.
+        if getattr(self, "journal_release_key", None):
+            return self.journal_release_key
 
         ident = {
             "issueid": issueid if issueid is not None else self.issueid,

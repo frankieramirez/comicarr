@@ -37,6 +37,7 @@ class Process(object):
         apicall=False,
         ddl=False,
         download_info=None,
+        journal_release_key=None,
     ):
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
@@ -46,6 +47,13 @@ class Process(object):
         self.apicall = apicall
         self.ddl = ddl
         self.download_info = download_info
+        # U4: the canonical release_key computed ONCE at PP-item dequeue in
+        # postprocess_main (where the atomic claim won). Threaded through to
+        # the PostProcessor so its U3 `moved`/`post_processed` markers write
+        # to the SAME journal row the claim advanced (single-derivation
+        # invariant). None when PP was initiated outside the journaled path
+        # (manual/API/ComicRN) — the markers then fall back to re-derivation.
+        self.journal_release_key = journal_release_key
 
     def post_process(self):
         if self.failed == "0":
@@ -65,6 +73,7 @@ class Process(object):
                 comicid=self.comicid,
                 apicall=self.apicall,
                 ddl=self.ddl,
+                journal_release_key=self.journal_release_key,
             )
             if any(
                 [
