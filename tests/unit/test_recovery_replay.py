@@ -30,7 +30,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.downloads import journal, recovery, recovery_classify
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import issues, metadata, nzblog, pipeline_journal, snatched
+from comicarr.tables import issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
 
 
 @pytest.fixture(autouse=True)
@@ -737,3 +737,263 @@ def test_post_processing_redrive_capped_per_pass_and_rerun_processes_rest(queues
     assert s2["actions"].get("post_processing-redrive") == total - cap
     assert "skip-pp-cap-deferred" not in s2["actions"]
     assert sorted(processed) == sorted(keys)
+
+
+# ---------------------------------------------------------------------------
+# Story-arc nzblog "S"+IssueArcID vs plain issueid (P1 #2)
+# ---------------------------------------------------------------------------
+#
+# updater.nzblog() stores story-arc rows with IssueID = "S" + str(IssueArcID),
+# while the snatched table / journal use the un-prefixed IssueArcID. Recovery
+# must match EITHER form or it silently drops in-flight story-arc obligations
+# (anchor reconstruction, _nzblog_present presence gate) and orphans story-arc
+# nzblog rows on finalize.
+
+
+def test_anchor_reconstruct_story_arc_nzblog_S_prefixed(queues):
+    """In-flight story-arc obligation: snatched IssueID=IssueArcID, nzblog
+    IssueID="S"+IssueArcID (same PROVIDER), NO journal row. Anchor
+    reconstruction must REBUILD it (not skip it as nzblog-absent/done) and the
+    rebuilt row must carry the durable NZBName from the "S"-prefixed nzblog
+    row."""
+    arcid = "300"  # below HIGHCOUNT floor -> NOT a synthetic one-off
+    with get_engine().begin() as conn:
+        conn.execute(
+            snatched.insert().values(
+                IssueID=arcid,
+                ComicID="C300",
+                ComicName="Arc Series",
+                Issue_Number="1",
+                Status="Snatched",
+                Provider="nzb.su",
+                Hash=None,
+            )
+        )
+        # Story-arc nzblog row is "S"-prefixed and carries the durable name.
+        conn.execute(
+            nzblog.insert().values(
+                IssueID="S" + arcid,
+                PROVIDER="nzb.su",
+                NZBName="Arc.Issue.001.cbz",
+                SARC="My Story Arc",
+            )
+        )
+        conn.execute(issues.insert().values(IssueID=arcid, Status="Snatched"))
+        # Durable story-arc discriminator: updater.foundsearch ALWAYS upserts
+        # a storyarcs row keyed IssueArcID for a story-arc snatch, and the
+        # snatched IssueID IS that IssueArcID — this is what makes the row a
+        # *real* story-arc obligation (so the "S"+id nzblog arm is scoped to
+        # arcs only and a plain/arc id collision cannot occur).
+        conn.execute(storyarcs.insert().values(IssueArcID=arcid, StoryArc="My Story Arc"))
+
+    summary = recovery.replay_pipeline(probes=_probe("still"))
+    assert summary["reconstructed"] == 1
+    rkey = journal.release_key(arcid, "nzb.su", nzbname="Arc.Issue.001.cbz", hash=None)
+    row = _journal_row(rkey)
+    assert row is not None, "story-arc obligation was NOT reconstructed (S-prefix miss)"
+    # The durable NZBName came from the "S"-prefixed nzblog row, so a STILL
+    # re-drive has a usable name.
+    payload = journal.load_payload(row.get("payload_json"))
+    assert payload.get("nzbname") == "Arc.Issue.001.cbz"
+
+
+def test_anchor_reconstruct_plain_issue_still_works_regression(queues):
+    """Regression guard for P1 #2: a plain (non-arc) issue whose nzblog row is
+    the un-prefixed IssueID must still reconstruct exactly as before."""
+    with get_engine().begin() as conn:
+        conn.execute(
+            snatched.insert().values(
+                IssueID="301",
+                ComicID="C301",
+                ComicName="Plain Series",
+                Issue_Number="1",
+                Status="Snatched",
+                Provider="nzb.su",
+                Hash=None,
+            )
+        )
+        conn.execute(nzblog.insert().values(IssueID="301", PROVIDER="nzb.su", NZBName="Plain.001.cbz"))
+        conn.execute(issues.insert().values(IssueID="301", Status="Snatched"))
+
+    summary = recovery.replay_pipeline(probes=_probe("still"))
+    assert summary["reconstructed"] == 1
+    rkey = journal.release_key("301", "nzb.su", nzbname="Plain.001.cbz", hash=None)
+    assert _journal_row(rkey) is not None
+
+
+def test_nzblog_present_matches_S_prefixed_story_arc():
+    """_nzblog_present must answer True for a story-arc obligation whose
+    nzblog row is "S"+IssueArcID — otherwise the anchor-skip presence gate
+    reads "nzblog absent => PP done" and silently drops the in-flight arc."""
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="S302", PROVIDER="nzb.su"))
+    assert recovery_classify._nzblog_present("302", "nzb.su") is True
+    # Plain issueid still matched (regression).
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="303", PROVIDER="nzb.su"))
+    assert recovery_classify._nzblog_present("303", "nzb.su") is True
+    # Genuinely absent stays absent.
+    assert recovery_classify._nzblog_present("999", "nzb.su") is False
+
+
+def test_finalizer_moved_deletes_S_prefixed_story_arc_nzblog(queues, monkeypatch):
+    """finalize_post_processing on a `moved` story-arc row must delete the
+    "S"+IssueArcID nzblog row (PROVIDER-scoped) — not orphan it."""
+    arcid = "304"
+    rkey = journal.release_key(arcid, "nzb.su", nzbname="Arc.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="S" + arcid, PROVIDER="nzb.su", SARC="Arc"))
+        # Real story-arc obligation: storyarcs row keyed IssueArcID == the
+        # journal/snatched IssueID (the durable arc discriminator).
+        conn.execute(storyarcs.insert().values(IssueArcID=arcid, StoryArc="Arc"))
+    _insert_journal(
+        rkey,
+        journal.MOVED,
+        payload={"issueid": arcid, "provider": "nzb.su", "mode": "story_arc"},
+        issueid=arcid,
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    import comicarr.process as process_mod
+
+    def _boom(*a, **k):
+        raise AssertionError("moved path must NOT re-import")
+
+    monkeypatch.setattr(process_mod, "Process", _boom)
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    with get_engine().connect() as conn:
+        rem = conn.execute(select(nzblog).where(nzblog.c.IssueID == "S" + arcid)).fetchall()
+    assert rem == [], "S-prefixed story-arc nzblog row leaked on finalize"
+
+
+def test_finalizer_moved_deletes_plain_nzblog_regression(queues, monkeypatch):
+    """Regression guard: the `moved` finalizer still deletes a plain
+    (un-prefixed) nzblog row."""
+    rkey = journal.release_key("305", "nzb.su", nzbname="P.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="305", PROVIDER="nzb.su"))
+    _insert_journal(
+        rkey,
+        journal.MOVED,
+        payload={"issueid": "305", "provider": "nzb.su"},
+        issueid="305",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    import comicarr.process as process_mod
+
+    monkeypatch.setattr(process_mod, "Process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport")))
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    with get_engine().connect() as conn:
+        rem = conn.execute(select(nzblog).where(nzblog.c.IssueID == "305")).fetchall()
+    assert rem == []
+
+
+# ---------------------------------------------------------------------------
+# Adversarial plain/arc id collision (round-2 correctness completion of #2)
+# ---------------------------------------------------------------------------
+#
+# A PLAIN issue obligation IssueID="302" and an UNRELATED story arc whose
+# nzblog row is IssueID="S302" exist under the SAME PROVIDER. The bare
+# `IssueID == str(id) OR == "S"+str(id)` widening (incomplete fix #2) would
+# let the plain issue read / delete the unrelated arc's "S302" row. The
+# completed fix scopes the "S"+id arm to story-arc obligations only (durable
+# payload["mode"]/storyarcs discriminator) with an NZBName-pinned fallback,
+# so the plain issue must NOT touch the arc row, while a real story-arc
+# obligation still matches its own "S"+IssueArcID row (the #2 positives).
+
+
+def test_plain_issue_does_not_read_unrelated_arc_S_row_in_nzblog_present():
+    """has_done_signal/_nzblog_present for a PLAIN issue 302 must NOT read an
+    unrelated arc's S302 nzblog presence (no plain 302 row exists; the arc's
+    S302 row must not be consumed as the plain issue's presence)."""
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="S302", PROVIDER="nzb.su", SARC="Other Arc"))
+    # Explicit plain-issue signal (the journal payload's mode for a plain
+    # issue is NOT "story_arc"): the S302 row must be invisible.
+    assert recovery_classify._nzblog_present("302", "nzb.su", story_arc=False) is False
+    # And via has_done_signal: a plain-issue journal row whose payload mode is
+    # not story_arc ⇒ nzblog treated ABSENT ⇒ done-signal True (plain PP
+    # completed), NOT a false-presence keeping it open.
+    row = {
+        "release_key": "rk-302",
+        "issueid": "302",
+        "provider": "nzb.su",
+        "stage": journal.SNATCHED,
+        "payload_json": json.dumps({"issueid": "302", "provider": "nzb.su", "mode": "want"}),
+    }
+    assert recovery_classify.has_done_signal(row) is True
+
+
+def test_plain_issue_anchor_does_not_pick_unrelated_arc_S_nzbname(queues):
+    """_reconstruct_anchors for a PLAIN issue 302 (no storyarcs row) must not
+    pick an unrelated arc's S302 NZBName, and must not be mis-skipped by the
+    arc row's presence."""
+    with get_engine().begin() as conn:
+        conn.execute(
+            snatched.insert().values(
+                IssueID="302",
+                ComicID="C302",
+                ComicName="Plain Series",
+                Issue_Number="1",
+                Status="Snatched",
+                Provider="nzb.su",
+                Hash=None,
+            )
+        )
+        conn.execute(issues.insert().values(IssueID="302", Status="Snatched"))
+        # The plain issue has its OWN plain nzblog row...
+        conn.execute(nzblog.insert().values(IssueID="302", PROVIDER="nzb.su", NZBName="Plain.302.cbz"))
+        # ...and an UNRELATED arc has S302 under the SAME provider.
+        conn.execute(
+            nzblog.insert().values(
+                IssueID="S302", PROVIDER="nzb.su", NZBName="UnrelatedArc.cbz", SARC="Other Arc"
+            )
+        )
+
+    summary = recovery.replay_pipeline(probes=_probe("still"))
+    assert summary["reconstructed"] == 1
+    rkey = journal.release_key("302", "nzb.su", nzbname="Plain.302.cbz", hash=None)
+    row = _journal_row(rkey)
+    assert row is not None, "plain issue must reconstruct off its OWN plain nzblog row"
+    payload = journal.load_payload(row.get("payload_json"))
+    assert payload.get("nzbname") == "Plain.302.cbz", "must NOT pick the unrelated arc's S302 NZBName"
+
+
+def test_plain_issue_finalize_does_not_delete_unrelated_arc_S_row(queues, monkeypatch):
+    """finalize_post_processing for a PLAIN issue 302 (mode != story_arc, no
+    storyarcs row) must NOT delete an unrelated arc's S302 nzblog row."""
+    rkey = journal.release_key("302", "nzb.su", nzbname="Plain.302.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="302", PROVIDER="nzb.su", NZBName="Plain.302.cbz"))
+        conn.execute(
+            nzblog.insert().values(
+                IssueID="S302", PROVIDER="nzb.su", NZBName="UnrelatedArc.cbz", SARC="Other Arc"
+            )
+        )
+    _insert_journal(
+        rkey,
+        journal.MOVED,
+        payload={"issueid": "302", "provider": "nzb.su", "mode": "want", "nzbname": "Plain.302.cbz"},
+        issueid="302",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    import comicarr.process as process_mod
+
+    monkeypatch.setattr(process_mod, "Process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport")))
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    with get_engine().connect() as conn:
+        plain = conn.execute(select(nzblog).where(nzblog.c.IssueID == "302")).fetchall()
+        arc = conn.execute(select(nzblog).where(nzblog.c.IssueID == "S302")).fetchall()
+    assert plain == [], "the plain issue's own nzblog row must still be deleted"
+    assert len(arc) == 1, "the UNRELATED arc's S302 row must NOT be deleted by a plain finalize"

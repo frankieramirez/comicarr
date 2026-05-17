@@ -29,6 +29,15 @@ from comicarr.app.downloads import queries as dl_queries
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
+# P1: bounded re-enqueue cap for the DDL atomic begin()-blocks. On a journal
+# raise inside one of those blocks BOTH ddl_info and journal roll back AND the
+# GetComics DDL path wrote no prior journal/foundsearch row — so nothing
+# (replay_pipeline / _reconstruct_anchors) would ever rescan it: the item is
+# lost forever. We re-put it on DDL_QUEUE (idempotent upsert + idempotent
+# record_transition ⇒ retry-safe) so it is genuinely recoverable, but cap the
+# requeues so a persistent DB failure surfaces loudly instead of hot-looping.
+_DDL_JOURNAL_REQUEUE_CAP = 3
+
 # ---------------------------------------------------------------------------
 # Download history
 # ---------------------------------------------------------------------------
@@ -817,19 +826,48 @@ def ddl_downloader(queue):
                         nzbname=item.get("filename"),
                     )
             except Exception as e:
-                # P1-3: a journal raise (OperationalError 5-retry cap, or
+                # P1: a journal raise (OperationalError 5-retry cap, or
                 # IntegrityError) inside this atomic block must NOT propagate
                 # through the `while True` loop and permanently kill the DDL
-                # worker thread (every queued DDL item would be lost). The
-                # begin() auto-rolls-back on raise, so the ddl_info row and the
-                # journal row stay consistent (both rolled back) and the item
-                # is recoverable at next startup replay. Log loudly, skip this
-                # item, keep the worker alive.
+                # worker thread. begin() auto-rolls-back, so ddl_info + journal
+                # roll back together (consistent). But the GetComics DDL path
+                # writes ddl_info+DDL_QUEUE.put with NO prior journal/
+                # foundsearch row, so on rollback there is NO journal row,
+                # ddl_info reverts, and NOTHING (replay/_reconstruct_anchors,
+                # which never scans ddl_info) would recover it — the item is
+                # lost forever. Re-enqueue it (the ddl_info upsert + journal
+                # record_transition are idempotent ⇒ retry-safe), bounded so a
+                # persistent DB failure surfaces loudly instead of hot-looping.
+                item["_journal_retry"] = item.get("_journal_retry", 0) + 1
+                if item["_journal_retry"] > _DDL_JOURNAL_REQUEUE_CAP:
+                    logger.error(
+                        "[DOWNLOADS-DDL] snatch atomic block failed %d times for "
+                        "%s (id=%s) — exceeded requeue cap (%d); NOT requeuing. "
+                        "This indicates a persistent DB failure (system down) — "
+                        "surfacing loudly rather than spinning: %s"
+                        % (
+                            item["_journal_retry"],
+                            item.get("series"),
+                            item.get("id"),
+                            _DDL_JOURNAL_REQUEUE_CAP,
+                            e,
+                        )
+                    )
+                    continue
                 logger.error(
                     "[DOWNLOADS-DDL] snatch atomic block failed for %s (id=%s) "
-                    "— ddl_info+journal rolled back together, item recoverable "
-                    "at next startup; continuing: %s" % (item.get("series"), item.get("id"), e)
+                    "— ddl_info+journal rolled back together; re-enqueued on "
+                    "DDL_QUEUE (attempt %d/%d, idempotent retry) so it is "
+                    "genuinely recoverable; continuing: %s"
+                    % (
+                        item.get("series"),
+                        item.get("id"),
+                        item["_journal_retry"],
+                        _DDL_JOURNAL_REQUEUE_CAP,
+                        e,
+                    )
                 )
+                comicarr.DDL_QUEUE.put(item)
                 continue
 
             if item["site"] == "DDL(GetComics)":
@@ -929,18 +967,54 @@ def ddl_downloader(queue):
                         )
                     logger.fdebug("[DOWNLOADS-DDL] Journaled downloaded for %s" % ddlc_rkey)
                 except Exception as e:
-                    # P1-3: same protection as the snatch block — a journal
-                    # raise here must not kill the DDL worker. begin()
-                    # auto-rolls-back, so the ddl_info status='Completed' write
-                    # and the journal `downloaded` row roll back together
-                    # (consistent, recoverable at startup replay). Skip the PP
-                    # handoff for this item so we never PP an item whose
-                    # `downloaded` journal write did not durably land.
+                    # P1: same protection as the snatch block. begin()
+                    # auto-rolls-back, so ddl_info status='Completed' + journal
+                    # `downloaded` roll back together (consistent). With no
+                    # journal row and ddl_info reverted, replay would never
+                    # rescan this item, so re-enqueue it (idempotent upsert +
+                    # record_transition ⇒ retry-safe) instead of dropping the
+                    # PP handoff and losing it. Bounded so a persistent DB
+                    # failure surfaces loudly instead of hot-looping.
+                    item["_journal_retry"] = item.get("_journal_retry", 0) + 1
+                    if item["_journal_retry"] > _DDL_JOURNAL_REQUEUE_CAP:
+                        logger.error(
+                            "[DOWNLOADS-DDL] downloaded atomic block failed %d "
+                            "times for %s (id=%s) — exceeded requeue cap (%d); "
+                            "NOT requeuing. Persistent DB failure (system down) "
+                            "— surfacing loudly rather than spinning: %s"
+                            % (
+                                item["_journal_retry"],
+                                item.get("series"),
+                                item.get("id"),
+                                _DDL_JOURNAL_REQUEUE_CAP,
+                                e,
+                            )
+                        )
+                        continue
                     logger.error(
                         "[DOWNLOADS-DDL] downloaded atomic block failed for %s "
-                        "(id=%s) — ddl_info+journal rolled back together, item "
-                        "recoverable at next startup; continuing: %s" % (item.get("series"), item.get("id"), e)
+                        "(id=%s) — ddl_info+journal rolled back together; "
+                        "re-enqueued on DDL_QUEUE (attempt %d/%d, idempotent "
+                        "retry) so it is genuinely recoverable; continuing: %s"
+                        % (
+                            item.get("series"),
+                            item.get("id"),
+                            item["_journal_retry"],
+                            _DDL_JOURNAL_REQUEUE_CAP,
+                            e,
+                        )
                     )
+                    # AMPLIFICATION NOTE: re-enqueuing here restarts the loop
+                    # at the top, which re-runs the FULL DDL download (the
+                    # source fetch, not just this failed post-download journal
+                    # write) purely to retry the journal transition. This is
+                    # accepted: the requeue cap (_DDL_JOURNAL_REQUEUE_CAP=3)
+                    # bounds the re-download blast radius, downloaders support
+                    # resume, and a persistent DB failure surfaces loudly via
+                    # the cap above rather than hot-looping. No finer-grained
+                    # "journal-only retry" path exists by design (keeping a
+                    # single recoverable restart point).
+                    comicarr.DDL_QUEUE.put(item)
                     continue
 
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):

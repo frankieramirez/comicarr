@@ -563,7 +563,194 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
     # chapter on re-run), instead of skip-terminal stranding 2..N.
     stage = _stage_of(rkey)
     assert stage != "post_processed", "shared manga release_key terminalized mid-loop — chapters 2..N stranded (P2-6)"
-    assert stage in ("post_processing", "moved")
+    # P1: the per-file `moved` was REMOVED from the multi-chapter loop (it
+    # advanced the shared row to `moved` after chapter 1, making the replay
+    # finalizer "finish DB facts only, never re-import" — stranding chapters
+    # 2..N). The shared row must now be exactly `post_processing` so the
+    # finalizer re-drives the manga in FULL on a mid-loop crash. `moved` is
+    # written EXACTLY ONCE after the loop completes.
+    assert stage == "post_processing", (
+        "shared manga release_key must stay at post_processing on a mid-loop "
+        "crash (so replay re-drives in full); a premature `moved` makes the "
+        "finalizer skip chapters 2..N (P1)"
+    )
+
+
+def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_path):
+    """P1: in the multi-chapter manga loop the per-file marker is
+    `post_processing` (idempotent, monotonic no-op after the first), NOT
+    `moved`. The single authoritative `moved` is written EXACTLY ONCE after
+    the full loop, immediately before the terminal `post_processed` block, so
+    the lifecycle is post_processing -> moved -> post_processed and the shared
+    row is never advanced to `moved` mid-loop (which would make the replay
+    finalizer skip chapters 2..N)."""
+    comicid = "mc3"
+    rkey = "mc3|ddl"
+    with get_engine().begin() as conn:
+        conn.execute(insert(comics).values(ComicID=comicid, ComicName="Vinland"))
+        for ch in ("1", "2", "3"):
+            conn.execute(
+                insert(issues).values(
+                    IssueID="%s-ch%s" % (comicid, ch),
+                    ComicID=comicid,
+                    ComicName="Vinland",
+                    Issue_Number=ch,
+                    ChapterNumber=ch,
+                    Status="Wanted",
+                )
+            )
+
+    src = tmp_path / "dl"
+    src.mkdir()
+    for ch in ("1", "2", "3"):
+        (src / ("Vinland %s.cbz" % ch)).write_bytes(b"c")
+    (tmp_path / "manga" / "Vinland").mkdir(parents=True)
+
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
+    cfg = MagicMock()
+    cfg.FILE_OPTS = "move"
+    cfg.IGNORE_SEARCH_WORDS = []
+    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
+        pp = PostProcessor(
+            nzb_name="Vinland Pack",
+            nzb_folder=str(src),
+            comicid=comicid,
+            issueid=None,
+            queue=MagicMock(spec=queuelib.Queue),
+            journal_release_key=rkey,
+        )
+
+    seen = []
+    real_pp = pp._journal_pp
+
+    def _spy(stage, **k):
+        seen.append(stage)
+        return real_pp(stage, **k)
+
+    def _fileop(s, d):
+        seen.append("__fileop__")
+        import shutil
+
+        shutil.copy(s, d)
+
+    pp.fileop = _fileop
+
+    with (
+        patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+        patch.object(pp, "_journal_pp", side_effect=_spy),
+    ):
+        pp._process_manga()
+
+    # Three fileops, no per-file `moved` interleaved with them — only
+    # `post_processing` per file.
+    assert seen.count("__fileop__") == 3
+    # Exactly ONE `moved`, and it comes AFTER every fileop (post-loop).
+    assert seen.count("moved") == 1
+    last_fileop = max(i for i, s in enumerate(seen) if s == "__fileop__")
+    assert seen.index("moved") > last_fileop
+    # Lifecycle order on the shared row: post_processing -> moved ->
+    # post_processed, and never `moved` before the final fileop.
+    assert seen[0] == "post_processing"
+    assert seen.index("moved") < seen.index("post_processed")
+    assert seen[-1] == "post_processed"
+    assert _stage_of(rkey) == "post_processed"
+
+
+def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path):
+    """P1: after a mid-loop crash the shared row is `post_processing` (not
+    `moved`/`post_processed`); the replay finalizer therefore re-drives PP in
+    FULL. Chapter 1's source file is already gone (moved on the first pass) so
+    it does not re-match/double-import; only the unmoved chapters get
+    processed, and the run then terminalizes the shared row exactly once."""
+    from comicarr.app.downloads import recovery
+    from comicarr.tables import nzblog
+
+    comicid = "mc4"
+    rkey = "mc4|ddl"
+    with get_engine().begin() as conn:
+        conn.execute(insert(comics).values(ComicID=comicid, ComicName="Gantz"))
+        for ch in ("1", "2"):
+            conn.execute(
+                insert(issues).values(
+                    IssueID="%s-ch%s" % (comicid, ch),
+                    ComicID=comicid,
+                    ComicName="Gantz",
+                    Issue_Number=ch,
+                    ChapterNumber=ch,
+                    Status="Wanted",
+                )
+            )
+            conn.execute(insert(nzblog).values(IssueID="%s-ch%s" % (comicid, ch), PROVIDER="DDL"))
+
+    src = tmp_path / "dl"
+    src.mkdir()
+    (src / "Gantz 1.cbz").write_bytes(b"c1")
+    (src / "Gantz 2.cbz").write_bytes(b"c2")
+    (tmp_path / "manga" / "Gantz").mkdir(parents=True)
+
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
+    cfg = MagicMock()
+    cfg.FILE_OPTS = "move"
+    cfg.IGNORE_SEARCH_WORDS = []
+
+    def _build_pp():
+        with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
+            return PostProcessor(
+                nzb_name="Gantz Pack",
+                nzb_folder=str(src),
+                comicid=comicid,
+                issueid=None,
+                queue=MagicMock(spec=queuelib.Queue),
+                journal_release_key=rkey,
+            )
+
+    # --- pass 1: crash on the 2nd fileop (real move so chapter 1's source
+    #     file is gone afterwards) -------------------------------------------
+    pp1 = _build_pp()
+    calls = {"n": 0}
+
+    def _crashing_fileop(s, d):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise KeyboardInterrupt("simulated mid-loop restart after chapter 1")
+        import shutil
+
+        shutil.move(s, d)
+
+    pp1.fileop = _crashing_fileop
+    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+        with pytest.raises(KeyboardInterrupt):
+            pp1._process_manga()
+
+    assert _stage_of(rkey) == "post_processing"
+    assert not (src / "Gantz 1.cbz").exists()  # chapter 1 moved
+    assert (src / "Gantz 2.cbz").exists()  # chapter 2 still pending
+
+    # --- the replay finalizer takes the `post_processing` BRANCH (re-drive
+    #     PP in FULL), NOT the `moved` finish-DB-facts-only branch. This is
+    #     the whole point of P1: per-file `moved` was removed so the shared
+    #     row stays `post_processing` on a mid-loop crash and the finalizer
+    #     re-imports the remaining chapters instead of skipping them. We mock
+    #     process.Process so the unit test asserts the routing decision
+    #     without running a full real PP (the end-to-end re-drive is covered
+    #     by the integration AE suite). -------------------------------------
+    row = journal.read_one(rkey)
+    assert row["stage"] == "post_processing"
+    fake_proc = MagicMock()
+    with patch("comicarr.process.Process", return_value=fake_proc) as mk:
+        action = recovery.finalize_post_processing(row)
+
+    assert action == "post_processing-redrive"
+    # Finalizer constructed a real PP and drove it (full re-import path),
+    # threading the authoritative release_key so the markers advance THIS row.
+    assert mk.called
+    assert mk.call_args.kwargs.get("journal_release_key") == rkey
+    fake_proc.post_process.assert_called_once()
+    # It did NOT take the `moved` finish-only path (nzblog untouched here —
+    # that happens in the real PP terminal block, not the finalizer).
+    assert len(_rows(nzblog)) == 2
 
 
 def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path):

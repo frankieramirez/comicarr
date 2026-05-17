@@ -33,12 +33,12 @@ never aborting the loop.
 
 import time
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import and_, delete, or_, select
 
 import comicarr
 from comicarr import db, logger
 from comicarr.app.downloads import journal, recovery_classify
-from comicarr.tables import nzblog, snatched
+from comicarr.tables import nzblog, snatched, storyarcs
 
 # Small inter-enqueue pause so the replay burst does not contend the SQLite
 # single-writer against the concurrent PP workers and exhaust the journal's
@@ -88,6 +88,26 @@ def _has_advanced_sibling(issueid, provider):
     return rec is not None
 
 
+def _is_story_arc_obligation(issueid):
+    """Story-arc discriminator for a `snatched`/recovery row (the snatched
+    table has NO `mode`/SARC column, so the payload-`mode` signal used on
+    journal rows is unavailable here). updater.foundsearch ALWAYS upserts a
+    `storyarcs` row keyed IssueArcID and writes the snatched row with
+    IssueID == that IssueArcID for a story-arc snatch (updater.py
+    ~1307/1327-1357). So: a `storyarcs` row whose IssueArcID equals this
+    snatched IssueID ⇒ this is a story-arc obligation; otherwise it is a
+    plain issue. Returns True/False, or None when the lookup is unanswerable
+    (caller then uses the minimally-safe prefer-plain fallback)."""
+    if issueid is None:
+        return None
+    try:
+        rec = db.select_one(select(storyarcs.c.IssueArcID).where(storyarcs.c.IssueArcID == str(issueid)))
+    except Exception as e:
+        logger.warn("[RECOVERY] story-arc discriminator lookup failed for %s: %s" % (issueid, e))
+        return None
+    return rec is not None
+
+
 def _reconstruct_anchors():
     """Rebuild a missing `snatched` journal row for the U2 residual window
     (snatch committed durably but the strictly-last journal write was lost).
@@ -122,16 +142,63 @@ def _reconstruct_anchors():
             # and produced a phantom key). Read the real name from nzblog so a
             # reconstructed STILL item can be re-driven with a usable nzbname,
             # and so a one-off discriminant has something durable to anchor on.
+            # Story-arc scoping (fix #2 completion): the reference
+            # postprocessor.py ~3201-3213 only matches the
+            # IssueID == "S"+IssueArcID nzblog row inside the story-arc
+            # branch (paired with a SARC constraint), NEVER for a plain
+            # issue. Determine arc-ness from the durable `storyarcs` table
+            # (the snatched row has no mode/SARC column) and only widen to
+            # the "S"+id form for a real story-arc obligation. For a plain
+            # issue, match the plain id ONLY — so a plain issue whose id
+            # numerically equals an unrelated arc's IssueArcID under the
+            # SAME PROVIDER cannot pick the arc's "S"+id NZBName. When
+            # arc-ness is unanswerable, fall back minimally-safely: prefer
+            # the exact plain row and only consult "S"+id if no plain row
+            # exists.
+            is_arc = _is_story_arc_obligation(issueid)
             nzbrow = None
             try:
-                nzbrow = db.select_one(
-                    select(nzblog).where(
-                        and_(
-                            nzblog.c.IssueID == str(issueid),
-                            nzblog.c.PROVIDER == provider,
+                if is_arc is True:
+                    nzbrow = db.select_one(
+                        select(nzblog).where(
+                            and_(
+                                or_(
+                                    nzblog.c.IssueID == str(issueid),
+                                    nzblog.c.IssueID == "S" + str(issueid),
+                                ),
+                                nzblog.c.PROVIDER == provider,
+                            )
                         )
                     )
-                )
+                elif is_arc is False:
+                    nzbrow = db.select_one(
+                        select(nzblog).where(
+                            and_(
+                                nzblog.c.IssueID == str(issueid),
+                                nzblog.c.PROVIDER == provider,
+                            )
+                        )
+                    )
+                else:
+                    # Unknown: prefer the exact plain row; only fall back to
+                    # the "S"+id form when no plain row exists.
+                    nzbrow = db.select_one(
+                        select(nzblog).where(
+                            and_(
+                                nzblog.c.IssueID == str(issueid),
+                                nzblog.c.PROVIDER == provider,
+                            )
+                        )
+                    )
+                    if nzbrow is None:
+                        nzbrow = db.select_one(
+                            select(nzblog).where(
+                                and_(
+                                    nzblog.c.IssueID == "S" + str(issueid),
+                                    nzblog.c.PROVIDER == provider,
+                                )
+                            )
+                        )
             except Exception as e:
                 logger.warn("[RECOVERY] nzblog lookup failed for %s/%s: %s" % (issueid, provider, e))
             durable_nzbname = nzbrow.get("NZBName") if nzbrow else srow.get("FolderName")
@@ -169,7 +236,11 @@ def _reconstruct_anchors():
             # on an unanswerable nzblog test for a non-one-off we do NOT
             # reconstruct (a missed reconstruction is recoverable next start;
             # a spurious re-drive of a completed item is not).
-            if not oneoff and not recovery_classify._nzblog_present(issueid, provider):
+            # Thread the same story-arc signal so the presence gate scopes
+            # the "S"+id arm exactly as the NZBName lookup above (fix #2
+            # completion): a plain issue's gate never reads an unrelated
+            # arc's "S"+id row as present.
+            if not oneoff and not recovery_classify._nzblog_present(issueid, provider, story_arc=is_arc):
                 logger.fdebug(
                     "[RECOVERY] anchor skip %s/%s — nzblog absent (PP completed; "
                     "live Snatched row is the never-deleted original)." % (issueid, provider)
@@ -332,8 +403,55 @@ def finalize_post_processing(row, payload=None):
         # the journal still says `moved`. Status=Post-Processed stays on its
         # existing separate-transaction foundsearch path; the journal marker
         # is the durable completion fact replay guarantees.
+        # Story-arc scoping (fix #2 completion). The reference
+        # postprocessor.py ~3201-3213 only deletes the IssueID=="S"+IssueArcID
+        # nzblog row inside the story-arc branch (and additionally constrains
+        # it by SARC). Mirror that: only delete the "S"+id form for a real
+        # story-arc obligation; a plain issue deletes the plain id ONLY, so a
+        # plain finalize cannot over-delete an unrelated arc's "S"+id row
+        # under the SAME PROVIDER. The arc signal is the durable
+        # payload["mode"] updater.foundsearch stamps on the snatch journal
+        # row. When mode is absent/unparseable (unknown), the minimally-safe
+        # fallback applies: still allow the "S"+id form BUT additionally
+        # constrain the delete by the matched NZBName (the SARC analogue
+        # available here) so a cross-obligation over-delete is impossible.
+        story_arc = None
+        if isinstance(payload, dict) and "mode" in payload:
+            story_arc = payload.get("mode") == "story_arc"
+        if story_arc is None:
+            # Payload carried no `mode` — fall back to the durable
+            # `storyarcs` discriminator (same signal _reconstruct_anchors
+            # uses): for a story-arc obligation row.issueid IS the
+            # IssueArcID, so a matching storyarcs row proves arc-ness; a
+            # plain issue has no such row.
+            story_arc = _is_story_arc_obligation(issueid)
+        nzbname = (payload or {}).get("nzbname") if isinstance(payload, dict) else None
         with db.get_engine().begin() as conn:
-            stmt = delete(nzblog).where(nzblog.c.IssueID == str(issueid))
+            if story_arc is False:
+                id_pred = nzblog.c.IssueID == str(issueid)
+            elif story_arc is True:
+                id_pred = or_(
+                    nzblog.c.IssueID == str(issueid),
+                    nzblog.c.IssueID == "S" + str(issueid),
+                )
+            else:
+                # Unknown arc-ness: keep the "S"+id form reachable (so a real
+                # story-arc row is not orphaned) but pin the delete to the
+                # matched NZBName so it can never consume an unrelated
+                # obligation's row. If no durable NZBName is available, fall
+                # back to the plain id ONLY (conservative — an orphaned arc
+                # nzblog row is recoverable; an over-delete is not).
+                if nzbname:
+                    id_pred = and_(
+                        or_(
+                            nzblog.c.IssueID == str(issueid),
+                            nzblog.c.IssueID == "S" + str(issueid),
+                        ),
+                        nzblog.c.NZBName == nzbname,
+                    )
+                else:
+                    id_pred = nzblog.c.IssueID == str(issueid)
+            stmt = delete(nzblog).where(id_pred)
             if provider:
                 stmt = stmt.where(nzblog.c.PROVIDER == provider)
             conn.execute(stmt)

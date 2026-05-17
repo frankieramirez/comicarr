@@ -4379,9 +4379,18 @@ class PostProcessor(object):
                 self._log("Failed to move/copy manga file: %s" % filename)
                 continue
 
-            # post-move marker (manga has no tidyup source-delete — the move
-            # IS the relocation; release-level, brackets each per-file move)
-            self._journal_pp("moved")
+            # P1: do NOT emit per-file `moved` here. Every chapter in a manga
+            # pack shares ONE release_key; advancing it to `moved` after
+            # chapter 1 makes the replay finalizer treat the release as
+            # "physical move committed, finish DB facts only, NEVER re-import"
+            # — so a crash after chapter 1 but before the post-loop block
+            # strands chapters 2..N. Keep the shared row at `post_processing`
+            # (idempotent, monotonic no-op after the first write) so a mid-loop
+            # crash makes the finalizer re-drive the manga in FULL: chapter 1's
+            # source file is already gone (won't re-match/double-import) and
+            # only the unmoved chapters 2..N get processed. The single `moved`
+            # marker is written ONCE after the loop completes (below).
+            self._journal_pp("post_processing")
 
             # --- Match to a chapter/issue in the database ---
             matching = None
@@ -4500,6 +4509,15 @@ class PostProcessor(object):
         # processed > 0: if nothing matched/moved the row deliberately stays
         # at post_processing so the replay finalizer re-drives it.
         if processed > 0:
+            # P1: the single authoritative `moved` marker — written ONCE,
+            # after the FULL chapter loop completes (every discovered chapter
+            # physically moved), immediately before the terminal
+            # nzblog-delete + `post_processed` block. This keeps the shared
+            # release_key's lifecycle `post_processing → moved → post_processed`
+            # while ensuring a mid-loop crash leaves the row at
+            # `post_processing` (re-drive in full), never a premature `moved`
+            # that would strand chapters 2..N.
+            self._journal_pp("moved", issueid=last_matched_issueid)
             with db.get_engine().begin() as conn:
                 for mid in matched_issueids:
                     conn.execute(delete(nzblog).where(nzblog.c.IssueID == mid))

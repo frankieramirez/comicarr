@@ -479,8 +479,18 @@ def mark_done(release_key, payload=None, conn=None, **fields):
 def read_open():
     """Return all journal rows still representing an in-flight obligation:
     stage in {snatched, downloaded, post_processing, moved}. Excludes
-    post_processed and failed (terminal) rows."""
-    rows = db.select_all(select(pipeline_journal).where(pipeline_journal.c.stage.in_(OPEN_STAGES)))
+    post_processed and failed (terminal) rows.
+
+    Ordered oldest-`updated_date`-first: the U6 inline-PP re-drive cap
+    (_MAX_INLINE_PP_REDRIVE_PER_PASS) deterministically defers rows past the
+    cap each pass; without a stable oldest-first order it would skip the SAME
+    rows every restart (cap starvation). Oldest obligations drain first; the
+    newest are deferred to the next pass."""
+    rows = db.select_all(
+        select(pipeline_journal)
+        .where(pipeline_journal.c.stage.in_(OPEN_STAGES))
+        .order_by(pipeline_journal.c.updated_date)
+    )
     return rows
 
 

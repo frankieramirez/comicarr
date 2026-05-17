@@ -32,7 +32,7 @@ is never misread as done / GONE.
 """
 
 import requests
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 import comicarr
 from comicarr import db, logger
@@ -85,21 +85,68 @@ def _issue_post_processed(issueid):
     return bool(rec) and rec["Status"] == "Post-Processed"
 
 
-def _nzblog_present(issueid, provider):
+def _nzblog_present(issueid, provider, story_arc=None):
     """True iff an nzblog row still exists for (IssueID, PROVIDER). nzblog is
     DELETED on PP success (postprocessor.py:5084/3949/4302), so its ABSENCE is
-    a done-signal. Returns None when the test is not answerable."""
+    a done-signal. Returns None when the test is not answerable.
+
+    Story-arc scoping (correctness completion of fix #2): the reference
+    postprocessor.py ~3201-3213 only does the ``"S" + IssueArcID`` nzblog
+    lookup inside the story-arc branch (paired with a SARC/StoryArc
+    constraint) — it NEVER widens a plain-issue lookup to the "S" form.
+    Mirror that scoping here so a plain issue whose id numerically equals an
+    unrelated story-arc's IssueArcID under the SAME PROVIDER cannot read the
+    arc's "S"+id row as its own presence (a false-presence that would keep a
+    completed plain issue open, or — via the anchor gate — mis-skip it).
+
+    `story_arc` signal (threaded by the caller; default None ⇒ unknown):
+      * True  -> this obligation IS a story arc: match plain OR "S"+id.
+      * False -> plain issue: match the plain id ONLY (never "S"+id).
+      * None  -> caller could not determine arc-ness. Minimally-safe fallback
+        (documented): prefer the EXACT plain row; only fall back to the
+        "S"+id form when NO plain row exists for (IssueID, PROVIDER). A real
+        plain issue with its own nzblog row therefore never consults the arc
+        row; the residual ambiguous case (plain row already PP-deleted) is
+        the same one the prior unconditional-OR already accepted, so no
+        existing story-arc match regresses.
+    """
     if issueid is None:
         return None
     try:
-        stmt = select(nzblog.c.IssueID).where(nzblog.c.IssueID == str(issueid))
+        if story_arc is False:
+            stmt = select(nzblog.c.IssueID).where(nzblog.c.IssueID == str(issueid))
+            if provider:
+                stmt = stmt.where(nzblog.c.PROVIDER == provider)
+            return db.select_one(stmt) is not None
+
+        if story_arc is True:
+            stmt = select(nzblog.c.IssueID).where(
+                or_(
+                    nzblog.c.IssueID == str(issueid),
+                    nzblog.c.IssueID == "S" + str(issueid),
+                )
+            )
+            if provider:
+                stmt = stmt.where(nzblog.c.PROVIDER == provider)
+            return db.select_one(stmt) is not None
+
+        # story_arc is None (unknown): prefer the exact plain row; only fall
+        # back to "S"+id when no plain row exists. This closes the plain/arc
+        # id collision for any obligation that has its own plain nzblog row
+        # while preserving the prior behavior for the genuinely ambiguous
+        # (no-plain-row) case.
+        plain_stmt = select(nzblog.c.IssueID).where(nzblog.c.IssueID == str(issueid))
         if provider:
-            stmt = stmt.where(nzblog.c.PROVIDER == provider)
-        rec = db.select_one(stmt)
+            plain_stmt = plain_stmt.where(nzblog.c.PROVIDER == provider)
+        if db.select_one(plain_stmt) is not None:
+            return True
+        s_stmt = select(nzblog.c.IssueID).where(nzblog.c.IssueID == "S" + str(issueid))
+        if provider:
+            s_stmt = s_stmt.where(nzblog.c.PROVIDER == provider)
+        return db.select_one(s_stmt) is not None
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] nzblog lookup failed for %s: %s" % (issueid, e))
         return None
-    return rec is not None
 
 
 def has_done_signal(row):
@@ -138,7 +185,23 @@ def has_done_signal(row):
         )
         return False
 
-    present = _nzblog_present(issueid, provider)
+    # Derive the story-arc signal from the durable journal payload so
+    # _nzblog_present scopes the "S"+id arm correctly (fix #2 completion).
+    # updater.foundsearch stamps payload["mode"]=="story_arc" on the snatch
+    # journal row for a story-arc obligation; any other mode (None/want/
+    # want_ann/...) is a plain issue. A parse failure ⇒ None (unknown) ⇒
+    # _nzblog_present uses its minimally-safe prefer-plain fallback.
+    story_arc = None
+    try:
+        pl = journal.load_payload(row.get("payload_json")) or {}
+        if "mode" in pl:
+            story_arc = pl.get("mode") == "story_arc"
+    except Exception as e:
+        logger.warn(
+            "[RECOVERY-CLASSIFY] payload parse for arc-signal failed (%s) — using prefer-plain nzblog fallback." % e
+        )
+
+    present = _nzblog_present(issueid, provider, story_arc=story_arc)
     if present is False:
         # Standard (non-one-off) release: nzblog row was deleted on PP
         # success ⇒ authoritatively complete.

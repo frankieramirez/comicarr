@@ -271,11 +271,21 @@ def _ddl_item(idv="ddl-1", issueid="DI1"):
 
 
 def _run_ddl_once(item):
-    """Drive ddl_downloader for exactly one item then make it exit."""
+    """Drive ddl_downloader for exactly one item then make it exit. Binds
+    comicarr.DDL_QUEUE to the same local queue so the P1 bounded re-enqueue
+    (comicarr.DDL_QUEUE.put on a journal-block failure) is isolated to this
+    test and observable (it does NOT leak onto the real global, and a
+    re-enqueued item is re-consumed by this same loop)."""
     q = queuelib.Queue()
     q.put(item)
     q.put("exit")
-    service.ddl_downloader(q)
+    saved = comicarr.DDL_QUEUE
+    comicarr.DDL_QUEUE = q
+    try:
+        service.ddl_downloader(q)
+    finally:
+        comicarr.DDL_QUEUE = saved
+    return q
 
 
 def test_ddl_snatch_atomic_rollback_on_journal_failure(monkeypatch, capture_logs):
@@ -433,4 +443,94 @@ def test_nzb_journal_retry_cap_failure_logs_and_keeps_snatch(capture_logs):
     assert len(_rows(snatched)) == 1
     assert _rows(snatched)[0]["Status"] == "Snatched"
     assert len(_rows(nzblog)) == 1
+    assert _rows(pipeline_journal) == []
+
+
+# ---------------------------------------------------------------------------
+# P1 #3 — DDL begin()-block failure must be RECOVERABLE (bounded requeue),
+# not permanently lost. The GetComics DDL path writes ddl_info+DDL_QUEUE.put
+# with NO prior journal/foundsearch row, so a rolled-back begin() block leaves
+# nothing for replay/_reconstruct_anchors to rescan: the item is lost forever
+# unless it is re-enqueued.
+# ---------------------------------------------------------------------------
+
+
+def test_ddl_snatch_failure_reenqueues_item_for_recovery(monkeypatch, capture_logs):
+    """A journal raise inside the DDL snatch begin()-block must re-put the item
+    onto DDL_QUEUE (genuinely recoverable — idempotent upsert + journal write),
+    log loudly, and let the loop survive."""
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    boom = RuntimeError("journal down inside ddl begin()")
+    item = _ddl_item(idv="ddl-rq", issueid="DRQ1")
+    with patch.object(journal, "record_transition", side_effect=boom):
+        q = _run_ddl_once(item)
+
+    # Rolled back atomically.
+    assert _rows(ddl_info) == []
+    assert _rows(pipeline_journal) == []
+    # The item was re-enqueued (recoverable), not silently dropped.
+    requeued = []
+    while not q.empty():
+        x = q.get_nowait()
+        if x != "exit":
+            requeued.append(x)
+    assert len(requeued) == 1
+    assert requeued[0]["id"] == "ddl-rq"
+    assert requeued[0]["_journal_retry"] == 1
+    assert "re-enqueued on DDL_QUEUE" in capture_logs.text
+
+
+def test_ddl_snatch_failure_stops_requeue_after_cap_no_infinite_loop(monkeypatch, capture_logs):
+    """A PERSISTENT journal failure must NOT hot-loop forever: after the
+    bounded cap is exceeded the item is dropped with a loud system-down error
+    and is NOT requeued again."""
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    # A drive-controlled queue: qsize() always reports work so the loop never
+    # parks in its `time.sleep(5)` idle branch; get() serves the item while
+    # one is queued, then serves "exit" so the loop terminates the moment the
+    # item is NO LONGER requeued (cap reached). A hard ceiling makes a
+    # hot-loop regression FAIL (the assertion) instead of hanging the suite.
+    class _DriveQueue:
+        def __init__(self, first):
+            self._items = [first]
+            self.gets = 0
+
+        def qsize(self):
+            return 1  # always "has work" so the idle sleep branch is skipped
+
+        def get(self, *a, **k):
+            self.gets += 1
+            if self.gets > 25:
+                return "exit"  # regression backstop — must NOT be reached
+            if self._items:
+                return self._items.pop(0)
+            return "exit"  # nothing requeued => cap stopped the requeue
+
+        def put(self, x):
+            self._items.append(x)
+
+        def empty(self):
+            return not self._items
+
+    q = _DriveQueue(_ddl_item(idv="ddl-cap", issueid="DCAP"))
+    saved = comicarr.DDL_QUEUE
+    comicarr.DDL_QUEUE = q
+    try:
+        with patch.object(journal, "record_transition", side_effect=RuntimeError("DB permanently down")):
+            service.ddl_downloader(q)
+    finally:
+        comicarr.DDL_QUEUE = saved
+
+    # cap = _DDL_JOURNAL_REQUEUE_CAP (3): attempts 1..3 requeue (retry
+    # 1,2,3 <= 3), attempt 4 has _journal_retry==4 > cap so it is dropped
+    # (NOT requeued) with a loud system-down error. That is 4 gets of the
+    # item + 1 "exit" = 5 gets total; the backstop (25) must never trigger.
+    assert q.gets <= 25, "ddl_downloader hot-looped (cap did not stop requeueing)"
+    assert q.gets == 5
+    assert q.empty()  # final attempt was NOT requeued
+    assert "exceeded requeue cap" in capture_logs.text
+    assert "system down" in capture_logs.text
+    assert _rows(ddl_info) == []
     assert _rows(pipeline_journal) == []

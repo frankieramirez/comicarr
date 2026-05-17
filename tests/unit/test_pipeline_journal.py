@@ -330,6 +330,35 @@ def test_read_open_excludes_terminal_rows():
     assert journal.release_key("6", "p") not in keys
 
 
+def test_read_open_orders_oldest_updated_date_first():
+    """P1 #4: read_open() must return rows oldest-`updated_date` first so the
+    U6 inline-PP re-drive cap rotates (oldest obligations drain first) instead
+    of deterministically skipping the SAME rows every restart (cap
+    starvation). Insert open rows with distinct, deliberately out-of-order
+    updated_date values and assert the returned order is ascending by date."""
+    rows = [
+        ("rk-c", "2026-05-17 03:00:00"),
+        ("rk-a", "2026-05-17 01:00:00"),
+        ("rk-d", "2026-05-17 04:00:00"),
+        ("rk-b", "2026-05-17 02:00:00"),
+    ]
+    with get_engine().begin() as conn:
+        for rkey, when in rows:
+            conn.execute(
+                pipeline_journal.insert().values(
+                    release_key=rkey,
+                    stage=journal.SNATCHED,
+                    stage_rank=journal.stage_rank(journal.SNATCHED),
+                    updated_date=when,
+                )
+            )
+
+    open_rows = journal.read_open()
+    assert [r["release_key"] for r in open_rows] == ["rk-a", "rk-b", "rk-c", "rk-d"]
+    dates = [r["updated_date"] for r in open_rows]
+    assert dates == sorted(dates)
+
+
 # ---------------------------------------------------------------------------
 # Atomic claim — concurrent downloaded -> post_processing
 # ---------------------------------------------------------------------------
