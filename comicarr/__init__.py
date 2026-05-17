@@ -1139,9 +1139,14 @@ def queue_schedule(queuetype, mode):
         except KeyboardInterrupt:
             comicarr_queue.put("exit")
             pool.join(5)
-        except AssertionError:
-            if mode == "shutdown":
-                os._exit(0)
+        except AssertionError as e:
+            # The legacy `except AssertionError: os._exit(0)` landmine was
+            # REMOVED in U7: under the collapsed shutdown path it would
+            # short-circuit past the lifespan drain + engine.dispose() +
+            # the terminal os.execv (degrading a restart to a plain stop).
+            # The single authoritative bounded drain now lives in the
+            # FastAPI lifespan; this branch only logs.
+            logger.warn("[%s] AssertionError joining pool: %s" % (thread_name, e))
 
     if mode == "start":
         if queuetype == "snatched_queue":
@@ -1728,28 +1733,22 @@ def _migrate_unique_constraints(engine):
 
 
 def halt():
+    """Idempotent shutdown signalling ONLY (U7).
+
+    The clean ordered drain (scheduler stop -> queue 'exit' -> bounded
+    worker join -> journal flush -> engine.dispose()) is owned by the
+    FastAPI lifespan, which has already run by the time control returns to
+    Comicarr.py and reaches here. halt() therefore does NO queue shutdown
+    and NO DB work — it only flips _INITIALIZED idempotently. It must never
+    block (a worker wedged in native code cannot hang termination because
+    the only remaining step is the non-blocking terminal branch in
+    shutdown()).
+    """
     global _INITIALIZED, started
 
     with INIT_LOCK:
         if _INITIALIZED:
-            logger.info("Shutting down the background schedulers...")
-            SCHED.shutdown(wait=False)
-
-            queue_schedule("all", "shutdown")
-            # if NZBPOOL is not None:
-            #    queue_schedule('nzb_queue', 'shutdown')
-            # if SNPOOL is not None:
-            #    queue_schedule('snatched_queue', 'shutdown')
-
-            # if SEARCHPOOL is not None:
-            #    queue_schedule('search_queue', 'shutdown')
-
-            # if PPPOOL is not None:
-            #    queue_schedule('pp_queue', 'shutdown')
-
-            # if DDLPOOL is not None:
-            #    queue_schedule('ddl_queue', 'shutdown')
-
+            logger.info("[SHUTDOWN] halt() — schedulers/workers already drained by the lifespan")
             _INITIALIZED = False
 
 
@@ -1785,6 +1784,18 @@ def shutdown(restart=False, update=False, maintenance=False):
                     break
             popen_list.extend(plist)
         logger.info("Restarting Comicarr with " + str(popen_list))
-        os.execv(sys.executable, popen_list)
+        try:
+            os.execv(sys.executable, popen_list)
+        except Exception as e:
+            # os.execv normally replaces the process image and never
+            # returns. If it fails we MUST still terminate (a failed
+            # restart must not hang) — fall through to the terminal
+            # hard-kill below.
+            logger.error("[SHUTDOWN] os.execv failed: %s — hard-exiting" % e)
 
+    # Single unconditional, NON-BLOCKING terminal hard-kill. This is the
+    # sole process exit (the lifespan already ran the bounded ordered
+    # drain + engine.dispose(); the queue_schedule AssertionError->os._exit
+    # landmine was removed in U7). os._exit() does not flush/join anything,
+    # so a worker permanently wedged in native code cannot hang termination.
     os._exit(0)

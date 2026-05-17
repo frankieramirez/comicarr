@@ -32,6 +32,58 @@ from comicarr.app.core.middleware import (
 )
 from comicarr.app.core.security import generate_ephemeral_key, load_or_create_jwt_key
 
+# Bounded worker-drain timeout for the authoritative lifespan shutdown drain.
+# The legacy ad-hoc value was pool.join(5) which is almost certainly too short
+# for a multi-file post-processing run. 30s is a conservative default; the
+# exact value is TUNABLE against the measured worst-case PP duration on the
+# NAS deployment. Regardless of this value, the terminal non-blocking
+# hard-kill backstop in comicarr.shutdown() guarantees the process exits.
+SHUTDOWN_DRAIN_TIMEOUT = 30.0
+
+# The five pipeline worker pools, in (comicarr module attr, queue ctx attr)
+# pairs. The bounded join below is RELOCATED here from queue_schedule()'s
+# shutdown branch so the FastAPI lifespan is the single authoritative drain.
+_WORKER_POOLS = (
+    ("SNPOOL", "snatched_queue"),
+    ("NZBPOOL", "nzb_queue"),
+    ("SEARCHPOOL", "search_queue"),
+    ("PPPOOL", "pp_queue"),
+    ("DDLPOOL", "ddl_queue"),
+)
+
+
+def _drain_worker_pools(timeout):
+    """Bounded join of every live worker pool — runs OFF the event loop.
+
+    Relocated from queue_schedule()'s shutdown branch. Each pool gets a
+    bounded ``join(timeout)``; an unjoined pool is left for the terminal
+    hard-kill backstop (a worker wedged in native code must never hang
+    termination forever). An AssertionError from a join is swallowed here so
+    it can NOT short-circuit past the journal flush + engine.dispose() (the
+    removed ``except AssertionError: os._exit(0)`` landmine).
+    """
+    import comicarr
+    from comicarr import logger
+
+    for pool_attr, _q_attr in _WORKER_POOLS:
+        pool = getattr(comicarr, pool_attr, None)
+        if pool is None:
+            continue
+        try:
+            if pool.is_alive() is False:
+                continue
+        except Exception:
+            continue
+        try:
+            pool.join(timeout)
+            logger.fdebug("[SHUTDOWN] Drained worker pool %s" % pool_attr)
+        except AssertionError as e:
+            # Must NOT short-circuit the drain — just log and continue so the
+            # journal flush + engine.dispose() still run.
+            logger.warn("[SHUTDOWN] AssertionError joining %s: %s" % (pool_attr, e))
+        except Exception as e:
+            logger.error("[SHUTDOWN] Error joining %s: %s" % (pool_attr, e))
+
 
 def _build_context_from_globals():
     """Bridge: populate AppContext from existing comicarr.__init__ globals.
@@ -168,6 +220,22 @@ async def lifespan(app: FastAPI):
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown starting...")
 
+    # ---- Single authoritative ordered drain (U7) -------------------------
+    # The FastAPI lifespan is now the ONE place the clean shutdown drain
+    # happens. The legacy second path (Comicarr.py -> shutdown() -> halt() ->
+    # queue_schedule drain) is reduced to signalling + the terminal branch.
+    # Order is load-bearing:
+    #   1. scheduler.shutdown(wait=False)  — stop new pipeline work
+    #   2. q.put('exit') for all 5 queues  — stop intake
+    #   3. bounded pool.join OFF the loop, on a DEDICATED executor
+    #      (== final journal flush: workers write the journal synchronously
+    #       via the façade, so "drain workers fully" IS the flush guarantee)
+    #   4. ai/cv client close
+    #   5. engine.dispose()                — strictly AFTER the drain
+    #   6. executor / drain-executor shutdown — AFTER the drain
+    #   7. default SIGNAL only if unset (never clobber restart/update/maint)
+
+    # 1. Stop accepting new scheduled pipeline work.
     if ctx.scheduler:
         try:
             ctx.scheduler.shutdown(wait=False)
@@ -175,12 +243,29 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error("[SHUTDOWN] Error stopping scheduler: %s" % e)
 
+    # 2. Signal every worker to finish its current item then exit (stop
+    #    intake). Workers exit their loop on the 'exit' sentinel.
     for q in [ctx.snatched_queue, ctx.nzb_queue, ctx.pp_queue, ctx.search_queue, ctx.ddl_queue]:
         try:
             q.put("exit")
         except Exception:
             pass
 
+    # 3. Bounded worker drain — relocated here from queue_schedule's shutdown
+    #    branch. pool.join(timeout) BLOCKS, so it runs off the event loop on a
+    #    DEDICATED single-thread executor. It must NOT be scheduled onto
+    #    `executor` (the lifespan's default executor) because that is torn
+    #    down below; a dedicated executor keeps the drain independent of that
+    #    teardown. This MUST complete before engine.dispose() so an in-flight
+    #    worker journal write never hits a disposed engine (R7/R8/AE5).
+    drain_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="shutdown-drain")
+    try:
+        await loop.run_in_executor(drain_executor, _drain_worker_pools, SHUTDOWN_DRAIN_TIMEOUT)
+        logger.info("[SHUTDOWN] Worker drain complete")
+    except Exception as e:
+        logger.error("[SHUTDOWN] Error during worker drain: %s" % e)
+
+    # 4. Close async/sync external clients (workers are drained now).
     if ctx.ai_async_client:
         try:
             await ctx.ai_async_client.close()
@@ -195,6 +280,8 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
+    # 5. Dispose the DB engine — strictly AFTER the bounded drain so the
+    #    drained workers' synchronous journal writes have all landed.
     try:
         from comicarr import db
 
@@ -205,12 +292,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[SHUTDOWN] Error disposing database: %s" % e)
 
+    # 6. Tear down executors — AFTER the drain (the drain used a dedicated
+    #    executor, never `executor`, so this order is safe).
+    try:
+        drain_executor.shutdown(wait=False)
+    except Exception as e:
+        logger.error("[SHUTDOWN] Error shutting down drain executor: %s" % e)
+
     try:
         executor.shutdown(wait=False)
         logger.info("[SHUTDOWN] ThreadPoolExecutor shut down")
     except Exception as e:
         logger.error("[SHUTDOWN] Error shutting down executor: %s" % e)
 
+    # 7. Default the signal ONLY if nothing else set it. Guarding with
+    #    `if not comicarr.SIGNAL:` preserves restart/update/maintenance
+    #    intent (documented prior regression: an unconditional write here
+    #    made restart indistinguishable from shutdown).
     if not comicarr.SIGNAL:
         comicarr.SIGNAL = "shutdown"
 

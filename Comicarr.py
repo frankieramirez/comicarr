@@ -146,7 +146,12 @@ if ( sys.platform == 'win32' and sys.executable.split( '\\' )[-1] == 'pythonw.ex
     sys.stderr = open(os.devnull, "w")
 
 def handler_sigterm(signum, frame):
-    comicarr.SIGNAL = 'shutdown'
+    # Guard the write (documented prior regression): the shutdown/restart
+    # API endpoints set comicarr.SIGNAL *before* sending SIGTERM. An
+    # unconditional write here clobbers a pending 'restart'/'update'/
+    # 'maintenance' intent, degrading a restart to a plain stop.
+    if not comicarr.SIGNAL:
+        comicarr.SIGNAL = 'shutdown'
 
 def check_stale_pidfile(pidfile):
     ''' Return True if pidfile doesn't hold a numeric value, or it
