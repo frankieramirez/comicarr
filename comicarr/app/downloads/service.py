@@ -1086,6 +1086,27 @@ def ddl_health_check():
         if age_minutes > threshold_minutes:
             if item["ID"] in comicarr.DDL_STUCK_NOTIFIED:
                 continue
+            # U5 reconciliation: if startup recovery classification already
+            # marked this item's journal row terminally `failed` (classified
+            # GONE — status=Downloading + dead source link), do NOT also fire
+            # a "download stuck" notification for it. recovery_classify also
+            # registers the id into DDL_STUCK_NOTIFIED on its side; this is the
+            # symmetric guard so the two paths never double-report regardless
+            # of ordering. Best-effort: a journal read failure here must not
+            # break the existing health-check notify behavior.
+            try:
+                from comicarr.app.downloads import journal
+                from comicarr.tables import pipeline_journal
+
+                stmt = select(pipeline_journal).where(
+                    pipeline_journal.c.stage == journal.FAILED,
+                    pipeline_journal.c.issueid == str(item["issueid"]),
+                )
+                if db.select_one(stmt) is not None:
+                    comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
+                    continue
+            except Exception as e:
+                logger.fdebug("[DDL-HEALTH] journal reconciliation skipped (non-fatal): %s" % e)
             logger.warn(
                 "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["ID"])
             )

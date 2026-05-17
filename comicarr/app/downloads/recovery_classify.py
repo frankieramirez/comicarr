@@ -1,0 +1,508 @@
+#  Copyright (C) 2025–2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+
+"""
+Per-downloader startup classification for the durable pipeline (U5).
+
+Given a journal row (the open obligation U6 replay must resolve) this module
+decides — per downloader type — whether the external download is:
+
+  * ``STILL``    — still downloading in the client (resume / re-own it).
+  * ``COMPLETE`` — done at the downloader OR absent-but-with-a-done-signal
+                   (history was evicted while we were down). The caller will
+                   post-process / ``journal.mark_done``.
+  * ``GONE``     — absent AND no done-signal AND the client is reachable. The
+                   caller will ``journal.mark_failed`` with a distinguishable
+                   ``fail_reason`` and the payload retained (R6/R9: ``failed``
+                   means *not auto-retried*, NOT unrecoverable — a future
+                   manual-retry layer can act on it; replay never re-queues).
+  * ``UNKNOWN``  — the downloader API was unreachable / a transient outage.
+                   The caller MUST leave the journal stage UNCHANGED so the
+                   row is reclassified next startup. Only an authoritatively
+                   gone result ever writes ``failed``.
+
+Design contract (per the plan's module boundary):
+
+  * This module is PURE-VERDICT. ``classify()`` returns a ``Verdict`` — it
+    NEVER mutates the journal. journal.py owns transitions; replay (U6) owns
+    orchestration. ``apply_verdict()`` is a thin OPTIONAL helper that maps a
+    ``GONE`` verdict to ``journal.mark_failed`` for callers that want it; it
+    deliberately does nothing for STILL/COMPLETE/UNKNOWN (those are the
+    caller's / U6's job) so no replay orchestration leaks in here.
+
+  * "Absent from the client" is AMBIGUOUS, never authoritatively gone.
+    SAB/NZBGet history is finite and operator/auto-pruned: a release that
+    completed and was post-processed while the app was down, then had its
+    history row evicted, reads as absent. Before classifying any "absent" as
+    ``GONE`` we cross-check the authoritative done-signals
+    (``issues.Status == 'Post-Processed'`` / ``nzblog`` row absent / journal
+    stage already ``post_processing``+). Absent WITH a done-signal ⇒
+    ``COMPLETE``, NOT ``GONE``.
+
+  * One-off caveat: synthetic-``HIGHCOUNT`` IssueID one-offs (see
+    comicarr/updater.py:1214-1220) have a non-persisted IssueID that diverges
+    across restart, and ``nzblog()`` has a mid-flight delete-then-reupsert
+    window — so the ``nzblog``-presence test is UNRELIABLE for them. For
+    those rows the journal ``release_key`` / stage is the AUTHORITATIVE
+    in-flight signal and ``nzblog``-presence is ADVISORY only, so an in-flight
+    one-off is never misread as done / ``GONE``.
+"""
+
+import requests
+from sqlalchemy import select
+
+import comicarr
+from comicarr import db, logger
+from comicarr.app.downloads import journal
+from comicarr.tables import ddl_info, issues, nzblog
+
+# ---------------------------------------------------------------------------
+# Verdict enum
+# ---------------------------------------------------------------------------
+# Plain string constants (the codebase uses no enum / type hints). The string
+# values are stable and safe to log / branch on.
+
+STILL = "still"
+COMPLETE = "complete"
+GONE = "gone"
+UNKNOWN = "unknown"
+
+VERDICTS = (STILL, COMPLETE, GONE, UNKNOWN)
+
+# Distinguishable fail_reason written when GONE -> mark_failed. Kept as a
+# constant so the manual-retry layer (R9) and tests can match on it exactly.
+FAIL_REASON_GONE = "download_gone"
+
+
+# ---------------------------------------------------------------------------
+# Authoritative done-signal cross-check (history-eviction guard)
+# ---------------------------------------------------------------------------
+
+
+def _journal_stage_done(row):
+    """The journal itself can be an authoritative done-signal: if the row has
+    already advanced to post_processing+ then the download obviously completed
+    regardless of what the (now-evicted) client history says."""
+    stage = (row or {}).get("stage")
+    rank = journal.stage_rank(stage)
+    pp_rank = journal.stage_rank(journal.POST_PROCESSING)
+    return rank is not None and pp_rank is not None and rank >= pp_rank
+
+
+def _issue_post_processed(issueid):
+    """True iff issues.Status == 'Post-Processed' for this IssueID — an
+    authoritative "already completed" signal that survives history eviction."""
+    if issueid is None:
+        return False
+    try:
+        rec = db.select_one(select(issues.c.Status).where(issues.c.IssueID == str(issueid)))
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] issues.Status lookup failed for %s: %s" % (issueid, e))
+        return False
+    return bool(rec) and rec["Status"] == "Post-Processed"
+
+
+def _nzblog_present(issueid, provider):
+    """True iff an nzblog row still exists for (IssueID, PROVIDER). nzblog is
+    DELETED on PP success (postprocessor.py:5084/3949/4302), so its ABSENCE is
+    a done-signal. Returns None when the test is not answerable."""
+    if issueid is None:
+        return None
+    try:
+        stmt = select(nzblog.c.IssueID).where(nzblog.c.IssueID == str(issueid))
+        if provider:
+            stmt = stmt.where(nzblog.c.PROVIDER == provider)
+        rec = db.select_one(stmt)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] nzblog lookup failed for %s: %s" % (issueid, e))
+        return None
+    return rec is not None
+
+
+def _has_done_signal(row):
+    """Cross-check the authoritative done-signals BEFORE any "absent" is
+    allowed to become GONE.
+
+    Returns True iff the release is authoritatively already complete:
+      * journal stage is post_processing+, OR
+      * issues.Status == 'Post-Processed', OR
+      * nzblog row absent (deleted on PP success).
+
+    One-off rule: for a synthetic-HIGHCOUNT one-off the nzblog-presence test
+    is UNRELIABLE (non-persisted IssueID diverges across restart; mid-flight
+    delete-reupsert window). For those rows the journal release_key/stage is
+    AUTHORITATIVE and nzblog-presence is ADVISORY only — so we do NOT treat
+    nzblog-absence as a done-signal for one-offs (an in-flight one-off must
+    not be misread as done/GONE).
+    """
+    row = row or {}
+    if _journal_stage_done(row):
+        return True
+
+    issueid = row.get("issueid")
+    provider = row.get("provider")
+
+    if _issue_post_processed(issueid):
+        return True
+
+    if journal._is_synthetic_oneoff(issueid):
+        # Journal-authoritative for one-offs: stage is the only trustworthy
+        # in-flight signal (already checked above). nzblog-absence is advisory
+        # only and must NOT promote an in-flight one-off to done/GONE.
+        logger.fdebug(
+            "[RECOVERY-CLASSIFY] one-off release_key=%s — nzblog-presence is "
+            "ADVISORY only; journal stage is authoritative." % row.get("release_key")
+        )
+        return False
+
+    present = _nzblog_present(issueid, provider)
+    if present is False:
+        # Standard (non-one-off) release: nzblog row was deleted on PP
+        # success ⇒ authoritatively complete.
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Per-downloader probes. Each returns one of:
+#   "still" / "complete" / "absent" / "unreachable"
+# (raw client state, BEFORE the done-signal cross-check turns "absent" into
+# COMPLETE-or-GONE). Probes are injectable for tests via classify(..., probes=).
+# ---------------------------------------------------------------------------
+
+
+def _probe_torrent(row):
+    """Torrent: query torrentinfo() by hash. A hash NOT present in the client
+    must now be an EXPLICIT NOT-FOUND ("absent") — see the service.py
+    extension. A reachability failure is "unreachable"."""
+    h = row.get("hash")
+    if not h:
+        # No hash to probe — cannot authoritatively say it is gone; treat as
+        # unreachable so the row is left unchanged and reclassified later.
+        logger.warn("[RECOVERY-CLASSIFY] torrent row %s has no hash to probe." % row.get("release_key"))
+        return "unreachable"
+    try:
+        from comicarr.app.search.service import torrentinfo
+
+        snstat = torrentinfo(torrent_hash=h, monitor=False)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] torrent client unreachable probing %s: %s" % (h, e))
+        return "unreachable"
+
+    # The extended torrentinfo() returns an explicit NOT-FOUND marker dict
+    # when the hash is not present in the client.
+    if isinstance(snstat, dict) and snstat.get("snatch_status") == "NOT FOUND":
+        return "absent"
+    if not isinstance(snstat, dict) or snstat is False:
+        # Old silent fall-through shape (False / non-dict) — cannot trust it
+        # as authoritative; reachable-but-unparseable ⇒ unreachable.
+        return "unreachable"
+
+    status = snstat.get("snatch_status")
+    if status == "IN PROGRESS":
+        return "still"
+    if status in ("MONITOR COMPLETE", "MONITOR STARTING"):
+        return "complete"
+    if status in ("MONITOR ERROR", "MONITOR FAIL"):
+        return "unreachable"
+    # Anything else (e.g. "NOT SNATCHED") — not in the client.
+    return "absent"
+
+
+def _sab_history_or_queue(row):
+    """SAB: still in active queue ⇒ still; in history success ⇒ complete;
+    not found in either ⇒ absent. Reuses sabnzbd.SABnzbd.historycheck()
+    (history lookup by nzo_id) — the same path nzb_monitor/cdh use."""
+    di = (journal.load_payload(row.get("payload_json")) or {}).get("download_info") or {}
+    nzo_id = di.get("nzo_id") or row.get("nzo_id")
+    if not nzo_id:
+        logger.warn("[RECOVERY-CLASSIFY] SAB row %s has no nzo_id to probe." % row.get("release_key"))
+        return "unreachable"
+    try:
+        from comicarr import sabnzbd
+
+        nzbinfo = {
+            "nzo_id": nzo_id,
+            "issueid": row.get("issueid"),
+            "comicid": (journal.load_payload(row.get("payload_json")) or {}).get("comicid"),
+            "download_info": di,
+        }
+        s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        nzstat = s.historycheck(nzbinfo)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
+        return "unreachable"
+    return _nzstat_to_raw(nzstat)
+
+
+def _nzbget_history(row):
+    """NZBGet: history lookup by NZBID. Reuses nzbget.NZBGet.historycheck()."""
+    payload = journal.load_payload(row.get("payload_json")) or {}
+    di = payload.get("download_info") or {}
+    nzbid = di.get("NZBID") or row.get("NZBID")
+    if not nzbid:
+        logger.warn("[RECOVERY-CLASSIFY] NZBGet row %s has no NZBID to probe." % row.get("release_key"))
+        return "unreachable"
+    try:
+        from comicarr import nzbget
+
+        nzbinfo = {
+            "NZBID": nzbid,
+            "issueid": row.get("issueid"),
+            "comicid": payload.get("comicid"),
+            "download_info": di,
+        }
+        nz = nzbget.NZBGet()
+        nzstat = nz.historycheck(nzbinfo)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] NZBGet unreachable probing %s: %s" % (nzbid, e))
+        return "unreachable"
+    return _nzstat_to_raw(nzstat)
+
+
+def _nzstat_to_raw(nzstat):
+    """Map a SAB/NZBGet historycheck() return shape onto the raw probe
+    vocabulary. (cdh_monitor's status mapping is the model here.)"""
+    if not isinstance(nzstat, dict):
+        return "unreachable"
+    status = nzstat.get("status")
+    if status is True:
+        # Found in history and resolved — completed at the downloader (even a
+        # failed-download row is "complete at downloader"; the PP failure path
+        # — not GONE — handles it, and the row is not re-queued).
+        return "complete"
+    if status in ("double-pp",):
+        # ComicRN/external handled it ⇒ done at the downloader.
+        return "complete"
+    if status in ("queue_paused",):
+        return "still"
+    if status is False:
+        # historycheck found nothing in history AND it was not in queue: the
+        # nzo/NZBID is absent from the client.
+        return "absent"
+    # "file not found" / "failed_in_sab" / "nzb removed" / "failure" /
+    # "unhandled status" — the item WAS located in the client (history) but
+    # post-processing could not proceed. It is NOT absent; treat as complete
+    # at the downloader (the PP/failure path owns it, replay must not GONE it).
+    return "complete"
+
+
+def _probe_nzb(row):
+    if comicarr.USE_SABNZBD is True:
+        return _sab_history_or_queue(row)
+    if comicarr.USE_NZBGET is True:
+        return _nzbget_history(row)
+    logger.warn("[RECOVERY-CLASSIFY] No NZB client enabled — cannot probe %s." % row.get("release_key"))
+    return "unreachable"
+
+
+def _ddl_link_alive(link):
+    """Recheck a DDL source link. Alive ⇒ the download could still resume;
+    dead ⇒ (combined with status=Downloading) the source is GONE. A network
+    error rechecking the link is treated as 'unreachable' (do not bury a
+    recoverable item on a transient outage)."""
+    if not link:
+        return None
+    try:
+        resp = requests.head(link, allow_redirects=True, timeout=15)
+        code = resp.status_code
+        if code == 405:
+            # Some hosts reject HEAD — fall back to a ranged GET.
+            resp = requests.get(link, stream=True, timeout=15, headers={"Range": "bytes=0-0"})
+            code = resp.status_code
+    except requests.RequestException as e:
+        logger.warn("[RECOVERY-CLASSIFY] DDL link recheck network error (%s): %s" % (link, e))
+        return None
+    return code < 400
+
+
+def _probe_ddl(row):
+    """DDL: ddl_info.status + source-link recheck.
+
+    * status == 'Completed'              ⇒ complete
+    * status == 'Failed'                 ⇒ absent (no done-signal ⇒ GONE)
+    * status == 'Downloading' + link OK  ⇒ still
+    * status == 'Downloading' + dead link ⇒ absent (⇒ GONE)
+    * ddl_info row missing               ⇒ absent
+    * link recheck network error         ⇒ unreachable
+    """
+    payload = journal.load_payload(row.get("payload_json")) or {}
+    di = payload.get("download_info") or {}
+    ddl_id = di.get("id") or row.get("ddl_id")
+    issueid = row.get("issueid")
+    try:
+        stmt = select(ddl_info)
+        if ddl_id:
+            stmt = stmt.where(ddl_info.c.ID == str(ddl_id))
+        elif issueid is not None:
+            stmt = stmt.where(ddl_info.c.issueid == str(issueid))
+        else:
+            return "absent"
+        rec = db.select_one(stmt)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] ddl_info lookup failed for %s: %s" % (row.get("release_key"), e))
+        return "unreachable"
+
+    if rec is None:
+        return "absent"
+
+    status = rec["status"]
+    if status == "Completed":
+        return "complete"
+    if status == "Downloading":
+        alive = _ddl_link_alive(rec["link"] or rec["mainlink"])
+        if alive is None:
+            return "unreachable"
+        return "still" if alive else "absent"
+    # 'Failed' or any other state: not retained at the source.
+    return "absent"
+
+
+_DEFAULT_PROBES = {
+    "torrent": _probe_torrent,
+    "nzb": _probe_nzb,
+    "sab": _probe_nzb,
+    "nzbget": _probe_nzb,
+    "ddl": _probe_ddl,
+    "DDL": _probe_ddl,
+}
+
+
+def _resolve_downloader(row):
+    dt = (row or {}).get("downloader_type")
+    if dt:
+        return dt
+    # Fall back to inferring from the payload's download_info provider.
+    payload = journal.load_payload((row or {}).get("payload_json")) or {}
+    if payload.get("ddl") is True:
+        return "ddl"
+    di = payload.get("download_info") or {}
+    prov = (di.get("provider") or "").lower()
+    if prov == "ddl":
+        return "ddl"
+    if row.get("hash"):
+        return "torrent"
+    return "nzb"
+
+
+# ---------------------------------------------------------------------------
+# Public API — PURE VERDICT
+# ---------------------------------------------------------------------------
+
+
+def classify(row, probes=None):
+    """Classify one open journal row. Returns one of STILL/COMPLETE/GONE/
+    UNKNOWN. PURE: never mutates the journal.
+
+    `probes` (test seam): optional {downloader_type: callable(row)->raw}
+    overriding the real client-query paths. `raw` is one of
+    "still"/"complete"/"absent"/"unreachable".
+    """
+    if not row:
+        return UNKNOWN
+    rkey = row.get("release_key")
+    downloader = _resolve_downloader(row)
+    probe = (probes or _DEFAULT_PROBES).get(downloader)
+    if probe is None:
+        logger.warn(
+            "[RECOVERY-CLASSIFY] No probe for downloader_type=%r (release_key=%s) "
+            "— UNKNOWN, journal left unchanged." % (downloader, rkey)
+        )
+        return UNKNOWN
+
+    try:
+        raw = probe(row)
+    except Exception as e:
+        # A probe blowing up is treated as a transient outage — NEVER a GONE.
+        logger.warn("[RECOVERY-CLASSIFY] probe raised for %s (%s) — UNKNOWN: %s" % (rkey, downloader, e))
+        return UNKNOWN
+
+    if raw == "still":
+        logger.fdebug("[RECOVERY-CLASSIFY] %s -> still (in client)" % rkey)
+        return STILL
+    if raw == "complete":
+        logger.fdebug("[RECOVERY-CLASSIFY] %s -> complete (done at downloader)" % rkey)
+        return COMPLETE
+    if raw == "unreachable":
+        # Transient outage / API unreachable. Leave the journal stage
+        # UNCHANGED — reclassified next startup. NEVER write failed here.
+        logger.warn(
+            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (downloader API unreachable / "
+            "transient) — journal stage left unchanged." % rkey
+        )
+        return UNKNOWN
+
+    # raw == "absent". Ambiguous, NOT authoritatively gone. Cross-check the
+    # done-signals (history-eviction guard) BEFORE classifying GONE.
+    if _has_done_signal(row):
+        logger.fdebug(
+            "[RECOVERY-CLASSIFY] %s absent in client BUT done-signal present "
+            "(history likely evicted while down) -> complete, NOT gone." % rkey
+        )
+        return COMPLETE
+
+    # Absent AND no done-signal AND client reachable ⇒ authoritatively GONE.
+    logger.warn(
+        "[RECOVERY-CLASSIFY] %s absent from a reachable client with NO "
+        "done-signal -> GONE (will be marked failed, payload retained)." % rkey
+    )
+    return GONE
+
+
+# ---------------------------------------------------------------------------
+# Thin optional helper — GONE -> mark_failed ONLY. NOT replay orchestration.
+# ---------------------------------------------------------------------------
+
+
+def apply_verdict(row, verdict, conn=None):
+    """Optional convenience for a caller (U6) that wants the single journal
+    mutation U5 OWNS: GONE -> journal.mark_failed (distinguishable
+    fail_reason, payload retained for R9; replay never re-queues a failed
+    row). For STILL/COMPLETE/UNKNOWN this is a deliberate NO-OP — those are
+    the caller's / U6 replay's responsibility (re-enqueue / PP / leave
+    unchanged). This keeps classify() pure and keeps replay orchestration
+    OUT of this module.
+
+    Returns True iff a journal write occurred.
+    """
+    if verdict != GONE:
+        return False
+    rkey = row.get("release_key")
+    payload = journal.load_payload(row.get("payload_json"))
+
+    # ddl_health_check reconciliation: ddl_health_check fires a "download
+    # stuck" notification AT MOST ONCE per DDL id, tracked by the in-memory
+    # comicarr.DDL_STUCK_NOTIFIED set. When U5 authoritatively classifies a
+    # DDL row GONE here (status=Downloading + dead source link) and marks it
+    # failed, register that DDL id into DDL_STUCK_NOTIFIED so ddl_health_check
+    # treats it as already-reported and does NOT also emit a duplicate
+    # stuck-notification for the same item. ddl_health_check's own existing
+    # notify behavior is otherwise left intact.
+    di = (payload or {}).get("download_info") or {}
+    ddl_id = di.get("id") or row.get("ddl_id")
+    if ddl_id is not None:
+        try:
+            comicarr.DDL_STUCK_NOTIFIED.add(ddl_id)
+        except Exception as e:
+            logger.warn("[RECOVERY-CLASSIFY] could not reconcile DDL_STUCK_NOTIFIED for %s: %s" % (ddl_id, e))
+
+    journal.mark_failed(
+        rkey,
+        FAIL_REASON_GONE,
+        payload=payload,
+        conn=conn,
+        issueid=row.get("issueid"),
+        provider=row.get("provider"),
+        downloader_type=row.get("downloader_type"),
+    )
+    logger.warn(
+        "[RECOVERY-CLASSIFY] %s marked failed (reason=%s) — payload retained "
+        "for future manual retry (R9); replay will NOT re-queue it." % (rkey, FAIL_REASON_GONE)
+    )
+    return True

@@ -385,8 +385,18 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
     logger.info("torrent_info: %s" % torrent_info)
 
     if torrent_info is False or len(torrent_info) == 0:
-        logger.warn("torrent returned no information. Check logs - aborting auto-snatch at this time.")
-        snatch_status = "MONITOR ERROR"
+        # The client was queried and returned no torrent for this hash. This
+        # is an EXPLICIT "hash not present in the client" signal — NOT the old
+        # silent fall-through (previously this set a lost local snatch_status
+        # and `return torrent_info` returned bare False, which made
+        # worker_main crash on snstat["snatch_status"] and gave U5 nothing
+        # authoritative to classify). Returning an explicit NOT-FOUND marker
+        # dict lets U5 recovery classification distinguish "absent from a
+        # reachable client" (→ gone, after the done-signal cross-check) from a
+        # transient client outage (MONITOR ERROR → unknown). Connection
+        # failures are logged/handled distinctly above and do not reach here.
+        logger.warn("torrent not present in client for hash %s (explicit NOT FOUND)." % torrent_hash)
+        return {"snatch_status": "NOT FOUND", "hash": torrent_hash}
     else:
         if comicarr.USE_DELUGE:
             torrent_status = torrent_info["is_finished"]
