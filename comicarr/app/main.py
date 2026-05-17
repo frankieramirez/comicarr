@@ -43,13 +43,7 @@ SHUTDOWN_DRAIN_TIMEOUT = 30.0
 # The five pipeline worker pools, in (comicarr module attr, queue ctx attr)
 # pairs. The bounded join below is RELOCATED here from queue_schedule()'s
 # shutdown branch so the FastAPI lifespan is the single authoritative drain.
-_WORKER_POOLS = (
-    ("SNPOOL", "snatched_queue"),
-    ("NZBPOOL", "nzb_queue"),
-    ("SEARCHPOOL", "search_queue"),
-    ("PPPOOL", "pp_queue"),
-    ("DDLPOOL", "ddl_queue"),
-)
+_WORKER_POOLS = ("SNPOOL", "NZBPOOL", "SEARCHPOOL", "PPPOOL", "DDLPOOL")
 
 
 def _drain_worker_pools(timeout):
@@ -65,14 +59,15 @@ def _drain_worker_pools(timeout):
     import comicarr
     from comicarr import logger
 
-    for pool_attr, _q_attr in _WORKER_POOLS:
+    for pool_attr in _WORKER_POOLS:
         pool = getattr(comicarr, pool_attr, None)
         if pool is None:
             continue
         try:
             if pool.is_alive() is False:
                 continue
-        except Exception:
+        except Exception as e:
+            logger.fdebug("[SHUTDOWN] pool.is_alive() check failed for %s: %s" % (pool_attr, e))
             continue
         try:
             pool.join(timeout)

@@ -664,7 +664,7 @@ ai_cache = Table(
 pipeline_journal = Table(
     "pipeline_journal",
     metadata,
-    Column("release_key", Text, unique=True),
+    Column("release_key", Text),
     Column("issueid", Text),
     Column("provider", Text),
     Column("downloader_type", Text),

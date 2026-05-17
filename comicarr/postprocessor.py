@@ -152,7 +152,7 @@ class PostProcessor(object):
 
         # Prefer the canonical key threaded from the PP-consumer atomic claim
         # (the row the claim advanced); re-derive only for unjournaled PP.
-        if getattr(self, "journal_release_key", None):
+        if self.journal_release_key:
             return self.journal_release_key
 
         ident = {

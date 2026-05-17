@@ -231,7 +231,7 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload_json, when):
         .where(pipeline_journal.c.stage_rank < new_rank)
         .values(**upd_values)
     )
-    if result.rowcount and result.rowcount > 0:
+    if result.rowcount:
         return True
 
     # 2. The UPDATE matched nothing: either the row is absent (first write) or

@@ -177,7 +177,7 @@ def _probe_torrent(row, payload=None):
     # when the hash is not present in the client.
     if isinstance(snstat, dict) and snstat.get("snatch_status") == "NOT FOUND":
         return "absent"
-    if not isinstance(snstat, dict) or snstat is False:
+    if not isinstance(snstat, dict):
         # Old silent fall-through shape (False / non-dict) — cannot trust it
         # as authoritative; reachable-but-unparseable ⇒ unreachable.
         return "unreachable"

@@ -868,8 +868,6 @@ def ddl_downloader(queue):
                 # status and the journal; a failure rolls both back. key_dict
                 # uses the real "ID" column (UPSERT_KEYS["ddl_info"]), not the
                 # legacy lowercase "id" alias.
-                from comicarr.app.downloads import journal as _ddl_journal
-
                 ddlc_issueid = item.get("issueid")
                 ddlc_payload = {
                     "issueid": ddlc_issueid,
@@ -880,7 +878,7 @@ def ddl_downloader(queue):
                     "filename": item.get("filename"),
                     "ddl": True,
                 }
-                ddlc_rkey = _ddl_journal.release_key(
+                ddlc_rkey = journal.release_key(
                     ddlc_issueid,
                     "DDL",
                     nzbname=item.get("filename"),
@@ -889,9 +887,9 @@ def ddl_downloader(queue):
                 )
                 with db.get_engine().begin() as conn:
                     db.upsert_conn(conn, "ddl_info", nval, {"ID": item["id"]})
-                    _ddl_journal.record_transition(
+                    journal.record_transition(
                         ddlc_rkey,
-                        _ddl_journal.DOWNLOADED,
+                        journal.DOWNLOADED,
                         payload=ddlc_payload,
                         conn=conn,
                         issueid=ddlc_issueid,

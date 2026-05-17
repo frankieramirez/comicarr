@@ -320,7 +320,8 @@ def finalize_post_processing(row, payload=None):
                 item["download_info"],
                 journal_release_key=rkey,
             )
-        except Exception:
+        except Exception as e:
+            logger.fdebug("[RECOVERY] 8-arg process.Process construction failed, using fallback: %s" % e)
             pprocess = process.Process(
                 item["nzb_name"],
                 item["nzb_folder"],
