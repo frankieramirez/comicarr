@@ -768,6 +768,9 @@ def ddl_downloader(queue):
                 pass
 
             logger.info("Now loading request from DDL queue: %s" % item["series"])
+            # ctrlval (lowercase "id") is consumed by the out-of-scope legacy
+            # db.upsert("ddl_info", …) calls later in this function; the U2/U3
+            # atomic blocks use db.upsert_conn with the real "ID" column.
             ctrlval = {"id": item["id"]}
             val = {"status": "Downloading", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
@@ -775,39 +778,13 @@ def ddl_downloader(queue):
             # Unlike the NZB/torrent seam (where db.upsert owns its own txn so
             # the journal write is ordered-LAST), the DDL "download started"
             # write is atomic-capable: a single explicit begin() block writes
-            # the ddl_info row AND the journal `snatched` row together, so there
-            # is NO residual window. We bypass db.upsert and build the same
-            # dialect-aware ON CONFLICT it would (ddl_info upsert key = ["ID"],
-            # see comicarr/tables.py UPSERT_KEYS) directly on the connection,
-            # then co-commit the journal transition on the SAME conn. If the
-            # block raises, BOTH rows roll back — no half-write. NOTE: the
-            # ddl_info conflict key column is "ID" (see comicarr/tables.py:496,
-            # UPSERT_KEYS["ddl_info"] == ["ID"]); the legacy ctrlval dict uses
-            # lowercase "id" — we build correctly-cased values here so this
-            # atomic block is correct on SQLite.
+            # the ddl_info row AND the journal `snatched` row together via
+            # db.upsert_conn (same dialect-aware ON CONFLICT as db.upsert, on
+            # the shared conn), so there is NO residual window — if the block
+            # raises, BOTH rows roll back. The ddl_info conflict key column is
+            # "ID" (UPSERT_KEYS["ddl_info"]); the key_dict uses the real column
+            # name, not the legacy lowercase "id" alias.
             from comicarr.app.downloads import journal
-            from comicarr.tables import ddl_info
-
-            ddl_set_values = dict(val)
-            ddl_all_values = {**val, "ID": item["id"]}
-            dialect = db.get_dialect()
-            if dialect == "sqlite":
-                from sqlalchemy.dialects.sqlite import insert as _ddl_insert
-
-                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
-                ddl_stmt = ddl_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddl_set_values)
-            elif dialect == "postgresql":
-                from sqlalchemy.dialects.postgresql import insert as _ddl_insert
-
-                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
-                ddl_stmt = ddl_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddl_set_values)
-            elif dialect == "mysql":
-                from sqlalchemy.dialects.mysql import insert as _ddl_insert
-
-                ddl_stmt = _ddl_insert(ddl_info).values(**ddl_all_values)
-                ddl_stmt = ddl_stmt.on_duplicate_key_update(**ddl_set_values)
-            else:
-                raise ValueError("Unsupported dialect for DDL upsert: %s" % dialect)
 
             ddl_issueid = item.get("issueid")
             ddl_payload = {
@@ -827,7 +804,7 @@ def ddl_downloader(queue):
                 discriminant=item["id"],
             )
             with db.get_engine().begin() as conn:
-                conn.execute(ddl_stmt)
+                db.upsert_conn(conn, "ddl_info", val, {"ID": item["id"]})
                 journal.record_transition(
                     ddl_rkey,
                     journal.SNATCHED,
@@ -886,40 +863,12 @@ def ddl_downloader(queue):
                 # The DDL "download complete" write is atomic-capable, so the
                 # journal `downloaded` transition is CO-COMMITTED with the
                 # ddl_info status='Completed' write in a single explicit
-                # begin() block (mirrors the U2 :773 snatch block) — no
-                # residual window between the durable Completed status and the
-                # journal. This is the one structural change U3 makes, and it
-                # is solely to co-commit the additive journal write; the legacy
-                # db.upsert is otherwise behavior-equivalent. NOTE the legacy
-                # ctrlval here is {"id": ...} (lowercase) — the ddl_info upsert
-                # conflict key column is "ID" (comicarr/tables.py UPSERT_KEYS),
-                # so we build correctly-cased values exactly as the U2 :773
-                # block does (the lowercase-id db.upsert call would CompileError
-                # on this dialect-aware path; left out of scope as a fix, but
-                # the explicit block must be correct).
+                # begin() block via db.upsert_conn (mirrors the U2 snatch
+                # block) — no residual window between the durable Completed
+                # status and the journal; a failure rolls both back. key_dict
+                # uses the real "ID" column (UPSERT_KEYS["ddl_info"]), not the
+                # legacy lowercase "id" alias.
                 from comicarr.app.downloads import journal as _ddl_journal
-                from comicarr.tables import ddl_info as _ddl_info_tbl
-
-                ddlc_set_values = dict(nval)
-                ddlc_all_values = {**nval, "ID": item["id"]}
-                ddlc_dialect = db.get_dialect()
-                if ddlc_dialect == "sqlite":
-                    from sqlalchemy.dialects.sqlite import insert as _ddlc_insert
-
-                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
-                    ddlc_stmt = ddlc_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddlc_set_values)
-                elif ddlc_dialect == "postgresql":
-                    from sqlalchemy.dialects.postgresql import insert as _ddlc_insert
-
-                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
-                    ddlc_stmt = ddlc_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddlc_set_values)
-                elif ddlc_dialect == "mysql":
-                    from sqlalchemy.dialects.mysql import insert as _ddlc_insert
-
-                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
-                    ddlc_stmt = ddlc_stmt.on_duplicate_key_update(**ddlc_set_values)
-                else:
-                    raise ValueError("Unsupported dialect for DDL upsert: %s" % ddlc_dialect)
 
                 ddlc_issueid = item.get("issueid")
                 ddlc_payload = {
@@ -939,7 +888,7 @@ def ddl_downloader(queue):
                     discriminant=item["id"],
                 )
                 with db.get_engine().begin() as conn:
-                    conn.execute(ddlc_stmt)
+                    db.upsert_conn(conn, "ddl_info", nval, {"ID": item["id"]})
                     _ddl_journal.record_transition(
                         ddlc_rkey,
                         _ddl_journal.DOWNLOADED,

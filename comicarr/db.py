@@ -239,11 +239,13 @@ def ci_compare(column: Column, value: Any) -> BinaryExpression:
     return column == value
 
 
-def upsert(table_name: str, value_dict: dict, key_dict: dict) -> None:
-    """Dialect-aware atomic upsert.
+def _build_upsert_stmt(table_name: str, value_dict: dict, key_dict: dict):
+    """Build the dialect-aware ON CONFLICT / ON DUPLICATE KEY upsert statement.
 
-    Uses ON CONFLICT DO UPDATE (SQLite/PostgreSQL) or
-    ON DUPLICATE KEY UPDATE (MySQL) for atomicity.
+    Shared by upsert() (own transaction) and upsert_conn() (caller-supplied
+    connection, for co-committing with another write in one begin() block).
+    Conflict target is UPSERT_KEYS[table_name] — callers pass key_dict using
+    the real column name (e.g. {"ID": ...}), never an ad-hoc lowercase alias.
     """
     table = TABLE_MAP.get(table_name)
     if table is None:
@@ -274,6 +276,28 @@ def upsert(table_name: str, value_dict: dict, key_dict: dict) -> None:
         stmt = stmt.on_duplicate_key_update(**value_dict)
     else:
         raise ValueError(f"Unsupported dialect for upsert: {dialect}")
+
+    return stmt
+
+
+def upsert_conn(conn, table_name: str, value_dict: dict, key_dict: dict) -> None:
+    """Dialect-aware upsert on a caller-supplied connection.
+
+    Executes within the caller's transaction so it co-commits (and rolls back)
+    atomically with other writes in the same db.get_engine().begin() block —
+    e.g. a ddl_info status write + its pipeline_journal transition. No internal
+    retry: retry/rollback is the owning transaction's responsibility.
+    """
+    conn.execute(_build_upsert_stmt(table_name, value_dict, key_dict))
+
+
+def upsert(table_name: str, value_dict: dict, key_dict: dict) -> None:
+    """Dialect-aware atomic upsert.
+
+    Uses ON CONFLICT DO UPDATE (SQLite/PostgreSQL) or
+    ON DUPLICATE KEY UPDATE (MySQL) for atomicity.
+    """
+    stmt = _build_upsert_stmt(table_name, value_dict, key_dict)
 
     attempt = 0
     while attempt < 5:
