@@ -880,7 +880,77 @@ def ddl_downloader(queue):
             if ddzstat["success"] is True:
                 tdnow = datetime.datetime.now()
                 nval = {"status": "Completed", "updated_date": tdnow.strftime("%Y-%m-%d %H:%M")}
-                db.upsert("ddl_info", nval, ctrlval)
+
+                # --- DDL download complete: ddl_info status='Completed' +
+                #     journal downloaded (U3) ---------------------------------
+                # The DDL "download complete" write is atomic-capable, so the
+                # journal `downloaded` transition is CO-COMMITTED with the
+                # ddl_info status='Completed' write in a single explicit
+                # begin() block (mirrors the U2 :773 snatch block) — no
+                # residual window between the durable Completed status and the
+                # journal. This is the one structural change U3 makes, and it
+                # is solely to co-commit the additive journal write; the legacy
+                # db.upsert is otherwise behavior-equivalent. NOTE the legacy
+                # ctrlval here is {"id": ...} (lowercase) — the ddl_info upsert
+                # conflict key column is "ID" (comicarr/tables.py UPSERT_KEYS),
+                # so we build correctly-cased values exactly as the U2 :773
+                # block does (the lowercase-id db.upsert call would CompileError
+                # on this dialect-aware path; left out of scope as a fix, but
+                # the explicit block must be correct).
+                from comicarr.app.downloads import journal as _ddl_journal
+                from comicarr.tables import ddl_info as _ddl_info_tbl
+
+                ddlc_set_values = dict(nval)
+                ddlc_all_values = {**nval, "ID": item["id"]}
+                ddlc_dialect = db.get_dialect()
+                if ddlc_dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert as _ddlc_insert
+
+                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
+                    ddlc_stmt = ddlc_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddlc_set_values)
+                elif ddlc_dialect == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert as _ddlc_insert
+
+                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
+                    ddlc_stmt = ddlc_stmt.on_conflict_do_update(index_elements=["ID"], set_=ddlc_set_values)
+                elif ddlc_dialect == "mysql":
+                    from sqlalchemy.dialects.mysql import insert as _ddlc_insert
+
+                    ddlc_stmt = _ddlc_insert(_ddl_info_tbl).values(**ddlc_all_values)
+                    ddlc_stmt = ddlc_stmt.on_duplicate_key_update(**ddlc_set_values)
+                else:
+                    raise ValueError("Unsupported dialect for DDL upsert: %s" % ddlc_dialect)
+
+                ddlc_issueid = item.get("issueid")
+                ddlc_payload = {
+                    "issueid": ddlc_issueid,
+                    "comicid": item.get("comicid"),
+                    "provider": "DDL",
+                    "id": item["id"],
+                    "series": item.get("series"),
+                    "filename": item.get("filename"),
+                    "ddl": True,
+                }
+                ddlc_rkey = _ddl_journal.release_key(
+                    ddlc_issueid,
+                    "DDL",
+                    nzbname=item.get("filename"),
+                    hash=None,
+                    discriminant=item["id"],
+                )
+                with db.get_engine().begin() as conn:
+                    conn.execute(ddlc_stmt)
+                    _ddl_journal.record_transition(
+                        ddlc_rkey,
+                        _ddl_journal.DOWNLOADED,
+                        payload=ddlc_payload,
+                        conn=conn,
+                        issueid=ddlc_issueid,
+                        provider="DDL",
+                        downloader_type="ddl",
+                        nzbname=item.get("filename"),
+                    )
+                logger.fdebug("[DOWNLOADS-DDL] Journaled downloaded for %s" % ddlc_rkey)
 
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
                 try:
@@ -1072,6 +1142,51 @@ def worker_main(queue):
             comicarr.SNATCHED_QUEUE.put(item)
         elif any([snstat["snatch_status"] == "MONITOR FAIL", snstat["snatch_status"] == "MONITOR COMPLETE"]):
             logger.info("File copied for post-processing - submitting as a direct pp.")
+
+            # --- Durable pipeline journal: downloaded (U3) ------------------
+            # ADDITIVE / INERT: written immediately BEFORE the PP_QUEUE.put so
+            # the journal records "download complete" before the PP handoff.
+            # The façade is monotonic (a late/duplicate write is a logged
+            # no-op) and nothing consumes this row until later phases, so this
+            # cannot change observable behavior. Identity comes from the
+            # torrent SNATCHED_QUEUE item dict in scope here (issueid + hash);
+            # release_key is derived via the single journal façade so it
+            # matches the row the snatch seam wrote.
+            try:
+                from comicarr.app.downloads import journal
+
+                journal_payload = {
+                    "issueid": item.get("issueid"),
+                    "comicid": item.get("comicid"),
+                    "hash": item.get("hash"),
+                    "nzb_name": os.path.basename(snstat["copied_filepath"]),
+                    "nzb_folder": snstat["copied_filepath"],
+                    "apicall": True,
+                    "ddl": False,
+                }
+                rkey = journal.release_key(
+                    item.get("issueid"),
+                    item.get("provider"),
+                    nzbname=item.get("nzbname"),
+                    hash=item.get("hash"),
+                    discriminant=item.get("hash") or item.get("provider") or journal_payload,
+                )
+                journal.record_transition(
+                    rkey,
+                    journal.DOWNLOADED,
+                    payload=journal_payload,
+                    issueid=item.get("issueid"),
+                    provider=item.get("provider"),
+                    downloader_type="torrent",
+                    nzbname=item.get("nzbname"),
+                    hash=item.get("hash"),
+                )
+                logger.fdebug("[DOWNLOADS-WORKER] Journaled downloaded for %s" % rkey)
+            except Exception as e:
+                # A journal failure must NOT block the PP handoff (additive /
+                # inert). Log loudly; replay closes any residual window.
+                logger.error("[DOWNLOADS-WORKER] Journal downloaded transition failed: %s" % e)
+
             comicarr.PP_QUEUE.put(
                 {
                     "nzb_name": os.path.basename(snstat["copied_filepath"]),
@@ -1170,6 +1285,55 @@ def cdh_monitor(queue, item, nzstat, readd=False):
             logger.info("File successfully downloaded - now initiating completed downloading handling.")
         else:
             logger.info("File failed - now initiating completed failed downloading handling.")
+        # --- Durable pipeline journal: downloaded (U3) ---------------------
+        # ADDITIVE / INERT: written immediately BEFORE the PP_QUEUE.put so the
+        # journal records "download complete" before the PP handoff. The
+        # façade is monotonic (a late/duplicate write is a logged no-op) and
+        # nothing consumes this row until later phases, so this cannot change
+        # observable behavior. A failed download is still journaled
+        # `downloaded` here (it advances to the PP failure path which, per
+        # U3's contract, must NOT write post_processed) — the snatch row
+        # advances; replay/U5 classifies it from there. Identity comes from
+        # the resolved nzstat dict (issueid + download_info provider/hash).
+        di = nzstat.get("download_info") or {}
+        try:
+            from comicarr.app.downloads import journal
+
+            journal_payload = {
+                "issueid": nzstat.get("issueid"),
+                "comicid": nzstat.get("comicid"),
+                "provider": di.get("provider"),
+                "hash": di.get("hash"),
+                "nzb_name": nzstat["name"],
+                "nzb_folder": nzstat["location"],
+                "apicall": nzstat.get("apicall"),
+                "failed": nzstat.get("failed"),
+                "ddl": False,
+                "download_info": nzstat.get("download_info"),
+            }
+            rkey = journal.release_key(
+                nzstat.get("issueid"),
+                di.get("provider"),
+                nzbname=di.get("nzbname") or nzstat.get("name"),
+                hash=di.get("hash"),
+                discriminant=di.get("hash") or di.get("provider") or journal_payload,
+            )
+            journal.record_transition(
+                rkey,
+                journal.DOWNLOADED,
+                payload=journal_payload,
+                issueid=nzstat.get("issueid"),
+                provider=di.get("provider"),
+                downloader_type="nzb",
+                nzbname=di.get("nzbname") or nzstat.get("name"),
+                hash=di.get("hash"),
+            )
+            logger.fdebug("[DOWNLOADS-CDH] Journaled downloaded for %s" % rkey)
+        except Exception as e:
+            # A journal failure must NOT block the PP handoff (additive /
+            # inert). Log loudly; replay closes any residual window.
+            logger.error("[DOWNLOADS-CDH] Journal downloaded transition failed: %s" % e)
+
         try:
             comicarr.PP_QUEUE.put(
                 {

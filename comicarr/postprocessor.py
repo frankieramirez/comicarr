@@ -118,6 +118,64 @@ class PostProcessor(object):
 
         self.issuearcid = None
 
+    def _journal_release_key(self, issueid=None, issuearcid=None):
+        """Derive the journal release_key for this PP item (U3).
+
+        ADDITIVE / INERT. The PostProcessor does not receive download_info /
+        provider / hash (see comicarr/process.py:60 — only nzb_name,
+        nzb_folder, issueid, comicid are threaded in), so per the plan's
+        guidance ("if a site genuinely lacks an identifier, prefer
+        derive_release_key on whatever item dict is in scope; document the
+        choice") we build the key from the identity fields that ARE in scope
+        here: the issueid (or story-arc IssueArcID), comicid and nzb_name.
+        Cross-seam row alignment with the `downloaded` row written at the
+        snatch/download seams is a U4/U6 concern; in U3 nothing consumes these
+        rows, so a divergent key is a safe, behavior-neutral, monotonic no-op
+        worst case — never an observable change.
+        """
+        from comicarr.app.downloads import journal
+
+        ident = {
+            "issueid": issueid if issueid is not None else self.issueid,
+            "IssueArcID": issuearcid if issuearcid is not None else self.issuearcid,
+            "comicid": self.comicid,
+            "nzbname": self.nzb_name,
+            "ddl": getattr(self, "ddl", False),
+        }
+        return journal.derive_release_key(ident)
+
+    def _journal_pp(self, stage, issueid=None, issuearcid=None, payload=None):
+        """Record a PP-marker journal transition (U3).
+
+        ADDITIVE / INERT: the façade is monotonic (a late/duplicate/regressing
+        write is a logged no-op) and nothing consumes these rows until later
+        phases, so this cannot change observable behavior. A journal failure
+        must never abort post-processing — log loudly and continue.
+        """
+        from comicarr.app.downloads import journal
+
+        try:
+            rkey = self._journal_release_key(issueid=issueid, issuearcid=issuearcid)
+            if payload is None:
+                payload = {
+                    "issueid": issueid if issueid is not None else self.issueid,
+                    "issuearcid": issuearcid if issuearcid is not None else self.issuearcid,
+                    "comicid": self.comicid,
+                    "nzb_name": self.nzb_name,
+                    "nzb_folder": self.nzb_folder,
+                    "apicall": getattr(self, "apicall", False),
+                    "ddl": getattr(self, "ddl", False),
+                }
+            journal.record_transition(
+                rkey,
+                stage,
+                payload=payload,
+                issueid=issueid if issueid is not None else self.issueid,
+            )
+            logger.fdebug("%s [JOURNAL] %s for %s" % (self.module, stage, rkey))
+        except Exception as e:
+            logger.error("%s [JOURNAL] %s transition failed (inert, continuing): %s" % (self.module, stage, e))
+
     def _log(self, message, level=logger):  # .message):  #level=logger.MESSAGE):
         """
         A wrapper for the internal logger which also keeps track of messages and saves them to a string for sabnzbd post-processing logging functions.
@@ -3058,6 +3116,12 @@ class PostProcessor(object):
                         )
                         # this is also for issues that are part of a story arc, and don't belong to a watchlist series (ie. one-off's)
 
+                        # --- Durable pipeline journal: post_processing (U3) -
+                        # ADDITIVE: written BEFORE the destructive story-arc
+                        # one-off move. Keyed on this ml entry's IssueArcID.
+                        # Inert; no existing ordering moved.
+                        self._journal_pp("post_processing", issuearcid=ml["IssueArcID"])
+
                         try:
                             checkspace = helpers.get_free_space(grdst)
                             if checkspace is False:
@@ -3080,6 +3144,11 @@ class PostProcessor(object):
                                 % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e)
                             )
                             return
+
+                        # --- Durable pipeline journal: moved (U3) -----------
+                        # ADDITIVE: after helpers.file_ops success, BEFORE
+                        # tidyup deletes the source. Inert; no ordering moved.
+                        self._journal_pp("moved", issuearcid=ml["IssueArcID"])
 
                         # tidyup old path
                         if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
@@ -3160,6 +3229,13 @@ class PostProcessor(object):
                         )
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
+
+                    # --- Durable pipeline journal: post_processed (U3) ------
+                    # ADDITIVE: terminal marker once this story-arc ml entry's
+                    # DB facts are written and (when applicable) its file
+                    # moved. Keyed on this ml entry's IssueArcID. Inert; the
+                    # existing ordering is unchanged (the reorder is U9).
+                    self._journal_pp("post_processed", issuearcid=ml["IssueArcID"])
 
         if (
             all([self.nzb_name != "Manual Run", self.apicall is False])
@@ -3925,6 +4001,13 @@ class PostProcessor(object):
                         "%s[%s] %s into directory : %s" % (module, comicarr.CONFIG.FILE_OPTS, ofilename, grab_dst)
                     )
 
+                    # --- Durable pipeline journal: post_processing (U3) -----
+                    # ADDITIVE: written BEFORE the destructive story-arc /
+                    # one-off move. Keyed on the story-arc IssueArcID when
+                    # present, else the oneoff IssueID. Inert; no ordering
+                    # moved.
+                    self._journal_pp("post_processing", issueid=issueid, issuearcid=issuearcid)
+
                     try:
                         checkspace = helpers.get_free_space(grdst)
                         if checkspace is False:
@@ -3939,6 +4022,11 @@ class PostProcessor(object):
                         self._log("Failed to %s %s: %s" % (comicarr.CONFIG.FILE_OPTS, grab_src, e))
                         self.valreturn.append({"self.log": self.log, "mode": "stop"})
                         return self.queue.put(self.valreturn)
+
+                    # --- Durable pipeline journal: moved (U3) ---------------
+                    # ADDITIVE: after helpers.file_ops success, BEFORE tidyup
+                    # deletes the source. Inert; no ordering moved.
+                    self._journal_pp("moved", issueid=issueid, issuearcid=issuearcid)
 
                     # tidyup old path
                     if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
@@ -4010,6 +4098,13 @@ class PostProcessor(object):
                         )
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
+
+                    # --- Durable pipeline journal: post_processed (U3) ------
+                    # ADDITIVE: terminal marker after the story-arc/one-off
+                    # DB facts are written and the file moved. Keyed on the
+                    # IssueArcID when present, else the oneoff IssueID. Inert;
+                    # the existing ordering is unchanged (the reorder is U9).
+                    self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid)
 
                     self.valreturn.append({"self.log": self.log, "mode": "stop"})
 
@@ -4216,6 +4311,14 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
 
+        # --- Durable pipeline journal: post_processing (U3) ----------------
+        # ADDITIVE: written BEFORE the destructive per-file move loop. Manga
+        # PP matches per-chapter, so the release-level marker is keyed on the
+        # PostProcessor's own identity (self.issueid/comicid/nzb_name); the
+        # per-chapter post_processed below keys on the matched IssueID. Inert;
+        # no existing ordering moved.
+        self._journal_pp("post_processing")
+
         # --- Process each manga file ---
         processed = 0
         last_matched_issueid = None
@@ -4238,6 +4341,13 @@ class PostProcessor(object):
                 logger.error("%s Failed to move %s: %s" % (module, filename, e))
                 self._log("Failed to move/copy manga file: %s" % filename)
                 continue
+
+            # --- Durable pipeline journal: moved (U3) ----------------------
+            # ADDITIVE: after a per-file move succeeds (manga has no tidyup
+            # source-delete — the move IS the relocation). Release-level
+            # marker on the PostProcessor identity; brackets every destructive
+            # per-file move on this path. Inert; no existing ordering moved.
+            self._journal_pp("moved")
 
             # --- Match to a chapter/issue in the database ---
             matching = None
@@ -4340,6 +4450,17 @@ class PostProcessor(object):
                 comicarr.APILOCK.release()
             except Exception:
                 pass
+
+        # --- Durable pipeline journal: post_processed (U3) -----------------
+        # ADDITIVE: terminal marker ONLY when at least one chapter was
+        # actually processed (DB facts written, files relocated). If nothing
+        # matched/moved (a move failure or no-match run) the terminal marker
+        # is intentionally NOT written so the row stays at post_processing for
+        # the replay finalizer to re-drive — U3's error-path contract. Keyed
+        # on the last matched chapter IssueID. Inert; existing ordering is
+        # unchanged (the atomicity reorder is U9).
+        if processed > 0:
+            self._journal_pp("post_processed", issueid=last_matched_issueid)
 
         result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
         if last_matched_issueid:
@@ -4975,6 +5096,12 @@ class PostProcessor(object):
         logger.fdebug("%s Source: %s" % (module, src))
         logger.fdebug("%s Destination: %s" % (module, dst))
 
+        # --- Durable pipeline journal: post_processing (U3) ----------------
+        # ADDITIVE: written BEFORE the destructive move (this is also the U4
+        # atomic-claim site in a later phase). Inert here — nothing consumes
+        # it and no existing ordering is moved.
+        self._journal_pp("post_processing", issueid=issueid)
+
         if ml is None:
             # downtype = for use with updater on history table to set status to 'Downloaded'
             downtype = "True"
@@ -5010,6 +5137,13 @@ class PostProcessor(object):
                 logger.error("%s Post-Processing ABORTED" % module)
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
+
+            # --- Durable pipeline journal: moved (U3) -----------------------
+            # ADDITIVE: written immediately AFTER helpers.file_ops returned
+            # success and BEFORE tidyup deletes the source — a positive
+            # "physical move committed" signal. Inert; no existing ordering
+            # moved.
+            self._journal_pp("moved", issueid=issueid)
 
             # tidyup old path
             if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
@@ -5051,6 +5185,11 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
             logger.info("%s %s successful to : %s" % (module, comicarr.CONFIG.FILE_OPTS, dst))
+
+            # --- Durable pipeline journal: moved (U3) -----------------------
+            # ADDITIVE: after helpers.file_ops success, before tidyup deletes
+            # the source. Inert; no existing ordering moved.
+            self._journal_pp("moved", issueid=issueid)
 
             if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                 self.tidyup(odir, True, subpath, filename=os.path.basename(orig_filename))
@@ -5193,6 +5332,15 @@ class PostProcessor(object):
                         except Exception as e:
                             logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e))
                             return
+
+                        # --- Durable pipeline journal: moved (U3) -----------
+                        # ADDITIVE: brackets the SECONDARY (COPY2ARCDIR)
+                        # destructive file_ops on the story-arc exit path —
+                        # the plan requires markers to bracket EVERY
+                        # destructive file_ops, not only the primary move. The
+                        # pre-move post_processing marker above already covers
+                        # this path (monotonic — a duplicate is a no-op).
+                        self._journal_pp("moved", issuearcid=arcinfo["IssueArcID"])
                     else:
                         grab_dst = dst
 
@@ -5279,6 +5427,12 @@ class PostProcessor(object):
 
         logger.info("%s Post-Processing completed for: %s %s" % (module, series, dispiss))
         self._log("Post Processing SUCCESSFUL! ")
+
+        # --- Durable pipeline journal: post_processed (U3) -----------------
+        # ADDITIVE: terminal marker after all PP DB-facts are written and the
+        # move(s) committed. Inert; the existing nzblog-delete/Status/file-move
+        # ordering is unchanged (the atomicity reorder is U9).
+        self._journal_pp("post_processed", issueid=issueid)
 
         self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
 
