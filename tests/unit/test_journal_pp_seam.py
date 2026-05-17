@@ -277,9 +277,11 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
 
 
 def test_ddl_complete_atomic_rollback_on_journal_failure(monkeypatch):
-    """A failure inside the DDL complete begin() block rolls back BOTH the
-    status='Completed' write and the journal row (no half-write). The
-    pre-existing 'Downloading' row remains (it was a separate prior txn)."""
+    """P1-3 + atomicity: a journal failure inside a DDL atomic begin() block
+    rolls back BOTH the ddl_info write and the journal row (no half-write)
+    AND the ddl_downloader loop SURVIVES (the raise is caught + logged +
+    continue, not propagated to kill the worker). The pre-existing
+    'Downloading' row remains (it was a separate prior txn)."""
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
     monkeypatch.setattr(comicarr, "PP_QUEUE", MagicMock(), raising=False)
     monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
@@ -293,15 +295,17 @@ def test_ddl_complete_atomic_rollback_on_journal_failure(monkeypatch):
     monkeypatch.setattr(service.mega, "MegaNZ", lambda *a, **k: fake_mega)
     monkeypatch.setattr(service, "ddl_cleanup", lambda *a, **k: None)
 
-    boom = RuntimeError("journal down inside ddl complete begin()")
+    boom = RuntimeError("journal down inside a ddl atomic begin()")
     with patch.object(journal, "record_transition", side_effect=boom):
-        with pytest.raises(RuntimeError, match="journal down inside ddl complete"):
-            q = queuelib.Queue()
-            q.put(_ddl_item())
-            q.put("exit")
-            service.ddl_downloader(q)
+        # MUST NOT raise out of ddl_downloader (P1-3 — the loop survives).
+        q = queuelib.Queue()
+        q.put(_ddl_item())
+        q.put("exit")
+        service.ddl_downloader(q)
 
-    # status='Completed' rolled back with the journal — still 'Downloading'.
+    # The atomic block's write rolled back with the journal — the row stays
+    # at the pre-existing 'Downloading' (no half-write Completed), and no
+    # journal row landed.
     ddl_rows = _rows(ddl_info)
     assert len(ddl_rows) == 1
     assert ddl_rows[0]["status"] == "Downloading"
@@ -482,6 +486,143 @@ def test_manga_pp_failure_path_does_not_write_post_processed(tmp_path, monkeypat
     assert _stage_of(chapter_key) != "post_processed"
     release_key = pp._journal_release_key()
     assert _stage_of(release_key) == "post_processing"
+
+
+def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkeypatch):
+    """P2-6: a multi-chapter manga pack shares ONE release_key (the
+    release-level propagated key from postprocess_main's atomic claim). The
+    terminal `post_processed` MUST NOT be written per-chapter — otherwise a
+    mid-loop restart after chapter 1 terminalizes the shared row and replay
+    skip-terminal STRANDS chapters 2..N.
+
+    Simulate a mid-loop crash: chapter 1 moved+matched, then the run is
+    interrupted before the post-loop terminal write. The shared release_key
+    row must still be NON-terminal (post_processing/moved) so replay
+    re-drives the remaining chapters."""
+    comicid = "mc-csm"
+    rkey = "mc-csm|ddl"  # the single release-level propagated key
+    with get_engine().begin() as conn:
+        conn.execute(insert(comics).values(ComicID=comicid, ComicName="Chainsaw Man"))
+        for ch in ("165", "166"):
+            conn.execute(
+                insert(issues).values(
+                    IssueID="%s-ch%s" % (comicid, ch),
+                    ComicID=comicid,
+                    ComicName="Chainsaw Man",
+                    Issue_Number=ch,
+                    ChapterNumber=ch,
+                    Status="Wanted",
+                )
+            )
+
+    src = tmp_path / "dl"
+    src.mkdir()
+    (src / "Chainsaw Man 165.cbz").write_bytes(b"c1")
+    (src / "Chainsaw Man 166.cbz").write_bytes(b"c2")
+    (tmp_path / "manga" / "Chainsaw Man").mkdir(parents=True)
+
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
+    cfg = MagicMock()
+    cfg.FILE_OPTS = "move"
+    cfg.IGNORE_SEARCH_WORDS = []
+    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
+        pp = PostProcessor(
+            nzb_name="Chainsaw Man Pack",
+            nzb_folder=str(src),
+            comicid=comicid,
+            issueid=None,
+            queue=MagicMock(spec=queuelib.Queue),
+            journal_release_key=rkey,
+        )
+
+    # Crash AFTER the first chapter is moved+matched but BEFORE the loop
+    # finishes (so the post-loop terminal write never runs). We interrupt by
+    # raising on the SECOND fileop call.
+    calls = {"n": 0}
+    real_fileop_target = tmp_path / "manga" / "Chainsaw Man"
+
+    def _fileop(s, d):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise KeyboardInterrupt("simulated mid-loop restart after chapter 1")
+        import shutil
+
+        shutil.copy(s, d)
+
+    pp.fileop = _fileop
+    assert real_fileop_target.exists()
+
+    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+        with pytest.raises(KeyboardInterrupt):
+            pp._process_manga()
+
+    # The shared release_key row must NOT be terminal — chapter 1's match must
+    # not have written `post_processed` on the shared key. Replay sees a
+    # non-terminal row and re-drives the remaining chapters (exactly-once per
+    # chapter on re-run), instead of skip-terminal stranding 2..N.
+    stage = _stage_of(rkey)
+    assert stage != "post_processed", "shared manga release_key terminalized mid-loop — chapters 2..N stranded (P2-6)"
+    assert stage in ("post_processing", "moved")
+
+
+def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path):
+    """P2-6 happy path: when the full chapter loop completes, the shared
+    release_key reaches `post_processed` exactly once and every matched
+    chapter's nzblog row is deleted (U9 atomic co-commit preserved)."""
+    from comicarr.tables import nzblog
+
+    comicid = "mc2"
+    rkey = "mc2|ddl"
+    with get_engine().begin() as conn:
+        conn.execute(insert(comics).values(ComicID=comicid, ComicName="Berserk"))
+        for ch in ("1", "2"):
+            conn.execute(
+                insert(issues).values(
+                    IssueID="%s-ch%s" % (comicid, ch),
+                    ComicID=comicid,
+                    ComicName="Berserk",
+                    Issue_Number=ch,
+                    ChapterNumber=ch,
+                    Status="Wanted",
+                )
+            )
+            conn.execute(insert(nzblog).values(IssueID="%s-ch%s" % (comicid, ch), PROVIDER="DDL"))
+
+    src = tmp_path / "dl"
+    src.mkdir()
+    (src / "Berserk 1.cbz").write_bytes(b"c1")
+    (src / "Berserk 2.cbz").write_bytes(b"c2")
+    (tmp_path / "manga" / "Berserk").mkdir(parents=True)
+
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
+    cfg = MagicMock()
+    cfg.FILE_OPTS = "move"
+    cfg.IGNORE_SEARCH_WORDS = []
+    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
+        pp = PostProcessor(
+            nzb_name="Berserk Pack",
+            nzb_folder=str(src),
+            comicid=comicid,
+            issueid=None,
+            queue=MagicMock(spec=queuelib.Queue),
+            journal_release_key=rkey,
+        )
+
+    def _fileop(s, d):
+        import shutil
+
+        shutil.copy(s, d)
+
+    pp.fileop = _fileop
+
+    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+        pp._process_manga()
+
+    assert _stage_of(rkey) == "post_processed"
+    # Both matched chapters' nzblog rows deleted in the post-loop atomic block.
+    assert _rows(nzblog) == []
 
 
 def test_pp_failure_before_terminal_leaves_row_at_post_processing():

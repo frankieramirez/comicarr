@@ -803,18 +803,34 @@ def ddl_downloader(queue):
                 hash=None,
                 discriminant=item["id"],
             )
-            with db.get_engine().begin() as conn:
-                db.upsert_conn(conn, "ddl_info", val, {"ID": item["id"]})
-                journal.record_transition(
-                    ddl_rkey,
-                    journal.SNATCHED,
-                    payload=ddl_payload,
-                    conn=conn,
-                    issueid=ddl_issueid,
-                    provider="DDL",
-                    downloader_type="ddl",
-                    nzbname=item.get("filename"),
+            try:
+                with db.get_engine().begin() as conn:
+                    db.upsert_conn(conn, "ddl_info", val, {"ID": item["id"]})
+                    journal.record_transition(
+                        ddl_rkey,
+                        journal.SNATCHED,
+                        payload=ddl_payload,
+                        conn=conn,
+                        issueid=ddl_issueid,
+                        provider="DDL",
+                        downloader_type="ddl",
+                        nzbname=item.get("filename"),
+                    )
+            except Exception as e:
+                # P1-3: a journal raise (OperationalError 5-retry cap, or
+                # IntegrityError) inside this atomic block must NOT propagate
+                # through the `while True` loop and permanently kill the DDL
+                # worker thread (every queued DDL item would be lost). The
+                # begin() auto-rolls-back on raise, so the ddl_info row and the
+                # journal row stay consistent (both rolled back) and the item
+                # is recoverable at next startup replay. Log loudly, skip this
+                # item, keep the worker alive.
+                logger.error(
+                    "[DOWNLOADS-DDL] snatch atomic block failed for %s (id=%s) "
+                    "— ddl_info+journal rolled back together, item recoverable "
+                    "at next startup; continuing: %s" % (item.get("series"), item.get("id"), e)
                 )
+                continue
 
             if item["site"] == "DDL(GetComics)":
                 try:
@@ -869,6 +885,16 @@ def ddl_downloader(queue):
                 # uses the real "ID" column (UPSERT_KEYS["ddl_info"]), not the
                 # legacy lowercase "id" alias.
                 ddlc_issueid = item.get("issueid")
+                # P2-5(b): the COMPLETE replay path rebuilds a PP item via
+                # recovery._pp_item_from_row which reads nzb_folder/nzb_name
+                # FROM THIS payload. Without them a replayed DDL `downloaded`
+                # row rebuilt a PP item with None paths (un-processable). Both
+                # are available here from ddzstat; mirror the live PP_QUEUE.put
+                # shape below (no-filename ⇒ basename(path)/path).
+                if ddzstat["filename"] is None:
+                    ddlc_nzb_name = os.path.basename(ddzstat["path"])
+                else:
+                    ddlc_nzb_name = ddzstat["filename"]
                 ddlc_payload = {
                     "issueid": ddlc_issueid,
                     "comicid": item.get("comicid"),
@@ -877,6 +903,9 @@ def ddl_downloader(queue):
                     "series": item.get("series"),
                     "filename": item.get("filename"),
                     "ddl": True,
+                    "nzb_folder": ddzstat["path"],
+                    "nzb_name": ddlc_nzb_name,
+                    "download_info": {"provider": "DDL", "id": item["id"]},
                 }
                 ddlc_rkey = journal.release_key(
                     ddlc_issueid,
@@ -885,19 +914,34 @@ def ddl_downloader(queue):
                     hash=None,
                     discriminant=item["id"],
                 )
-                with db.get_engine().begin() as conn:
-                    db.upsert_conn(conn, "ddl_info", nval, {"ID": item["id"]})
-                    journal.record_transition(
-                        ddlc_rkey,
-                        journal.DOWNLOADED,
-                        payload=ddlc_payload,
-                        conn=conn,
-                        issueid=ddlc_issueid,
-                        provider="DDL",
-                        downloader_type="ddl",
-                        nzbname=item.get("filename"),
+                try:
+                    with db.get_engine().begin() as conn:
+                        db.upsert_conn(conn, "ddl_info", nval, {"ID": item["id"]})
+                        journal.record_transition(
+                            ddlc_rkey,
+                            journal.DOWNLOADED,
+                            payload=ddlc_payload,
+                            conn=conn,
+                            issueid=ddlc_issueid,
+                            provider="DDL",
+                            downloader_type="ddl",
+                            nzbname=item.get("filename"),
+                        )
+                    logger.fdebug("[DOWNLOADS-DDL] Journaled downloaded for %s" % ddlc_rkey)
+                except Exception as e:
+                    # P1-3: same protection as the snatch block — a journal
+                    # raise here must not kill the DDL worker. begin()
+                    # auto-rolls-back, so the ddl_info status='Completed' write
+                    # and the journal `downloaded` row roll back together
+                    # (consistent, recoverable at startup replay). Skip the PP
+                    # handoff for this item so we never PP an item whose
+                    # `downloaded` journal write did not durably land.
+                    logger.error(
+                        "[DOWNLOADS-DDL] downloaded atomic block failed for %s "
+                        "(id=%s) — ddl_info+journal rolled back together, item "
+                        "recoverable at next startup; continuing: %s" % (item.get("series"), item.get("id"), e)
                     )
-                logger.fdebug("[DOWNLOADS-DDL] Journaled downloaded for %s" % ddlc_rkey)
+                    continue
 
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
                 # Propagate the exact `downloaded`-write key onto the PP item
@@ -1245,6 +1289,56 @@ def worker_main(queue):
                     "journal_release_key": torrent_journal_release_key,
                 }
             )
+        elif snstat["snatch_status"] == "NOT FOUND":
+            # P1-4: U5 made torrentinfo() return an EXPLICIT NOT FOUND when the
+            # hash is absent from the client. Without this branch the item fell
+            # through every if/elif and was SILENTLY dropped — no log, no
+            # journal mark, the journal row stuck forever at `snatched`. The
+            # row IS journaled snatched (foundsearch snatch seam), so derive
+            # the SAME canonical release_key (P0-1 single-derivation: the item
+            # now carries provider+nzbname+hash from the SNATCHED_QUEUE put)
+            # and journal mark_failed with a distinguishable fail_reason so the
+            # item is visible/recoverable (R9) rather than silently lost.
+            logger.error(
+                "[DOWNLOADS-WORKER] torrent hash not found in client for "
+                "issueid=%s comicid=%s hash=%s — marking the journal row "
+                "failed (recoverable, not silently dropped)."
+                % (item.get("issueid"), item.get("comicid"), item.get("hash"))
+            )
+            try:
+                from comicarr.app.downloads import journal
+
+                fail_payload = {
+                    "issueid": item.get("issueid"),
+                    "comicid": item.get("comicid"),
+                    "hash": item.get("hash"),
+                    "provider": item.get("provider"),
+                    "nzbname": item.get("nzbname"),
+                    "apicall": True,
+                    "ddl": False,
+                }
+                fail_rkey = journal.release_key(
+                    item.get("issueid"),
+                    item.get("provider"),
+                    nzbname=item.get("nzbname"),
+                    hash=item.get("hash"),
+                    discriminant=item.get("hash") or item.get("provider") or fail_payload,
+                )
+                journal.mark_failed(
+                    fail_rkey,
+                    "torrent_hash_not_in_client",
+                    payload=fail_payload,
+                    issueid=item.get("issueid"),
+                    provider=item.get("provider"),
+                    downloader_type="torrent",
+                    nzbname=item.get("nzbname"),
+                    hash=item.get("hash"),
+                )
+            except Exception as e:
+                logger.error(
+                    "[DOWNLOADS-WORKER] could not journal mark_failed for "
+                    "NOT FOUND torrent (issueid=%s): %s" % (item.get("issueid"), e)
+                )
 
 
 def nzb_monitor(queue):

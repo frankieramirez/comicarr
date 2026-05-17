@@ -60,10 +60,12 @@ def queues(monkeypatch):
     pp = queue_module.Queue()
     sn = queue_module.Queue()
     nz = queue_module.Queue()
+    dl = queue_module.Queue()
     monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
     monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", sn, raising=False)
     monkeypatch.setattr(comicarr, "NZB_QUEUE", nz, raising=False)
-    return {"pp": pp, "snatched": sn, "nzb": nz}
+    monkeypatch.setattr(comicarr, "DDL_QUEUE", dl, raising=False)
+    return {"pp": pp, "snatched": sn, "nzb": nz, "ddl": dl}
 
 
 def _drain(q):
@@ -188,6 +190,79 @@ def test_still_nzb_reenqueued_on_nzb_queue(queues):
     nz = _drain(queues["nzb"])
     assert len(nz) == 1
     assert nz[0]["issueid"] == "21"
+
+
+# ---------------------------------------------------------------------------
+# P2-5(a) — DDL `still` re-enqueues onto DDL_QUEUE (NOT NZB_QUEUE)
+# ---------------------------------------------------------------------------
+
+
+def test_still_ddl_reenqueued_on_ddl_queue(queues):
+    rkey = journal.release_key("40", "DDL", nzbname="Saga.DDL.cbz", discriminant="ddl-9")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="40", PROVIDER="DDL"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={
+            "issueid": "40",
+            "comicid": "C4",
+            "provider": "DDL",
+            "id": "ddl-9",
+            "series": "Saga DDL",
+            "filename": "Saga.DDL.cbz",
+            "ddl": True,
+        },
+        issueid="40",
+        provider="DDL",
+        downloader_type="ddl",
+    )
+    recovery.replay_pipeline(probes=_probe("still"))
+    dl = _drain(queues["ddl"])
+    assert len(dl) == 1, "DDL still must re-enqueue onto DDL_QUEUE"
+    assert dl[0]["id"] == "ddl-9"
+    assert dl[0]["issueid"] == "40"
+    assert dl[0]["ddl"] is True
+    # MUST NOT have gone to NZB_QUEUE (the pre-fix mis-route).
+    assert _drain(queues["nzb"]) == []
+    assert _drain(queues["snatched"]) == []
+
+
+# ---------------------------------------------------------------------------
+# P2-5(b) — DDL `complete` rebuilds a PP item with non-None nzb paths
+# ---------------------------------------------------------------------------
+
+
+def test_complete_ddl_rebuilds_pp_item_with_paths(queues):
+    rkey = journal.release_key("41", "DDL", nzbname="Saga.DDL.041.cbz", discriminant="ddl-11")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="41", PROVIDER="DDL"))
+        conn.execute(issues.insert().values(IssueID="41", Status="Snatched"))
+    # The enriched ddlc_payload (P2-5b) carries nzb_folder/nzb_name.
+    _insert_journal(
+        rkey,
+        journal.DOWNLOADED,
+        payload={
+            "issueid": "41",
+            "comicid": "C5",
+            "provider": "DDL",
+            "id": "ddl-11",
+            "ddl": True,
+            "nzb_folder": "/downloads/Saga.DDL.041",
+            "nzb_name": "Saga.DDL.041.cbz",
+            "download_info": {"provider": "DDL", "id": "ddl-11"},
+        },
+        issueid="41",
+        provider="DDL",
+        downloader_type="ddl",
+    )
+    recovery.replay_pipeline(probes=_probe("complete"))
+    items = _drain(queues["pp"])
+    assert len(items) == 1
+    assert items[0]["nzb_folder"] == "/downloads/Saga.DDL.041"
+    assert items[0]["nzb_name"] == "Saga.DDL.041.cbz"
+    assert items[0]["nzb_folder"] is not None and items[0]["nzb_name"] is not None
+    assert items[0]["journal_release_key"] == rkey
 
 
 # ---------------------------------------------------------------------------

@@ -1647,7 +1647,12 @@ def verification(verified_matches, is_info):
                         oneoff=is_info["oneoff"],
                     )
                     updater.foundsearch(
-                        is_info["ComicID"], isid["issueid"], mode=is_info["smode"], provider=is_info["nzbprov"]
+                        is_info["ComicID"],
+                        isid["issueid"],
+                        mode=is_info["smode"],
+                        provider=is_info["nzbprov"],
+                        hash=searchresult.get("t_hash"),
+                        nzbname=nzbname,
                     )
                 notify_snatch(
                     sent_to,
@@ -1711,6 +1716,8 @@ def verification(verified_matches, is_info):
                 provider=tmpprov,
                 SARC=is_info["SARC"],
                 IssueArcID=is_info["IssueArcID"],
+                hash=searchresult.get("t_hash"),
+                nzbname=nzbname,
             )
 
             # send out the notifications for the snatch.
@@ -3438,10 +3445,33 @@ def searcher(
             t_hash = rcheck["hash"]
             rcheck.update({"torrent_filename": nzbname})
 
+            # P0-1 single-derivation invariant: the SNATCHED_QUEUE torrent
+            # item MUST carry `provider` (and the search-time nzbname for
+            # parity/payload), otherwise worker_main's `downloaded` release_key
+            # would be derived with provider=None and DIVERGE from the
+            # snatch-seam key (issueid|normalized-provider), orphaning the
+            # snatched journal row. nzbprov here is the same raw provider label
+            # foundsearch is given for this snatch.
             if any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE]) and comicarr.CONFIG.AUTO_SNATCH:
-                comicarr.SNATCHED_QUEUE.put({"issueid": IssueID, "comicid": ComicID, "hash": rcheck["hash"]})
+                comicarr.SNATCHED_QUEUE.put(
+                    {
+                        "issueid": IssueID,
+                        "comicid": ComicID,
+                        "hash": rcheck["hash"],
+                        "provider": nzbprov,
+                        "nzbname": nzbname,
+                    }
+                )
             elif any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE]) and comicarr.CONFIG.LOCAL_TORRENT_PP:
-                comicarr.SNATCHED_QUEUE.put({"issueid": IssueID, "comicid": ComicID, "hash": rcheck["hash"]})
+                comicarr.SNATCHED_QUEUE.put(
+                    {
+                        "issueid": IssueID,
+                        "comicid": ComicID,
+                        "hash": rcheck["hash"],
+                        "provider": nzbprov,
+                        "nzbname": nzbname,
+                    }
+                )
             else:
                 if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
                     try:

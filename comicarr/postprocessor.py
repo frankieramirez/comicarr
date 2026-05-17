@@ -4347,6 +4347,18 @@ class PostProcessor(object):
         # --- Process each manga file ---
         processed = 0
         last_matched_issueid = None
+        # P2-6: every chapter in a manga pack shares ONE release_key (the
+        # release-level propagated key from postprocess_main's atomic claim).
+        # Writing the terminal `post_processed` marker per-chapter terminalizes
+        # that shared row on chapter 1, so a mid-loop restart leaves chapters
+        # 2..N abandoned (replay skip-terminal). Fix: collect each matched
+        # chapter's IssueID and defer the nzblog-delete + the SINGLE terminal
+        # `post_processed` write to AFTER the full loop completes, all in one
+        # begin() block so the U9 atomic nzblog-delete+post_processed contract
+        # is preserved (nzblog is never deleted while the journal is
+        # non-terminal) AND the row only goes terminal once every discovered
+        # chapter has been moved.
+        matched_issueids = []
         for filepath in manga_files:
             filename = os.path.basename(filepath)
             parsed = parse_manga_filename(filename)
@@ -4429,13 +4441,11 @@ class PostProcessor(object):
                 logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
                 self._log("Matched to chapter IssueID: %s" % issueid)
 
-                # per-chapter: this chapter's journal post_processed
-                # co-commits with its nzblog delete in one begin() so the row
-                # is never terminal while nzblog is still present (conn-mode
-                # _journal_pp re-raises ⇒ a failure rolls both back).
-                with db.get_engine().begin() as conn:
-                    conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
-                    self._journal_pp("post_processed", issueid=issueid, conn=conn)
+                # P2-6: do NOT write the shared release_key's terminal
+                # `post_processed` here (it would strand chapters 2..N on a
+                # restart). Defer the nzblog-delete to the post-loop atomic
+                # block; record this chapter as matched.
+                matched_issueids.append(issueid)
 
                 # Update snatched table
                 db.upsert(
@@ -4477,12 +4487,23 @@ class PostProcessor(object):
             except Exception:
                 pass
 
-        # terminal marker (no-op if co-committed above). MUST stay gated on
+        # P2-6 terminal marker — written ONCE, AFTER the full chapter loop
+        # completes (all discovered chapters moved), so a mid-loop restart
+        # leaves the shared release_key row at `post_processing`/`moved` (NOT
+        # terminal) and the replay finalizer re-drives the remaining chapters
+        # (idempotent move) instead of skip-terminal-stranding them. The
+        # nzblog-delete for every matched chapter co-commits with the single
+        # `post_processed` write in ONE begin() block (U9 atomic contract:
+        # nzblog is never deleted while the journal is non-terminal;
+        # conn-mode _journal_pp re-raises so a failure rolls back all the
+        # deletes AND the terminal marker together). MUST stay gated on
         # processed > 0: if nothing matched/moved the row deliberately stays
-        # at post_processing so the replay finalizer re-drives it (the
-        # move-failure / no-terminal contract).
+        # at post_processing so the replay finalizer re-drives it.
         if processed > 0:
-            self._journal_pp("post_processed", issueid=last_matched_issueid)
+            with db.get_engine().begin() as conn:
+                for mid in matched_issueids:
+                    conn.execute(delete(nzblog).where(nzblog.c.IssueID == mid))
+                self._journal_pp("post_processed", issueid=last_matched_issueid, conn=conn)
 
         result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
         if last_matched_issueid:

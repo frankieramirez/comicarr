@@ -160,14 +160,127 @@ def test_same_stage_rewrite_is_noop():
 
 
 # ---------------------------------------------------------------------------
+# RE-SNATCH after terminal failed (regression fix for collapsed release_key)
+# ---------------------------------------------------------------------------
+
+
+def test_resnatch_after_failed_resets_row_and_clears_reason(capture_logs):
+    """A terminal `failed` row at issueid|provider must NOT permanently block
+    a legitimate re-snatch of the same issue+provider (search.py re-serves
+    Status in ['Wanted','Failed']). A fresh `snatched` write resets the row."""
+    key = journal.release_key("400", "prov")
+
+    assert journal.record_transition(key, journal.SNATCHED) is True
+    assert journal.mark_failed(key, "torrent_hash_not_in_client") is True
+    assert _row(key)["stage"] == "failed"
+
+    payload = {"issueid": "400", "hash": "newgrab"}
+    won = journal.record_transition(key, journal.SNATCHED, payload=payload)
+
+    assert won is True
+    r = _row(key)
+    assert r["stage"] == "snatched"
+    assert r["stage_rank"] == journal.STAGE_RANK["snatched"]
+    assert r["fail_reason"] is None
+    assert journal.load_payload(r["payload_json"]) == payload
+    assert len(_all_rows()) == 1
+    assert "reset from terminal failed -> snatched" in capture_logs.text
+
+    # The re-snatched row is a normal in-flight obligation: forward advance works.
+    assert journal.record_transition(key, journal.DOWNLOADED) is True
+    assert _row(key)["stage"] == "downloaded"
+
+
+def test_snatched_against_post_processed_still_noop(capture_logs):
+    """Only failed->snatched is special-cased. A `snatched` write against a
+    post_processed row keeps the existing monotonic no-op behavior."""
+    key = journal.release_key("401", "prov")
+    journal.record_transition(key, journal.SNATCHED)
+    journal.record_transition(key, journal.DOWNLOADED)
+    journal.record_transition(key, journal.POST_PROCESSING)
+    journal.record_transition(key, journal.MOVED)
+    journal.record_transition(key, journal.POST_PROCESSED)
+
+    won = journal.record_transition(key, journal.SNATCHED)
+
+    assert won is False
+    assert _row(key)["stage"] == "post_processed"
+    assert "no-op" in capture_logs.text
+
+
+def test_downloaded_against_failed_still_noop(capture_logs):
+    """The monotonic stale-replay guard is preserved for non-snatched stages:
+    a `downloaded` write against a `failed` row remains a no-op."""
+    key = journal.release_key("402", "prov")
+    journal.record_transition(key, journal.SNATCHED)
+    journal.mark_failed(key, "gone")
+
+    won = journal.record_transition(key, journal.DOWNLOADED)
+
+    assert won is False
+    assert _row(key)["stage"] == "failed"
+    assert _row(key)["fail_reason"] == "gone"
+    assert "no-op" in capture_logs.text
+
+
+def test_two_concurrent_resnatch_writers_vs_one_failed_row_exactly_one_winner():
+    """Two threads barrier-synchronized both re-snatch the SAME failed row.
+    The `WHERE stage = FAILED` gate must yield exactly one True (the first
+    reset wins; the loser's gated UPDATE matches 0 and falls to a no-op)."""
+    key = journal.release_key("403", "prov")
+    journal.record_transition(key, journal.SNATCHED)
+    journal.mark_failed(key, "gone")
+
+    results = []
+    errors = []
+    barrier = threading.Barrier(2)
+
+    def writer():
+        try:
+            barrier.wait()
+            results.append(journal.record_transition(key, journal.SNATCHED))
+        except Exception as e:  # noqa: BLE001 - test must observe any leak
+            errors.append(e)
+
+    t1 = threading.Thread(target=writer)
+    t2 = threading.Thread(target=writer)
+    t1.start()
+    t2.start()
+    t1.join(timeout=20)
+    t2.join(timeout=20)
+
+    assert errors == [], "error leaked from concurrent re-snatch: %s" % errors
+    assert sorted(results) == [False, True], "exactly-one-winner broken: %s" % results
+    assert len(_all_rows()) == 1
+    assert _row(key)["stage"] == "snatched"
+    assert _row(key)["fail_reason"] is None
+
+
+# ---------------------------------------------------------------------------
 # release_key derivation (AE3)
 # ---------------------------------------------------------------------------
 
 
 def test_standard_release_key_shape():
-    assert journal.release_key("42", "nzb.su", nzbname="X.cbz") == "42|nzb.su|X.cbz"
-    # falls back to hash when nzbname absent
-    assert journal.release_key("42", "torznab", hash="deadbeef") == "42|torznab|deadbeef"
+    # P0-1 single-derivation invariant: the NON-one-off key drops the
+    # (non-reproducible) name/hash component and keys ONLY on
+    # issueid|normalize(provider) so it is byte-identical at the snatch seam,
+    # the downloaded seam, the PP claim and anchor reconstruction.
+    assert journal.release_key("42", "nzb.su", nzbname="X.cbz") == "42|nzb.su"
+    # name/hash do NOT change the key for a non-one-off.
+    assert journal.release_key("42", "nzb.su", nzbname="DIFFERENT.cbz") == "42|nzb.su"
+    assert journal.release_key("42", "torznab", hash="deadbeef") == "42|torznab"
+    assert journal.release_key("42", "torznab", hash="other") == "42|torznab"
+
+
+def test_provider_normalization_converges_seam_variants():
+    # The snatch seam passes an [RSS]-stripped tmpprov; the downloaded seam
+    # reads the raw download_info provider; anchor reconstruction reads
+    # snatched.Provider. All must converge on ONE key.
+    base = journal.release_key("99", "nzb.su")
+    assert journal.release_key("99", "nzb.su [RSS]") == base
+    assert journal.release_key("99", "  NZB.su  ") == base
+    assert journal.release_key("99", "nzb.su[RSS]") == base
 
 
 def test_oneoff_release_key_reproducible_across_two_builds():
@@ -220,6 +333,38 @@ def test_read_open_excludes_terminal_rows():
 # ---------------------------------------------------------------------------
 # Atomic claim — concurrent downloaded -> post_processing
 # ---------------------------------------------------------------------------
+
+
+def test_concurrent_first_writers_absent_key_exactly_one_winner():
+    """P1-2: two threads, the SAME ABSENT release_key, barrier-synchronized,
+    both record_transition(...POST_PROCESSING...) in own-txn mode. SQLite
+    DEFERRED begin() lets both run UPDATE(0)->SELECT(None)->INSERT; the
+    loser's INSERT raises IntegrityError. The CAS contract must hold: exactly
+    one True, one False, exactly one row (no propagated IntegrityError)."""
+    key = journal.release_key("firstwriter", "prov")
+
+    results = []
+    errors = []
+    barrier = threading.Barrier(2)
+
+    def writer():
+        try:
+            barrier.wait()
+            results.append(journal.record_transition(key, journal.POST_PROCESSING))
+        except Exception as e:  # noqa: BLE001 - test must observe any leak
+            errors.append(e)
+
+    t1 = threading.Thread(target=writer)
+    t2 = threading.Thread(target=writer)
+    t1.start()
+    t2.start()
+    t1.join(timeout=20)
+    t2.join(timeout=20)
+
+    assert errors == [], "IntegrityError leaked instead of resolving the race: %s" % errors
+    assert sorted(results) == [False, True], "CAS contract broken: %s" % results
+    assert len(_all_rows()) == 1
+    assert _row(key)["stage"] == "post_processing"
 
 
 def test_concurrent_claim_exactly_one_winner():

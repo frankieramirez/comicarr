@@ -278,19 +278,67 @@ def _run_ddl_once(item):
     service.ddl_downloader(q)
 
 
-def test_ddl_snatch_atomic_rollback_on_journal_failure(monkeypatch):
-    """Failure inside the ddl_downloader:773 begin() block rolls back BOTH the
-    status='Downloading' ddl_info row AND the journal row (no half-write)."""
+def test_ddl_snatch_atomic_rollback_on_journal_failure(monkeypatch, capture_logs):
+    """P1-3: failure inside the ddl_downloader snatch begin() block rolls back
+    BOTH the status='Downloading' ddl_info row AND the journal row (no
+    half-write), AND the ddl_downloader loop SURVIVES (does not propagate the
+    raise and permanently kill the DDL worker thread). The item is recoverable
+    at startup replay."""
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
 
     boom = RuntimeError("journal down inside ddl begin()")
     with patch.object(journal, "record_transition", side_effect=boom):
-        with pytest.raises(RuntimeError, match="journal down inside ddl begin"):
-            _run_ddl_once(_ddl_item())
+        # MUST NOT raise out of ddl_downloader — the loop continues and reaches
+        # the "exit" sentinel normally (worker thread stays alive).
+        _run_ddl_once(_ddl_item())
 
     # Atomic: NEITHER row may exist (rolled back together).
     assert _rows(ddl_info) == []
     assert _rows(pipeline_journal) == []
+    # Loud log, not a silent swallow.
+    assert "snatch atomic block failed" in capture_logs.text
+
+
+def test_ddl_worker_survives_journal_failure_and_processes_next_item(monkeypatch):
+    """P1-3: a journal raise on the FIRST item must not kill the worker — a
+    SECOND queued item after it is still processed (loop survived)."""
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    # Stop the legacy worker right after the (committed) snatch block of the
+    # SECOND item so we can assert it was reached.
+    class _StopAfterSnatch(Exception):
+        pass
+
+    def _boom_gc(*a, **k):
+        raise _StopAfterSnatch()
+
+    monkeypatch.setattr(service.getcomics, "GC", _boom_gc)
+
+    call = {"n": 0}
+    real_rt = journal.record_transition
+
+    def _flaky(*a, **k):
+        call["n"] += 1
+        if call["n"] == 1:
+            raise RuntimeError("journal down on item 1")
+        return real_rt(*a, **k)
+
+    q = queuelib.Queue()
+    q.put(_ddl_item(idv="ddl-1", issueid="DI1"))
+    q.put(_ddl_item(idv="ddl-2", issueid="DI2"))
+    q.put("exit")
+
+    with patch.object(journal, "record_transition", side_effect=_flaky):
+        with pytest.raises(_StopAfterSnatch):
+            service.ddl_downloader(q)
+
+    # Item 1 rolled back (journal failed); item 2's snatch block committed —
+    # proves the loop survived item 1's failure.
+    ddl_rows = _rows(ddl_info)
+    assert [r["ID"] for r in ddl_rows] == ["ddl-2"]
+    jrows = _rows(pipeline_journal)
+    assert len(jrows) == 1
+    assert jrows[0]["issueid"] == "DI2"
 
 
 def test_ddl_snatch_atomic_cocommit_success(monkeypatch):
@@ -327,6 +375,42 @@ def test_ddl_snatch_atomic_cocommit_success(monkeypatch):
     payload = journal.load_payload(jr["payload_json"])
     assert payload["id"] == "ddl-1"
     assert payload["ddl"] is True
+
+
+# ---------------------------------------------------------------------------
+# P1-4 — worker_main NOT FOUND: loud log + journal mark_failed, not a silent
+# drop. The torrent row is journaled snatched; NOT FOUND must advance it to
+# the terminal `failed` stage (recoverable/visible), never leave it stuck.
+# ---------------------------------------------------------------------------
+
+
+def test_worker_main_not_found_marks_failed_not_silent_drop(monkeypatch, capture_logs):
+    _seed_standard_issue(comicid="CT", issueid="IT")
+    # The torrent was journaled `snatched` by the foundsearch snatch seam.
+    updater.nzblog("IT", "T.cbr", "Saga", id="tid", prov="torznab")
+    updater.foundsearch("CT", "IT", mode="want", provider="torznab", hash="hh", nzbname="T.cbr")
+    snatched_rows = _rows(pipeline_journal)
+    assert len(snatched_rows) == 1
+    assert snatched_rows[0]["stage"] == "snatched"
+    snatch_key = snatched_rows[0]["release_key"]
+
+    def _fake_torrentinfo(torrent_hash=None, download=False, monitor=False):
+        return {"snatch_status": "NOT FOUND", "hash": torrent_hash}
+
+    monkeypatch.setattr("comicarr.app.search.service.torrentinfo", _fake_torrentinfo)
+
+    q = queuelib.Queue()
+    q.put({"issueid": "IT", "comicid": "CT", "hash": "hh", "provider": "torznab", "nzbname": "T.cbr"})
+    q.put("exit")
+    service.worker_main(q)
+
+    # Loud log (not silent), and the SAME journal row advanced to failed.
+    assert "torrent hash not found in client" in capture_logs.text
+    rows = _rows(pipeline_journal)
+    assert len(rows) == 1
+    assert rows[0]["release_key"] == snatch_key
+    assert rows[0]["stage"] == "failed"
+    assert rows[0]["fail_reason"] == "torrent_hash_not_in_client"
 
 
 # ---------------------------------------------------------------------------

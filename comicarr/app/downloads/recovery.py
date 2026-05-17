@@ -116,12 +116,39 @@ def _reconstruct_anchors():
             if issueid is None or provider is None:
                 continue
 
+            # The durable name lives in nzblog.NZBName keyed by
+            # (IssueID, PROVIDER) — NOT snatched.FolderName (a column that is
+            # never written, so the prior derivation here always passed None
+            # and produced a phantom key). Read the real name from nzblog so a
+            # reconstructed STILL item can be re-driven with a usable nzbname,
+            # and so a one-off discriminant has something durable to anchor on.
+            nzbrow = None
+            try:
+                nzbrow = db.select_one(
+                    select(nzblog).where(
+                        and_(
+                            nzblog.c.IssueID == str(issueid),
+                            nzblog.c.PROVIDER == provider,
+                        )
+                    )
+                )
+            except Exception as e:
+                logger.warn("[RECOVERY] nzblog lookup failed for %s/%s: %s" % (issueid, provider, e))
+            durable_nzbname = nzbrow.get("NZBName") if nzbrow else srow.get("FolderName")
+
+            # release_key is byte-identical with the snatch/downloaded seams:
+            # for non-one-offs it is issueid|normalize(provider) (the name is
+            # NOT part of the key — see journal.release_key's single-derivation
+            # docstring), so it reproduces exactly from the durable
+            # snatched.IssueID/Provider here. For synthetic-HIGHCOUNT one-offs
+            # the journal row is authoritative (plan); the discriminant is
+            # best-effort from durable nzblog/snatched data.
             rkey = journal.release_key(
                 issueid,
                 provider,
-                nzbname=srow.get("FolderName"),
+                nzbname=durable_nzbname,
                 hash=srow.get("Hash"),
-                discriminant=srow.get("Hash") or srow.get("FolderName") or dict(srow),
+                discriminant=srow.get("Hash") or durable_nzbname or dict(srow),
             )
 
             # Already journaled? Then there is no residual window for it.
@@ -160,7 +187,7 @@ def _reconstruct_anchors():
                 "comicid": srow.get("ComicID"),
                 "provider": provider,
                 "hash": srow.get("Hash"),
-                "nzbname": srow.get("FolderName"),
+                "nzbname": durable_nzbname,
                 "comicname": srow.get("ComicName"),
                 "issuenumber": srow.get("Issue_Number"),
             }
@@ -223,6 +250,31 @@ def _resume_item_from_row(row, payload):
     identity fields from the journal payload (the U2 snatch payload)."""
     payload = payload or {}
     downloader = (row.get("downloader_type") or "").lower()
+
+    # P2-5(a): a `still` DDL row must re-enqueue onto DDL_QUEUE — NOT fall
+    # through to the NZB_QUEUE branch (cdh/nzb_monitor cannot historycheck a
+    # DDL item; it would strand with no owner). Detect DDL via the journal
+    # downloader_type, the payload `ddl:true` flag, or a DDL provider.
+    di = payload.get("download_info") or {}
+    is_ddl = (
+        downloader == "ddl"
+        or payload.get("ddl") is True
+        or str(payload.get("provider") or row.get("provider") or "").upper() == "DDL"
+        or str(di.get("provider") or "").upper() == "DDL"
+    )
+    if is_ddl:
+        ddl_id = payload.get("id") or di.get("id") or row.get("ddl_id")
+        return "ddl", {
+            "id": ddl_id,
+            "issueid": payload.get("issueid") or row.get("issueid"),
+            "comicid": payload.get("comicid"),
+            "series": payload.get("series"),
+            "filename": payload.get("filename") or payload.get("nzb_name"),
+            "site": payload.get("site"),
+            "link": payload.get("link"),
+            "ddl": True,
+        }
+
     if downloader == "torrent" or row.get("hash"):
         return "torrent", {
             "issueid": payload.get("issueid") or row.get("issueid"),
@@ -445,6 +497,15 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
             logger.info(
                 "[RECOVERY] %s -> STILL (downloading) — re-enqueued onto "
                 "SNATCHED_QUEUE so the live torrent monitor resumes." % rkey
+            )
+        elif kind == "ddl":
+            # P2-5(a): DDL `still` resumes on DDL_QUEUE (the ddl_downloader
+            # worker), NOT NZB_QUEUE — cdh/nzb_monitor cannot historycheck a
+            # DDL item and the item would otherwise strand with no owner.
+            comicarr.DDL_QUEUE.put(item)
+            logger.info(
+                "[RECOVERY] %s -> STILL (downloading) — re-enqueued onto "
+                "DDL_QUEUE so the ddl_downloader worker resumes." % rkey
             )
         else:
             comicarr.NZB_QUEUE.put(item)

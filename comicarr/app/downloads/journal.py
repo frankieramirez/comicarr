@@ -33,10 +33,11 @@ classification lives in U5's recovery_classify.py — it does NOT belong here.
 
 import hashlib
 import json
+import re
 import time
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from comicarr import db, logger
 from comicarr.tables import pipeline_journal
@@ -107,33 +108,67 @@ def is_synthetic_oneoff(issueid):
         return False
 
 
+def normalize_provider(provider):
+    """Canonicalize a provider label so the SAME logical provider produces a
+    byte-identical token at every seam.
+
+    The snatch seam passes an RSS-stripped `tmpprov` (search.py:1678/1694) or a
+    raw `nzbprov`; the downloaded seam reads `download_info['provider']` (the
+    raw `nzbprov`); anchor reconstruction reads `snatched.Provider`. These can
+    differ by an `[RSS]` suffix, surrounding whitespace, or case. Stripping the
+    `[RSS]` marker, collapsing whitespace and lowercasing makes the four seams
+    converge on one token. None/empty normalizes to "" (stable)."""
+    if provider is None:
+        return ""
+    p = str(provider)
+    p = re.sub(r"\[RSS\]", "", p, flags=re.IGNORECASE)
+    p = re.sub(r"\s+", " ", p).strip()
+    return p.lower()
+
+
 def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     """Derive the stable release identity for a pipeline item.
 
-    Standard case: f"{issueid}|{provider}|{nzbname-or-hash}".
+    SINGLE-DERIVATION INVARIANT (P0-1): the key MUST be byte-identical at all
+    four seams — the snatch seam (updater.foundsearch), the downloaded seam
+    (cdh_monitor / worker_main / ddl_downloader), the PP-consumer atomic claim,
+    and U6 anchor reconstruction. A divergence orphans the snatched row and
+    voids exactly-once in the mid-pipeline crash window.
+
+    The release NAME is NOT reproducible across those seams: the snatch seam
+    has the search-time `nzbname`, while the NZB downloaded seam only has the
+    SAB-reported `nzstat['name']` (a different string), the torrent
+    SNATCHED_QUEUE item carries no name at all, and `snatched.FolderName` is
+    never written. A perfectly byte-identical name is therefore genuinely
+    unavailable at one seam, so per the plan's documented robust fallback the
+    NON-one-off key drops the name component entirely and keys on
+    f"{issueid}|{normalize_provider(provider)}" only — reproducible from
+    durable storage (snatched.IssueID/Provider, nzblog (IssueID, PROVIDER)) at
+    every seam.
 
     One-off fallback (synthetic-HIGHCOUNT / missing issueid — not reproducible
     across restart, see comicarr/updater.py:1214-1220): key on
-    f"oneoff|{provider}|{nzbname-or-hash}|{discriminant}" where `discriminant`
-    is a collision-resistant value (downloader id or a hash of the payload)
-    supplied by the caller. This guarantees two distinct one-offs from the
-    same provider with empty/equal nzbname produce DIFFERENT keys. An
-    unavoidable collision (no discriminant available) is logged loudly — never
-    silently coalesced.
+    f"oneoff|{normalize_provider(provider)}|{nzbname-or-hash}|{discriminant}"
+    where `discriminant` is a collision-resistant value (downloader id or a
+    hash of the payload) supplied by the caller. This guarantees two distinct
+    one-offs from the same provider with empty/equal nzbname produce DIFFERENT
+    keys. An unavoidable collision (no discriminant available) is logged
+    loudly — never silently coalesced.
     """
-    rel = (nzbname or hash or "").strip()
+    prov = normalize_provider(provider)
 
     if is_synthetic_oneoff(issueid):
+        rel = (nzbname or hash or "").strip()
         disc = _coerce_discriminant(discriminant)
         if not disc:
             logger.warn(
                 "[JOURNAL] One-off release_key built with NO collision-resistant "
                 "discriminant (provider=%s nzbname/hash=%r) — distinct one-offs "
-                "from this provider with equal nzbname may collide onto one row." % (provider, rel)
+                "from this provider with equal nzbname may collide onto one row." % (prov, rel)
             )
-        return "oneoff|%s|%s|%s" % (provider, rel, disc)
+        return "oneoff|%s|%s|%s" % (prov, rel, disc)
 
-    return "%s|%s|%s" % (issueid, provider, rel)
+    return "%s|%s" % (issueid, prov)
 
 
 def _coerce_discriminant(discriminant):
@@ -207,6 +242,42 @@ def _now():
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _try_reset_failed_to_snatched(conn, key, stage, new_rank, upd_values):
+    """RE-SNATCH special case: a fresh `snatched` write observed against a
+    terminal `failed` row is a NEW in-flight obligation that legitimately
+    supersedes the closed failed attempt — reset the row to snatched.
+
+    WHY this does NOT weaken the monotonic stale-replay guard: replay never
+    issues a fresh `snatched` transition (the snatch seam updater.foundsearch
+    does, only from a real new grab; replay re-enqueues `still` non-terminal
+    items, never a `snatched` write). So a `snatched` write seen against a
+    `failed` row is always a genuine new snatch obligation, never a stale
+    replay — resetting is correct here and the monotonic guard is left fully
+    intact for every other stage (only `failed`->`snatched` is special-cased).
+
+    Returns True iff THIS call won the reset. The UPDATE is gated with
+    `WHERE stage = FAILED` (the current terminal) so two concurrent snatched
+    writers racing one failed row yield exactly one True — the loser's gated
+    UPDATE matches 0 rows and it falls back to the monotonic no-op.
+    """
+    if stage != SNATCHED:
+        return False
+
+    reset = conn.execute(
+        update(pipeline_journal)
+        .where(pipeline_journal.c.release_key == key)
+        .where(pipeline_journal.c.stage == FAILED)
+        .values(fail_reason=None, **upd_values)
+    )
+    if reset.rowcount:
+        logger.warn(
+            "[JOURNAL] release_key=%s reset from terminal failed -> snatched "
+            "(new snatch supersedes closed failed attempt)" % (key,)
+        )
+        return True
+    return False
+
+
 def _apply_transition(conn, key, stage, new_rank, fields, payload_json, when):
     """Run the UPDATE-then-conditional-INSERT pair on an open connection.
 
@@ -249,7 +320,48 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload_json, when):
             "payload_json": payload_json,
         }
         ins_values.update(fields)
-        conn.execute(pipeline_journal.insert().values(**ins_values))
+        try:
+            conn.execute(pipeline_journal.insert().values(**ins_values))
+            return True
+        except IntegrityError:
+            # CONCURRENT FIRST-WRITER RACE (P1-2): SQLite begin() is DEFERRED,
+            # so two threads for the same ABSENT release_key can both observe
+            # UPDATE(0 rows) -> SELECT(None) and both attempt the INSERT; the
+            # loser's INSERT violates uq_pipeline_journal_release_key. This is
+            # NOT a fatal error — the row now exists (the other writer won the
+            # insert). Re-run the conditional monotonic advance against the
+            # now-present row and return rowcount>0: the loser correctly
+            # returns False ("did not win" — the winner's stage equals ours so
+            # stage_rank is NOT strictly less), or True if it legitimately
+            # advances a row another writer already moved further behind. This
+            # restores the CAS contract: exactly one of two concurrent
+            # first-writers for the same absent key returns True.
+            retry = conn.execute(
+                update(pipeline_journal)
+                .where(pipeline_journal.c.release_key == key)
+                .where(pipeline_journal.c.stage_rank < new_rank)
+                .values(**upd_values)
+            )
+            if retry.rowcount:
+                return True
+            # The now-present row may be a terminal `failed` row (a concurrent
+            # writer inserted-then-failed it): the monotonic re-run matched 0,
+            # so this is the absent-of-monotonic-match branch for the
+            # failed-row case — apply the same gated re-snatch reset here so
+            # the P1-2 race path composes with the failed->snatched rule.
+            if _try_reset_failed_to_snatched(conn, key, stage, new_rank, upd_values):
+                return True
+            logger.fdebug(
+                "[JOURNAL] first-writer race resolved: release_key=%s stage=%s "
+                "(rank=%d) lost the INSERT to a concurrent writer; row already "
+                "at/ahead — returning lost (CAS contract preserved)." % (key, stage, new_rank)
+            )
+            return False
+
+    # Row exists and is at/ahead of new_rank. The ONE legal exception to the
+    # monotonic no-op: a fresh `snatched` write against a terminal `failed`
+    # row is a RE-SNATCH that supersedes the closed failed attempt.
+    if existing[0] == FAILED and _try_reset_failed_to_snatched(conn, key, stage, new_rank, upd_values):
         return True
 
     # Row exists and is at/ahead of new_rank — a regressing or post-terminal
