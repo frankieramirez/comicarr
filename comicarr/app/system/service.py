@@ -558,11 +558,25 @@ def get_job_info(ctx):
 
 
 def get_startup_diagnostics(ctx):
-    """Return startup diagnostics (db empty, migration dismissed)."""
-    import comicarr as _comicarr
+    """Return startup diagnostics (db empty, migration dismissed).
+
+    db_empty is computed live so it reflects the current library state rather
+    than the boot-time snapshot — adding series via the normal flow flips it
+    without requiring a restart.
+    """
+    from sqlalchemy import func, select
+
+    db_empty = True
+    try:
+        with comicarr.sql_db() as conn:
+            count = conn.execute(select(func.count()).select_from(comics)).scalar() or 0
+            db_empty = count == 0
+    except Exception as e:
+        logger.warn("[DIAGNOSTICS] Live db_empty check failed, falling back to startup flag: %s" % e)
+        db_empty = comicarr.DB_EMPTY
 
     return {
-        "db_empty": _comicarr.DB_EMPTY,
+        "db_empty": db_empty,
         "migration_dismissed": getattr(ctx.config, "MIGRATION_DISMISSED", False) if ctx.config else False,
     }
 
