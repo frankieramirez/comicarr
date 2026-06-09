@@ -361,6 +361,7 @@ def _build_setup_gate_app(setup_token="test-setup-token"):
 
     app = Starlette(
         routes=[
+            Route("/login", ok_endpoint, methods=["GET"]),
             Route("/api/auth/check-setup", ok_endpoint, methods=["GET"]),
             Route("/api/auth/setup", ok_endpoint, methods=["POST"]),
             Route("/api/auth/login", ok_endpoint, methods=["POST"]),
@@ -392,6 +393,12 @@ class TestSetupGateMiddleware:
         response = client.post("/api/auth/login")
         assert response.status_code == 503
         assert "Setup required" in response.json()["detail"]
+
+    def test_login_page_allowed_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.get("/login")
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
 
     def test_health_allowed_during_setup(self):
         client = _build_setup_gate_app()

@@ -196,6 +196,8 @@ export async function checkSession(): Promise<SessionResponse> {
 export interface CheckSetupOptions {
   /** When true, network failures assume setup is required (first-run AuthContext load). */
   initialLoad?: boolean;
+  /** When true, network failures throw so post-setup restart polling keeps waiting. */
+  restartPoll?: boolean;
 }
 
 /**
@@ -237,6 +239,9 @@ export async function checkSetup(
     }
     if (options.initialLoad) {
       return { needs_setup: true };
+    }
+    if (options.restartPoll) {
+      throw error;
     }
     return { needs_setup: false };
   }

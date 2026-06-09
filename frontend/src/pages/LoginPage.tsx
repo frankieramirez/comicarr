@@ -89,7 +89,7 @@ function SetupForm() {
           for (let i = 0; i < 30; i++) {
             await new Promise((r) => setTimeout(r, 2000));
             try {
-              const resp = await checkSetup();
+              const resp = await checkSetup({ restartPoll: true });
               if (!resp.needs_setup) {
                 window.location.href = "/";
                 return;

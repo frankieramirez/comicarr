@@ -323,5 +323,15 @@ describe("API Client", () => {
       const result = await checkSetup();
       expect(result.needs_setup).toBe(false);
     });
+
+    it("should throw on network failure during restart poll", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.error();
+        }),
+      );
+
+      await expect(checkSetup({ restartPoll: true })).rejects.toThrow();
+    });
   });
 });

@@ -89,6 +89,7 @@ class SetupGateMiddleware(BaseHTTPMiddleware):
     ALLOWED_PREFIXES = (
         "/",
         "/index.html",
+        "/login",
         "/api/auth/setup",
         "/api/auth/check-setup",
         "/assets",
