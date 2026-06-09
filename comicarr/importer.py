@@ -86,8 +86,7 @@ def addvialist(seriesQueue, issueWantQueue):
                         "seriesyear": seriesyear,
                         "comicid": item["comicid"],
                         "tables": "None",
-                        "message": "Now adding %s (%s)"
-                        % (urllib.parse.unquote_plus(item["comicname"]), seriesyear),
+                        "message": "Now adding %s (%s)" % (urllib.parse.unquote_plus(item["comicname"]), seriesyear),
                     }
                 else:
                     logger.info(

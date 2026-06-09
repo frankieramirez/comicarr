@@ -24,7 +24,9 @@ function MatchModalContent({
 }: Omit<MatchModalProps, "isOpen">) {
   const searchMode = detectImportSearchMode(importGroup);
   const { mangaEnabled, isLoaded } = useContentSources();
+  const mangaLoading = searchMode === "manga" && !isLoaded;
   const mangaBlocked = isLoaded && searchMode === "manga" && !mangaEnabled;
+  const mangaSearchEnabled = searchMode === "manga" && isLoaded && mangaEnabled;
 
   // Initialize search query from importGroup - this will reset when the key changes
   const initialQuery = importGroup?.ComicName || "";
@@ -35,10 +37,7 @@ function MatchModalContent({
     searchMode === "comic" ? searchQuery : "",
     1,
   );
-  const mangaSearch = useSearchManga(
-    searchMode === "manga" && !mangaBlocked ? searchQuery : "",
-    1,
-  );
+  const mangaSearch = useSearchManga(mangaSearchEnabled ? searchQuery : "", 1);
 
   const {
     data: searchData,
@@ -98,13 +97,20 @@ function MatchModalContent({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
               autoFocus
-              disabled={mangaBlocked}
+              disabled={mangaBlocked || mangaLoading}
             />
           </div>
         </div>
 
         {/* Results */}
         <div className="overflow-y-auto max-h-[400px] p-4">
+          {mangaLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading...</span>
+            </div>
+          )}
+
           {mangaBlocked && (
             <div className="text-center py-8 text-muted-foreground">
               Manga search requires MangaDex or MyAnimeList to be enabled in
@@ -112,20 +118,21 @@ function MatchModalContent({
             </div>
           )}
 
-          {!mangaBlocked && isSearching && (
+          {!mangaBlocked && !mangaLoading && isSearching && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               <span className="ml-2 text-muted-foreground">Searching...</span>
             </div>
           )}
 
-          {!mangaBlocked && searchError && (
+          {!mangaBlocked && !mangaLoading && searchError && (
             <div className="text-center py-8 text-destructive">
               Error searching: {searchError.message}
             </div>
           )}
 
           {!mangaBlocked &&
+            !mangaLoading &&
             !isSearching &&
             searchData?.results &&
             searchData.results.length === 0 && (
@@ -135,6 +142,7 @@ function MatchModalContent({
             )}
 
           {!mangaBlocked &&
+            !mangaLoading &&
             !isSearching &&
             searchData?.results &&
             searchData.results.length > 0 && (

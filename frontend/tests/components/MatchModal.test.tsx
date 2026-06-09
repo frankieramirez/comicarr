@@ -123,9 +123,12 @@ describe("MatchModal", () => {
       />,
     );
 
-    await waitFor(() => {
-      expect(searchedEndpoint).toBe("manga");
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(searchedEndpoint).toBe("manga");
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("shows notice when manga is detected but sources are disabled", async () => {

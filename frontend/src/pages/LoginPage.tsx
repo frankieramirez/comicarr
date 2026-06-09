@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkSetup, setupCredentials } from "@/lib/api";
+import { checkHealth, checkSetup, setupCredentials } from "@/lib/api";
 import { Kbd } from "@/components/ui/kbd";
 import GridShader from "@/components/login/GridShader";
 import Logo from "@/components/Logo";
@@ -86,19 +86,27 @@ function SetupForm() {
       if (result.success) {
         setError("");
         const pollUntilReady = async () => {
+          let sawDowntime = result.needs_restart === false;
           for (let i = 0; i < 30; i++) {
             await new Promise((r) => setTimeout(r, 2000));
             try {
+              if (!(await checkHealth())) {
+                sawDowntime = true;
+                continue;
+              }
               const resp = await checkSetup({ restartPoll: true });
-              if (!resp.needs_setup) {
+              if (!resp.needs_setup && sawDowntime) {
                 window.location.href = "/";
                 return;
               }
             } catch {
-              // still restarting
+              sawDowntime = true;
             }
           }
-          window.location.href = "/";
+          setError(
+            "Server restart timed out. Refresh the page to try logging in.",
+          );
+          setIsSubmitting(false);
         };
         pollUntilReady();
       } else {

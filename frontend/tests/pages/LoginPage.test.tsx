@@ -25,7 +25,9 @@ describe("LoginPage", () => {
     });
 
     expect(screen.getByPlaceholderText("Choose a username")).toBeTruthy();
-    expect(screen.getByPlaceholderText("from server logs if required")).toBeTruthy();
+    expect(
+      screen.getByPlaceholderText("from server logs if required"),
+    ).toBeTruthy();
   });
 
   it("submits setup token with credentials", async () => {
@@ -47,8 +49,14 @@ describe("LoginPage", () => {
       expect(screen.getByText("Create admin")).toBeTruthy();
     });
 
-    await userEvent.type(screen.getByPlaceholderText("Choose a username"), "admin");
-    await userEvent.type(screen.getByPlaceholderText("min 8 characters"), "password123");
+    await userEvent.type(
+      screen.getByPlaceholderText("Choose a username"),
+      "admin",
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText("min 8 characters"),
+      "password123",
+    );
     await userEvent.type(screen.getByPlaceholderText("confirm"), "password123");
     await userEvent.type(
       screen.getByPlaceholderText("from server logs if required"),

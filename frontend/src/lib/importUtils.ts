@@ -16,7 +16,10 @@ export function detectImportSearchMode(
   }
 
   const comicId = importGroup.SuggestedComicID || importGroup.ComicID;
-  if (comicId && MANGA_ID_PREFIXES.some((prefix) => comicId.startsWith(prefix))) {
+  if (
+    comicId &&
+    MANGA_ID_PREFIXES.some((prefix) => comicId.startsWith(prefix))
+  ) {
     return "manga";
   }
 

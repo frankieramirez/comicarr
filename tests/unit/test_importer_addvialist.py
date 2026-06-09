@@ -1,3 +1,12 @@
+#  Copyright (C) 2025-2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+
 """
 Tests for comicarr.importer.addvialist — mass-add queue handling.
 """
@@ -13,14 +22,15 @@ def _run_single_item(series_queue, issue_queue, item):
     """Process one queue item then exit the addvialist loop."""
     series_queue.put(item)
     series_queue.put("exit")
+    captured_messages = None
 
-    with patch.dict("comicarr.GLOBAL_MESSAGES", {}, clear=True):
-        with patch("comicarr.importer.addComictoDB") as mock_add:
-            with patch("comicarr.importer.time.sleep"):
-                with patch.object(comicarr, "ADD_LIST", queue.Queue()):
-                    addvialist(series_queue, issue_queue)
+    with patch("comicarr.importer.addComictoDB") as mock_add:
+        with patch("comicarr.importer.time.sleep"):
+            with patch.object(comicarr, "ADD_LIST", queue.Queue()):
+                addvialist(series_queue, issue_queue)
+                captured_messages = comicarr.GLOBAL_MESSAGES
 
-    return mock_add
+    return mock_add, captured_messages
 
 
 class TestAddvialistSeriesyear:
@@ -29,7 +39,7 @@ class TestAddvialistSeriesyear:
         issue_queue = queue.Queue()
         item = {"comicid": "12345", "comicname": None}
 
-        mock_add = _run_single_item(series_queue, issue_queue, item)
+        mock_add, _messages = _run_single_item(series_queue, issue_queue, item)
 
         mock_add.assert_called_once_with("12345")
 
@@ -38,7 +48,7 @@ class TestAddvialistSeriesyear:
         issue_queue = queue.Queue()
         item = {"comicid": "12345", "comicname": "Spider-Man"}
 
-        mock_add = _run_single_item(series_queue, issue_queue, item)
+        mock_add, _messages = _run_single_item(series_queue, issue_queue, item)
 
         mock_add.assert_called_once_with("12345")
 
@@ -47,10 +57,10 @@ class TestAddvialistSeriesyear:
         issue_queue = queue.Queue()
         item = {"comicid": "12345", "comicname": "Spider-Man", "seriesyear": "2020"}
 
-        mock_add = _run_single_item(series_queue, issue_queue, item)
+        mock_add, messages = _run_single_item(series_queue, issue_queue, item)
 
         mock_add.assert_called_once_with("12345")
-        assert comicarr.GLOBAL_MESSAGES["seriesyear"] == "2020"
+        assert messages["seriesyear"] == "2020"
 
 
 class TestAddComicPayloads:
@@ -64,9 +74,7 @@ class TestAddComicPayloads:
             result = add_comic(ctx, "4050-99999")
 
         assert result["success"] is True
-        mock_thread.assert_called_once_with(
-            [{"comicid": "4050-99999", "comicname": None, "seriesyear": None}]
-        )
+        mock_thread.assert_called_once_with([{"comicid": "4050-99999", "comicname": None, "seriesyear": None}])
 
     def test_series_service_includes_seriesyear(self):
         from unittest.mock import MagicMock, patch
@@ -78,6 +86,4 @@ class TestAddComicPayloads:
             result = add_comic(ctx, "4050-12345")
 
         assert result["success"] is True
-        mock_thread.assert_called_once_with(
-            [{"comicid": "12345", "comicname": None, "seriesyear": None}]
-        )
+        mock_thread.assert_called_once_with([{"comicid": "12345", "comicname": None, "seriesyear": None}])

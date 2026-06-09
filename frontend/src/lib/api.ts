@@ -218,23 +218,14 @@ export async function checkSetup(
     });
     if (!response.ok) {
       if (response.status === 503) {
-        const body = (await response.json().catch(() => ({}))) as {
-          detail?: string;
-        };
-        const detail = typeof body.detail === "string" ? body.detail : "";
-        if (detail.includes("Setup required")) {
-          return { needs_setup: true };
-        }
+        return { needs_setup: true };
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.json();
   } catch (error) {
     console.error("Setup check failed:", error);
-    if (
-      error instanceof Error &&
-      error.message.startsWith("HTTP error!")
-    ) {
+    if (error instanceof Error && error.message.startsWith("HTTP error!")) {
       throw error;
     }
     if (options.initialLoad) {
@@ -248,13 +239,32 @@ export async function checkSetup(
 }
 
 /**
+ * Lightweight health probe for post-setup restart polling.
+ */
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const url = new URL("/api/health", window.location.origin);
+    const response = await fetch(url, { credentials: "include" });
+    return response.ok;
+  } catch (error) {
+    console.error("Health check failed:", error);
+    return false;
+  }
+}
+
+/**
  * Set up initial credentials (first-run only)
  */
 export async function setupCredentials(
   username: string,
   password: string,
   setupToken?: string,
-): Promise<{ success: boolean; error?: string; username?: string }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  username?: string;
+  needs_restart?: boolean;
+}> {
   try {
     const url = new URL(`${AUTH_BASE}/setup`, window.location.origin);
     const body: Record<string, string> = { username, password };
@@ -270,10 +280,23 @@ export async function setupCredentials(
       body: JSON.stringify(body),
       credentials: "include",
     });
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      error?: string;
+      username?: string;
+      needs_restart?: boolean;
+    };
     if (!response.ok) {
+      if (typeof data.error === "string") {
+        return { success: false, error: data.error };
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    return {
+      success: data.success ?? true,
+      username: data.username,
+      needs_restart: data.needs_restart,
+    };
   } catch (error) {
     console.error("Setup failed:", error);
     return {

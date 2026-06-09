@@ -13,6 +13,7 @@ import {
   logout,
   checkSession,
   checkSetup,
+  setupCredentials,
   ApiError,
   getErrorMessage,
   isRetryableError,
@@ -289,7 +290,7 @@ describe("API Client", () => {
       expect(result.needs_setup).toBe(true);
     });
 
-    it("should throw on generic 503 without setup detail", async () => {
+    it("should return needs_setup=true for any 503 from check-setup", async () => {
       server.use(
         http.get("/api/auth/check-setup", () => {
           return HttpResponse.json(
@@ -299,7 +300,8 @@ describe("API Client", () => {
         }),
       );
 
-      await expect(checkSetup()).rejects.toThrow("HTTP error! status: 503");
+      const result = await checkSetup();
+      expect(result.needs_setup).toBe(true);
     });
 
     it("should return needs_setup=true on network failure during initial load", async () => {
@@ -332,6 +334,36 @@ describe("API Client", () => {
       );
 
       await expect(checkSetup({ restartPoll: true })).rejects.toThrow();
+    });
+  });
+
+  // ===========================================================================
+  // setupCredentials function
+  // ===========================================================================
+
+  describe("setupCredentials", () => {
+    it("should return backend error message on 400", async () => {
+      server.use(
+        http.post("/api/auth/setup", () => {
+          return HttpResponse.json(
+            {
+              success: false,
+              error: "Invalid setup token. Check the server console log.",
+            },
+            { status: 400 },
+          );
+        }),
+      );
+
+      const result = await setupCredentials(
+        "admin",
+        "password123",
+        "bad-token",
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        "Invalid setup token. Check the server console log.",
+      );
     });
   });
 });
