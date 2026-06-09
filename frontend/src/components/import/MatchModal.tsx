@@ -23,8 +23,8 @@ function MatchModalContent({
   isMatching = false,
 }: Omit<MatchModalProps, "isOpen">) {
   const searchMode = detectImportSearchMode(importGroup);
-  const { mangaEnabled } = useContentSources();
-  const mangaBlocked = searchMode === "manga" && !mangaEnabled;
+  const { mangaEnabled, isLoaded } = useContentSources();
+  const mangaBlocked = isLoaded && searchMode === "manga" && !mangaEnabled;
 
   // Initialize search query from importGroup - this will reset when the key changes
   const initialQuery = importGroup?.ComicName || "";

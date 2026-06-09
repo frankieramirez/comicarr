@@ -14,10 +14,11 @@ def _run_single_item(series_queue, issue_queue, item):
     series_queue.put(item)
     series_queue.put("exit")
 
-    with patch("comicarr.importer.addComictoDB") as mock_add:
-        with patch("comicarr.importer.time.sleep"):
-            with patch.object(comicarr, "ADD_LIST", queue.Queue()):
-                addvialist(series_queue, issue_queue)
+    with patch.dict("comicarr.GLOBAL_MESSAGES", {}, clear=True):
+        with patch("comicarr.importer.addComictoDB") as mock_add:
+            with patch("comicarr.importer.time.sleep"):
+                with patch.object(comicarr, "ADD_LIST", queue.Queue()):
+                    addvialist(series_queue, issue_queue)
 
     return mock_add
 
