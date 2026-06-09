@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.18.1](https://github.com/frankieramirez/comicarr/compare/v0.18.0...v0.18.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* address open GitHub issues [#149](https://github.com/frankieramirez/comicarr/issues/149), [#150](https://github.com/frankieramirez/comicarr/issues/150), [#158](https://github.com/frankieramirez/comicarr/issues/158), [#159](https://github.com/frankieramirez/comicarr/issues/159) ([#161](https://github.com/frankieramirez/comicarr/issues/161)) ([b4bbc97](https://github.com/frankieramirez/comicarr/commit/b4bbc978e5907466ccef17572fb3609baea402ff))
+
 ## [0.18.0](https://github.com/frankieramirez/comicarr/compare/v0.17.1...v0.18.0) (2026-05-17)
 
 
