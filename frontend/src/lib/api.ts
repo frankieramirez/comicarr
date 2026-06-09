@@ -193,10 +193,17 @@ export async function checkSession(): Promise<SessionResponse> {
   }
 }
 
+export interface CheckSetupOptions {
+  /** When true, network failures assume setup is required (first-run AuthContext load). */
+  initialLoad?: boolean;
+}
+
 /**
  * Check if initial setup is needed (no credentials configured)
  */
-export async function checkSetup(): Promise<{ needs_setup: boolean }> {
+export async function checkSetup(
+  options: CheckSetupOptions = {},
+): Promise<{ needs_setup: boolean }> {
   if (isMockEnabled()) {
     const mocked = mockApiResponse("GET", `${AUTH_BASE}/check-setup`);
     if (mocked !== undefined) return mocked as { needs_setup: boolean };
@@ -208,11 +215,29 @@ export async function checkSetup(): Promise<{ needs_setup: boolean }> {
       credentials: "include",
     });
     if (!response.ok) {
+      if (response.status === 503) {
+        const body = (await response.json().catch(() => ({}))) as {
+          detail?: string;
+        };
+        const detail = typeof body.detail === "string" ? body.detail : "";
+        if (detail.includes("Setup required")) {
+          return { needs_setup: true };
+        }
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.json();
   } catch (error) {
     console.error("Setup check failed:", error);
+    if (
+      error instanceof Error &&
+      error.message.startsWith("HTTP error!")
+    ) {
+      throw error;
+    }
+    if (options.initialLoad) {
+      return { needs_setup: true };
+    }
     return { needs_setup: false };
   }
 }

@@ -72,21 +72,22 @@ def addvialist(seriesQueue, issueWantQueue):
             item = seriesQueue.get(True)
             if item == "exit":
                 break
+            seriesyear = item.get("seriesyear")
             if item["comicname"] is not None:
-                if item["seriesyear"] is not None:
+                if seriesyear is not None:
                     logger.info(
                         "[MASS-ADD][1/%s] Now adding %s (%s) [%s] "
-                        % (seriesQueue.qsize() + 1, item["comicname"], item["seriesyear"], item["comicid"])
+                        % (seriesQueue.qsize() + 1, item["comicname"], seriesyear, item["comicid"])
                     )
                     comicarr.GLOBAL_MESSAGES = {
                         "status": "success",
                         "event": "addbyid",
                         "comicname": item["comicname"],
-                        "seriesyear": item["seriesyear"],
+                        "seriesyear": seriesyear,
                         "comicid": item["comicid"],
                         "tables": "None",
                         "message": "Now adding %s (%s)"
-                        % (urllib.parse.unquote_plus(item["comicname"]), item["seriesyear"]),
+                        % (urllib.parse.unquote_plus(item["comicname"]), seriesyear),
                     }
                 else:
                     logger.info(
@@ -97,7 +98,7 @@ def addvialist(seriesQueue, issueWantQueue):
                         "status": "success",
                         "event": "addbyid",
                         "comicname": item["comicname"],
-                        "seriesyear": item["seriesyear"],
+                        "seriesyear": seriesyear,
                         "comicid": item["comicid"],
                         "tables": "None",
                         "message": "Now adding %s" % (urllib.parse.unquote_plus(item["comicname"])),
@@ -108,7 +109,7 @@ def addvialist(seriesQueue, issueWantQueue):
                     "status": "success",
                     "event": "addbyid",
                     "comicname": item["comicname"],
-                    "seriesyear": item["seriesyear"],
+                    "seriesyear": seriesyear,
                     "comicid": item["comicid"],
                     "tables": "None",
                     "message": "Now adding via ComicID %s" % (item["comicid"]),

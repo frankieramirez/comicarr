@@ -139,7 +139,7 @@ def add_comic(ctx, comic_id):
     from comicarr import importer
 
     try:
-        watch = [{"comicid": comic_id, "comicname": None}]
+        watch = [{"comicid": comic_id, "comicname": None, "seriesyear": None}]
         importer.importer_thread(watch)
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))

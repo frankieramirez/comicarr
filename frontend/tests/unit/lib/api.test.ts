@@ -12,6 +12,7 @@ import {
   login,
   logout,
   checkSession,
+  checkSetup,
   ApiError,
   getErrorMessage,
   isRetryableError,
@@ -252,6 +253,75 @@ describe("API Client", () => {
 
       const result = await checkSession();
       expect(result.authenticated).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // checkSetup function
+  // ===========================================================================
+
+  describe("checkSetup", () => {
+    it("should return needs_setup=true for 200 response with needs_setup", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.json({ success: true, needs_setup: true });
+        }),
+      );
+
+      const result = await checkSetup();
+      expect(result.needs_setup).toBe(true);
+    });
+
+    it("should return needs_setup=true when setup gate returns 503", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.json(
+            {
+              detail:
+                "Setup required. Please configure credentials via the setup page.",
+            },
+            { status: 503 },
+          );
+        }),
+      );
+
+      const result = await checkSetup();
+      expect(result.needs_setup).toBe(true);
+    });
+
+    it("should throw on generic 503 without setup detail", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.json(
+            { detail: "Service temporarily unavailable" },
+            { status: 503 },
+          );
+        }),
+      );
+
+      await expect(checkSetup()).rejects.toThrow("HTTP error! status: 503");
+    });
+
+    it("should return needs_setup=true on network failure during initial load", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.error();
+        }),
+      );
+
+      const result = await checkSetup({ initialLoad: true });
+      expect(result.needs_setup).toBe(true);
+    });
+
+    it("should return needs_setup=false on network failure after initial load", async () => {
+      server.use(
+        http.get("/api/auth/check-setup", () => {
+          return HttpResponse.error();
+        }),
+      );
+
+      const result = await checkSetup();
+      expect(result.needs_setup).toBe(false);
     });
   });
 });

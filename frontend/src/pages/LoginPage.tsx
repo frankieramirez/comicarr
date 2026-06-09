@@ -54,6 +54,7 @@ function SetupForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [setupToken, setSetupToken] = useState("");
   const [focus, setFocus] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +78,11 @@ function SetupForm() {
 
     setIsSubmitting(true);
     try {
-      const result = await setupCredentials(username, password);
+      const result = await setupCredentials(
+        username,
+        password,
+        setupToken.trim() || undefined,
+      );
       if (result.success) {
         setError("");
         const pollUntilReady = async () => {
@@ -165,6 +170,28 @@ function SetupForm() {
             className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)] tracking-[0.15em]"
           />
         </FieldShell>
+      </div>
+
+      <div>
+        <MonoLabel>Setup token (optional)</MonoLabel>
+        <FieldShell icon={ShieldCheck} focused={focus === "t"}>
+          <input
+            type="text"
+            placeholder="from server logs if required"
+            value={setupToken}
+            onChange={(e) => setSetupToken(e.target.value)}
+            onFocus={() => setFocus("t")}
+            onBlur={() => setFocus(null)}
+            disabled={isSubmitting}
+            autoComplete="off"
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[var(--text-muted)] font-mono"
+          />
+        </FieldShell>
+        <p className="mt-1.5 font-mono text-[10px] text-muted-foreground leading-relaxed">
+          Docker installs print{" "}
+          <span className="text-foreground/80">[SETUP] Setup token:</span> in
+          container logs when a token is required.
+        </p>
       </div>
 
       {error && (

@@ -341,3 +341,66 @@ class TestCommonFilesystem:
         allowed = [str(tmp_path)]
         traversal = str(tmp_path) + "/../../../etc/passwd"
         assert not is_path_within_allowed_dirs(traversal, allowed)
+
+
+# =============================================================================
+# Setup Gate Middleware Tests
+# =============================================================================
+
+
+def _build_setup_gate_app(setup_token="test-setup-token"):
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+    from starlette.testclient import TestClient
+
+    from comicarr.app.core.middleware import SetupGateMiddleware
+
+    async def ok_endpoint(request):
+        return JSONResponse({"ok": True})
+
+    app = Starlette(
+        routes=[
+            Route("/api/auth/check-setup", ok_endpoint, methods=["GET"]),
+            Route("/api/auth/setup", ok_endpoint, methods=["POST"]),
+            Route("/api/auth/login", ok_endpoint, methods=["POST"]),
+            Route("/api/health", ok_endpoint, methods=["GET"]),
+            Route("/api/series", ok_endpoint, methods=["GET"]),
+        ]
+    )
+    ctx = create_test_context(setup_token=setup_token)
+    app.state.ctx = ctx
+    app.add_middleware(SetupGateMiddleware)
+    return TestClient(app)
+
+
+class TestSetupGateMiddleware:
+    def test_check_setup_allowed_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.get("/api/auth/check-setup")
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+
+    def test_setup_post_allowed_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.post("/api/auth/setup")
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+
+    def test_login_blocked_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.post("/api/auth/login")
+        assert response.status_code == 503
+        assert "Setup required" in response.json()["detail"]
+
+    def test_health_allowed_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+
+    def test_series_blocked_during_setup(self):
+        client = _build_setup_gate_app()
+        response = client.get("/api/series")
+        assert response.status_code == 503
+        assert "Setup required" in response.json()["detail"]

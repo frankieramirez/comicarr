@@ -37,7 +37,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const verifySession = async () => {
       try {
         // Check if first-run setup is needed
-        const setupResult = await checkSetup();
+        const setupResult = await checkSetup({ initialLoad: true });
         if (setupResult.needs_setup) {
           setNeedsSetup(true);
           setIsLoading(false);

@@ -2,7 +2,9 @@ import { useState, useMemo } from "react";
 import { Search, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSearchComics } from "@/hooks/useSearch";
+import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
+import { useContentSources } from "@/hooks/useContentSources";
+import { detectImportSearchMode } from "@/lib/importUtils";
 import type { ImportGroup, SearchResult } from "@/types";
 
 interface MatchModalProps {
@@ -20,16 +22,29 @@ function MatchModalContent({
   onMatch,
   isMatching = false,
 }: Omit<MatchModalProps, "isOpen">) {
+  const searchMode = detectImportSearchMode(importGroup);
+  const { mangaEnabled } = useContentSources();
+  const mangaBlocked = searchMode === "manga" && !mangaEnabled;
+
   // Initialize search query from importGroup - this will reset when the key changes
   const initialQuery = importGroup?.ComicName || "";
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedComic, setSelectedComic] = useState<SearchResult | null>(null);
 
+  const comicSearch = useSearchComics(
+    searchMode === "comic" ? searchQuery : "",
+    1,
+  );
+  const mangaSearch = useSearchManga(
+    searchMode === "manga" && !mangaBlocked ? searchQuery : "",
+    1,
+  );
+
   const {
     data: searchData,
     isLoading: isSearching,
     error: searchError,
-  } = useSearchComics(searchQuery, 1);
+  } = searchMode === "manga" ? mangaSearch : comicSearch;
 
   const handleMatch = () => {
     if (selectedComic) {
@@ -38,6 +53,11 @@ function MatchModalContent({
       onMatch(comicId, comicName);
     }
   };
+
+  const placeholder =
+    searchMode === "manga"
+      ? "Search for a manga series..."
+      : "Search for a comic series...";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -73,31 +93,40 @@ function MatchModalContent({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search for a comic series..."
+              placeholder={placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
               autoFocus
+              disabled={mangaBlocked}
             />
           </div>
         </div>
 
         {/* Results */}
         <div className="overflow-y-auto max-h-[400px] p-4">
-          {isSearching && (
+          {mangaBlocked && (
+            <div className="text-center py-8 text-muted-foreground">
+              Manga search requires MangaDex or MyAnimeList to be enabled in
+              Settings.
+            </div>
+          )}
+
+          {!mangaBlocked && isSearching && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               <span className="ml-2 text-muted-foreground">Searching...</span>
             </div>
           )}
 
-          {searchError && (
+          {!mangaBlocked && searchError && (
             <div className="text-center py-8 text-destructive">
               Error searching: {searchError.message}
             </div>
           )}
 
-          {!isSearching &&
+          {!mangaBlocked &&
+            !isSearching &&
             searchData?.results &&
             searchData.results.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
@@ -105,7 +134,8 @@ function MatchModalContent({
               </div>
             )}
 
-          {!isSearching &&
+          {!mangaBlocked &&
+            !isSearching &&
             searchData?.results &&
             searchData.results.length > 0 && (
               <div className="space-y-2">
