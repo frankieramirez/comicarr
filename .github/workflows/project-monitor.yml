@@ -1,0 +1,161 @@
+name: Project Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC. Run at both 13:00 and 14:00 UTC, then gate to
+    # 9:00 AM America/New_York so the monitor follows daylight saving time.
+    - cron: "0 13,14 * * *"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  security-events: read
+
+jobs:
+  monitor:
+    name: Daily repository monitor
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Eastern check-in time
+        id: check_time
+        env:
+          TZ: America/New_York
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$(date +%H)" = "09" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping because it is $(date '+%I:%M %p %Z') in America/New_York, not 9:00 AM." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Collect issue activity and dependency updates
+        if: steps.check_time.outputs.should_run == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const sinceIso = since.toISOString();
+            const sinceDate = sinceIso.slice(0, 10);
+
+            const monitorLabel = 'project-monitor';
+            const monitorTitle = 'Project monitor daily check-in';
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: monitorLabel });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: monitorLabel,
+                  color: '5319e7',
+                  description: 'Automated daily project monitor check-ins',
+                });
+              }
+            }
+
+            async function findOrCreateMonitorIssue() {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: monitorLabel,
+                state: 'open',
+                per_page: 100,
+              });
+              const existing = issues.find((issue) => issue.title === monitorTitle && !issue.pull_request);
+              if (existing) return existing;
+
+              const { data: created } = await github.rest.issues.create({
+                owner,
+                repo,
+                title: monitorTitle,
+                labels: [monitorLabel],
+                body: [
+                  'This issue receives automated daily check-ins for project monitoring.',
+                  '',
+                  'The monitor watches:',
+                  '- Issue activity updated in the last 24 hours',
+                  '- Dependency update pull requests updated in the last 24 hours',
+                  '- Open Dependabot security alerts, when repository permissions allow access',
+                ].join('\n'),
+              });
+              return created;
+            }
+
+            const issueSearch = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue -label:${monitorLabel} updated:>=${sinceDate}`,
+              sort: 'updated',
+              order: 'desc',
+              per_page: 20,
+            });
+            const updatedIssues = issueSearch.data.items.filter((item) => !item.pull_request);
+
+            const dependencyPrSearch = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:pr label:dependencies updated:>=${sinceDate}`,
+              sort: 'updated',
+              order: 'desc',
+              per_page: 20,
+            });
+
+            let dependabotAlerts = [];
+            let dependabotAlertsNote = '';
+            try {
+              const { data } = await github.rest.dependabot.listAlertsForRepo({
+                owner,
+                repo,
+                state: 'open',
+                per_page: 20,
+              });
+              dependabotAlerts = data;
+            } catch (error) {
+              dependabotAlertsNote = `Dependabot alert lookup was skipped or unavailable: ${error.message}`;
+            }
+
+            function issueLine(item) {
+              const labels = item.labels?.map((label) => `\`${label.name}\``).join(', ');
+              return `- #${item.number} [${item.title}](${item.html_url}) — updated ${item.updated_at}${labels ? ` — ${labels}` : ''}`;
+            }
+
+            function alertLine(alert) {
+              const advisory = alert.security_advisory;
+              const dependency = alert.dependency;
+              const severity = advisory?.severity ? advisory.severity.toUpperCase() : 'UNKNOWN';
+              const packageName = dependency?.package?.name ?? 'unknown package';
+              const ecosystem = dependency?.package?.ecosystem ?? 'unknown ecosystem';
+              const manifest = dependency?.manifest_path ? ` in ${dependency.manifest_path}` : '';
+              const url = alert.html_url ?? `https://github.com/${owner}/${repo}/security/dependabot/${alert.number}`;
+              return `- [${severity}] ${packageName} (${ecosystem})${manifest} — [alert #${alert.number}](${url})`;
+            }
+
+            const sections = [
+              `## Project monitor check-in — ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })} ET`,
+              '',
+              `Monitoring window: changes updated since ${sinceIso}.`,
+              '',
+              '### Issue activity',
+              updatedIssues.length ? updatedIssues.map(issueLine).join('\n') : '- No issue activity updated in the last 24 hours.',
+              '',
+              '### Dependency update pull requests',
+              dependencyPrSearch.data.items.length ? dependencyPrSearch.data.items.map(issueLine).join('\n') : '- No dependency update pull requests updated in the last 24 hours.',
+              '',
+              '### Open Dependabot security alerts',
+              dependabotAlerts.length ? dependabotAlerts.map(alertLine).join('\n') : `- No open Dependabot security alerts found.${dependabotAlertsNote ? `\n- ${dependabotAlertsNote}` : ''}`,
+            ];
+
+            const body = sections.join('\n');
+            await core.summary.addRaw(body).write();
+
+            await ensureLabel();
+            const monitorIssue = await findOrCreateMonitorIssue();
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: monitorIssue.number,
+              body,
+            });
