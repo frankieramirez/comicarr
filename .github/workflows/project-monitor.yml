@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
   pull-requests: read
   security-events: read
 
@@ -34,62 +33,19 @@ jobs:
       - name: Collect issue activity and dependency updates
         if: steps.check_time.outputs.should_run == 'true'
         uses: actions/github-script@v7
+        env:
+          PROJECT_MONITOR_DISCORD_WEBHOOK_URL: ${{ secrets.PROJECT_MONITOR_DISCORD_WEBHOOK_URL }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const webhookUrl = process.env.PROJECT_MONITOR_DISCORD_WEBHOOK_URL;
             const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
             const sinceIso = since.toISOString();
             const sinceDate = sinceIso.slice(0, 10);
 
-            const monitorLabel = 'project-monitor';
-            const monitorTitle = 'Project monitor daily check-in';
-
-            async function ensureLabel() {
-              try {
-                await github.rest.issues.getLabel({ owner, repo, name: monitorLabel });
-              } catch (error) {
-                if (error.status !== 404) throw error;
-                await github.rest.issues.createLabel({
-                  owner,
-                  repo,
-                  name: monitorLabel,
-                  color: '5319e7',
-                  description: 'Automated daily project monitor check-ins',
-                });
-              }
-            }
-
-            async function findOrCreateMonitorIssue() {
-              const { data: issues } = await github.rest.issues.listForRepo({
-                owner,
-                repo,
-                labels: monitorLabel,
-                state: 'open',
-                per_page: 100,
-              });
-              const existing = issues.find((issue) => issue.title === monitorTitle && !issue.pull_request);
-              if (existing) return existing;
-
-              const { data: created } = await github.rest.issues.create({
-                owner,
-                repo,
-                title: monitorTitle,
-                labels: [monitorLabel],
-                body: [
-                  'This issue receives automated daily check-ins for project monitoring.',
-                  '',
-                  'The monitor watches:',
-                  '- Issue activity updated in the last 24 hours',
-                  '- Dependency update pull requests updated in the last 24 hours',
-                  '- Open Dependabot security alerts, when repository permissions allow access',
-                ].join('\n'),
-              });
-              return created;
-            }
-
             const issueSearch = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue -label:${monitorLabel} updated:>=${sinceDate}`,
+              q: `repo:${owner}/${repo} is:issue updated:>=${sinceDate}`,
               sort: 'updated',
               order: 'desc',
               per_page: 20,
@@ -133,29 +89,96 @@ jobs:
               return `- [${severity}] ${packageName} (${ecosystem})${manifest} — [alert #${alert.number}](${url})`;
             }
 
+            function truncate(value, limit) {
+              if (value.length <= limit) return value;
+              return `${value.slice(0, limit - 16).trimEnd()}\n... truncated`;
+            }
+
+            async function postDiscordReport(body) {
+              if (!webhookUrl) {
+                core.setFailed('Missing PROJECT_MONITOR_DISCORD_WEBHOOK_URL secret.');
+                return;
+              }
+
+              const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+
+              if (!response.ok) {
+                const responseBody = await response.text();
+                core.setFailed(`Discord webhook failed (${response.status}): ${responseBody.slice(0, 300)}`);
+              }
+            }
+
+            const checkedAt = new Date().toLocaleString('en-US', {
+              timeZone: 'America/New_York',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            });
+
+            const issueActivity = updatedIssues.length
+              ? updatedIssues.map(issueLine).join('\n')
+              : 'No issue activity updated in the last 24 hours.';
+            const dependencyUpdates = dependencyPrSearch.data.items.length
+              ? dependencyPrSearch.data.items.map(issueLine).join('\n')
+              : 'No dependency update pull requests updated in the last 24 hours.';
+            const securityAlerts = dependabotAlerts.length
+              ? dependabotAlerts.map(alertLine).join('\n')
+              : `No open Dependabot security alerts found.${dependabotAlertsNote ? `\n${dependabotAlertsNote}` : ''}`;
+
             const sections = [
-              `## Project monitor check-in — ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })} ET`,
+              `## Project monitor check-in — ${checkedAt} ET`,
               '',
               `Monitoring window: changes updated since ${sinceIso}.`,
               '',
               '### Issue activity',
-              updatedIssues.length ? updatedIssues.map(issueLine).join('\n') : '- No issue activity updated in the last 24 hours.',
+              issueActivity,
               '',
               '### Dependency update pull requests',
-              dependencyPrSearch.data.items.length ? dependencyPrSearch.data.items.map(issueLine).join('\n') : '- No dependency update pull requests updated in the last 24 hours.',
+              dependencyUpdates,
               '',
               '### Open Dependabot security alerts',
-              dependabotAlerts.length ? dependabotAlerts.map(alertLine).join('\n') : `- No open Dependabot security alerts found.${dependabotAlertsNote ? `\n- ${dependabotAlertsNote}` : ''}`,
+              securityAlerts,
             ];
 
-            const body = sections.join('\n');
-            await core.summary.addRaw(body).write();
-
-            await ensureLabel();
-            const monitorIssue = await findOrCreateMonitorIssue();
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: monitorIssue.number,
-              body,
+            await postDiscordReport({
+              username: 'Comicarr Project Monitor',
+              content: `Daily project monitor check-in for ${owner}/${repo}.`,
+              allowed_mentions: { parse: [] },
+              embeds: [
+                {
+                  title: `Project monitor check-in — ${checkedAt} ET`,
+                  url: `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
+                  description: `Monitoring window: changes updated since ${sinceIso}.`,
+                  color: dependabotAlerts.length ? 15158332 : 5763719,
+                  fields: [
+                    {
+                      name: `Issue activity (${updatedIssues.length})`,
+                      value: truncate(issueActivity, 1024),
+                    },
+                    {
+                      name: `Dependency update PRs (${dependencyPrSearch.data.items.length})`,
+                      value: truncate(dependencyUpdates, 1024),
+                    },
+                    {
+                      name: `Open Dependabot security alerts (${dependabotAlerts.length})`,
+                      value: truncate(securityAlerts, 1024),
+                    },
+                  ],
+                  footer: { text: 'Comicarr Project Monitor' },
+                },
+              ],
             });
+
+            await core.summary
+              .addHeading('Project monitor check-in')
+              .addRaw(`Discord delivery: ${webhookUrl ? 'configured' : 'missing PROJECT_MONITOR_DISCORD_WEBHOOK_URL secret'}`)
+              .addBreak()
+              .addRaw(`Issue activity: ${updatedIssues.length}`)
+              .addBreak()
+              .addRaw(`Dependency update PRs: ${dependencyPrSearch.data.items.length}`)
+              .addBreak()
+              .addRaw(`Open Dependabot security alerts: ${dependabotAlerts.length}`)
+              .write();
