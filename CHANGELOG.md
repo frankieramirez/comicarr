@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.19.0](https://github.com/frankieramirez/comicarr/compare/v0.18.1...v0.19.0) (2026-06-12)
+
+
+### Features
+
+* add project monitor workflow ([#163](https://github.com/frankieramirez/comicarr/issues/163)) ([7f657f3](https://github.com/frankieramirez/comicarr/commit/7f657f346060fe06dbc234ef29747e42fa73cfb3))
+
 ## [0.18.1](https://github.com/frankieramirez/comicarr/compare/v0.18.0...v0.18.1) (2026-06-09)
 
 
