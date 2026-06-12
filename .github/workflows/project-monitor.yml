@@ -100,15 +100,20 @@ jobs:
                 return;
               }
 
-              const response = await fetch(webhookUrl, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(body),
-              });
+              try {
+                const response = await fetch(webhookUrl, {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify(body),
+                });
 
-              if (!response.ok) {
-                const responseBody = await response.text();
-                core.setFailed(`Discord webhook failed (${response.status}): ${responseBody.slice(0, 300)}`);
+                if (!response.ok) {
+                  const responseBody = await response.text();
+                  core.setFailed(`Discord webhook failed (${response.status}): ${responseBody.slice(0, 300)}`);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.setFailed(`Discord webhook request failed: ${message}`);
               }
             }
 
