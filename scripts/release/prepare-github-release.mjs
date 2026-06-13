@@ -63,7 +63,22 @@ if (existingTag === tagName) {
   process.exit(0);
 }
 
-const changelog = await readFile(resolve(repoRoot, 'CHANGELOG.md'), 'utf8');
+const changelogPath = resolve(repoRoot, 'CHANGELOG.md');
+let changelog;
+try {
+  changelog = await readFile(changelogPath, 'utf8');
+} catch (error) {
+  if (error.code === 'ENOENT') {
+    await setOutput('should_release', 'false');
+    await setOutput('version', version);
+    await setOutput('tag_name', tagName);
+    console.log(`${changelogPath} not found; skipping release.`);
+    process.exit(0);
+  }
+
+  throw error;
+}
+
 const releaseNotes = extractReleaseNotes(changelog, version);
 
 if (!releaseNotes) {

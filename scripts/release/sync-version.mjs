@@ -37,13 +37,22 @@ function replaceProjectVersion(toml, version) {
 }
 
 function replaceUvPackageVersion(lockfile, version) {
-  const packagePattern = /(\[\[package\]\]\nname = "comicarr"\nversion = ")[^"]+(")/;
+  const packagePattern = /(\[\[package\]\][\s\S]*?name = "comicarr"[\s\S]*?version = ")[^"]+(")/;
 
   if (!packagePattern.test(lockfile)) {
     throw new Error('Could not find comicarr package entry in uv.lock');
   }
 
-  return lockfile.replace(packagePattern, `$1${version}$2`);
+  const updated = lockfile.replace(packagePattern, `$1${version}$2`);
+  const updatedPackagePattern = new RegExp(
+    String.raw`\[\[package\]\][\s\S]*?name = "comicarr"[\s\S]*?version = "${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`,
+  );
+
+  if (!updatedPackagePattern.test(updated)) {
+    throw new Error('Could not update comicarr package version in uv.lock');
+  }
+
+  return updated;
 }
 
 const rootPackage = await readJson('package.json');

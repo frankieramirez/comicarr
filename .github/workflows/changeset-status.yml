@@ -14,11 +14,12 @@ jobs:
     name: Changeset Status
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
+          persist-credentials: false
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: 'npm'
@@ -32,17 +33,19 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         run: |
           set +e
-          npx changeset status --since="origin/${BASE_BRANCH}"
+          OUTPUT=$(npx changeset status --since="origin/${BASE_BRANCH}" 2>&1)
           STATUS=$?
           set -e
 
           if [ "$STATUS" -eq 0 ]; then
+            printf '%s\n' "$OUTPUT"
             {
               echo "## Changeset status"
               echo
               echo "This PR includes a changeset and will contribute to the next release."
             } >> "$GITHUB_STEP_SUMMARY"
-          else
+          elif [ "$STATUS" -eq 1 ] && printf '%s\n' "$OUTPUT" | grep -qiE 'no unreleased changesets|no changesets'; then
+            printf '%s\n' "$OUTPUT"
             {
               echo "## Changeset status"
               echo
@@ -52,6 +55,18 @@ jobs:
               echo "This is allowed for maintenance, docs, CI, dependency, and other non-app-impacting work."
               echo "If this PR changes user-visible app behavior, add a changeset with \`npm run changeset\`."
             } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Changeset status"
+              echo
+              echo "> [!CAUTION]"
+              echo "> \`changeset status\` failed with exit code ${STATUS}."
+              echo
+              echo '```text'
+              printf '%s\n' "$OUTPUT"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$STATUS"
           fi
 
           exit 0
