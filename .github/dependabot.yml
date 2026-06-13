@@ -10,6 +10,15 @@ updates:
       - "python"
 
   - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+
+  - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"

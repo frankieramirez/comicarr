@@ -1,0 +1,57 @@
+name: Changeset Status
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changeset-status:
+    name: Changeset Status
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Report changeset status
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          set +e
+          npx changeset status --since="origin/${BASE_BRANCH}"
+          STATUS=$?
+          set -e
+
+          if [ "$STATUS" -eq 0 ]; then
+            {
+              echo "## Changeset status"
+              echo
+              echo "This PR includes a changeset and will contribute to the next release."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Changeset status"
+              echo
+              echo "> [!WARNING]"
+              echo "> No changeset was found for this PR."
+              echo
+              echo "This is allowed for maintenance, docs, CI, dependency, and other non-app-impacting work."
+              echo "If this PR changes user-visible app behavior, add a changeset with \`npm run changeset\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          exit 0

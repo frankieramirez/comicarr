@@ -103,19 +103,20 @@ All new Python files must include the GPL v3 license header at the top.
    ```
 5. Fill out the PR template
 
-PR titles matter because release-please parses them (via squash merge) to determine version bumps and generate changelogs.
+PR titles keep history readable, but they do not control releases. Add a changeset when the PR should affect the next app release.
 
 ## Releases
 
-Releases are fully automated via [release-please](https://github.com/googleapis/release-please-action). **Do not manually create tags, bump versions, or create GitHub Releases.**
+Releases are fully automated via [Changesets](https://github.com/changesets/changesets). **Do not manually create tags, bump versions, or create GitHub Releases.**
 
 How it works:
 
-1. Use conventional commit messages (`feat:`, `fix:`, etc.) — these determine version bumps
-2. Release-please automatically maintains a Release PR with changelog and version bumps
-3. Merging the Release PR creates the GitHub Release, git tag, and triggers the Docker image build
+1. For user-visible app changes, run `npm run changeset` and choose the bump type
+2. For maintenance-only work, omit the changeset; CI will warn but will not block the PR
+3. Changesets automatically maintains a `Version Packages` PR with changelog and version bumps
+4. Merging the `Version Packages` PR creates the GitHub Release, git tag, and triggers the Docker image build
 
-Version files (`pyproject.toml`, `frontend/package.json`) are updated automatically — never edit versions by hand.
+Version files (`package.json`, `pyproject.toml`, `frontend/package.json`, and lockfiles) are updated automatically — never edit versions by hand outside release automation.
 
 ## Reporting Issues
 

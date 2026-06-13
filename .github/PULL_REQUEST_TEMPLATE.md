@@ -6,6 +6,11 @@
 
 -
 
+## Release Impact
+
+- [ ] User-visible app change; changeset added with `npm run changeset`
+- [ ] No app release impact; no changeset needed
+
 ## Testing
 
 - [ ] Tests pass locally (`pytest tests/unit -v`)

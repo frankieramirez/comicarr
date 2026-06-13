@@ -52,12 +52,14 @@ TypeScript@strict|noUnusedLocals, noUnusedParameters enabled
 
 ## Releases
 
-Releases are automated via release-please. **Do NOT manually create tags, bump versions, or create GitHub Releases.**
+Releases are automated via Changesets. **Do NOT manually create tags, bump versions, or create GitHub Releases.**
 
-- Conventional commits on `main` (`feat:`, `fix:`, etc.) automatically maintain a Release PR
-- Merging the Release PR creates the GitHub Release, `vX.Y.Z` tag, and triggers Docker image build
-- Versions in `pyproject.toml` and `frontend/package.json` are bumped automatically — never edit these manually
-- Config: `release-please-config.json` and `.release-please-manifest.json`
+- Add a changeset with `npm run changeset` for user-visible app changes
+- Omit changesets for maintenance, docs, CI, dependency, and other non-app-impacting PRs
+- Pushes to `main` with pending changesets automatically maintain a `Version Packages` PR
+- Merging the `Version Packages` PR creates the GitHub Release, `vX.Y.Z` tag, and triggers Docker image build
+- Versions in `package.json`, `pyproject.toml`, `frontend/package.json`, and lockfiles are bumped by release automation — never edit these manually outside the release workflow
+- Config: `.changeset/config.json`; release sync scripts live in `scripts/release/`
 - Docker images publish to `ghcr.io/frankieramirez/comicarr`
 
 ## Branch & PR Conventions
@@ -74,7 +76,7 @@ Releases are automated via release-please. **Do NOT manually create tags, bump v
 - `fix: Correct metadata parsing for annuals`
 - `refactor: Extract search deduplication logic`
 
-This is required because release-please parses PR titles (via squash merge) to determine version bumps and generate changelogs. A `feat:` PR bumps minor, a `fix:` PR bumps patch.
+Conventional PR titles keep history readable, but they do not control releases. Changesets are the source of release intent and determine version bumps/changelog entries.
 
 ## Anti-Patterns / What NOT to Do
 
@@ -83,7 +85,7 @@ This is required because release-please parses PR titles (via squash merge) to d
 - **Do NOT use Black or other external formatters** - Use `ruff format` only (enforced by CI)
 - **Do NOT use `bun` for frontend** - Use `npm` commands only
 - **Do NOT omit GPL license header** from new Python files
-- **Do NOT manually bump versions** - release-please handles this
+- **Do NOT manually bump versions** - Changesets release automation handles this
 
 ## Common Patterns
 
@@ -114,4 +116,4 @@ This is required because release-please parses PR titles (via squash merge) to d
 - Encrypted config values start with `gAAAAA` (Fernet) — if decryption fails silently, credentials stay as encrypted strings
 - Frontend uses `npm` only — `bun` is not supported
 - CherryPy sessions require server restart after auth config changes
-- `GITHUB_TOKEN` tags don't trigger downstream workflows — Docker build is in the release-please workflow, not separate
+- `GITHUB_TOKEN` tags don't trigger downstream workflows — Docker build is in the Changesets release workflow, not separate

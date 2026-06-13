@@ -1,0 +1,15 @@
+{
+  "name": "comicarr",
+  "version": "0.18.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "changeset": "changeset",
+    "version-packages": "changeset version && npm run sync-version",
+    "sync-version": "node scripts/release/sync-version.mjs",
+    "prepare-github-release": "node scripts/release/prepare-github-release.mjs"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7"
+  }
+}

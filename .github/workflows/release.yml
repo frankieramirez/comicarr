@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  changesets:
+    name: Changesets
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.prepare.outputs.should_release }}
+      tag_name: ${{ steps.prepare.outputs.tag_name }}
+      version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Create or update version PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          title: Version Packages
+          commit: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare GitHub release
+        id: prepare
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: npm run prepare-github-release
+
+      - name: Create GitHub release
+        if: steps.prepare.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.prepare.outputs.tag_name }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.prepare.outputs.tag_name }}" \
+            --notes-file "${{ steps.prepare.outputs.release_notes_path }}"
+
+  docker-build:
+    name: Docker Build
+    needs: changesets
+    if: needs.changesets.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/frankieramirez/comicarr:latest
+            ghcr.io/frankieramirez/comicarr:${{ needs.changesets.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=registry,ref=ghcr.io/frankieramirez/comicarr:buildcache
+          cache-to: type=registry,ref=ghcr.io/frankieramirez/comicarr:buildcache,mode=max

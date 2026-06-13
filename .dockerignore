@@ -1,5 +1,6 @@
 .git/
 .venv/
+node_modules/
 frontend/node_modules/
 nvim-macos-x86_64/
 nvim-macos-x86_64.tar.gz
