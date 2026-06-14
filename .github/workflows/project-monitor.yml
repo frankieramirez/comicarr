@@ -155,6 +155,8 @@ jobs:
               return;
             }
 
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(discordWebhookUrl, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -163,7 +165,8 @@ jobs:
                 content: detailedBody.slice(0, 1900),
                 allowed_mentions: { parse: [] },
               }),
-            });
+              signal: controller.signal,
+            }).finally(() => clearTimeout(timeout));
 
             if (!response.ok) {
               throw new Error(`Discord webhook delivery failed with HTTP ${response.status}: ${await response.text()}`);
