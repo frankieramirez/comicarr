@@ -70,13 +70,12 @@ jobs:
               .slice(0, 20);
 
             const dependencyPrSearch = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:pr label:dependencies updated:>=${sinceDate}`,
+              q: `repo:${owner}/${repo} is:pr is:open author:app/dependabot`,
               sort: 'updated',
               order: 'desc',
               per_page: 50,
             });
             const dependencyPrs = dependencyPrSearch.data.items
-              .filter((item) => new Date(item.updated_at) >= since)
               .slice(0, 20);
 
             let dependabotAlerts = [];
@@ -121,13 +120,13 @@ jobs:
               `## Project monitor check-in - ${checkInTime} ET`,
               '',
               `Repository: ${owner}/${repo}`,
-              `Monitoring window: changes updated since ${sinceIso}.`,
+              `Monitoring window: issue changes updated since ${sinceIso}. Open dependency PRs are reported regardless of update time.`,
               '',
               '### Issue activity',
               updatedIssues.length ? updatedIssues.map(issueLine).join('\n') : '- No issue activity updated in the last 24 hours.',
               '',
-              '### Dependency update pull requests',
-              dependencyPrs.length ? dependencyPrs.map(issueLine).join('\n') : '- No dependency update pull requests updated in the last 24 hours.',
+              '### Open dependency update pull requests',
+              dependencyPrs.length ? dependencyPrs.map(issueLine).join('\n') : '- No open dependency update pull requests found.',
               '',
               '### Open Dependabot security alerts',
               dependabotAlerts.length ? dependabotAlerts.map(alertLine).join('\n') : `- No open Dependabot security alerts found.${dependabotAlertsNote ? `\n- ${dependabotAlertsNote}` : ''}`,
@@ -137,10 +136,10 @@ jobs:
             const publicSummary = [
               `## Project monitor check-in - ${checkInTime} ET`,
               '',
-              `Monitoring window: changes updated since ${sinceIso}.`,
+              `Monitoring window: issue changes updated since ${sinceIso}. Open dependency PRs are reported regardless of update time.`,
               '',
               `- Issue updates found: ${updatedIssues.length}`,
-              `- Dependency update PRs found: ${dependencyPrs.length}`,
+              `- Open dependency update PRs found: ${dependencyPrs.length}`,
               discordWebhookUrl
                 ? '- Detailed check-in sent to Discord via `PROJECT_MONITOR_DISCORD_WEBHOOK_URL`.'
                 : '- Detailed check-in not sent because `PROJECT_MONITOR_DISCORD_WEBHOOK_URL` is not configured.',
