@@ -46,7 +46,7 @@ jobs:
 
       - name: Collect issue activity and dependency updates
         if: steps.check_time.outputs.should_run == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PROJECT_MONITOR_DISCORD_WEBHOOK_URL: ${{ secrets.PROJECT_MONITOR_DISCORD_WEBHOOK_URL }}
         with:
