@@ -3,12 +3,14 @@ name: Project Monitor
 on:
   workflow_dispatch:
   schedule:
-    # GitHub cron uses UTC. Run at both 13:00 and 14:00 UTC, then gate to
-    # 9:00 AM America/New_York so the monitor follows daylight saving time.
-    - cron: "0 13,14 * * *"
+    # GitHub cron uses UTC. Run the EDT and EST candidates separately, then
+    # choose the matching one by offset so delayed runners still execute.
+    - cron: "0 13 * * *"
+    - cron: "0 14 * * *"
 
 permissions:
   contents: read
+  issues: read
   pull-requests: read
   security-events: read
 
@@ -18,16 +20,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check Eastern check-in time
+      - name: Check Eastern check-in slot
         id: check_time
         env:
           TZ: America/New_York
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$(date +%H)" = "09" ]; then
+          current_offset="$(date +%z)"
+          current_zone="$(date +%Z)"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Running manual project monitor check-in." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$EVENT_SCHEDULE" = "0 13 * * *" ] && [ "$current_offset" = "-0400" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Running EDT project monitor check-in." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$EVENT_SCHEDULE" = "0 14 * * *" ] && [ "$current_offset" = "-0500" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Running EST project monitor check-in." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping because it is $(date '+%I:%M %p %Z') in America/New_York, not 9:00 AM." >> "$GITHUB_STEP_SUMMARY"
+            echo "Skipping $EVENT_SCHEDULE because America/New_York is currently $current_zone ($current_offset)." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Collect issue activity and dependency updates
@@ -39,7 +53,7 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const webhookUrl = process.env.PROJECT_MONITOR_DISCORD_WEBHOOK_URL;
+            const discordWebhookUrl = process.env.PROJECT_MONITOR_DISCORD_WEBHOOK_URL;
             const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
             const sinceIso = since.toISOString();
             const sinceDate = sinceIso.slice(0, 10);
@@ -48,34 +62,42 @@ jobs:
               q: `repo:${owner}/${repo} is:issue updated:>=${sinceDate}`,
               sort: 'updated',
               order: 'desc',
-              per_page: 20,
+              per_page: 50,
             });
-            const updatedIssues = issueSearch.data.items.filter((item) => !item.pull_request);
+            const updatedIssues = issueSearch.data.items
+              .filter((item) => !item.pull_request)
+              .filter((item) => new Date(item.updated_at) >= since)
+              .slice(0, 20);
 
             const dependencyPrSearch = await github.rest.search.issuesAndPullRequests({
               q: `repo:${owner}/${repo} is:pr label:dependencies updated:>=${sinceDate}`,
               sort: 'updated',
               order: 'desc',
-              per_page: 20,
+              per_page: 50,
             });
+            const dependencyPrs = dependencyPrSearch.data.items
+              .filter((item) => new Date(item.updated_at) >= since)
+              .slice(0, 20);
 
             let dependabotAlerts = [];
             let dependabotAlertsNote = '';
-            try {
-              const { data } = await github.rest.dependabot.listAlertsForRepo({
-                owner,
-                repo,
-                state: 'open',
-                per_page: 20,
-              });
-              dependabotAlerts = data;
-            } catch (error) {
-              dependabotAlertsNote = `Dependabot alert lookup was skipped or unavailable: ${error.message}`;
+            if (discordWebhookUrl) {
+              try {
+                const { data } = await github.rest.dependabot.listAlertsForRepo({
+                  owner,
+                  repo,
+                  state: 'open',
+                  per_page: 20,
+                });
+                dependabotAlerts = data;
+              } catch (error) {
+                dependabotAlertsNote = `Dependabot alert lookup was skipped or unavailable: ${error.message}`;
+              }
             }
 
             function issueLine(item) {
               const labels = item.labels?.map((label) => `\`${label.name}\``).join(', ');
-              return `- #${item.number} [${item.title}](${item.html_url}) — updated ${item.updated_at}${labels ? ` — ${labels}` : ''}`;
+              return `- #${item.number} [${item.title}](${item.html_url}) - updated ${item.updated_at}${labels ? ` - ${labels}` : ''}`;
             }
 
             function alertLine(alert) {
@@ -86,104 +108,63 @@ jobs:
               const ecosystem = dependency?.package?.ecosystem ?? 'unknown ecosystem';
               const manifest = dependency?.manifest_path ? ` in ${dependency.manifest_path}` : '';
               const url = alert.html_url ?? `https://github.com/${owner}/${repo}/security/dependabot/${alert.number}`;
-              return `- [${severity}] ${packageName} (${ecosystem})${manifest} — [alert #${alert.number}](${url})`;
+              return `- [${severity}] ${packageName} (${ecosystem})${manifest} - [alert #${alert.number}](${url})`;
             }
 
-            function truncate(value, limit) {
-              if (value.length <= limit) return value;
-              return `${value.slice(0, limit - 16).trimEnd()}\n... truncated`;
-            }
-
-            async function postDiscordReport(body) {
-              if (!webhookUrl) {
-                core.setFailed('Missing PROJECT_MONITOR_DISCORD_WEBHOOK_URL secret.');
-                return;
-              }
-
-              try {
-                const response = await fetch(webhookUrl, {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify(body),
-                });
-
-                if (!response.ok) {
-                  const responseBody = await response.text();
-                  core.setFailed(`Discord webhook failed (${response.status}): ${responseBody.slice(0, 300)}`);
-                }
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                core.setFailed(`Discord webhook request failed: ${message}`);
-              }
-            }
-
-            const checkedAt = new Date().toLocaleString('en-US', {
+            const checkInTime = new Date().toLocaleString('en-US', {
               timeZone: 'America/New_York',
               dateStyle: 'medium',
               timeStyle: 'short',
             });
 
-            const issueActivity = updatedIssues.length
-              ? updatedIssues.map(issueLine).join('\n')
-              : 'No issue activity updated in the last 24 hours.';
-            const dependencyUpdates = dependencyPrSearch.data.items.length
-              ? dependencyPrSearch.data.items.map(issueLine).join('\n')
-              : 'No dependency update pull requests updated in the last 24 hours.';
-            const securityAlerts = dependabotAlerts.length
-              ? dependabotAlerts.map(alertLine).join('\n')
-              : `No open Dependabot security alerts found.${dependabotAlertsNote ? `\n${dependabotAlertsNote}` : ''}`;
-
-            const sections = [
-              `## Project monitor check-in — ${checkedAt} ET`,
+            const detailedSections = [
+              `## Project monitor check-in - ${checkInTime} ET`,
               '',
+              `Repository: ${owner}/${repo}`,
               `Monitoring window: changes updated since ${sinceIso}.`,
               '',
               '### Issue activity',
-              issueActivity,
+              updatedIssues.length ? updatedIssues.map(issueLine).join('\n') : '- No issue activity updated in the last 24 hours.',
               '',
               '### Dependency update pull requests',
-              dependencyUpdates,
+              dependencyPrs.length ? dependencyPrs.map(issueLine).join('\n') : '- No dependency update pull requests updated in the last 24 hours.',
               '',
               '### Open Dependabot security alerts',
-              securityAlerts,
+              dependabotAlerts.length ? dependabotAlerts.map(alertLine).join('\n') : `- No open Dependabot security alerts found.${dependabotAlertsNote ? `\n- ${dependabotAlertsNote}` : ''}`,
             ];
+            const detailedBody = detailedSections.join('\n');
 
-            await postDiscordReport({
-              username: 'Comicarr Project Monitor',
-              content: `Daily project monitor check-in for ${owner}/${repo}.`,
-              allowed_mentions: { parse: [] },
-              embeds: [
-                {
-                  title: `Project monitor check-in — ${checkedAt} ET`,
-                  url: `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
-                  description: `Monitoring window: changes updated since ${sinceIso}.`,
-                  color: dependabotAlerts.length ? 15158332 : 5763719,
-                  fields: [
-                    {
-                      name: `Issue activity (${updatedIssues.length})`,
-                      value: truncate(issueActivity, 1024),
-                    },
-                    {
-                      name: `Dependency update PRs (${dependencyPrSearch.data.items.length})`,
-                      value: truncate(dependencyUpdates, 1024),
-                    },
-                    {
-                      name: `Open Dependabot security alerts (${dependabotAlerts.length})`,
-                      value: truncate(securityAlerts, 1024),
-                    },
-                  ],
-                  footer: { text: 'Comicarr Project Monitor' },
-                },
-              ],
+            const publicSummary = [
+              `## Project monitor check-in - ${checkInTime} ET`,
+              '',
+              `Monitoring window: changes updated since ${sinceIso}.`,
+              '',
+              `- Issue updates found: ${updatedIssues.length}`,
+              `- Dependency update PRs found: ${dependencyPrs.length}`,
+              discordWebhookUrl
+                ? '- Detailed check-in sent to Discord via `PROJECT_MONITOR_DISCORD_WEBHOOK_URL`.'
+                : '- Detailed check-in not sent because `PROJECT_MONITOR_DISCORD_WEBHOOK_URL` is not configured.',
+              '',
+              'This public repository intentionally avoids posting detailed monitor output to public issues or logs.',
+            ].join('\n');
+
+            await core.summary.addRaw(publicSummary).write();
+
+            if (!discordWebhookUrl) {
+              core.notice('PROJECT_MONITOR_DISCORD_WEBHOOK_URL is not configured; skipped Discord delivery.');
+              return;
+            }
+
+            const response = await fetch(discordWebhookUrl, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                username: 'Comicarr Project Monitor',
+                content: detailedBody.slice(0, 1900),
+                allowed_mentions: { parse: [] },
+              }),
             });
 
-            await core.summary
-              .addHeading('Project monitor check-in')
-              .addRaw(`Discord delivery: ${webhookUrl ? 'configured' : 'missing PROJECT_MONITOR_DISCORD_WEBHOOK_URL secret'}`)
-              .addBreak()
-              .addRaw(`Issue activity: ${updatedIssues.length}`)
-              .addBreak()
-              .addRaw(`Dependency update PRs: ${dependencyPrSearch.data.items.length}`)
-              .addBreak()
-              .addRaw(`Open Dependabot security alerts: ${dependabotAlerts.length}`)
-              .write();
+            if (!response.ok) {
+              throw new Error(`Discord webhook delivery failed with HTTP ${response.status}: ${await response.text()}`);
+            }
