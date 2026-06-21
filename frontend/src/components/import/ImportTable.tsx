@@ -192,8 +192,7 @@ export default function ImportTable({
         header: "Actions",
         cell: ({ row }) => {
           const allIgnored =
-            row.original.files?.every((file) => file.IgnoreFile === 1) ??
-            false;
+            row.original.files?.every((file) => file.IgnoreFile === 1) ?? false;
           const ignoreLabel = allIgnored ? "Unignore import" : "Ignore import";
 
           return (
