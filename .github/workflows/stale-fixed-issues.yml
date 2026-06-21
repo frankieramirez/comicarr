@@ -1,0 +1,38 @@
+name: Stale Fixed Issues
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 15 * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  stale-fixed-issues:
+    name: Close fixed issues awaiting confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and close fixed issues with no follow-up
+        uses: actions/stale@v10
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          only-issue-labels: "status: fixed-awaiting-confirmation"
+          stale-issue-label: "status: stale-confirmation"
+          stale-issue-message: |
+            This issue was marked fixed and has not had follow-up activity for 14 days.
+
+            If the problem still reproduces, please comment with fresh details and this will stay open.
+            Otherwise, it will be closed automatically in 7 days.
+          close-issue-message: |
+            Closing this as completed because it was marked fixed and there has been no follow-up activity.
+
+            If this still reproduces on the latest release, please open a new issue with updated logs and reproduction steps.
+          close-issue-reason: completed
+          days-before-issue-stale: 14
+          days-before-issue-close: 7
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          remove-issue-stale-when-updated: true
+          operations-per-run: 20
