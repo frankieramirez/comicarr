@@ -244,7 +244,11 @@ def match_import(
         imp_ids = [iid.strip() for iid in imp_ids.split(",") if iid.strip()]
 
     issue_id = request_body.get("issue_id")
-    return series_service.match_import(ctx, imp_ids, comic_id, issue_id=issue_id)
+    comic_name = request_body.get("comic_name")
+    result = series_service.match_import(ctx, imp_ids, comic_id, comic_name=comic_name, issue_id=issue_id)
+    if not result.get("success"):
+        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+    return result
 
 
 @router.post("/import/ignore", dependencies=[Depends(require_session)])

@@ -8,7 +8,15 @@ import {
   type ExpandedState,
   type Updater,
 } from "@tanstack/react-table";
-import { ChevronRight, ChevronDown, FileText, Link2 } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  Link2,
+  Eye,
+  EyeOff,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
@@ -28,6 +36,9 @@ interface ImportTableProps {
   onPrevPage?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
   onMatchClick?: (group: ImportGroup) => void;
+  onIgnoreClick?: (group: ImportGroup, ignore: boolean) => void;
+  onDeleteClick?: (group: ImportGroup) => void;
+  isActionLoading?: boolean;
 }
 
 function FileRow({ file }: { file: ImportFile }) {
@@ -60,6 +71,9 @@ export default function ImportTable({
   onPrevPage,
   onSelectionChange,
   onMatchClick,
+  onIgnoreClick,
+  onDeleteClick,
+  isActionLoading = false,
 }: ImportTableProps) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -176,21 +190,67 @@ export default function ImportTable({
       columnHelper.display({
         id: "actions",
         header: "Actions",
-        cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMatchClick?.(row.original);
-            }}
-          >
-            Match
-          </Button>
-        ),
+        cell: ({ row }) => {
+          const allIgnored =
+            row.original.files?.every((file) => file.IgnoreFile === 1) ??
+            false;
+          const ignoreLabel = allIgnored ? "Unignore import" : "Ignore import";
+
+          return (
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                aria-label="Match import"
+                title="Match import"
+                disabled={isActionLoading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMatchClick?.(row.original);
+                }}
+              >
+                <Link2 className="w-4 h-4" />
+                <span className="sr-only">Match</span>
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                aria-label={ignoreLabel}
+                title={ignoreLabel}
+                disabled={isActionLoading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onIgnoreClick?.(row.original, !allIgnored);
+                }}
+              >
+                {allIgnored ? (
+                  <Eye className="w-4 h-4" />
+                ) : (
+                  <EyeOff className="w-4 h-4" />
+                )}
+                <span className="sr-only">{ignoreLabel}</span>
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Delete import record"
+                title="Delete import record"
+                disabled={isActionLoading}
+                className="text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteClick?.(row.original);
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="sr-only">Delete</span>
+              </Button>
+            </div>
+          );
+        },
       }),
     ],
-    [onMatchClick],
+    [isActionLoading, onDeleteClick, onIgnoreClick, onMatchClick],
   );
 
   const table = useReactTable({

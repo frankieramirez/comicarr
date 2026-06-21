@@ -14,7 +14,9 @@ interface ImportPendingResponse {
 }
 
 interface MatchImportResponse {
+  success: boolean;
   matched: number;
+  imported: number;
   comic_id: string;
   comic_name: string;
 }
@@ -54,14 +56,15 @@ export function useImportPending(
 export function useMatchImport(): UseMutationResult<
   MatchImportResponse,
   Error,
-  { impIds: string[]; comicId: string; issueId?: string }
+  { impIds: string[]; comicId: string; comicName?: string; issueId?: string }
 > {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ impIds, comicId, issueId }) =>
+    mutationFn: ({ impIds, comicId, comicName, issueId }) =>
       apiRequest<MatchImportResponse>("POST", "/api/import/match", {
         imp_ids: impIds,
         comic_id: comicId,
+        comic_name: comicName,
         issue_id: issueId,
       }),
     onSuccess: () => {

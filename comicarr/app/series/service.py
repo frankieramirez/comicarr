@@ -224,9 +224,46 @@ def get_import_pending(ctx, limit=50, offset=0, include_ignored=False):
     return series_queries.get_import_pending(limit=limit, offset=offset, include_ignored=include_ignored)
 
 
-def match_import(ctx, imp_ids, comic_id, issue_id=None):
+def _is_manga_provider_id(comic_id):
+    return str(comic_id).startswith("md-") or str(comic_id).startswith("mal-")
+
+
+def _ensure_import_series(comic_id, comic_name=None):
+    """Ensure provider-backed manga exists locally before finalizing an import match."""
+    existing_name = series_queries.get_comic_name(comic_id)
+    if existing_name:
+        return {"success": True, "comic_name": existing_name}
+
+    if not _is_manga_provider_id(comic_id):
+        return {"success": True, "comic_name": comic_name or "Unknown"}
+
+    from comicarr import importer
+
+    try:
+        if str(comic_id).startswith("mal-"):
+            result = importer.addMangaToDB_MAL(comic_id)
+        else:
+            result = importer.addMangaToDB(comic_id)
+    except Exception as e:
+        logger.error("[IMPORT-MATCH] Error adding manga %s: %s" % (comic_id, e))
+        return {"success": False, "error": "Error adding manga: %s" % str(e)}
+
+    if not result or result.get("status") != "complete":
+        return {"success": False, "error": "Failed to add manga: %s" % comic_id}
+
+    return {
+        "success": True,
+        "comic_name": result.get("comicname") or comic_name or series_queries.get_comic_name(comic_id) or "Unknown",
+    }
+
+
+def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
     """Manually match import files to a comic series."""
-    comic_name = series_queries.get_comic_name(comic_id) or "Unknown"
+    ensured = _ensure_import_series(comic_id, comic_name=comic_name)
+    if not ensured["success"]:
+        return ensured
+
+    comic_name = ensured["comic_name"]
 
     matched = 0
     for imp_id in imp_ids:
@@ -236,7 +273,7 @@ def match_import(ctx, imp_ids, comic_id, issue_id=None):
         series_queries.match_import(imp_id, comic_id, comic_name, issue_id=issue_id)
         matched += 1
 
-    return {"matched": matched, "comic_id": comic_id, "comic_name": comic_name}
+    return {"success": True, "matched": matched, "imported": matched, "comic_id": comic_id, "comic_name": comic_name}
 
 
 def ignore_import(ctx, imp_ids, ignore=True):

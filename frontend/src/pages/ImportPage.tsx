@@ -70,10 +70,10 @@ export default function ImportPage() {
     if (!matchingGroup) return;
     const impIds = matchingGroup.files.map((f) => f.impID);
     try {
-      await matchImportMutation.mutateAsync({ impIds, comicId });
+      await matchImportMutation.mutateAsync({ impIds, comicId, comicName });
       addToast({
         type: "success",
-        message: `Matched ${impIds.length} file${impIds.length !== 1 ? "s" : ""} to ${comicName}`,
+        message: `Imported ${impIds.length} file${impIds.length !== 1 ? "s" : ""} as ${comicName}`,
       });
       setMatchModalOpen(false);
       setMatchingGroup(null);
@@ -81,6 +81,47 @@ export default function ImportPage() {
       addToast({
         type: "error",
         message: `Failed to match: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
+    }
+  };
+
+  const handleGroupIgnore = async (group: ImportGroup, ignore: boolean) => {
+    const impIds = group.files.map((f) => f.impID);
+    try {
+      await ignoreImportMutation.mutateAsync({ impIds, ignore });
+      addToast({
+        type: "success",
+        message: `${impIds.length} file${impIds.length !== 1 ? "s" : ""} ${ignore ? "ignored" : "unignored"}`,
+      });
+      setSelectedIds([]);
+    } catch (err) {
+      addToast({
+        type: "error",
+        message: `Failed to ${ignore ? "ignore" : "unignore"} files: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
+    }
+  };
+
+  const handleGroupDelete = async (group: ImportGroup) => {
+    const impIds = group.files.map((f) => f.impID);
+    if (
+      !window.confirm(
+        `Delete ${impIds.length} import record${impIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteImportMutation.mutateAsync(impIds);
+      addToast({
+        type: "success",
+        message: `${impIds.length} import record${impIds.length !== 1 ? "s" : ""} deleted`,
+      });
+      setSelectedIds([]);
+    } catch (err) {
+      addToast({
+        type: "error",
+        message: `Failed to delete records: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
   };
@@ -252,6 +293,13 @@ export default function ImportPage() {
               }}
               onSelectionChange={setSelectedIds}
               onMatchClick={handleMatchClick}
+              onIgnoreClick={handleGroupIgnore}
+              onDeleteClick={handleGroupDelete}
+              isActionLoading={
+                matchImportMutation.isPending ||
+                ignoreImportMutation.isPending ||
+                deleteImportMutation.isPending
+              }
             />
           )}
 

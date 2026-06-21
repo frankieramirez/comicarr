@@ -337,11 +337,14 @@ def match_import(imp_id, comic_id, comic_name, issue_id=None):
     """Manually match an import file to a comic series."""
     update_values = {
         "ComicID": comic_id,
+        "ComicName": comic_name,
+        "Status": "Imported",
         "SuggestedComicID": comic_id,
         "SuggestedComicName": comic_name,
         "MatchSource": "manual",
         "MatchConfidence": 100,
         "WatchMatch": "C" + comic_id,
+        "IgnoreFile": 0,
     }
     if issue_id:
         update_values["IssueID"] = issue_id
