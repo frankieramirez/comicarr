@@ -138,6 +138,59 @@ class TestJWTIntegration:
 # =============================================================================
 
 
+class TestAnnounceSetupToken:
+    def test_quiet_mode_prints_token_and_logs(self, monkeypatch, capsys):
+        """Quiet mode still prints the setup token to container stdout."""
+        expected = [
+            "[SETUP] *** First-run setup required ***",
+            "[SETUP] Setup token: secret-token",
+            "[SETUP] Provide this token when setting up credentials via the web interface.",
+        ]
+        monkeypatch.setattr(comicarr, "QUIET", True)
+        monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
+
+        with patch.object(system_service.logger, "info") as mock_info:
+            system_service.announce_setup_token("secret-token")
+
+        captured = capsys.readouterr()
+        assert captured.out.splitlines() == expected
+        assert [call.args[0] for call in mock_info.call_args_list] == expected
+
+    def test_normal_mode_logs_without_stdout_duplicate(self, monkeypatch, capsys):
+        """Normal logging mode relies on the configured logger only."""
+        expected = [
+            "[SETUP] *** First-run setup required ***",
+            "[SETUP] Setup token: secret-token",
+            "[SETUP] Provide this token when setting up credentials via the web interface.",
+        ]
+        monkeypatch.setattr(comicarr, "QUIET", False)
+        monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
+
+        with patch.object(system_service.logger, "info") as mock_info:
+            system_service.announce_setup_token("secret-token")
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert [call.args[0] for call in mock_info.call_args_list] == expected
+
+    def test_log_level_zero_prints_token_even_when_not_quiet(self, monkeypatch, capsys):
+        """Console-suppressed log level still exposes the setup token."""
+        expected = [
+            "[SETUP] *** First-run setup required ***",
+            "[SETUP] Setup token: secret-token",
+            "[SETUP] Provide this token when setting up credentials via the web interface.",
+        ]
+        monkeypatch.setattr(comicarr, "QUIET", False)
+        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0)
+
+        with patch.object(system_service.logger, "info") as mock_info:
+            system_service.announce_setup_token("secret-token")
+
+        captured = capsys.readouterr()
+        assert captured.out.splitlines() == expected
+        assert [call.args[0] for call in mock_info.call_args_list] == expected
+
+
 class TestInitialSetup:
     @patch("comicarr.encrypted")
     def test_setup_succeeds(self, mock_encrypted):

@@ -102,6 +102,22 @@ def _migrate_password(ctx, plaintext_password):
     logger.info("[AUTH] Password migrated to bcrypt")
 
 
+def announce_setup_token(setup_token):
+    """Announce the first-run setup token, including stdout in quiet mode."""
+    messages = [
+        "[SETUP] *** First-run setup required ***",
+        "[SETUP] Setup token: %s" % setup_token,
+        "[SETUP] Provide this token when setting up credentials via the web interface.",
+    ]
+
+    for message in messages:
+        logger.info(message)
+
+    if comicarr.QUIET or comicarr.LOG_LEVEL == 0:
+        for message in messages:
+            print(message, flush=True)
+
+
 def initial_setup(ctx, username, password, setup_token):
     """Handle first-run credential setup."""
     import comicarr

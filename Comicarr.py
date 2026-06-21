@@ -539,10 +539,9 @@ def main():
     # Generate setup token if first-run setup is needed
     if not comicarr.CONFIG.HTTP_USERNAME or not comicarr.CONFIG.HTTP_PASSWORD:
         import secrets
+        from comicarr.app.system import service as system_service
         comicarr.SETUP_TOKEN = secrets.token_urlsafe(32)
-        logger.info('[SETUP] *** First-run setup required ***')
-        logger.info('[SETUP] Setup token: %s' % comicarr.SETUP_TOKEN)
-        logger.info('[SETUP] Provide this token when setting up credentials via the web interface.')
+        system_service.announce_setup_token(comicarr.SETUP_TOKEN)
 
     #check for version here after web server initialized so it doesn't try to repeatidly hit github
     #for version info if it's already running
