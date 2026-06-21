@@ -101,7 +101,7 @@ export function DatePickerWithRange({
             </div>
             <Separator orientation="vertical" className="h-auto w-px" />
             <Calendar
-              initialFocus
+              autoFocus
               mode="range"
               defaultMonth={date?.from}
               selected={date}
