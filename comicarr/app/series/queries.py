@@ -106,9 +106,7 @@ def get_comic_name(comic_id):
 def get_comic_for_import(comic_id):
     """Get series fields needed to finalize manual imports."""
     return db.select_one(
-        select(t_comics.c.ComicID, t_comics.c.ComicName, t_comics.c.ComicLocation).where(
-            t_comics.c.ComicID == comic_id
-        )
+        select(t_comics.c.ComicID, t_comics.c.ComicName, t_comics.c.ComicLocation).where(t_comics.c.ComicID == comic_id)
     )
 
 

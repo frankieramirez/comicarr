@@ -350,8 +350,7 @@ def _destination_for_import_row(row, comic_id, comic_name, comic_location, issue
                 renameit = helpers.rename_param(comic_id, comic_name, issue_number, original_filename, issueid=issue_id)
             except Exception as e:
                 logger.fdebug(
-                    "[IMPORT-MATCH] Could not rename import file %s, keeping original filename: %s"
-                    % (source_path, e)
+                    "[IMPORT-MATCH] Could not rename import file %s, keeping original filename: %s" % (source_path, e)
                 )
             else:
                 if renameit and renameit.get("nfilename"):
