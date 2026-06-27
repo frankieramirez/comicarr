@@ -257,23 +257,221 @@ def _ensure_import_series(comic_id, comic_name=None):
     }
 
 
+def _import_error(message):
+    logger.error("[IMPORT-MATCH] %s" % message)
+    return {"success": False, "error": message}
+
+
+def _clean_import_ids(imp_ids):
+    clean_ids = []
+    seen_ids = set()
+    for imp_id in imp_ids:
+        imp_id = str(imp_id).strip()
+        if imp_id and imp_id not in seen_ids:
+            clean_ids.append(imp_id)
+            seen_ids.add(imp_id)
+    return clean_ids
+
+
+def _get_import_rows(imp_ids):
+    rows = series_queries.get_import_rows(imp_ids)
+    rows_by_id = {}
+    for row in rows:
+        rows_by_id[row["impID"]] = row
+
+    missing = [imp_id for imp_id in imp_ids if imp_id not in rows_by_id]
+    if missing:
+        return _import_error("Missing import record(s): %s" % ", ".join(missing))
+
+    return {"success": True, "rows": [rows_by_id[imp_id] for imp_id in imp_ids]}
+
+
+def _validate_import_rows(rows):
+    for row in rows:
+        source_path = row.get("ComicLocation")
+        if not source_path:
+            return _import_error("Import record %s has no source path" % row.get("impID"))
+        if not os.path.isfile(source_path):
+            return _import_error("Import source file does not exist: %s" % source_path)
+    return {"success": True}
+
+
+def _ensure_import_target_dir(comic_location):
+    if not comic_location or comic_location == "None":
+        return _import_error("Target series has no library directory")
+
+    if os.path.isdir(comic_location):
+        return {"success": True}
+
+    from comicarr import filechecker
+
+    try:
+        checkdirectory = filechecker.validateAndCreateDirectory(comic_location, True)
+    except Exception as e:
+        return _import_error("Error creating import target directory %s: %s" % (comic_location, e))
+
+    if not checkdirectory:
+        return _import_error("Could not create import target directory: %s" % comic_location)
+
+    return {"success": True}
+
+
+def _issue_number_for_import(row):
+    issue_number = row.get("IssueNumber")
+    if issue_number is None:
+        return None
+    issue_number = str(issue_number).strip()
+    if not issue_number or issue_number == "None":
+        return None
+    return issue_number
+
+
+def _destination_for_import_row(row, comic_id, comic_name, comic_location, issue_id=None):
+    source_path = row.get("ComicLocation")
+    original_filename = row.get("ComicFilename") or os.path.basename(source_path)
+    destination_filename = original_filename
+
+    if getattr(comicarr.CONFIG, "IMP_RENAME", False) and getattr(comicarr.CONFIG, "FILE_FORMAT", ""):
+        issue_number = _issue_number_for_import(row)
+        if issue_number or issue_id:
+            from comicarr import helpers
+
+            try:
+                renameit = helpers.rename_param(comic_id, comic_name, issue_number, original_filename, issueid=issue_id)
+            except Exception as e:
+                logger.warn(
+                    "[IMPORT-MATCH] Could not rename import file %s, keeping original filename: %s"
+                    % (source_path, e)
+                )
+            else:
+                if renameit and renameit.get("nfilename"):
+                    destination_filename = renameit["nfilename"]
+                else:
+                    logger.warn(
+                        "[IMPORT-MATCH] Could not resolve renamed filename for %s, keeping original filename"
+                        % source_path
+                    )
+        else:
+            logger.fdebug("[IMPORT-MATCH] No issue number for %s, keeping original filename" % source_path)
+
+    return os.path.join(comic_location, destination_filename)
+
+
+def _move_import_rows(rows, comic_id, comic_name, comic_location, issue_id=None):
+    from comicarr import updater
+
+    for row in rows:
+        source_path = row.get("ComicLocation")
+        destination_path = _destination_for_import_row(row, comic_id, comic_name, comic_location, issue_id=issue_id)
+        logger.info("[IMPORT-MATCH] Moving %s to %s" % (source_path, destination_path))
+
+        try:
+            shutil.move(source_path, destination_path)
+        except (OSError, IOError) as e:
+            return _import_error("Failed to move import file %s to %s: %s" % (source_path, destination_path, e))
+
+    try:
+        updater.forceRescan(comic_id)
+    except Exception as e:
+        return _import_error("Failed to rescan imported series %s: %s" % (comic_id, e))
+
+    return {"success": True, "moved": len(rows), "archived": 0}
+
+
+def _archive_import_rows(rows, comic_id):
+    from comicarr import updater
+
+    archive_dirs = []
+    for row in rows:
+        archive_dir = os.path.abspath(os.path.dirname(row.get("ComicLocation")))
+        if archive_dir not in archive_dirs:
+            archive_dirs.append(archive_dir)
+
+    for archive_dir in archive_dirs:
+        logger.info("[IMPORT-MATCH] Archiving import directory in place: %s" % archive_dir)
+        try:
+            updater.forceRescan(comic_id, archive=archive_dir)
+        except Exception as e:
+            return _import_error("Failed to archive import directory %s: %s" % (archive_dir, e))
+
+    try:
+        updater.forceRescan(comic_id)
+    except Exception as e:
+        return _import_error("Failed to rescan imported series %s: %s" % (comic_id, e))
+
+    return {"success": True, "moved": 0, "archived": len(rows)}
+
+
+def _finalize_import_rows(rows, comic_id, comic_name, comic_location, issue_id=None):
+    valid_rows = _validate_import_rows(rows)
+    if not valid_rows["success"]:
+        return valid_rows
+
+    target_dir = _ensure_import_target_dir(comic_location)
+    if not target_dir["success"]:
+        return target_dir
+
+    if getattr(comicarr.CONFIG, "IMP_MOVE", False):
+        logger.info("[IMPORT-MATCH] Finalizing %d import file(s) with move enabled" % len(rows))
+        return _move_import_rows(rows, comic_id, comic_name, comic_location, issue_id=issue_id)
+
+    logger.info("[IMPORT-MATCH] Finalizing %d import file(s) in archive-in-place mode" % len(rows))
+    return _archive_import_rows(rows, comic_id)
+
+
 def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
     """Manually match import files to a comic series."""
     ensured = _ensure_import_series(comic_id, comic_name=comic_name)
     if not ensured["success"]:
         return ensured
 
-    comic_name = ensured["comic_name"]
+    clean_imp_ids = _clean_import_ids(imp_ids)
+    if not clean_imp_ids:
+        return {
+            "success": True,
+            "matched": 0,
+            "imported": 0,
+            "comic_id": comic_id,
+            "comic_name": ensured["comic_name"],
+            "moved": 0,
+            "archived": 0,
+        }
+
+    comic = series_queries.get_comic_for_import(comic_id)
+    if not comic:
+        return _import_error("Target series not found in library: %s" % comic_id)
+
+    comic_name = comic.get("ComicName") or ensured["comic_name"]
+    comic_location = comic.get("ComicLocation")
+
+    import_rows = _get_import_rows(clean_imp_ids)
+    if not import_rows["success"]:
+        return import_rows
+
+    finalized = _finalize_import_rows(
+        import_rows["rows"],
+        comic_id,
+        comic_name,
+        comic_location,
+        issue_id=issue_id,
+    )
+    if not finalized["success"]:
+        return finalized
 
     matched = 0
-    for imp_id in imp_ids:
-        imp_id = imp_id.strip()
-        if not imp_id:
-            continue
+    for imp_id in clean_imp_ids:
         series_queries.match_import(imp_id, comic_id, comic_name, issue_id=issue_id)
         matched += 1
 
-    return {"success": True, "matched": matched, "imported": matched, "comic_id": comic_id, "comic_name": comic_name}
+    return {
+        "success": True,
+        "matched": matched,
+        "imported": matched,
+        "comic_id": comic_id,
+        "comic_name": comic_name,
+        "moved": finalized.get("moved", 0),
+        "archived": finalized.get("archived", 0),
+    }
 
 
 def ignore_import(ctx, imp_ids, ignore=True):

@@ -103,6 +103,15 @@ def get_comic_name(comic_id):
     return row["ComicName"] if row else None
 
 
+def get_comic_for_import(comic_id):
+    """Get series fields needed to finalize manual imports."""
+    return db.select_one(
+        select(t_comics.c.ComicID, t_comics.c.ComicName, t_comics.c.ComicLocation).where(
+            t_comics.c.ComicID == comic_id
+        )
+    )
+
+
 def get_comic_for_refresh(comic_id):
     """Get comic name/year for refresh validation."""
     return db.select_one(select(t_comics.c.ComicName, t_comics.c.ComicYear).where(t_comics.c.ComicID == comic_id))
@@ -331,6 +340,13 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
             "has_more": (offset + limit) < total,
         },
     }
+
+
+def get_import_rows(imp_ids):
+    """Get raw import rows by impID."""
+    if not imp_ids:
+        return []
+    return db.select_all(select(t_importresults).where(t_importresults.c.impID.in_(imp_ids)))
 
 
 def match_import(imp_id, comic_id, comic_name, issue_id=None):
