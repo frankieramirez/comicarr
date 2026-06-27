@@ -58,10 +58,24 @@ class TestCollectFileGroups:
             ]
             result = importinbox._collect_file_groups("/import")
 
-        assert "Batman" in result
-        assert len(result["Batman"]) == 2
-        assert "Superman" in result
-        assert len(result["Superman"]) == 1
+        assert result["folder:batman"]["group_name"] == "Batman"
+        assert len(result["folder:batman"]["files"]) == 2
+        assert result["folder:superman"]["group_name"] == "Superman"
+        assert len(result["folder:superman"]["files"]) == 1
+
+    def test_issue_186_nested_manga_folders_stay_separate(self, importinbox):
+        with patch("os.walk") as mock_walk:
+            mock_walk.return_value = [
+                ("/import/Manga A", [], ["chapter 1.cbz", "chapter 2.cbz"]),
+                ("/import/Manga B", [], ["chapter 1.cbz", "chapter 2.cbz"]),
+            ]
+            result = importinbox._collect_file_groups("/import")
+
+        assert set(result.keys()) == {"folder:manga a", "folder:manga b"}
+        assert result["folder:manga a"]["group_name"] == "Manga A"
+        assert len(result["folder:manga a"]["files"]) == 2
+        assert result["folder:manga b"]["group_name"] == "Manga B"
+        assert len(result["folder:manga b"]["files"]) == 2
 
     def test_root_files_grouped_individually(self, importinbox):
         with patch("os.walk") as mock_walk:
@@ -70,8 +84,9 @@ class TestCollectFileGroups:
             ]
             result = importinbox._collect_file_groups("/import")
 
-        assert "Batman 001" in result
-        assert "Superman 001" in result
+        assert len(result) == 2
+        assert sorted(group["group_name"] for group in result.values()) == ["Batman", "Superman"]
+        assert all(key.startswith("file:") for key in result)
 
     def test_skips_non_comic_files(self, importinbox):
         with patch("os.walk") as mock_walk:
@@ -80,7 +95,7 @@ class TestCollectFileGroups:
             ]
             result = importinbox._collect_file_groups("/import")
 
-        assert len(result["Batman"]) == 1
+        assert len(result["folder:batman"]["files"]) == 1
 
     def test_empty_directory(self, importinbox):
         with patch("os.walk") as mock_walk:
@@ -101,7 +116,9 @@ class TestMatchGroup:
         _mock_globals["db"].upsert = MagicMock()
 
         result = importinbox._match_group(
-            "Batman", ["/import/Batman/001.cbz", "/import/Batman/002.cbz"], series_list
+            "folder:batman",
+            {"group_name": "Batman", "files": ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]},
+            series_list,
         )
 
         assert result["auto_imported"] == 2
@@ -115,7 +132,9 @@ class TestMatchGroup:
         _mock_globals["db"].upsert = MagicMock()
 
         result = importinbox._match_group(
-            "Completely Unknown Series", ["/import/Unknown/001.cbz"], series_list
+            "folder:unknown",
+            {"group_name": "Completely Unknown Series", "files": ["/import/Unknown/001.cbz"]},
+            series_list,
         )
 
         assert result["auto_imported"] == 0
@@ -125,11 +144,18 @@ class TestMatchGroup:
         _mock_globals["db"].upsert = MagicMock()
 
         result = importinbox._match_group(
-            "Batman", ["/import/Batman/001.cbz"], []
+            "folder:batman",
+            {"group_name": "Batman", "files": ["/import/Batman/chapter 1.cbz"]},
+            [],
         )
 
         assert result["auto_imported"] == 0
         assert result["queued_for_review"] == 1
+        _mock_globals["db"].upsert.assert_called_once()
+        queued_values = _mock_globals["db"].upsert.call_args.args[1]
+        assert queued_values["DynamicName"] == "folder:batman"
+        assert queued_values["ComicName"] == "Batman"
+        assert queued_values["IssueNumber"] == "1"
 
     def test_multiple_series_takes_highest(self, importinbox, _mock_globals):
         series_list = [
@@ -141,7 +167,9 @@ class TestMatchGroup:
 
         # Exact match to "Batman" should win
         result = importinbox._match_group(
-            "Batman", ["/import/Batman/001.cbz"], series_list
+            "folder:batman",
+            {"group_name": "Batman", "files": ["/import/Batman/001.cbz"]},
+            series_list,
         )
 
         assert result["auto_imported"] == 1
@@ -162,8 +190,8 @@ class TestInboxScan:
         with (
             patch("os.path.isdir", return_value=True),
             patch.object(importinbox, "_collect_file_groups", return_value={
-                "Batman": ["/import/Batman/001.cbz"],
-                "Unknown": ["/import/Unknown/001.cbz"],
+                "folder:batman": {"group_name": "Batman", "files": ["/import/Batman/001.cbz"]},
+                "folder:unknown": {"group_name": "Unknown", "files": ["/import/Unknown/001.cbz"]},
             }),
             patch.object(importinbox, "_match_group", side_effect=[
                 {"auto_imported": 1, "queued_for_review": 0},

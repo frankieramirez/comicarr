@@ -190,6 +190,12 @@ export interface ImportFile {
   MatchSource: string | null;
 }
 
+/** Summary counts returned by GET /api/import */
+export interface ImportPendingSummary {
+  group_count: number;
+  file_count: number;
+}
+
 /** Story Arc status for individual issues */
 export type ArcIssueStatus =
   | "Downloaded"

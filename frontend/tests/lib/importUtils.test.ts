@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { detectImportSearchMode } from "@/lib/importUtils";
+import {
+  detectImportSearchMode,
+  getImportGroupTypeLabel,
+  getImportIssueLabel,
+  getImportIssueRange,
+} from "@/lib/importUtils";
 import type { ImportGroup } from "@/types";
 
 function makeImportGroup(overrides: Partial<ImportGroup> = {}): ImportGroup {
@@ -78,5 +83,56 @@ describe("detectImportSearchMode", () => {
 
   it("returns comic for null import group", () => {
     expect(detectImportSearchMode(null)).toBe("comic");
+  });
+});
+
+describe("import group review helpers", () => {
+  it("labels folder and single-file groups from DynamicName", () => {
+    expect(
+      getImportGroupTypeLabel(makeImportGroup({ DynamicName: "folder:manga-a" })),
+    ).toBe("Folder group");
+    expect(
+      getImportGroupTypeLabel(makeImportGroup({ DynamicName: "file:imp-1" })),
+    ).toBe("Single file");
+    expect(getImportGroupTypeLabel(makeImportGroup())).toBe("Review group");
+  });
+
+  it("uses chapter labels and ranges for manga-style groups", () => {
+    const group = makeImportGroup({
+      DynamicName: "folder:manga-a",
+      files: [
+        {
+          impID: "1",
+          ComicFilename: "chapter 2.cbz",
+          ComicLocation: "/imports/manga-a/chapter 2.cbz",
+          IssueNumber: "2",
+          ComicYear: null,
+          Status: "Unmatched",
+          IgnoreFile: 0,
+          MatchConfidence: null,
+          SuggestedComicID: null,
+          SuggestedComicName: null,
+          SuggestedIssueID: null,
+          MatchSource: null,
+        },
+        {
+          impID: "2",
+          ComicFilename: "chapter 1.cbz",
+          ComicLocation: "/imports/manga-a/chapter 1.cbz",
+          IssueNumber: "1",
+          ComicYear: null,
+          Status: "Unmatched",
+          IgnoreFile: 0,
+          MatchConfidence: null,
+          SuggestedComicID: null,
+          SuggestedComicName: null,
+          SuggestedIssueID: null,
+          MatchSource: null,
+        },
+      ],
+    });
+
+    expect(getImportIssueLabel(group)).toBe("Chapter");
+    expect(getImportIssueRange(group)).toBe("Chapters 1-2");
   });
 });

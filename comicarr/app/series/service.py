@@ -340,14 +340,17 @@ def _destination_for_import_row(row, comic_id, comic_name, comic_location, issue
     source_path = row.get("ComicLocation")
     original_filename = row.get("ComicFilename") or os.path.basename(source_path)
     destination_filename = original_filename
+    row_issue_id = row.get("_ResolvedIssueID") or issue_id
 
     if getattr(comicarr.CONFIG, "IMP_RENAME", False) and getattr(comicarr.CONFIG, "FILE_FORMAT", ""):
         issue_number = _issue_number_for_import(row)
-        if issue_number or issue_id:
+        if issue_number or row_issue_id:
             from comicarr import helpers
 
             try:
-                renameit = helpers.rename_param(comic_id, comic_name, issue_number, original_filename, issueid=issue_id)
+                renameit = helpers.rename_param(
+                    comic_id, comic_name, issue_number, original_filename, issueid=row_issue_id
+                )
             except Exception as e:
                 logger.fdebug(
                     "[IMPORT-MATCH] Could not rename import file %s, keeping original filename: %s" % (source_path, e)
@@ -372,7 +375,9 @@ def _move_plan_import_rows(rows, comic_id, comic_name, comic_location, issue_id=
 
     for row in rows:
         source_path = row.get("ComicLocation")
-        destination_path = _destination_for_import_row(row, comic_id, comic_name, comic_location, issue_id=issue_id)
+        destination_path = _destination_for_import_row(
+            row, comic_id, comic_name, comic_location, issue_id=row.get("_ResolvedIssueID") or issue_id
+        )
         if destination_path in destination_paths:
             return _import_error("Multiple import files resolve to the same destination: %s" % destination_path)
         if os.path.exists(destination_path):
@@ -466,6 +471,17 @@ def _finalize_import_rows(rows, comic_id, comic_name, comic_location, issue_id=N
     return _archive_import_rows(rows, comic_id)
 
 
+def _with_resolved_import_issue_ids(rows, comic_id, fallback_issue_id=None):
+    resolved_rows = []
+    for row in rows:
+        resolved_row = dict(row)
+        issue_number = _issue_number_for_import(resolved_row)
+        resolved_issue_id = series_queries.get_issue_id_for_import(comic_id, issue_number) if issue_number else None
+        resolved_row["_ResolvedIssueID"] = resolved_issue_id or fallback_issue_id
+        resolved_rows.append(resolved_row)
+    return resolved_rows
+
+
 def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
     """Manually match import files to a comic series."""
     clean_imp_ids = _clean_import_ids(imp_ids)
@@ -494,9 +510,10 @@ def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
     import_rows = _get_import_rows(clean_imp_ids)
     if not import_rows["success"]:
         return import_rows
+    rows = _with_resolved_import_issue_ids(import_rows["rows"], comic_id, fallback_issue_id=issue_id)
 
     finalized = _finalize_import_rows(
-        import_rows["rows"],
+        rows,
         comic_id,
         comic_name,
         comic_location,
@@ -506,8 +523,13 @@ def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
         return finalized
 
     matched = 0
-    for imp_id in clean_imp_ids:
-        series_queries.match_import(imp_id, comic_id, comic_name, issue_id=issue_id)
+    for row in rows:
+        series_queries.match_import(
+            row["impID"],
+            comic_id,
+            comic_name,
+            issue_id=row.get("_ResolvedIssueID") or issue_id,
+        )
         matched += 1
 
     return {
@@ -519,6 +541,25 @@ def match_import(ctx, imp_ids, comic_id, comic_name=None, issue_id=None):
         "moved": finalized.get("moved", 0),
         "archived": finalized.get("archived", 0),
     }
+
+
+def update_import_metadata(ctx, imp_id, issue_number):
+    """Update editable file-level metadata on a pending import row."""
+    if imp_id is None or not str(imp_id).strip():
+        return {"success": False, "error": "Missing impID"}
+    if issue_number is None or not str(issue_number).strip():
+        return {"success": False, "error": "Issue number cannot be blank"}
+
+    imp_id = str(imp_id).strip()
+    issue_number = str(issue_number).strip()
+    row = series_queries.get_import_row(imp_id)
+    if not row:
+        return {"success": False, "error": "Import record not found: %s" % imp_id, "not_found": True}
+    if row.get("Status") == "Imported":
+        return {"success": False, "error": "Imported records cannot be edited", "imported": True}
+
+    series_queries.update_import_issue_number(imp_id, issue_number)
+    return {"success": True, "imp_id": imp_id, "issue_number": issue_number}
 
 
 def ignore_import(ctx, imp_ids, ignore=True):

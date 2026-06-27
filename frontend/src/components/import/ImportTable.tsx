@@ -19,44 +19,170 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import ConfidenceBadge from "./ConfidenceBadge";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableServerPagination } from "@/components/data-table/DataTableServerPagination";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import {
+  getImportGroupTypeLabel,
+  getImportIssueLabel,
+} from "@/lib/importUtils";
 import type { ImportGroup, ImportFile, PaginationMeta } from "@/types";
 
 const columnHelper = createColumnHelper<ImportGroup>();
+
+function getImportGroupRowId(row: ImportGroup): string {
+  return `${row.DynamicName}-${row.Volume || "null"}`;
+}
 
 interface ImportTableProps {
   imports?: ImportGroup[];
   pagination?: PaginationMeta;
   onNextPage?: () => void;
   onPrevPage?: () => void;
-  onSelectionChange?: (selectedIds: string[]) => void;
+  onSelectionChange?: (selectedIds: string[], selectedGroupIds: string[]) => void;
   onMatchClick?: (group: ImportGroup) => void;
   onIgnoreClick?: (group: ImportGroup, ignore: boolean) => void;
   onDeleteClick?: (group: ImportGroup) => void;
+  onIssueNumberChange?: (file: ImportFile, issueNumber: string) => Promise<void>;
   isActionLoading?: boolean;
+  isMetadataSaving?: boolean;
 }
 
-function FileRow({ file }: { file: ImportFile }) {
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "error" | "required";
+
+function FileSaveState({ state }: { state: SaveState }) {
+  if (state === "saving") {
+    return <span className="text-muted-foreground">Saving...</span>;
+  }
+  if (state === "saved") {
+    return <span className="text-success">Saved</span>;
+  }
+  if (state === "error") {
+    return <span className="text-destructive">Save failed</span>;
+  }
+  if (state === "required") {
+    return <span className="text-destructive">Required</span>;
+  }
+  return null;
+}
+
+function FileRow({
+  file,
+  label,
+  onIssueNumberChange,
+  isMetadataSaving = false,
+}: {
+  file: ImportFile;
+  label: string;
+  onIssueNumberChange?: (file: ImportFile, issueNumber: string) => Promise<void>;
+  isMetadataSaving?: boolean;
+}) {
+  const [issueNumber, setIssueNumber] = useState(file.IssueNumber ?? "");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const currentIssueNumber = file.IssueNumber ?? "";
+  const hasMatchMetadata = Boolean(
+    file.SuggestedComicName || file.SuggestedComicID || file.MatchConfidence != null,
+  );
+
+  const saveIssueNumber = async () => {
+    const nextIssueNumber = issueNumber.trim();
+    if (nextIssueNumber === currentIssueNumber) {
+      setIssueNumber(currentIssueNumber);
+      setSaveState("idle");
+      return;
+    }
+    if (!nextIssueNumber) {
+      setSaveState("required");
+      return;
+    }
+    try {
+      setSaveState("saving");
+      await onIssueNumberChange?.(file, nextIssueNumber);
+      setIssueNumber(nextIssueNumber);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  };
+
   return (
-    <div className="flex items-center gap-4 py-2 px-6 text-sm bg-muted/30 border-t border-card-border">
-      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-8" />
-      <span
-        className="font-mono text-xs truncate flex-1"
-        title={file.ComicFilename}
-      >
-        {file.ComicFilename}
-      </span>
-      {file.IssueNumber && (
-        <span className="text-muted-foreground">#{file.IssueNumber}</span>
+    <div className="grid grid-cols-1 gap-2 border-t border-card-border bg-muted/20 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)_minmax(5rem,7rem)] sm:items-center md:px-6">
+      <div className="flex min-w-0 items-center gap-2 md:pl-8">
+        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <span
+          className="font-mono text-xs truncate min-w-0"
+          title={file.ComicFilename}
+        >
+          {file.ComicFilename}
+        </span>
+      </div>
+
+      <label className="grid gap-1 text-xs text-muted-foreground sm:max-w-[10rem]">
+        <span className="font-mono uppercase tracking-wider">{label}</span>
+        <Input
+          aria-label={`${label} for ${file.ComicFilename}`}
+          value={issueNumber}
+          placeholder="Unknown"
+          disabled={isMetadataSaving || !onIssueNumberChange || saveState === "saving"}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setIssueNumber(nextValue);
+            setSaveState(
+              nextValue.trim() === currentIssueNumber ? "idle" : "dirty",
+            );
+          }}
+          onBlur={saveIssueNumber}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void saveIssueNumber();
+            }
+            if (event.key === "Escape") {
+              setIssueNumber(currentIssueNumber);
+              setSaveState("idle");
+              event.currentTarget.blur();
+            }
+          }}
+          className={cn(
+            "h-8 w-full border-card-border bg-background/80 px-2 py-0 font-mono text-xs focus-visible:ring-primary",
+            saveState === "dirty" && "border-primary/60",
+            (saveState === "error" || saveState === "required") &&
+              "border-destructive focus-visible:ring-destructive",
+          )}
+        />
+      </label>
+
+      <div className="min-h-5 text-xs sm:text-right">
+        <FileSaveState state={saveState} />
+      </div>
+
+      {hasMatchMetadata && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3 md:pl-8">
+          {file.SuggestedComicName && (
+            <span className="truncate">Suggested: {file.SuggestedComicName}</span>
+          )}
+          {file.SuggestedComicID && !file.SuggestedComicName && (
+            <span className="truncate">Suggested ID: {file.SuggestedComicID}</span>
+          )}
+          {file.MatchConfidence != null && (
+            <ConfidenceBadge confidence={file.MatchConfidence} />
+          )}
+        </div>
       )}
-      <ConfidenceBadge confidence={file.MatchConfidence} />
+
       {file.IgnoreFile === 1 && (
-        <span className="text-xs bg-gray-500/20 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">
+        <span className="text-xs bg-gray-500/20 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded sm:col-span-3 md:ml-8 w-fit">
           Ignored
         </span>
       )}
@@ -73,7 +199,9 @@ export default function ImportTable({
   onMatchClick,
   onIgnoreClick,
   onDeleteClick,
+  onIssueNumberChange,
   isActionLoading = false,
+  isMetadataSaving = false,
 }: ImportTableProps) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -106,19 +234,31 @@ export default function ImportTable({
         cell: ({ row }) => {
           const canExpand = row.original.files && row.original.files.length > 0;
           return canExpand ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                row.toggleExpanded();
-              }}
-              className="p-1 hover:bg-muted rounded"
-            >
-              {row.getIsExpanded() ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={
+                    row.getIsExpanded()
+                      ? "Collapse import files"
+                      : "Expand import files"
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    row.toggleExpanded();
+                  }}
+                  className="p-1 hover:bg-muted rounded"
+                >
+                  {row.getIsExpanded() ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {row.getIsExpanded() ? "Collapse files" : "Review files"}
+              </TooltipContent>
+            </Tooltip>
           ) : null;
         },
         size: 40,
@@ -128,6 +268,11 @@ export default function ImportTable({
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.original.ComicName}</div>
+            <div className="mt-1">
+              <span className="inline-flex items-center rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {getImportGroupTypeLabel(row.original)}
+              </span>
+            </div>
             {row.original.Volume && (
               <div className="text-sm text-muted-foreground">
                 Volume {row.original.Volume}
@@ -151,9 +296,17 @@ export default function ImportTable({
       }),
       columnHelper.accessor("MatchConfidence", {
         header: "Confidence",
-        cell: ({ getValue }) => (
-          <ConfidenceBadge confidence={getValue() ?? null} />
-        ),
+        cell: ({ row, getValue }) => {
+          if (!row.original.SuggestedComicID && !row.original.SuggestedComicName) {
+            return (
+              <span className="text-xs text-muted-foreground/70">
+                No suggestion
+              </span>
+            );
+          }
+
+          return <ConfidenceBadge confidence={getValue() ?? null} />;
+        },
         enableSorting: false,
       }),
       columnHelper.accessor("SuggestedComicName", {
@@ -197,53 +350,66 @@ export default function ImportTable({
 
           return (
             <div className="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant="outline"
-                aria-label="Match import"
-                title="Match import"
-                disabled={isActionLoading}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMatchClick?.(row.original);
-                }}
-              >
-                <Link2 className="w-4 h-4" />
-                <span className="sr-only">Match</span>
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                aria-label={ignoreLabel}
-                title={ignoreLabel}
-                disabled={isActionLoading}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onIgnoreClick?.(row.original, !allIgnored);
-                }}
-              >
-                {allIgnored ? (
-                  <Eye className="w-4 h-4" />
-                ) : (
-                  <EyeOff className="w-4 h-4" />
-                )}
-                <span className="sr-only">{ignoreLabel}</span>
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Delete import record"
-                title="Delete import record"
-                disabled={isActionLoading}
-                className="text-destructive hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteClick?.(row.original);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="sr-only">Delete</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Match import"
+                    disabled={isActionLoading}
+                    className="h-8 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMatchClick?.(row.original);
+                    }}
+                  >
+                    <Link2 className="w-4 h-4" />
+                    Match
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Match this review group</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    aria-label={ignoreLabel}
+                    disabled={isActionLoading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onIgnoreClick?.(row.original, !allIgnored);
+                    }}
+                  >
+                    {allIgnored ? (
+                      <Eye className="w-4 h-4" />
+                    ) : (
+                      <EyeOff className="w-4 h-4" />
+                    )}
+                    <span className="sr-only">{ignoreLabel}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{ignoreLabel}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Delete import record"
+                    disabled={isActionLoading}
+                    className="text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteClick?.(row.original);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="sr-only">Delete</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete import record</TooltipContent>
+              </Tooltip>
             </div>
           );
         },
@@ -262,19 +428,26 @@ export default function ImportTable({
         const newSelection =
           typeof updater === "function" ? updater(rowSelection) : updater;
         const selectedIds: string[] = [];
-        Object.keys(newSelection).forEach((index) => {
-          const group = imports[parseInt(index)];
+        const selectedGroupIds: string[] = [];
+        Object.keys(newSelection).forEach((rowId) => {
+          if (!newSelection[rowId]) {
+            return;
+          }
+          const group = imports.find(
+            (importGroup) => getImportGroupRowId(importGroup) === rowId,
+          );
           if (group?.files) {
+            selectedGroupIds.push(rowId);
             group.files.forEach((file) => selectedIds.push(file.impID));
           }
         });
-        onSelectionChange(selectedIds);
+        onSelectionChange(selectedIds, selectedGroupIds);
       }
     },
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getRowId: (row) => `${row.DynamicName}-${row.Volume || "null"}`,
+    getRowId: getImportGroupRowId,
     enableRowSelection: true,
     getRowCanExpand: (row) =>
       !!(row.original.files && row.original.files.length > 0),
@@ -291,9 +464,10 @@ export default function ImportTable({
   }
 
   return (
-    <div>
+    <TooltipProvider delayDuration={150}>
       <DataTable
         table={table}
+        className="overflow-x-auto"
         onRowClick={(row) => {
           const tableRow = table
             .getRowModel()
@@ -306,7 +480,13 @@ export default function ImportTable({
               <TableCell colSpan={colSpan} className="p-0">
                 <div className="bg-muted/20">
                   {row.original.files.map((file) => (
-                    <FileRow key={file.impID} file={file} />
+                    <FileRow
+                      key={`${file.impID}-${file.IssueNumber ?? ""}`}
+                      file={file}
+                      label={getImportIssueLabel(row.original)}
+                      onIssueNumberChange={onIssueNumberChange}
+                      isMetadataSaving={isMetadataSaving}
+                    />
                   ))}
                 </div>
               </TableCell>
@@ -321,6 +501,6 @@ export default function ImportTable({
           onPrevPage={onPrevPage}
         />
       )}
-    </div>
+    </TooltipProvider>
   );
 }

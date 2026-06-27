@@ -31,6 +31,7 @@ export type {
   VolumeGroup,
   ImportFile,
   ImportGroup,
+  ImportPendingSummary,
   ScanResult,
   ScanResultMatch,
   ScanProgress,

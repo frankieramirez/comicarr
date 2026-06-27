@@ -13,7 +13,7 @@ Series domain queries — comics, issues, annuals, importresults tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 
 from comicarr import db
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
@@ -249,6 +249,11 @@ def get_wanted_annuals():
 def get_import_pending(limit=50, offset=0, include_ignored=False):
     """Get pending import files grouped by DynamicName/Volume with pagination."""
     ir = t_importresults
+    group_key_expr = func.coalesce(
+        func.nullif(ir.c.DynamicName, ""),
+        func.nullif(ir.c.ComicName, ""),
+        ir.c.impID,
+    )
 
     base_conds = [
         (ir.c.WatchMatch.is_(None)) | (ir.c.WatchMatch.like("C%")),
@@ -257,18 +262,36 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     if not include_ignored:
         base_conds.append((ir.c.IgnoreFile.is_(None)) | (ir.c.IgnoreFile == 0))
 
-    # Count distinct groups
-    count_expr = func.count(func.distinct(func.concat(ir.c.DynamicName, func.coalesce(ir.c.Volume, ""))))
-    count_stmt = select(count_expr).where(*base_conds)
+    # Count distinct groups. New import-inbox rows always carry DynamicName;
+    # older rows fall back to ComicName so they remain reviewable.
+    group_count_subq = (
+        select(group_key_expr.label("GroupKey"), ir.c.Volume)
+        .where(*base_conds)
+        .group_by(group_key_expr, ir.c.Volume)
+    )
+    count_stmt = select(func.count()).select_from(group_count_subq.subquery())
+    file_count_stmt = select(func.count()).select_from(ir).where(*base_conds)
     with db.get_engine().connect() as conn:
         total = conn.execute(count_stmt).scalar() or 0
+        file_total = conn.execute(file_count_stmt).scalar() or 0
 
     # Get paginated groups
     group_stmt = (
-        select(ir, func.count().label("FileCount"))
+        select(
+            group_key_expr.label("GroupKey"),
+            func.min(ir.c.ComicName).label("ComicName"),
+            ir.c.Volume.label("Volume"),
+            func.min(ir.c.ComicYear).label("ComicYear"),
+            func.min(ir.c.Status).label("Status"),
+            func.min(ir.c.SRID).label("SRID"),
+            func.min(ir.c.ComicID).label("ComicID"),
+            func.min(ir.c.SuggestedComicID).label("SuggestedComicID"),
+            func.min(ir.c.SuggestedComicName).label("SuggestedComicName"),
+            func.count().label("FileCount"),
+        )
         .where(*base_conds)
-        .group_by(ir.c.DynamicName, ir.c.Volume)
-        .order_by(ir.c.ComicName)
+        .group_by(group_key_expr, ir.c.Volume)
+        .order_by(func.min(ir.c.ComicName))
         .limit(limit)
         .offset(offset)
     )
@@ -276,19 +299,19 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
 
     imports = []
     for result in results:
-        dynamic_name = result["DynamicName"]
+        dynamic_name = result["GroupKey"]
         volume = result["Volume"]
 
         # Get all files for this group
         file_conds = list(base_conds)
-        file_conds.append(ir.c.DynamicName == dynamic_name)
+        file_conds.append(group_key_expr == dynamic_name)
 
         if volume is None or volume == "None":
             file_conds.append((ir.c.Volume.is_(None)) | (ir.c.Volume == "None"))
         else:
             file_conds.append(ir.c.Volume == volume)
 
-        files = db.select_all(select(ir).where(*file_conds))
+        files = db.select_all(select(ir).where(*file_conds).order_by(ir.c.ComicFilename))
 
         file_list = []
         for f in files:
@@ -337,6 +360,10 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
             "offset": offset,
             "has_more": (offset + limit) < total,
         },
+        "summary": {
+            "group_count": total,
+            "file_count": file_total,
+        },
     }
 
 
@@ -345,6 +372,28 @@ def get_import_rows(imp_ids):
     if not imp_ids:
         return []
     return db.select_all(select(t_importresults).where(t_importresults.c.impID.in_(imp_ids)))
+
+
+def get_import_row(imp_id):
+    """Get one raw import row by impID."""
+    return db.select_one(select(t_importresults).where(t_importresults.c.impID == imp_id))
+
+
+def get_issue_id_for_import(comic_id, issue_number):
+    """Find an issue/chapter ID for a manual import row."""
+    if issue_number is None:
+        return None
+    issue_number = str(issue_number).strip()
+    if not issue_number or issue_number == "None":
+        return None
+
+    row = db.select_one(
+        select(t_issues.c.IssueID)
+        .where(t_issues.c.ComicID == comic_id)
+        .where(or_(t_issues.c.ChapterNumber == issue_number, t_issues.c.Issue_Number == issue_number))
+        .limit(1)
+    )
+    return row["IssueID"] if row else None
 
 
 def match_import(imp_id, comic_id, comic_name, issue_id=None):
@@ -365,6 +414,11 @@ def match_import(imp_id, comic_id, comic_name, issue_id=None):
         update_values["SuggestedIssueID"] = issue_id
 
     db.upsert("importresults", update_values, {"impID": imp_id})
+
+
+def update_import_issue_number(imp_id, issue_number):
+    """Update editable file-level import metadata."""
+    db.upsert("importresults", {"IssueNumber": issue_number}, {"impID": imp_id})
 
 
 def ignore_import(imp_id, ignore=True):

@@ -17,7 +17,7 @@ Tests for manual import matching behavior.
 """
 
 from types import SimpleNamespace
-from unittest.mock import call, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -53,10 +53,113 @@ def test_match_import_marks_record_imported_with_manual_match_metadata():
     )
 
 
+def test_update_import_issue_number_persists_file_metadata():
+    with patch.object(queries.db, "upsert") as mock_upsert:
+        queries.update_import_issue_number("imp-1", "12.5")
+
+    mock_upsert.assert_called_once_with("importresults", {"IssueNumber": "12.5"}, {"impID": "imp-1"})
+
+
+def test_get_import_pending_returns_group_and_file_summary_counts():
+    engine = MagicMock()
+    conn = MagicMock()
+    engine.connect.return_value.__enter__.return_value = conn
+    conn.execute.side_effect = [
+        MagicMock(scalar=MagicMock(return_value=2)),
+        MagicMock(scalar=MagicMock(return_value=4)),
+    ]
+
+    group_rows = [
+        {
+            "GroupKey": "folder:manga-a",
+            "ComicName": "Manga A",
+            "Volume": None,
+            "ComicYear": None,
+            "Status": "Unmatched",
+            "SRID": None,
+            "ComicID": None,
+            "SuggestedComicID": None,
+            "SuggestedComicName": None,
+            "FileCount": 2,
+        },
+        {
+            "GroupKey": "file:root-a",
+            "ComicName": "Root A",
+            "Volume": None,
+            "ComicYear": None,
+            "Status": "Unmatched",
+            "SRID": None,
+            "ComicID": None,
+            "SuggestedComicID": None,
+            "SuggestedComicName": None,
+            "FileCount": 1,
+        },
+    ]
+    file_rows = [
+        {
+            "impID": "imp-1",
+            "ComicFilename": "chapter 1.cbz",
+            "ComicLocation": "/imports/Manga A/chapter 1.cbz",
+            "IssueNumber": "1",
+            "ComicYear": None,
+            "Status": "Unmatched",
+            "IgnoreFile": 0,
+            "MatchConfidence": None,
+            "SuggestedComicID": None,
+            "SuggestedComicName": None,
+            "SuggestedIssueID": None,
+            "MatchSource": None,
+        }
+    ]
+
+    with (
+        patch.object(queries.db, "get_engine", return_value=engine),
+        patch.object(queries.db, "select_all", side_effect=[group_rows, file_rows, file_rows]),
+    ):
+        result = queries.get_import_pending(limit=50, offset=0)
+
+    assert result["pagination"]["total"] == 2
+    assert result["summary"] == {"group_count": 2, "file_count": 4}
+    assert [import_group["DynamicName"] for import_group in result["imports"]] == ["folder:manga-a", "file:root-a"]
+
+
 def test_clean_import_ids_handles_empty_scalar_and_duplicate_values():
     assert service._clean_import_ids(None) == []
     assert service._clean_import_ids("imp-1") == ["imp-1"]
     assert service._clean_import_ids([" imp-1 ", None, "", "imp-1", "imp-2"]) == ["imp-1", "imp-2"]
+
+
+def test_update_import_metadata_rejects_blank_issue_number():
+    result = service.update_import_metadata(None, "imp-1", " ")
+    assert result["success"] is False
+    assert "blank" in result["error"]
+
+
+def test_update_import_metadata_rejects_missing_record():
+    with patch.object(service.series_queries, "get_import_row", return_value=None):
+        result = service.update_import_metadata(None, "imp-missing", "1")
+
+    assert result["success"] is False
+    assert result["not_found"] is True
+
+
+def test_update_import_metadata_rejects_imported_record():
+    with patch.object(service.series_queries, "get_import_row", return_value={"impID": "imp-1", "Status": "Imported"}):
+        result = service.update_import_metadata(None, "imp-1", "1")
+
+    assert result["success"] is False
+    assert result["imported"] is True
+
+
+def test_update_import_metadata_updates_pending_record():
+    with (
+        patch.object(service.series_queries, "get_import_row", return_value={"impID": "imp-1", "Status": "Not Imported"}),
+        patch.object(service.series_queries, "update_import_issue_number") as mock_update,
+    ):
+        result = service.update_import_metadata(None, " imp-1 ", " 2.5 ")
+
+    assert result == {"success": True, "imp_id": "imp-1", "issue_number": "2.5"}
+    mock_update.assert_called_once_with("imp-1", "2.5")
 
 
 def test_match_import_empty_ids_does_not_add_or_finalize_manga():
@@ -167,6 +270,87 @@ def test_match_import_uses_existing_library_name_without_readding_manga():
     assert result["matched"] == 1
     assert result["comic_name"] == "Existing Berserk"
     mock_match.assert_called_once_with("imp-1", "mal-123", "Existing Berserk", issue_id=None)
+
+
+def test_match_import_resolves_issue_id_per_import_row():
+    import_rows_seen = []
+
+    def finalize(rows, *args, **kwargs):
+        import_rows_seen.extend(rows)
+        return {"success": True}
+
+    with (
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": "/library/Berserk"},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": "/import/Berserk/chapter 1.cbz",
+                    "ComicFilename": "chapter 1.cbz",
+                    "IssueNumber": "1",
+                },
+                {
+                    "impID": "imp-2",
+                    "ComicLocation": "/import/Berserk/chapter 2.cbz",
+                    "ComicFilename": "chapter 2.cbz",
+                    "IssueNumber": "2",
+                },
+            ],
+        ),
+        patch.object(
+            service.series_queries, "get_issue_id_for_import", side_effect=["mal-123-ch1", "mal-123-ch2"]
+        ) as mock_get_issue,
+        patch.object(service, "_finalize_import_rows", side_effect=finalize),
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1", "imp-2"], "mal-123", comic_name="Berserk")
+
+    assert result["success"] is True
+    assert [row["_ResolvedIssueID"] for row in import_rows_seen] == ["mal-123-ch1", "mal-123-ch2"]
+    mock_get_issue.assert_has_calls([call("mal-123", "1"), call("mal-123", "2")])
+    mock_match.assert_has_calls(
+        [
+            call("imp-1", "mal-123", "Berserk", issue_id="mal-123-ch1"),
+            call("imp-2", "mal-123", "Berserk", issue_id="mal-123-ch2"),
+        ]
+    )
+
+
+def test_match_import_uses_request_issue_id_as_fallback():
+    with (
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": "/library/Berserk"},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": "/import/Berserk/chapter x.cbz",
+                    "ComicFilename": "chapter x.cbz",
+                    "IssueNumber": "x",
+                }
+            ],
+        ),
+        patch.object(service.series_queries, "get_issue_id_for_import", return_value=None),
+        patch.object(service, "_finalize_import_rows", return_value={"success": True}),
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1"], "mal-123", comic_name="Berserk", issue_id="fallback-ch")
+
+    assert result["success"] is True
+    mock_match.assert_called_once_with("imp-1", "mal-123", "Berserk", issue_id="fallback-ch")
 
 
 def test_match_import_moves_files_before_marking_rows_imported(tmp_path):

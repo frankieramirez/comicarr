@@ -251,6 +251,31 @@ def match_import(
     return result
 
 
+@router.patch("/import/{imp_id}", dependencies=[Depends(require_session)])
+def update_import_metadata(
+    imp_id: str,
+    request_body: dict = None,
+    ctx: AppContext = Depends(get_context),
+):
+    """Update editable metadata for one pending import file."""
+    if request_body is None:
+        request_body = {}
+
+    if "issue_number" not in request_body:
+        return JSONResponse(status_code=400, content={"detail": "Missing issue_number"})
+
+    result = series_service.update_import_metadata(ctx, imp_id, request_body.get("issue_number"))
+    if not result.get("success"):
+        if result.get("not_found"):
+            status = 404
+        elif result.get("imported"):
+            status = 409
+        else:
+            status = 400
+        return JSONResponse(status_code=status, content={"detail": result.get("error")})
+    return result
+
+
 @router.post("/import/ignore", dependencies=[Depends(require_session)])
 def ignore_import(
     request_body: dict = None,
