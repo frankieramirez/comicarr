@@ -128,9 +128,13 @@ export function useUpdateImportMetadata(): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ impId, issueNumber }) =>
-      apiRequest<UpdateImportMetadataResponse>("PATCH", `/api/import/${impId}`, {
-        issue_number: issueNumber,
-      }),
+      apiRequest<UpdateImportMetadataResponse>(
+        "PATCH",
+        `/api/import/${impId}`,
+        {
+          issue_number: issueNumber,
+        },
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
     },

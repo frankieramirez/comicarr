@@ -50,11 +50,17 @@ interface ImportTableProps {
   pagination?: PaginationMeta;
   onNextPage?: () => void;
   onPrevPage?: () => void;
-  onSelectionChange?: (selectedIds: string[], selectedGroupIds: string[]) => void;
+  onSelectionChange?: (
+    selectedIds: string[],
+    selectedGroupIds: string[],
+  ) => void;
   onMatchClick?: (group: ImportGroup) => void;
   onIgnoreClick?: (group: ImportGroup, ignore: boolean) => void;
   onDeleteClick?: (group: ImportGroup) => void;
-  onIssueNumberChange?: (file: ImportFile, issueNumber: string) => Promise<void>;
+  onIssueNumberChange?: (
+    file: ImportFile,
+    issueNumber: string,
+  ) => Promise<void>;
   isActionLoading?: boolean;
   isMetadataSaving?: boolean;
 }
@@ -85,14 +91,19 @@ function FileRow({
 }: {
   file: ImportFile;
   label: string;
-  onIssueNumberChange?: (file: ImportFile, issueNumber: string) => Promise<void>;
+  onIssueNumberChange?: (
+    file: ImportFile,
+    issueNumber: string,
+  ) => Promise<void>;
   isMetadataSaving?: boolean;
 }) {
   const [issueNumber, setIssueNumber] = useState(file.IssueNumber ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const currentIssueNumber = file.IssueNumber ?? "";
   const hasMatchMetadata = Boolean(
-    file.SuggestedComicName || file.SuggestedComicID || file.MatchConfidence != null,
+    file.SuggestedComicName ||
+    file.SuggestedComicID ||
+    file.MatchConfidence != null,
   );
 
   const saveIssueNumber = async () => {
@@ -134,7 +145,9 @@ function FileRow({
           aria-label={`${label} for ${file.ComicFilename}`}
           value={issueNumber}
           placeholder="Unknown"
-          disabled={isMetadataSaving || !onIssueNumberChange || saveState === "saving"}
+          disabled={
+            isMetadataSaving || !onIssueNumberChange || saveState === "saving"
+          }
           onChange={(event) => {
             const nextValue = event.target.value;
             setIssueNumber(nextValue);
@@ -170,10 +183,14 @@ function FileRow({
       {hasMatchMetadata && (
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3 md:pl-8">
           {file.SuggestedComicName && (
-            <span className="truncate">Suggested: {file.SuggestedComicName}</span>
+            <span className="truncate">
+              Suggested: {file.SuggestedComicName}
+            </span>
           )}
           {file.SuggestedComicID && !file.SuggestedComicName && (
-            <span className="truncate">Suggested ID: {file.SuggestedComicID}</span>
+            <span className="truncate">
+              Suggested ID: {file.SuggestedComicID}
+            </span>
           )}
           {file.MatchConfidence != null && (
             <ConfidenceBadge confidence={file.MatchConfidence} />
@@ -297,7 +314,10 @@ export default function ImportTable({
       columnHelper.accessor("MatchConfidence", {
         header: "Confidence",
         cell: ({ row, getValue }) => {
-          if (!row.original.SuggestedComicID && !row.original.SuggestedComicName) {
+          if (
+            !row.original.SuggestedComicID &&
+            !row.original.SuggestedComicName
+          ) {
             return (
               <span className="text-xs text-muted-foreground/70">
                 No suggestion

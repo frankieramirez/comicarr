@@ -48,7 +48,9 @@ export function getImportGroupType(
   return "unknown";
 }
 
-export function getImportGroupTypeLabel(importGroup: ImportGroup | null): string {
+export function getImportGroupTypeLabel(
+  importGroup: ImportGroup | null,
+): string {
   const groupType = getImportGroupType(importGroup);
   if (groupType === "folder") {
     return "Folder group";
@@ -72,7 +74,9 @@ function compareIssueValues(left: string, right: string): number {
   return left.localeCompare(right, undefined, { numeric: true });
 }
 
-export function getImportIssueRange(importGroup: ImportGroup | null): string | null {
+export function getImportIssueRange(
+  importGroup: ImportGroup | null,
+): string | null {
   if (!importGroup?.files?.length) {
     return null;
   }

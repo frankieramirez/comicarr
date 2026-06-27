@@ -70,7 +70,8 @@ export default function ImportPage() {
       total + (importGroup.FileCount ?? importGroup.files.length),
     0,
   );
-  const groupCount = summary?.group_count ?? pagination?.total ?? imports.length;
+  const groupCount =
+    summary?.group_count ?? pagination?.total ?? imports.length;
   const fileCount = summary?.file_count ?? visibleFileCount;
   const pendingReviewMeta = `${pluralize(groupCount, "group")} · ${pluralize(fileCount, "file")} awaiting review`;
 

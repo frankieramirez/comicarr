@@ -265,9 +265,7 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     # Count distinct groups. New import-inbox rows always carry DynamicName;
     # older rows fall back to ComicName so they remain reviewable.
     group_count_subq = (
-        select(group_key_expr.label("GroupKey"), ir.c.Volume)
-        .where(*base_conds)
-        .group_by(group_key_expr, ir.c.Volume)
+        select(group_key_expr.label("GroupKey"), ir.c.Volume).where(*base_conds).group_by(group_key_expr, ir.c.Volume)
     )
     count_stmt = select(func.count()).select_from(group_count_subq.subquery())
     file_count_stmt = select(func.count()).select_from(ir).where(*base_conds)

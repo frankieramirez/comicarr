@@ -37,7 +37,8 @@ export default function ImportBulkActions({
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
       <div className="bg-card border border-card-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
         <span className="text-sm font-medium text-foreground">
-          {selectedGroupCount} {groupLabel} · {selectedFileCount} {fileLabel} selected
+          {selectedGroupCount} {groupLabel} · {selectedFileCount} {fileLabel}{" "}
+          selected
         </span>
 
         <div className="h-4 w-px bg-border" />
@@ -76,35 +77,35 @@ export default function ImportBulkActions({
               </Tooltip>
             )}
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={onDelete}
-                disabled={isLoading}
-              >
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete selected import records</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={onDelete}
+                  disabled={isLoading}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete selected import records</TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onClear}
-                disabled={isLoading}
-                aria-label="Clear selected imports"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Clear selection</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onClear}
+                  disabled={isLoading}
+                  aria-label="Clear selected imports"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Clear selection</TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </div>
