@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -43,6 +43,29 @@ const columnHelper = createColumnHelper<ImportGroup>();
 
 function getImportGroupRowId(row: ImportGroup): string {
   return `${row.DynamicName}-${row.Volume || "null"}`;
+}
+
+function getSelectedImportIds(
+  imports: ImportGroup[],
+  selection: RowSelectionState,
+): { selectedIds: string[]; selectedGroupIds: string[] } {
+  const selectedIds: string[] = [];
+  const selectedGroupIds: string[] = [];
+
+  Object.keys(selection).forEach((rowId) => {
+    if (!selection[rowId]) {
+      return;
+    }
+    const group = imports.find(
+      (importGroup) => getImportGroupRowId(importGroup) === rowId,
+    );
+    if (group?.files) {
+      selectedGroupIds.push(rowId);
+      group.files.forEach((file) => selectedIds.push(file.impID));
+    }
+  });
+
+  return { selectedIds, selectedGroupIds };
 }
 
 interface ImportTableProps {
@@ -98,8 +121,11 @@ function FileRow({
   isMetadataSaving?: boolean;
 }) {
   const [issueNumber, setIssueNumber] = useState(file.IssueNumber ?? "");
+  const [savedIssueNumber, setSavedIssueNumber] = useState(
+    file.IssueNumber ?? "",
+  );
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const currentIssueNumber = file.IssueNumber ?? "";
+  const skipNextBlurSaveRef = useRef(false);
   const hasMatchMetadata = Boolean(
     file.SuggestedComicName ||
     file.SuggestedComicID ||
@@ -108,8 +134,8 @@ function FileRow({
 
   const saveIssueNumber = async () => {
     const nextIssueNumber = issueNumber.trim();
-    if (nextIssueNumber === currentIssueNumber) {
-      setIssueNumber(currentIssueNumber);
+    if (nextIssueNumber === savedIssueNumber) {
+      setIssueNumber(savedIssueNumber);
       setSaveState("idle");
       return;
     }
@@ -120,6 +146,7 @@ function FileRow({
     try {
       setSaveState("saving");
       await onIssueNumberChange?.(file, nextIssueNumber);
+      setSavedIssueNumber(nextIssueNumber);
       setIssueNumber(nextIssueNumber);
       setSaveState("saved");
     } catch {
@@ -152,17 +179,24 @@ function FileRow({
             const nextValue = event.target.value;
             setIssueNumber(nextValue);
             setSaveState(
-              nextValue.trim() === currentIssueNumber ? "idle" : "dirty",
+              nextValue.trim() === savedIssueNumber ? "idle" : "dirty",
             );
           }}
-          onBlur={saveIssueNumber}
+          onBlur={() => {
+            if (skipNextBlurSaveRef.current) {
+              skipNextBlurSaveRef.current = false;
+              return;
+            }
+            void saveIssueNumber();
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
               void saveIssueNumber();
             }
             if (event.key === "Escape") {
-              setIssueNumber(currentIssueNumber);
+              skipNextBlurSaveRef.current = true;
+              setIssueNumber(savedIssueNumber);
               setSaveState("idle");
               event.currentTarget.blur();
             }
@@ -222,6 +256,30 @@ export default function ImportTable({
 }: ImportTableProps) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const lastSelectionKeyRef = useRef(JSON.stringify([[], []]));
+
+  const emitSelectionChange = useCallback(
+    (selection: RowSelectionState) => {
+      if (!onSelectionChange) {
+        return;
+      }
+      const { selectedIds, selectedGroupIds } = getSelectedImportIds(
+        imports,
+        selection,
+      );
+      const selectionKey = JSON.stringify([selectedIds, selectedGroupIds]);
+      if (lastSelectionKeyRef.current === selectionKey) {
+        return;
+      }
+      lastSelectionKeyRef.current = selectionKey;
+      onSelectionChange(selectedIds, selectedGroupIds);
+    },
+    [imports, onSelectionChange],
+  );
+
+  useEffect(() => {
+    emitSelectionChange(rowSelection);
+  }, [emitSelectionChange, rowSelection]);
 
   const columns = useMemo(
     () => [
@@ -443,26 +501,10 @@ export default function ImportTable({
     columns,
     state: { rowSelection, expanded },
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
-      setRowSelection(updater);
-      if (onSelectionChange) {
-        const newSelection =
-          typeof updater === "function" ? updater(rowSelection) : updater;
-        const selectedIds: string[] = [];
-        const selectedGroupIds: string[] = [];
-        Object.keys(newSelection).forEach((rowId) => {
-          if (!newSelection[rowId]) {
-            return;
-          }
-          const group = imports.find(
-            (importGroup) => getImportGroupRowId(importGroup) === rowId,
-          );
-          if (group?.files) {
-            selectedGroupIds.push(rowId);
-            group.files.forEach((file) => selectedIds.push(file.impID));
-          }
-        });
-        onSelectionChange(selectedIds, selectedGroupIds);
-      }
+      const newSelection =
+        typeof updater === "function" ? updater(rowSelection) : updater;
+      setRowSelection(newSelection);
+      emitSelectionChange(newSelection);
     },
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),

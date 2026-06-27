@@ -2,6 +2,7 @@ import type { ImportGroup } from "@/types";
 
 const MANGA_ID_PREFIXES = ["md-", "mal-"];
 const MANGA_FILENAME_PATTERN = /\b(ch\.?|chapter)\s*\d+/i;
+const NUMERIC_CHAPTER_FILENAME_PATTERN = /^\d+(?:\.\d+)?$/;
 
 export type ImportSearchMode = "comic" | "manga";
 export type ImportGroupType = "folder" | "file" | "unknown";
@@ -29,6 +30,10 @@ export function detectImportSearchMode(
       MANGA_FILENAME_PATTERN.test(file.ComicFilename),
     )
   ) {
+    return "manga";
+  }
+
+  if (hasFolderChapterContext(importGroup)) {
     return "manga";
   }
 
@@ -63,6 +68,31 @@ export function getImportGroupTypeLabel(
 
 export function getImportIssueLabel(importGroup: ImportGroup | null): string {
   return detectImportSearchMode(importGroup) === "manga" ? "Chapter" : "Issue";
+}
+
+function getFilenameStem(filename: string): string {
+  return filename.replace(/\.[^/.]+$/, "").trim();
+}
+
+function hasFolderChapterContext(importGroup: ImportGroup): boolean {
+  if (getImportGroupType(importGroup) !== "folder") {
+    return false;
+  }
+
+  return Boolean(
+    importGroup.files?.some((file) => {
+      const issueNumber = file.IssueNumber?.trim();
+      if (!issueNumber) {
+        return false;
+      }
+
+      const filenameStem = getFilenameStem(file.ComicFilename);
+      return (
+        MANGA_FILENAME_PATTERN.test(file.ComicFilename) ||
+        NUMERIC_CHAPTER_FILENAME_PATTERN.test(filenameStem)
+      );
+    }),
+  );
 }
 
 function compareIssueValues(left: string, right: string): number {

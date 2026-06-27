@@ -73,7 +73,12 @@ export default function ImportPage() {
   const groupCount =
     summary?.group_count ?? pagination?.total ?? imports.length;
   const fileCount = summary?.file_count ?? visibleFileCount;
-  const pendingReviewMeta = `${pluralize(groupCount, "group")} · ${pluralize(fileCount, "file")} awaiting review`;
+  const pendingReviewMeta = error
+    ? "Unable to load pending imports"
+    : `${pluralize(groupCount, "group")} · ${pluralize(fileCount, "file")} awaiting review`;
+  const pendingReviewHelp = error
+    ? "Resolve the loading error before reviewing imports."
+    : `${pendingReviewMeta}. Correct chapters or issues, then match a group to import.`;
 
   const matchImportMutation = useMatchImport();
   const ignoreImportMutation = useIgnoreImport();
@@ -267,11 +272,7 @@ export default function ImportPage() {
           <SectionHeader
             label="PENDING · REVIEW"
             title="Files awaiting review"
-            meta={
-              isLoading
-                ? "Loading review groups."
-                : `${pendingReviewMeta}. Correct chapters or issues, then match a group to import.`
-            }
+            meta={isLoading ? "Loading review groups." : pendingReviewHelp}
           />
 
           <div className="flex items-center gap-3 mb-4">

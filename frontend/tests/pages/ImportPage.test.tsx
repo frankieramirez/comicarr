@@ -110,4 +110,24 @@ describe("ImportPage", () => {
     expect(screen.getByRole("button", { name: "Scan inbox now" })).toBeTruthy();
     expect(screen.getByText("Sources and scans")).toBeTruthy();
   });
+
+  it("does not show zero pending counts when pending imports fail to load", async () => {
+    server.use(
+      http.get("/api/import", () =>
+        HttpResponse.json({ error: "Unable to load" }, { status: 500 }),
+      ),
+    );
+
+    render(<ImportPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText("Unable to load pending imports").length,
+      ).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(/0 groups · 0 files awaiting review/)).toBeNull();
+    expect(
+      screen.getByText("Resolve the loading error before reviewing imports."),
+    ).toBeTruthy();
+  });
 });

@@ -58,6 +58,46 @@ describe("detectImportSearchMode", () => {
     expect(detectImportSearchMode(group)).toBe("manga");
   });
 
+  it("returns manga for folder groups with numeric chapter-only filenames", () => {
+    const group = makeImportGroup({
+      DynamicName: "folder:manga-a",
+      files: [
+        {
+          impID: "1",
+          ComicFilename: "001.cbz",
+          ComicLocation: "/imports/Manga A/001.cbz",
+          IssueNumber: "1",
+          ComicYear: null,
+          Status: "Unmatched",
+          IgnoreFile: 0,
+          MatchConfidence: null,
+          SuggestedComicID: null,
+          SuggestedComicName: null,
+          SuggestedIssueID: null,
+          MatchSource: null,
+        },
+        {
+          impID: "2",
+          ComicFilename: "002.cbz",
+          ComicLocation: "/imports/Manga A/002.cbz",
+          IssueNumber: "2",
+          ComicYear: null,
+          Status: "Unmatched",
+          IgnoreFile: 0,
+          MatchConfidence: null,
+          SuggestedComicID: null,
+          SuggestedComicName: null,
+          SuggestedIssueID: null,
+          MatchSource: null,
+        },
+      ],
+    });
+
+    expect(detectImportSearchMode(group)).toBe("manga");
+    expect(getImportIssueLabel(group)).toBe("Chapter");
+    expect(getImportIssueRange(group)).toBe("Chapters 1-2");
+  });
+
   it("defaults to comic when no manga signals are present", () => {
     const group = makeImportGroup({
       ComicID: "4050-12345",
@@ -89,7 +129,9 @@ describe("detectImportSearchMode", () => {
 describe("import group review helpers", () => {
   it("labels folder and single-file groups from DynamicName", () => {
     expect(
-      getImportGroupTypeLabel(makeImportGroup({ DynamicName: "folder:manga-a" })),
+      getImportGroupTypeLabel(
+        makeImportGroup({ DynamicName: "folder:manga-a" }),
+      ),
     ).toBe("Folder group");
     expect(
       getImportGroupTypeLabel(makeImportGroup({ DynamicName: "file:imp-1" })),

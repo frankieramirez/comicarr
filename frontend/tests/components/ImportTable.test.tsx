@@ -79,7 +79,9 @@ describe("ImportTable", () => {
       }),
     ];
 
-    renderMinimal(<ImportTable imports={groups} onIssueNumberChange={vi.fn()} />);
+    renderMinimal(
+      <ImportTable imports={groups} onIssueNumberChange={vi.fn()} />,
+    );
 
     expect(screen.getByText("Manga A")).toBeTruthy();
     expect(screen.getByText("Manga B")).toBeTruthy();
@@ -89,10 +91,12 @@ describe("ImportTable", () => {
       screen.getAllByRole("button", { name: "Expand import files" })[0],
     );
 
-    expect(screen.getByRole("textbox", { name: "Chapter for chapter 1.cbz" }))
-      .toHaveProperty("value", "1");
-    expect(screen.getByRole("textbox", { name: "Chapter for chapter 2.cbz" }))
-      .toHaveProperty("value", "2");
+    expect(
+      screen.getByRole("textbox", { name: "Chapter for chapter 1.cbz" }),
+    ).toHaveProperty("value", "1");
+    expect(
+      screen.getByRole("textbox", { name: "Chapter for chapter 2.cbz" }),
+    ).toHaveProperty("value", "2");
   });
 
   it("renders root files as one review group per file", () => {
@@ -174,6 +178,45 @@ describe("ImportTable", () => {
       expect(onIssueNumberChange).toHaveBeenCalledWith(file, "3");
     });
     expect(screen.getByText("Saved")).toBeTruthy();
+  });
+
+  it("keeps the last saved chapter as the edit baseline before refetch", async () => {
+    const file = makeFile();
+    const onIssueNumberChange = vi.fn().mockResolvedValue(undefined);
+
+    renderMinimal(
+      <ImportTable
+        imports={[makeGroup({ files: [file] })]}
+        onIssueNumberChange={onIssueNumberChange}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Expand import files" }),
+    );
+
+    const input = screen.getByRole("textbox", {
+      name: "Chapter for chapter 1.cbz",
+    });
+    await userEvent.clear(input);
+    await userEvent.type(input, "3{Enter}");
+
+    await waitFor(() => {
+      expect(onIssueNumberChange).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Saved")).toBeTruthy();
+    });
+
+    await userEvent.tab();
+    expect(onIssueNumberChange).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(input);
+    await userEvent.clear(input);
+    await userEvent.type(input, "4{Escape}");
+
+    expect(onIssueNumberChange).toHaveBeenCalledTimes(1);
+    expect(input).toHaveProperty("value", "3");
   });
 
   it("shows saving feedback while chapter updates are pending", async () => {
@@ -284,5 +327,50 @@ describe("ImportTable", () => {
       ["1", "2"],
       ["folder:manga-a-null"],
     );
+  });
+
+  it("recomputes selected import file IDs when imports refresh", async () => {
+    const onSelectionChange = vi.fn();
+    const { rerender } = renderMinimal(
+      <ImportTable
+        imports={[
+          makeGroup({
+            files: [
+              makeFile({ impID: "1" }),
+              makeFile({ impID: "2", ComicFilename: "chapter 2.cbz" }),
+            ],
+          }),
+        ]}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await userEvent.click(screen.getAllByRole("checkbox")[1]);
+    expect(onSelectionChange).toHaveBeenCalledWith(
+      ["1", "2"],
+      ["folder:manga-a-null"],
+    );
+
+    onSelectionChange.mockClear();
+    rerender(
+      <ImportTable
+        imports={[
+          makeGroup({
+            files: [
+              makeFile({ impID: "3" }),
+              makeFile({ impID: "4", ComicFilename: "chapter 2.cbz" }),
+            ],
+          }),
+        ]}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onSelectionChange).toHaveBeenCalledWith(
+        ["3", "4"],
+        ["folder:manga-a-null"],
+      );
+    });
   });
 });

@@ -13,7 +13,7 @@ Series domain queries — comics, issues, annuals, importresults tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, select
 
 from comicarr import db
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
@@ -388,7 +388,16 @@ def get_issue_id_for_import(comic_id, issue_number):
     row = db.select_one(
         select(t_issues.c.IssueID)
         .where(t_issues.c.ComicID == comic_id)
-        .where(or_(t_issues.c.ChapterNumber == issue_number, t_issues.c.Issue_Number == issue_number))
+        .where(t_issues.c.ChapterNumber == issue_number)
+        .limit(1)
+    )
+    if row:
+        return row["IssueID"]
+
+    row = db.select_one(
+        select(t_issues.c.IssueID)
+        .where(t_issues.c.ComicID == comic_id)
+        .where(t_issues.c.Issue_Number == issue_number)
         .limit(1)
     )
     return row["IssueID"] if row else None

@@ -60,6 +60,26 @@ def test_update_import_issue_number_persists_file_metadata():
     mock_upsert.assert_called_once_with("importresults", {"IssueNumber": "12.5"}, {"impID": "imp-1"})
 
 
+def test_get_issue_id_for_import_prefers_chapter_number_match():
+    with patch.object(queries.db, "select_one", return_value={"IssueID": "chapter-row"}) as mock_select_one:
+        result = queries.get_issue_id_for_import("mal-123", "1")
+
+    assert result == "chapter-row"
+    assert mock_select_one.call_count == 1
+
+
+def test_get_issue_id_for_import_falls_back_to_issue_number_match():
+    with patch.object(
+        queries.db,
+        "select_one",
+        side_effect=[None, {"IssueID": "issue-row"}],
+    ) as mock_select_one:
+        result = queries.get_issue_id_for_import("mal-123", "1")
+
+    assert result == "issue-row"
+    assert mock_select_one.call_count == 2
+
+
 def test_get_import_pending_returns_group_and_file_summary_counts():
     engine = MagicMock()
     conn = MagicMock()
@@ -153,7 +173,9 @@ def test_update_import_metadata_rejects_imported_record():
 
 def test_update_import_metadata_updates_pending_record():
     with (
-        patch.object(service.series_queries, "get_import_row", return_value={"impID": "imp-1", "Status": "Not Imported"}),
+        patch.object(
+            service.series_queries, "get_import_row", return_value={"impID": "imp-1", "Status": "Not Imported"}
+        ),
         patch.object(service.series_queries, "update_import_issue_number") as mock_update,
     ):
         result = service.update_import_metadata(None, " imp-1 ", " 2.5 ")

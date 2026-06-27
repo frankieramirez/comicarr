@@ -177,7 +177,8 @@ def _collect_file_groups(import_dir):
             else:
                 # Use top-level directory name as group
                 group_name = rel_path.split(os.sep)[0]
-                group_key = "folder:%s" % normalize_title(group_name)
+                folder_path = os.path.join(import_dir, group_name)
+                group_key = "folder:%s" % _filepath_to_impid(folder_path)
 
             if group_key not in file_groups:
                 file_groups[group_key] = {"group_name": group_name, "files": []}
