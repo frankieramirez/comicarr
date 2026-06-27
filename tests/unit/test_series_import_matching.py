@@ -191,6 +191,151 @@ def test_match_import_moves_files_before_marking_rows_imported(tmp_path):
     mock_match.assert_called_once_with("imp-1", "mal-123", "Berserk", issue_id=None)
 
 
+def test_match_import_move_mode_fails_when_destination_exists_without_marking_imported(tmp_path):
+    import_dir = tmp_path / "import" / "Berserk"
+    target_dir = tmp_path / "library" / "Berserk"
+    import_dir.mkdir(parents=True)
+    target_dir.mkdir(parents=True)
+    source_file = import_dir / "chapter 1.cbz"
+    destination_file = target_dir / "chapter 1.cbz"
+    source_file.write_text("new chapter")
+    destination_file.write_text("existing chapter")
+    config = SimpleNamespace(IMP_MOVE=True, IMP_RENAME=False, FILE_FORMAT="")
+
+    with (
+        patch.object(service.comicarr, "CONFIG", config),
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": str(target_dir)},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": str(source_file),
+                    "ComicFilename": "chapter 1.cbz",
+                    "IssueNumber": None,
+                }
+            ],
+        ),
+        patch("comicarr.updater.forceRescan") as mock_rescan,
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1"], "mal-123", comic_name="Berserk")
+
+    assert result["success"] is False
+    assert "already exists" in result["error"]
+    assert source_file.read_text() == "new chapter"
+    assert destination_file.read_text() == "existing chapter"
+    mock_rescan.assert_not_called()
+    mock_match.assert_not_called()
+
+
+def test_match_import_move_failure_rolls_back_prior_moves_without_marking_imported(tmp_path):
+    import_dir = tmp_path / "import" / "Berserk"
+    target_dir = tmp_path / "library" / "Berserk"
+    import_dir.mkdir(parents=True)
+    target_dir.mkdir(parents=True)
+    first_source = import_dir / "chapter 1.cbz"
+    second_source = import_dir / "chapter 2.cbz"
+    first_source.write_text("chapter one")
+    second_source.write_text("chapter two")
+    config = SimpleNamespace(IMP_MOVE=True, IMP_RENAME=False, FILE_FORMAT="")
+    original_move = service.shutil.move
+
+    def move_with_second_failure(source_path, destination_path):
+        if source_path == str(second_source):
+            raise OSError("disk full")
+        return original_move(source_path, destination_path)
+
+    with (
+        patch.object(service.comicarr, "CONFIG", config),
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": str(target_dir)},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": str(first_source),
+                    "ComicFilename": "chapter 1.cbz",
+                    "IssueNumber": None,
+                },
+                {
+                    "impID": "imp-2",
+                    "ComicLocation": str(second_source),
+                    "ComicFilename": "chapter 2.cbz",
+                    "IssueNumber": None,
+                },
+            ],
+        ),
+        patch("comicarr.updater.forceRescan") as mock_rescan,
+        patch.object(service.shutil, "move", side_effect=move_with_second_failure),
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1", "imp-2"], "mal-123", comic_name="Berserk")
+
+    assert result["success"] is False
+    assert "Failed to move import file" in result["error"]
+    assert first_source.read_text() == "chapter one"
+    assert second_source.read_text() == "chapter two"
+    assert not (target_dir / "chapter 1.cbz").exists()
+    assert not (target_dir / "chapter 2.cbz").exists()
+    mock_rescan.assert_not_called()
+    mock_match.assert_not_called()
+
+
+def test_match_import_rescan_failure_rolls_back_move_without_marking_imported(tmp_path):
+    import_dir = tmp_path / "import" / "Berserk"
+    target_dir = tmp_path / "library" / "Berserk"
+    import_dir.mkdir(parents=True)
+    target_dir.mkdir(parents=True)
+    source_file = import_dir / "chapter 1.cbz"
+    source_file.write_text("chapter")
+    config = SimpleNamespace(IMP_MOVE=True, IMP_RENAME=False, FILE_FORMAT="")
+
+    with (
+        patch.object(service.comicarr, "CONFIG", config),
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": str(target_dir)},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": str(source_file),
+                    "ComicFilename": "chapter 1.cbz",
+                    "IssueNumber": None,
+                }
+            ],
+        ),
+        patch("comicarr.updater.forceRescan", side_effect=RuntimeError("scan failed")) as mock_rescan,
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1"], "mal-123", comic_name="Berserk")
+
+    assert result["success"] is False
+    assert "Failed to rescan" in result["error"]
+    assert source_file.read_text() == "chapter"
+    assert not (target_dir / "chapter 1.cbz").exists()
+    mock_rescan.assert_called_once_with("mal-123")
+    mock_match.assert_not_called()
+
+
 def test_match_import_archive_mode_rescans_source_directory_before_marking_rows_imported(tmp_path):
     import_dir = tmp_path / "import" / "Berserk"
     target_dir = tmp_path / "library" / "Berserk"

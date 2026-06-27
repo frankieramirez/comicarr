@@ -357,22 +357,60 @@ def _destination_for_import_row(row, comic_id, comic_name, comic_location, issue
     return os.path.join(comic_location, destination_filename)
 
 
-def _move_import_rows(rows, comic_id, comic_name, comic_location, issue_id=None):
-    from comicarr import updater
+def _move_plan_import_rows(rows, comic_id, comic_name, comic_location, issue_id=None):
+    move_plan = []
+    destination_paths = set()
 
     for row in rows:
         source_path = row.get("ComicLocation")
         destination_path = _destination_for_import_row(row, comic_id, comic_name, comic_location, issue_id=issue_id)
+        if destination_path in destination_paths:
+            return _import_error("Multiple import files resolve to the same destination: %s" % destination_path)
+        if os.path.exists(destination_path):
+            return _import_error("Import destination already exists: %s" % destination_path)
+        destination_paths.add(destination_path)
+        move_plan.append((source_path, destination_path))
+
+    return {"success": True, "move_plan": move_plan}
+
+
+def _rollback_import_moves(moved_files):
+    rollback_errors = []
+    for source_path, destination_path in reversed(moved_files):
+        if not os.path.exists(destination_path):
+            continue
+        try:
+            shutil.move(destination_path, source_path)
+            logger.warn("[IMPORT-MATCH] Rolled back moved import file %s to %s" % (destination_path, source_path))
+        except (OSError, IOError) as e:
+            rollback_errors.append("%s -> %s: %s" % (destination_path, source_path, e))
+
+    if rollback_errors:
+        logger.error("[IMPORT-MATCH] Failed to roll back import moves: %s" % "; ".join(rollback_errors))
+
+
+def _move_import_rows(rows, comic_id, comic_name, comic_location, issue_id=None):
+    from comicarr import updater
+
+    move_plan = _move_plan_import_rows(rows, comic_id, comic_name, comic_location, issue_id=issue_id)
+    if not move_plan["success"]:
+        return move_plan
+
+    moved_files = []
+    for source_path, destination_path in move_plan["move_plan"]:
         logger.info("[IMPORT-MATCH] Moving %s to %s" % (source_path, destination_path))
 
         try:
             shutil.move(source_path, destination_path)
         except (OSError, IOError) as e:
+            _rollback_import_moves(moved_files)
             return _import_error("Failed to move import file %s to %s: %s" % (source_path, destination_path, e))
+        moved_files.append((source_path, destination_path))
 
     try:
         updater.forceRescan(comic_id)
     except Exception as e:
+        _rollback_import_moves(moved_files)
         return _import_error("Failed to rescan imported series %s: %s" % (comic_id, e))
 
     return {"success": True, "moved": len(rows), "archived": 0}
