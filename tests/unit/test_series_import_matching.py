@@ -53,6 +53,37 @@ def test_match_import_marks_record_imported_with_manual_match_metadata():
     )
 
 
+def test_clean_import_ids_handles_empty_scalar_and_duplicate_values():
+    assert service._clean_import_ids(None) == []
+    assert service._clean_import_ids("imp-1") == ["imp-1"]
+    assert service._clean_import_ids([" imp-1 ", None, "", "imp-1", "imp-2"]) == ["imp-1", "imp-2"]
+
+
+def test_match_import_empty_ids_does_not_add_or_finalize_manga():
+    with (
+        patch.object(service, "_ensure_import_series") as mock_ensure_series,
+        patch.object(service.series_queries, "get_comic_name", return_value="Existing Berserk"),
+        patch.object(service.series_queries, "get_comic_for_import") as mock_get_comic,
+        patch.object(service.series_queries, "get_import_rows") as mock_get_rows,
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, None, "mal-123", comic_name="Berserk")
+
+    assert result == {
+        "success": True,
+        "matched": 0,
+        "imported": 0,
+        "comic_id": "mal-123",
+        "comic_name": "Existing Berserk",
+        "moved": 0,
+        "archived": 0,
+    }
+    mock_ensure_series.assert_not_called()
+    mock_get_comic.assert_not_called()
+    mock_get_rows.assert_not_called()
+    mock_match.assert_not_called()
+
+
 def test_match_import_adds_missing_mal_manga_before_finalizing_rows():
     with (
         patch.object(service.series_queries, "get_comic_name", return_value=None),
@@ -465,5 +496,49 @@ def test_match_import_missing_target_location_does_not_mark_row_imported(tmp_pat
     assert result["success"] is False
     assert "no library directory" in result["error"]
     assert source_file.exists()
+    mock_rescan.assert_not_called()
+    mock_match.assert_not_called()
+
+
+def test_match_import_target_file_location_does_not_mark_row_imported(tmp_path):
+    import_dir = tmp_path / "import" / "Berserk"
+    library_dir = tmp_path / "library"
+    import_dir.mkdir(parents=True)
+    library_dir.mkdir(parents=True)
+    source_file = import_dir / "chapter 1.cbz"
+    target_file = library_dir / "Berserk"
+    source_file.write_text("chapter")
+    target_file.write_text("not a directory")
+    config = SimpleNamespace(IMP_MOVE=False, IMP_RENAME=False, FILE_FORMAT="")
+
+    with (
+        patch.object(service.comicarr, "CONFIG", config),
+        patch.object(service.series_queries, "get_comic_name", return_value="Berserk"),
+        patch.object(
+            service.series_queries,
+            "get_comic_for_import",
+            return_value={"ComicName": "Berserk", "ComicLocation": str(target_file)},
+        ),
+        patch.object(
+            service.series_queries,
+            "get_import_rows",
+            return_value=[
+                {
+                    "impID": "imp-1",
+                    "ComicLocation": str(source_file),
+                    "ComicFilename": "chapter 1.cbz",
+                    "IssueNumber": None,
+                }
+            ],
+        ),
+        patch("comicarr.updater.forceRescan") as mock_rescan,
+        patch.object(service.series_queries, "match_import") as mock_match,
+    ):
+        result = service.match_import(None, ["imp-1"], "mal-123", comic_name="Berserk")
+
+    assert result["success"] is False
+    assert "not a directory" in result["error"]
+    assert source_file.exists()
+    assert target_file.is_file()
     mock_rescan.assert_not_called()
     mock_match.assert_not_called()
