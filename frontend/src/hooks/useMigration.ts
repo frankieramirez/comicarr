@@ -33,11 +33,7 @@ export interface MigrationProgressResponse {
 }
 
 export type MigrationStatus =
-  | "idle"
-  | "validating"
-  | "migrating"
-  | "complete"
-  | "error";
+  "idle" | "validating" | "migrating" | "complete" | "error";
 
 /** Validates a Mylar3 source path and returns preview data. */
 export function usePreviewMigration(): UseMutationResult<

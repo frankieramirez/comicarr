@@ -29,6 +29,7 @@ export default function LibraryScanResults({
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset selection when server scan results change
     setSelectedIds(matchedResults.map((r) => r.match!.comicid));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);

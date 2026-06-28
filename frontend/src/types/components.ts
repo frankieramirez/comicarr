@@ -22,12 +22,7 @@ export interface StatusBadgeProps {
 
 /** Button variants */
 export type ButtonVariant =
-  | "default"
-  | "destructive"
-  | "outline"
-  | "secondary"
-  | "ghost"
-  | "link";
+  "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 export type ButtonSize = "default" | "sm" | "lg" | "icon";
 
 /** Toast types */

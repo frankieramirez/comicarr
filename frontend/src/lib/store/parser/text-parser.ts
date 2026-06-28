@@ -70,8 +70,7 @@ export function createTextParser<T extends SchemaDefinition>(
 
         const fieldKey = resolveAlias(rawKey);
         const fieldBuilder = schema[fieldKey] as
-          | FieldBuilder<unknown>
-          | undefined;
+          FieldBuilder<unknown> | undefined;
 
         if (!fieldBuilder) continue;
 

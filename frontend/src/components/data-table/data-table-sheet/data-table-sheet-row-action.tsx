@@ -63,8 +63,7 @@ export function DataTableSheetRowAction<
             onClick={() => {
               // FIXME:
               const filterValue = column?.getFilterValue() as
-                | undefined
-                | Array<unknown>;
+                undefined | Array<unknown>;
               const newValue = filterValue?.includes(value)
                 ? filterValue
                 : [...(filterValue || []), value];

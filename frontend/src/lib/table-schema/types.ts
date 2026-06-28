@@ -2,13 +2,7 @@ import type { DatePreset, Option } from "@/components/data-table/types";
 import type { JSX } from "react";
 
 export type ColKind =
-  | "string"
-  | "number"
-  | "boolean"
-  | "timestamp"
-  | "enum"
-  | "array"
-  | "record";
+  "string" | "number" | "boolean" | "timestamp" | "enum" | "array" | "record";
 
 /** The set of filter UI types. Used as the `F` generic on `ColBuilder<T, F>`. */
 export type FilterType = "input" | "checkbox" | "slider" | "timerange";

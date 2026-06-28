@@ -1,9 +1,5 @@
 export type PrimitiveType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "timestamp"
-  | "stringLiteral";
+  "string" | "number" | "boolean" | "timestamp" | "stringLiteral";
 
 // Field configuration stored internally
 export interface FieldConfig<T> {

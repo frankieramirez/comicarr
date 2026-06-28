@@ -7,12 +7,7 @@ export type SeriesStatus = "Active" | "Paused" | "Ended" | "Loading" | "Error";
 
 /** Issue status */
 export type IssueStatus =
-  | "Downloaded"
-  | "Wanted"
-  | "Skipped"
-  | "Snatched"
-  | "Archived"
-  | "Failed";
+  "Downloaded" | "Wanted" | "Skipped" | "Snatched" | "Archived" | "Failed";
 
 /** Comic series entity from getIndex/getComic */
 export interface Comic {
@@ -198,12 +193,7 @@ export interface ImportPendingSummary {
 
 /** Story Arc status for individual issues */
 export type ArcIssueStatus =
-  | "Downloaded"
-  | "Wanted"
-  | "Skipped"
-  | "Archived"
-  | "Read"
-  | "Added";
+  "Downloaded" | "Wanted" | "Skipped" | "Archived" | "Read" | "Added";
 
 /** Story Arc summary (list view) */
 export interface StoryArc {
