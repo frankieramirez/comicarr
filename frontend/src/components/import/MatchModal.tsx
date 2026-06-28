@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchComics, useSearchManga } from "@/hooks/useSearch";
 import { useContentSources } from "@/hooks/useContentSources";
-import { detectImportSearchMode } from "@/lib/importUtils";
+import {
+  detectImportSearchMode,
+  getImportGroupTypeLabel,
+  getImportIssueRange,
+} from "@/lib/importUtils";
 import type { ImportGroup, SearchResult } from "@/types";
 
 interface MatchModalProps {
@@ -57,6 +61,14 @@ function MatchModalContent({
     searchMode === "manga"
       ? "Search for a manga series..."
       : "Search for a comic series...";
+  const fileCount = importGroup?.FileCount ?? importGroup?.files.length ?? 0;
+  const matchContext = importGroup
+    ? [
+        getImportGroupTypeLabel(importGroup),
+        `${fileCount} file${fileCount === 1 ? "" : "s"}`,
+        getImportIssueRange(importGroup),
+      ].filter(Boolean)
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -77,8 +89,7 @@ function MatchModalContent({
                 {importGroup.ComicName}
                 {importGroup.Volume && ` (${importGroup.Volume})`}
                 {" - "}
-                {importGroup.FileCount} file
-                {importGroup.FileCount !== 1 ? "s" : ""}
+                {matchContext.join(" | ")}
               </p>
             )}
           </div>

@@ -28,6 +28,7 @@ Handles common naming conventions found in manga libraries:
     Title Vol.01 Ch.001.cbz
     Title 001.cbz              (bare number = chapter)
     Title v01.cbz              (volume only)
+    chapter 001.cbz            (when series_name is supplied)
 """
 
 import os
@@ -97,6 +98,18 @@ _PAT_BARE_NUMBER = re.compile(
     r"\s*$",
 )
 
+# Folder-context patterns. These infer the chapter from filenames that omit the
+# series title because the parent folder carries it.
+_PAT_CHAPTER_ONLY_LABEL = re.compile(
+    r"^(?:[Cc]h(?:apter)?\.?)\s*(?P<chapter>\d+(?:\.\d+)?)"
+    r"\s*$",
+)
+
+_PAT_CHAPTER_ONLY_NUMBER = re.compile(
+    r"^(?P<chapter>\d+(?:\.\d+)?)"
+    r"\s*$",
+)
+
 # Ordered list — first match wins.
 _PATTERNS = [
     _PAT_GROUP_FULL,
@@ -109,11 +122,14 @@ _PATTERNS = [
 ]
 
 
-def parse_manga_filename(filename):
+def parse_manga_filename(filename, series_name=None):
     """Parse a manga filename and return extracted metadata.
 
     Args:
         filename: The filename (with or without directory path) to parse.
+        series_name: Optional folder-derived series name. When supplied, the
+            parser can infer chapter-only names like ``chapter 1.cbz`` without
+            replacing the caller's series name.
 
     Returns:
         A dict with keys ``series_name``, ``chapter_number`` (float or None),
@@ -133,13 +149,72 @@ def parse_manga_filename(filename):
     if not stem or len(stem) > 512:
         return None
 
+    chapter_only = _parse_chapter_only_stem(stem)
+    if chapter_only is not None:
+        if not series_name:
+            return None
+        return _build_context_result(series_name, chapter_only)
+
     for pattern in _PATTERNS:
         m = pattern.match(stem)
         if m:
             return _build_result(m)
 
+    if series_name:
+        chapter = parse_manga_chapter_number(filename)
+        if chapter is not None:
+            return {
+                "series_name": str(series_name).strip(),
+                "chapter_number": chapter,
+                "volume_number": None,
+                "group": None,
+                "quality": None,
+            }
+
     # No pattern matched — unparseable.
     return None
+
+
+def parse_manga_chapter_number(filename):
+    """Return an inferred chapter number from a manga filename, or None."""
+    basename = os.path.basename(filename)
+    stem, ext = os.path.splitext(basename)
+    if ext.lower() not in VALID_EXTENSIONS:
+        return None
+
+    stem = stem.strip()
+    if not stem or len(stem) > 512:
+        return None
+
+    for pattern in _PATTERNS:
+        m = pattern.match(stem)
+        if m:
+            groups = m.groupdict()
+            return _to_chapter_number(groups.get("chapter"))
+
+    return _parse_chapter_only_stem(stem)
+
+
+def _parse_chapter_only_stem(stem):
+    """Parse chapter-only filename stems."""
+    for pattern in (_PAT_CHAPTER_ONLY_LABEL, _PAT_CHAPTER_ONLY_NUMBER):
+        m = pattern.match(stem)
+        if m:
+            return _to_chapter_number(m.group("chapter"))
+    return None
+
+
+def _build_context_result(series_name, chapter):
+    series = str(series_name).strip()
+    if not series:
+        return None
+    return {
+        "series_name": series,
+        "chapter_number": chapter,
+        "volume_number": None,
+        "group": None,
+        "quality": None,
+    }
 
 
 def _build_result(match):

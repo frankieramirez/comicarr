@@ -6,11 +6,17 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import type { ImportGroup, PaginationMeta, ScanProgress } from "@/types";
+import type {
+  ImportGroup,
+  ImportPendingSummary,
+  PaginationMeta,
+  ScanProgress,
+} from "@/types";
 
 interface ImportPendingResponse {
   imports: ImportGroup[];
   pagination: PaginationMeta;
+  summary?: ImportPendingSummary;
 }
 
 interface MatchImportResponse {
@@ -28,6 +34,12 @@ interface IgnoreImportResponse {
 
 interface DeleteImportResponse {
   deleted: number;
+}
+
+interface UpdateImportMetadataResponse {
+  success: boolean;
+  imp_id: string;
+  issue_number: string;
 }
 
 interface RefreshImportResponse {
@@ -102,6 +114,27 @@ export function useDeleteImport(): UseMutationResult<
       apiRequest<DeleteImportResponse>("DELETE", "/api/import", {
         imp_ids: impIds,
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["importPending"] });
+    },
+  });
+}
+
+export function useUpdateImportMetadata(): UseMutationResult<
+  UpdateImportMetadataResponse,
+  Error,
+  { impId: string; issueNumber: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ impId, issueNumber }) =>
+      apiRequest<UpdateImportMetadataResponse>(
+        "PATCH",
+        `/api/import/${impId}`,
+        {
+          issue_number: issueNumber,
+        },
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
     },

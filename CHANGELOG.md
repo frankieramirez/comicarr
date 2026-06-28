@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.3
+
+### Patch Changes
+
+- 2a6b0db: Fix manual import matching so selected files are finalized before pending import rows are marked imported.
+
 ## 0.18.2
 
 ### Patch Changes

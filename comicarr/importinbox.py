@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db, logger, manga_parser
 from comicarr.scanutil import COMIC_EXTENSIONS, name_similarity, normalize_title
 from comicarr.tables import comics
 
@@ -101,7 +101,7 @@ def inboxScan():
         # Step 1: Walk import directory and group files by parent folder
         file_groups = _collect_file_groups(import_dir)
 
-        total_files = sum(len(files) for files in file_groups.values())
+        total_files = sum(len(group_info["files"]) for group_info in file_groups.values())
         INBOX_SCAN_PROGRESS["total_files"] = total_files
         results["total_files"] = total_files
         logger.info("[IMPORT-INBOX] Found %d files in %d groups" % (total_files, len(file_groups)))
@@ -115,12 +115,13 @@ def inboxScan():
             # Step 3: Match each group against library series using ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {}
-                for group_name, files in file_groups.items():
-                    future = executor.submit(_match_group, group_name, files, series_list)
-                    futures[future] = group_name
+                for group_key, group_info in file_groups.items():
+                    future = executor.submit(_match_group, group_key, group_info, series_list)
+                    futures[future] = group_key
 
                 for future in as_completed(futures):
-                    group_name = futures[future]
+                    group_key = futures[future]
+                    group_name = file_groups[group_key]["group_name"]
                     INBOX_SCAN_PROGRESS["current_group"] = group_name
 
                     try:
@@ -134,7 +135,7 @@ def inboxScan():
                         results["errors"].append({"group": group_name, "error": str(e)})
                         INBOX_SCAN_PROGRESS["errors"].append(str(e))
 
-                    INBOX_SCAN_PROGRESS["processed_files"] += len(file_groups[group_name])
+                    INBOX_SCAN_PROGRESS["processed_files"] += len(file_groups[group_key]["files"])
 
         logger.info(
             "[IMPORT-INBOX] Scan complete. Auto-imported: %d, Queued: %d"
@@ -156,7 +157,7 @@ def inboxScan():
 def _collect_file_groups(import_dir):
     """Walk import_dir and group comic files by parent directory.
 
-    Returns dict: {group_name: [filepath, ...]}
+    Returns dict: {group_key: {"group_name": str, "files": [filepath, ...]}}
     """
     file_groups = {}
 
@@ -170,14 +171,18 @@ def _collect_file_groups(import_dir):
 
             if rel_path == ".":
                 # Files directly in import_dir — each is its own group
-                group_name = os.path.splitext(filename)[0]
+                parsed = manga_parser.parse_manga_filename(filename)
+                group_name = parsed["series_name"] if parsed else os.path.splitext(filename)[0]
+                group_key = "file:%s" % _filepath_to_impid(filepath)
             else:
                 # Use top-level directory name as group
                 group_name = rel_path.split(os.sep)[0]
+                folder_path = os.path.join(import_dir, group_name)
+                group_key = "folder:%s" % _filepath_to_impid(folder_path)
 
-            if group_name not in file_groups:
-                file_groups[group_name] = []
-            file_groups[group_name].append(filepath)
+            if group_key not in file_groups:
+                file_groups[group_key] = {"group_name": group_name, "files": []}
+            file_groups[group_key]["files"].append(filepath)
 
     return file_groups
 
@@ -203,7 +208,7 @@ def _load_library_series():
     return series_list
 
 
-def _match_group(group_name, files, series_list):
+def _match_group(group_key, group_info, series_list):
     """Match a file group against library series.
 
     If best match >= AUTO_IMPORT_CONFIDENCE, auto-import all files.
@@ -212,6 +217,8 @@ def _match_group(group_name, files, series_list):
     Returns dict with auto_imported and queued_for_review counts.
     """
     result = {"auto_imported": 0, "queued_for_review": 0}
+    group_name = group_info["group_name"]
+    files = group_info["files"]
 
     best_match = None
     best_score = 0.0
@@ -258,7 +265,7 @@ def _match_group(group_name, files, series_list):
             % (group_name, suggested_name or "none", confidence)
         )
         for filepath in files:
-            _queue_for_review(filepath, group_name, suggested_id, suggested_name, confidence)
+            _queue_for_review(filepath, group_key, group_name, suggested_id, suggested_name, confidence)
             result["queued_for_review"] += 1
 
     return result
@@ -274,6 +281,7 @@ def _auto_import_file(filepath, series, confidence):
     filename = os.path.basename(filepath)
     imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
+    chapter_number = _format_chapter_number(manga_parser.parse_manga_chapter_number(filename))
 
     db.upsert(
         "importresults",
@@ -289,6 +297,7 @@ def _auto_import_file(filepath, series, confidence):
             "SuggestedComicName": series.get("ComicName", ""),
             "MatchSource": "inbox",
             "DynamicName": series.get("DynamicName", ""),
+            "IssueNumber": chapter_number,
         },
         {"impID": imp_id},
     )
@@ -296,11 +305,13 @@ def _auto_import_file(filepath, series, confidence):
     logger.fdebug("[IMPORT-INBOX] Auto-imported: %s -> %s" % (filename, series.get("ComicName", "")))
 
 
-def _queue_for_review(filepath, group_name, suggested_id, suggested_name, confidence):
+def _queue_for_review(filepath, group_key, group_name, suggested_id, suggested_name, confidence):
     """Queue a file in importresults for manual review."""
     filename = os.path.basename(filepath)
     imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
+    parsed = manga_parser.parse_manga_filename(filename, series_name=group_name)
+    chapter_number = _format_chapter_number(parsed["chapter_number"]) if parsed else None
 
     db.upsert(
         "importresults",
@@ -314,11 +325,22 @@ def _queue_for_review(filepath, group_name, suggested_id, suggested_name, confid
             "SuggestedComicID": suggested_id,
             "SuggestedComicName": suggested_name,
             "MatchSource": "inbox",
+            "DynamicName": group_key,
+            "IssueNumber": chapter_number,
         },
         {"impID": imp_id},
     )
 
     logger.fdebug("[IMPORT-INBOX] Queued for review: %s" % filename)
+
+
+def _format_chapter_number(chapter_number):
+    """Format parsed chapter numbers for importresults.IssueNumber."""
+    if chapter_number is None:
+        return None
+    if float(chapter_number).is_integer():
+        return str(int(chapter_number))
+    return str(chapter_number)
 
 
 def run():

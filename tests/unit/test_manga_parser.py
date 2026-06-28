@@ -124,6 +124,48 @@ class TestExplicitChapterLabel:
         assert result["chapter_number"] == 1.0
 
 
+class TestFolderContextChapterOnly:
+    """Filenames where the parent folder provides the series name."""
+
+    def test_chapter_only_label_with_folder_series(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("chapter 1.cbz", series_name="Manga A")
+        assert result is not None
+        assert result["series_name"] == "Manga A"
+        assert result["chapter_number"] == 1.0
+        assert result["volume_number"] is None
+
+    def test_chapter_only_abbreviation_with_folder_series(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("Ch. 2.cbz", series_name="Manga A")
+        assert result is not None
+        assert result["series_name"] == "Manga A"
+        assert result["chapter_number"] == 2.0
+
+    def test_bare_number_with_folder_series(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("001.cbz", series_name="Manga A")
+        assert result is not None
+        assert result["series_name"] == "Manga A"
+        assert result["chapter_number"] == 1.0
+
+    def test_chapter_only_without_folder_series_stays_unparseable(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("chapter 1.cbz")
+        assert result is None
+
+    def test_parse_chapter_number_without_series(self):
+        from comicarr.manga_parser import parse_manga_chapter_number
+
+        assert parse_manga_chapter_number("chapter 1.cbz") == 1.0
+        assert parse_manga_chapter_number("Ch. 2.cbz") == 2.0
+        assert parse_manga_chapter_number("001.cbz") == 1.0
+
+
 class TestAbbreviatedVolChapter:
     """Pattern: Title Vol.01 Ch.001.cbz"""
 
