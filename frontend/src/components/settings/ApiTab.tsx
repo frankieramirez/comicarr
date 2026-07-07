@@ -4,6 +4,7 @@ import { SettingField } from "./SettingField";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Copy, RefreshCw } from "lucide-react";
+import { useGenerateApiKey } from "@/hooks/useConfig";
 
 interface ApiTabProps {
   config: Record<string, unknown>;
@@ -13,11 +14,19 @@ interface ApiTabProps {
 
 export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   const { addToast } = useToast();
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const generateApiKey = useGenerateApiKey();
+  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
+    null,
+  );
+  const displayedApiKey =
+    regeneratedApiKey ||
+    (formData.api_key as string) ||
+    (config.api_key as string) ||
+    "";
 
   const handleCopyApiKey = async () => {
     try {
-      await navigator.clipboard.writeText((config.api_key as string) ?? "");
+      await navigator.clipboard.writeText(displayedApiKey);
       addToast({
         type: "success",
         message: "API key copied to clipboard",
@@ -39,21 +48,18 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
       return;
     }
 
-    setIsRegenerating(true);
     try {
-      const newApiKey = crypto.randomUUID().replace(/-/g, "");
-      onChange("api_key", newApiKey);
+      const newApiKey = await generateApiKey.mutateAsync();
+      setRegeneratedApiKey(newApiKey);
       addToast({
         type: "success",
-        message: "API key regenerated. Remember to save your changes!",
+        message: "API key regenerated.",
       });
     } catch {
       addToast({
         type: "error",
         message: "Failed to regenerate API key",
       });
-    } finally {
-      setIsRegenerating(false);
     }
   };
 
@@ -71,9 +77,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
           <div className="flex space-x-2">
             <input
               type="text"
-              value={
-                (formData.api_key as string) || (config.api_key as string) || ""
-              }
+              value={displayedApiKey}
               readOnly
               className="flex-1 px-3 py-2 border border-input rounded-md bg-background font-mono text-sm"
             />
@@ -91,11 +95,11 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
               variant="outline"
               size="icon"
               onClick={handleRegenerateApiKey}
-              disabled={isRegenerating}
+              disabled={generateApiKey.isPending}
               title="Regenerate API key"
             >
               <RefreshCw
-                className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`}
+                className={`h-4 w-4 ${generateApiKey.isPending ? "animate-spin" : ""}`}
               />
             </Button>
           </div>

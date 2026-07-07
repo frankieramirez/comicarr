@@ -187,6 +187,15 @@ async def update_config(request: Request, ctx: AppContext = Depends(get_context)
     return result
 
 
+@router.post("/config/api-key/regenerate", dependencies=[Depends(require_session)])
+async def regenerate_api_key(ctx: AppContext = Depends(get_context)):
+    """Regenerate and persist the API key."""
+    result = await asyncio.to_thread(system_service.regenerate_api_key, ctx)
+    if not result["success"]:
+        return JSONResponse(status_code=500, content=result)
+    return result
+
+
 @router.put("/config/providers", dependencies=[Depends(require_session)])
 async def update_providers(request: Request, ctx: AppContext = Depends(get_context)):
     """Update Newznab/Torznab provider configuration."""

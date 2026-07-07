@@ -9,6 +9,12 @@ import { apiRequest } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import type { Config, ConfigUpdate } from "@/types";
 
+interface RegenerateApiKeyResponse {
+  success: boolean;
+  api_key?: string;
+  error?: string;
+}
+
 export function useConfig(): UseQueryResult<Config> {
   return useQuery({
     queryKey: ["config"],
@@ -43,30 +49,21 @@ export function useUpdateConfig(): UseMutationResult<
 }
 
 export function useGenerateApiKey(): UseMutationResult<string, Error, void> {
-  const updateConfig = useUpdateConfig();
-  const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      // Generate a new UUID for the API key
-      const newApiKey = crypto.randomUUID();
-
-      // Update the config with the new API key
-      await updateConfig.mutateAsync({ api_key: newApiKey });
-
-      return newApiKey;
+      const result = await apiRequest<RegenerateApiKeyResponse>(
+        "POST",
+        "/api/config/api-key/regenerate",
+      );
+      if (!result.success || !result.api_key) {
+        throw new Error(result.error || "Failed to regenerate API key");
+      }
+      return result.api_key;
     },
     onSuccess: () => {
-      addToast({
-        type: "success",
-        message: "API key regenerated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      addToast({
-        type: "error",
-        message: error.message || "Failed to regenerate API key",
-      });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
     },
   });
 }
