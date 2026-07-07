@@ -5,14 +5,15 @@ Covers: AppContext, EventBus, security (JWT, CSRF), exceptions, middleware.
 """
 
 import asyncio
+import errno
 import threading
 import time
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from comicarr.app.core.context import AppContext
-from comicarr.app.core.events import AppEvent, EventBus
+from comicarr.app.core.events import EventBus
 from comicarr.app.core.exceptions import (
     AuthError,
     ConfigError,
@@ -26,7 +27,6 @@ from comicarr.app.core.security import (
     generate_ephemeral_key,
     validate_jwt_token,
 )
-
 
 # =============================================================================
 # Test Context Factory
@@ -341,6 +341,98 @@ class TestCommonFilesystem:
         allowed = [str(tmp_path)]
         traversal = str(tmp_path) + "/../../../etc/passwd"
         assert not is_path_within_allowed_dirs(traversal, allowed)
+
+    def test_windows_hardlink_uses_os_link(self):
+        from comicarr.app.common.filesystem import file_ops
+
+        src = "C:/Downloads/book.cbz"
+        dst = "C:/Comics/book.cbz"
+        stat_result = MagicMock()
+        stat_result.st_nlink = 2
+
+        with (
+            patch("comicarr.app.common.filesystem.os.open", return_value=1) as mock_open,
+            patch("comicarr.app.common.filesystem.os.close") as mock_close,
+            patch("comicarr.app.common.filesystem.os.link") as mock_link,
+            patch("comicarr.app.common.filesystem.os.lstat", return_value=stat_result) as mock_lstat,
+        ):
+            assert file_ops(src, dst, file_opts="hardlink", os_detect="Windows") is True
+
+        mock_open.assert_called_once()
+        mock_close.assert_called_once_with(1)
+        mock_link.assert_called_once_with(src, dst)
+        mock_lstat.assert_called_once_with(dst)
+
+    def test_windows_hardlink_cross_device_falls_back_to_copy(self):
+        from comicarr.app.common.filesystem import file_ops
+
+        src = "C:/Downloads/book.cbz"
+        dst = "D:/Comics/book.cbz"
+
+        with (
+            patch("comicarr.app.common.filesystem.os.open", return_value=1),
+            patch("comicarr.app.common.filesystem.os.close"),
+            patch(
+                "comicarr.app.common.filesystem.os.link",
+                side_effect=OSError(errno.EXDEV, "Cross-device link"),
+            ) as mock_link,
+            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+        ):
+            assert file_ops(src, dst, file_opts="hardlink", os_detect="Windows") is True
+
+        mock_link.assert_called_once_with(src, dst)
+        mock_copy.assert_called_once_with(src, dst)
+
+    def test_windows_softlink_moves_then_creates_absolute_symlink(self):
+        from comicarr.app.common.filesystem import file_ops
+
+        src = "C:/Downloads/book.cbz"
+        dst = "C:/Comics/book.cbz"
+
+        with (
+            patch("comicarr.app.common.filesystem.shutil.move") as mock_move,
+            patch("comicarr.app.common.filesystem.os.path.lexists", return_value=False) as mock_lexists,
+            patch("comicarr.app.common.filesystem.os.remove") as mock_remove,
+            patch("comicarr.app.common.filesystem.os.symlink") as mock_symlink,
+            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+        ):
+            assert file_ops(src, dst, file_opts="softlink", os_detect="Windows") is True
+
+        mock_move.assert_called_once_with(src, dst)
+        mock_lexists.assert_called_once_with(src)
+        mock_remove.assert_not_called()
+        mock_symlink.assert_called_once_with(dst, src)
+        mock_copy.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("copy_side_effect", "expected"),
+        [
+            (None, True),
+            (Exception("copy failed"), False),
+        ],
+    )
+    def test_windows_softlink_failure_copies_destination_back(self, copy_side_effect, expected):
+        from comicarr.app.common.filesystem import file_ops
+
+        src = "C:/Downloads/book.cbz"
+        dst = "C:/Comics/book.cbz"
+
+        with (
+            patch("comicarr.app.common.filesystem.shutil.move") as mock_move,
+            patch("comicarr.app.common.filesystem.os.path.lexists", return_value=False),
+            patch("comicarr.app.common.filesystem.os.remove") as mock_remove,
+            patch(
+                "comicarr.app.common.filesystem.os.symlink",
+                side_effect=OSError("symlink denied"),
+            ) as mock_symlink,
+            patch("comicarr.app.common.filesystem.shutil.copy", side_effect=copy_side_effect) as mock_copy,
+        ):
+            assert file_ops(src, dst, file_opts="softlink", os_detect="Windows") is expected
+
+        mock_move.assert_called_once_with(src, dst)
+        mock_remove.assert_not_called()
+        mock_symlink.assert_called_once_with(dst, src)
+        mock_copy.assert_called_once_with(dst, src)
 
 
 # =============================================================================

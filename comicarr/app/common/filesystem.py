@@ -110,145 +110,93 @@ def file_ops(
         return True
 
     elif any([action_op == "hardlink", action_op == "softlink"]):
-        if os_detect is None or "windows" not in os_detect.lower():
-            # if it's an arc, then in needs to go reverse since we want to keep the src files (in the series directory)
-            if action_op == "hardlink":
-                # Open a file
-                try:
-                    fd = os.open(path, os.O_RDWR | os.O_CREAT)
-                    os.close(fd)
+        # if it's an arc, then in needs to go reverse since we want to keep the src files (in the series directory)
+        if action_op == "hardlink":
+            # Open a file
+            try:
+                fd = os.open(path, os.O_RDWR | os.O_CREAT)
+                os.close(fd)
 
-                    # Now create another copy of the above file.
-                    os.link(path, dst)
-                    log.info("Created hard link successfully!!")
-                except OSError as e:
-                    if e.errno == errno.EXDEV:
-                        log.warning(
-                            "["
-                            + str(e)
-                            + "] Hardlinking failure. Could not create hardlink - dropping down to copy mode so that this operation can complete. Intervention is required if you wish to continue using hardlinks."
-                        )
-                        try:
-                            shutil.copy(path, dst)
-                            log.debug("Successfully copied file to : " + dst)
-                            return True
-                        except Exception as e:
-                            log.error("[COPY] error : %s" % e)
-                            return False
-                    else:
-                        log.warning(
-                            "["
-                            + str(e)
-                            + "] Hardlinking failure. Could not create hardlink - Intervention is required if you wish to continue using hardlinks."
-                        )
-                        return False
-
-                hardlinks = os.lstat(dst).st_nlink
-                if hardlinks > 1:
-                    log.info("Created hard link [" + str(hardlinks) + "] successfully!! (" + dst + ")")
-                else:
-                    log.warning("Hardlink cannot be verified. You should probably verify that it is created properly.")
-
-                return True
-
-            elif action_op == "softlink":
-                try:
-                    # first we need to copy the file to the new location, then create the symlink pointing from new -> original
-                    if not arc:
-                        shutil.move(path, dst)
-                        if os.path.lexists(path):
-                            os.remove(path)
-                        if softlink_type == "absolute":
-                            os.symlink(dst, path)
-                            log.debug("Successfully created softlink [" + dst + " --> " + path + "]")
-                        else:
-                            os.symlink(os.path.relpath(dst, os.path.dirname(path)), path)
-                            log.debug(
-                                "Successfully created (relative) softlink ["
-                                + os.path.relpath(dst, os.path.dirname(path))
-                                + " --> "
-                                + path
-                                + "]"
-                            )
-
-                    else:
-                        if softlink_type == "absolute":
-                            os.symlink(path, dst)
-                            log.debug("Successfully created softlink [" + path + " --> " + dst + "]")
-                        else:
-                            os.symlink(os.path.relpath(path, os.path.dirname(dst)), dst)
-                            log.debug(
-                                "Successfully created (relative) softlink ["
-                                + os.path.relpath(path, os.path.dirname(dst))
-                                + " --> "
-                                + dst
-                                + "]"
-                            )
-                except OSError as e:
+                # Now create another copy of the above file.
+                os.link(path, dst)
+                log.info("Created hard link successfully!!")
+            except OSError as e:
+                if e.errno == errno.EXDEV:
                     log.warning(
                         "["
                         + str(e)
-                        + "] Unable to create symlink. Dropping down to copy mode so that this operation can continue."
+                        + "] Hardlinking failure. Could not create hardlink - dropping down to copy mode so that this operation can complete. Intervention is required if you wish to continue using hardlinks."
                     )
                     try:
-                        shutil.copy(dst, path)
-                        log.debug("Successfully copied file [" + dst + " --> " + path + "]")
+                        shutil.copy(path, dst)
+                        log.debug("Successfully copied file to : " + dst)
+                        return True
                     except Exception as e:
                         log.error("[COPY] error : %s" % e)
                         return False
-
-                return True
-
-        else:
-            # Not ready just yet.
-            pass
-
-            # softlinks = shortcut (normally junctions are called softlinks, but for this it's being called a softlink)
-            # hardlinks = MUST reside on the same drive as the original
-            # junctions = not used (for directories across same machine only but different drives)
-
-            # option 1
-            # this one needs to get tested
-            # import ctypes
-            # kdll = ctypes.windll.LoadLibrary("kernel32.dll")
-            # kdll.CreateSymbolicLinkW(path, dst, 0)
-
-            # option 2
-            if file_opts == "hardlink":
-                try:
-                    os.system(r"mklink /H dst path")
-                    log.debug("Successfully hardlinked file [" + dst + " --> " + path + "]")
-                except OSError as e:
+                else:
                     log.warning(
                         "["
-                        + e
-                        + "] Unable to create symlink. Dropping down to copy mode so that this operation can continue."
+                        + str(e)
+                        + "] Hardlinking failure. Could not create hardlink - Intervention is required if you wish to continue using hardlinks."
                     )
-                    try:
-                        shutil.copy(dst, path)
-                        log.debug("Successfully copied file [" + dst + " --> " + path + "]")
-                    except Exception:
-                        return False
+                    return False
 
-            elif file_opts == "softlink":  # ie. shortcut.
-                try:
+            hardlinks = os.lstat(dst).st_nlink
+            if hardlinks > 1:
+                log.info("Created hard link [" + str(hardlinks) + "] successfully!! (" + dst + ")")
+            else:
+                log.warning("Hardlink cannot be verified. You should probably verify that it is created properly.")
+
+            return True
+
+        elif action_op == "softlink":
+            try:
+                # first we need to copy the file to the new location, then create the symlink pointing from new -> original
+                if not arc:
                     shutil.move(path, dst)
                     if os.path.lexists(path):
                         os.remove(path)
-                    os.system(r"mklink dst path")
-                    log.debug("Successfully created symlink [" + dst + " --> " + path + "]")
-                except OSError as e:
-                    raise e
-                    log.warning(
-                        "["
-                        + e
-                        + "] Unable to create softlink. Dropping down to copy mode so that this operation can continue."
-                    )
-                    try:
-                        shutil.copy(dst, path)
-                        log.debug("Successfully copied file [" + dst + " --> " + path + "]")
-                    except Exception:
-                        return False
+                    if softlink_type == "absolute":
+                        os.symlink(dst, path)
+                        log.debug("Successfully created softlink [" + dst + " --> " + path + "]")
+                    else:
+                        os.symlink(os.path.relpath(dst, os.path.dirname(path)), path)
+                        log.debug(
+                            "Successfully created (relative) softlink ["
+                            + os.path.relpath(dst, os.path.dirname(path))
+                            + " --> "
+                            + path
+                            + "]"
+                        )
+
+                else:
+                    if softlink_type == "absolute":
+                        os.symlink(path, dst)
+                        log.debug("Successfully created softlink [" + path + " --> " + dst + "]")
+                    else:
+                        os.symlink(os.path.relpath(path, os.path.dirname(dst)), dst)
+                        log.debug(
+                            "Successfully created (relative) softlink ["
+                            + os.path.relpath(path, os.path.dirname(dst))
+                            + " --> "
+                            + dst
+                            + "]"
+                        )
+            except OSError as e:
+                log.warning(
+                    "["
+                    + str(e)
+                    + "] Unable to create symlink. Dropping down to copy mode so that this operation can continue."
+                )
+                try:
+                    shutil.copy(dst, path)
+                    log.debug("Successfully copied file [" + dst + " --> " + path + "]")
+                except Exception as e:
+                    log.error("[COPY] error : %s" % e)
+                    return False
+
+            return True
 
     else:
         return False
