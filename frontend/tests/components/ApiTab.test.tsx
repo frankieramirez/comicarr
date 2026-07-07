@@ -33,8 +33,8 @@ describe("ApiTab", () => {
 
     render(
       <ApiTab
-        config={{ api_key: "old-api-key", comicvine_enabled: false }}
-        formData={{ api_key: "old-api-key", comicvine_enabled: false }}
+        config={{ api_key_set: true, comicvine_enabled: false }}
+        formData={{ comicvine_enabled: false }}
         onChange={onChange}
       />,
     );

@@ -8,10 +8,13 @@ interface NotificationsTabProps {
 }
 
 export function NotificationsTab({
-  config: _config,
+  config,
   formData,
   onChange,
 }: NotificationsTabProps) {
+  const secretPlaceholder = (indicator: string, fallback: string) =>
+    config[indicator] ? "Saved - enter a new value to change" : fallback;
+
   return (
     <div className="space-y-6">
       {/* Telegram */}
@@ -74,8 +77,15 @@ export function NotificationsTab({
               label="Webhook URL"
               value={(formData.discord_webhook_url as string) || ""}
               onChange={(v) => onChange("discord_webhook_url", v as string)}
-              helpText="Discord channel webhook URL"
-              placeholder="https://discord.com/api/webhooks/..."
+              helpText={
+                config.discord_webhook_url_set && !formData.discord_webhook_url
+                  ? "Discord webhook is configured. Enter a new URL to change it."
+                  : "Discord channel webhook URL"
+              }
+              placeholder={secretPlaceholder(
+                "discord_webhook_url_set",
+                "https://discord.com/api/webhooks/...",
+              )}
             />
             <SettingField
               label="Notify on snatch"
@@ -104,8 +114,15 @@ export function NotificationsTab({
               label="Webhook URL"
               value={(formData.slack_webhook_url as string) || ""}
               onChange={(v) => onChange("slack_webhook_url", v as string)}
-              helpText="Slack incoming webhook URL"
-              placeholder="https://hooks.slack.com/services/..."
+              helpText={
+                config.slack_webhook_url_set && !formData.slack_webhook_url
+                  ? "Slack webhook is configured. Enter a new URL to change it."
+                  : "Slack incoming webhook URL"
+              }
+              placeholder={secretPlaceholder(
+                "slack_webhook_url_set",
+                "https://hooks.slack.com/services/...",
+              )}
             />
             <SettingField
               label="Notify on snatch"
@@ -134,7 +151,16 @@ export function NotificationsTab({
               label="Webhook URL"
               value={(formData.mattermost_webhook_url as string) || ""}
               onChange={(v) => onChange("mattermost_webhook_url", v as string)}
-              helpText="Mattermost incoming webhook URL"
+              helpText={
+                config.mattermost_webhook_url_set &&
+                !formData.mattermost_webhook_url
+                  ? "Mattermost webhook is configured. Enter a new URL to change it."
+                  : "Mattermost incoming webhook URL"
+              }
+              placeholder={secretPlaceholder(
+                "mattermost_webhook_url_set",
+                "https://mattermost.example.com/hooks/...",
+              )}
             />
             <SettingField
               label="Notify on snatch"
@@ -291,7 +317,15 @@ export function NotificationsTab({
               type="password"
               value={(formData.prowl_keys as string) || ""}
               onChange={(v) => onChange("prowl_keys", v as string)}
-              helpText="Comma-separated Prowl API keys"
+              helpText={
+                config.prowl_keys_set && !formData.prowl_keys
+                  ? "Prowl API keys are configured. Enter new keys to change them."
+                  : "Comma-separated Prowl API keys"
+              }
+              placeholder={secretPlaceholder(
+                "prowl_keys_set",
+                "Comma-separated Prowl API keys",
+              )}
             />
             <SettingField
               label="Notify on snatch"

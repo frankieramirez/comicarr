@@ -26,7 +26,15 @@ def _make_test_ctx(**overrides):
     config.HTTP_USERNAME = "admin"
     config.HTTP_PASSWORD = "$2b$12$LJ3m4ys5Cq2n5o/xBp6Mj.abcdefghijklmnopqrstuv"  # bcrypt hash
     config.ENABLE_HTTPS = False
-    config.API_KEY = "test_api_key_32chars_here_pad00"
+    config.API_KEY = "configured-api-key"
+    config.COMICVINE_API = "configured-comicvine-key"
+    config.AI_API_KEY = None
+    config.METRON_PASSWORD = None
+    config.MAL_CLIENT_ID = None
+    config.PROWL_KEYS = "configured-prowl-keys"
+    config.SLACK_WEBHOOK_URL = "configured-slack-webhook"
+    config.MATTERMOST_WEBHOOK_URL = "configured-mattermost-webhook"
+    config.DISCORD_WEBHOOK_URL = "configured-discord-webhook"
     config.SECURE_DIR = "/tmp/test_secure"
     config.OPDS_USERNAME = None
     config.OPDS_PASSWORD = None
@@ -264,11 +272,47 @@ class TestConfigService:
         assert "http_password" not in result
         assert "HTTP_PASSWORD" not in result
 
-    def test_get_safe_config_includes_api_key(self):
-        """get_safe_config includes api_key for read-only display."""
+    def test_get_safe_config_redacts_long_lived_secrets(self):
+        """get_safe_config exposes secret indicators without secret values."""
         ctx = _make_test_ctx()
         result = system_service.get_safe_config(ctx)
-        assert "api_key" in result
+
+        redacted_keys = [
+            "api_key",
+            "comicvine_api",
+            "prowl_keys",
+            "slack_webhook_url",
+            "mattermost_webhook_url",
+            "discord_webhook_url",
+        ]
+        for key in redacted_keys:
+            assert key not in result
+
+        assert result["api_key_set"] is True
+        assert result["comicvine_api_set"] is True
+        assert result["prowl_keys_set"] is True
+        assert result["slack_webhook_url_set"] is True
+        assert result["mattermost_webhook_url_set"] is True
+        assert result["discord_webhook_url_set"] is True
+
+    def test_get_safe_config_secret_indicators_false_when_empty(self):
+        """Secret indicators are False when existing config values are empty."""
+        ctx = _make_test_ctx()
+        ctx.config.API_KEY = ""
+        ctx.config.COMICVINE_API = "None"
+        ctx.config.PROWL_KEYS = None
+        ctx.config.SLACK_WEBHOOK_URL = ""
+        ctx.config.MATTERMOST_WEBHOOK_URL = "None"
+        ctx.config.DISCORD_WEBHOOK_URL = None
+
+        result = system_service.get_safe_config(ctx)
+
+        assert result["api_key_set"] is False
+        assert result["comicvine_api_set"] is False
+        assert result["prowl_keys_set"] is False
+        assert result["slack_webhook_url_set"] is False
+        assert result["mattermost_webhook_url_set"] is False
+        assert result["discord_webhook_url_set"] is False
 
     def test_get_safe_config_includes_new_keys(self):
         """get_safe_config includes all frontend-needed keys."""

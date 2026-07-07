@@ -12,6 +12,7 @@ import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 import { SaveButton } from "@/components/settings/SaveButton";
 import PageHeader from "@/components/layout/PageHeader";
+import { prepareConfigSaveData } from "@/lib/configSave";
 
 type SectionId =
   | "general"
@@ -105,10 +106,7 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const saveData = { ...formData };
-      if (!saveData.ai_api_key && config?.ai_api_key_set) {
-        delete saveData.ai_api_key;
-      }
+      const saveData = prepareConfigSaveData(formData, config);
       await updateConfigMutation.mutateAsync(saveData);
       addToast({ type: "success", message: "Settings saved successfully" });
       setOriginalData(formData);

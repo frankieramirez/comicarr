@@ -18,13 +18,19 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
     null,
   );
-  const displayedApiKey =
-    regeneratedApiKey ||
-    (formData.api_key as string) ||
-    (config.api_key as string) ||
-    "";
+  const displayedApiKey = regeneratedApiKey || "";
+  const apiKeyIsSet = (config.api_key_set as boolean) || false;
+  const comicvineApiIsSet = (config.comicvine_api_set as boolean) || false;
 
   const handleCopyApiKey = async () => {
+    if (!displayedApiKey) {
+      addToast({
+        type: "error",
+        message: "Regenerate the API key before copying it.",
+      });
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(displayedApiKey);
       addToast({
@@ -78,6 +84,11 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
             <input
               type="text"
               value={displayedApiKey}
+              placeholder={
+                apiKeyIsSet
+                  ? "Configured - regenerate to view a new key"
+                  : "No API key configured"
+              }
               readOnly
               className="flex-1 px-3 py-2 border border-input rounded-md bg-background font-mono text-sm"
             />
@@ -86,6 +97,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
               variant="outline"
               size="icon"
               onClick={handleCopyApiKey}
+              disabled={!displayedApiKey}
               title="Copy to clipboard"
             >
               <Copy className="h-4 w-4" />
@@ -116,11 +128,19 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
         >
           <SettingField
             label="Comic Vine API Key"
-            value={formData.comicvine_api as string | undefined}
-            type="text"
+            value={(formData.comicvine_api as string | undefined) || ""}
+            type="password"
             onChange={(value) => onChange("comicvine_api", value as string)}
-            placeholder="Enter your 40-character Comic Vine API key"
-            helpText="Get your API key from https://comicvine.gamespot.com/api/"
+            placeholder={
+              comicvineApiIsSet
+                ? "Key saved (enter new value to change)"
+                : "Enter your 40-character Comic Vine API key"
+            }
+            helpText={
+              comicvineApiIsSet && !formData.comicvine_api
+                ? "Comic Vine API key is configured. Enter a new value to change it."
+                : "Get your API key from https://comicvine.gamespot.com/api/"
+            }
           />
           <SettingField
             label="Verify SSL"

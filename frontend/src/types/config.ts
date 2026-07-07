@@ -14,6 +14,7 @@ export interface Config {
 
   // API
   api_key?: string;
+  api_key_set?: boolean;
   api_enabled?: boolean;
 
   // Download clients
@@ -50,6 +51,7 @@ export interface Config {
 
   // Comic Vine
   comicvine_api?: string;
+  comicvine_api_set?: boolean;
 
   // Search providers
   newznab?: NewznabProvider[];
@@ -68,10 +70,17 @@ export interface Config {
   // AI
   ai_base_url?: string;
   ai_api_key?: string;
+  ai_api_key_set?: boolean;
   ai_model?: string;
   ai_timeout?: number;
   ai_rpm_limit?: number;
   ai_daily_token_limit?: number;
+
+  // Redacted notification secrets
+  prowl_keys_set?: boolean;
+  slack_webhook_url_set?: boolean;
+  mattermost_webhook_url_set?: boolean;
+  discord_webhook_url_set?: boolean;
 
   // Any additional config fields
   [key: string]: unknown;
