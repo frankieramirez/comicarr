@@ -4,11 +4,7 @@ Tests for comicarr.app.system domain — Phase 1.
 Covers: auth login/logout, SSE streaming, config endpoints, JWT cookies.
 """
 
-import threading
-import time
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 import comicarr
 
@@ -18,7 +14,6 @@ if comicarr.LOG_LEVEL is None:
 
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.security import (
-    COOKIE_NAME,
     create_session_token,
     validate_jwt_token,
 )
@@ -388,6 +383,25 @@ class TestConfigService:
         args = ctx.config.process_kwargs.call_args[0][0]
         assert "COMIC_DIR" in args
         assert "API_KEY" not in args
+
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_persists_new_key(self, mock_token_hex):
+        """regenerate_api_key creates, persists, and returns a server-side key."""
+        ctx = _make_test_ctx()
+        result = system_service.regenerate_api_key(ctx)
+
+        assert result == {"success": True, "api_key": "a" * 32}
+        assert ctx.config.API_KEY == "a" * 32
+        mock_token_hex.assert_called_once_with(16)
+        ctx.config.writeconfig.assert_called_once_with()
+        ctx.config.configure.assert_called_once_with(update=True, startup=False)
+
+    def test_regenerate_api_key_rejects_missing_config(self):
+        """regenerate_api_key fails when config is not loaded."""
+        ctx = _make_test_ctx(config=None)
+        result = system_service.regenerate_api_key(ctx)
+        assert result["success"] is False
+        assert result["error"] == "Config not loaded"
 
     def test_update_config_accepts_new_writable_keys(self):
         """update_config accepts newly added writable keys."""

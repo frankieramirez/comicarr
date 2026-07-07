@@ -21,6 +21,7 @@ import json
 import os
 import platform
 import re
+import secrets
 import shlex
 import subprocess
 import sys
@@ -486,6 +487,24 @@ def update_config(ctx, key_values):
     comicarr.CONFIG = ctx.config
 
     return {"success": True}
+
+
+def regenerate_api_key(ctx):
+    """Regenerate and persist the full API key."""
+    import comicarr
+
+    if not ctx.config:
+        return {"success": False, "error": "Config not loaded"}
+
+    new_api_key = secrets.token_hex(16)
+    ctx.config.API_KEY = new_api_key
+    ctx.config.writeconfig()
+    ctx.config.configure(update=True, startup=False)
+
+    # Sync back to globals during transition
+    comicarr.CONFIG = ctx.config
+
+    return {"success": True, "api_key": new_api_key}
 
 
 def update_providers(ctx, provider_data):
