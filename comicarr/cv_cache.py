@@ -35,10 +35,33 @@ class CVCache:
         self.lock = threading.Lock()
         self._init_db()
 
+    def _connect(self):
+        """Open a cache database connection with SQLite settings matching the main DB."""
+        conn = sqlite3.connect(self.db_path, timeout=15)
+        pragmas = [
+            "PRAGMA busy_timeout = 15000",
+            "PRAGMA synchronous = NORMAL",
+            "PRAGMA journal_size_limit = 67108864",
+            "PRAGMA journal_mode = WAL",
+            "PRAGMA cache_size = -64000",
+        ]
+
+        cursor = conn.cursor()
+        try:
+            for pragma in pragmas:
+                try:
+                    cursor.execute(pragma)
+                except Exception as e:
+                    logger.warn("[CV_CACHE] Unable to apply SQLite setting '%s': %s" % (pragma, e))
+        finally:
+            cursor.close()
+
+        return conn
+
     def _init_db(self):
         """Create the cache table if it doesn't exist."""
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -86,7 +109,7 @@ class CVCache:
         cache_key = self._get_cache_key(url)
 
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute(
@@ -133,7 +156,7 @@ class CVCache:
         expires_at = current_time + ttl
 
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute(
@@ -155,7 +178,7 @@ class CVCache:
         current_time = int(time.time())
 
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM cv_metadata_cache WHERE expires_at < ?", (current_time,))
@@ -173,7 +196,7 @@ class CVCache:
     def clear_all(self):
         """Clear all cache entries."""
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM cv_metadata_cache")
@@ -197,7 +220,7 @@ class CVCache:
         current_time = int(time.time())
 
         with self.lock:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
 
