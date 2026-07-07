@@ -315,8 +315,14 @@ class TestConfigService:
             result = system_service.get_safe_config(ctx)
             assert result["nzb_downloader_label"] == label, "NZB %d should be %s" % (val, label)
         # Torrent: 0=Watchfolder, 1=uTorrent, 2=rTorrent, 3=Transmission, 4=Deluge, 5=qBittorrent
-        for val, label in [(0, "Watchfolder"), (1, "uTorrent"), (2, "rTorrent"),
-                           (3, "Transmission"), (4, "Deluge"), (5, "qBittorrent")]:
+        for val, label in [
+            (0, "Watchfolder"),
+            (1, "uTorrent"),
+            (2, "rTorrent"),
+            (3, "Transmission"),
+            (4, "Deluge"),
+            (5, "qBittorrent"),
+        ]:
             ctx.config.TORRENT_DOWNLOADER = val
             result = system_service.get_safe_config(ctx)
             assert result["torrent_downloader_label"] == label, "Torrent %d should be %s" % (val, label)
@@ -375,10 +381,13 @@ class TestConfigService:
     def test_update_config_filters_sensitive_keys_from_mixed_payload(self):
         """update_config applies valid keys and silently filters sensitive ones."""
         ctx = _make_test_ctx()
-        result = system_service.update_config(ctx, {
-            "comic_dir": "/new/path",
-            "api_key": "hacked",
-        })
+        result = system_service.update_config(
+            ctx,
+            {
+                "comic_dir": "/new/path",
+                "api_key": "hacked",
+            },
+        )
         assert result["success"] is True
         args = ctx.config.process_kwargs.call_args[0][0]
         assert "COMIC_DIR" in args
@@ -406,12 +415,15 @@ class TestConfigService:
     def test_update_config_accepts_new_writable_keys(self):
         """update_config accepts newly added writable keys."""
         ctx = _make_test_ctx()
-        result = system_service.update_config(ctx, {
-            "comicvine_enabled": True,
-            "preferred_quality": "high",
-            "use_minsize": True,
-            "minsize": 50,
-        })
+        result = system_service.update_config(
+            ctx,
+            {
+                "comicvine_enabled": True,
+                "preferred_quality": "high",
+                "use_minsize": True,
+                "minsize": 50,
+            },
+        )
         assert result["success"] is True
         args = ctx.config.process_kwargs.call_args[0][0]
         assert "COMICVINE_ENABLED" in args
