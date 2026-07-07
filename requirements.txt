@@ -7,20 +7,29 @@
 
 #### ESSENTIAL LIBRARIES FOR MAIN FUNCTIONALITY ####
 APScheduler>=3.6.3
+bcrypt>=5.0.0
 beautifulsoup4>=4.8.2
 cfscrape>=2.0.8
+cryptography>=46.0.5
+fastapi>=0.115.0
 feedparser>=5.2.1
 mokkari>=3.0.0
 natsort>=3.5.2
+openai>=2.30.0
 packaging>=22.0
 Pillow>=10.1
 pycryptodome>=3.19.0
+PyJWT>=2.8.0
 pystun>=0.1.0
+python-multipart>=0.0.9
 pytz>=2019.3
 rarfile>=4.0
 requests[socks]>=2.22.0
 simplejson>=3.17.0
+SQLAlchemy>=2.0
+sse-starlette>=3.0.0
 tenacity>=8.2.3
 tzlocal>=2.0.0
 urllib3<2
 user_agent2>=2021.12.11
+uvicorn[standard]>=0.30.0
