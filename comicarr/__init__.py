@@ -335,6 +335,10 @@ BACKENDSTATUS_CV = "up"
 PROVIDER_STATUS = {}
 
 
+def _add_recurring_job(**kwargs):
+    return SCHED.add_job(max_instances=1, coalesce=True, **kwargs)
+
+
 def initialize(config_file):
     with INIT_LOCK:
         global \
@@ -811,7 +815,7 @@ def start():
     with INIT_LOCK:
         if _INITIALIZED:
             # scheduler jobs - add them all in a paused state initially
-            UPDATER_SCHEDULER = SCHED.add_job(
+            UPDATER_SCHEDULER = _add_recurring_job(
                 func=updater.watchlist_updater,
                 id="dbupdater",
                 next_run_time=datetime.datetime.utcnow(),
@@ -822,7 +826,7 @@ def start():
             UPDATER_SCHEDULER.pause()
 
             ss = searchit.CurrentSearcher()
-            SEARCH_SCHEDULER = SCHED.add_job(
+            SEARCH_SCHEDULER = _add_recurring_job(
                 func=ss.run,
                 id="search",
                 next_run_time=datetime.datetime.utcnow(),
@@ -832,7 +836,7 @@ def start():
             SEARCH_SCHEDULER.pause()
 
             ws = weeklypullit.Weekly()
-            WEEKLY_SCHEDULER = SCHED.add_job(
+            WEEKLY_SCHEDULER = _add_recurring_job(
                 func=ws.run,
                 id="weekly",
                 name="Weekly Pullist",
@@ -842,7 +846,7 @@ def start():
             WEEKLY_SCHEDULER.pause()
 
             rs = rsscheckit.tehMain()
-            RSS_SCHEDULER = SCHED.add_job(
+            RSS_SCHEDULER = _add_recurring_job(
                 func=rs.run,
                 id="rss",
                 name="RSS Feeds",
@@ -853,7 +857,7 @@ def start():
             RSS_SCHEDULER.pause()
 
             vs = versioncheckit.CheckVersion()
-            VERSION_SCHEDULER = SCHED.add_job(
+            VERSION_SCHEDULER = _add_recurring_job(
                 func=vs.run,
                 id="version",
                 name="Check Version",
@@ -862,7 +866,7 @@ def start():
             VERSION_SCHEDULER.pause()
 
             fm = postprocessor.FolderCheck()
-            MONITOR_SCHEDULER = SCHED.add_job(
+            MONITOR_SCHEDULER = _add_recurring_job(
                 func=fm.run,
                 id="monitor",
                 name="Folder Monitor",
@@ -872,7 +876,7 @@ def start():
 
             from comicarr import importinbox
 
-            IMPORTINBOX_SCHEDULER = SCHED.add_job(
+            IMPORTINBOX_SCHEDULER = _add_recurring_job(
                 func=importinbox.run,
                 id="importinbox",
                 name="Import Inbox Scanner",

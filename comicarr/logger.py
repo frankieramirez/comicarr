@@ -47,6 +47,12 @@ except AttributeError:
 LOG_LANG = language
 LOG_CHARSET = charset
 
+
+def _current_log_level():
+    """Return the numeric log level, treating startup/unconfigured state as quiet."""
+    return comicarr.LOG_LEVEL or 0
+
+
 if not LOG_LANG.startswith("en"):
     # Simple rotating log handler that uses RotatingFileHandler
     class RotatingLogger(object):
@@ -141,7 +147,7 @@ if not LOG_LANG.startswith("en"):
                 method = ""
                 lineno = ""
 
-            if level != "DEBUG" or comicarr.LOG_LEVEL >= 2:
+            if level != "DEBUG" or _current_log_level() >= 2:
                 comicarr.LOGLIST.insert(0, (helpers.now(), message, level, threadname))
                 if len(comicarr.LOGLIST) > 2500:
                     del comicarr.LOGLIST[-1]
@@ -160,15 +166,15 @@ if not LOG_LANG.startswith("en"):
     filename = "comicarr.log"
 
     def debug(message, *args, **kwargs):
-        if comicarr.LOG_LEVEL > 1:
+        if _current_log_level() > 1:
             comicarr_log.log(message, "DEBUG", *args, **kwargs)
 
     def fdebug(message, *args, **kwargs):
-        if comicarr.LOG_LEVEL > 1:
+        if _current_log_level() > 1:
             comicarr_log.log(message, "DEBUG", *args, **kwargs)
 
     def info(message, *args, **kwargs):
-        if comicarr.LOG_LEVEL > 0:
+        if _current_log_level() > 0:
             comicarr_log.log(message, "INFO", *args, **kwargs)
 
     def warn(message, *args, **kwargs):
