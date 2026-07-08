@@ -126,6 +126,18 @@ class test_the_requires(object):
     def resolve_module_name(self, requirement_name):
         return self.mappings.get(requirement_name.lower(), requirement_name)
 
+    def apply_import_compat(self, module):
+        if module.lower() != "cfscrape":
+            return
+
+        try:
+            from urllib3.util import ssl_ as urllib3_ssl
+
+            if not hasattr(urllib3_ssl, "DEFAULT_CIPHERS"):
+                urllib3_ssl.DEFAULT_CIPHERS = "DEFAULT"
+        except Exception:
+            pass
+
     def check_it(self):
         if not self.req_file_present:
             print(
@@ -140,11 +152,13 @@ class test_the_requires(object):
         for key, value in self.mod_list.items():
             try:
                 module = self.resolve_module_name(key)
+                self.apply_import_compat(module)
                 try:
                     importlib.import_module(module, package=None)
                 except Exception:
+                    self.apply_import_compat(module.lower())
                     importlib.import_module(module.lower(), package=None)
-            except ModuleNotFoundError:
+            except (ModuleNotFoundError, ImportError):
                 failures[key] = value
 
         if failures:
