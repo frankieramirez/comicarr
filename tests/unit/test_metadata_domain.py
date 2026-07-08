@@ -1,12 +1,15 @@
 """
 Tests for comicarr.app.metadata domain — Phase 2.
 
-Covers: search routing, comic/issue info lookup, metatag operations.
+Covers: search routing, comic/issue info lookup, metatag operations,
+artwork path validation and cover fetch allowlisting.
 """
 
+from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PIL import Image
 
 from comicarr.app.core.context import AppContext
 from comicarr.app.metadata import service as metadata_service
@@ -27,6 +30,13 @@ def _make_test_ctx(**overrides):
     }
     defaults.update(overrides)
     return AppContext(**defaults)
+
+
+def _jpeg_bytes(size=(2, 2), color="red"):
+    """Minimal valid JPEG bytes for cache/fetch tests."""
+    buf = BytesIO()
+    Image.new("RGB", size, color=color).save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 # =============================================================================
@@ -107,7 +117,7 @@ class TestSearchManga:
             "pagination": {"total": 1},
         }
 
-        result = metadata_service.search_manga(ctx, name="One Piece")
+        metadata_service.search_manga(ctx, name="One Piece")
         mock_mangadex.search_manga.assert_called_once()
 
 
@@ -204,3 +214,135 @@ class TestMetatag:
         result = metadata_service.manual_metatag(ctx, "issue123")
         assert result["success"] is False
         assert "tagging failed" in result["error"]
+
+
+# =============================================================================
+# Artwork path validation + cover fetch allowlist
+# =============================================================================
+
+
+class TestGetArtwork:
+    @pytest.mark.parametrize(
+        "comic_id",
+        [
+            "",
+            "../etc/passwd",
+            "/etc/passwd",
+            "foo/bar",
+            r"foo\bar",
+            "..",
+            "....//",
+            None,
+        ],
+    )
+    def test_rejects_unsafe_comic_id(self, comic_id, tmp_path):
+        """Unsafe comic_id values return None without path escape."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+
+        with patch("comicarr.db") as mock_db:
+            result = metadata_service.get_artwork(ctx, comic_id)
+            assert result is None
+            mock_db.select_all.assert_not_called()
+
+    def test_accepts_numeric_and_prefixed_ids_cache_hit(self, tmp_path):
+        """Safe ComicIDs (digits, 4050-N, md-*) return cached path on hit."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "4050-12345"
+        cache_file = tmp_path / (comic_id + ".jpg")
+        cache_file.write_bytes(_jpeg_bytes())
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        assert result == str(cache_file)
+        assert str(result).startswith(str(tmp_path))
+
+    def test_md_comic_id_cache_hit(self, tmp_path):
+        """MangaDex-style md-* ids are accepted for cache paths."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "md-abc123"
+        cache_file = tmp_path / (comic_id + ".jpg")
+        cache_file.write_bytes(_jpeg_bytes())
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        assert result == str(cache_file)
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    @patch("comicarr.db")
+    def test_ssrf_url_does_not_call_network(self, mock_db, mock_get, tmp_path):
+        """Loopback / evil hosts must not trigger requests.get; returns None."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        mock_db.select_all.return_value = [
+            {
+                "ComicID": "12345",
+                "ComicImageURL": "http://127.0.0.1/secret",
+                "ComicImageALTURL": "https://evil.example/cover.jpg",
+            }
+        ]
+
+        result = metadata_service.get_artwork(ctx, "12345")
+        assert result is None
+        mock_get.assert_not_called()
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    @patch("comicarr.db")
+    def test_allowlisted_fetch_writes_cache(self, mock_db, mock_get, tmp_path):
+        """Allowlisted ComicVine host is fetched and written under CACHE_DIR."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "12345"
+        jpeg = _jpeg_bytes()
+        mock_db.select_all.return_value = [
+            {
+                "ComicID": comic_id,
+                "ComicImageURL": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+                "ComicImageALTURL": None,
+            }
+        ]
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {"Content-Type": "image/jpeg", "Content-Length": str(len(jpeg))}
+        mock_resp.content = jpeg
+        mock_get.return_value = mock_resp
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        expected = str(tmp_path / (comic_id + ".jpg"))
+        assert result == expected
+        assert (tmp_path / (comic_id + ".jpg")).read_bytes() == jpeg
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args.kwargs
+        assert call_kwargs.get("allow_redirects") is False
+        assert call_kwargs.get("timeout") == (5, 10)
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    @patch("comicarr.db")
+    def test_allowlisted_metron_host(self, mock_db, mock_get, tmp_path):
+        """static.metron.cloud is allowed for cover fetches."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "99"
+        jpeg = _jpeg_bytes(color="blue")
+        mock_db.select_all.return_value = [
+            {
+                "ComicID": comic_id,
+                "ComicImageURL": "https://static.metron.cloud/media/series/cover.jpg",
+                "ComicImageALTURL": None,
+            }
+        ]
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {"Content-Type": "image/jpeg"}
+        mock_resp.content = jpeg
+        mock_get.return_value = mock_resp
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        assert result == str(tmp_path / (comic_id + ".jpg"))
+        mock_get.assert_called_once()
+
+    def test_missing_cache_dir_returns_none(self):
+        """No CACHE_DIR configured returns None."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = None
+        assert metadata_service.get_artwork(ctx, "12345") is None

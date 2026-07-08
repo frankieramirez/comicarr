@@ -13,9 +13,6 @@ Metadata domain router — comic search, metadata lookup, metatag operations.
 Low cross-domain dependency, well-bounded. Validates the domain pattern.
 """
 
-from urllib.parse import urlparse
-
-import requests
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -24,6 +21,7 @@ from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import require_session
 from comicarr.app.metadata import service as metadata_service
+from comicarr.app.metadata.image_fetch import fetch_allowed_image
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 
@@ -124,48 +122,25 @@ def get_artwork(comic_id: str, ctx: AppContext = Depends(get_context)):
     return FileResponse(image_path, media_type="image/jpeg")
 
 
-# Allowed domains for image proxy to prevent SSRF
-_ALLOWED_IMAGE_DOMAINS = {
-    "myanimelist.net",
-    "cdn.myanimelist.net",
-    "api-cdn.myanimelist.net",
-    "uploads.mangadex.org",
-}
-
-
-_ALLOWED_IMAGE_CONTENT_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif",
-    "image/avif",
-}
-
-
 @router.get("/image-proxy", dependencies=[Depends(require_session)])
 def image_proxy(url: str = Query(..., description="External image URL to proxy")):
     """Proxy external cover images to avoid CORS issues.
 
-    Only allows requests to known manga metadata CDNs.
+    Only allows requests to known metadata CDNs (shared allowlist with get_artwork).
     """
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        return JSONResponse({"error": "Invalid URL scheme"}, status_code=403)
-    if parsed.hostname not in _ALLOWED_IMAGE_DOMAINS:
-        return JSONResponse({"error": "Domain not allowed"}, status_code=403)
-    if parsed.username or parsed.password:
-        return JSONResponse({"error": "Credentials in URL not allowed"}, status_code=403)
+    result = fetch_allowed_image(url)
+    if result is None:
+        # Distinguish policy reject (403) vs fetch/type failure (502) is hard after
+        # the shared helper; treat as forbidden for non-allowlisted URLs via helper log.
+        from comicarr.app.metadata.image_fetch import is_allowed_image_url
 
-    try:
-        resp = requests.get(url, timeout=(5, 10), headers={"User-Agent": "Comicarr/1.0"}, allow_redirects=False)
-        resp.raise_for_status()
-        content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
-        if content_type not in _ALLOWED_IMAGE_CONTENT_TYPES:
-            return JSONResponse({"error": "Invalid content type"}, status_code=502)
-        return Response(content=resp.content, media_type=content_type)
-    except Exception as e:
-        logger.error("[IMAGE-PROXY] Failed to fetch %s: %s" % (url, e))
+        if not is_allowed_image_url(url):
+            return JSONResponse({"error": "Domain not allowed"}, status_code=403)
+        logger.error("[IMAGE-PROXY] Failed to fetch %s" % url)
         return JSONResponse({"error": "Failed to fetch image"}, status_code=502)
+
+    content, content_type = result
+    return Response(content=content, media_type=content_type)
 
 
 @router.get("/series-image/{series_id}", dependencies=[Depends(require_session)])

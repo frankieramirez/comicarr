@@ -108,27 +108,52 @@ def get_issue_info(ctx, issue_id):
     return None
 
 
+# ComicIDs: CV volume ids (digits / 4050-N), MangaDex (md-*), MAL (mal-*), etc.
+_SAFE_COMIC_ID_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
+
+
+def _is_safe_comic_id(comic_id):
+    """Reject empty, path separators, traversal, and absolute path segments."""
+    if comic_id is None:
+        return False
+    comic_id = str(comic_id)
+    if not comic_id or ".." in comic_id:
+        return False
+    if "/" in comic_id or "\\" in comic_id:
+        return False
+    return bool(_SAFE_COMIC_ID_RE.fullmatch(comic_id))
+
+
 def get_artwork(ctx, comic_id):
     """Get or cache comic artwork. Returns file path or None."""
-    from PIL import Image
+    from io import BytesIO
 
+    from comicarr.app.common.filesystem import is_path_within_allowed_dirs
+    from comicarr.app.metadata.image_fetch import fetch_allowed_image
+
+    if not _is_safe_comic_id(comic_id):
+        logger.fdebug("[METADATA-artwork] Rejected unsafe comic_id: %r" % (comic_id,))
+        return None
+
+    comic_id = str(comic_id)
     cache_dir = getattr(ctx.config, "CACHE_DIR", None) if ctx.config else None
     if not cache_dir:
         return None
 
-    image_path = os.path.join(cache_dir, str(comic_id) + ".jpg")
+    image_path = os.path.join(cache_dir, comic_id + ".jpg")
+    if not is_path_within_allowed_dirs(image_path, [cache_dir]):
+        logger.error("[METADATA-artwork] Cache path outside CACHE_DIR for comic_id=%s" % comic_id)
+        return None
 
     if os.path.isfile(image_path):
         try:
             img = Image.open(image_path)
             if img.get_format_mimetype():
                 return image_path
-        except Exception:
-            pass
+        except Exception as e:
+            logger.fdebug("[METADATA-artwork] Cached image unreadable for %s: %s" % (comic_id, e))
 
-    # Try fetching from DB URLs
-    import urllib.request
-
+    # Try fetching from DB URLs (allowlisted hosts only)
     from sqlalchemy import select
 
     from comicarr import db
@@ -141,24 +166,26 @@ def get_artwork(ctx, comic_id):
     img_data = None
     for url_key in ["ComicImageURL", "ComicImageALTURL"]:
         url = comic[0].get(url_key)
-        if url:
-            try:
-                img_data = urllib.request.urlopen(url).read()
-                break
-            except Exception:
-                continue
+        if not url:
+            continue
+        result = fetch_allowed_image(url)
+        if result is not None:
+            img_data = result[0]
+            break
 
     if img_data:
         try:
-            from io import BytesIO
-
             img = Image.open(BytesIO(img_data))
             if img.get_format_mimetype():
+                # Re-check containment before write
+                if not is_path_within_allowed_dirs(image_path, [cache_dir]):
+                    logger.error("[METADATA-artwork] Refusing write outside CACHE_DIR for %s" % comic_id)
+                    return None
                 with open(image_path, "wb") as f:
                     f.write(img_data)
                 return image_path
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("[METADATA-artwork] Failed to cache artwork for %s: %s" % (comic_id, e))
 
     return None
 
