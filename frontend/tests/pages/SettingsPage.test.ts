@@ -8,6 +8,7 @@ describe("prepareConfigSaveData", () => {
         api_key: "do-not-send",
         ai_api_key: "",
         comicvine_api: "",
+        mal_client_id: "",
         prowl_keys: "",
         slack_webhook_url: "",
         mattermost_webhook_url: "",
@@ -17,6 +18,7 @@ describe("prepareConfigSaveData", () => {
       {
         ai_api_key_set: true,
         comicvine_api_set: true,
+        mal_client_id_set: true,
         prowl_keys_set: true,
         slack_webhook_url_set: true,
         mattermost_webhook_url_set: true,

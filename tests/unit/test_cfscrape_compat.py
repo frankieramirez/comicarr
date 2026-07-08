@@ -17,7 +17,7 @@
 
 from urllib3.util import ssl_ as urllib3_ssl
 
-from comicarr.cfscrape_compat import ensure_default_ciphers_for_cfscrape
+from comicarr.cfscrape_compat import URLLIB3_1X_DEFAULT_CIPHERS, ensure_default_ciphers_for_cfscrape
 
 
 def test_ensure_default_ciphers_for_cfscrape_restores_removed_urllib3_symbol(monkeypatch):
@@ -25,4 +25,4 @@ def test_ensure_default_ciphers_for_cfscrape_restores_removed_urllib3_symbol(mon
 
     ensure_default_ciphers_for_cfscrape()
 
-    assert urllib3_ssl.DEFAULT_CIPHERS == "DEFAULT"
+    assert urllib3_ssl.DEFAULT_CIPHERS == URLLIB3_1X_DEFAULT_CIPHERS

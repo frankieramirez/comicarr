@@ -6,6 +6,33 @@ import { render, screen, waitFor } from "../test-utils";
 import { ApiTab } from "@/components/settings/ApiTab";
 
 describe("ApiTab", () => {
+  it("shows saved state for a redacted Metron password", () => {
+    const onChange = vi.fn();
+
+    render(
+      <ApiTab
+        config={{
+          comicvine_enabled: true,
+          metron_password_set: true,
+        }}
+        formData={{
+          comicvine_enabled: true,
+          metron_password: "",
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(
+      screen.getByPlaceholderText("Password saved (enter new value to change)"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Metron password is configured. Enter a new value to change it.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("regenerates through the dedicated endpoint and copies the returned key", async () => {
     const returnedApiKey = "b".repeat(32);
     const onChange = vi.fn();

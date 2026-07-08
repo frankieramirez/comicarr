@@ -976,7 +976,7 @@ def start():
             if CONFIG.ENABLE_DDL is True:
                 queue_schedule("ddl_queue", "start")
                 if CONFIG.DDL_STUCK_NOTIFY is True:
-                    SCHED.add_job(
+                    _add_recurring_job(
                         func=helpers.ddl_health_check,
                         id="ddl_health",
                         name="DDL Health Check",

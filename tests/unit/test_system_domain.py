@@ -456,6 +456,19 @@ class TestConfigService:
         assert result["success"] is False
         assert result["error"] == "Config not loaded"
 
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_reports_persistence_failure(self, mock_token_hex):
+        """regenerate_api_key reports persistence failures through the result contract."""
+        ctx = _make_test_ctx()
+        ctx.config.configure.side_effect = RuntimeError("cannot reload")
+
+        result = system_service.regenerate_api_key(ctx)
+
+        assert result == {"success": False, "error": "Failed to persist new API key"}
+        mock_token_hex.assert_called_once_with(16)
+        ctx.config.writeconfig.assert_called_once_with()
+        ctx.config.configure.assert_called_once_with(update=True, startup=False)
+
     def test_update_config_accepts_new_writable_keys(self):
         """update_config accepts newly added writable keys."""
         ctx = _make_test_ctx()

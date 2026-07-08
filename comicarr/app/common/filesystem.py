@@ -112,12 +112,7 @@ def file_ops(
     elif any([action_op == "hardlink", action_op == "softlink"]):
         # if it's an arc, then in needs to go reverse since we want to keep the src files (in the series directory)
         if action_op == "hardlink":
-            # Open a file
             try:
-                fd = os.open(path, os.O_RDWR | os.O_CREAT)
-                os.close(fd)
-
-                # Now create another copy of the above file.
                 os.link(path, dst)
                 log.info("Created hard link successfully!!")
             except OSError as e:
@@ -190,8 +185,12 @@ def file_ops(
                     + "] Unable to create symlink. Dropping down to copy mode so that this operation can continue."
                 )
                 try:
-                    shutil.copy(dst, path)
-                    log.debug("Successfully copied file [" + dst + " --> " + path + "]")
+                    if arc:
+                        shutil.copy(path, dst)
+                        log.debug("Successfully copied file [" + path + " --> " + dst + "]")
+                    else:
+                        shutil.copy(dst, path)
+                        log.debug("Successfully copied file [" + dst + " --> " + path + "]")
                 except Exception as e:
                     log.error("[COPY] error : %s" % e)
                     return False

@@ -499,8 +499,12 @@ def regenerate_api_key(ctx):
 
     new_api_key = secrets.token_hex(16)
     ctx.config.API_KEY = new_api_key
-    ctx.config.writeconfig()
-    ctx.config.configure(update=True, startup=False)
+    try:
+        ctx.config.writeconfig()
+        ctx.config.configure(update=True, startup=False)
+    except Exception as e:
+        logger.error("[API-KEY] Failed to persist regenerated API key: %s" % e)
+        return {"success": False, "error": "Failed to persist new API key"}
 
     # Sync back to globals during transition
     comicarr.CONFIG = ctx.config

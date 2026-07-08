@@ -351,15 +351,11 @@ class TestCommonFilesystem:
         stat_result.st_nlink = 2
 
         with (
-            patch("comicarr.app.common.filesystem.os.open", return_value=1) as mock_open,
-            patch("comicarr.app.common.filesystem.os.close") as mock_close,
             patch("comicarr.app.common.filesystem.os.link") as mock_link,
             patch("comicarr.app.common.filesystem.os.lstat", return_value=stat_result) as mock_lstat,
         ):
             assert file_ops(src, dst, file_opts="hardlink", os_detect="Windows") is True
 
-        mock_open.assert_called_once()
-        mock_close.assert_called_once_with(1)
         mock_link.assert_called_once_with(src, dst)
         mock_lstat.assert_called_once_with(dst)
 
@@ -370,8 +366,6 @@ class TestCommonFilesystem:
         dst = "D:/Comics/book.cbz"
 
         with (
-            patch("comicarr.app.common.filesystem.os.open", return_value=1),
-            patch("comicarr.app.common.filesystem.os.close"),
             patch(
                 "comicarr.app.common.filesystem.os.link",
                 side_effect=OSError(errno.EXDEV, "Cross-device link"),
@@ -433,6 +427,24 @@ class TestCommonFilesystem:
         mock_remove.assert_not_called()
         mock_symlink.assert_called_once_with(dst, src)
         mock_copy.assert_called_once_with(dst, src)
+
+    def test_arc_softlink_failure_copies_source_to_destination(self):
+        from comicarr.app.common.filesystem import file_ops
+
+        src = "/downloads/book.cbz"
+        dst = "/comics/book.cbz"
+
+        with (
+            patch(
+                "comicarr.app.common.filesystem.os.symlink",
+                side_effect=OSError("symlink denied"),
+            ) as mock_symlink,
+            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+        ):
+            assert file_ops(src, dst, arc=True, arc_fileops="softlink") is True
+
+        mock_symlink.assert_called_once_with(src, dst)
+        mock_copy.assert_called_once_with(src, dst)
 
 
 # =============================================================================

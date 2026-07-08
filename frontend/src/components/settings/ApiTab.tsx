@@ -21,6 +21,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   const displayedApiKey = regeneratedApiKey || "";
   const apiKeyIsSet = (config.api_key_set as boolean) || false;
   const comicvineApiIsSet = (config.comicvine_api_set as boolean) || false;
+  const metronPasswordIsSet = (config.metron_password_set as boolean) || false;
 
   const handleCopyApiKey = async () => {
     if (!displayedApiKey) {
@@ -186,7 +187,16 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
             value={formData.metron_password as string | undefined}
             type="password"
             onChange={(value) => onChange("metron_password", value as string)}
-            placeholder="Your Metron password"
+            placeholder={
+              metronPasswordIsSet
+                ? "Password saved (enter new value to change)"
+                : "Your Metron password"
+            }
+            helpText={
+              metronPasswordIsSet && !formData.metron_password
+                ? "Metron password is configured. Enter a new value to change it."
+                : "Register at https://metron.cloud"
+            }
           />
         </SettingGroup>
       )}

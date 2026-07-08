@@ -21,6 +21,7 @@ _RECURRING_JOB_IDS = {
     "version",
     "monitor",
     "importinbox",
+    "ddl_health",
 }
 
 
@@ -50,6 +51,7 @@ def test_add_recurring_job_sets_single_instance_options(monkeypatch):
 def test_listed_recurring_jobs_use_recurring_helper():
     tree = ast.parse(_INIT_PATH.read_text(encoding="utf-8"))
     helper_job_ids = set()
+    direct_interval_job_ids = []
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -61,6 +63,27 @@ def test_listed_recurring_jobs_use_recurring_helper():
             if keyword.arg == "id" and isinstance(keyword.value, ast.Constant):
                 helper_job_ids.add(keyword.value.value)
 
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != "add_job":
+            continue
+        if not isinstance(node.func.value, ast.Name) or node.func.value.id != "SCHED":
+            continue
+
+        has_interval_trigger = False
+        job_id = "<unknown>"
+        for keyword in node.keywords:
+            if keyword.arg == "trigger" and isinstance(keyword.value, ast.Call):
+                if isinstance(keyword.value.func, ast.Name) and keyword.value.func.id == "IntervalTrigger":
+                    has_interval_trigger = True
+            if keyword.arg == "id" and isinstance(keyword.value, ast.Constant):
+                job_id = keyword.value.value
+
+        if has_interval_trigger:
+            direct_interval_job_ids.append(job_id)
+
     missing_job_ids = _RECURRING_JOB_IDS - helper_job_ids
 
     assert not missing_job_ids
+    assert not direct_interval_job_ids

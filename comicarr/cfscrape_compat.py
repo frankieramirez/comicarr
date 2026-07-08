@@ -17,13 +17,32 @@
 
 """Compatibility helpers for importing legacy cfscrape on urllib3 2.x."""
 
+URLLIB3_1X_DEFAULT_CIPHERS = ":".join(
+    [
+        "ECDHE+AESGCM",
+        "ECDHE+CHACHA20",
+        "DHE+AESGCM",
+        "DHE+CHACHA20",
+        "ECDH+AESGCM",
+        "DH+AESGCM",
+        "ECDH+AES",
+        "DH+AES",
+        "RSA+AESGCM",
+        "RSA+AES",
+        "!aNULL",
+        "!eNULL",
+        "!MD5",
+        "!DSS",
+    ]
+)
+
 
 def ensure_default_ciphers_for_cfscrape():
     """Restore the urllib3 symbol cfscrape imports on urllib3 1.x."""
     from urllib3.util import ssl_ as urllib3_ssl
 
     if not hasattr(urllib3_ssl, "DEFAULT_CIPHERS"):
-        urllib3_ssl.DEFAULT_CIPHERS = "DEFAULT"
+        urllib3_ssl.DEFAULT_CIPHERS = URLLIB3_1X_DEFAULT_CIPHERS
 
 
 def import_cfscrape():

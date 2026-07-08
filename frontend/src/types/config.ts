@@ -71,6 +71,7 @@ export interface Config {
   ai_base_url?: string;
   ai_api_key?: string;
   ai_api_key_set?: boolean;
+  metron_password_set?: boolean;
   ai_model?: string;
   ai_timeout?: number;
   ai_rpm_limit?: number;

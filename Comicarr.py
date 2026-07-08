@@ -30,6 +30,25 @@ sys.path.insert(1, os.path.join(os.path.dirname(__file__), "lib"))
 
 from packaging.requirements import InvalidRequirement, Requirement
 
+URLLIB3_1X_DEFAULT_CIPHERS = ":".join(
+    [
+        "ECDHE+AESGCM",
+        "ECDHE+CHACHA20",
+        "DHE+AESGCM",
+        "DHE+CHACHA20",
+        "ECDH+AESGCM",
+        "DH+AESGCM",
+        "ECDH+AES",
+        "DH+AES",
+        "RSA+AESGCM",
+        "RSA+AES",
+        "!aNULL",
+        "!eNULL",
+        "!MD5",
+        "!DSS",
+    ]
+)
+
 
 class test_the_requires(object):
     def __init__(self):
@@ -40,11 +59,13 @@ class test_the_requires(object):
 
         prog_dir = os.path.dirname(full_path)
         data_dir = prog_dir
-        if len(sys.argv) > 0:
-            ddir = [x for x in sys.argv if "datadir" in sys.argv]
-            if ddir:
-                ddir = re.sub("--datadir=", "".join(ddir)).strip()
-                data_dir = re.sub("--datadir ", ddir).strip()
+        for index, arg in enumerate(sys.argv[1:], start=1):
+            if arg == "--datadir" and index + 1 < len(sys.argv):
+                data_dir = sys.argv[index + 1].strip()
+                break
+            if arg.startswith("--datadir="):
+                data_dir = arg.split("=", 1)[1].strip()
+                break
 
         docker = False
         d_path = "/proc/self/cgroup"
@@ -134,7 +155,7 @@ class test_the_requires(object):
             from urllib3.util import ssl_ as urllib3_ssl
 
             if not hasattr(urllib3_ssl, "DEFAULT_CIPHERS"):
-                urllib3_ssl.DEFAULT_CIPHERS = "DEFAULT"
+                urllib3_ssl.DEFAULT_CIPHERS = URLLIB3_1X_DEFAULT_CIPHERS
         except Exception:
             pass
 
@@ -155,10 +176,10 @@ class test_the_requires(object):
                 self.apply_import_compat(module)
                 try:
                     importlib.import_module(module, package=None)
-                except Exception:
+                except ModuleNotFoundError:
                     self.apply_import_compat(module.lower())
                     importlib.import_module(module.lower(), package=None)
-            except (ModuleNotFoundError, ImportError):
+            except Exception:
                 failures[key] = value
 
         if failures:

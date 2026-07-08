@@ -144,13 +144,13 @@ Model style after existing backend tests: pytest, plain asserts, no type hints.
 
 ## Done criteria
 
-- [ ] All `CVCache` sqlite connections use one helper.
-- [ ] The helper applies busy timeout and WAL-related pragmas.
-- [ ] Cache set/get/expiry behavior remains unchanged.
-- [ ] Focused and full unit tests pass.
-- [ ] Ruff check and format check pass for touched Python files.
-- [ ] No files outside the in-scope list are modified.
-- [ ] `plans/README.md` status row updated.
+- [x] All `CVCache` sqlite connections use one helper.
+- [x] The helper applies busy timeout and WAL-related pragmas.
+- [x] Cache set/get/expiry behavior remains unchanged.
+- [x] Focused and full unit tests pass.
+- [x] Ruff check and format check pass for touched Python files.
+- [x] No files outside the in-scope list are modified.
+- [x] `plans/README.md` status row updated.
 
 ## STOP conditions
 
