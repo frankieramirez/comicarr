@@ -60,7 +60,6 @@ images/generated-*.png
 # Claude agents/skills cache
 .agents/
 .claude/
-AGENTS.md
 
 # Internal planning docs (compound-engineering plugin)
 docs/plans/

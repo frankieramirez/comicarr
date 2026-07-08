@@ -42,6 +42,10 @@ npm run typecheck  # Run TypeScript checks
 npm run build   # Production build
 ```
 
+When using `npm run dev` with a separately running backend, Comicarr defaults
+to port **8090**. The Vite proxy targets `http://localhost:8090` (override with
+`VITE_API_PROXY_TARGET` if needed).
+
 ### Running Tests
 
 ```bash
@@ -58,8 +62,9 @@ npm run test:run
 
 ### Python
 
-- **No type hints** — the codebase does not use them currently
-- **No auto-formatters enforced** — but `ruff` is used for linting in CI
+- **Formatting**: `ruff format comicarr/` is enforced in CI; run it before pushing
+- **Lint**: `ruff check comicarr/`
+- **Type hints**: not required on large legacy modules; allowed in new `comicarr/app/**` code to match neighbors
 - **Always catch specific exceptions** — use `except Exception as e`, never bare `except:`
 - **Logging pattern**: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
 - **Config access**: `comicarr.CONFIG.option_name`

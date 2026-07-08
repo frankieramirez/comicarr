@@ -8,7 +8,7 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for an
 
 Comicarr is a Python 3 automated comic book (CBR/CBZ) downloader and library manager. It monitors comic series, downloads issues from NZB/torrent sources, handles post-processing with metadata tagging, and provides a modern React web interface for management.
 
-Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19 frontend and performance improvements.
+Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19 frontend and performance improvements. The HTTP layer is FastAPI + uvicorn (`comicarr.app.main`).
 
 ## Commands
 
@@ -30,22 +30,26 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 | Add dependency | `uv add <package>` |
 | Add dev dep | `uv add --optional dev <package>` |
 
+Default HTTP port is **8090**. Vite dev proxy targets `http://localhost:8090` (override with `VITE_API_PROXY_TARGET`).
+
 ## Architecture
 
 [Comicarr Code Index]|root: ./comicarr
-|Web Layer:{webserve.py:REST routes/CherryPy (~9700 lines),api.py:REST API (~1900 lines),webstart.py:CherryPy init,auth.py:authentication}
-|Business Logic:{search.py:provider search (~4300 lines),postprocessor.py:post-processing (~3600 lines),cv.py:ComicVine API,metron.py:Metron API,mangadex.py:MangaDex API,importer.py:library scanning,rsscheck.py:RSS monitoring,weeklypull.py:pull list mgmt}
-|Config/Data:{config.py:INI config (~2000 lines),__init__.py:global state,db.py:SQLAlchemy Core,helpers.py:utilities (~5000 lines),encrypted.py:Fernet credential encryption,migration.py:Mylar3 migration}
-|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
-|Frontend:{frontend/src/pages/:route pages,frontend/src/components/:React components (ui/,series/,settings/,search/,migration/,layout/,queue/,import/),frontend/src/hooks/:custom hooks,frontend/src/lib/:API client+utilities,frontend/src/contexts/:React contexts,frontend/src/types/:TypeScript types}
-|Tests:{tests/unit/:backend unit tests,tests/integration/:backend integration,frontend/tests/:frontend tests}
+|Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
+|Business Logic:{search.py:provider search,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/downloads/:journal+recovery}
+|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports}
+|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent,nzbget.py,sabnzbd.py}
+|Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
+|Tests:{tests/unit,tests/integration,frontend/tests}
 |Docs:{docs/solutions/:documented solutions (bugs, best practices, workflow patterns), organized by category with YAML frontmatter}
 
 IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.
 
+FastAPI domain packages live under `comicarr/app/` (e.g. `series/`, `search/`, `downloads/`, `system/`, `dashboard/`, `metadata/`, `storyarcs/`, `weekly/`, `opds/`, `ai/`). Entry point is `Comicarr.py` → `uvicorn.run("comicarr.app.main:app", ...)`.
+
 ## Framework Notes
 
-Python@3.10+|CherryPy web server, SQLAlchemy Core (not ORM), INI-based config via custom Config class
+Python@3.10+|FastAPI + uvicorn, SQLAlchemy Core (not ORM), INI config via Config class
 React@19|Vite build, path alias @/ → src/, TanStack Query for data fetching, Radix UI components
 Tailwind@4|postcss.config.js, tailwind.config.js in frontend/
 TypeScript@strict|noUnusedLocals, noUnusedParameters enabled
@@ -80,7 +84,8 @@ Conventional PR titles keep history readable, but they do not control releases. 
 
 ## Anti-Patterns / What NOT to Do
 
-- **Do NOT use type hints** - None exist in the codebase currently
+- **Do NOT mass-add type hints** to large legacy modules (`search.py`, `postprocessor.py`, etc.)
+- **New code under `comicarr/app/`** may use annotations matching neighboring files
 - **Do NOT use bare `except:` clauses** - Always catch `Exception as e`
 - **Do NOT use Black or other external formatters** - Use `ruff format` only (enforced by CI)
 - **Do NOT use `bun` for frontend** - Use `npm` commands only
@@ -110,10 +115,15 @@ Conventional PR titles keep history readable, but they do not control releases. 
 3. Local imports: `from comicarr import logger, helpers`
 4. Within packages use: `from . import logger`
 
+### Adding New Features
+- Prefer `comicarr/app/<domain>/router.py` + `service.py` (+ `queries.py` when needed)
+- Register/include the router from `comicarr/app/main.py`
+- Keep heavy provider/search/post-processing logic in existing business modules when it already lives there
+
 ## Gotchas
 
 - Config `SECURE_DIR` must be initialized before `encrypt_items()` or bcrypt migration — ordering matters in `config.py`
 - Encrypted config values start with `gAAAAA` (Fernet) — if decryption fails silently, credentials stay as encrypted strings
 - Frontend uses `npm` only — `bun` is not supported
-- CherryPy sessions require server restart after auth config changes
+- Auth uses JWT session cookies (`comicarr_session`); changing auth secrets invalidates sessions
 - `GITHUB_TOKEN` tags don't trigger downstream workflows — Docker build is in the Changesets release workflow, not separate

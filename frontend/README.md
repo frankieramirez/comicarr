@@ -14,6 +14,12 @@ npm run test:run
 npm run build
 ```
 
+## Backend during dev
+
+When using `npm run dev` with a separately running backend, Comicarr defaults
+to port 8090. The Vite proxy targets `http://localhost:8090` (override with
+`VITE_API_PROXY_TARGET` if needed).
+
 ## E2E Tests
 
 The Playwright suite runs against the built React bundle served by Comicarr,
