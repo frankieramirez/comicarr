@@ -27,7 +27,6 @@ import urllib.parse
 from datetime import datetime
 from io import StringIO
 
-import cfscrape
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -37,6 +36,7 @@ from sqlalchemy.exc import OperationalError
 
 import comicarr
 from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
 from comicarr.torrent.clients import qbittorrent as qbittorrent
@@ -45,6 +45,8 @@ from comicarr.torrent.clients import transmission
 from . import ftpsshup
 
 REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
+
+cfscrape = import_cfscrape()
 
 
 def _start_newznab_attr(self, attrsD):

@@ -26,14 +26,16 @@ import time
 from http.cookiejar import LWPCookieJar
 from operator import itemgetter
 
-import cfscrape
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import and_, delete
 
 import comicarr
 from comicarr import cv, db, filechecker, helpers, logger
+from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.tables import rssdb
+
+cfscrape = import_cfscrape()
 
 
 class info32p(object):

@@ -22,12 +22,14 @@ import re
 import time
 import urllib.parse
 
-import cfscrape
 import requests as requests
 from bs4 import BeautifulSoup
 
 import comicarr
 from comicarr import helpers, logger
+from comicarr.cfscrape_compat import import_cfscrape
+
+cfscrape = import_cfscrape()
 
 
 class wwt(object):
