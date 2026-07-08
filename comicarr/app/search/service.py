@@ -345,13 +345,13 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         cinfo = db.select_one(stmt)
         if cinfo is None:
             logger.warn("Unable to locate IssueID of : " + issueid)
-            snatch_status = "MONITOR ERROR"
+            return {"snatch_status": "MONITOR ERROR"}
 
         if cinfo["Status"] != "Snatched" or cinfo["Hash"] is None:
             logger.warn(
                 cinfo["ComicName"] + " #" + cinfo["Issue_Number"] + " is currently in a " + cinfo["Status"] + " Status."
             )
-            snatch_status = "MONITOR ERROR"
+            return {"snatch_status": "MONITOR ERROR"}
 
         torrent_hash = cinfo["Hash"]
 
@@ -361,26 +361,25 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
 
     if not len(torrent_hash) == 40:
         logger.error("Torrent hash is missing, or an invalid hash value has been passed")
-        snatch_status = "MONITOR ERROR"
+        return {"snatch_status": "MONITOR ERROR"}
+
+    if comicarr.USE_RTORRENT:
+        from comicarr import rtorrent_test_client
+
+        rp = rtorrent_test_client.RTorrent()
+        torrent_info = rp.main(torrent_hash, check=True)
+    elif comicarr.USE_DELUGE:
+        from comicarr.torrent.clients import deluge as delu
+
+        dp = delu.TorrentClient()
+        if not dp.connect(
+            comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD
+        ):
+            logger.warn("Not connected to Deluge!")
+
+        torrent_info = dp.get_torrent(torrent_hash)
     else:
-        if comicarr.USE_RTORRENT:
-            from . import rtorrent_test_client
-
-            rp = rtorrent_test_client.RTorrent()
-            torrent_info = rp.main(torrent_hash, check=True)
-        elif comicarr.USE_DELUGE:
-            from comicarr.torrent.clients import deluge as delu
-
-            dp = delu.TorrentClient()
-            if not dp.connect(
-                comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD
-            ):
-                logger.warn("Not connected to Deluge!")
-
-            torrent_info = dp.get_torrent(torrent_hash)
-        else:
-            snatch_status = "MONITOR ERROR"
-            return
+        return {"snatch_status": "MONITOR ERROR"}
 
     logger.info("torrent_info: %s" % torrent_info)
 
@@ -466,7 +465,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 logger.fdebug("Script result: %s" % out)
             except OSError as e:
                 logger.warn("Unable to run extra_script: %s" % e)
-                snatch_status = "MONITOR ERROR"
+                torrent_info["snatch_status"] = "MONITOR ERROR"
             else:
                 if "Access failed: No such file" in str(out):
                     logger.fdebug(
@@ -481,6 +480,11 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 torrent_info["copied_filepath"] = os.path.join(comicarr.CONFIG.PP_SSHLOCALCD, torrent_info["name"])
                 torrent_info["snatch_status"] = snatch_status
         else:
+            # Present in client but not finished (or not in download/complete path).
+            # Prefer IN PROGRESS so recovery classifies present torrents as "still"
+            # rather than NOT SNATCHED → absent/gone. NOT FOUND remains the only
+            # explicit absent marker (returned above when the client has no hash).
+            snatch_status = "IN PROGRESS"
             if download is True:
                 snatch_status = "IN PROGRESS"
             elif monitor is True:
@@ -503,8 +507,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                             torrent_info["copied_filepath"] = torrent_path
                         else:
                             dp.start_torrent(torrent_hash)
-            else:
-                snatch_status = "NOT SNATCHED"
+            torrent_info["snatch_status"] = snatch_status
 
     return torrent_info
 
