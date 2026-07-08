@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.4
+
+### Patch Changes
+
+- 2ef88d3: Fix API key regeneration persistence, secret redaction handling, dependency floors, and E2E regression coverage.
+
 ## 0.18.3
 
 ### Patch Changes
