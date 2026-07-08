@@ -88,10 +88,10 @@ class test_the_requires(object):
             self.req_file_present = False
 
         self.nfo_file = os.path.join(data_dir, "ascii_logo.nfo")
-        if not self.nfo_file:
+        if not os.path.isfile(self.nfo_file):
             self.nfo_file = os.path.join(prog_dir, "ascii_logo.nfo")
 
-        if not self.nfo_file:
+        if not os.path.isfile(self.nfo_file):
             print("[WARNING] Unable to load ascii_logo. You're missing something cool...")
         else:
             with open(self.nfo_file, "r") as f:
