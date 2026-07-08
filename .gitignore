@@ -40,6 +40,13 @@ frontend/dist/
 htmlcov/
 coverage.xml
 
+# Playwright e2e artifacts
+frontend/playwright-report/
+frontend/test-results/
+frontend/tests/e2e/.auth/
+frontend/.e2e/
+.comicarr-e2e/
+
 # Hypothesis testing cache
 .hypothesis/
 

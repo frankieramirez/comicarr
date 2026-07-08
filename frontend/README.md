@@ -1,16 +1,49 @@
-# React + Vite
+# Comicarr Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend is a React 19 + Vite application. Production builds are served by
+the FastAPI application from `frontend/dist`.
 
-Currently, two official plugins are available:
+## Common Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm run dev
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:run
+npm run build
+```
 
-## React Compiler
+## E2E Tests
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The Playwright suite runs against the built React bundle served by Comicarr,
+not against Vite or MSW. Build the frontend first, then run the suite from this
+directory:
 
-## Expanding the ESLint configuration
+```bash
+npm run build
+npm run test:e2e:smoke
+npm run test:e2e:full
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+`npm run test:e2e` is an alias for the required Chromium smoke suite. Smoke
+tests start Comicarr with an isolated seeded data directory, sign in through
+the real login page, and verify protected navigation plus API/auth contracts.
+The full suite starts with an empty data directory and covers the first-run
+setup token flow plus restart behavior.
+
+Useful environment variables:
+
+- `COMICARR_E2E_PORT`: port for the seeded smoke server, default `18090`.
+- `COMICARR_E2E_BASE_URL`: use an already-running Comicarr instance instead
+  of letting Playwright start one.
+- `COMICARR_E2E_DATADIR`: data directory for the managed smoke server.
+- `COMICARR_E2E_PYTHON`: Python executable used to start `Comicarr.py`.
+- `COMICARR_E2E_KEEP_DATA`: set to `1` to preserve generated data for
+  debugging.
+- `COMICARR_E2E_FULL_PORT`: alternate port for the first-run full suite,
+  default `COMICARR_E2E_PORT + 1`.
+- `COMICARR_E2E_FULL_DATADIR`: data directory for the first-run full suite.
+
+When debugging failures, inspect `playwright-report/` and `test-results/e2e/`.
+Both directories are ignored locally and uploaded by CI on failure.
