@@ -9,9 +9,13 @@
 
 from pathlib import Path
 
-import tomllib
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
