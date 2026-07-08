@@ -503,6 +503,47 @@ _BAD_DEFINITIONS = OrderedDict(
     }
 )
 
+# section/key only — no live values. Used by encrypt_items and carepackage redaction.
+# HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet.
+ENCRYPTED_CONFIG_ITEMS = OrderedDict(
+    {
+        "SAB_PASSWORD": ("SABnzbd", "sab_password"),
+        "SAB_APIKEY": ("SABnzbd", "sab_apikey"),
+        "NZBGET_PASSWORD": ("NZBGet", "nzbget_password"),
+        "UTORRENT_PASSWORD": ("uTorrent", "utorrent_password"),
+        "TRANSMISSION_PASSWORD": ("Transmission", "transmission_password"),
+        "DELUGE_PASSWORD": ("Deluge", "deluge_password"),
+        "QBITTORRENT_PASSWORD": ("qBittorrent", "qbittorrent_password"),
+        "RTORRENT_PASSWORD": ("Rtorrent", "rtorrent_password"),
+        "PROWL_KEYS": ("Prowl", "prowl_keys"),
+        "PUSHOVER_APIKEY": ("PUSHOVER", "pushover_apikey"),
+        "PUSHOVER_USERKEY": ("PUSHOVER", "pushover_userkey"),
+        "BOXCAR_TOKEN": ("BOXCAR", "boxcar_token"),
+        "PUSHBULLET_APIKEY": ("PUSHBULLET", "pushbullet_apikey"),
+        "TELEGRAM_TOKEN": ("TELEGRAM", "telegram_token"),
+        "COMICVINE_API": ("CV", "comicvine_api"),
+        "PASSWORD_32P": ("32P", "password_32p"),
+        "PASSKEY_32P": ("32P", "passkey_32p"),
+        "USERNAME_32P": ("32P", "username_32p"),
+        "SEEDBOX_PASS": ("Seedbox", "seedbox_pass"),
+        "TAB_PASS": ("Tablet", "tab_pass"),
+        "API_KEY": ("API", "api_key"),
+        "OPDS_PASSWORD": ("OPDS", "opds_password"),
+        "PP_SSHPASSWD": ("AutoSnatch", "pp_sshpasswd"),
+        "EMAIL_PASSWORD": ("Email", "email_password"),
+        "GIT_TOKEN": ("Git", "git_token"),
+        "METRON_PASSWORD": ("Metron", "metron_password"),
+        "GOTIFY_TOKEN": ("GOTIFY", "gotify_token"),
+        "MATRIX_ACCESS_TOKEN": ("MATRIX", "matrix_access_token"),
+        "EXTERNAL_APIKEY": ("DDL", "external_apikey"),
+        "SLACK_WEBHOOK_URL": ("SLACK", "slack_webhook_url"),
+        "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url"),
+        "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url"),
+        "DATABASE_URL": ("Database", "database_url"),
+        "AI_API_KEY": ("AI", "ai_api_key"),
+    }
+)
+
 
 class Config(object):
     def __init__(self, config_file):
@@ -1193,45 +1234,9 @@ class Config(object):
 
     def encrypt_items(self, mode="encrypt", updateconfig=False):
         # HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet
-        encryption_list = OrderedDict(
-            {
-                # key                      section         key            value
-                "SAB_PASSWORD": ("SABnzbd", "sab_password", self.SAB_PASSWORD),
-                "SAB_APIKEY": ("SABnzbd", "sab_apikey", self.SAB_APIKEY),
-                "NZBGET_PASSWORD": ("NZBGet", "nzbget_password", self.NZBGET_PASSWORD),
-                "UTORRENT_PASSWORD": ("uTorrent", "utorrent_password", self.UTORRENT_PASSWORD),
-                "TRANSMISSION_PASSWORD": ("Transmission", "transmission_password", self.TRANSMISSION_PASSWORD),
-                "DELUGE_PASSWORD": ("Deluge", "deluge_password", self.DELUGE_PASSWORD),
-                "QBITTORRENT_PASSWORD": ("qBittorrent", "qbittorrent_password", self.QBITTORRENT_PASSWORD),
-                "RTORRENT_PASSWORD": ("Rtorrent", "rtorrent_password", self.RTORRENT_PASSWORD),
-                "PROWL_KEYS": ("Prowl", "prowl_keys", self.PROWL_KEYS),
-                "PUSHOVER_APIKEY": ("PUSHOVER", "pushover_apikey", self.PUSHOVER_APIKEY),
-                "PUSHOVER_USERKEY": ("PUSHOVER", "pushover_userkey", self.PUSHOVER_USERKEY),
-                "BOXCAR_TOKEN": ("BOXCAR", "boxcar_token", self.BOXCAR_TOKEN),
-                "PUSHBULLET_APIKEY": ("PUSHBULLET", "pushbullet_apikey", self.PUSHBULLET_APIKEY),
-                "TELEGRAM_TOKEN": ("TELEGRAM", "telegram_token", self.TELEGRAM_TOKEN),
-                "COMICVINE_API": ("CV", "comicvine_api", self.COMICVINE_API),
-                "PASSWORD_32P": ("32P", "password_32p", self.PASSWORD_32P),
-                "PASSKEY_32P": ("32P", "passkey_32p", self.PASSKEY_32P),
-                "USERNAME_32P": ("32P", "username_32p", self.USERNAME_32P),
-                "SEEDBOX_PASS": ("Seedbox", "seedbox_pass", self.SEEDBOX_PASS),
-                "TAB_PASS": ("Tablet", "tab_pass", self.TAB_PASS),
-                "API_KEY": ("API", "api_key", self.API_KEY),
-                "OPDS_PASSWORD": ("OPDS", "opds_password", self.OPDS_PASSWORD),
-                "PP_SSHPASSWD": ("AutoSnatch", "pp_sshpasswd", self.PP_SSHPASSWD),
-                "EMAIL_PASSWORD": ("Email", "email_password", self.EMAIL_PASSWORD),
-                "GIT_TOKEN": ("Git", "git_token", self.GIT_TOKEN),
-                "METRON_PASSWORD": ("Metron", "metron_password", self.METRON_PASSWORD),
-                "GOTIFY_TOKEN": ("GOTIFY", "gotify_token", self.GOTIFY_TOKEN),
-                "MATRIX_ACCESS_TOKEN": ("MATRIX", "matrix_access_token", self.MATRIX_ACCESS_TOKEN),
-                "EXTERNAL_APIKEY": ("DDL", "external_apikey", self.EXTERNAL_APIKEY),
-                "SLACK_WEBHOOK_URL": ("SLACK", "slack_webhook_url", self.SLACK_WEBHOOK_URL),
-                "MATTERMOST_WEBHOOK_URL": ("MATTERMOST", "mattermost_webhook_url", self.MATTERMOST_WEBHOOK_URL),
-                "DISCORD_WEBHOOK_URL": ("DISCORD", "discord_webhook_url", self.DISCORD_WEBHOOK_URL),
-                "DATABASE_URL": ("Database", "database_url", self.DATABASE_URL),
-                "AI_API_KEY": ("AI", "ai_api_key", self.AI_API_KEY),
-            }
-        )
+        encryption_list = OrderedDict()
+        for attr_name, (section, ini_key) in ENCRYPTED_CONFIG_ITEMS.items():
+            encryption_list[attr_name] = (section, ini_key, getattr(self, attr_name, None))
 
         new_encrypted = 0
         for k, v in encryption_list.items():

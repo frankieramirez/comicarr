@@ -12,6 +12,7 @@ import zipfile
 from glob import glob
 
 import comicarr
+from comicarr import config as config_module
 from comicarr import encrypted, logger, versioncheck
 
 
@@ -23,48 +24,28 @@ class carePackage(object):
         self.lastrelpath = os.path.join(comicarr.PROG_DIR, ".LASTRELEASE")
         self.keylist = []
         self.pass_thru_vals = None
-        self.cleaned_list = {
+        # Fernet-encrypted secrets stay in sync via ENCRYPTED_CONFIG_ITEMS.
+        # extras: sensitive values not Fernet-encrypted (usernames, bcrypt password, etc.)
+        base = set(config_module.ENCRYPTED_CONFIG_ITEMS.values())
+        extras = {
             ("Interface", "http_password"),
             ("SABnzbd", "sab_username"),
-            ("SABnzbd", "sab_password"),
-            ("SABnzbd", "sab_apikey"),
             ("NZBGet", "nzbget_username"),
-            ("NZBGet", "nzbget_password"),
             ("NZBsu", "nzbsu_apikey"),
             ("DOGnzb", "dognzb_apikey"),
             ("uTorrent", "utorrent_username"),
-            ("uTorrent", "utorrent_password"),
             ("Transmission", "transmission_username"),
-            ("Transmission", "transmission_password"),
             ("Deluge", "deluge_username"),
-            ("Deluge", "deluge_password"),
             ("qBittorrent", "qbittorrent_username"),
-            ("qBittorrent", "qbittorrent_password"),
             ("Rtorrent", "rtorrent_username"),
-            ("Rtorrent", "rtorrent_password"),
-            ("Prowl", "prowl_keys"),
-            ("PUSHOVER", "pushover_apikey"),
-            ("PUSHOVER", "pushover_userkey"),
-            ("BOXCAR", "boxcar_token"),
-            ("PUSHBULLET", "pushbullet_apikey"),
             ("NMA", "nma_apikey"),
-            ("TELEGRAM", "telegram_token"),
-            ("GOTIFY", "gotify_token"),
-            ("CV", "comicvine_api"),
             ("Seedbox", "seedbox_user"),
-            ("Seedbox", "seedbox_pass"),
             ("Seedbox", "seedbox_port"),
-            ("Tablet", "tab_pass"),
-            ("API", "api_key"),
-            ("OPDS", "opds_password"),
-            ("AutoSnatch", "pp_sshpasswd"),
             ("AutoSnatch", "pp_sshport"),
-            ("Email", "email_password"),
             ("Email", "email_user"),
-            ("DISCORD", "discord_webhook_url"),
             ("DDL", "external_username"),
-            ("DDL", "external_apikey"),
         }
+        self.cleaned_list = base | extras
         self.hostname_list = {
             ("SABnzbd", "sab_host"),
             ("NZBGet", "nzbget_host"),
@@ -340,17 +321,18 @@ class carePackage(object):
                     cnt = 0
                     # remove the apikeys first.
                     filename = os.path.join(caredir, os.path.basename(fname))
-                    output = open(filename, "w")
-                    # output = pathlib.Path(filename) #open(filename, 'w')
-                    with open(fname, "r") as f:
-                        line = f.readline()
-                        while line:
-                            for keyed in self.keylist:
-                                if keyed in line and len(keyed) > 0 and (len(keyed) > 4 and not keyed.isdigit()):
-                                    cnt += 1
-                                    line = line.replace(keyed, "-REDACTED-")
-                            output.write(line)
+                    # Close/flush the redacted file before zip.write so the archive
+                    # sees the full content (open buffers are not on disk yet).
+                    with open(filename, "w") as output:
+                        with open(fname, "r") as f:
                             line = f.readline()
+                            while line:
+                                for keyed in self.keylist:
+                                    if keyed in line and len(keyed) > 0 and (len(keyed) > 4 and not keyed.isdigit()):
+                                        cnt += 1
+                                        line = line.replace(keyed, "-REDACTED-")
+                                output.write(line)
+                                line = f.readline()
 
                     logger.fdebug("removed %s keys from %s" % (cnt, fname))
                     try:
@@ -361,7 +343,6 @@ class carePackage(object):
                     except Exception as e:
                         logger.warn(e)
                     else:
-                        output.close()
                         os.unlink(filename)
 
         try:
