@@ -1,8 +1,7 @@
 """Tests for DISCORD notifier."""
 
 import json
-import re
-import pytest
+
 import responses
 
 
@@ -281,15 +280,10 @@ class TestDiscordNotifyErrors:
 
         assert result is False
 
-    def test_notify_connection_error_raises_unbound_local(
+    def test_notify_connection_error_returns_false(
         self, notifiers_module, mock_notifier_config, mocker
     ):
-        """Connection error causes UnboundLocalError due to missing exception handling.
-
-        Note: This test documents a bug in the current implementation.
-        The notify method should catch the exception and return False,
-        but instead it tries to access `response` which was never assigned.
-        """
+        """Connection error returns False without raising UnboundLocalError."""
         import requests
 
         mocker.patch(
@@ -299,16 +293,14 @@ class TestDiscordNotifyErrors:
 
         discord = notifiers_module.DISCORD()
         # Use snatched format to avoid IndexError in message parsing
-        # The bug is that after the exception in requests.post,
-        # the code continues to check response.status_code which is unbound
-        with pytest.raises(UnboundLocalError):
-            discord.notify(
-                text="Comicarr Notification",
-                attachment_text="Snatched",
-                snatched_nzb="Spider-Man 001",
-                prov="NZBGeek",
-                sent_to="SABnzbd",
-            )
+        result = discord.notify(
+            text="Comicarr Notification",
+            attachment_text="Snatched",
+            snatched_nzb="Spider-Man 001",
+            prov="NZBGeek",
+            sent_to="SABnzbd",
+        )
+        assert result is False
 
 
 class TestDiscordTestNotify:
