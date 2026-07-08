@@ -30,10 +30,20 @@ function quoteIniValue(value) {
   return String(value).replaceAll("\\", "/");
 }
 
+function envDataDirForMode(mode) {
+  if (mode === "seeded") {
+    return process.env.COMICARR_E2E_DATADIR;
+  }
+  if (mode === "fresh") {
+    return process.env.COMICARR_E2E_FULL_DATADIR;
+  }
+  return undefined;
+}
+
 async function prepareDataDir({ dataDir, mode, port }) {
   const resolvedDataDir =
     dataDir ??
-    process.env.COMICARR_E2E_DATADIR ??
+    envDataDirForMode(mode) ??
     join(tmpdir(), `comicarr-e2e-${mode}-${port}`);
 
   const absoluteDataDir = resolve(resolvedDataDir);

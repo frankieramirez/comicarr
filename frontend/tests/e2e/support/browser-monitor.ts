@@ -2,8 +2,24 @@ import { expect, type Page } from "@playwright/test";
 
 const ignoredApiFailures = ["/api/events/stream"];
 
-export function monitorBrowser(page: Page) {
+export function monitorBrowser(page: Page, baseURL?: string) {
   const issues: string[] = [];
+  const expectedOrigin = baseURL ? new URL(baseURL).origin : null;
+
+  const isExpectedApiRequest = (requestUrl: URL) => {
+    if (!requestUrl.pathname.startsWith("/api/")) {
+      return false;
+    }
+    if (expectedOrigin) {
+      return requestUrl.origin === expectedOrigin;
+    }
+
+    const currentUrl = page.url();
+    return (
+      currentUrl !== "about:blank" &&
+      requestUrl.origin === new URL(currentUrl).origin
+    );
+  };
 
   page.on("pageerror", (error) => {
     issues.push(`pageerror: ${error.message}`);
@@ -17,8 +33,7 @@ export function monitorBrowser(page: Page) {
     }
 
     if (
-      requestUrl.origin === new URL(page.url()).origin &&
-      requestUrl.pathname.startsWith("/api/") &&
+      isExpectedApiRequest(requestUrl) &&
       !ignoredApiFailures.includes(requestUrl.pathname)
     ) {
       issues.push(
@@ -30,8 +45,7 @@ export function monitorBrowser(page: Page) {
   page.on("response", (response) => {
     const requestUrl = new URL(response.url());
     if (
-      requestUrl.origin === new URL(page.url()).origin &&
-      requestUrl.pathname.startsWith("/api/") &&
+      isExpectedApiRequest(requestUrl) &&
       response.status() >= 500 &&
       !ignoredApiFailures.includes(requestUrl.pathname)
     ) {

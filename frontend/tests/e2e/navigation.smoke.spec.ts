@@ -12,8 +12,11 @@ const destinations = [
 
 test("protected core navigation renders without API regressions", async ({
   page,
-}) => {
-  const browserMonitor = monitorBrowser(page);
+}, testInfo) => {
+  const browserMonitor = monitorBrowser(
+    page,
+    testInfo.project.use.baseURL as string,
+  );
 
   for (const destination of destinations) {
     await page.goto(destination.path);

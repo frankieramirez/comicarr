@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { Button } from "@/components/ui/button";
@@ -10,14 +9,19 @@ interface ApiTabProps {
   config: Record<string, unknown>;
   formData: Record<string, unknown>;
   onChange: (key: string, value: string | boolean) => void;
+  regeneratedApiKey: string | null;
+  onRegeneratedApiKey: (apiKey: string) => void;
 }
 
-export function ApiTab({ config, formData, onChange }: ApiTabProps) {
+export function ApiTab({
+  config,
+  formData,
+  onChange,
+  regeneratedApiKey,
+  onRegeneratedApiKey,
+}: ApiTabProps) {
   const { addToast } = useToast();
   const generateApiKey = useGenerateApiKey();
-  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
-    null,
-  );
   const displayedApiKey = regeneratedApiKey || "";
   const apiKeyIsSet = (config.api_key_set as boolean) || false;
   const comicvineApiIsSet = (config.comicvine_api_set as boolean) || false;
@@ -57,7 +61,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
 
     try {
       const newApiKey = await generateApiKey.mutateAsync();
-      setRegeneratedApiKey(newApiKey);
+      onRegeneratedApiKey(newApiKey);
       addToast({
         type: "success",
         message: "API key regenerated.",

@@ -4,7 +4,7 @@ Tests for comicarr.app.system domain — Phase 1.
 Covers: auth login/logout, SSE streaming, config endpoints, JWT cookies.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import comicarr
 
@@ -42,6 +42,12 @@ def _make_test_ctx(**overrides):
     config.COMIC_DIR = "/comics"
     config.DESTINATION_DIR = "/downloads"
     config.LOG_DIR = None
+
+    def process_kwargs(values):
+        for key, value in values.items():
+            setattr(config, key.upper(), value)
+
+    config.process_kwargs.side_effect = process_kwargs
 
     defaults = {
         "config": config,
@@ -446,6 +452,7 @@ class TestConfigService:
         assert result == {"success": True, "api_key": "a" * 32}
         assert ctx.config.API_KEY == "a" * 32
         mock_token_hex.assert_called_once_with(16)
+        ctx.config.process_kwargs.assert_called_once_with({"api_key": "a" * 32})
         ctx.config.writeconfig.assert_called_once_with()
         ctx.config.configure.assert_called_once_with(update=True, startup=False)
 
@@ -465,9 +472,35 @@ class TestConfigService:
         result = system_service.regenerate_api_key(ctx)
 
         assert result == {"success": False, "error": "Failed to persist new API key"}
+        assert ctx.config.API_KEY == "configured-api-key"
         mock_token_hex.assert_called_once_with(16)
+        assert ctx.config.process_kwargs.call_args_list == [
+            call({"api_key": "a" * 32}),
+            call({"api_key": "configured-api-key"}),
+        ]
+        assert ctx.config.writeconfig.call_count == 2
+        assert ctx.config.configure.call_args_list == [
+            call(update=True, startup=False),
+            call(update=True, startup=False),
+        ]
+
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_reports_silent_write_failure(self, mock_token_hex):
+        """regenerate_api_key fails when writeconfig reports an unsuccessful write."""
+        ctx = _make_test_ctx()
+        ctx.config.writeconfig.return_value = False
+
+        result = system_service.regenerate_api_key(ctx)
+
+        assert result == {"success": False, "error": "Failed to persist new API key"}
+        assert ctx.config.API_KEY == "configured-api-key"
+        mock_token_hex.assert_called_once_with(16)
+        assert ctx.config.process_kwargs.call_args_list == [
+            call({"api_key": "a" * 32}),
+            call({"api_key": "configured-api-key"}),
+        ]
         ctx.config.writeconfig.assert_called_once_with()
-        ctx.config.configure.assert_called_once_with(update=True, startup=False)
+        ctx.config.configure.assert_not_called()
 
     def test_update_config_accepts_new_writable_keys(self):
         """update_config accepts newly added writable keys."""

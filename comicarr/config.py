@@ -1186,8 +1186,10 @@ class Config(object):
                 os.fsync(configfile.fileno())
             os.replace(tmp_path, self._config_file)
             logger.fdebug("Configuration written to disk.")
-        except IOError as e:
+            return True
+        except OSError as e:
             logger.warn("Error writing configuration file: %s", e)
+            return False
 
     def encrypt_items(self, mode="encrypt", updateconfig=False):
         # HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet

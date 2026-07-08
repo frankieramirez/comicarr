@@ -28,8 +28,6 @@ import threading
 
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), "lib"))
 
-from packaging.requirements import InvalidRequirement, Requirement
-
 URLLIB3_1X_DEFAULT_CIPHERS = ":".join(
     [
         "ECDHE+AESGCM",
@@ -124,25 +122,53 @@ class test_the_requires(object):
 
         return {"version": version, "operator": operator}
 
-    def add_requirement(self, requirement):
-        module_name = requirement.name
-        module_entry = self.requirement_entry(requirement)
+    def add_requirement_parts(self, module_name, module_entry, extras=None):
         self.mod_list[module_name] = module_entry
 
-        if module_name.lower() == "requests" and "socks" in requirement.extras:
+        if module_name.lower() == "requests" and extras and "socks" in extras:
             self.mod_list["PySocks"] = module_entry
 
+    def add_requirement(self, requirement):
+        self.add_requirement_parts(requirement.name, self.requirement_entry(requirement), requirement.extras)
+
+    def parse_requirement_line(self, line):
+        requirement = line.split(";", 1)[0].strip()
+        match = re.match(r"^([A-Za-z0-9_.-]+)(?:\[([A-Za-z0-9_,.-]+)\])?\s*([<>=!~]{1,2})?\s*([^,;\s]+)?", requirement)
+        if not match:
+            return None
+
+        extras = []
+        if match.group(2):
+            extras = [extra.strip().lower() for extra in match.group(2).split(",") if extra.strip()]
+
+        return (
+            match.group(1),
+            {"operator": match.group(3) or "", "version": match.group(4) or ""},
+            extras,
+        )
+
     def load_requirements(self):
+        try:
+            from packaging.requirements import InvalidRequirement, Requirement
+        except ModuleNotFoundError:
+            Requirement = None
+            InvalidRequirement = ValueError
+
         with open(self.reqfile, "r") as file:
             for line in file.readlines():
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                try:
-                    requirement = Requirement(line)
-                except InvalidRequirement:
-                    continue
-                self.add_requirement(requirement)
+                if Requirement is not None:
+                    try:
+                        requirement = Requirement(line)
+                    except InvalidRequirement:
+                        continue
+                    self.add_requirement(requirement)
+                else:
+                    parsed = self.parse_requirement_line(line)
+                    if parsed is not None:
+                        self.add_requirement_parts(*parsed)
 
     def resolve_module_name(self, requirement_name):
         return self.mappings.get(requirement_name.lower(), requirement_name)

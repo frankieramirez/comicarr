@@ -498,11 +498,22 @@ def regenerate_api_key(ctx):
         return {"success": False, "error": "Config not loaded"}
 
     new_api_key = secrets.token_hex(16)
-    ctx.config.API_KEY = new_api_key
+    old_api_key = getattr(ctx.config, "API_KEY", None)
+    wrote_to_disk = False
     try:
-        ctx.config.writeconfig()
+        ctx.config.process_kwargs({"api_key": new_api_key})
+        if ctx.config.writeconfig() is False:
+            raise OSError("config write failed")
+        wrote_to_disk = True
         ctx.config.configure(update=True, startup=False)
     except Exception as e:
+        try:
+            ctx.config.process_kwargs({"api_key": old_api_key})
+            if wrote_to_disk:
+                ctx.config.writeconfig()
+                ctx.config.configure(update=True, startup=False)
+        except Exception as rollback_error:
+            logger.error("[API-KEY] Failed to restore previous API key after regeneration failure: %s" % rollback_error)
         logger.error("[API-KEY] Failed to persist regenerated API key: %s" % e)
         return {"success": False, "error": "Failed to persist new API key"}
 
