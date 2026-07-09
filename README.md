@@ -71,7 +71,7 @@ pip install -r requirements.txt
 3. Build the frontend:
 ```bash
 cd frontend
-npm install
+npm ci
 npm run build
 cd ..
 ```

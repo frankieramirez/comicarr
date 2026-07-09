@@ -23,9 +23,9 @@ uv sync --extra dev
 # Activate virtual environment
 source .venv/bin/activate
 
-# Install frontend dependencies
+# Install frontend dependencies (lockfile-respecting; matches CI)
 cd frontend
-npm install
+npm ci
 cd ..
 
 # Run the application

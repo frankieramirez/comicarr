@@ -36,8 +36,8 @@ When using Vite (`npm run dev`) with a separate backend process, the proxy targe
 [Comicarr Code Index]|root: ./comicarr
 |Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
 |Business Logic:{search.py:provider search,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/downloads/:journal+recovery}
-|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports}
-|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent,nzbget.py,sabnzbd.py}
+|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
+|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
 |Tests:{tests/unit,tests/integration,frontend/tests}
 

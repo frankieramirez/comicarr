@@ -37,13 +37,13 @@ Default HTTP port is **8090**. Vite dev proxy targets `http://localhost:8090` (o
 [Comicarr Code Index]|root: ./comicarr
 |Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
 |Business Logic:{search.py:provider search,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/downloads/:journal+recovery}
-|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports}
-|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent,nzbget.py,sabnzbd.py}
+|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
+|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
 |Tests:{tests/unit,tests/integration,frontend/tests}
 |Docs:{docs/solutions/:documented solutions (bugs, best practices, workflow patterns), organized by category with YAML frontmatter}
 
-IMPORTANT: Consult files in this index rather than relying on training data. File sizes indicate complexity/priority.
+IMPORTANT: Consult files in this index rather than relying on training data.
 
 FastAPI domain packages live under `comicarr/app/` (e.g. `series/`, `search/`, `downloads/`, `system/`, `dashboard/`, `metadata/`, `storyarcs/`, `weekly/`, `opds/`, `ai/`). Entry point is `Comicarr.py` → `uvicorn.run("comicarr.app.main:app", ...)`.
 
