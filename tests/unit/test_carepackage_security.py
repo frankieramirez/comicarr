@@ -50,7 +50,8 @@ def test_carepackage_clean_config_and_logs_redact_newer_secrets(tmp_path, monkey
 
     log_path = log_dir / "comicarr.log"
     log_path.write_text(
-        "slack-secret mattermost-secret matrix-secret ai-secret postgres://user:database-secret@example/db\n"
+        "slack-secret mattermost-secret matrix-secret ai-secret "
+        "github-secret postgres://user:database-secret@example/db\n"
     )
     (data_dir / "comicarr.db").write_text("")
 
@@ -64,16 +65,44 @@ def test_carepackage_clean_config_and_logs_redact_newer_secrets(tmp_path, monkey
     with open(package.filename, "w") as environment_file:
         environment_file.write("environment\n")
 
-    clean_config = (log_dir / "clean_config.ini").read_text()
-    for secret in ("slack-secret", "mattermost-secret", "matrix-secret", "ai-secret", "database-secret"):
-        assert secret not in clean_config
-    assert clean_config.count("xXX[REMOVED]XXx") >= 5
+    secrets = (
+        "slack-secret",
+        "mattermost-secret",
+        "matrix-secret",
+        "ai-secret",
+        "database-secret",
+        "github-secret",
+    )
+    expected_redacted_options = (
+        ("Git", "git_token"),
+        ("SLACK", "slack_webhook_url"),
+        ("MATTERMOST", "mattermost_webhook_url"),
+        ("MATRIX", "matrix_access_token"),
+        ("AI", "ai_api_key"),
+        ("Database", "database_url"),
+    )
+
+    clean_config_text = (log_dir / "clean_config.ini").read_text()
+    for secret in secrets:
+        assert secret not in clean_config_text
+
+    clean_parser = configparser.ConfigParser()
+    clean_parser.read_string(clean_config_text)
+    for section, option in expected_redacted_options:
+        assert clean_parser.get(section, option) == "xXX[REMOVED]XXx"
 
     package.panicbutton()
 
     with zipfile.ZipFile(log_dir / "carepackage.zip", "r") as bundle:
         redacted_log = bundle.read("comicarr.log").decode("utf-8")
+        zip_clean_config = bundle.read("clean_config.ini").decode("utf-8")
 
-    for secret in ("slack-secret", "mattermost-secret", "matrix-secret", "ai-secret", "database-secret"):
+    for secret in secrets:
         assert secret not in redacted_log
+        assert secret not in zip_clean_config
     assert "-REDACTED-" in redacted_log
+
+    zip_parser = configparser.ConfigParser()
+    zip_parser.read_string(zip_clean_config)
+    for section, option in expected_redacted_options:
+        assert zip_parser.get(section, option) == "xXX[REMOVED]XXx"
