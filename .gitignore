@@ -70,6 +70,12 @@ docs/ideation/
 # Advisor /improve handoff plans (local only; keep out of public tree)
 plans/
 
+# Local agent / eval tooling (feval harness, skill locks, visual baselines)
+feval.config.json
+skills-lock.json
+benchmarks/
+.feval/
+
 # Pencil design files
 *.pen
 
