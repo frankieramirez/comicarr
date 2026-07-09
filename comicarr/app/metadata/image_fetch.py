@@ -39,6 +39,7 @@ ALLOWED_IMAGE_CONTENT_TYPES = {
 }
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MiB
+_CHUNK_SIZE = 64 * 1024
 
 
 def is_allowed_image_url(url):
@@ -63,6 +64,7 @@ def fetch_allowed_image(url):
     """Fetch image bytes from an allowlisted URL.
 
     Returns (content_bytes, content_type) or None on any failure.
+    Streams the body and aborts once MAX_IMAGE_BYTES would be exceeded.
     """
     if not is_allowed_image_url(url):
         logger.fdebug("[METADATA-artwork] Rejected non-allowlisted image URL: %s" % url)
@@ -74,29 +76,60 @@ def fetch_allowed_image(url):
             timeout=(5, 10),
             headers={"User-Agent": "Comicarr/1.0"},
             allow_redirects=False,
+            stream=True,
         )
-        resp.raise_for_status()
     except Exception as e:
         logger.error("[METADATA-artwork] Failed to fetch image %s: %s" % (url, e))
         return None
 
-    content_length = resp.headers.get("Content-Length")
-    if content_length:
-        try:
-            if int(content_length) > MAX_IMAGE_BYTES:
-                logger.error("[METADATA-artwork] Image Content-Length exceeds cap (%s): %s" % (content_length, url))
+    try:
+        # raise_for_status only fails 4xx/5xx; with allow_redirects=False, 3xx must not succeed
+        if resp.status_code != 200:
+            logger.error(
+                "[METADATA-artwork] Unexpected HTTP %s for image %s" % (resp.status_code, url)
+            )
+            return None
+
+        content_length = resp.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_IMAGE_BYTES:
+                    logger.error(
+                        "[METADATA-artwork] Image Content-Length exceeds cap (%s): %s"
+                        % (content_length, url)
+                    )
+                    return None
+            except (ValueError, TypeError):
+                pass
+
+        raw_ct = resp.headers.get("Content-Type")
+        if not raw_ct:
+            logger.error("[METADATA-artwork] Missing Content-Type for %s" % url)
+            return None
+        content_type = raw_ct.split(";")[0].strip().lower()
+        if content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
+            logger.error("[METADATA-artwork] Invalid content type %s for %s" % (content_type, url))
+            return None
+
+        chunks = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=_CHUNK_SIZE):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_IMAGE_BYTES:
+                logger.error("[METADATA-artwork] Image body exceeds size cap: %s" % url)
                 return None
-        except (ValueError, TypeError):
+            chunks.append(chunk)
+
+        content = b"".join(chunks)
+        if not content:
+            logger.error("[METADATA-artwork] Empty image body for %s" % url)
+            return None
+
+        return content, content_type
+    finally:
+        try:
+            resp.close()
+        except Exception:
             pass
-
-    content = resp.content
-    if len(content) > MAX_IMAGE_BYTES:
-        logger.error("[METADATA-artwork] Image body exceeds size cap: %s" % url)
-        return None
-
-    content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip().lower()
-    if content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
-        logger.error("[METADATA-artwork] Invalid content type %s for %s" % (content_type, url))
-        return None
-
-    return content, content_type

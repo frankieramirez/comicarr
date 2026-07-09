@@ -301,10 +301,7 @@ class TestGetArtwork:
                 "ComicImageALTURL": None,
             }
         ]
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.headers = {"Content-Type": "image/jpeg", "Content-Length": str(len(jpeg))}
-        mock_resp.content = jpeg
+        mock_resp = _mock_image_response(jpeg)
         mock_get.return_value = mock_resp
 
         result = metadata_service.get_artwork(ctx, comic_id)
@@ -315,6 +312,7 @@ class TestGetArtwork:
         call_kwargs = mock_get.call_args.kwargs
         assert call_kwargs.get("allow_redirects") is False
         assert call_kwargs.get("timeout") == (5, 10)
+        assert call_kwargs.get("stream") is True
 
     @patch("comicarr.app.metadata.image_fetch.requests.get")
     @patch("comicarr.db")
@@ -331,11 +329,7 @@ class TestGetArtwork:
                 "ComicImageALTURL": None,
             }
         ]
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.headers = {"Content-Type": "image/jpeg"}
-        mock_resp.content = jpeg
-        mock_get.return_value = mock_resp
+        mock_get.return_value = _mock_image_response(jpeg)
 
         result = metadata_service.get_artwork(ctx, comic_id)
         assert result == str(tmp_path / (comic_id + ".jpg"))
@@ -346,3 +340,132 @@ class TestGetArtwork:
         ctx = _make_test_ctx()
         ctx.config.CACHE_DIR = None
         assert metadata_service.get_artwork(ctx, "12345") is None
+
+
+def _mock_image_response(body, status_code=200, content_type="image/jpeg", content_length=None):
+    """Mock requests response for streaming fetch_allowed_image."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+    headers = {}
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    if content_length is not None:
+        headers["Content-Length"] = str(content_length)
+    elif body is not None:
+        headers["Content-Length"] = str(len(body))
+    mock_resp.headers = headers
+    mock_resp.iter_content = MagicMock(return_value=[body] if body else [])
+    mock_resp.close = MagicMock()
+    return mock_resp
+
+
+# =============================================================================
+# image_fetch allowlist + size/type guards
+# =============================================================================
+
+
+class TestImageFetch:
+    def test_is_allowed_image_url_rejects_bad_urls(self):
+        from comicarr.app.metadata.image_fetch import is_allowed_image_url
+
+        assert is_allowed_image_url(None) is False
+        assert is_allowed_image_url("") is False
+        assert is_allowed_image_url("ftp://comicvine.gamespot.com/x.jpg") is False
+        assert is_allowed_image_url("https://user:pass@comicvine.gamespot.com/x.jpg") is False
+        assert is_allowed_image_url("https://evil.example/cover.jpg") is False
+        assert is_allowed_image_url("https://evil.comicvine.gamespot.com/x.jpg") is False
+        assert is_allowed_image_url("http://127.0.0.1/secret") is False
+
+    def test_is_allowed_image_url_accepts_allowlisted(self):
+        from comicarr.app.metadata.image_fetch import ALLOWED_IMAGE_DOMAINS, is_allowed_image_url
+
+        for host in ALLOWED_IMAGE_DOMAINS:
+            assert is_allowed_image_url("https://%s/cover.jpg" % host) is True
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_rejects_non_200(self, mock_get):
+        from comicarr.app.metadata.image_fetch import fetch_allowed_image
+
+        mock_get.return_value = _mock_image_response(b"x", status_code=302)
+        assert fetch_allowed_image("https://comicvine.gamespot.com/c.jpg") is None
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_rejects_missing_content_type(self, mock_get):
+        from comicarr.app.metadata.image_fetch import fetch_allowed_image
+
+        mock_get.return_value = _mock_image_response(b"\xff\xd8", content_type=None)
+        assert fetch_allowed_image("https://comicvine.gamespot.com/c.jpg") is None
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_rejects_disallowed_content_type(self, mock_get):
+        from comicarr.app.metadata.image_fetch import fetch_allowed_image
+
+        mock_get.return_value = _mock_image_response(b"{}", content_type="application/json")
+        assert fetch_allowed_image("https://comicvine.gamespot.com/c.jpg") is None
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_rejects_content_length_over_cap(self, mock_get):
+        from comicarr.app.metadata import image_fetch as image_fetch_mod
+
+        mock_get.return_value = _mock_image_response(
+            b"x",
+            content_length=image_fetch_mod.MAX_IMAGE_BYTES + 1,
+        )
+        assert image_fetch_mod.fetch_allowed_image("https://comicvine.gamespot.com/c.jpg") is None
+        mock_get.return_value.iter_content.assert_not_called()
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_aborts_when_stream_exceeds_cap(self, mock_get):
+        from comicarr.app.metadata import image_fetch as image_fetch_mod
+
+        oversized = b"a" * (image_fetch_mod.MAX_IMAGE_BYTES + 1)
+        mock_resp = _mock_image_response(oversized, content_length=None)
+        # omit Content-Length so only streaming budget applies
+        mock_resp.headers = {"Content-Type": "image/jpeg"}
+        mock_get.return_value = mock_resp
+        assert image_fetch_mod.fetch_allowed_image("https://comicvine.gamespot.com/c.jpg") is None
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    def test_fetch_success_returns_bytes_and_type(self, mock_get):
+        from comicarr.app.metadata.image_fetch import fetch_allowed_image
+
+        jpeg = _jpeg_bytes()
+        mock_get.return_value = _mock_image_response(jpeg, content_type="image/jpeg; charset=binary")
+        result = fetch_allowed_image("https://comicvine.gamespot.com/c.jpg")
+        assert result == (jpeg, "image/jpeg")
+        assert mock_get.call_args.kwargs.get("stream") is True
+
+
+# =============================================================================
+# image-proxy router (shared helper)
+# =============================================================================
+
+
+class TestImageProxy:
+    def test_non_allowlisted_returns_403(self):
+        from comicarr.app.metadata.router import image_proxy
+
+        response = image_proxy(url="https://evil.example/cover.jpg")
+        assert response.status_code == 403
+        assert response.body  # JSONResponse
+        assert b"Domain not allowed" in response.body
+
+    @patch("comicarr.app.metadata.router.fetch_allowed_image")
+    def test_allowlisted_fetch_failure_returns_502(self, mock_fetch):
+        from comicarr.app.metadata.router import image_proxy
+
+        mock_fetch.return_value = None
+        response = image_proxy(url="https://comicvine.gamespot.com/c.jpg")
+        assert response.status_code == 502
+        assert b"Failed to fetch image" in response.body
+
+    @patch("comicarr.app.metadata.router.fetch_allowed_image")
+    def test_success_returns_image_bytes(self, mock_fetch):
+        from comicarr.app.metadata.router import image_proxy
+
+        jpeg = _jpeg_bytes()
+        mock_fetch.return_value = (jpeg, "image/jpeg")
+        response = image_proxy(url="https://comicvine.gamespot.com/c.jpg")
+        assert response.status_code == 200
+        assert response.body == jpeg
+        assert response.media_type == "image/jpeg"
