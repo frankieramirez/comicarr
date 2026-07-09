@@ -374,9 +374,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         dp = delu.TorrentClient()
         # connect() returns the RPC client on success, or {"status": False, "error": ...}
         # on failure. Failure dicts are truthy — bare `if not conn` never catches them.
-        conn = dp.connect(
-            comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD
-        )
+        conn = dp.connect(comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD)
         if conn is False or conn is None or (isinstance(conn, dict) and conn.get("status") is False):
             logger.warn("Not connected to Deluge!")
             return {"snatch_status": "MONITOR ERROR"}
