@@ -85,19 +85,14 @@ def fetch_allowed_image(url):
     try:
         # raise_for_status only fails 4xx/5xx; with allow_redirects=False, 3xx must not succeed
         if resp.status_code != 200:
-            logger.error(
-                "[METADATA-artwork] Unexpected HTTP %s for image %s" % (resp.status_code, url)
-            )
+            logger.error("[METADATA-artwork] Unexpected HTTP %s for image %s" % (resp.status_code, url))
             return None
 
         content_length = resp.headers.get("Content-Length")
         if content_length:
             try:
                 if int(content_length) > MAX_IMAGE_BYTES:
-                    logger.error(
-                        "[METADATA-artwork] Image Content-Length exceeds cap (%s): %s"
-                        % (content_length, url)
-                    )
+                    logger.error("[METADATA-artwork] Image Content-Length exceeds cap (%s): %s" % (content_length, url))
                     return None
             except (ValueError, TypeError):
                 pass
