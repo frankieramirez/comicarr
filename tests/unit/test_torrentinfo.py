@@ -145,3 +145,52 @@ def test_download_false_present_incomplete_is_in_progress(monkeypatch):
 
     assert isinstance(result, dict)
     assert result["snatch_status"] == "IN PROGRESS"
+
+
+def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch):
+    """Deluge connect returns truthy {status: False}; must not fall through to NOT FOUND."""
+    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = {"status": False, "error": "connection refused"}
+    fake_client.get_torrent.return_value = False
+
+    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert isinstance(result, dict)
+    assert result["snatch_status"] == "MONITOR ERROR"
+    fake_client.get_torrent.assert_not_called()
+
+
+def test_deluge_connect_false_is_monitor_error(monkeypatch):
+    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = False
+
+    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert isinstance(result, dict)
+    assert result["snatch_status"] == "MONITOR ERROR"
+    fake_client.get_torrent.assert_not_called()
+
+
+def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
+    """rTorrent check-miss bare-returns None; must not TypeError on len(None)."""
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", True)
+    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
+
+    class FakeRTorrent:
+        def main(self, torrent_hash=None, check=False):
+            return None
+
+    with patch("comicarr.rtorrent_test_client.RTorrent", return_value=FakeRTorrent()):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert isinstance(result, dict)
+    assert result["snatch_status"] == "NOT FOUND"
+    assert result["hash"] == HASH40

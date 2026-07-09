@@ -372,10 +372,14 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         from comicarr.torrent.clients import deluge as delu
 
         dp = delu.TorrentClient()
-        if not dp.connect(
+        # connect() returns the RPC client on success, or {"status": False, "error": ...}
+        # on failure. Failure dicts are truthy — bare `if not conn` never catches them.
+        conn = dp.connect(
             comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD
-        ):
+        )
+        if conn is False or conn is None or (isinstance(conn, dict) and conn.get("status") is False):
             logger.warn("Not connected to Deluge!")
+            return {"snatch_status": "MONITOR ERROR"}
 
         torrent_info = dp.get_torrent(torrent_hash)
     else:
@@ -383,7 +387,9 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
 
     logger.info("torrent_info: %s" % torrent_info)
 
-    if torrent_info is False or len(torrent_info) == 0:
+    # Falsy covers False (Deluge miss), None (rTorrent check-miss bare return), and {}.
+    # Use `not torrent_info` so None never hits len() and TypeErrors the worker.
+    if not torrent_info:
         # The client was queried and returned no torrent for this hash. This
         # is an EXPLICIT "hash not present in the client" signal — NOT the old
         # silent fall-through (previously this set a lost local snatch_status
@@ -393,7 +399,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         # dict lets U5 recovery classification distinguish "absent from a
         # reachable client" (→ gone, after the done-signal cross-check) from a
         # transient client outage (MONITOR ERROR → unknown). Connection
-        # failures are logged/handled distinctly above and do not reach here.
+        # failures return MONITOR ERROR above and do not reach here.
         logger.warn("torrent not present in client for hash %s (explicit NOT FOUND)." % torrent_hash)
         return {"snatch_status": "NOT FOUND", "hash": torrent_hash}
     else:
@@ -485,9 +491,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
             # rather than NOT SNATCHED → absent/gone. NOT FOUND remains the only
             # explicit absent marker (returned above when the client has no hash).
             snatch_status = "IN PROGRESS"
-            if download is True:
-                snatch_status = "IN PROGRESS"
-            elif monitor is True:
+            if monitor is True:
                 if comicarr.USE_DELUGE:
                     pauseit = dp.stop_torrent(torrent_hash)
                     if pauseit is False:
