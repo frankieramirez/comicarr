@@ -14,6 +14,7 @@ import zipfile
 
 import comicarr
 from comicarr import config as config_module
+from comicarr import encrypted as encrypted_module
 from comicarr.carepackage import carePackage
 
 
@@ -106,3 +107,42 @@ def test_carepackage_clean_config_and_logs_redact_newer_secrets(tmp_path, monkey
     zip_parser.read_string(zip_clean_config)
     for section, option in expected_redacted_options:
         assert zip_parser.get(section, option) == "xXX[REMOVED]XXx"
+
+
+def test_encrypt_items_handles_git_token_auth_tuple(tmp_path, monkeypatch):
+    """configure() rewrites GIT_TOKEN to a requests auth tuple before encrypt_items.
+
+    encrypt_items must encrypt the string token without AttributeError on .startswith.
+    """
+    secure_dir = tmp_path / "secure"
+    secure_dir.mkdir()
+    config_path = tmp_path / "config.ini"
+    config_path.write_text("")
+
+    # Reset Fernet cache so master.key is loaded from this test's SECURE_DIR.
+    encrypted_module._fernet_instance = None
+
+    cfg = config_module.Config(str(config_path))
+    for attr_name in config_module.ENCRYPTED_CONFIG_ITEMS:
+        setattr(cfg, attr_name, None)
+    cfg.GIT_TOKEN = ("ghp_test_token_value", "x-oauth-basic")
+    cfg.SECURE_DIR = str(secure_dir)
+    cfg.WRITE_THE_CONFIG = False
+
+    monkeypatch.setattr(comicarr, "CONFIG", cfg)
+    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+
+    parser = config_module.config
+    if not parser.has_section("Git"):
+        parser.add_section("Git")
+
+    # Must not raise; must Fernet-encrypt the string token into the parser.
+    cfg.encrypt_items(mode="encrypt", updateconfig=True)
+
+    encrypted_token = parser.get("Git", "git_token")
+    assert encrypted_token.startswith("gAAAAA")
+    assert "ghp_test_token_value" not in encrypted_token
+    # Runtime auth tuple shape is unchanged (encrypt writes the parser only).
+    assert cfg.GIT_TOKEN == ("ghp_test_token_value", "x-oauth-basic")
+
+    encrypted_module._fernet_instance = None

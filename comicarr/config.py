@@ -1245,6 +1245,17 @@ class Config(object):
             if current_value is None:
                 continue
 
+            # configure() rewrites GIT_TOKEN to (token, "x-oauth-basic") for requests
+            # Basic auth before encrypt_items() may run. Encrypt/decrypt the string
+            # token only; never call str methods on the auth tuple.
+            if isinstance(current_value, (tuple, list)) and current_value:
+                current_value = current_value[0]
+            if not isinstance(current_value, str):
+                logger.warn(
+                    "Skipping encryption for %s: expected string, got %s" % (ini_key, type(current_value).__name__)
+                )
+                continue
+
             # Skip values already encrypted with Fernet
             if current_value.startswith("gAAAAA"):
                 if mode == "decrypt":
