@@ -1,8 +1,7 @@
 """Tests for DISCORD notifier."""
 
 import json
-import re
-import pytest
+
 import responses
 
 
@@ -16,13 +15,9 @@ class TestDiscordInit:
         assert discord.webhook_url == "https://discord.com/api/webhooks/test/webhook"
         assert discord.test is False
 
-    def test_init_test_webhook_sets_test_mode(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_webhook_sets_test_mode(self, notifiers_module, mock_notifier_config):
         """Test webhook URL sets test mode to True."""
-        discord = notifiers_module.DISCORD(
-            test_webhook_url="https://discord.com/api/webhooks/override"
-        )
+        discord = notifiers_module.DISCORD(test_webhook_url="https://discord.com/api/webhooks/override")
 
         assert discord.webhook_url == "https://discord.com/api/webhooks/override"
         assert discord.test is True
@@ -32,9 +27,7 @@ class TestDiscordNotify:
     """Test DISCORD notify method."""
 
     @responses.activate
-    def test_notify_test_mode_simple_content(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_test_mode_simple_content(self, notifiers_module, mock_notifier_config):
         """Test mode sends simple content without embeds."""
         responses.add(
             responses.POST,
@@ -42,14 +35,10 @@ class TestDiscordNotify:
             status=204,
         )
 
-        discord = notifiers_module.DISCORD(
-            test_webhook_url="https://discord.com/api/webhooks/override"
-        )
+        discord = notifiers_module.DISCORD(test_webhook_url="https://discord.com/api/webhooks/override")
         result = discord.notify("Test", "Test message")
 
-        # Note: Current implementation has a bug in status check (all([x==204, x==200]))
-        # which is always False unless status is both 204 AND 200 simultaneously
-        # This test documents the actual behavior
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         assert request_body["content"] == "Test message"
@@ -73,6 +62,7 @@ class TestDiscordNotify:
             sent_to="sent to SABnzbd",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
 
@@ -107,6 +97,7 @@ class TestDiscordNotify:
             sent_to="sent to DDL folder",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
@@ -114,9 +105,7 @@ class TestDiscordNotify:
         assert sent_to_field["value"] == "DDL"
 
     @responses.activate
-    def test_notify_snatched_torrent_client_detection(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_snatched_torrent_client_detection(self, notifiers_module, mock_notifier_config):
         """Torrent client in sent_to is detected correctly."""
         responses.add(
             responses.POST,
@@ -133,6 +122,7 @@ class TestDiscordNotify:
             sent_to="sent to qBittorrent client",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
@@ -140,9 +130,7 @@ class TestDiscordNotify:
         assert sent_to_field["value"] == "qBittorrent"
 
     @responses.activate
-    def test_notify_snatched_nzb_client_detection(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_snatched_nzb_client_detection(self, notifiers_module, mock_notifier_config):
         """NZB client (no 'client' keyword) extracts last word."""
         responses.add(
             responses.POST,
@@ -159,6 +147,7 @@ class TestDiscordNotify:
             sent_to="sent to SABnzbd",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
@@ -180,6 +169,7 @@ class TestDiscordNotify:
             attachment_text="Error processing file",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
@@ -204,6 +194,7 @@ class TestDiscordNotify:
             attachment_text="Comicarr has downloaded and post-processed: Spider-Man 001",
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         embeds = request_body["embeds"]
@@ -211,9 +202,7 @@ class TestDiscordNotify:
         assert embeds[0]["color"] == 32768  # Green
 
     @responses.activate
-    def test_notify_with_image_multipart(
-        self, notifiers_module, mock_notifier_config, sample_image_base64
-    ):
+    def test_notify_with_image_multipart(self, notifiers_module, mock_notifier_config, sample_image_base64):
         """Image notification uses multipart form data."""
         responses.add(
             responses.POST,
@@ -228,11 +217,10 @@ class TestDiscordNotify:
             imageFile=sample_image_base64,
         )
 
+        assert result is True
         assert len(responses.calls) == 1
         # Multipart form data
-        assert "multipart/form-data" in responses.calls[0].request.headers.get(
-            "Content-Type", ""
-        )
+        assert "multipart/form-data" in responses.calls[0].request.headers.get("Content-Type", "")
 
 
 class TestDiscordNotifyErrors:
@@ -281,15 +269,8 @@ class TestDiscordNotifyErrors:
 
         assert result is False
 
-    def test_notify_connection_error_raises_unbound_local(
-        self, notifiers_module, mock_notifier_config, mocker
-    ):
-        """Connection error causes UnboundLocalError due to missing exception handling.
-
-        Note: This test documents a bug in the current implementation.
-        The notify method should catch the exception and return False,
-        but instead it tries to access `response` which was never assigned.
-        """
+    def test_notify_connection_error_returns_false(self, notifiers_module, mock_notifier_config, mocker):
+        """Connection error returns False without raising UnboundLocalError."""
         import requests
 
         mocker.patch(
@@ -299,25 +280,40 @@ class TestDiscordNotifyErrors:
 
         discord = notifiers_module.DISCORD()
         # Use snatched format to avoid IndexError in message parsing
-        # The bug is that after the exception in requests.post,
-        # the code continues to check response.status_code which is unbound
-        with pytest.raises(UnboundLocalError):
-            discord.notify(
-                text="Comicarr Notification",
-                attachment_text="Snatched",
-                snatched_nzb="Spider-Man 001",
-                prov="NZBGeek",
-                sent_to="SABnzbd",
-            )
+        result = discord.notify(
+            text="Comicarr Notification",
+            attachment_text="Snatched",
+            snatched_nzb="Spider-Man 001",
+            prov="NZBGeek",
+            sent_to="SABnzbd",
+        )
+        assert result is False
+
+    def test_notify_image_multipart_connection_error_returns_false(
+        self, notifiers_module, mock_notifier_config, mocker, sample_image_base64
+    ):
+        """Multipart image path returns False on connection error without raising."""
+        import requests
+
+        mocker.patch(
+            "requests.post",
+            side_effect=requests.exceptions.ConnectionError("Network error"),
+        )
+
+        discord = notifiers_module.DISCORD()
+        result = discord.notify(
+            text="Comicarr Notification",
+            attachment_text="Comicarr has downloaded and post-processed: Spider-Man 001",
+            imageFile=sample_image_base64,
+        )
+        assert result is False
 
 
 class TestDiscordTestNotify:
     """Test DISCORD test_notify method."""
 
     @responses.activate
-    def test_test_notify_uses_test_mode(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_uses_test_mode(self, notifiers_module, mock_notifier_config):
         """test_notify uses test webhook and test mode when provided."""
         responses.add(
             responses.POST,
@@ -325,12 +321,11 @@ class TestDiscordTestNotify:
             status=204,
         )
 
-        discord = notifiers_module.DISCORD(
-            test_webhook_url="https://discord.com/api/webhooks/override"
-        )
+        discord = notifiers_module.DISCORD(test_webhook_url="https://discord.com/api/webhooks/override")
         result = discord.test_notify()
 
         # Test mode sends simple content
+        assert result is True
         assert len(responses.calls) == 1
         request_body = json.loads(responses.calls[0].request.body)
         assert "Release the Ninjas" in request_body["content"]

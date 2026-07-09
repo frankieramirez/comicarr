@@ -483,10 +483,12 @@ class SLACK:
             "text": attachment_text
         }
 
+        response = None
         try:
             response = requests.post(self.webhook_url, json=payload, verify=True)
         except Exception as e:
             logger.info(module + "Slack notify failed: " + str(e))
+            return False
 
         # Error logging
         sent_successfuly = True
@@ -558,10 +560,12 @@ class MATTERMOST:
             "footer_icon": "https://github.com/frankieramirez/comicarr/raw/master/data/images/comicarrlogo.png",
             "attachments": attachments,
         }
+        response = None
         try:
             response = requests.post(self.webhook_url, json=payload, verify=True)
         except Exception as e:
             logger.info(module + "Mattermost notify failed: " + str(e))
+            return False
 
         # Error logging
         sent_successfuly = True
@@ -698,6 +702,7 @@ class DISCORD:
                         }
                     ]
 
+        response = None
         if imageFile is not None:
             files = {"payload_json": (None, json.dumps(payload)), "file1": ("image.jpg", base64.b64decode(imageFile))}
             try:
@@ -716,16 +721,18 @@ class DISCORD:
                 logger.info(module + "Discord notify failed: " + str(e))
 
         # Error logging
+        if response is None:
+            return False
         sent_successfuly = True
-        if not all([response.status_code == 204, response.status_code == 200]):
+        if response.status_code not in (200, 204):
             logger.info(
                 module
                 + "Could not send notification to Discord (webhook_url=%s). Response: [%s]"
                 % (self.webhook_url, response.text)
             )
             sent_successfuly = False
-
-        logger.info(module + "Discord notifications sent.")
+        else:
+            logger.info(module + "Discord notifications sent.")
         return sent_successfuly
 
     def test_notify(self):
@@ -780,10 +787,12 @@ class GOTIFY:
                 },
             }
 
+        response = None
         try:
             response = requests.post(self.webhook_url, json=payload, verify=True)
         except Exception as e:
             logger.info(module + "Gotify notify failed: " + str(e))
+            return False
 
         # Error logging
         sent_successfuly = True
