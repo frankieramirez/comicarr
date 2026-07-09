@@ -67,6 +67,9 @@ docs/solutions/
 docs/brainstorms/
 docs/ideation/
 
+# Advisor /improve handoff plans (local only; keep out of public tree)
+plans/
+
 # Pencil design files
 *.pen
 
