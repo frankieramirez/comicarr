@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.5
+
+### Patch Changes
+
+- 027d784: Harden artwork cache paths and cover image fetches against path traversal and SSRF (allowlisted hosts, no redirects, size and content-type caps).
+- 37ff1f7: Fix Discord and sibling webhook notifiers so successful deliveries are reported correctly and network errors return false instead of raising.
+
 ## 0.18.4
 
 ### Patch Changes
