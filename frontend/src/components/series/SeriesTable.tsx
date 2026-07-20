@@ -31,11 +31,11 @@ import {
   ChevronsUpDown,
   ImageOff,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import FilterField from "@/components/ui/FilterField";
 import SeriesFilters, {
   type TypeFilter,
   type ProgressFilter,
@@ -97,12 +97,7 @@ export default function SeriesTable({
       throttleMs: 300,
     }),
   );
-  const [searchInput, setSearchInput] = useState(search);
   const [localPage, setLocalPage] = useState(params.page);
-
-  useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
 
   useEffect(() => {
     setLocalPage(params.page);
@@ -227,7 +222,7 @@ export default function SeriesTable({
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter: searchInput, rowSelection, pagination },
+    state: { sorting, globalFilter: search, rowSelection, pagination },
     onSortingChange: (updaterOrValue) => {
       const newSorting =
         typeof updaterOrValue === "function"
@@ -327,39 +322,17 @@ export default function SeriesTable({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Filter bar */}
-      <div className="px-5 py-2.5 border-b border-border flex items-center gap-3 min-h-[44px]">
-        <SeriesFilters
-          typeFilter={typeFilter}
-          progressFilter={progressFilter}
-          statusFilter={statusFilter}
-          onTypeChange={(value) => {
-            setLocalPage(0);
-            setParams({ type: value === "all" ? null : value, page: null });
-          }}
-          onProgressChange={(value) => {
-            setLocalPage(0);
-            setParams({ progress: value === "all" ? null : value, page: null });
-          }}
-          onStatusChange={(value) => {
-            setLocalPage(0);
-            setParams({ status: value === "all" ? null : value, page: null });
-          }}
-          resultCount={totalFiltered}
-          sortLabel={sortLabel}
-        />
-      </div>
-
-      {/* View toggle + search */}
-      <div className="px-5 py-2 border-b border-border flex items-center gap-2">
-        <div className="inline-flex rounded-md border border-border overflow-hidden">
+      {/* Unified action bar: view · search · filters · results */}
+      <div className="px-5 py-2 border-b border-border flex flex-wrap items-center gap-2 min-h-[44px]">
+        <div className="inline-flex shrink-0 rounded-md border border-border overflow-hidden">
           <button
             type="button"
             onClick={() => {
-              setParams({ view: null });
+              setLocalPage(0);
+              setParams({ view: null, page: null });
               setRowSelection({});
             }}
-            className={`px-2 py-1 transition-colors ${
+            className={`px-2 py-1.5 transition-colors ${
               !isGridView
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -375,7 +348,7 @@ export default function SeriesTable({
               setParams({ view: "grid", page: null });
               setRowSelection({});
             }}
-            className={`px-2 py-1 border-l border-border transition-colors ${
+            className={`px-2 py-1.5 border-l border-border transition-colors ${
               isGridView
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -385,17 +358,50 @@ export default function SeriesTable({
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
         </div>
-        <Input
-          placeholder="Search series…"
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value);
-            setSearch(e.target.value || null);
-            setLocalPage(0);
-            setParams({ page: null });
-          }}
-          className="w-[220px] h-8 text-[12px]"
-        />
+
+        <div className="w-[min(220px,100%)] sm:w-[220px] shrink-0">
+          <FilterField
+            type="search"
+            placeholder="Filter series…"
+            aria-label="Filter series"
+            shortcut="/"
+            widthCap="full"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value || null);
+              setLocalPage(0);
+              setParams({ page: null });
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <SeriesFilters
+            typeFilter={typeFilter}
+            progressFilter={progressFilter}
+            statusFilter={statusFilter}
+            onTypeChange={(value) => {
+              setLocalPage(0);
+              setParams({ type: value === "all" ? null : value, page: null });
+            }}
+            onProgressChange={(value) => {
+              setLocalPage(0);
+              setParams({
+                progress: value === "all" ? null : value,
+                page: null,
+              });
+            }}
+            onStatusChange={(value) => {
+              setLocalPage(0);
+              setParams({
+                status: value === "all" ? null : value,
+                page: null,
+              });
+            }}
+            resultCount={totalFiltered}
+            sortLabel={sortLabel}
+          />
+        </div>
       </div>
 
       {/* Bulk action bar */}
