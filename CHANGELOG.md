@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.11
+
+### Patch Changes
+
+- 7d1c77a: Fix Library pagination controls resetting to the first page.
+
 ## 0.19.10
 
 ### Patch Changes
