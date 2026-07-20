@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session
+from comicarr.app.imports import finalization as import_finalization
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
 
@@ -344,10 +345,25 @@ def match_import(
 
     issue_id = request_body.get("issue_id")
     comic_name = request_body.get("comic_name")
-    result = series_service.match_import(ctx, imp_ids, comic_id, comic_name=comic_name, issue_id=issue_id)
-    if not result.get("success"):
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
-    return result
+    try:
+        result = import_finalization.finalize_manual_match(
+            ctx,
+            imp_ids,
+            comic_id,
+            series_name=comic_name,
+            fallback_issue_id=issue_id,
+        )
+    except import_finalization.ImportFinalizationError as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    return {
+        "success": True,
+        "matched": result.matched,
+        "imported": result.matched,
+        "comic_id": result.series_id,
+        "comic_name": result.series_name,
+        "moved": result.moved,
+        "archived": result.archived,
+    }
 
 
 @router.patch("/import/{imp_id}", dependencies=[Depends(require_session)])
