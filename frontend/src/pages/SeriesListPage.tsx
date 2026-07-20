@@ -3,7 +3,6 @@ import { Plus } from "lucide-react";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
-import FilterField from "@/components/ui/FilterField";
 import { Kbd } from "@/components/ui/kbd";
 
 export default function SeriesListPage() {
@@ -45,16 +44,6 @@ export default function SeriesListPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:flex w-[240px]">
-            <FilterField
-              placeholder="Filter series…"
-              aria-label="Filter series"
-              shortcut="/"
-              widthCap="full"
-              disabled
-            />
-          </div>
-
           <Link
             to="/search"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-semibold"
