@@ -115,7 +115,12 @@ export default function SeriesTable({
   const progressFilter: ProgressFilter = params.progress ?? "all";
   const statusFilter: StatusFilter = params.status ?? "all";
 
-  const sorting: SortingState = params.sort ? [params.sort] : [];
+  const sortId = params.sort?.id;
+  const sortDesc = params.sort?.desc;
+  const sorting = useMemo<SortingState>(
+    () => (sortId ? [{ id: sortId, desc: sortDesc ?? false }] : []),
+    [sortDesc, sortId],
+  );
   const isGridView = params.view === "grid";
   const pageSize = isGridView ? 24 : 20;
 
