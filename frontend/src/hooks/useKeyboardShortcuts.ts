@@ -18,7 +18,7 @@ export function useKeyboardShortcuts(): void {
       if (e.key === "/" && !isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
 
-        // Try to find and focus the search input
+        // Try to find and focus the page filter/search input
         const searchInput =
           document.querySelector<HTMLInputElement>('input[type="search"]') ||
           document.querySelector<HTMLInputElement>(
@@ -26,6 +26,12 @@ export function useKeyboardShortcuts(): void {
           ) ||
           document.querySelector<HTMLInputElement>(
             'input[placeholder*="search"]',
+          ) ||
+          document.querySelector<HTMLInputElement>(
+            'input[placeholder*="Filter"]',
+          ) ||
+          document.querySelector<HTMLInputElement>(
+            'input[placeholder*="filter"]',
           );
 
         if (searchInput) {
