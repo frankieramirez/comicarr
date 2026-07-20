@@ -54,6 +54,7 @@ const ImportPage = () => (
 const ActivityPage = () => (
   <RouteLoader load={() => import("@/pages/ActivityPage")} />
 );
+const ChatPage = () => <RouteLoader load={() => import("@/pages/ChatPage")} />;
 
 // Create a client
 const queryClient = new QueryClient({
@@ -149,6 +150,8 @@ function AppContent() {
                       element={<StoryArcDetailPage />}
                     />
                     <Route path="/activity" element={<ActivityPage />} />
+                    <Route path="/chat" element={<ChatPage />} />
+                    <Route path="/chat/:threadId" element={<ChatPage />} />
                     <Route path="/import" element={<ImportPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />

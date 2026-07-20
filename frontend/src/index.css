@@ -252,6 +252,41 @@ body {
 }
 
 @layer utilities {
+  .scroll-fade-b {
+    mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black calc(100% - 2rem),
+      transparent 100%
+    );
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      currentColor 35%,
+      color-mix(in oklab, currentColor 35%, transparent) 50%,
+      currentColor 65%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: chat-shimmer 1.5s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shimmer {
+      animation: none;
+      color: inherit;
+    }
+  }
+
+  @keyframes chat-shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+
   .font-mono {
     font-family: var(--font-mono);
     font-feature-settings: "tnum" 1;

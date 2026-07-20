@@ -37,6 +37,7 @@ import {
   Sun,
   FolderInput,
   ChevronsUpDown,
+  MessageSquareText,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -99,6 +100,12 @@ export default function AppSidebar() {
   const primaryNav: NavItem[] = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard, kbd: "G D" },
     { path: "/library", label: "Library", icon: BookOpen, kbd: "G L" },
+    {
+      path: "/chat",
+      label: "Library Chat",
+      icon: MessageSquareText,
+      kbd: "G C",
+    },
     { path: "/releases", label: "Releases", icon: Calendar, kbd: "G R" },
     { path: "/wanted", label: "Wanted", icon: ListTodo, kbd: "G W" },
     { path: "/story-arcs", label: "Story Arcs", icon: BookMarked, kbd: "G A" },

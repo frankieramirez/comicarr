@@ -196,8 +196,8 @@ def test_upgrade_database_accepts_a_known_prior_comicarr_revision(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0001_baseline')"))
 
-    assert upgrade_database(engine) == "0002_legacy_adoption"
-    assert current_revision(engine) == "0002_legacy_adoption"
+    assert upgrade_database(engine) == "0003_library_chat"
+    assert current_revision(engine) == "0003_library_chat"
 
 
 def test_classifier_refuses_to_adopt_an_unknown_nonempty_database(tmp_path):
@@ -214,7 +214,7 @@ def test_upgrade_database_builds_a_fresh_database_to_the_single_head(tmp_path):
 
     revision = upgrade_database(engine)
 
-    assert revision == "0002_legacy_adoption"
+    assert revision == "0003_library_chat"
     assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
 
 
@@ -224,8 +224,8 @@ def test_upgrade_database_stamps_only_a_verified_legacy_database(tmp_path):
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
 
-    assert upgrade_database(engine) == "0002_legacy_adoption"
-    assert current_revision(engine) == "0002_legacy_adoption"
+    assert upgrade_database(engine) == "0003_library_chat"
+    assert current_revision(engine) == "0003_library_chat"
 
 
 def test_upgrade_database_never_stamps_an_unknown_database(tmp_path):

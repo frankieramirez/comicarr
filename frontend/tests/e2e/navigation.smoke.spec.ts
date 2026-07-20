@@ -5,6 +5,7 @@ import { monitorBrowser } from "./support/browser-monitor";
 const destinations = [
   { path: "/", label: "Dashboard" },
   { path: "/library", label: "Library" },
+  { path: "/chat", label: "Library Chat" },
   { path: "/search", label: "Search" },
   { path: "/wanted", label: "Wanted" },
   { path: "/activity", label: "Activity" },

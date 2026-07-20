@@ -1,74 +1,114 @@
-import type { ChatMessage as ChatMessageType } from "@/hooks/useAiChat";
+import type { LibraryChatMessage } from "@/types/chat";
+import {
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  Attachments,
+} from "@/components/ai-elements/attachments";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
+import {
+  Message,
+  MessageAvatar,
+  MessageContent,
+} from "@/components/ui/message";
+import { AlertCircle, Bot, CircleStop, LoaderCircle } from "lucide-react";
 import { ChatResultCard } from "./ChatResultCard";
-import { Loader2, User, Bot } from "lucide-react";
 
 interface ChatMessageProps {
-  message: ChatMessageType;
-  onNavigate?: () => void;
+  message: LibraryChatMessage;
 }
 
-export function ChatMessage({ message, onNavigate }: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-      <div
-        className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {isUser ? (
-          <User className="h-3.5 w-3.5" />
-        ) : (
-          <Bot className="h-3.5 w-3.5" />
-        )}
-      </div>
-
-      <div className={`flex-1 min-w-0 ${isUser ? "flex justify-end" : ""}`}>
-        {isUser ? (
-          <div className="inline-block max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
-            {message.content}
-          </div>
-        ) : (
-          <div className="max-w-[95%] space-y-2">
-            {message.results && message.results.length > 0 && (
-              <div className="space-y-1.5">
-                {message.results.slice(0, 10).map((result, index) => (
-                  <ChatResultCard
-                    key={`${result.ComicID || result.StoryArc || index}-${index}`}
-                    result={result}
-                    onNavigate={onNavigate}
-                  />
-                ))}
-                {message.results.length > 10 && (
-                  <p className="text-xs text-muted-foreground pl-1">
-                    ...and {message.results.length - 10} more results
-                  </p>
-                )}
-              </div>
-            )}
-
-            {message.content && (
-              <div
-                className={`text-sm leading-relaxed ${
-                  message.error ? "text-destructive" : "text-foreground"
-                }`}
+    <Message align={isUser ? "end" : "start"}>
+      {!isUser && (
+        <MessageAvatar aria-hidden="true" className="size-8 bg-primary/10">
+          <Bot className="text-primary" />
+        </MessageAvatar>
+      )}
+      <MessageContent>
+        {message.attachments.length > 0 && (
+          <Attachments variant="grid" className={isUser ? "ml-auto" : "ml-0"}>
+            {message.attachments.map((attachment) => (
+              <Attachment
+                key={attachment.id}
+                data={{
+                  id: attachment.id,
+                  type: "file",
+                  filename: attachment.filename,
+                  mediaType: attachment.media_type,
+                  url: attachment.url,
+                }}
               >
-                {message.content}
-              </div>
-            )}
+                <AttachmentPreview />
+                <AttachmentInfo />
+              </Attachment>
+            ))}
+          </Attachments>
+        )}
 
-            {message.isStreaming && !message.content && !message.results && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Thinking...</span>
-              </div>
+        {message.content && message.status !== "error" && (
+          <Bubble
+            align={isUser ? "end" : "start"}
+            variant={isUser ? "default" : "ghost"}
+          >
+            <BubbleContent className="whitespace-pre-wrap">
+              {message.content}
+            </BubbleContent>
+          </Bubble>
+        )}
+
+        {message.results && message.results.length > 0 && (
+          <div className="flex w-full max-w-2xl flex-col gap-2">
+            <div className="mono-label px-1">Library matches</div>
+            {message.results.slice(0, 10).map((result, index) => (
+              <ChatResultCard
+                key={`${result.ComicID || result.StoryArc || index}-${index}`}
+                result={result}
+              />
+            ))}
+            {message.results.length > 10 && (
+              <p className="px-1 text-xs text-muted-foreground">
+                {message.results.length - 10} more matches
+              </p>
             )}
           </div>
         )}
-      </div>
-    </div>
+
+        {message.status === "streaming" && !message.content && (
+          <Marker aria-live="polite">
+            <MarkerIcon>
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+            </MarkerIcon>
+            <MarkerContent className="shimmer">
+              Reading your library…
+            </MarkerContent>
+          </Marker>
+        )}
+
+        {message.status === "error" && (
+          <Marker className="text-destructive" role="alert">
+            <MarkerIcon>
+              <AlertCircle />
+            </MarkerIcon>
+            <MarkerContent>
+              {message.content || "The response could not be completed."}
+            </MarkerContent>
+          </Marker>
+        )}
+
+        {message.status === "cancelled" && (
+          <Marker>
+            <MarkerIcon>
+              <CircleStop />
+            </MarkerIcon>
+            <MarkerContent>Response stopped</MarkerContent>
+          </Marker>
+        )}
+      </MessageContent>
+    </Message>
   );
 }
