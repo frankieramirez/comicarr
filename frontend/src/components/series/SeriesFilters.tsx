@@ -1,4 +1,3 @@
-import { ChevronDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,7 +40,7 @@ function FilterChip({
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger
-        className={`h-auto py-[3px] px-2 rounded-full font-mono text-[11px] gap-1.5 w-auto shadow-none transition-colors ${
+        className={`h-auto py-[3px] px-2 rounded-full font-mono text-[11px] gap-1.5 w-auto shadow-none transition-colors [&_svg]:h-3 [&_svg]:w-3 ${
           active
             ? "border-primary/60 text-primary bg-primary/10"
             : "border-border text-muted-foreground hover:text-foreground"
@@ -49,7 +48,6 @@ function FilterChip({
       >
         <span className="text-muted-foreground/60">{label}:</span>
         <span>{display}</span>
-        <ChevronDown className="w-3 h-3 opacity-60" />
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
@@ -81,10 +79,6 @@ export default function SeriesFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
-      <span className="text-muted-foreground/60 uppercase tracking-wider pr-1">
-        filter
-      </span>
-
       {showTypeFilter && (
         <FilterChip
           label="type"
