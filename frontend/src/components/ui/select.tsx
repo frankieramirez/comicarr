@@ -109,6 +109,7 @@ const SelectContent = React.forwardRef<
   ) => (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
+        className="isolate z-50"
         side={side}
         sideOffset={sideOffset}
         align={align}
@@ -118,7 +119,7 @@ const SelectContent = React.forwardRef<
         <SelectPrimitive.Popup
           ref={ref}
           className={cn(
-            "relative isolate z-50 max-h-(--available-height) min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md transition-[opacity,transform] data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 origin-(--transform-origin)",
+            "relative max-h-(--available-height) min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md transition-[opacity,transform] data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 origin-(--transform-origin)",
             position === "popper" &&
               "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
             className,
@@ -129,8 +130,7 @@ const SelectContent = React.forwardRef<
           <SelectPrimitive.List
             className={cn(
               "p-1",
-              position === "popper" &&
-                "h-(--anchor-height) w-full min-w-(--anchor-width)",
+              position === "popper" && "w-full min-w-(--anchor-width)",
             )}
           >
             {children}
