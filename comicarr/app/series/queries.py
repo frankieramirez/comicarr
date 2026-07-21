@@ -428,62 +428,9 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     }
 
 
-def get_import_rows(imp_ids):
-    """Get raw import rows by impID."""
-    if not imp_ids:
-        return []
-    return db.select_all(select(t_importresults).where(t_importresults.c.impID.in_(imp_ids)))
-
-
 def get_import_row(imp_id):
     """Get one raw import row by impID."""
     return db.select_one(select(t_importresults).where(t_importresults.c.impID == imp_id))
-
-
-def get_issue_id_for_import(comic_id, issue_number):
-    """Find an issue/chapter ID for a manual import row."""
-    if issue_number is None:
-        return None
-    issue_number = str(issue_number).strip()
-    if not issue_number or issue_number == "None":
-        return None
-
-    row = db.select_one(
-        select(t_issues.c.IssueID)
-        .where(t_issues.c.ComicID == comic_id)
-        .where(t_issues.c.ChapterNumber == issue_number)
-        .limit(1)
-    )
-    if row:
-        return row["IssueID"]
-
-    row = db.select_one(
-        select(t_issues.c.IssueID)
-        .where(t_issues.c.ComicID == comic_id)
-        .where(t_issues.c.Issue_Number == issue_number)
-        .limit(1)
-    )
-    return row["IssueID"] if row else None
-
-
-def match_import(imp_id, comic_id, comic_name, issue_id=None):
-    """Manually match an import file to a comic series."""
-    update_values = {
-        "ComicID": comic_id,
-        "ComicName": comic_name,
-        "Status": "Imported",
-        "SuggestedComicID": comic_id,
-        "SuggestedComicName": comic_name,
-        "MatchSource": "manual",
-        "MatchConfidence": 100,
-        "WatchMatch": "C" + comic_id,
-        "IgnoreFile": 0,
-    }
-    if issue_id:
-        update_values["IssueID"] = issue_id
-        update_values["SuggestedIssueID"] = issue_id
-
-    db.upsert("importresults", update_values, {"impID": imp_id})
 
 
 def update_import_issue_number(imp_id, issue_number):
