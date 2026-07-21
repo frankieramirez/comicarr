@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.12
+
+### Patch Changes
+
+- d692778: Prevent manual imports from overwriting files created during finalization.
+
 ## 0.19.11
 
 ### Patch Changes
