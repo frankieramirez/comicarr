@@ -11,6 +11,7 @@ const now = "2026-07-20T16:00:00Z";
 function renderChat(route = "/chat") {
   return render(
     <Routes>
+      <Route path="/" element={<div>Regular Comicarr menu</div>} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/chat/:threadId" element={<ChatPage />} />
     </Routes>,
@@ -35,6 +36,27 @@ describe("ChatPage", () => {
     expect(
       screen.getByRole("button", { name: "Open AI Settings" }),
     ).toBeTruthy();
+  });
+
+  it("returns to the regular Comicarr menu", async () => {
+    server.use(
+      http.get("/api/ai/status", () =>
+        HttpResponse.json({ configured: true, circuit_state: "closed" }),
+      ),
+      http.get("/api/ai/chat/threads", () =>
+        HttpResponse.json({ threads: [], next_cursor: null }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderChat();
+
+    await screen.findByRole("heading", { name: "New library chat" });
+    await user.click(
+      screen.getAllByRole("button", { name: "Back to Comicarr" })[0],
+    );
+
+    expect(await screen.findByText("Regular Comicarr menu")).toBeTruthy();
   });
 
   it("creates a saved thread and renders its streamed answer", async () => {
@@ -144,7 +166,7 @@ describe("ChatPage", () => {
     const user = userEvent.setup();
     renderChat();
     const composer = await screen.findByRole("textbox", {
-      name: "Message Library Chat",
+      name: "Message Chat",
     });
     await user.type(composer, "Identify this cover");
     await user.click(screen.getByRole("button", { name: "Send message" }));
@@ -202,7 +224,7 @@ describe("ChatPage", () => {
     const user = userEvent.setup();
     renderChat();
     const composer = await screen.findByRole("textbox", {
-      name: "Message Library Chat",
+      name: "Message Chat",
     });
     await user.type(composer, "Interrupted question");
     await user.click(screen.getByRole("button", { name: "Send message" }));
@@ -250,7 +272,7 @@ describe("ChatPage", () => {
     const user = userEvent.setup();
     renderChat("/chat/thread-a");
     const composer = await screen.findByRole("textbox", {
-      name: "Message Library Chat",
+      name: "Message Chat",
     });
     await user.type(composer, "Only for Alpha");
     await user.click(

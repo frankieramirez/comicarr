@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ChatThreadSummary } from "@/types/chat";
 import {
+  ArrowLeft,
   LoaderCircle,
   MessageSquareText,
   MoreHorizontal,
@@ -24,6 +25,7 @@ interface ChatThreadListProps {
   isLoading: boolean;
   isLoadingMore: boolean;
   error?: string;
+  onBack: () => void;
   onNew: () => void;
   onSelect: (threadId: string) => void;
   onRename: (threadId: string, title: string) => Promise<void>;
@@ -49,6 +51,7 @@ export function ChatThreadList({
   isLoading,
   isLoadingMore,
   error,
+  onBack,
   onNew,
   onSelect,
   onRename,
@@ -60,6 +63,17 @@ export function ChatThreadList({
 
   return (
     <div className="flex size-full min-h-0 flex-col bg-card/40">
+      <div className="border-b px-3 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+          onClick={onBack}
+        >
+          <ArrowLeft data-icon="inline-start" />
+          Back to Comicarr
+        </Button>
+      </div>
       <div className="border-b p-3">
         <Button type="button" className="w-full justify-start" onClick={onNew}>
           <Plus data-icon="inline-start" />

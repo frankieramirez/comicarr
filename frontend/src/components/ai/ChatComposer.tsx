@@ -134,7 +134,7 @@ export function ChatComposer({
         <InputGroupTextarea
           value={value}
           disabled={isSending}
-          aria-label="Message Library Chat"
+          aria-label="Message Chat"
           aria-invalid={Boolean(error)}
           placeholder="Ask about your library or attach a comic cover…"
           className="min-h-16 max-h-40"

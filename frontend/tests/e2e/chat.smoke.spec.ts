@@ -105,6 +105,10 @@ test("creates, reopens, and deletes an image-aware saved chat", async ({
 
   await page.goto("/chat");
   await expect(
+    page.getByRole("button", { name: "Back to Comicarr" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
+  await expect(
     page.getByRole("heading", { name: "New library chat" }),
   ).toBeVisible();
 
@@ -118,7 +122,7 @@ test("creates, reopens, and deletes an image-aware saved chat", async ({
     ),
   });
   await expect(page.getByText("cover.png", { exact: true })).toBeVisible();
-  await page.getByLabel("Message Library Chat").fill("Identify this cover");
+  await page.getByLabel("Message Chat").fill("Identify this cover");
   await page.getByLabel("Send message").click();
 
   await expect(page).toHaveURL(/\/chat\/thread-e2e$/);

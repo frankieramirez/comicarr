@@ -102,7 +102,7 @@ export default function AppSidebar() {
     { path: "/library", label: "Library", icon: BookOpen, kbd: "G L" },
     {
       path: "/chat",
-      label: "Library Chat",
+      label: "Chat",
       icon: MessageSquareText,
       kbd: "G C",
     },

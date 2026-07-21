@@ -40,6 +40,7 @@ import type {
 } from "@/types/chat";
 import {
   AlertTriangle,
+  ArrowLeft,
   History,
   LoaderCircle,
   MessageSquareText,
@@ -363,6 +364,7 @@ export default function ChatPage() {
       isLoading={threadsQuery.isLoading}
       isLoadingMore={threadsQuery.isFetchingNextPage}
       error={threadsQuery.isError ? "Could not load saved chats." : undefined}
+      onBack={() => navigate("/")}
       onNew={handleNew}
       onSelect={(id) => {
         setThreadsOpen(false);
@@ -382,22 +384,40 @@ export default function ChatPage() {
 
   if (statusLoading) {
     return (
-      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center md:h-[calc(100dvh-3rem)]">
+      <div className="relative flex h-full items-center justify-center">
+        <Button
+          type="button"
+          variant="ghost"
+          className="absolute left-3 top-3"
+          onClick={() => navigate("/")}
+        >
+          <ArrowLeft data-icon="inline-start" />
+          Back to Comicarr
+        </Button>
         <LoaderCircle className="animate-spin text-muted-foreground" />
-        <span className="sr-only">Loading Library Chat</span>
+        <span className="sr-only">Loading Chat</span>
       </div>
     );
   }
 
   if (!aiStatus?.configured) {
     return (
-      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center px-5 md:h-[calc(100dvh-3rem)]">
+      <div className="relative flex h-full items-center justify-center px-5">
+        <Button
+          type="button"
+          variant="ghost"
+          className="absolute left-3 top-3"
+          onClick={() => navigate("/")}
+        >
+          <ArrowLeft data-icon="inline-start" />
+          Back to Comicarr
+        </Button>
         <div className="max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
           <AlertTriangle className="mx-auto mb-4 text-primary" />
           <h1 className="text-xl font-semibold">Connect an AI provider</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Library Chat needs an OpenAI-compatible provider and model before it
-            can read your collection.
+            Chat needs an OpenAI-compatible provider and model before it can
+            read your collection.
           </p>
           <Button className="mt-5" onClick={() => navigate("/settings?tab=ai")}>
             <Settings data-icon="inline-start" />
@@ -410,12 +430,22 @@ export default function ChatPage() {
 
   return (
     <MessageScrollerProvider>
-      <div className="flex h-[calc(100dvh-4rem)] min-h-0 bg-background md:h-[calc(100dvh-3rem)]">
+      <div className="flex h-full min-h-0 bg-background">
         <aside className="hidden w-72 shrink-0 border-r lg:flex">
           {threadList}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/70 px-4 backdrop-blur-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 lg:hidden"
+              onClick={() => navigate("/")}
+              aria-label="Back to Comicarr"
+            >
+              <ArrowLeft />
+            </Button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <MessageSquareText className="shrink-0 text-primary" />
