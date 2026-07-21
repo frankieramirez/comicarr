@@ -11,8 +11,10 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
+import tempfile
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -204,6 +206,53 @@ def _build_move_plan(rows: Sequence[dict], series_id: str, series_name: str, tar
     return move_plan
 
 
+def _remove_transfer_destination(destination_path: str, reference_path: str) -> None:
+    """Remove a destination only while it still names this transfer's file."""
+    try:
+        if os.path.samestat(os.stat(destination_path), os.stat(reference_path)):
+            os.unlink(destination_path)
+    except FileNotFoundError:
+        pass
+
+
+def _move_no_clobber(source_path: str, destination_path: str) -> None:
+    """Move one file without ever replacing an existing destination.
+
+    Hard-link publication gives same-filesystem moves an atomic no-clobber
+    boundary. Cross-filesystem moves first copy to a private file on the target
+    filesystem, then publish that complete file through the same boundary.
+    """
+    temporary_path = None
+    published_reference = source_path
+    try:
+        try:
+            os.link(source_path, destination_path)
+        except OSError as e:
+            if e.errno != errno.EXDEV:
+                raise
+
+            descriptor, temporary_path = tempfile.mkstemp(
+                prefix=".comicarr-import-",
+                dir=os.path.dirname(destination_path),
+            )
+            os.close(descriptor)
+            shutil.copy2(source_path, temporary_path)
+            published_reference = temporary_path
+            os.link(temporary_path, destination_path)
+
+        try:
+            os.unlink(source_path)
+        except OSError:
+            _remove_transfer_destination(destination_path, published_reference)
+            raise
+    finally:
+        if temporary_path:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
+
+
 def _rollback_moves(moved_files, series_id: str, *, reconcile: bool) -> list[str]:
     errors = []
     for source_path, destination_path in reversed(moved_files):
@@ -212,7 +261,7 @@ def _rollback_moves(moved_files, series_id: str, *, reconcile: bool) -> list[str
                 errors.append("%s -> %s: source and destination are missing" % (destination_path, source_path))
             continue
         try:
-            shutil.move(destination_path, source_path)
+            _move_no_clobber(destination_path, source_path)
             logger.fdebug("[IMPORT-MATCH] Rolled back moved import file %s to %s" % (destination_path, source_path))
         except (OSError, IOError) as e:
             errors.append("%s -> %s: %s" % (destination_path, source_path, e))
@@ -242,7 +291,7 @@ def _move_and_rescan(move_plan, series_id: str):
                 message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
             raise _fail(message, phase="move", rollback_failed=bool(rollback_errors))
         try:
-            shutil.move(source_path, destination_path)
+            _move_no_clobber(source_path, destination_path)
         except (OSError, IOError) as e:
             rollback_errors = _rollback_moves(moved_files, series_id, reconcile=False)
             message = "Failed to move import file %s to %s: %s" % (source_path, destination_path, e)

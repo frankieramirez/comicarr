@@ -9,9 +9,9 @@
 
 """Tests for the manual import finalization interface."""
 
+import errno
 import json
 import os
-import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -203,41 +203,60 @@ def test_move_preflight_rejects_existing_destination(tmp_path):
     mark_imported.assert_not_called()
 
 
-def test_move_rechecks_destination_before_each_file_move(tmp_path):
+def test_move_does_not_overwrite_destination_created_at_transfer_boundary(tmp_path):
     source = tmp_path / "inbox" / "chapter.cbz"
     target_directory = tmp_path / "library"
     destination = target_directory / source.name
     source.parent.mkdir()
     target_directory.mkdir()
     source.write_text("new")
-    original_exists = os.path.exists
-    destination_checks = 0
+    original_link = os.link
+    link_attempted = False
 
-    def exists_with_late_destination(path):
-        nonlocal destination_checks
-        if path == str(destination):
-            destination_checks += 1
-            if destination_checks == 1:
-                return False
+    def link_with_late_destination(source_path, destination_path):
+        nonlocal link_attempted
+        if destination_path == str(destination) and not link_attempted:
+            link_attempted = True
             destination.write_text("external")
-            return True
-        return original_exists(path)
+        return original_link(source_path, destination_path)
 
     with (
         _environment([_row("imp-1", source)], target_directory) as mark_imported,
-        patch.object(finalization.os.path, "exists", side_effect=exists_with_late_destination),
-        patch.object(finalization.shutil, "move") as move,
+        patch.object(finalization.os, "link", side_effect=link_with_late_destination),
         patch("comicarr.updater.forceRescan") as force_rescan,
     ):
-        with pytest.raises(finalization.ImportFinalizationError, match="destination now exists") as exc_info:
+        with pytest.raises(finalization.ImportFinalizationError, match="File exists") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
 
     assert exc_info.value.phase == "move"
     assert source.read_text() == "new"
     assert destination.read_text() == "external"
-    move.assert_not_called()
     force_rescan.assert_not_called()
     mark_imported.assert_not_called()
+
+
+def test_no_clobber_move_preserves_cross_filesystem_behavior(tmp_path):
+    source = tmp_path / "inbox" / "chapter.cbz"
+    destination = tmp_path / "library" / "chapter.cbz"
+    source.parent.mkdir()
+    destination.parent.mkdir()
+    source.write_text("chapter")
+    original_link = os.link
+    attempts = 0
+
+    def cross_filesystem_once(source_path, destination_path):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError(errno.EXDEV, "cross-device link")
+        return original_link(source_path, destination_path)
+
+    with patch.object(finalization.os, "link", side_effect=cross_filesystem_once):
+        finalization._move_no_clobber(str(source), str(destination))
+
+    assert not source.exists()
+    assert destination.read_text() == "chapter"
+    assert list(destination.parent.glob(".comicarr-import-*")) == []
 
 
 def test_preflight_rejects_missing_source_file(tmp_path):
@@ -317,7 +336,7 @@ def test_second_move_failure_rolls_back_first_move(tmp_path):
     first.write_text("one")
     second.write_text("two")
     rows = [_row("imp-1", first), _row("imp-2", second)]
-    original_move = shutil.move
+    original_move = finalization._move_no_clobber
 
     def fail_second_move(source_path, destination_path):
         if source_path == str(second):
@@ -326,7 +345,7 @@ def test_second_move_failure_rolls_back_first_move(tmp_path):
 
     with (
         _environment(rows, target_directory) as mark_imported,
-        patch.object(finalization.shutil, "move", side_effect=fail_second_move),
+        patch.object(finalization, "_move_no_clobber", side_effect=fail_second_move),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="disk full") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1", "imp-2"], "mal-123")
@@ -382,7 +401,7 @@ def test_database_failure_surfaces_incomplete_rollback(tmp_path):
     target_directory = tmp_path / "library"
     source.write_text("chapter")
     target_directory.mkdir()
-    original_move = shutil.move
+    original_move = finalization._move_no_clobber
 
     def fail_reverse_move(source_path, destination_path):
         if str(source_path).startswith(str(target_directory)):
@@ -392,7 +411,7 @@ def test_database_failure_surfaces_incomplete_rollback(tmp_path):
     with (
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")),
-        patch.object(finalization.shutil, "move", side_effect=fail_reverse_move),
+        patch.object(finalization, "_move_no_clobber", side_effect=fail_reverse_move),
         patch("comicarr.updater.forceRescan"),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="rollback incomplete") as exc_info:
@@ -400,6 +419,30 @@ def test_database_failure_surfaces_incomplete_rollback(tmp_path):
 
     assert exc_info.value.rollback_failed is True
     assert (target_directory / source.name).exists()
+
+
+def test_database_failure_does_not_overwrite_recreated_source_during_rollback(tmp_path):
+    source = tmp_path / "inbox" / "chapter.cbz"
+    target_directory = tmp_path / "library"
+    source.parent.mkdir()
+    target_directory.mkdir()
+    source.write_text("chapter")
+
+    def recreate_source(*_args):
+        source.write_text("external")
+        raise RuntimeError("database unavailable")
+
+    with (
+        _environment([_row("imp-1", source)], target_directory),
+        patch.object(finalization.import_queries, "mark_imported", side_effect=recreate_source),
+        patch("comicarr.updater.forceRescan"),
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="rollback incomplete") as exc_info:
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
+
+    assert exc_info.value.rollback_failed is True
+    assert source.read_text() == "external"
+    assert (target_directory / source.name).read_text() == "chapter"
 
 
 def test_database_failure_surfaces_missing_source_and_destination_during_rollback(tmp_path):
@@ -417,7 +460,9 @@ def test_database_failure_surfaces_missing_source_and_destination_during_rollbac
         patch.object(finalization.import_queries, "mark_imported", side_effect=delete_moved_file),
         patch("comicarr.updater.forceRescan"),
     ):
-        with pytest.raises(finalization.ImportFinalizationError, match="source and destination are missing") as exc_info:
+        with pytest.raises(
+            finalization.ImportFinalizationError, match="source and destination are missing"
+        ) as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
 
     assert exc_info.value.rollback_failed is True
@@ -572,6 +617,44 @@ def test_router_preserves_success_response_shape():
         "moved": 2,
         "archived": 0,
     }
+
+
+@pytest.mark.parametrize(
+    ("imp_ids", "stored_name", "request_name", "expected_name"),
+    [
+        ([""], "Stored Series", "Request Series", "Stored Series"),
+        (",,", None, "Request Series", "Request Series"),
+    ],
+)
+def test_router_preserves_normalized_empty_success_response(
+    imp_ids,
+    stored_name,
+    request_name,
+    expected_name,
+):
+    with (
+        patch.object(series_router.series_queries, "get_comic_name", return_value=stored_name),
+        patch.object(series_router.import_finalization, "finalize_manual_match") as finalize,
+    ):
+        response = series_router.match_import(
+            {
+                "imp_ids": imp_ids,
+                "comic_id": "mal-123",
+                "comic_name": request_name,
+            },
+            ctx=_ctx(),
+        )
+
+    assert response == {
+        "success": True,
+        "matched": 0,
+        "imported": 0,
+        "comic_id": "mal-123",
+        "comic_name": expected_name,
+        "moved": 0,
+        "archived": 0,
+    }
+    finalize.assert_not_called()
 
 
 def test_router_preserves_error_response_shape():
