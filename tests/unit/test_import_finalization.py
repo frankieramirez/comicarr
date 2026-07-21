@@ -10,6 +10,7 @@
 """Tests for the manual import finalization interface."""
 
 import json
+import os
 import shutil
 import threading
 import time
@@ -198,6 +199,43 @@ def test_move_preflight_rejects_existing_destination(tmp_path):
 
     assert exc_info.value.phase == "preflight"
     assert source.read_text() == "new"
+    force_rescan.assert_not_called()
+    mark_imported.assert_not_called()
+
+
+def test_move_rechecks_destination_before_each_file_move(tmp_path):
+    source = tmp_path / "inbox" / "chapter.cbz"
+    target_directory = tmp_path / "library"
+    destination = target_directory / source.name
+    source.parent.mkdir()
+    target_directory.mkdir()
+    source.write_text("new")
+    original_exists = os.path.exists
+    destination_checks = 0
+
+    def exists_with_late_destination(path):
+        nonlocal destination_checks
+        if path == str(destination):
+            destination_checks += 1
+            if destination_checks == 1:
+                return False
+            destination.write_text("external")
+            return True
+        return original_exists(path)
+
+    with (
+        _environment([_row("imp-1", source)], target_directory) as mark_imported,
+        patch.object(finalization.os.path, "exists", side_effect=exists_with_late_destination),
+        patch.object(finalization.shutil, "move") as move,
+        patch("comicarr.updater.forceRescan") as force_rescan,
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="destination now exists") as exc_info:
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
+
+    assert exc_info.value.phase == "move"
+    assert source.read_text() == "new"
+    assert destination.read_text() == "external"
+    move.assert_not_called()
     force_rescan.assert_not_called()
     mark_imported.assert_not_called()
 

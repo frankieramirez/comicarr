@@ -235,6 +235,12 @@ def _move_and_rescan(move_plan, series_id: str):
     moved_files = []
     for source_path, destination_path in move_plan:
         logger.fdebug("[IMPORT-MATCH] Moving %s to %s" % (source_path, destination_path))
+        if os.path.exists(destination_path):
+            rollback_errors = _rollback_moves(moved_files, series_id, reconcile=False)
+            message = "Import destination now exists: %s" % destination_path
+            if rollback_errors:
+                message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
+            raise _fail(message, phase="move", rollback_failed=bool(rollback_errors))
         try:
             shutil.move(source_path, destination_path)
         except (OSError, IOError) as e:
