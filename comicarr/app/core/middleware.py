@@ -55,7 +55,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
+            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org https://cdn.myanimelist.net",
             "font-src 'self'",
             "connect-src 'self'",
             "frame-ancestors 'none'",

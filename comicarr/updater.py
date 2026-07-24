@@ -353,7 +353,27 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
             lastupdated = datetime.datetime.strptime(comic["LastUpdated"], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
 
         mismatch = "no"
-        if not comicarr.CONFIG.CV_ONLY or ComicID[:1] == "G":
+        if str(ComicID).startswith(("md-", "mal-")):
+            # Manga (MangaDex/MAL) refreshes entirely through the manga importer.
+            # The CV_ONETIMER reconciliation below deletes issue rows and expects
+            # CV issuedata that the manga add functions do not return, so route
+            # these series around it and re-match files via forceRescan.
+            chkstatus = comicarr.importer.addComictoDB(ComicID, mismatch)
+            if chkstatus["status"] != "complete":
+                logger.warn(
+                    "There was an error when refreshing this series - Make sure directories are writable/exist, and check the logs for any errors/problems."
+                )
+                comicarr.GLOBAL_MESSAGES = {
+                    "status": "failure",
+                    "comicname": ComicName,
+                    "seriesyear": dspyear,
+                    "comicid": ComicID,
+                    "tables": "both",
+                    "message": "Failure refreshing %s (%s)" % (ComicName, dspyear),
+                }
+                return
+            forceRescan(ComicID)
+        elif not comicarr.CONFIG.CV_ONLY or ComicID[:1] == "G":
             # "exceptions" table is not in tables.py -- use text()
             CV_EXcomicid = db.select_one(text("SELECT * from exceptions WHERE ComicID=:cid").bindparams(cid=ComicID))
             if CV_EXcomicid is None:
@@ -1870,7 +1890,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                 mc_issue.append(
                     {
                         "Int_IssueNumber": mck["Int_IssueNumber"],
-                        "IssueYear": mck["IssueDate"][:4],
+                        "IssueYear": (mck["IssueDate"] or "")[:4],
                         "IssueID": mck["IssueID"],
                     }
                 )
@@ -1911,7 +1931,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                     mc_annual.append(
                         {
                             "Int_IssueNumber": ack["Int_IssueNumber"],
-                            "IssueYear": ack["IssueDate"][:4],
+                            "IssueYear": (ack["IssueDate"] or "")[:4],
                             "IssueID": ack["IssueID"],
                             "ReleaseComicID": ack["ReleaseComicID"],
                         }
@@ -1982,7 +2002,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                 except IndexError:
                     break
                 int_iss = helpers.issuedigits(reiss["Issue_Number"])
-                issyear = reiss["IssueDate"][:4]
+                issyear = (reiss["IssueDate"] or "")[:4]
                 old_status = reiss["Status"]
                 reiss["IssueName"]
 
@@ -2256,7 +2276,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                     break
                 int_iss = helpers.issuedigits(reann["Issue_Number"])
                 # logger.fdebug(module + ' int_iss:' + str(int_iss))
-                issyear = reann["IssueDate"][:4]
+                issyear = (reann["IssueDate"] or "")[:4]
                 old_status = reann["Status"]
 
                 year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", temploc, flags=re.I)

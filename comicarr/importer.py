@@ -254,6 +254,10 @@ def addComictoDB(
     if str(comicid).startswith("md-"):
         return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom)
 
+    # MAL-sourced manga (prefixed with 'mal-'): metadata from MAL, chapters from MangaDex
+    if str(comicid).startswith("mal-"):
+        return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom)
+
     controlValueDict = {"ComicID": comicid}
 
     with db.get_engine().connect() as conn:
@@ -1388,6 +1392,14 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
             covercheck = helpers.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MANGADEX] Retrying alternate cover image for: %s" % manga_name)
+            elif covercheck["status"] == "success":
+                # Point ComicImage at the local cached cover (matches the ComicVine
+                # add path); ComicImageURL keeps the external URL for the /art fallback.
+                db.upsert(
+                    "comics",
+                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    controlValueDict,
+                )
         except Exception as e:
             logger.warn("[MANGADEX] Failed to cache cover for %s: %s" % (manga_name, e))
 
@@ -1543,6 +1555,14 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
             covercheck = helpers.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MAL] Retrying alternate cover image for: %s" % manga_name)
+            elif covercheck["status"] == "success":
+                # Point ComicImage at the local cached cover (matches the ComicVine
+                # add path); ComicImageURL keeps the external URL for the /art fallback.
+                db.upsert(
+                    "comics",
+                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    controlValueDict,
+                )
         except Exception as e:
             logger.warn("[MAL] Failed to cache cover for %s: %s" % (manga_name, e))
 
