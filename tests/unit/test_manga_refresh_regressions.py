@@ -161,6 +161,92 @@ class TestForceRescanNullIssueDate:
                 pytest.fail("forceRescan crashed on NULL IssueDate: %s" % e)
             raise
 
+    def test_empty_year_does_not_resolve_duplicate_issue_numbers(self, monkeypatch, tmp_path):
+        """Same-number rows with NULL IssueDate must not year-match via empty substring.
+
+        ``"" in filename`` is always true, so without a nonempty-year guard the first
+        duplicate candidate would claim the file and overwrite its status/location.
+        """
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": "mal-161890",
+                    "ComicName": "Test Manga",
+                    "ComicPublisher": "Unknown",
+                    "ComicYear": "2020",
+                    "ComicLocation": str(tmp_path),
+                    "AlternateSearch": None,
+                    "Type": "Manga",
+                    "Corrected_Type": None,
+                    "Status": "Active",
+                },
+            )
+            for issue_id in ("issue-a", "issue-b"):
+                conn.execute(
+                    issues.insert(),
+                    {
+                        "IssueID": issue_id,
+                        "ComicID": "mal-161890",
+                        "Issue_Number": "1",
+                        "Int_IssueNumber": 1000,
+                        "IssueName": "Chapter 1",
+                        "IssueDate": None,
+                        "Status": "Skipped",
+                        "Location": None,
+                        "forced_file": None,
+                    },
+                )
+
+        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(
+            comicarr,
+            "CONFIG",
+            SimpleNamespace(
+                ANNUALS_ON=False,
+                MULTIPLE_DEST_DIRS=None,
+                DUPECONSTRAINT="filesize",
+                IGNORE_HAVETOTAL=False,
+                IGNORE_TOTAL=False,
+                SNATCHED_HAVETOTAL=False,
+                ENFORCE_PERMS=False,
+                AUTOWANT_ALL=False,
+            ),
+            raising=False,
+        )
+
+        fake_filecheck = MagicMock()
+        fake_filecheck.listFiles.return_value = {
+            "comiccount": 1,
+            "comiclist": [
+                {
+                    "ComicFilename": "Test Manga 001.cbz",
+                    "ComicLocation": str(tmp_path),
+                    "ComicSize": 1234,
+                    "JusttheDigits": "1",
+                    "AnnualComicID": None,
+                    "SeriesVolume": None,
+                }
+            ],
+        }
+        monkeypatch.setattr(updater.filechecker, "FileChecker", lambda **kwargs: fake_filecheck)
+
+        updater.forceRescan("mal-161890")
+
+        with engine.connect() as conn:
+            rows = (
+                conn.execute(select(issues).where(issues.c.ComicID == "mal-161890").order_by(issues.c.IssueID))
+                .mappings()
+                .all()
+            )
+
+        assert len(rows) == 2
+        # Leave the duplicate unresolved rather than binding the file to an arbitrary row.
+        assert all(row["Status"] == "Skipped" for row in rows)
+        assert all(not row["Location"] for row in rows)
+
 
 def _mal_details(cover_url="https://cdn.myanimelist.net/images/manga/2/253146l.jpg"):
     return {

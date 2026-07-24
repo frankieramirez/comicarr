@@ -2090,7 +2090,15 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                                         )
                                         multiplechk = True
                                         break
-                                    if (mi["IssueYear"] in tmpfc["ComicFilename"]) and (issyear == mi["IssueYear"]):
+                                    # Empty year is not a discriminator: "" is a substring of
+                                    # every filename, so same-number NULL-date rows would match
+                                    # arbitrarily. Require a nonempty year on both sides.
+                                    if (
+                                        mi["IssueYear"]
+                                        and issyear
+                                        and mi["IssueYear"] in tmpfc["ComicFilename"]
+                                        and issyear == mi["IssueYear"]
+                                    ):
                                         logger.fdebug(module + " Matched to year within filename : " + str(issyear))
                                         multiplechk = False
                                         break
@@ -2321,7 +2329,15 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                                         )
                                         multiplechk = True
                                         break
-                                    if (ma["IssueYear"] in tmpfc["ComicFilename"]) and (issyear == ma["IssueYear"]):
+                                    # Empty year is not a discriminator: "" is a substring of
+                                    # every filename, so same-number NULL-date rows would match
+                                    # arbitrarily. Require a nonempty year on both sides.
+                                    if (
+                                        ma["IssueYear"]
+                                        and issyear
+                                        and ma["IssueYear"] in tmpfc["ComicFilename"]
+                                        and issyear == ma["IssueYear"]
+                                    ):
                                         # make sure that the IssueYear discovered is not preceded by a volume so it matches correctly
                                         vchk = tmpfc["ComicFilename"].find(ma["IssueYear"])
                                         if tmpfc["ComicFilename"][vchk - 1].lower() == "v":
