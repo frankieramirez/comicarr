@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.13
+
+### Patch Changes
+
+- 544eb20: Fix MAL manga series: rescan no longer crashes on chapters without dates, Refresh routes `mal-` IDs through the MAL importer instead of ComicVine, and MAL cover images now display (CSP allowlist plus local cover caching).
+
 ## 0.19.12
 
 ### Patch Changes
