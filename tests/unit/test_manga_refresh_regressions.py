@@ -307,3 +307,155 @@ class TestCspAllowsMalCdn:
         from comicarr.app.core.middleware import SecurityHeadersMiddleware
 
         assert "https://cdn.myanimelist.net" in SecurityHeadersMiddleware.CSP
+
+
+class TestMangaRefreshPreservesLibraryState:
+    """Review findings: Refresh must not destroy name, status, or location."""
+
+    def _seed_existing_mal(self, engine, *, status="Active", location="/library/One Piece (1997)"):
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": "mal-13",
+                    "ComicName": "One Piece",
+                    "ComicYear": "1997",
+                    "Status": status,
+                    "ComicLocation": location,
+                    "Type": "Manga",
+                },
+            )
+            conn.execute(
+                issues.insert(),
+                {
+                    "IssueID": "mal-13-ch1",
+                    "ComicID": "mal-13",
+                    "Issue_Number": "1",
+                    "Int_IssueNumber": 1000,
+                    "IssueName": "Chapter 1",
+                    "Status": "Downloaded",
+                    "Location": "One Piece 001.cbz",
+                    "forced_file": None,
+                },
+            )
+
+    def test_fetch_failure_preserves_existing_name_and_status(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        self._seed_existing_mal(engine, status="Paused")
+        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: None)
+
+        result = importer.addMangaToDB_MAL("mal-13")
+
+        assert result["status"] == "incomplete"
+        with engine.connect() as conn:
+            row = conn.execute(select(comics).where(comics.c.ComicID == "mal-13")).mappings().one()
+        assert row["ComicName"] == "One Piece"
+        assert row["Status"] == "Paused"
+
+    def test_fetch_failure_placeholder_only_for_new_series(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: None)
+
+        result = importer.addMangaToDB_MAL("mal-999")
+
+        assert result["status"] == "incomplete"
+        with engine.connect() as conn:
+            row = conn.execute(select(comics).where(comics.c.ComicID == "mal-999")).mappings().one()
+        assert "Fetch failed" in row["ComicName"]
+        assert row["Status"] == "Active"
+
+    def test_refresh_preserves_comiclocation_when_manga_dest_set(self, monkeypatch, tmp_path):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        existing = str(tmp_path / "existing-library")
+        self._seed_existing_mal(engine, location=existing)
+        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
+        monkeypatch.setattr(
+            comicarr,
+            "CONFIG",
+            SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
+            raising=False,
+        )
+        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
+        monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: None)
+        monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
+        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+
+        importer.addMangaToDB_MAL("mal-13")
+
+        with engine.connect() as conn:
+            row = conn.execute(select(comics).where(comics.c.ComicID == "mal-13")).mappings().one()
+        assert row["ComicLocation"] == existing
+
+    def test_populate_preserves_existing_chapter_status(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        self._seed_existing_mal(engine)
+        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(
+            comicarr,
+            "CONFIG",
+            SimpleNamespace(AUTOWANT_ALL=False, MANGADEX_LANGUAGES="en"),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            "comicarr.mangadex.get_all_chapters",
+            lambda _id: [{"chapter": "1", "title": "Romance Dawn", "publish_at": "1997-07-22T00:00:00"}],
+        )
+        monkeypatch.setattr("comicarr.mangadex.get_total_chapter_count", lambda _id: 1)
+
+        importer._populate_manga_chapters(
+            "mal-13",
+            "One Piece",
+            mangadex_uuid="uuid-1",
+            mal_num_chapters=None,
+            controlValueDict={"ComicID": "mal-13"},
+        )
+
+        with engine.connect() as conn:
+            row = conn.execute(select(issues).where(issues.c.IssueID == "mal-13-ch1")).mappings().one()
+        assert row["Status"] == "Downloaded"
+        assert row["Location"] == "One Piece 001.cbz"
+        assert row["IssueName"] == "Romance Dawn"
+
+
+class TestMangaRefreshForceRescanErrors:
+    """#4: forceRescan exceptions must not report Refresh success."""
+
+    def test_forcerescan_exception_sets_failure_message(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": "mal-161890",
+                    "ComicName": "Test Manga",
+                    "ComicYear": "2020",
+                    "Status": "Active",
+                    "LastUpdated": None,
+                },
+            )
+
+        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
+        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        monkeypatch.setattr(comicarr, "GLOBAL_MESSAGES", {}, raising=False)
+        monkeypatch.setattr(
+            comicarr.importer,
+            "addComictoDB",
+            MagicMock(return_value={"status": "complete", "comicid": "mal-161890"}),
+        )
+        monkeypatch.setattr(updater, "forceRescan", MagicMock(side_effect=RuntimeError("disk gone")))
+
+        updater.dbUpdate(["mal-161890"], calledfrom="refresh")
+
+        assert comicarr.GLOBAL_MESSAGES["status"] == "failure"
+        assert "rescanning" in comicarr.GLOBAL_MESSAGES["message"].lower()

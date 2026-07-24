@@ -372,7 +372,19 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     "message": "Failure refreshing %s (%s)" % (ComicName, dspyear),
                 }
                 return
-            forceRescan(ComicID)
+            try:
+                forceRescan(ComicID)
+            except Exception as e:
+                logger.error("[MANGA-REFRESH] forceRescan failed for %s: %s" % (ComicID, e))
+                comicarr.GLOBAL_MESSAGES = {
+                    "status": "failure",
+                    "comicname": ComicName,
+                    "seriesyear": dspyear,
+                    "comicid": ComicID,
+                    "tables": "both",
+                    "message": "Failure rescanning %s (%s) after refresh" % (ComicName, dspyear),
+                }
+                return
         elif not comicarr.CONFIG.CV_ONLY or ComicID[:1] == "G":
             # "exceptions" table is not in tables.py -- use text()
             CV_EXcomicid = db.select_one(text("SELECT * from exceptions WHERE ComicID=:cid").bindparams(cid=ComicID))
