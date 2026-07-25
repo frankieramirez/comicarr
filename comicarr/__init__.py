@@ -188,7 +188,6 @@ SCHED_MONITOR_LAST = None
 SCHED_SEARCH_LAST = None
 SCHED_VERSION_LAST = None
 SCHED_DBUPDATE_LAST = None
-DBUPDATE_INTERVAL = 1440  # 24hrs
 DB_BACKFILL = False
 DBLOCK = False
 DB_FILE = None
@@ -450,7 +449,6 @@ def initialize(config_file):
             VERSION_STATUS, \
             UPDATER_STATUS, \
             FORCE_STATUS, \
-            DBUPDATE_INTERVAL, \
             DB_BACKFILL, \
             LOG_LANG, \
             LOG_CHARSET, \
@@ -1006,7 +1004,7 @@ def start(ctx):
                 next_run_time=datetime.datetime.utcnow(),
                 name="DB Updater",
                 args=[None, True],
-                trigger=IntervalTrigger(hours=0, minutes=DBUPDATE_INTERVAL, timezone="UTC"),
+                trigger=IntervalTrigger(hours=0, minutes=CONFIG.DBUPDATE_INTERVAL, timezone="UTC"),
             )
             UPDATER_SCHEDULER.pause()
 
@@ -1139,19 +1137,19 @@ def start(ctx):
                         % helpers.utc_date_to_local(datetime.datetime.utcfromtimestamp(updater_timestamp))
                     )
                 else:
-                    updater_timestamp = helpers.utctimestamp() + (int(DBUPDATE_INTERVAL) * 60)
+                    updater_timestamp = helpers.utctimestamp() + (int(CONFIG.DBUPDATE_INTERVAL) * 60)
 
                 updater_diff = (helpers.utctimestamp() - updater_timestamp) / 60
-                if updater_diff >= int(DBUPDATE_INTERVAL):
+                if updater_diff >= int(CONFIG.DBUPDATE_INTERVAL):
                     logger.fdebug("[DB UPDATER] DB Updater scheduled to run immediately.")
                     UPDATER_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow()))
                 else:
                     updater_diff = datetime.datetime.utcfromtimestamp(
-                        helpers.utctimestamp() + ((int(DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
+                        helpers.utctimestamp() + ((int(CONFIG.DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
                     )
                     logger.fdebug(
                         "[DB UPDATER] Scheduling next run @ %s (every %s minutes)"
-                        % (helpers.utc_date_to_local(updater_diff), DBUPDATE_INTERVAL)
+                        % (helpers.utc_date_to_local(updater_diff), CONFIG.DBUPDATE_INTERVAL)
                     )
                     UPDATER_SCHEDULER.modify(next_run_time=updater_diff)
 

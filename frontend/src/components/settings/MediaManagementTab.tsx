@@ -100,9 +100,9 @@ export function MediaManagementTab({
         <SettingField
           label="RSS Check Interval"
           type="number"
-          value={formData.rss_check_interval as number | undefined}
+          value={formData.rss_checkinterval as number | undefined}
           onChange={(v) =>
-            onChange("rss_check_interval", parseInt(v as string) || 20)
+            onChange("rss_checkinterval", parseInt(v as string) || 20)
           }
           helpText="How often to check RSS feeds (default: 20 min)"
         />

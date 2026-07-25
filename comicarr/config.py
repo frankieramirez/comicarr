@@ -215,6 +215,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "RSS_CHECKINTERVAL": (int, "Scheduler", 20),
         "SEARCH_INTERVAL": (int, "Scheduler", 1440),
         "DOWNLOAD_SCAN_INTERVAL": (int, "Scheduler", 5),
+        "DBUPDATE_INTERVAL": (int, "Scheduler", 1440),  # 24hrs
         "CHECK_GITHUB_INTERVAL": (int, "Scheduler", 360),
         "BLOCKLIST_TIMER": (int, "Scheduler", 3600),
         "IMPORT_SCAN_INTERVAL": (int, "Scheduler", 30),

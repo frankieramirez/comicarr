@@ -300,7 +300,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
     if sched is True:
         logger.fdebug(
             "Refresh sequence set to fire every %s minutes for %s day(s)"
-            % (comicarr.DBUPDATE_INTERVAL, comicarr.CONFIG.REFRESH_CACHE)
+            % (comicarr.CONFIG.DBUPDATE_INTERVAL, comicarr.CONFIG.REFRESH_CACHE)
         )
 
     for comic in sorted(
