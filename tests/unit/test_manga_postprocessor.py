@@ -24,6 +24,8 @@ Tests cover the _process_manga() method and the manga branch in Process().
 import queue
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import comicarr
 
 # Ensure LOG_LEVEL is set for tests
@@ -44,8 +46,7 @@ def _make_pp(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
     mock_config.IGNORE_SEARCH_WORDS = []
     mock_config.PRE_SCRIPTS = None
 
-    with patch.object(comicarr, "APILOCK", mock_apilock), \
-         patch.object(comicarr, "CONFIG", mock_config):
+    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", mock_config):
         pp = PostProcessor(
             nzb_name=nzb_name,
             nzb_folder=nzb_folder,
@@ -55,6 +56,54 @@ def _make_pp(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
             apicall=apicall,
         )
     return pp, mock_queue
+
+
+class TestMangaPlacementHonoursFileOpts:
+    """The manga path used shutil.move for every mode except copy, so hardlink
+    and softlink -- both of which are supposed to leave the download in place --
+    destroyed the user's source file."""
+
+    def _run(self, tmp_path, file_opts):
+        cbz = tmp_path / "Chainsaw Man 165.cbz"
+        cbz.write_bytes(b"fake cbz")
+        dest_dir = tmp_path / "manga" / "Chainsaw Man"
+        dest_dir.mkdir(parents=True)
+
+        pp, _ = _make_pp(
+            nzb_name="Chainsaw Man 165.cbz",
+            nzb_folder=str(tmp_path),
+            comicid="md-csm",
+        )
+
+        config = MagicMock()
+        config.FILE_OPTS = file_opts
+        config.ARC_FILEOPS = file_opts
+        config.ARC_FILEOPS_SOFTLINK_RELATIVE = False
+        config.IGNORE_SEARCH_WORDS = []
+
+        comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
+        with (
+            patch.object(comicarr, "CONFIG", config),
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.side_effect = [comic_row, None, None, None]
+            pp._process_manga()
+
+        return cbz, dest_dir / "Chainsaw Man 165.cbz"
+
+    @pytest.mark.parametrize("file_opts", ("hardlink", "softlink", "copy"))
+    def test_non_move_modes_leave_the_source_in_place(self, tmp_path, file_opts):
+        source, placed = self._run(tmp_path, file_opts)
+
+        assert source.exists(), "%s must not consume the downloaded file" % file_opts
+        assert placed.exists()
+
+    def test_move_mode_still_consumes_the_source(self, tmp_path):
+        source, placed = self._run(tmp_path, "move")
+
+        assert not source.exists()
+        assert placed.exists()
 
 
 class TestMangaBranchDetection:
@@ -81,13 +130,13 @@ class TestMangaBranchDetection:
             issueid="67890",
             apicall=True,
         )
-        with patch.object(pp, "_process_manga") as mock_pm, \
-             patch("comicarr.postprocessor.filechecker") as mock_fc, \
-             patch("comicarr.postprocessor.db") as mock_db:
+        with (
+            patch.object(pp, "_process_manga") as mock_pm,
+            patch("comicarr.postprocessor.filechecker") as mock_fc,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
             mock_db.select_one.return_value = {"ComicID": "12345"}
-            mock_fc.FileChecker.return_value.listFiles.return_value = {
-                "comiccount": 0, "comiclist": []
-            }
+            mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
             try:
                 pp.Process()
             except Exception:
@@ -172,8 +221,10 @@ class TestProcessMangaNoDestination:
 
         comic_row = {"ComicName": "Bleach", "ComicLocation": None}
 
-        with patch("comicarr.postprocessor.db") as mock_db, \
-             patch("comicarr.postprocessor.get_manga_destination", return_value=None):
+        with (
+            patch("comicarr.postprocessor.db") as mock_db,
+            patch("comicarr.postprocessor.get_manga_destination", return_value=None),
+        ):
             mock_db.select_one.return_value = comic_row
             pp._process_manga()
 
@@ -202,17 +253,18 @@ class TestProcessMangaFileMove:
 
         comic_row = {"ComicName": "Bleach", "ComicLocation": str(dest_dir)}
 
-        with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")), \
-             patch("comicarr.postprocessor.db") as mock_db:
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
             # First call: comic lookup. Remaining: chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            pp.fileop = MagicMock()
+            with patch("comicarr.postprocessor.helpers.file_ops", return_value=True) as file_ops:
+                pp._process_manga()
 
-            pp._process_manga()
-
-        # fileop should have been called to move the file
-        pp.fileop.assert_called_once()
-        args = pp.fileop.call_args[0]
+        # the placement helper should have been called for the file
+        file_ops.assert_called_once()
+        args = file_ops.call_args[0]
         assert args[0] == str(cbz)
         assert "Bleach v1.cbz" in args[1]
 
@@ -232,12 +284,13 @@ class TestProcessMangaFileMove:
 
         comic_row = {"ComicName": "Bleach", "ComicLocation": str(dest_dir)}
 
-        with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")), \
-             patch("comicarr.postprocessor.db") as mock_db:
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
             mock_db.select_one.return_value = comic_row
-            pp.fileop = MagicMock(side_effect=OSError("Permission denied"))
-
-            pp._process_manga()
+            with patch("comicarr.postprocessor.helpers.file_ops", side_effect=OSError("Permission denied")):
+                pp._process_manga()
 
         mock_queue.put.assert_called_once()
         result = mock_queue.put.call_args[0][0]
@@ -274,14 +327,16 @@ class TestProcessMangaChapterMatch:
         # to a benign no-op here. This test pins the issues-upsert + success
         # log, not the journal seam (covered by test_pp_complete_ordering.py /
         # test_journal_pp_seam.py).
-        with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")), \
-             patch("comicarr.app.downloads.journal.record_transition", return_value=True), \
-             patch("comicarr.postprocessor.db") as mock_db:
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.app.downloads.journal.record_transition", return_value=True),
+            patch("comicarr.postprocessor.helpers.file_ops", return_value=True),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
             # select_one calls: 1) comic lookup, 2) chapter match, 3) have count
             mock_db.select_one.side_effect = [comic_row, issue_row, have_count]
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
-            pp.fileop = MagicMock()
 
             pp._process_manga()
 
@@ -311,11 +366,13 @@ class TestProcessMangaChapterMatch:
 
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
 
-        with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")), \
-             patch("comicarr.postprocessor.db") as mock_db:
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.helpers.file_ops", return_value=True),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
             # comic lookup succeeds, all chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            pp.fileop = MagicMock()
 
             pp._process_manga()
 

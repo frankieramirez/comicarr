@@ -113,11 +113,6 @@ class PostProcessor(object):
         else:
             self.ddl = False
 
-        if comicarr.CONFIG.FILE_OPTS == "copy":
-            self.fileop = shutil.copy
-        else:
-            self.fileop = shutil.move
-
         self.valreturn = []
         self.extensions = (".cbr", ".cbz", ".pdf", ".cb7")
 
@@ -4330,11 +4325,15 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
-            # Move/copy file to series folder
+            # Place the file in the series folder. helpers.file_ops honours all
+            # four FILE_OPTS modes; shutil.move would destroy the source for the
+            # two link modes.
             dst = os.path.join(series_folder, filename)
             try:
-                self.fileop(filepath, dst)
-                logger.info("%s Moved manga file: %s -> %s" % (module, filename, series_folder))
+                fileoperation = helpers.file_ops(filepath, dst)
+                if not fileoperation:
+                    raise OSError
+                logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
             except Exception as e:
                 logger.error("%s Failed to move %s: %s" % (module, filename, e))
                 self._log("Failed to move/copy manga file: %s" % filename)
@@ -5224,12 +5223,6 @@ class PostProcessor(object):
                     logger.fdebug(
                         "%s Continuing post-processing but unable to change file permissions in %s" % (module, dst)
                     )
-
-        # let's reset the fileop to the original setting just in case it's a manual pp run
-        if comicarr.CONFIG.FILE_OPTS == "copy":
-            self.fileop = shutil.copy
-        else:
-            self.fileop = shutil.move
 
         # journal post_processed co-commits with the nzblog delete in one
         # begin() so the row is never terminal while nzblog is still present
