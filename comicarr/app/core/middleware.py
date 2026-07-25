@@ -18,6 +18,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from comicarr.app.core.image_hosts import csp_img_src_origins
+
 # Exempt only specific endpoints that cannot send the CSRF header
 # (OPDS uses HTTP Basic auth, not cookies, so CSRF is not applicable)
 CSRF_EXEMPT_PREFIXES = (
@@ -55,7 +57,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org https://cdn.myanimelist.net",
+            "img-src 'self' data: " + csp_img_src_origins(),
             "font-src 'self'",
             "connect-src 'self'",
             "frame-ancestors 'none'",

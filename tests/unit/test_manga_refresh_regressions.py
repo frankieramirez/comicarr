@@ -300,13 +300,10 @@ class TestMangaCoverCachePath:
         assert row["ComicImage"] == "https://cdn.myanimelist.net/images/manga/2/253146l.jpg"
 
 
-class TestCspAllowsMalCdn:
-    """Defect 3a: the MAL cover CDN must be in the CSP img-src allowlist."""
-
-    def test_mal_cdn_in_csp(self):
-        from comicarr.app.core.middleware import SecurityHeadersMiddleware
-
-        assert "https://cdn.myanimelist.net" in SecurityHeadersMiddleware.CSP
+# Defect 3a (the MAL cover CDN must be in the CSP img-src allowlist) is now
+# pinned structurally in tests/unit/test_image_hosts.py: the CSP is derived from
+# the same allowlist the SSRF guard uses, so a host can no longer be in one and
+# not the other.
 
 
 class TestMangaRefreshPreservesLibraryState:
