@@ -156,15 +156,57 @@ def test_route_acceptance_persists_actual_top_level_sender_identity(route, respo
     assert "apikey" not in str(payload).lower()
 
 
-def test_unsupported_torrent_route_is_manual_review_not_restart_replayed():
+def test_route_without_an_identity_is_manual_review_not_restart_replayed():
+    """Watchdir drops the file in a folder and gets nothing back to poll, so
+    there is no identity to correlate after a restart."""
     key = journal.release_key("route-2", "torznab")
-    handoff.reserve(key, "qbittorrent", payload={"issueid": "route-2"}, issueid="route-2", provider="torznab")
+    handoff.reserve(key, "watchdir", payload={"issueid": "route-2"}, issueid="route-2", provider="torznab")
+
+    accepted = handoff.record_acceptance(
+        key,
+        "watchdir",
+        {"status": True},
+        issueid="route-2",
+        provider="torznab",
+    )
+
+    assert accepted.manual_review is True
+    assert _journal_row(key)["stage"] == journal.MANUAL_REVIEW
+
+
+@pytest.mark.parametrize("route", ("qbittorrent", "transmission", "utorrent"))
+def test_monitorable_torrent_routes_are_snatched_not_quarantined(route):
+    """These three senders all return a hash, and torrent.monitor.probe can now
+    poll it -- previously they were quarantined on acceptance because nothing
+    could read their state back."""
+    key = journal.release_key("route-%s" % route, "torznab")
+    handoff.reserve(key, route, payload={"issueid": "route-%s" % route}, issueid="route-%s" % route, provider="torznab")
+
+    accepted = handoff.record_acceptance(
+        key,
+        route,
+        {"status": True, "hash": "torrent-hash-%s" % route},
+        issueid="route-%s" % route,
+        provider="torznab",
+    )
+
+    assert accepted.manual_review is False
+    row = _journal_row(key)
+    assert row["stage"] == journal.SNATCHED
+    assert row["hash"] == "torrent-hash-%s" % route
+
+
+def test_a_monitorable_route_without_a_hash_is_still_quarantined():
+    """The route being supported is not enough; without an identity there is
+    nothing to poll, and the acceptance must not claim otherwise."""
+    key = journal.release_key("route-nohash", "torznab")
+    handoff.reserve(key, "qbittorrent", payload={"issueid": "route-nohash"}, issueid="route-nohash", provider="torznab")
 
     accepted = handoff.record_acceptance(
         key,
         "qbittorrent",
-        {"status": True, "hash": "torrent-hash"},
-        issueid="route-2",
+        {"status": True},
+        issueid="route-nohash",
         provider="torznab",
     )
 

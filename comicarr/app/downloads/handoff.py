@@ -47,7 +47,12 @@ _ROUTE_ALIASES = {
     "watchdir": "watchdir",
     "blackhole": "blackhole",
 }
-_RESTART_SAFE_ROUTES = frozenset({"sabnzbd", "nzbget", "ddl", "rtorrent", "deluge"})
+# Routes whose acceptance yields an identity the monitor can poll after a
+# restart. Every torrent client with a probe belongs here; watchdir and
+# blackhole produce no client-side identity and so stay out.
+_RESTART_SAFE_ROUTES = frozenset(
+    {"sabnzbd", "nzbget", "ddl", "rtorrent", "deluge", "qbittorrent", "transmission", "utorrent"}
+)
 
 
 def _record_route_health(route, success, error=None):
