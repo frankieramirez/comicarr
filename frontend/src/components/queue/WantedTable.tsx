@@ -168,9 +168,11 @@ export default function WantedTable({
       if (onSelectionChange) {
         const newSelection =
           typeof updater === "function" ? updater(rowSelection) : updater;
-        const selectedIds = Object.keys(newSelection)
-          .map((index) => issues[parseInt(index)]?.IssueID)
-          .filter(Boolean) as string[];
+        // getRowId returns IssueID, so the keys are already issue ids --
+        // indexing `issues` by them yields undefined and selects nothing.
+        const selectedIds = Object.entries(newSelection)
+          .filter(([, isSelected]) => isSelected)
+          .map(([issueId]) => issueId);
         onSelectionChange(selectedIds);
       }
     },
