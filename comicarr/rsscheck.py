@@ -31,7 +31,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 from packaging.version import parse as parse_version
-from sqlalchemy import Column, Integer, MetaData, Table, Text, func, select
+from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
@@ -1981,12 +1981,17 @@ def mangadexNewChapterCheck():
 
     logger.info("[MANGA-RSS] Starting MangaDex new-chapter check")
 
-    # Get all active manga series with MangaDex IDs
+    # Every active manga series MangaDex can supply chapters for. MAL-added
+    # series carry a resolved MangaDexID; restricting this to md- ComicIDs meant
+    # they never polled for new chapters at all.
     manga_series = db.select_all(
         select(t_comics).where(
             t_comics.c.ContentType == "manga",
             t_comics.c.Status != "Paused",
-            t_comics.c.ComicID.like("md-%"),
+            or_(
+                t_comics.c.ComicID.like("md-%"),
+                t_comics.c.MangaDexID.isnot(None),
+            ),
         )
     )
 
@@ -2001,6 +2006,11 @@ def mangadexNewChapterCheck():
     for series in manga_series:
         comic_id = series["ComicID"]
         comic_name = series["ComicName"]
+        # md- series carry the MangaDex uuid in the ComicID itself; mal- series
+        # keep it in MangaDexID.
+        mangadex_id = comic_id if str(comic_id).startswith("md-") else series["MangaDexID"]
+        if not mangadex_id:
+            continue
 
         # Get existing chapter numbers from the database for this series
         existing_issues = db.select_all(
@@ -2019,7 +2029,7 @@ def mangadexNewChapterCheck():
 
         # Fetch chapters from MangaDex (rate-limited internally)
         try:
-            mdx_chapters = mangadex.get_all_chapters(comic_id)
+            mdx_chapters = mangadex.get_all_chapters(mangadex_id)
         except Exception as e:
             logger.error("[MANGA-RSS] Error fetching MangaDex chapters for %s: %s" % (comic_name, e))
             continue

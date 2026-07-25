@@ -1394,6 +1394,9 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         "ReadingDirection": "rtl",
         "MetadataSource": "mangadex",
         "ExternalID": mangadex_uuid,
+        # Also recorded on the MAL path. Without it a MangaDex-added series is
+        # invisible to every cross-provider lookup keyed on MangaDexID.
+        "MangaDexID": mangadex_uuid,
         "LastUpdated": helpers.now(),
         "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
     }

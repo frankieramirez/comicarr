@@ -614,8 +614,10 @@ class PostProcessor(object):
 
         self.oneoffinlist = False
 
-        # --- Manga branch: if the comicid is a MangaDex ID, use manga-specific processing ---
-        if self.comicid is not None and str(self.comicid).startswith("md-"):
+        # --- Manga branch: MangaDex (md-) and MyAnimeList (mal-) series both
+        # need manga-specific processing. Omitting mal- sent every MAL download
+        # down the ComicVine path. ---
+        if self.comicid is not None and str(self.comicid).startswith(("md-", "mal-")):
             logger.fdebug(
                 "%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid)
             )
