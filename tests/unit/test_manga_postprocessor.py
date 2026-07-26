@@ -346,7 +346,7 @@ class TestProcessMangaExistingDestination:
     # The download folder and the manga destination are separate trees here: a
     # destination nested inside the download folder would be picked up by the
     # loop's own file walk as a second manga file.
-    def _run(self, tmp_path, file_opts, seed_dest=None, source_bytes=b"fresh grab"):
+    def _run(self, tmp_path, file_opts, seed_dest=None, source_bytes=b"fresh grab", file_ops=None):
         download_dir = tmp_path / "download"
         download_dir.mkdir(exist_ok=True)
         cbz = download_dir / "Chainsaw Man 165.cbz"
@@ -378,9 +378,39 @@ class TestProcessMangaExistingDestination:
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            pp._process_manga()
+            if file_ops is None:
+                pp._process_manga()
+            else:
+                with patch("comicarr.postprocessor.helpers.file_ops", **file_ops):
+                    pp._process_manga()
 
         return cbz, placed, pp
+
+    @pytest.mark.parametrize(
+        "file_ops",
+        ({"return_value": False}, {"side_effect": OSError("No space left on device")}),
+        ids=("returns_false", "raises"),
+    )
+    def test_failed_replacement_restores_the_previous_chapter(self, tmp_path, file_ops):
+        """The chapter already in the library is moved aside, not deleted, so a
+        placement that fails mid-replacement leaves the library intact. Deleting
+        first would strand the DB reporting Status=Downloaded for a chapter that
+        is physically gone."""
+        source, placed, pp = self._run(tmp_path, "copy", seed_dest=b"stale copy", file_ops=file_ops)
+
+        assert placed.exists(), "a failed replacement must not destroy the chapter already in the library"
+        assert placed.read_bytes() == b"stale copy"
+        assert source.exists(), "the download must survive a failed placement"
+        assert "Failed to move/copy manga file" in pp.log
+
+    def test_successful_replacement_leaves_no_displaced_file_behind(self, tmp_path):
+        """The moved-aside copy is cleaned up once placement succeeds, so it is
+        never picked up by a later library scan."""
+        _source, placed, _pp = self._run(tmp_path, "copy", seed_dest=b"stale copy")
+
+        assert placed.read_bytes() == b"fresh grab"
+        leftovers = sorted(p.name for p in placed.parent.iterdir())
+        assert leftovers == ["Chainsaw Man 165.cbz"], leftovers
 
     @pytest.mark.parametrize("file_opts", ("hardlink", "softlink", "copy", "move"))
     def test_stale_destination_is_replaced(self, tmp_path, file_opts):
@@ -392,6 +422,11 @@ class TestProcessMangaExistingDestination:
         assert placed.exists()
         assert placed.read_bytes() == b"fresh grab", "%s must overwrite the stale library file" % file_opts
         assert "Failed to move/copy manga file" not in pp.log
+        if file_opts != "move":
+            # replacing an existing chapter must not cost the download: under
+            # softlink the download path is a symlink into the library, so this
+            # also pins that it resolves to the file that actually landed.
+            assert source.exists(), "%s must not consume the download when replacing" % file_opts
 
     def test_hardlink_rerun_is_idempotent(self, tmp_path):
         """The recovery finalizer re-drives a manga release in FULL. Under

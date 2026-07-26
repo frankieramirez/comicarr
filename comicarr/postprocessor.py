@@ -4340,6 +4340,7 @@ class PostProcessor(object):
             # Clear the destination first, keeping all four modes on the same
             # replace-what-is-there policy the manga path had before file_ops.
             already_placed = False
+            displaced = None
             if os.path.lexists(dst):
                 try:
                     # same inode (hardlinked) or same target (softlinked) means an
@@ -4349,10 +4350,18 @@ class PostProcessor(object):
                 except OSError:
                     already_placed = False
                 if not already_placed:
+                    # Move the existing chapter aside instead of deleting it.
+                    # Placement can still fail (disk full, permissions), and the
+                    # copy/move modes truncate the destination as they write, so
+                    # deleting up front would leave the library with nothing while
+                    # the DB still reports the chapter as Downloaded. A rename
+                    # frees dst for every mode and keeps the old file restorable.
+                    displaced = "%s.comicarr-displaced" % dst
                     try:
-                        os.remove(dst)
+                        os.replace(dst, displaced)
                         logger.fdebug("%s Replacing existing manga file: %s" % (module, dst))
                     except OSError as e:
+                        displaced = None
                         logger.error("%s Failed to replace existing %s: %s" % (module, dst, e))
                         self._log("Failed to replace existing manga file: %s" % filename)
                         continue
@@ -4368,7 +4377,19 @@ class PostProcessor(object):
                 except Exception as e:
                     logger.error("%s Failed to place %s: %s" % (module, filename, e))
                     self._log("Failed to move/copy manga file: %s" % filename)
+                    if displaced is not None:
+                        try:
+                            os.replace(displaced, dst)
+                            logger.info("%s Restored the previous %s after a failed placement" % (module, dst))
+                        except OSError as restore_error:
+                            logger.error("%s Failed to restore the previous %s: %s" % (module, dst, restore_error))
                     continue
+
+                if displaced is not None:
+                    try:
+                        os.remove(displaced)
+                    except OSError as e:
+                        logger.warn("%s Failed to clean up %s: %s" % (module, displaced, e))
 
             # P1: do NOT emit per-file `moved` here. Every chapter in a manga
             # pack shares ONE release_key; advancing it to `moved` after
