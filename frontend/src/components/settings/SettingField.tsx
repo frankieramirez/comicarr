@@ -25,6 +25,8 @@ interface SettingFieldProps {
   options?: SelectOption[];
   checked?: boolean;
   placeholder?: string;
+  /** Minimum accepted value. Number fields only. */
+  min?: number;
 }
 
 export function SettingField({
@@ -38,6 +40,7 @@ export function SettingField({
   options = [],
   checked,
   placeholder,
+  min,
 }: SettingFieldProps) {
   const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
@@ -174,6 +177,7 @@ export function SettingField({
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        min={type === "number" ? min : undefined}
         className="mt-1.5"
       />
       {helpText && (
