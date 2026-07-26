@@ -19,6 +19,28 @@ from comicarr.app.core.image_hosts import ALLOWED_IMAGE_DOMAINS, csp_img_src_ori
 from comicarr.app.core.middleware import SecurityHeadersMiddleware
 
 
+class TestAllowlistContents:
+    def test_allowlist_membership_is_pinned(self):
+        """Deriving the CSP proves the wiring, not the contents.
+
+        Every other test here iterates ALLOWED_IMAGE_DOMAINS, so the suite stays
+        green for any contents of the set -- including one with a provider host
+        dropped, which silently re-breaks that provider's covers. Pinning the set
+        literally makes a removal a deliberate test edit; an addition stays a
+        one-line change here alongside the one in image_hosts.
+        """
+        assert ALLOWED_IMAGE_DOMAINS == frozenset(
+            {
+                "comicvine.gamespot.com",
+                "static.metron.cloud",
+                "uploads.mangadex.org",
+                "myanimelist.net",
+                "cdn.myanimelist.net",
+                "api-cdn.myanimelist.net",
+            }
+        )
+
+
 class TestCspImgSrcOrigins:
     def test_every_allowed_host_becomes_an_https_origin(self):
         origins = csp_img_src_origins().split(" ")

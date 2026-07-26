@@ -149,9 +149,16 @@ if "apikey" not in kwargs and kwargs["cmd"] != "getAPI":
 
 ### 6. CSP `img-src` whitelist update
 
+At the time, the directive was hand-written:
+
 ```python
 "img-src 'self' data: https://comicvine.gamespot.com https://static.metron.cloud https://uploads.mangadex.org",
 ```
+
+> **Superseded — do not copy this shape.** Hand-maintaining the directive
+> alongside the SSRF allowlist is what let the two drift apart twice more
+> (#281, #298). As of PR #306 the CSP is derived from a single source; see
+> Prevention Strategy 4 below.
 
 ### 7. Page size 50 → 20
 
@@ -165,7 +172,7 @@ Reduces Metron API pressure from 50 concurrent image fetches to 20 (capped at 4 
 
 3. **Thread-safe bounded caches in CherryPy** — Always use `threading.Lock` + bounded `OrderedDict`. Never bare `dict` — CherryPy's 15-thread pool guarantees concurrent access.
 
-4. **Update CSP when adding image sources** — The `img-src` whitelist in `webstart.py` must be updated for any new provider. Add this to the provider integration checklist.
+4. **Add image hosts in one place — never hand-edit the CSP** — A new provider's host goes into `ALLOWED_IMAGE_DOMAINS` in `comicarr/app/core/image_hosts.py` and nowhere else. The CSP `img-src` directive is derived from that set by `csp_img_src_origins()` (`comicarr/app/core/middleware.py`), so it updates itself. Hand-writing hosts into the directive re-creates the second copy that drifted in #281 and #298; `tests/unit/test_image_hosts.py` fails if the CSP stops being derived. Note that membership grants two powers — the server may fetch from the host, and the browser may render images from it.
 
 5. **Browser-test the full auth flow** — Unit tests don't catch session/API key issues. The `getAPI` failure was only discoverable through actual browser testing.
 
