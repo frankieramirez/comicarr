@@ -268,8 +268,18 @@ class TestProcessMangaFileMove:
         assert args[0] == str(cbz)
         assert "Bleach v1.cbz" in args[1]
 
-    def test_move_failure_continues(self, tmp_path):
-        """When file move fails, should log error and continue."""
+    # helpers.file_ops does not raise on a handled error -- it logs and returns
+    # False (comicarr/app/common/filesystem.py). The `if not fileoperation`
+    # bridge in _process_manga is the only thing turning that into the failure
+    # path, so the falsy return is the case that has to be pinned; an exception
+    # escaping file_ops is the rarer shape and is covered alongside it.
+    @pytest.mark.parametrize(
+        "file_ops_kwargs",
+        ({"return_value": False}, {"side_effect": OSError("Permission denied")}),
+        ids=("returns_false", "raises"),
+    )
+    def test_move_failure_continues(self, tmp_path, file_ops_kwargs):
+        """When placement fails, should log error and continue."""
         cbz = tmp_path / "Bleach v1.cbz"
         cbz.write_bytes(b"fake cbz")
 
@@ -289,12 +299,118 @@ class TestProcessMangaFileMove:
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             mock_db.select_one.return_value = comic_row
-            with patch("comicarr.postprocessor.helpers.file_ops", side_effect=OSError("Permission denied")):
+            with patch("comicarr.postprocessor.helpers.file_ops", **file_ops_kwargs):
                 pp._process_manga()
 
         mock_queue.put.assert_called_once()
         result = mock_queue.put.call_args[0][0]
         assert "0 files matched" in result[0]["self.log"]
+
+    def test_falsy_file_ops_never_marks_the_chapter_downloaded(self, tmp_path):
+        """A False return means the file was NOT placed. Without the
+        `if not fileoperation` bridge the loop would upsert Status=Downloaded and
+        terminalize the journal for a file still sitting in the download folder,
+        which recovery would then never re-drive."""
+        cbz = tmp_path / "Bleach v1.cbz"
+        cbz.write_bytes(b"fake cbz")
+
+        dest_dir = tmp_path / "manga" / "Bleach"
+        dest_dir.mkdir(parents=True)
+
+        pp, _ = _make_pp(
+            nzb_name="Bleach v1.cbz",
+            nzb_folder=str(tmp_path),
+            comicid="md-bleach",
+        )
+
+        comic_row = {"ComicName": "Bleach", "ComicLocation": str(dest_dir)}
+        issue_row = {"IssueID": "md-bleach-v1", "Issue_Number": "1"}
+
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            # a chapter match IS available -- only the falsy placement stops it
+            mock_db.select_one.side_effect = [comic_row, issue_row, None, None]
+            with patch("comicarr.postprocessor.helpers.file_ops", return_value=False):
+                pp._process_manga()
+
+        assert mock_db.upsert.call_count == 0, "an unplaced chapter must not be marked Downloaded"
+
+
+class TestProcessMangaExistingDestination:
+    """os.link/os.symlink refuse an existing destination (EEXIST) and file_ops
+    reports that as a bare False, so an already-placed chapter would be skipped
+    on every pass. The manga loop clears/recognises the destination first."""
+
+    # The download folder and the manga destination are separate trees here: a
+    # destination nested inside the download folder would be picked up by the
+    # loop's own file walk as a second manga file.
+    def _run(self, tmp_path, file_opts, seed_dest=None, source_bytes=b"fresh grab"):
+        download_dir = tmp_path / "download"
+        download_dir.mkdir(exist_ok=True)
+        cbz = download_dir / "Chainsaw Man 165.cbz"
+        if not cbz.exists():
+            cbz.write_bytes(source_bytes)
+
+        dest_dir = tmp_path / "manga" / "Chainsaw Man"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        placed = dest_dir / "Chainsaw Man 165.cbz"
+        if seed_dest is not None:
+            placed.write_bytes(seed_dest)
+
+        pp, _ = _make_pp(
+            nzb_name="Chainsaw Man 165.cbz",
+            nzb_folder=str(download_dir),
+            comicid="md-csm",
+        )
+
+        config = MagicMock()
+        config.FILE_OPTS = file_opts
+        config.ARC_FILEOPS = file_opts
+        config.ARC_FILEOPS_SOFTLINK_RELATIVE = False
+        config.IGNORE_SEARCH_WORDS = []
+
+        comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
+        with (
+            patch.object(comicarr, "CONFIG", config),
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.side_effect = [comic_row, None, None, None]
+            pp._process_manga()
+
+        return cbz, placed, pp
+
+    @pytest.mark.parametrize("file_opts", ("hardlink", "softlink", "copy", "move"))
+    def test_stale_destination_is_replaced(self, tmp_path, file_opts):
+        """A repack of a chapter already in the library replaces it, as it did
+        before placement moved to file_ops. Under hardlink/softlink the bare
+        os.link/os.symlink would have raised EEXIST and skipped the chapter."""
+        source, placed, pp = self._run(tmp_path, file_opts, seed_dest=b"stale copy")
+
+        assert placed.exists()
+        assert placed.read_bytes() == b"fresh grab", "%s must overwrite the stale library file" % file_opts
+        assert "Failed to move/copy manga file" not in pp.log
+
+    def test_hardlink_rerun_is_idempotent(self, tmp_path):
+        """The recovery finalizer re-drives a manga release in FULL. Under
+        hardlink the source survives the first pass, so the second pass must
+        recognise the already-linked chapter instead of failing on EEXIST."""
+        source, placed, _ = self._run(tmp_path, "hardlink")
+        assert source.exists() and placed.exists()
+        assert source.stat().st_ino == placed.stat().st_ino
+
+        # second pass over the same download folder, destination already linked
+        source_again, placed_again, pp_again = self._run(tmp_path, "hardlink")
+
+        # the re-drive must treat the already-linked chapter as placed, not as a
+        # failed placement -- a `continue` here would leave it unmatched forever
+        assert "Failed to move/copy manga file" not in pp_again.log
+        assert source_again.exists(), "the re-drive must not consume the download"
+        assert placed_again.exists(), "the re-drive must not lose the library file"
+        assert source_again.stat().st_ino == placed_again.stat().st_ino
+        assert placed_again.read_bytes() == b"fresh grab"
 
 
 class TestProcessMangaChapterMatch:
