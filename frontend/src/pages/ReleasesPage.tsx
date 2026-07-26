@@ -6,6 +6,8 @@ import {
   useForceSearch,
   useBulkQueueIssues,
   useBulkUnqueueIssues,
+  describeBulkResult,
+  type BulkIssueResult,
 } from "@/hooks/useQueue";
 import { useRetrySearchRun } from "@/hooks/useSeries";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -276,14 +278,27 @@ function MyReleasesView() {
   const bulkUnqueueMutation = useBulkUnqueueIssues();
   const { addToast } = useToast();
 
+  const reportBulkResult = (
+    result: BulkIssueResult,
+    verb: "queued" | "skipped",
+    failureVerb: "queue" | "skip",
+  ) => {
+    const { type, message, keep } = describeBulkResult(
+      result,
+      verb,
+      failureVerb,
+    );
+    addToast({ type, message });
+    setSelectedIds(keep);
+  };
+
   const handleBulkQueue = async () => {
     try {
-      await bulkQueueMutation.mutateAsync(selectedIds);
-      addToast({
-        type: "success",
-        message: `${selectedIds.length} issue${selectedIds.length !== 1 ? "s" : ""} queued`,
-      });
-      setSelectedIds([]);
+      reportBulkResult(
+        await bulkQueueMutation.mutateAsync(selectedIds),
+        "queued",
+        "queue",
+      );
     } catch (err) {
       addToast({
         type: "error",
@@ -294,12 +309,11 @@ function MyReleasesView() {
 
   const handleBulkUnqueue = async () => {
     try {
-      await bulkUnqueueMutation.mutateAsync(selectedIds);
-      addToast({
-        type: "success",
-        message: `${selectedIds.length} issue${selectedIds.length !== 1 ? "s" : ""} skipped`,
-      });
-      setSelectedIds([]);
+      reportBulkResult(
+        await bulkUnqueueMutation.mutateAsync(selectedIds),
+        "skipped",
+        "skip",
+      );
     } catch (err) {
       addToast({
         type: "error",
@@ -439,7 +453,11 @@ function MyReleasesView() {
       )}
 
       {!isLoading && !error && issues.length > 0 && (
-        <UpcomingTable issues={issues} onSelectionChange={setSelectedIds} />
+        <UpcomingTable
+          issues={issues}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
       )}
 
       <BulkActionBar

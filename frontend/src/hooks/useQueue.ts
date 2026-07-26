@@ -24,6 +24,65 @@ interface WantedSearchPreview {
   fingerprint: string;
 }
 
+/**
+ * Outcome of a bulk issue mutation. The requests run sequentially, so a failure
+ * partway through leaves earlier issues already applied -- callers need to know
+ * which ids landed rather than treating the whole batch as failed.
+ */
+export interface BulkIssueResult {
+  succeeded: string[];
+  failed: { id: string; error: string }[];
+}
+
+/**
+ * Turns a bulk outcome into what the page should show and keep selected, so
+ * both queue pages report partial failures the same way: the ids that failed
+ * stay selected and a retry does not repeat the requests that already landed.
+ */
+export function describeBulkResult(
+  { succeeded, failed }: BulkIssueResult,
+  verb: "queued" | "skipped",
+  failureVerb: "queue" | "skip",
+): { type: "success" | "info" | "error"; message: string; keep: string[] } {
+  const total = succeeded.length + failed.length;
+  if (failed.length === 0) {
+    return {
+      type: "success",
+      message: `${succeeded.length} issue${succeeded.length !== 1 ? "s" : ""} ${verb}`,
+      keep: [],
+    };
+  }
+  return {
+    type: succeeded.length > 0 ? "info" : "error",
+    message:
+      succeeded.length > 0
+        ? `${succeeded.length} of ${total} issues ${verb} — ${failed.length} failed: ${failed[0].error}`
+        : `Failed to ${failureVerb} issues: ${failed[0].error}`,
+    keep: failed.map(({ id }) => id),
+  };
+}
+
+export async function applySequentially(
+  issueIds: string[],
+  action: (id: string) => Promise<unknown>,
+): Promise<BulkIssueResult> {
+  const result: BulkIssueResult = { succeeded: [], failed: [] };
+  // Process sequentially to avoid rate limiting, but keep going past a failure
+  // so one bad issue cannot silently drop the rest of the batch.
+  for (const id of issueIds) {
+    try {
+      await action(id);
+      result.succeeded.push(id);
+    } catch (err) {
+      result.failed.push({
+        id,
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
+  return result;
+}
+
 // Query Hooks
 export function useUpcoming(
   includeDownloaded = false,
@@ -99,15 +158,17 @@ export function useSearchWantedIssue(): UseMutationResult<
   });
 }
 
-export function useBulkQueueIssues(): UseMutationResult<void, Error, string[]> {
+export function useBulkQueueIssues(): UseMutationResult<
+  BulkIssueResult,
+  Error,
+  string[]
+> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (issueIds: string[]) => {
-      // Process sequentially to avoid rate limiting
-      for (const id of issueIds) {
-        await apiRequest("PUT", `/api/series/issues/${id}/queue`);
-      }
-    },
+    mutationFn: (issueIds: string[]) =>
+      applySequentially(issueIds, (id) =>
+        apiRequest("PUT", `/api/series/issues/${id}/queue`),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
@@ -117,18 +178,16 @@ export function useBulkQueueIssues(): UseMutationResult<void, Error, string[]> {
 }
 
 export function useBulkUnqueueIssues(): UseMutationResult<
-  void,
+  BulkIssueResult,
   Error,
   string[]
 > {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (issueIds: string[]) => {
-      // Process sequentially to avoid rate limiting
-      for (const id of issueIds) {
-        await apiRequest("PUT", `/api/series/issues/${id}/unqueue`);
-      }
-    },
+    mutationFn: (issueIds: string[]) =>
+      applySequentially(issueIds, (id) =>
+        apiRequest("PUT", `/api/series/issues/${id}/unqueue`),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
