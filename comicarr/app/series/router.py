@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session
+from comicarr.app.imports import finalization as import_finalization
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
 
@@ -321,6 +322,23 @@ def get_import_pending(
     return series_service.get_import_pending(ctx, limit=limit, offset=offset, include_ignored=include_ignored)
 
 
+def _normalize_match_import_ids(imp_ids):
+    """Normalize import IDs while preserving the legacy empty-match response."""
+    if isinstance(imp_ids, str):
+        imp_ids = imp_ids.split(",")
+
+    normalized = []
+    seen = set()
+    for imp_id in imp_ids:
+        if imp_id is None:
+            continue
+        imp_id = str(imp_id).strip()
+        if imp_id and imp_id not in seen:
+            normalized.append(imp_id)
+            seen.add(imp_id)
+    return normalized
+
+
 @router.post("/import/match", dependencies=[Depends(require_session)])
 def match_import(
     request_body: dict = None,
@@ -338,16 +356,39 @@ def match_import(
     if not comic_id:
         return JSONResponse(status_code=400, content={"detail": "Missing comic_id"})
 
-    # Support both list and comma-separated string
-    if isinstance(imp_ids, str):
-        imp_ids = [iid.strip() for iid in imp_ids.split(",") if iid.strip()]
-
     issue_id = request_body.get("issue_id")
     comic_name = request_body.get("comic_name")
-    result = series_service.match_import(ctx, imp_ids, comic_id, comic_name=comic_name, issue_id=issue_id)
-    if not result.get("success"):
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
-    return result
+    imp_ids = _normalize_match_import_ids(imp_ids)
+    if not imp_ids:
+        return {
+            "success": True,
+            "matched": 0,
+            "imported": 0,
+            "comic_id": comic_id,
+            "comic_name": series_queries.get_comic_name(comic_id) or comic_name or "Unknown",
+            "moved": 0,
+            "archived": 0,
+        }
+
+    try:
+        result = import_finalization.finalize_manual_match(
+            ctx,
+            imp_ids,
+            comic_id,
+            series_name=comic_name,
+            fallback_issue_id=issue_id,
+        )
+    except import_finalization.ImportFinalizationError as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    return {
+        "success": True,
+        "matched": result.matched,
+        "imported": result.matched,
+        "comic_id": result.series_id,
+        "comic_name": result.series_name,
+        "moved": result.moved,
+        "archived": result.archived,
+    }
 
 
 @router.patch("/import/{imp_id}", dependencies=[Depends(require_session)])

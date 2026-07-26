@@ -194,8 +194,12 @@ VENDOR_PROVENANCE = {
         "partial_attributions": (),
         "redistribution_status": "evidence-recorded",
         "unresolved_reasons": (),
-        "local_modifications": "Bundled Web API client; exact upstream revision unidentified",
-        "packaged_snapshot_sha256": "708547733567cb9746641b198851e30fd36aec1bcc19643e80e4d4185df90970",
+        "local_modifications": (
+            "Bundled Web API client; exact upstream revision unidentified. "
+            "Comicarr adds a DEFAULT_TIMEOUT to every WebUI request so a hung "
+            "client cannot block the single-threaded torrent monitor."
+        ),
+        "packaged_snapshot_sha256": "b0251f4e6dd857e0f0a1107e30e851f8c524b15dd7b294bedbd2390d964f2b4f",
     },
     "rtorrent": {
         "integration_owner": "Comicarr",
@@ -290,7 +294,11 @@ VENDOR_PROVENANCE = {
             "the PyMOTW attribution covers only a helper and supplies no bundled license",
             "uTorrent 3.0+ is a compatibility target, not a client library version",
         ),
-        "local_modifications": "Ported to Python 3 and namespaced by Comicarr",
-        "packaged_snapshot_sha256": "725666a4b7029a1da28e253c38df9ad57a3c575be632164aec5e275b300973b0",
+        "local_modifications": (
+            "Ported to Python 3 and namespaced by Comicarr. Comicarr adds a "
+            "DEFAULT_TIMEOUT to every WebUI request so a hung client cannot "
+            "block the single-threaded torrent monitor."
+        ),
+        "packaged_snapshot_sha256": "c0cd1eeb3cae1068b081c2afeb113b16fb14de42b98bd7ad83d9ad9438e942f9",
     },
 }

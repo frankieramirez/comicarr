@@ -20,15 +20,9 @@ import requests
 from comicarr import logger
 
 # Hosts allowed for server-side cover/image fetches (SSRF protection).
-# Keep in sync with CSP img-src in middleware when adding new CDNs.
-ALLOWED_IMAGE_DOMAINS = {
-    "comicvine.gamespot.com",
-    "static.metron.cloud",
-    "uploads.mangadex.org",
-    "myanimelist.net",
-    "cdn.myanimelist.net",
-    "api-cdn.myanimelist.net",
-}
+# Re-exported from core.image_hosts, which the CSP img-src directive is also
+# derived from — there is no second copy to keep in sync.
+from comicarr.app.core.image_hosts import ALLOWED_IMAGE_DOMAINS
 
 ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/jpeg",

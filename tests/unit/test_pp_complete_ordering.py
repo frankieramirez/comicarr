@@ -43,7 +43,7 @@ Region B — Process_next MANUAL-RUN story-arc/oneoff path:
 Region C — _process_manga per-file loop (manga has NO tidyup; move IS the
 relocation):
   ~4358 post_processing (release-level identity)         [pre-loop / pre-move]
-  ~4376 self.fileop(filepath, dst)                       PER-FILE destructive
+  ~4376 helpers.file_ops(filepath, dst)                  PER-FILE placement
   ~4388 moved (release-level)                            [post per-file fileop]
   ~4440 db.upsert("issues" Status=Downloaded)            -> Status FIRST (inline)
   ~4449 begin(): single nzblog delete by issueid
@@ -96,6 +96,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.downloads import journal
 from comicarr.db import get_engine, shutdown_engine
+from comicarr import postprocessor
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
 
@@ -190,7 +191,7 @@ def _seed_manga(comicid="md-csm", issueid="md-csm-ch165"):
         )
 
 
-def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path):
+def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path, monkeypatch):
     """Region C (real _process_manga): post_processing STRICTLY before the
     per-file destructive fileop; moved STRICTLY after it; post_processed last.
     Pins the U3 bracket — unchanged by U9 (only nzblog<->post_processed
@@ -211,8 +212,9 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
 
     def _fake_fileop(s, d):
         seen.append("__fileop__")
+        return True
 
-    pp.fileop = _fake_fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fake_fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -226,7 +228,7 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
     assert seen[-1] == "post_processed"
 
 
-def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path):
+def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path, monkeypatch):
     """Region C error path: every per-file move fails -> 0 processed -> the
     release-level row stays at post_processing, NO moved/post_processed.
     Pinned: a failed move must NEVER write a terminal fact (replay re-drives
@@ -241,7 +243,7 @@ def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path):
     def _boom_fileop(s, d):
         raise OSError("disk full")
 
-    pp.fileop = _boom_fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()

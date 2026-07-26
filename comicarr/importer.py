@@ -254,6 +254,10 @@ def addComictoDB(
     if str(comicid).startswith("md-"):
         return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom)
 
+    # MAL-sourced manga (prefixed with 'mal-'): metadata from MAL, chapters from MangaDex
+    if str(comicid).startswith("mal-"):
+        return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom)
+
     controlValueDict = {"ComicID": comicid}
 
     with db.get_engine().connect() as conn:
@@ -1135,6 +1139,11 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     3. MAL num_chapters as fallback (when MangaDex is unavailable)
     4. Explicit 0 as terminal default (never leaves Total/Have as NULL)
 
+    On refresh, existing chapter rows keep their Status and DateAdded so
+    Downloaded/Snatched/Wanted/etc. survive metadata updates; only new
+    chapters get the default Status. Have is reset to 0 here and
+    recalculated by forceRescan after a refresh.
+
     Args:
         mangaid: The comic ID used in the database (e.g. 'md-xxx' or 'mal-xxx')
         manga_name: Display name for logging
@@ -1147,6 +1156,13 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     issue_count = 0
     latest_chapter = None
     latest_date = None
+
+    # Snapshot existing IssueIDs so refresh does not wipe Status/DateAdded.
+    existing_issue_ids = {
+        row["IssueID"]
+        for row in db.select_all(select(issues.c.IssueID).where(issues.c.ComicID == mangaid))
+        if row.get("IssueID")
+    }
 
     if mangadex_uuid:
         # Strip md- prefix if present for MangaDex API calls
@@ -1166,10 +1182,6 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
 
                 issue_id = "%s-ch%s" % (mangaid, chapter_num)
 
-                issue_status = "Skipped"
-                if comicarr.CONFIG.AUTOWANT_ALL:
-                    issue_status = "Wanted"
-
                 release_date = (
                     chapter.get("release_date") or chapter.get("publish_at", "")[:10]
                     if chapter.get("publish_at")
@@ -1184,12 +1196,18 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
                     "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
                     "ReleaseDate": release_date,
                     "IssueDate": release_date,
-                    "Status": issue_status,
                     "Int_IssueNumber": helpers.issuedigits(chapter_num),
                     "ChapterNumber": str(chapter_num),
                     "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
-                    "DateAdded": helpers.now(),
                 }
+                # Only set default Status/DateAdded for newly created rows.
+                # Refresh must not reset Downloaded/Snatched/Wanted/etc.
+                if issue_id not in existing_issue_ids:
+                    issue_status = "Skipped"
+                    if comicarr.CONFIG.AUTOWANT_ALL:
+                        issue_status = "Wanted"
+                    issue_values["Status"] = issue_status
+                    issue_values["DateAdded"] = helpers.now()
 
                 db.upsert("issues", issue_values, {"IssueID": issue_id})
                 issue_count += 1
@@ -1308,11 +1326,16 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
 
     if not manga:
         logger.error("[MANGADEX] Error fetching manga details for: %s" % mangaid)
-        db.upsert(
-            "comics",
-            {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
-            controlValueDict,
-        )
+        if dbmanga is not None:
+            # Existing series: restore prior status, leave ComicName alone.
+            restore_status = series_status if series_status != "Loading" else "Active"
+            db.upsert("comics", {"Status": restore_status}, controlValueDict)
+        else:
+            db.upsert(
+                "comics",
+                {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
+                controlValueDict,
+            )
         return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
@@ -1330,9 +1353,10 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     # Generate dynamic name for matching
     dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
 
-    # Build folder path if destination directory is set
+    # Build folder path only for first-time add (or when no path is set yet).
+    # Refresh must not rewrite ComicLocation and send forceRescan to the wrong folder.
     manga_dest = get_manga_destination()
-    if manga_dest:
+    if manga_dest and not comlocation:
         folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
         folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
         folder_name = helpers.filesafe(folder_name)
@@ -1370,6 +1394,9 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         "ReadingDirection": "rtl",
         "MetadataSource": "mangadex",
         "ExternalID": mangadex_uuid,
+        # Also recorded on the MAL path. Without it a MangaDex-added series is
+        # invisible to every cross-provider lookup keyed on MangaDexID.
+        "MangaDexID": mangadex_uuid,
         "LastUpdated": helpers.now(),
         "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
     }
@@ -1388,6 +1415,14 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
             covercheck = helpers.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MANGADEX] Retrying alternate cover image for: %s" % manga_name)
+            elif covercheck["status"] == "success":
+                # Point ComicImage at the local cached cover (matches the ComicVine
+                # add path); ComicImageURL keeps the external URL for the /art fallback.
+                db.upsert(
+                    "comics",
+                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    controlValueDict,
+                )
         except Exception as e:
             logger.warn("[MANGADEX] Failed to cache cover for %s: %s" % (manga_name, e))
 
@@ -1454,11 +1489,16 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
 
     if not manga:
         logger.error("[MAL] Error fetching manga details for: %s" % mangaid)
-        db.upsert(
-            "comics",
-            {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
-            controlValueDict,
-        )
+        if dbmanga is not None:
+            # Existing series: restore prior status, leave ComicName alone.
+            restore_status = series_status if series_status != "Loading" else "Active"
+            db.upsert("comics", {"Status": restore_status}, controlValueDict)
+        else:
+            db.upsert(
+                "comics",
+                {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
+                controlValueDict,
+            )
         return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
@@ -1476,9 +1516,10 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
     # Generate dynamic name for matching
     dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
 
-    # Build folder path if destination directory is set
+    # Build folder path only for first-time add (or when no path is set yet).
+    # Refresh must not rewrite ComicLocation and send forceRescan to the wrong folder.
     manga_dest = get_manga_destination()
-    if manga_dest:
+    if manga_dest and not comlocation:
         folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
         folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
         folder_name = helpers.filesafe(folder_name)
@@ -1543,6 +1584,14 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
             covercheck = helpers.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MAL] Retrying alternate cover image for: %s" % manga_name)
+            elif covercheck["status"] == "success":
+                # Point ComicImage at the local cached cover (matches the ComicVine
+                # add path); ComicImageURL keeps the external URL for the /art fallback.
+                db.upsert(
+                    "comics",
+                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    controlValueDict,
+                )
         except Exception as e:
             logger.warn("[MAL] Failed to cache cover for %s: %s" % (manga_name, e))
 

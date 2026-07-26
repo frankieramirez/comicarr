@@ -37,6 +37,55 @@ import comicarr
 from comicarr import db, logger
 from comicarr.tables import jobhistory
 
+# Version state is read from the runtime context by GET /api/system/version.
+# The context is built once at startup from a snapshot of these globals, so a
+# write that lands only on the module is invisible to the API for the life of
+# the process -- which is why the scheduled version check never moved the
+# "update available" banner. Route every write through here instead.
+_VERSION_FIELDS = {
+    "current_version": "CURRENT_VERSION",
+    "current_version_name": "CURRENT_VERSION_NAME",
+    "current_release_name": "CURRENT_RELEASE_NAME",
+    "current_branch": "CURRENT_BRANCH",
+    "latest_version": "LATEST_VERSION",
+    "commits_behind": "COMMITS_BEHIND",
+    "install_type": "INSTALL_TYPE",
+    "update_value": "UPDATE_VALUE",
+}
+
+
+def _set_version_state(**fields):
+    """Write version state once and project it to legacy callers.
+
+    Falls back to a plain module write before the runtime exists (versionload
+    runs ahead of the factory) and after it is disposed.
+    """
+    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
+
+    ctx = get_runtime_if_initialized()
+    if ctx is not None and ctx.disposed:
+        ctx = None
+
+    for field, value in fields.items():
+        legacy_name = _VERSION_FIELDS[field]
+        if ctx is None:
+            setattr(comicarr, legacy_name, value)
+        else:
+            set_runtime_field(ctx, field, value)
+
+
+def _get_version_state(field):
+    """Read version state from wherever _set_version_state last wrote it."""
+    from comicarr.app.core.runtime import get_runtime_if_initialized
+
+    ctx = get_runtime_if_initialized()
+    if ctx is not None and ctx.disposed:
+        ctx = None
+
+    if ctx is None:
+        return getattr(comicarr, _VERSION_FIELDS[field], None)
+    return getattr(ctx, field, None)
+
 
 def runGit(args, ptv=None, suppress_errors=False):
 
@@ -109,7 +158,7 @@ def getVersion(ptv):
     current_release_name = None
 
     if ptv["git_branch"] is not None and ptv["git_branch"].startswith("win32build"):
-        comicarr.INSTALL_TYPE = "win"
+        _set_version_state(install_type="win")
 
         # Don't have a way to update exe yet, but don't want to set VERSION to None
         return {
@@ -120,7 +169,7 @@ def getVersion(ptv):
         }
 
     elif os.path.isdir(os.path.join(comicarr.PROG_DIR, ".git")):
-        comicarr.INSTALL_TYPE = "git"
+        _set_version_state(install_type="git")
         # Try exact tag match first, then get branch name separately
         output = runGit("describe --exact-match --tags", ptv, suppress_errors=True)
         if output:
@@ -233,13 +282,13 @@ def getVersion(ptv):
             and any("docker" in line for line in open(d_path))
         ):
             logger.info("[DOCKER-AWARE] Docker installation detected.")
-            comicarr.INSTALL_TYPE = "docker"
+            _set_version_state(install_type="docker")
             if any([comicarr.CONFIG.DESTINATION_DIR is None, comicarr.CONFIG.DESTINATION_DIR == ""]):
                 logger.info("[DOCKER-AWARE] Setting default comic location path to /comics")
                 comicarr.CONFIG.DESTINATION_DIR = "/comics"
         else:
             logger.info("Not a Docker installation.")
-            comicarr.INSTALL_TYPE = "source"
+            _set_version_state(install_type="source")
 
         # current_version = None
         branch = None
@@ -378,14 +427,18 @@ def checkGithub(current_version=None):
     try:
         response = requests.get(url, verify=True, auth=comicarr.CONFIG.GIT_TOKEN)
         git = response.json()
-        comicarr.LATEST_VERSION = git["sha"]
+        _set_version_state(latest_version=git["sha"])
     except Exception as e:
         if "sha" in str(e):
             le_message = "Updater will only work with the comicarr repo branches"
         else:
             le_message = "Could not get latest commit from github"
         logger.warn("[ERROR] %s . Error returned: %s" % (le_message, e))
-        comicarr.COMMITS_BEHIND = 0
+        # A failed check must not publish 0 -- the API cannot tell that apart from
+        # "up to date", so a transient outage would clear a real update notice.
+        # Keep the last known-good count; only seed one when none exists yet.
+        if _get_version_state("commits_behind") is None:
+            _set_version_state(commits_behind=0)
         rtnline = {
             "status": "failure",
             "current_version": comicarr.CURRENT_VERSION,
@@ -393,7 +446,7 @@ def checkGithub(current_version=None):
             "commits_behind": comicarr.COMMITS_BEHIND,
             "message": le_message,
         }
-        comicarr.UPDATE_VALUE = json.dumps({"update_value": None, "docker": itype})
+        _set_version_state(update_value=json.dumps({"update_value": None, "docker": itype}))
     else:
         # See how many commits behind we are
         if current_version is not None:
@@ -410,10 +463,13 @@ def checkGithub(current_version=None):
             try:
                 response = requests.get(url, verify=True, auth=comicarr.CONFIG.GIT_TOKEN)
                 git = response.json()
-                comicarr.COMMITS_BEHIND = git["total_commits"]
+                _set_version_state(commits_behind=git["total_commits"])
             except Exception as e:
                 logger.warn("[ERROR] Could not get commits behind from github: %s" % e)
-                comicarr.COMMITS_BEHIND = 0
+                # Same as above: preserve the last known-good count rather than
+                # reporting a false "up to date" when the compare call fails.
+                if _get_version_state("commits_behind") is None:
+                    _set_version_state(commits_behind=0)
                 rtnline = {
                     "status": "failure",
                     "current_version": comicarr.CURRENT_VERSION,
@@ -421,7 +477,7 @@ def checkGithub(current_version=None):
                     "commits_behind": comicarr.COMMITS_BEHIND,
                     "message": "Could not get #of commits behind from github",
                 }
-                comicarr.UPDATE_VALUE = json.dumps({"update_value": None, "docker": itype})
+                _set_version_state(update_value=json.dumps({"update_value": None, "docker": itype}))
             else:
                 if comicarr.COMMITS_BEHIND >= 1:
                     chk_message = "New version is available. You are %s commits behind" % comicarr.COMMITS_BEHIND
@@ -441,7 +497,7 @@ def checkGithub(current_version=None):
                     "commits_behind": comicarr.COMMITS_BEHIND,
                     "message": chk_message,
                 }
-                comicarr.UPDATE_VALUE = json.dumps({"update_value": comicarr.COMMITS_BEHIND, "docker": itype})
+                _set_version_state(update_value=json.dumps({"update_value": comicarr.COMMITS_BEHIND, "docker": itype}))
         else:
             chk_message = "You are running an unknown version of Comicarr. Run the updater to identify your version"
             logger.info("[CHECK_GITHUB] %s" % chk_message)
@@ -452,7 +508,7 @@ def checkGithub(current_version=None):
                 "commits_behind": -1,
                 "message": chk_message,
             }
-            comicarr.UPDATE_VALUE = json.dumps({"update_value": -1, "docker": itype})
+            _set_version_state(update_value=json.dumps({"update_value": -1, "docker": itype}))
 
     # return comicarr.LATEST_VERSION
     rtnline = dict(rtnline, **{"event": "check_update", "docker": itype})
@@ -555,9 +611,11 @@ def versionload(cli_values=None, carepackage_call=False):
 
     version_info = getVersion(pass_thru_vals)
     logger.fdebug("version_info: %s" % (version_info,))
-    comicarr.CURRENT_VERSION = version_info["current_version"]
-    comicarr.CURRENT_VERSION_NAME = version_info["current_version_name"]
-    comicarr.CURRENT_RELEASE_NAME = version_info["current_release_name"]
+    _set_version_state(
+        current_version=version_info["current_version"],
+        current_version_name=version_info["current_version_name"],
+        current_release_name=version_info["current_release_name"],
+    )
 
     if cli_values or carepackage_call is True:
         # if cli_values exist, it's from maintenance mode CLI switch, just return now
@@ -570,6 +628,8 @@ def versionload(cli_values=None, carepackage_call=False):
         }
 
     comicarr.CONFIG.GIT_BRANCH = version_info["branch"]
+    # Nothing wrote this before, so /api/system/version always reported null.
+    _set_version_state(current_branch=version_info["branch"])
 
     if comicarr.CURRENT_VERSION is not None:
         hash = comicarr.CURRENT_VERSION[:7]
@@ -587,7 +647,7 @@ def versionload(cli_values=None, carepackage_call=False):
 
     logger.info("Version information: %s [%s]" % (comicarr.CONFIG.GIT_BRANCH, comicarr.CURRENT_VERSION))
 
-    comicarr.LATEST_VERSION = comicarr.CURRENT_VERSION
+    _set_version_state(latest_version=comicarr.CURRENT_VERSION)
 
     if comicarr.CONFIG.CHECK_GITHUB_ON_STARTUP and comicarr.INSTALL_TYPE != "docker":
         stmt = select(jobhistory.c.prev_run_timestamp).where(jobhistory.c.JobName == "Check Version")
@@ -607,12 +667,12 @@ def versionload(cli_values=None, carepackage_call=False):
                 try:
                     ac = comicarr.versioncheckit.CheckVersion()
                     cc = ac.run(scheduled_job=False)
-                    comicarr.LATEST_VERSION = cc["latest_version"]
+                    _set_version_state(latest_version=cc["latest_version"])
                 except Exception:
                     try:
-                        comicarr.LATEST_VERSION = cc["current_version"]
+                        _set_version_state(latest_version=cc["current_version"])
                     except Exception:
-                        comicarr.LATEST_VERSION = comicarr.CURRENT_VERSION
+                        _set_version_state(latest_version=comicarr.CURRENT_VERSION)
 
     if comicarr.CONFIG.AUTO_UPDATE:
         if (

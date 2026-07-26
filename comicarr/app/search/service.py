@@ -30,6 +30,7 @@ from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.tables import issues, ref32p
+from comicarr.torrent import monitor as torrent_monitor
 
 
 def find_comic(
@@ -604,63 +605,36 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         logger.error("Torrent hash is missing, or an invalid hash value has been passed")
         return {"snatch_status": "MONITOR ERROR"}
 
-    if comicarr.USE_RTORRENT:
-        from comicarr import rtorrent_test_client
+    # One normalised snapshot for every client. Previously only rTorrent and
+    # Deluge were handled here and everything else fell through to MONITOR
+    # ERROR, so a torrent snatched via qBittorrent, Transmission or uTorrent
+    # could never be monitored or recovered.
+    snapshot = torrent_monitor.probe(torrent_hash)
+    logger.info("torrent_info: %s" % snapshot)
 
-        rp = rtorrent_test_client.RTorrent()
-        torrent_info = rp.main(torrent_hash, check=True)
-    elif comicarr.USE_DELUGE:
-        from comicarr.torrent.clients import deluge as delu
+    if not snapshot.get("reachable"):
+        # The client did not answer. NOT the same as "no such torrent" —
+        # recovery must not treat an outage as proof the download is gone.
+        logger.warn("torrent client unreachable for hash %s: %s" % (torrent_hash, snapshot.get("reason")))
+        return {"snatch_status": "MONITOR ERROR", "error": snapshot.get("reason")}
 
-        dp = delu.TorrentClient()
-        # connect() returns the RPC client on success, or {"status": False, "error": ...}
-        # on failure. Failure dicts are truthy — bare `if not conn` never catches them.
-        conn = dp.connect(comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD)
-        if conn is False or conn is None or (isinstance(conn, dict) and conn.get("status") is False):
-            logger.warn("Not connected to Deluge!")
-            return {"snatch_status": "MONITOR ERROR"}
-
-        torrent_info = dp.get_torrent(torrent_hash)
-    else:
-        return {"snatch_status": "MONITOR ERROR"}
-
-    logger.info("torrent_info: %s" % torrent_info)
-
-    # Falsy covers False (Deluge miss), None (rTorrent check-miss bare return), and {}.
-    # Use `not torrent_info` so None never hits len() and TypeErrors the worker.
-    if not torrent_info:
-        # The client was queried and returned no torrent for this hash. This
-        # is an EXPLICIT "hash not present in the client" signal — NOT the old
-        # silent fall-through (previously this set a lost local snatch_status
-        # and `return torrent_info` returned bare False, which made
-        # worker_main crash on snstat["snatch_status"] and gave U5 nothing
-        # authoritative to classify). Returning an explicit NOT-FOUND marker
-        # dict lets U5 recovery classification distinguish "absent from a
-        # reachable client" (→ gone, after the done-signal cross-check) from a
-        # transient client outage (MONITOR ERROR → unknown). Connection
-        # failures return MONITOR ERROR above and do not reach here.
+    if not snapshot.get("found"):
+        # The client was queried and returned no torrent for this hash. This is
+        # an EXPLICIT "hash not present in the client" signal, which lets U5
+        # recovery classification distinguish absent-from-a-reachable-client
+        # (→ gone, after the done-signal cross-check) from a transient outage
+        # (MONITOR ERROR → unknown).
         logger.warn("torrent not present in client for hash %s (explicit NOT FOUND)." % torrent_hash)
         return {"snatch_status": "NOT FOUND", "hash": torrent_hash}
     else:
-        if comicarr.USE_DELUGE:
-            torrent_status = torrent_info["is_finished"]
-            torrent_files = torrent_info["num_files"]
-            torrent_folder = torrent_info["save_path"]
-            torrent_info["total_filesize"] = torrent_info["total_size"]
-            torrent_info["upload_total"] = torrent_info["total_uploaded"]
-            torrent_info["download_total"] = torrent_info["total_payload_download"]
-            torrent_info["time_started"] = torrent_info["time_added"]
-
-        elif comicarr.USE_RTORRENT:
-            torrent_status = torrent_info["completed"]
-            torrent_files = len(torrent_info["files"])
-            torrent_folder = torrent_info["folder"]
+        torrent_info = dict(snapshot)
+        torrent_status = bool(snapshot.get("completed"))
+        torrent_files = snapshot.get("files") or []
+        torrent_folder = snapshot.get("folder")
 
         def resolve_torrent_path():
-            if torrent_files == 1:
-                if comicarr.USE_DELUGE:
-                    return os.path.join(torrent_folder, torrent_info["files"][0]["path"])
-                return torrent_info["files"][0]
+            if len(torrent_files) == 1:
+                return torrent_files[0]
             return torrent_folder
 
         if all([torrent_status is True, download is True]):
@@ -732,8 +706,12 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
             # explicit absent marker (returned above when the client has no hash).
             snatch_status = "IN PROGRESS"
             if monitor is True:
-                if comicarr.USE_DELUGE:
-                    pauseit = dp.stop_torrent(torrent_hash)
+                # Copying an in-flight torrent's files needs the client to hold
+                # off writing to them. Clients without a pause API simply skip
+                # this; the torrent is still monitored, it is just not copied
+                # early for local post-processing.
+                if snapshot.get("client") in torrent_monitor.PAUSABLE_ROUTES:
+                    pauseit = torrent_monitor.pause(torrent_hash)
                     if pauseit is False:
                         logger.warn("Unable to pause torrent - cannot run post-process on item at this time.")
                         snatch_status = "MONITOR FAIL"
@@ -751,8 +729,21 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                                 "Unable to create temporary directory to perform meta-tagging. Processing cannot continue with given item at this time."
                             )
                             torrent_info["copied_filepath"] = torrent_path
-                        else:
-                            dp.start_torrent(torrent_hash)
+                        finally:
+                            # The pause above must be undone on every exit path.
+                            # Resuming only on success left a failed copy's
+                            # torrent paused in the client with nothing to
+                            # restart it.
+                            if torrent_monitor.resume(torrent_hash) is False:
+                                logger.warn(
+                                    "Unable to resume torrent %s after the local copy - it may still be paused in the client."
+                                    % torrent_hash
+                                )
+                else:
+                    logger.fdebug(
+                        "%s has no pause API; skipping the local copy and leaving the torrent running."
+                        % snapshot.get("client")
+                    )
             torrent_info["snatch_status"] = snatch_status
 
     return torrent_info

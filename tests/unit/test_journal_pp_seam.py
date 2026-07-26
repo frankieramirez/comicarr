@@ -38,6 +38,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, service
 from comicarr.db import get_engine, shutdown_engine
+from comicarr import postprocessor
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
 
@@ -522,8 +523,9 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
     def _fake_fileop(s, d):
         moved_calls.append(("fileop", s, d))
         seen.append("__fileop__")
+        return True
 
-    pp.fileop = _fake_fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fake_fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -559,7 +561,7 @@ def test_manga_pp_failure_path_does_not_write_post_processed(tmp_path, monkeypat
     def _boom_fileop(s, d):
         raise OSError("disk full")
 
-    pp.fileop = _boom_fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()
@@ -633,8 +635,9 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
         import shutil
 
         shutil.copy(s, d)
+        return True
 
-    pp.fileop = _fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
     assert real_fileop_target.exists()
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
@@ -660,7 +663,7 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
     )
 
 
-def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_path):
+def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_path, monkeypatch):
     """P1: in the multi-chapter manga loop the per-file marker is
     `post_processing` (idempotent, monotonic no-op after the first), NOT
     `moved`. The single authoritative `moved` is written EXACTLY ONCE after
@@ -717,8 +720,9 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
         import shutil
 
         shutil.copy(s, d)
+        return True
 
-    pp.fileop = _fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -741,7 +745,7 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
     assert _stage_of(rkey) == "post_processed"
 
 
-def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path):
+def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path, monkeypatch):
     """P1: after a mid-loop crash the shared row is `post_processing` (not
     `moved`/`post_processed`); the replay finalizer therefore re-drives PP in
     FULL. Chapter 1's source file is already gone (moved on the first pass) so
@@ -802,8 +806,9 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
         import shutil
 
         shutil.move(s, d)
+        return True
 
-    pp1.fileop = _crashing_fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _crashing_fileop)
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
             pp1._process_manga()
@@ -840,7 +845,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     assert len(_rows(nzblog)) == 2
 
 
-def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path):
+def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypatch):
     """P2-6 happy path: when the full chapter loop completes, the shared
     release_key reaches `post_processed` exactly once and every matched
     chapter's nzblog row is deleted (U9 atomic co-commit preserved)."""
@@ -888,8 +893,9 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path):
         import shutil
 
         shutil.copy(s, d)
+        return True
 
-    pp.fileop = _fileop
+    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()

@@ -73,6 +73,7 @@ from comicarr.tables import (
     storyarcs,
     weekly,
 )
+from comicarr.torrent import monitor as torrent_monitor
 
 # ThreadPoolExecutor for parallel provider searches
 # Using a module-level executor allows connection reuse across searches
@@ -3562,7 +3563,20 @@ def searcher(
             # snatch-seam key (issueid|normalized-provider), orphaning the
             # snatched journal row. nzbprov here is the same raw provider label
             # foundsearch is given for this snatch.
-            if any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE]) and comicarr.CONFIG.AUTO_SNATCH:
+            # Any client the monitor can poll is eligible. Restricting this to
+            # rTorrent and Deluge meant a qBittorrent, Transmission or uTorrent
+            # snatch never reached the queue at all, so it sat in Snatched
+            # forever regardless of what the monitor could see.
+            monitorable = torrent_monitor.configured_route() is not None
+            # Widening `monitorable` moves qBittorrent, Transmission and
+            # uTorrent out of the else-branch below, which is where the
+            # on-snatch hook lives. Those users must not silently lose the
+            # hook, so it keeps its original gate: suppressed only for the
+            # rTorrent/Deluge queueing path, whose worker already performs the
+            # same pack lookup the hook does.
+            legacy_queue_route = any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE])
+            queued_for_monitoring = comicarr.CONFIG.AUTO_SNATCH or comicarr.CONFIG.LOCAL_TORRENT_PP
+            if monitorable and comicarr.CONFIG.AUTO_SNATCH:
                 comicarr.SNATCHED_QUEUE.put(
                     {
                         "issueid": IssueID,
@@ -3573,7 +3587,7 @@ def searcher(
                         "journal_release_key": journal_release_key,
                     }
                 )
-            elif any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE]) and comicarr.CONFIG.LOCAL_TORRENT_PP:
+            elif monitorable and comicarr.CONFIG.LOCAL_TORRENT_PP:
                 comicarr.SNATCHED_QUEUE.put(
                     {
                         "issueid": IssueID,
@@ -3584,7 +3598,7 @@ def searcher(
                         "journal_release_key": journal_release_key,
                     }
                 )
-            else:
+            if not (legacy_queue_route and queued_for_monitoring):
                 if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
                     try:
                         if comicinfo[0]["pack"] is False:

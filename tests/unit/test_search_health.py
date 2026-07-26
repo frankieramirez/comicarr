@@ -88,8 +88,10 @@ def test_route_readiness_is_independent_and_never_exposes_credentials(tmp_path):
     assert routes["nzb"]["blocked"] is True
     assert routes["torrent"]["enabled"] is True
     assert routes["torrent"]["ready"] is False
-    assert routes["torrent"]["restart_safe"] is False
-    assert routes["torrent"]["reason"] == "unsupported_restart_correlation"
+    # qBittorrent can be monitored now, so the blocker is the missing host
+    # rather than the client being uncorrelatable.
+    assert routes["torrent"]["restart_safe"] is True
+    assert routes["torrent"]["reason"] == "client_not_ready"
     assert health.has_viable_route(routes) is True
     serialized = str(routes)
     assert "top-secret-key" not in serialized
@@ -151,19 +153,40 @@ def test_disabled_torrent_handoff_is_not_reported_as_executable(tmp_path):
     assert routes["torrent"]["executable_provider_count"] == 0
 
 
-@pytest.mark.parametrize(
-    ("downloader", "config_key"),
-    [(0, "LOCAL_WATCHDIR"), (1, "UTORRENT_HOST"), (3, "TRANSMISSION_HOST"), (5, "QBITTORRENT_HOST")],
-)
-def test_uncorrelatable_torrent_clients_are_never_reported_viable(tmp_path, downloader, config_key):
+def test_watchfolder_is_never_reported_viable(tmp_path):
+    """A watch folder hands the torrent off with no client-side identity to
+    poll, so a restart cannot correlate it with anything."""
     routes = health.build_route_readiness(
-        _config(tmp_path, TORRENT_DOWNLOADER=downloader, **{config_key: str(tmp_path)}),
+        _config(tmp_path, TORRENT_DOWNLOADER=0, LOCAL_WATCHDIR=str(tmp_path)),
     )
 
     assert routes["torrent"]["enabled"] is True
     assert routes["torrent"]["restart_safe"] is False
     assert routes["torrent"]["ready"] is False
     assert routes["torrent"]["reason"] == "unsupported_restart_correlation"
+
+
+@pytest.mark.parametrize(
+    ("downloader", "host_key", "path_key"),
+    [
+        (1, "UTORRENT_HOST", None),
+        (2, "RTORRENT_HOST", "RTORRENT_DIRECTORY"),
+        (3, "TRANSMISSION_HOST", "TRANSMISSION_DIRECTORY"),
+        (4, "DELUGE_HOST", "DELUGE_DOWNLOAD_DIRECTORY"),
+        (5, "QBITTORRENT_HOST", "QBITTORRENT_FOLDER"),
+    ],
+)
+def test_every_client_with_a_monitor_probe_is_restart_safe(tmp_path, downloader, host_key, path_key):
+    """Each of these clients yields a hash at acceptance and can be polled by
+    torrent.monitor.probe, so a restart can pick the download back up."""
+    overrides = {host_key: "https://client.test"}
+    if path_key:
+        overrides[path_key] = str(tmp_path)
+    routes = health.build_route_readiness(_config(tmp_path, TORRENT_DOWNLOADER=downloader, **overrides))
+
+    assert routes["torrent"]["enabled"] is True
+    assert routes["torrent"]["restart_safe"] is True
+    assert routes["torrent"]["reason"] != "unsupported_restart_correlation"
 
 
 def test_restart_safe_client_still_requires_a_mapped_postprocessing_path(tmp_path):

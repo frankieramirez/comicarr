@@ -157,7 +157,9 @@ def _downstream_readiness(config, route):
     }
     client, key, needs_path = clients.get(downloader, ("disabled", None, False))
     configured = getattr(config, key, None) if key else None
-    restart_safe = downloader in {2, 4}
+    # Every client with a monitor probe: uTorrent, rTorrent, Transmission,
+    # Deluge, qBittorrent. Watchfolder (0) has no identity to poll.
+    restart_safe = downloader in {1, 2, 3, 4, 5}
     client_ready = True if needs_path else bool(configured)
     path_keys = {
         2: "RTORRENT_DIRECTORY",

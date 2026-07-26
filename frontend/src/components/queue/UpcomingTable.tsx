@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -22,19 +22,39 @@ const columnHelper = createColumnHelper<UpcomingIssue>();
 
 interface UpcomingTableProps {
   issues?: UpcomingIssue[];
+  /** Controlled selection. The page owns it so Clear and paging reset the checkboxes too. */
+  selectedIds?: string[];
   onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 export default function UpcomingTable({
   issues = [],
+  selectedIds = [],
   onSelectionChange,
 }: UpcomingTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "IssueDate", desc: false },
   ]);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
+
+  // Derived, never stored: a second copy of the selection is what let the page
+  // clear `selectedIds` while the table kept its rows checked.
+  const rowSelection = useMemo<RowSelectionState>(
+    () => Object.fromEntries(selectedIds.map((id) => [id, true])),
+    [selectedIds],
+  );
+
+  // Rows can disappear under a live selection (refetch, view switch). Drop ids
+  // that are no longer rendered so a bulk action can't hit invisible issues.
+  useEffect(() => {
+    if (!onSelectionChange || selectedIds.length === 0) return;
+    const present = new Set(issues.map((issue) => issue.IssueID));
+    const stillVisible = selectedIds.filter((id) => present.has(id));
+    if (stillVisible.length !== selectedIds.length) {
+      onSelectionChange(stillVisible);
+    }
+  }, [issues, selectedIds, onSelectionChange]);
 
   const columns = useMemo(
     () => [
@@ -187,15 +207,16 @@ export default function UpcomingTable({
     state: { sorting, rowSelection },
     onSortingChange: setSorting,
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
-      setRowSelection(updater);
-      if (onSelectionChange) {
-        const newSelection =
-          typeof updater === "function" ? updater(rowSelection) : updater;
-        const selectedIds = Object.keys(newSelection)
-          .map((index) => issues[parseInt(index)]?.IssueID)
-          .filter(Boolean) as string[];
-        onSelectionChange(selectedIds);
-      }
+      if (!onSelectionChange) return;
+      const newSelection =
+        typeof updater === "function" ? updater(rowSelection) : updater;
+      // getRowId returns IssueID, so the keys are already issue ids --
+      // indexing `issues` by them yields undefined and selects nothing.
+      onSelectionChange(
+        Object.entries(newSelection)
+          .filter(([, isSelected]) => isSelected)
+          .map(([issueId]) => issueId),
+      );
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

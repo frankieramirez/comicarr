@@ -113,11 +113,6 @@ class PostProcessor(object):
         else:
             self.ddl = False
 
-        if comicarr.CONFIG.FILE_OPTS == "copy":
-            self.fileop = shutil.copy
-        else:
-            self.fileop = shutil.move
-
         self.valreturn = []
         self.extensions = (".cbr", ".cbz", ".pdf", ".cb7")
 
@@ -614,8 +609,10 @@ class PostProcessor(object):
 
         self.oneoffinlist = False
 
-        # --- Manga branch: if the comicid is a MangaDex ID, use manga-specific processing ---
-        if self.comicid is not None and str(self.comicid).startswith("md-"):
+        # --- Manga branch: MangaDex (md-) and MyAnimeList (mal-) series both
+        # need manga-specific processing. Omitting mal- sent every MAL download
+        # down the ComicVine path. ---
+        if self.comicid is not None and str(self.comicid).startswith(("md-", "mal-")):
             logger.fdebug(
                 "%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid)
             )
@@ -4330,15 +4327,71 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
-            # Move/copy file to series folder
+            # Place the file in the series folder. helpers.file_ops honours all
+            # four FILE_OPTS modes; shutil.move would destroy the source for the
+            # two link modes.
             dst = os.path.join(series_folder, filename)
-            try:
-                self.fileop(filepath, dst)
-                logger.info("%s Moved manga file: %s -> %s" % (module, filename, series_folder))
-            except Exception as e:
-                logger.error("%s Failed to move %s: %s" % (module, filename, e))
-                self._log("Failed to move/copy manga file: %s" % filename)
-                continue
+
+            # An existing destination is not a failure. It happens on a repack of
+            # a chapter already in the library, on a manual re-run (under the
+            # non-move modes the download folder is never consumed, so the source
+            # stays there), and on the recovery finalizer's full re-drive after a
+            # mid-loop crash. shutil.move/copy overwrite silently, but os.link and
+            # os.symlink raise EEXIST and file_ops reports that as a bare False —
+            # so without this the link modes would skip the chapter on every pass.
+            # Clear the destination first, keeping all four modes on the same
+            # replace-what-is-there policy the manga path had before file_ops.
+            already_placed = False
+            displaced = None
+            if os.path.lexists(dst):
+                try:
+                    # same inode (hardlinked) or same target (softlinked) means an
+                    # earlier pass already placed this chapter — re-linking it
+                    # would only fail, and the source must survive either way.
+                    already_placed = os.path.samefile(filepath, dst)
+                except OSError:
+                    already_placed = False
+                if not already_placed:
+                    # Move the existing chapter aside instead of deleting it.
+                    # Placement can still fail (disk full, permissions), and the
+                    # copy/move modes truncate the destination as they write, so
+                    # deleting up front would leave the library with nothing while
+                    # the DB still reports the chapter as Downloaded. A rename
+                    # frees dst for every mode and keeps the old file restorable.
+                    displaced = "%s.comicarr-displaced" % dst
+                    try:
+                        os.replace(dst, displaced)
+                        logger.fdebug("%s Replacing existing manga file: %s" % (module, dst))
+                    except OSError as e:
+                        displaced = None
+                        logger.error("%s Failed to replace existing %s: %s" % (module, dst, e))
+                        self._log("Failed to replace existing manga file: %s" % filename)
+                        continue
+
+            if already_placed:
+                logger.fdebug("%s Manga file already placed, skipping placement: %s" % (module, filename))
+            else:
+                try:
+                    fileoperation = helpers.file_ops(filepath, dst)
+                    if not fileoperation:
+                        raise OSError("file_ops returned False for %s -> %s" % (filepath, dst))
+                    logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
+                except Exception as e:
+                    logger.error("%s Failed to place %s: %s" % (module, filename, e))
+                    self._log("Failed to move/copy manga file: %s" % filename)
+                    if displaced is not None:
+                        try:
+                            os.replace(displaced, dst)
+                            logger.info("%s Restored the previous %s after a failed placement" % (module, dst))
+                        except OSError as restore_error:
+                            logger.error("%s Failed to restore the previous %s: %s" % (module, dst, restore_error))
+                    continue
+
+                if displaced is not None:
+                    try:
+                        os.remove(displaced)
+                    except OSError as e:
+                        logger.warn("%s Failed to clean up %s: %s" % (module, displaced, e))
 
             # P1: do NOT emit per-file `moved` here. Every chapter in a manga
             # pack shares ONE release_key; advancing it to `moved` after
@@ -4347,10 +4400,12 @@ class PostProcessor(object):
             # — so a crash after chapter 1 but before the post-loop block
             # strands chapters 2..N. Keep the shared row at `post_processing`
             # (idempotent, monotonic no-op after the first write) so a mid-loop
-            # crash makes the finalizer re-drive the manga in FULL: chapter 1's
-            # source file is already gone (won't re-match/double-import) and
-            # only the unmoved chapters 2..N get processed. The single `moved`
-            # marker is written ONCE after the loop completes (below).
+            # crash makes the finalizer re-drive the manga in FULL. Re-driving is
+            # safe because placement above is idempotent: under `move` chapter 1's
+            # source is gone so it never re-matches, and under copy/hardlink/
+            # softlink the source survives but the destination-exists branch
+            # either recognises the already-placed chapter or replaces it. The
+            # single `moved` marker is written ONCE after the loop completes.
             self._journal_pp("post_processing")
 
             # --- Match to a chapter/issue in the database ---
@@ -5224,12 +5279,6 @@ class PostProcessor(object):
                     logger.fdebug(
                         "%s Continuing post-processing but unable to change file permissions in %s" % (module, dst)
                     )
-
-        # let's reset the fileop to the original setting just in case it's a manual pp run
-        if comicarr.CONFIG.FILE_OPTS == "copy":
-            self.fileop = shutil.copy
-        else:
-            self.fileop = shutil.move
 
         # journal post_processed co-commits with the nzblog delete in one
         # begin() so the row is never terminal while nzblog is still present

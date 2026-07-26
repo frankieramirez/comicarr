@@ -91,6 +91,7 @@ export function MediaManagementTab({
         <SettingField
           label="Search Interval"
           type="number"
+          min={1}
           value={formData.search_interval as number | undefined}
           onChange={(v) =>
             onChange("search_interval", parseInt(v as string) || 360)
@@ -100,15 +101,17 @@ export function MediaManagementTab({
         <SettingField
           label="RSS Check Interval"
           type="number"
-          value={formData.rss_check_interval as number | undefined}
+          min={1}
+          value={formData.rss_checkinterval as number | undefined}
           onChange={(v) =>
-            onChange("rss_check_interval", parseInt(v as string) || 20)
+            onChange("rss_checkinterval", parseInt(v as string) || 20)
           }
           helpText="How often to check RSS feeds (default: 20 min)"
         />
         <SettingField
           label="Database Update Interval"
           type="number"
+          min={1}
           value={formData.dbupdate_interval as number | undefined}
           onChange={(v) =>
             onChange("dbupdate_interval", parseInt(v as string) || 1440)

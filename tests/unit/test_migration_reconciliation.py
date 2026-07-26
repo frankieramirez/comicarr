@@ -159,6 +159,45 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     assert all(job.resumed for job in scheduler.jobs.values())
 
 
+@pytest.mark.parametrize(
+    ("downloader", "expected"),
+    [
+        (0, False),  # watch folder -- no client-side identity to poll
+        (1, True),  # uTorrent
+        (2, True),  # rTorrent
+        (3, True),  # Transmission
+        (4, True),  # Deluge
+        (5, True),  # qBittorrent
+    ],
+)
+@pytest.mark.parametrize("flag", ("AUTO_SNATCH", "LOCAL_TORRENT_PP"))
+def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatch, downloader, expected, flag):
+    """The producer and consumer of SNATCHED_QUEUE must agree on eligibility.
+
+    comicarr/search.py enqueues whenever torrent_monitor can poll the client.
+    If this consumer gate is narrower, releases pile up on a queue nothing
+    reads -- silently, and for the life of the process.
+    """
+    config = SimpleNamespace(
+        ACQUISITION_MAINTENANCE=False,
+        ENABLE_TORRENTS=True,
+        AUTO_SNATCH=flag == "AUTO_SNATCH",
+        LOCAL_TORRENT_PP=flag == "LOCAL_TORRENT_PP",
+        TORRENT_DOWNLOADER=downloader,
+    )
+    queues = []
+    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True)
+    monkeypatch.setattr(comicarr, "OS_DETECT", "Linux")
+    monkeypatch.setattr(comicarr, "SCHED", SimpleNamespace(get_job=lambda _job_id: None))
+    monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})
+    monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append(queue_name))
+
+    result = comicarr.resume_acquisition_runtime(config)
+
+    assert ("snatched_queue" in queues) is expected
+    assert ("snatched_queue" in result["queues_started"]) is expected
+
+
 def test_runtime_resume_failure_recloses_the_durable_gate(monkeypatch):
     ctx = AppContext(config=SimpleNamespace(ACQUISITION_MAINTENANCE=False))
     set_reconciliation_state("pending_preview", "repair review required", db.get_engine())

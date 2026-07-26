@@ -215,6 +215,7 @@ _CONFIG_DEFINITIONS = OrderedDict(
         "RSS_CHECKINTERVAL": (int, "Scheduler", 20),
         "SEARCH_INTERVAL": (int, "Scheduler", 1440),
         "DOWNLOAD_SCAN_INTERVAL": (int, "Scheduler", 5),
+        "DBUPDATE_INTERVAL": (int, "Scheduler", 1440),  # 24hrs
         "CHECK_GITHUB_INTERVAL": (int, "Scheduler", 360),
         "BLOCKLIST_TIMER": (int, "Scheduler", 3600),
         "IMPORT_SCAN_INTERVAL": (int, "Scheduler", 30),
@@ -633,6 +634,40 @@ ENCRYPTED_CONFIG_ITEMS = OrderedDict(
         "AI_API_KEY": ("AI", "ai_api_key"),
     }
 )
+
+# Lower bound, in minutes, for the intervals that are handed to an
+# IntervalTrigger and whose job is then resumed regardless of the value. A
+# non-positive one builds a negative-length interval whose next fire time is
+# always in the past, so the job re-fires back to back forever.
+#
+# DOWNLOAD_SCAN_INTERVAL and IMPORT_SCAN_INTERVAL are deliberately absent: for
+# those, 0 is the documented way to disable the job, and comicarr.start() keeps
+# them paused rather than scheduling them.
+SCHEDULER_INTERVAL_MINIMUMS = {
+    "SEARCH_INTERVAL": (360, "Search interval too low. Resetting to 6 hour minimum"),
+    "RSS_CHECKINTERVAL": (20, "Minimum RSS Interval Check delay set for 20 minutes to avoid hammering."),
+    "DBUPDATE_INTERVAL": (60, "Minimum DB update interval set for 60 minutes to avoid hammering."),
+}
+
+
+def clamp_scheduler_intervals(cfg):
+    """Raise any scheduler interval that sits below its safe minimum.
+
+    Returns the keys that were clamped. Called from Config.configure(), which
+    apply_transaction() runs on every settings save, so this is the boundary a
+    value typed into the settings form has to cross.
+
+    A value that cannot be compared raises, as it did when these were three
+    inline checks: apply_transaction() rolls the save back rather than storing
+    an interval nothing downstream can use.
+    """
+    clamped = []
+    for key, (minimum, message) in SCHEDULER_INTERVAL_MINIMUMS.items():
+        if getattr(cfg, key) < minimum:
+            logger.fdebug(message)
+            setattr(cfg, key, minimum)
+            clamped.append(key)
+    return clamped
 
 
 class Config(object):
@@ -2323,17 +2358,11 @@ class Config(object):
             # Set the actual API key, so comicarr does not appear broken from the start
             self.COMICVINE_API = self.COMICVINE_API[4:]
 
-        if self.SEARCH_INTERVAL < 360:
-            logger.fdebug("Search interval too low. Resetting to 6 hour minimum")
-            self.SEARCH_INTERVAL = 360
+        clamp_scheduler_intervals(self)
 
         if self.SEARCH_DELAY < 1:
             logger.fdebug("Minimum search delay set for 1 minute to avoid hammering.")
             self.SEARCH_DELAY = 1
-
-        if self.RSS_CHECKINTERVAL < 20:
-            logger.fdebug("Minimum RSS Interval Check delay set for 20 minutes to avoid hammering.")
-            self.RSS_CHECKINTERVAL = 20
 
         if self.ENABLE_RSS is True and comicarr.RSS_STATUS == "Paused":
             comicarr.RSS_STATUS = "Waiting"

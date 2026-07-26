@@ -5,6 +5,7 @@ import {
   useForceSearch,
   useBulkUnqueueIssues,
   useSearchWantedIssue,
+  describeBulkResult,
 } from "@/hooks/useQueue";
 import { useToast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,12 +41,13 @@ export default function WantedPage() {
 
   const handleBulkUnqueue = async () => {
     try {
-      await bulkUnqueue.mutateAsync(selectedIds);
-      addToast({
-        type: "success",
-        message: `${selectedIds.length} issue${selectedIds.length !== 1 ? "s" : ""} skipped`,
-      });
-      setSelectedIds([]);
+      const { type, message, keep } = describeBulkResult(
+        await bulkUnqueue.mutateAsync(selectedIds),
+        "skipped",
+        "skip",
+      );
+      addToast({ type, message });
+      setSelectedIds(keep);
     } catch (err) {
       addToast({
         type: "error",
@@ -232,6 +234,7 @@ export default function WantedPage() {
             setPage((p) => Math.max(0, p - 1));
             setSelectedIds([]);
           }}
+          selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
         />
       )}

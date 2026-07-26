@@ -35,6 +35,7 @@ from apscheduler.events import (
     EVENT_JOB_MAX_INSTANCES,
     EVENT_JOB_MISSED,
 )
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
 import comicarr
@@ -227,7 +228,7 @@ def get_safe_config(ctx):
         "NZB_STARTUP_SEARCH",
         "SEARCH_INTERVAL",
         "SEARCH_DELAY",
-        "RSS_CHECK_INTERVAL",
+        "RSS_CHECKINTERVAL",
         "AUTO_UPDATE",
         "ANNUALS_ON",
         "WEEKFOLDER",
@@ -388,7 +389,7 @@ WRITABLE_CONFIG_KEYS = {
     "NZB_STARTUP_SEARCH",
     "SEARCH_INTERVAL",
     "SEARCH_DELAY",
-    "RSS_CHECK_INTERVAL",
+    "RSS_CHECKINTERVAL",
     "DBUPDATE_INTERVAL",
     "AUTO_UPDATE",
     "ANNUALS_ON",
@@ -511,8 +512,7 @@ def update_config(ctx, key_values):
     if not filtered:
         return {"success": False, "error": "No valid config keys provided"}
 
-    interval_keys = {"SEARCH_INTERVAL", "RSS_CHECK_INTERVAL", "DOWNLOAD_SCAN_INTERVAL", "DBUPDATE_INTERVAL"}
-    interval_changed = any(k in interval_keys for k in filtered)
+    interval_changed = any(k in set(SCHEDULER_JOB_INTERVALS.values()) for k in filtered)
 
     try:
         persisted = ctx.config.apply_transaction(filtered)
@@ -586,17 +586,117 @@ def update_providers(ctx, provider_data):
     return {"success": True}
 
 
+# Scheduler job id -> the config attribute that drives its cadence, in minutes.
+SCHEDULER_JOB_INTERVALS = {
+    "search": "SEARCH_INTERVAL",
+    "rss": "RSS_CHECKINTERVAL",
+    "monitor": "DOWNLOAD_SCAN_INTERVAL",
+    "importinbox": "IMPORT_SCAN_INTERVAL",
+    "dbupdater": "DBUPDATE_INTERVAL",
+}
+
+# Scheduler job id -> a config attribute that must be set for the job to do
+# anything. Mirrors the CHECK_FOLDER / IMPORT_DIR guards in comicarr.start().
+SCHEDULER_JOB_REQUIRED_CONFIG = {
+    "monitor": "CHECK_FOLDER",
+    "importinbox": "IMPORT_DIR",
+}
+
+# Job ids this process parked because their interval was non-positive, so a
+# later positive interval can bring them back.
+#
+# APScheduler's pause_job() is just next_run_time=None, so a paused job cannot
+# say why it is paused -- and job_management() reads that same state back into
+# comicarr.<JOB>_STATUS, which means a job we parked starts looking exactly like
+# one the operator paused from the jobs UI. Remembering who did the parking is
+# what keeps the two apart. A job the operator paused is never in this set and
+# is therefore never resumed here.
+#
+# Process-scoped on purpose: a pause that outlives the process is replayed from
+# jobhistory by job_management(startup=True), and at that point nothing can say
+# why it was paused, so start() stays the authority.
+_INTERVAL_PARKED_JOBS = set()
+
+
+def _job_may_run(ctx, job_id):
+    """Whether job_id is allowed to run at all, mirroring comicarr.start()'s gates.
+
+    These are the conditions that have nothing to do with the interval, so they
+    still hold for a job this module parked itself.
+    """
+    if getattr(ctx, "acquisition_workers_blocked", False):
+        # Every job in SCHEDULER_JOB_INTERVALS is a producer or consumer of
+        # acquisition work; start() leaves them all paused behind this gate.
+        return False
+
+    required_key = SCHEDULER_JOB_REQUIRED_CONFIG.get(job_id)
+    if required_key and not getattr(ctx.config, required_key, None):
+        return False
+
+    return True
+
+
 def _reconfigure_schedulers(ctx):
-    """Reconfigure scheduler intervals after config change."""
-    if not ctx.scheduler:
-        return
+    """Apply changed intervals to the running scheduler.
 
-    try:
-        import comicarr
+    Returns the job ids that were rescheduled. Never raises: the durable config
+    write has already happened by the time this runs, so a scheduler failure
+    must not turn a successful save into a failed response.
+    """
+    scheduler = getattr(ctx, "scheduler", None)
+    if scheduler is None or not ctx.config:
+        return ()
 
-        comicarr.config.configure_schedulers()
-    except Exception as e:
-        logger.error("[SYSTEM] Error reconfiguring schedulers: %s" % e)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    rescheduled = []
+    for job_id, config_key in SCHEDULER_JOB_INTERVALS.items():
+        try:
+            minutes = int(getattr(ctx.config, config_key, None))
+        except (TypeError, ValueError):
+            logger.error(
+                "[SYSTEM] Could not reschedule %s: %s is not a usable interval (%r)"
+                % (job_id, config_key, getattr(ctx.config, config_key, None))
+            )
+            continue
+
+        try:
+            job = scheduler.get_job(job_id)
+            if job is None:
+                continue
+            if minutes <= 0:
+                scheduler.pause_job(job_id)
+                _INTERVAL_PARKED_JOBS.add(job_id)
+                continue
+
+            trigger = IntervalTrigger(minutes=minutes, timezone="UTC")
+            pending = job.next_run_time
+            if pending is None:
+                if job_id in _INTERVAL_PARKED_JOBS and _job_may_run(ctx, job_id):
+                    # We parked this one for a non-positive interval; a positive
+                    # one is the operator asking for it back.
+                    job.modify(trigger=trigger, next_run_time=now + datetime.timedelta(minutes=minutes))
+                    _INTERVAL_PARKED_JOBS.discard(job_id)
+                else:
+                    # Paused by someone else, so it stays paused. job.modify(trigger=...)
+                    # leaves next_run_time alone; scheduler.reschedule_job() recomputes
+                    # it from the trigger and would silently resume the job.
+                    job.modify(trigger=trigger)
+            else:
+                _INTERVAL_PARKED_JOBS.discard(job_id)
+                # Shortening an interval takes effect now; lengthening one takes
+                # effect after the run that is already scheduled. A pending run
+                # is never pushed later.
+                job.modify(
+                    trigger=trigger,
+                    next_run_time=min(pending, now + datetime.timedelta(minutes=minutes)),
+                )
+            rescheduled.append(job_id)
+        except Exception as e:
+            logger.error("[SYSTEM] Could not reschedule %s: %s" % (job_id, e))
+
+    if rescheduled:
+        logger.fdebug("[SYSTEM] Rescheduled jobs after config change: %s" % ", ".join(rescheduled))
+    return tuple(rescheduled)
 
 
 def get_version_info(ctx):
@@ -1906,7 +2006,7 @@ def job_management(
                                         " minutes until backlog is decimated." % (comicarr.CONFIG.BACKFILL_TIMESPAN)
                                     )
                                 else:
-                                    nextrun_stamp = utctimestamp() + (int(comicarr.DBUPDATE_INTERVAL) * 60)
+                                    nextrun_stamp = utctimestamp() + (int(comicarr.CONFIG.DBUPDATE_INTERVAL) * 60)
                             else:
                                 comicarr.SCHED.pause_job("dbupdater")
                             jobstore = jbst
