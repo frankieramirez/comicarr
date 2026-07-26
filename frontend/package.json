@@ -71,7 +71,7 @@
     "globals": "^17.7.0",
     "happy-dom": "^20.11.0",
     "msw": "^2.13.4",
-    "postcss": "^8.5.20",
+    "postcss": "^8.5.23",
     "prettier": "^3.8.4",
     "tailwindcss": "^4.1.18",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
