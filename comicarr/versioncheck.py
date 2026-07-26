@@ -74,6 +74,19 @@ def _set_version_state(**fields):
             set_runtime_field(ctx, field, value)
 
 
+def _get_version_state(field):
+    """Read version state from wherever _set_version_state last wrote it."""
+    from comicarr.app.core.runtime import get_runtime_if_initialized
+
+    ctx = get_runtime_if_initialized()
+    if ctx is not None and ctx.disposed:
+        ctx = None
+
+    if ctx is None:
+        return getattr(comicarr, _VERSION_FIELDS[field], None)
+    return getattr(ctx, field, None)
+
+
 def runGit(args, ptv=None, suppress_errors=False):
 
     git_locations = []
@@ -421,7 +434,11 @@ def checkGithub(current_version=None):
         else:
             le_message = "Could not get latest commit from github"
         logger.warn("[ERROR] %s . Error returned: %s" % (le_message, e))
-        _set_version_state(commits_behind=0)
+        # A failed check must not publish 0 -- the API cannot tell that apart from
+        # "up to date", so a transient outage would clear a real update notice.
+        # Keep the last known-good count; only seed one when none exists yet.
+        if _get_version_state("commits_behind") is None:
+            _set_version_state(commits_behind=0)
         rtnline = {
             "status": "failure",
             "current_version": comicarr.CURRENT_VERSION,
@@ -449,7 +466,10 @@ def checkGithub(current_version=None):
                 _set_version_state(commits_behind=git["total_commits"])
             except Exception as e:
                 logger.warn("[ERROR] Could not get commits behind from github: %s" % e)
-                _set_version_state(commits_behind=0)
+                # Same as above: preserve the last known-good count rather than
+                # reporting a false "up to date" when the compare call fails.
+                if _get_version_state("commits_behind") is None:
+                    _set_version_state(commits_behind=0)
                 rtnline = {
                     "status": "failure",
                     "current_version": comicarr.CURRENT_VERSION,

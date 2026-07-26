@@ -86,6 +86,54 @@ class TestScheduledVersionCheckReachesTheApi:
         assert system_service.get_version_info(ctx)["commits_behind"] == 0
 
 
+class TestATransientOutageDoesNotClearAKnownUpdate:
+    """A failed check must not report 0 -- that reads as "up to date".
+
+    Before these writes reached the runtime context they were inert, so a
+    failure could not affect the API. Now that they land, publishing 0 on
+    failure would silently replace a real "update available" with a false
+    negative until the next successful check.
+    """
+
+    def test_first_request_failure_preserves_the_last_known_count(self, ctx):
+        responses = [
+            _github_response({"sha": "bbbbbbb"}),
+            _github_response({"total_commits": 3}),
+        ]
+        with patch.object(versioncheck.requests, "get", side_effect=responses):
+            versioncheck.checkGithub(current_version="aaaaaaa")
+        assert system_service.get_version_info(ctx)["commits_behind"] == 3
+
+        with patch.object(versioncheck.requests, "get", side_effect=RuntimeError("no network")):
+            versioncheck.checkGithub(current_version="aaaaaaa")
+
+        assert system_service.get_version_info(ctx)["commits_behind"] == 3
+
+    def test_compare_request_failure_preserves_the_last_known_count(self, ctx):
+        responses = [
+            _github_response({"sha": "bbbbbbb"}),
+            _github_response({"total_commits": 2}),
+        ]
+        with patch.object(versioncheck.requests, "get", side_effect=responses):
+            versioncheck.checkGithub(current_version="aaaaaaa")
+        assert system_service.get_version_info(ctx)["commits_behind"] == 2
+
+        # First call succeeds, the compare call fails.
+        responses = [_github_response({"sha": "ccccccc"}), RuntimeError("no network")]
+        with patch.object(versioncheck.requests, "get", side_effect=responses):
+            versioncheck.checkGithub(current_version="aaaaaaa")
+
+        assert system_service.get_version_info(ctx)["commits_behind"] == 2
+
+    def test_failure_before_any_successful_check_still_seeds_zero(self, ctx):
+        versioncheck._set_version_state(commits_behind=None)
+
+        with patch.object(versioncheck.requests, "get", side_effect=RuntimeError("no network")):
+            versioncheck.checkGithub(current_version="aaaaaaa")
+
+        assert system_service.get_version_info(ctx)["commits_behind"] == 0
+
+
 class TestVersionStateHelper:
     def test_writes_context_and_legacy_together(self, ctx):
         versioncheck._set_version_state(current_branch="python3-dev")
