@@ -1,6 +1,11 @@
 import requests
 import json
 
+# Seconds to wait on any single WebUI call. The monitor polls this client from
+# a single-threaded worker, so an unbounded request would stall monitoring for
+# every download rather than failing one probe.
+DEFAULT_TIMEOUT = 30
+
 class LoginRequired(Exception):
     def __str__(self):
         return 'Please login first.'
@@ -14,7 +19,7 @@ class Client(object):
         self.url = url
 
         session = requests.Session()
-        check_prefs = session.get(url+'api/v2/app/preferences')
+        check_prefs = session.get(url+'api/v2/app/preferences', timeout=DEFAULT_TIMEOUT)
 
         if check_prefs.status_code == 200:
             self._is_authenticated = True
@@ -70,6 +75,8 @@ class Client(object):
         if not self._is_authenticated:
             raise LoginRequired
 
+        kwargs.setdefault('timeout', DEFAULT_TIMEOUT)
+
         rq = self.session
         if method == 'get':
             request = rq.get(final_url, **kwargs)
@@ -105,7 +112,8 @@ class Client(object):
         self.session = requests.Session()
         login = self.session.post(self.url+'api/v2/auth/login',
                                   data={'username': username,
-                                        'password': password})
+                                        'password': password},
+                                  timeout=DEFAULT_TIMEOUT)
         if login.text == 'Ok.':
             self._is_authenticated = True
         else:

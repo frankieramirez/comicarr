@@ -729,8 +729,16 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                                 "Unable to create temporary directory to perform meta-tagging. Processing cannot continue with given item at this time."
                             )
                             torrent_info["copied_filepath"] = torrent_path
-                        else:
-                            torrent_monitor.resume(torrent_hash)
+                        finally:
+                            # The pause above must be undone on every exit path.
+                            # Resuming only on success left a failed copy's
+                            # torrent paused in the client with nothing to
+                            # restart it.
+                            if torrent_monitor.resume(torrent_hash) is False:
+                                logger.warn(
+                                    "Unable to resume torrent %s after the local copy - it may still be paused in the client."
+                                    % torrent_hash
+                                )
                 else:
                     logger.fdebug(
                         "%s has no pause API; skipping the local copy and leaving the torrent running."

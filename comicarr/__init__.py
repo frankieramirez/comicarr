@@ -880,6 +880,7 @@ def resume_acquisition_runtime(config=None):
 
     from comicarr.app.acquisition.maintenance import refresh_runtime_state
     from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_acquisition_status
+    from comicarr.torrent import monitor as torrent_monitor
 
     ctx = get_runtime_if_initialized()
     config = config or (ctx.config if ctx is not None else CONFIG)
@@ -909,10 +910,15 @@ def resume_acquisition_runtime(config=None):
         if all(
             [
                 bool(getattr(config, "ENABLE_TORRENTS", False)),
-                bool(getattr(config, "AUTO_SNATCH", False)),
+                any(
+                    [
+                        bool(getattr(config, "AUTO_SNATCH", False)),
+                        bool(getattr(config, "LOCAL_TORRENT_PP", False)),
+                    ]
+                ),
                 OS_DETECT != "Windows",
             ]
-        ) and getattr(config, "TORRENT_DOWNLOADER", None) in {2, 4}:
+        ) and torrent_monitor.is_monitorable_downloader(getattr(config, "TORRENT_DOWNLOADER", None)):
             schedule("snatched_queue")
             queues_started.append("snatched_queue")
         if bool(getattr(config, "POST_PROCESSING", False)) and (
@@ -981,6 +987,7 @@ def start(ctx):
     worker from starting against a copied queue/lock/scheduler view.
     """
     from comicarr.app.core.runtime import RuntimeNotInitializedError, set_runtime_acquisition_status, set_runtime_field
+    from comicarr.torrent import monitor as torrent_monitor
 
     if ctx is None or ctx.disposed:
         raise RuntimeNotInitializedError("Workers cannot start before an active runtime context exists")
@@ -1190,9 +1197,13 @@ def start(ctx):
             # thread queue control..
             queue_schedule("search_queue", "start", ctx=ctx)
 
-            if all([CONFIG.ENABLE_TORRENTS, CONFIG.AUTO_SNATCH, OS_DETECT != "Windows"]) and any(
-                [CONFIG.TORRENT_DOWNLOADER == 2, CONFIG.TORRENT_DOWNLOADER == 4]
-            ):
+            if all(
+                [
+                    CONFIG.ENABLE_TORRENTS,
+                    any([CONFIG.AUTO_SNATCH, CONFIG.LOCAL_TORRENT_PP]),
+                    OS_DETECT != "Windows",
+                ]
+            ) and torrent_monitor.is_monitorable_downloader(CONFIG.TORRENT_DOWNLOADER):
                 queue_schedule("snatched_queue", "start", ctx=ctx)
 
             if CONFIG.POST_PROCESSING is True and (
@@ -1347,6 +1358,7 @@ def start(ctx):
 def queue_schedule(queuetype, mode, ctx=None):
     """Start/stop legacy workers while preserving canonical pool identity."""
     from comicarr.app.core.runtime import POOL_CONTEXT_FIELDS, get_runtime_if_initialized, set_runtime_field
+    from comicarr.torrent import monitor as torrent_monitor
 
     ctx = ctx or get_runtime_if_initialized()
 
@@ -1483,10 +1495,10 @@ def queue_schedule(queuetype, mode, ctx=None):
                 [
                     mode != "shutdown",
                     comicarr.CONFIG.ENABLE_TORRENTS is True,
-                    comicarr.CONFIG.AUTO_SNATCH is True,
+                    any([comicarr.CONFIG.AUTO_SNATCH is True, comicarr.CONFIG.LOCAL_TORRENT_PP is True]),
                     OS_DETECT != "Windows",
                 ]
-            ) and any([comicarr.CONFIG.TORRENT_DOWNLOADER == 2, comicarr.CONFIG.TORRENT_DOWNLOADER == 4]):
+            ) and torrent_monitor.is_monitorable_downloader(comicarr.CONFIG.TORRENT_DOWNLOADER):
                 return
             shutdown(get_pool("SNPOOL"), comicarr.SNATCHED_QUEUE, "auto-snatch")
 

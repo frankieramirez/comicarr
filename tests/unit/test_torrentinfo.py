@@ -169,6 +169,55 @@ def test_deluge_monitor_copies_the_resolved_incomplete_file(monkeypatch):
     fake_client.start_torrent.assert_called_once_with(HASH40)
 
 
+def test_a_failed_copy_still_resumes_the_paused_torrent(monkeypatch):
+    """The pause must be undone on every exit path.
+
+    Resuming only in the try's else arm left a failed copy's torrent paused in
+    the client with nothing to restart it, so the download stalled forever.
+    """
+    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = True
+    fake_client.get_torrent.return_value = _deluge_torrent(finished=False)
+
+    with (
+        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("shutil.copy", side_effect=OSError("disk full")),
+    ):
+        result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=True)
+
+    assert result["snatch_status"] == "IN PROGRESS"
+    fake_client.stop_torrent.assert_called_once_with(HASH40)
+    fake_client.start_torrent.assert_called_once_with(HASH40)
+
+
+def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
+    """qBittorrent has no pause API; that must not block monitoring."""
+    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
+    comicarr.CONFIG.QBITTORRENT_HOST = "qb"
+    comicarr.CONFIG.QBITTORRENT_USERNAME = "u"
+    comicarr.CONFIG.QBITTORRENT_PASSWORD = "p"
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = True
+    fake_client.conn.torrents.return_value = [{"hash": HASH40, "progress": 0.5, "save_path": "/downloads"}]
+    fake_client.conn.get_torrent_files.return_value = [{"name": "Saga.cbz"}]
+
+    with (
+        patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
+        patch("shutil.copy") as copy,
+    ):
+        result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=True)
+
+    assert result["snatch_status"] == "IN PROGRESS", "an unpausable client must not read as MONITOR FAIL"
+    copy.assert_not_called()
+    fake_client.stop_torrent.assert_not_called()
+
+
 def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch):
     """Deluge connect returns truthy {status: False}; must not fall through to NOT FOUND."""
     monkeypatch.setattr(comicarr, "USE_DELUGE", True)

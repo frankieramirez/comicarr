@@ -8,6 +8,11 @@ from urllib.request import HTTPBasicAuthHandler, HTTPCookieProcessor, Request, b
 
 from .upload import MultiPartForm
 
+# Seconds to wait on any single WebUI call. The monitor polls this client from
+# a single-threaded worker, so an unbounded request would stall monitoring for
+# every download rather than failing one probe.
+DEFAULT_TIMEOUT = 30
+
 class UTorrentClient(object):
 
     def __init__(self, base_url, username, password):
@@ -37,7 +42,7 @@ class UTorrentClient(object):
 
     def _get_token(self):
         url = urljoin(self.base_url, "token.html")
-        response = self.opener.open(url)
+        response = self.opener.open(url, timeout=DEFAULT_TIMEOUT)
         token_re = "<div id='token' style='display:none;'>([^<>]+)</div>"
         match = re.search(token_re, response.read().decode("utf-8"))
         return match.group(1)
@@ -133,7 +138,7 @@ class UTorrentClient(object):
             request.add_header("Content-type", content_type)
 
         try:
-            response = self.opener.open(request)
+            response = self.opener.open(request, timeout=DEFAULT_TIMEOUT)
             return response.code, json.loads(response.read())
         except HTTPError:
             raise
