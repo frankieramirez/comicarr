@@ -5,8 +5,7 @@ import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { ActivityFeedDrawer } from "@/components/ai/ActivityFeedDrawer";
-import { ChatPanel } from "@/components/ai/ChatPanel";
-import { Bell, MessageCircle } from "lucide-react";
+import { Bell } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
 const FULL_BLEED_ROUTES = [
@@ -29,7 +28,6 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { data: aiStatus } = useAiStatus();
   const [activityOpen, setActivityOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const { pathname } = useLocation();
 
   const showAiBell = aiStatus?.configured === true;
@@ -48,13 +46,6 @@ export default function Layout({ children }: LayoutProps) {
           <span className="text-lg font-bold gradient-brand">Comicarr</span>
           {showAiBell && (
             <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => setChatOpen(true)}
-                className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                aria-label="AI Chat"
-              >
-                <MessageCircle className="h-5 w-5" />
-              </button>
               <button
                 onClick={() => setActivityOpen(true)}
                 className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -86,22 +77,13 @@ export default function Layout({ children }: LayoutProps) {
               </span>
             )}
             {showAiBell && (
-              <>
-                <button
-                  onClick={() => setChatOpen(true)}
-                  className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  aria-label="AI Chat"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setActivityOpen(true)}
-                  className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  aria-label="AI Activity"
-                >
-                  <Bell className="h-3.5 w-3.5" />
-                </button>
-              </>
+              <button
+                onClick={() => setActivityOpen(true)}
+                className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label="AI Activity"
+              >
+                <Bell className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
         </div>
@@ -119,7 +101,6 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       <ActivityFeedDrawer open={activityOpen} onOpenChange={setActivityOpen} />
-      <ChatPanel open={chatOpen} onOpenChange={setChatOpen} />
     </SidebarProvider>
   );
 }

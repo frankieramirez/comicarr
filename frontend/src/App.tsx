@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
+import FocusLayout from "@/components/layout/FocusLayout";
 import { ToastProvider } from "@/components/ui/toast";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { RouteLoader } from "@/components/RouteLoader";
@@ -54,6 +55,17 @@ const ImportPage = () => (
 const ActivityPage = () => (
   <RouteLoader load={() => import("@/pages/ActivityPage")} />
 );
+const ChatPage = () => <RouteLoader load={() => import("@/pages/ChatPage")} />;
+
+function ChatWorkspace() {
+  return (
+    <ProtectedRoute>
+      <FocusLayout>
+        <ChatPage />
+      </FocusLayout>
+    </ProtectedRoute>
+  );
+}
 
 // Create a client
 const queryClient = new QueryClient({
@@ -115,6 +127,8 @@ function AppContent() {
       <NuqsAdapter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/chat" element={<ChatWorkspace />} />
+          <Route path="/chat/:threadId" element={<ChatWorkspace />} />
           <Route
             path="/*"
             element={

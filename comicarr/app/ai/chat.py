@@ -97,7 +97,46 @@ def _extract_pattern_json(text):
     return None, text
 
 
-async def stream_chat_response(messages, ctx):
+def _is_vision_unsupported_error(error):
+    """Recognize provider errors that explicitly reject image input."""
+    message = str(error).lower()
+    body = getattr(error, "body", None)
+    if body:
+        try:
+            message += " " + json.dumps(body).lower()
+        except (TypeError, ValueError):
+            pass
+    vision_terms = ("vision", "image", "multimodal", "image_url", "content part", "text input")
+    rejection_terms = (
+        "unsupported",
+        "not support",
+        "doesn't support",
+        "does not support",
+        "invalid content",
+        "only text",
+        "text-only",
+        "not allowed",
+    )
+    # Account, auth, and quota failures can name images too, and a false match
+    # here compensates the turn away — deleting the user's message and uploads.
+    unrelated_terms = (
+        "api key",
+        "authentication",
+        "unauthorized",
+        "permission",
+        "forbidden",
+        "quota",
+        "billing",
+        "credit",
+        "rate limit",
+        "rate_limit",
+    )
+    if any(term in message for term in unrelated_terms):
+        return False
+    return any(term in message for term in vision_terms) and any(term in message for term in rejection_terms)
+
+
+async def stream_chat_response(messages, ctx, current_turn_images=None):
     """Stream a chat response, executing query patterns as needed.
 
     Yields dicts suitable for SSE serialization:
@@ -131,11 +170,18 @@ async def stream_chat_response(messages, ctx):
 
     # Sanitize user messages
     sanitized_messages = []
-    for msg in messages:
+    last_user_index = max((i for i, message in enumerate(messages) if message.get("role") == "user"), default=-1)
+    for index, msg in enumerate(messages):
         role = msg.get("role", "user")
         content = msg.get("content", "")
         if role == "user":
             content = sanitize_input(content, max_length=1000)
+        if current_turn_images and index == last_user_index:
+            parts = []
+            if content:
+                parts.append({"type": "text", "text": content})
+            parts.extend({"type": "image_url", "image_url": {"url": url}} for url in current_turn_images)
+            content = parts
         sanitized_messages.append({"role": role, "content": content})
 
     # Build the full message list with system prompt
@@ -173,6 +219,14 @@ async def stream_chat_response(messages, ctx):
             total_tokens = prompt_tokens + completion_tokens
             rate_limiter.record_request(total_tokens)
 
+        # Internal event consumed by the persistent chat service. Routers must
+        # not forward provider accounting details to browser clients.
+        yield {
+            "type": "usage",
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        }
+
         # Extract pattern selection from response
         pattern_data, text_content = _extract_pattern_json(raw_content)
 
@@ -187,7 +241,12 @@ async def stream_chat_response(messages, ctx):
                     yield {"type": "results", "pattern_id": pattern_id, "data": results}
                 except Exception as e:
                     logger.error("[AI-CHAT] Query execution failed: %s" % e)
-                    yield {"type": "error", "content": "Failed to query your library. Please try rephrasing."}
+                    yield {
+                        "type": "error",
+                        "code": "query_error",
+                        "content": "Failed to query your library. Please try rephrasing.",
+                        "retryable": True,
+                    }
 
         # Yield the conversational text
         if text_content:
@@ -225,6 +284,14 @@ async def stream_chat_response(messages, ctx):
             error_message=str(e),
         )
 
-        yield {"type": "error", "content": "Something went wrong. Please try again."}
+        if current_turn_images and _is_vision_unsupported_error(e):
+            yield {
+                "type": "error",
+                "code": "vision_unsupported",
+                "content": "This AI model does not support image input. Try again without images or choose a vision model.",
+                "retryable": False,
+            }
+        else:
+            yield {"type": "error", "content": "Something went wrong. Please try again."}
 
     yield {"type": "done"}

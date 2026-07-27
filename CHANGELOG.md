@@ -1,5 +1,76 @@
 # Changelog
 
+## 0.19.14
+
+### Patch Changes
+
+- 1f58860: Fix torrents snatched through qBittorrent, Transmission or uTorrent never being
+  monitored. They were sent to the client successfully and then left in Snatched
+  forever: nothing polled them, post-processing never ran, and a restart could not
+  pick them back up. All five torrent clients are now polled through one code
+  path, and a client being unreachable is kept distinct from a torrent genuinely
+  being gone, so an outage no longer looks like a lost download.
+
+  The auto-snatch worker now also starts for uTorrent, Transmission and
+  qBittorrent — and for a local-post-processing-only setup — so the releases those
+  clients queue are actually consumed instead of piling up unread. Torrents paused
+  for the local post-processing copy are resumed even when the copy fails, the
+  on-snatch script keeps firing for the three newly monitored clients, and every
+  qBittorrent and uTorrent WebUI call now has a timeout so one hung client can no
+  longer stall monitoring for every download.
+
+- b5ec0d4: Fix saving settings failing whenever the RSS check interval or database update
+  interval was changed. Both fields were sent under names the configuration did
+  not recognise, which rolled back the entire save — every other setting changed
+  at the same time was discarded without a visible error.
+
+  Interval changes now also reach the running scheduler, which they never did, so
+  a new search or RSS cadence takes effect without a restart. The database update
+  interval is a real setting now and survives a restart instead of resetting to 24
+  hours.
+
+  Setting an interval to zero and then correcting it no longer leaves that
+  background job switched off. Jobs paused deliberately — from the jobs page, or
+  by turning RSS off — still stay paused. A database update interval below an
+  hour is raised to an hour, the way the search and RSS intervals already were,
+  so a negative value can no longer schedule the updater to run without pause.
+
+- 332bab6: Fix MyAnimeList cover art being blocked by the browser security policy. The
+  list of hosts trusted to serve cover images and the Content-Security-Policy
+  that permits the browser to load them are now derived from one source, so they
+  cannot drift apart again.
+- 95fba47: Fix MyAnimeList manga series being treated as comics in two places: downloads
+  were post-processed down the ComicVine path instead of the manga path, and the
+  scheduled chapter check skipped them entirely, so they never picked up new
+  chapters. MangaDex-added series now also record their MangaDex id, which the
+  "already in library" check on search results depends on.
+- 159f47e: Fix bulk actions on the Wanted and Upcoming lists doing nothing. Selecting rows
+  never registered, so the action bar reported no selection and Search or Skip ran
+  against an empty set.
+
+  Clearing the selection, changing page, or a row disappearing now also unchecks
+  the rows, so a later bulk action cannot skip issues you already cleared or that
+  are no longer on screen. A bulk Skip or Mark Wanted that fails partway through
+  now reports how many issues were applied and keeps only the failures selected,
+  instead of reporting a total failure and retrying the ones that succeeded.
+
+- 98cb480: Fix manga post-processing deleting the downloaded file when the file operation
+  is set to hardlink or softlink. Both modes are meant to leave the download in
+  place; the manga path moved it regardless, so the original was destroyed. It now
+  uses the same mode-aware file placement as the rest of post-processing.
+
+  Manga chapters that are already in the library also import correctly again. A
+  repack, a manual re-run, or a post-crash retry now replaces the existing file
+  under every file operation mode, instead of failing on the hardlink and softlink
+  modes and leaving the chapter unimported.
+
+- 117321b: Fix the version and update-available information never changing after startup.
+  The scheduled version check wrote to a copy of the state that the API does not
+  read, so a new release was never reported once the process was running. The
+  branch name, which nothing ever set, is now reported too. A version check that
+  fails to reach GitHub now keeps the last known result instead of reporting
+  "up to date".
+
 ## 0.19.13
 
 ### Patch Changes

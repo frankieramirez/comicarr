@@ -671,6 +671,52 @@ ai_cache = Table(
 )
 
 # ---------------------------------------------------------------------------
+# ai_chat_threads / ai_chat_messages / ai_chat_attachments
+# ---------------------------------------------------------------------------
+ai_chat_threads = Table(
+    "ai_chat_threads",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("username", String(255), nullable=False),
+    Column("title", Text, nullable=False),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+)
+
+ai_chat_messages = Table(
+    "ai_chat_messages",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("thread_id", String(64), nullable=False),
+    Column("parent_message_id", String(64)),
+    Column("role", String(16), nullable=False),
+    Column("content", Text, nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("results", Text),
+    Column("prompt_tokens", Integer, nullable=False, server_default="0"),
+    Column("completion_tokens", Integer, nullable=False, server_default="0"),
+    Column("created_at", String(40), nullable=False),
+    # Monotonic within a thread: clock resolution can tie two created_at values,
+    # and a random uuid tiebreak would then order the conversation arbitrarily.
+    Column("seq", Integer, nullable=False, server_default="0"),
+)
+
+ai_chat_attachments = Table(
+    "ai_chat_attachments",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("thread_id", String(64), nullable=False),
+    Column("message_id", String(64), nullable=False),
+    Column("filename", Text, nullable=False),
+    Column("media_type", String(64), nullable=False),
+    Column("byte_size", Integer, nullable=False),
+    Column("width", Integer, nullable=False),
+    Column("height", Integer, nullable=False),
+    Column("relative_path", Text, nullable=False),
+    Column("created_at", String(40), nullable=False),
+)
+
+# ---------------------------------------------------------------------------
 # pipeline_journal
 # ---------------------------------------------------------------------------
 # Durable, forward-only transition record for the snatch -> download ->
@@ -1072,6 +1118,10 @@ Index("storyarcs_status_storyarc", storyarcs.c.Status, storyarcs.c.StoryArc)
 Index("ai_activity_timestamp", ai_activity_log.c.timestamp)
 Index("ai_activity_entity_id", ai_activity_log.c.entity_id)
 Index("ai_metadata_entity", ai_metadata_history.c.entity_type, ai_metadata_history.c.entity_id)
+Index("ai_chat_threads_owner_updated", ai_chat_threads.c.username, ai_chat_threads.c.updated_at)
+Index("ai_chat_messages_thread_created", ai_chat_messages.c.thread_id, ai_chat_messages.c.created_at)
+Index("ai_chat_attachments_message", ai_chat_attachments.c.message_id)
+Index("ai_chat_attachments_thread_created", ai_chat_attachments.c.thread_id, ai_chat_attachments.c.created_at)
 
 # Lookup table: table name -> Table object (used by upsert shim)
 TABLE_MAP = {
@@ -1102,6 +1152,9 @@ TABLE_MAP = {
     "ai_activity_log": ai_activity_log,
     "ai_metadata_history": ai_metadata_history,
     "ai_cache": ai_cache,
+    "ai_chat_threads": ai_chat_threads,
+    "ai_chat_messages": ai_chat_messages,
+    "ai_chat_attachments": ai_chat_attachments,
     "pipeline_journal": pipeline_journal,
     "acquisition_schema_versions": acquisition_schema_versions,
     "acquisition_runs": acquisition_runs,

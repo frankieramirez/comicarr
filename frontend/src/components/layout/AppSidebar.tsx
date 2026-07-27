@@ -1,9 +1,11 @@
-import { useState, SubmitEvent } from "react";
+import { useEffect, useMemo, useState, SubmitEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useChatThreads } from "@/hooks/useLibraryChat";
+import { isEditableTarget } from "@/lib/keyboard";
 import { APP_VERSION } from "@/lib/version";
 import {
   Sidebar,
@@ -37,6 +39,7 @@ import {
   Sun,
   FolderInput,
   ChevronsUpDown,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -119,6 +122,39 @@ export default function AppSidebar() {
   const handleNavClick = () => {
     setOpenMobile(false);
   };
+
+  // Chat leaves the app shell, so it is a launcher rather than a nav row. The
+  // thread list only backs the "chats today" line under it.
+  const chatThreadsQuery = useChatThreads();
+  const chatsToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return (
+      chatThreadsQuery.data?.pages.flatMap((page) => page.threads) || []
+    ).filter((thread) => new Date(thread.updated_at).toDateString() === today)
+      .length;
+  }, [chatThreadsQuery.data]);
+
+  const openChat = () => {
+    setOpenMobile(false);
+    navigate("/chat");
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "k" &&
+        !isEditableTarget(event.target)
+      ) {
+        event.preventDefault();
+        setOpenMobile(false);
+        navigate("/chat");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [navigate, setOpenMobile]);
 
   const username = user?.username || "admin";
   const avatarInitials = username.slice(0, 2).toUpperCase();
@@ -212,7 +248,50 @@ export default function AppSidebar() {
 
       {/* Footer account menu keeps secondary actions out of the main navigation. */}
       <SidebarFooter className="px-2 pb-2 gap-0 border-t-[0.5px]">
-        <SidebarMenu>
+        {/* Pinned launcher: Chat replaces the shell instead of navigating inside it. */}
+        <div className="py-2 group-data-[collapsible=icon]:hidden">
+          <button
+            type="button"
+            onClick={openChat}
+            className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 transition-colors hover:border-[color-mix(in_oklab,var(--primary)_50%,transparent)] hover:bg-sidebar-accent"
+          >
+            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-[5px] bg-primary/15">
+              <span className="size-[5px] rounded-[1px] bg-primary" />
+            </span>
+            <span className="flex-1 text-left text-[13px] font-medium">
+              Ask Comicarr
+            </span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+          <div className="flex items-center justify-between gap-2 px-2.5 pt-1.5">
+            <span className="mono-meta text-[10px]">
+              {chatsToday > 0
+                ? `${chatsToday} chat${chatsToday === 1 ? "" : "s"} today`
+                : "ask about your library"}
+            </span>
+            <Kbd className="font-mono text-[10px]">⌘⇧K</Kbd>
+          </div>
+        </div>
+
+        <div className="hidden justify-center py-2 group-data-[collapsible=icon]:flex">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={openChat}
+                aria-label="Ask Comicarr"
+                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <span className="flex size-4.5 items-center justify-center rounded-[5px] bg-primary/15">
+                  <span className="size-[5px] rounded-[1px] bg-primary" />
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Ask Comicarr</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <SidebarMenu className="border-t-[0.5px] border-sidebar-border pt-1">
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger

@@ -57,7 +57,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: " + csp_img_src_origins(),
+            "img-src 'self' data: blob: " + csp_img_src_origins(),
             "font-src 'self'",
             "connect-src 'self'",
             "frame-ancestors 'none'",

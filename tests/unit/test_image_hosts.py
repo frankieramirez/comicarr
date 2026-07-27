@@ -58,10 +58,11 @@ class TestCspDerivesFromTheAllowlist:
         """A hand-maintained second copy fails this even when its hosts are correct."""
         assert csp_img_src_origins() in SecurityHeadersMiddleware.CSP
 
-    def test_img_src_directive_allows_self_and_data_uris(self):
+    def test_img_src_directive_allows_self_and_local_scheme_uris(self):
+        """``blob:`` covers chat composer image previews built with createObjectURL."""
         directive = next(part for part in SecurityHeadersMiddleware.CSP.split("; ") if part.startswith("img-src "))
 
-        assert directive == "img-src 'self' data: " + csp_img_src_origins()
+        assert directive == "img-src 'self' data: blob: " + csp_img_src_origins()
 
 
 class TestSsrfGuardSharesTheSource:

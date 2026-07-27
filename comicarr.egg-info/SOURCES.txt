@@ -158,6 +158,9 @@ comicarr/app/acquisition/policy.py
 comicarr/app/acquisition/runs.py
 comicarr/app/ai/__init__.py
 comicarr/app/ai/chat.py
+comicarr/app/ai/chat_images.py
+comicarr/app/ai/chat_service.py
+comicarr/app/ai/chat_store.py
 comicarr/app/ai/circuit_breaker.py
 comicarr/app/ai/client.py
 comicarr/app/ai/enrichment.py
@@ -188,6 +191,7 @@ comicarr/app/core/context.py
 comicarr/app/core/database.py
 comicarr/app/core/events.py
 comicarr/app/core/exceptions.py
+comicarr/app/core/image_hosts.py
 comicarr/app/core/middleware.py
 comicarr/app/core/pidfile.py
 comicarr/app/core/runtime.py
@@ -250,6 +254,7 @@ comicarr/downloaders/mega.py
 comicarr/downloaders/pixeldrain.py
 comicarr/torrent/__init__.py
 comicarr/torrent/contracts.py
+comicarr/torrent/monitor.py
 comicarr/torrent/clients/__init__.py
 comicarr/torrent/clients/deluge.py
 comicarr/torrent/clients/qbittorrent.py

@@ -13,6 +13,7 @@ import ast
 import hashlib
 import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 from unittest.mock import patch
@@ -193,6 +194,17 @@ def _classify_vendor_imports(tree, relative_path):
     return namespaced, legacy
 
 
+def _is_nested_checkout(directory):
+    """True when ``directory`` is the root of its own git checkout.
+
+    Linked worktrees carry a ``.git`` file rather than a directory, and they
+    may sit anywhere under the repo — ``.worktrees/`` by convention, but the
+    name is the author's choice. Detecting the marker catches them all, so a
+    sibling branch's sources are never scanned as if they were this tree's.
+    """
+    return (directory / ".git").exists()
+
+
 def _first_party_runtime_python_files():
     for path in REPO_ROOT.rglob("*.py"):
         relative = path.relative_to(REPO_ROOT)
@@ -200,14 +212,41 @@ def _first_party_runtime_python_files():
             continue
         if any(part in RUNTIME_SCAN_EXCLUDED_DIRECTORIES for part in relative.parts[:-1]):
             continue
+        if any(_is_nested_checkout(parent) for parent in path.parents if REPO_ROOT in parent.parents):
+            continue
         yield path
+
+
+@pytest.mark.parametrize("marker_is_directory", [False, True])
+def test_nested_checkouts_are_excluded_but_ordinary_directories_are_scanned(tmp_path, monkeypatch, marker_is_directory):
+    """A linked worktree carries a ``.git`` file, a clone a ``.git`` directory."""
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(module, "VENDOR_ROOT", tmp_path / "comicarr" / "_vendor")
+
+    checkout = tmp_path / ".worktrees" / "feature"
+    checkout.mkdir(parents=True)
+    if marker_is_directory:
+        (checkout / ".git").mkdir()
+    else:
+        (checkout / ".git").write_text("gitdir: /elsewhere\n")
+    (checkout / "sibling.py").write_text("import os\n")
+
+    ordinary = tmp_path / "comicarr"
+    ordinary.mkdir()
+    (ordinary / "runtime.py").write_text("import os\n")
+
+    assert set(_first_party_runtime_python_files()) == {ordinary / "runtime.py"}
 
 
 def _vendor_imports():
     namespaced = set()
     legacy = {}
     for path in _first_party_runtime_python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        # Bytes, not text: ast.parse honours the file's PEP 263 coding
+        # declaration, while read_text(encoding="utf-8") would reject a
+        # legitimately latin-1 source outright.
+        tree = ast.parse(path.read_bytes(), filename=str(path))
         relative_path = path.relative_to(REPO_ROOT).as_posix()
         file_namespaced, file_legacy = _classify_vendor_imports(tree, relative_path)
         namespaced.update(file_namespaced)

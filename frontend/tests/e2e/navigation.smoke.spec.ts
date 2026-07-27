@@ -5,6 +5,9 @@ import { monitorBrowser } from "./support/browser-monitor";
 const destinations = [
   { path: "/", label: "Dashboard" },
   { path: "/library", label: "Library" },
+  // Chat leaves the app shell; "Back to Comicarr" is present whether or not an
+  // AI provider is configured.
+  { path: "/chat", label: "Back to Comicarr" },
   { path: "/search", label: "Search" },
   { path: "/wanted", label: "Wanted" },
   { path: "/activity", label: "Activity" },

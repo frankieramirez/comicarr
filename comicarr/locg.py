@@ -28,6 +28,28 @@ from comicarr import db, logger
 from comicarr.helpers import ignored_publisher_check
 from comicarr.tables import weekly
 
+# Cloudflare fronts the pull-list host and answers for it whenever the origin
+# is unhealthy, so these arrive as ordinary responses rather than as request
+# exceptions. They say the upstream is unwell, not that the request was wrong,
+# and are transient — the next scheduled run is the retry.
+CLOUDFLARE_ORIGIN_ERRORS = {
+    "520": "returned an unknown error",
+    "521": "is down",
+    "522": "timed out while connecting",
+    "523": "is unreachable",
+    "524": "timed out while responding",
+}
+
+
+def _retry_advice(retry_after):
+    """Phrase a Retry-After value, which is either delta-seconds or an HTTP date."""
+    value = str(retry_after or "").strip()
+    if not value:
+        return ""
+    if value.isdigit():
+        return " Upstream asked us to retry in %s seconds." % value
+    return " Upstream asked us to retry after %s." % value
+
 
 def locg(pulldate=None, weeknumber=None, year=None):
 
@@ -78,10 +100,14 @@ def locg(pulldate=None, weeknumber=None, year=None):
     if str(r.status_code) == "619":
         logger.warn("[%s] No date supplied, or an invalid date was provided [%s]" % (r.status_code, pulldate))
         return {"status": "failure"}
-    elif str(r.status_code) == "522":
+    elif str(r.status_code) in CLOUDFLARE_ORIGIN_ERRORS:
         logger.warn(
-            "[%s] Walksoftly is currently offline. Data shown may be stale until it comes back online"
-            % (r.status_code,)
+            "[%s] Walksoftly %s, so it is currently unreachable. Data shown may be stale until it comes back online.%s"
+            % (
+                r.status_code,
+                CLOUDFLARE_ORIGIN_ERRORS[str(r.status_code)],
+                _retry_advice(r.headers.get("Retry-After")),
+            )
         )
         comicarr.BACKENDSTATUS_WS = "down"
         return {"status": "failure"}
