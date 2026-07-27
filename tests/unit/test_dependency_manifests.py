@@ -17,7 +17,7 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-SETUP_UV_ACTION = "astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990"
+SETUP_UV_ACTION = "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9"
 ALTERNATE_PYTHON_MANIFESTS = (
     "requirements*.txt",
     "requirements*.in",
