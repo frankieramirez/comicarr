@@ -62,7 +62,12 @@ export function useGenerateApiKey(): UseMutationResult<string, Error, void> {
       }
       return result.api_key;
     },
-    onSuccess: () => {
+    onSuccess: (newApiKey) => {
+      // Seed the authoritative key from the response so the field never shows a
+      // stale value in the window before the refetch lands.
+      queryClient.setQueryData<Config>(["config"], (old) =>
+        old ? { ...old, api_key: newApiKey } : old,
+      );
       queryClient.invalidateQueries({ queryKey: ["config"] });
     },
   });

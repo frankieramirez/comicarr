@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { Button } from "@/components/ui/button";
@@ -15,14 +14,9 @@ interface ApiTabProps {
 export function ApiTab({ config, formData, onChange }: ApiTabProps) {
   const { addToast } = useToast();
   const generateApiKey = useGenerateApiKey();
-  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
-    null,
-  );
-  const displayedApiKey =
-    regeneratedApiKey ||
-    (formData.api_key as string) ||
-    (config.api_key as string) ||
-    "";
+  // api_key is server-owned and rejected by the config write filter, so it never
+  // flows through formData — the query cache is the only source of truth.
+  const displayedApiKey = (config.api_key as string) ?? "";
 
   const handleCopyApiKey = async () => {
     try {
@@ -49,8 +43,7 @@ export function ApiTab({ config, formData, onChange }: ApiTabProps) {
     }
 
     try {
-      const newApiKey = await generateApiKey.mutateAsync();
-      setRegeneratedApiKey(newApiKey);
+      await generateApiKey.mutateAsync();
       addToast({
         type: "success",
         message: "API key regenerated.",

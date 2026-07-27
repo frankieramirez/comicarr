@@ -397,7 +397,7 @@ class TestConfigService:
     def test_regenerate_api_key_persists_new_key(self, mock_token_hex):
         """regenerate_api_key creates, persists, and returns a server-side key."""
         ctx = _make_test_ctx()
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
 
         assert result == {"success": True, "api_key": "a" * 32}
         assert ctx.config.API_KEY == "a" * 32
@@ -405,10 +405,41 @@ class TestConfigService:
         ctx.config.writeconfig.assert_called_once_with()
         ctx.config.configure.assert_called_once_with(update=True, startup=False)
 
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_reverts_when_persist_fails(self, mock_token_hex):
+        """A failed write must not leave an unpersisted key live in memory.
+
+        require_api_key() reads ctx.config.API_KEY per request, so a key that is
+        live but absent from disk would 401 every client until a restart silently
+        restored the old one.
+        """
+        ctx = _make_test_ctx()
+        ctx.config.API_KEY = "original-key"
+        ctx.config.writeconfig.side_effect = OSError("read-only file system")
+
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
+
+        assert result["success"] is False
+        assert result["error"] == "Failed to persist new API key"
+        assert ctx.config.API_KEY == "original-key"
+        ctx.config.configure.assert_not_called()
+
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_reverts_when_configure_fails(self, mock_token_hex):
+        """configure() failing must roll back just like a failed write."""
+        ctx = _make_test_ctx()
+        ctx.config.API_KEY = "original-key"
+        ctx.config.configure.side_effect = RuntimeError("reload failed")
+
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
+
+        assert result["success"] is False
+        assert ctx.config.API_KEY == "original-key"
+
     def test_regenerate_api_key_rejects_missing_config(self):
         """regenerate_api_key fails when config is not loaded."""
         ctx = _make_test_ctx(config=None)
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
         assert result["success"] is False
         assert result["error"] == "Config not loaded"
 
