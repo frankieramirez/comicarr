@@ -48,6 +48,7 @@ from comicarr import (
     moveit,
     parseit,
     search,
+    series_kind,
     series_metadata,
     updater,
 )
@@ -250,12 +251,10 @@ def addComictoDB(
     suppress_addall=None,
 ):
 
-    # Check if this is a MangaDex manga ID (prefixed with 'md-')
-    if str(comicid).startswith("md-"):
+    provider = series_kind.provider_of(comicid)
+    if provider is series_kind.SeriesProvider.MANGADEX:
         return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom)
-
-    # MAL-sourced manga (prefixed with 'mal-'): metadata from MAL, chapters from MangaDex
-    if str(comicid).startswith("mal-"):
+    if provider is series_kind.SeriesProvider.MYANIMELIST:
         return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom)
 
     controlValueDict = {"ComicID": comicid}
@@ -1165,10 +1164,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     }
 
     if mangadex_uuid:
-        # Strip md- prefix if present for MangaDex API calls
-        mdex_id = mangadex_uuid
-        if mdex_id.startswith("md-"):
-            mdex_id = mdex_id[3:]
+        mdex_id = series_kind.strip_prefix(mangadex_uuid)
 
         # Track 1: Get language-filtered chapters for detailed issue rows
         logger.info("[MANGA-IMPORT] Fetching chapters for: %s" % manga_name)
@@ -1296,8 +1292,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
 
     logger.info("[MANGADEX] Adding manga with ID: %s" % mangaid)
 
-    # Get the raw MangaDex UUID (without md- prefix)
-    mangadex_uuid = mangadex.strip_manga_prefix(mangaid)
+    mangadex_uuid = series_kind.strip_prefix(mangaid)
 
     controlValueDict = {"ComicID": mangaid}
 
@@ -1458,9 +1453,8 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
 
     logger.info("[MAL] Adding manga with ID: %s" % mangaid)
 
-    mal_numeric_id = myanimelist.strip_mal_prefix(str(mangaid))
-    if not str(mangaid).startswith("mal-"):
-        mangaid = "mal-%s" % mal_numeric_id
+    mal_numeric_id = series_kind.strip_prefix(mangaid)
+    mangaid = series_kind.add_prefix(mangaid, series_kind.SeriesProvider.MYANIMELIST)
 
     controlValueDict = {"ComicID": mangaid}
 

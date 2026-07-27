@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import comicarr
-from comicarr import logger
+from comicarr import logger, series_kind
 from comicarr.app.core.context import AppContext
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import queries as series_queries
@@ -87,21 +87,18 @@ def _load_and_validate_rows(import_ids: Sequence[str]) -> list[dict]:
     return rows
 
 
-def _is_provider_series_id(series_id: str) -> bool:
-    return str(series_id).startswith(("md-", "mal-"))
-
-
 def _ensure_series(series_id: str, requested_name: str | None) -> str:
     existing_name = series_queries.get_comic_name(series_id)
     if existing_name:
         return existing_name
-    if not _is_provider_series_id(series_id):
+    provider = series_kind.provider_of(series_id)
+    if provider not in series_kind.MANGA_PROVIDERS:
         return requested_name or "Unknown"
 
     from comicarr import importer
 
     try:
-        if str(series_id).startswith("mal-"):
+        if provider is series_kind.SeriesProvider.MYANIMELIST:
             result = importer.addMangaToDB_MAL(series_id)
         else:
             result = importer.addMangaToDB(series_id)

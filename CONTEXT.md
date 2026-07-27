@@ -11,3 +11,11 @@ The operator-confirmed workflow that binds pending Import Inbox records to a Ser
 ## Series
 
 A monitored comic or manga title and its library directory, issues or chapters, metadata, and acquisition state.
+
+## Series provider
+
+Who issued a Series' identifier: ComicVine, MangaDex (`md-` prefix), or MyAnimeList (`mal-` prefix). Distinct from whether the Series is manga — legacy manga rows predate the prefixes and are ComicVine-issued, so the provider answers routing questions while `ContentType` answers content questions. `comicarr/series_kind.py` reconciles the two.
+
+## Chapter source
+
+The MangaDex UUID a manga Series polls for new chapters. MangaDex Series carry it in their ComicID; MyAnimeList Series supply metadata from MAL but keep the chapter source in `MangaDexID`, and have none until it is resolved.

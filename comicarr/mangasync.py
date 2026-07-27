@@ -30,7 +30,7 @@ import time
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db, logger, series_kind
 from comicarr.manga_parser import parse_manga_filename
 from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.tables import comics, issues
@@ -465,7 +465,7 @@ def import_selected_manga(selected_ids, scan_id):
             continue
         try:
             logger.info("[MANGA-SCAN] Importing series: %s" % manga_id)
-            if str(manga_id).startswith("mal-"):
+            if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
                 importer.addMangaToDB_MAL(manga_id)
             else:
                 importer.addMangaToDB(manga_id)

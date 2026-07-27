@@ -31,7 +31,7 @@ import time
 from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, getimage, helpers, logger, notifiers, updater, weeklypull
+from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
 from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessContext,
     PostProcessInputContext,
@@ -609,10 +609,7 @@ class PostProcessor(object):
 
         self.oneoffinlist = False
 
-        # --- Manga branch: MangaDex (md-) and MyAnimeList (mal-) series both
-        # need manga-specific processing. Omitting mal- sent every MAL download
-        # down the ComicVine path. ---
-        if self.comicid is not None and str(self.comicid).startswith(("md-", "mal-")):
+        if self.comicid is not None and series_kind.is_manga(self.comicid):
             logger.fdebug(
                 "%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid)
             )

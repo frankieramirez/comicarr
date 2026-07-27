@@ -30,7 +30,7 @@ from datetime import datetime
 import requests
 
 import comicarr
-from comicarr import logger
+from comicarr import logger, series_kind
 from comicarr.helpers import listLibrary
 
 # MAL API base URL
@@ -202,7 +202,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
         score = node.get("mean")
 
         # Check if already in library
-        mal_comic_id = "mal-%s" % mal_id
+        mal_comic_id = series_kind.add_prefix(mal_id, series_kind.SeriesProvider.MYANIMELIST)
         haveit = "No"
         if mal_comic_id in comicLibrary:
             haveit = comicLibrary[mal_comic_id]
@@ -276,7 +276,7 @@ def get_manga_details(mal_id):
 
     Returns dict matching mangadex.get_manga_details() shape.
     """
-    numeric_id = strip_mal_prefix(str(mal_id))
+    numeric_id = series_kind.strip_prefix(mal_id)
     logger.info("[MAL] Fetching details for manga ID: %s" % numeric_id)
 
     params = {"fields": _MANGA_DETAIL_FIELDS}
@@ -327,7 +327,7 @@ def get_manga_details(mal_id):
     tags = [g.get("name", "") for g in data.get("genres", []) if g.get("name")]
 
     return {
-        "id": "mal-%s" % numeric_id,
+        "id": series_kind.add_prefix(numeric_id, series_kind.SeriesProvider.MYANIMELIST),
         "mal_id": str(numeric_id),
         "name": title,
         "alt_titles": alt_titles,
@@ -378,15 +378,3 @@ def _proxy_image_url(url):
     from urllib.parse import quote
 
     return "/api/metadata/image-proxy?url=%s" % quote(url, safe="")
-
-
-def is_mal_id(comic_id):
-    """Check if comic_id uses the MAL prefix."""
-    return bool(comic_id) and str(comic_id).startswith("mal-")
-
-
-def strip_mal_prefix(mal_id):
-    """Remove 'mal-' prefix from a MAL ID."""
-    if mal_id and str(mal_id).startswith("mal-"):
-        return str(mal_id)[4:]
-    return str(mal_id)

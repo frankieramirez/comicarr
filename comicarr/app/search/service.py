@@ -160,15 +160,14 @@ def add_manga(ctx, manga_id):
         return {"success": False, "error": "Manga integration is not enabled"}
 
     try:
-        from comicarr import importer
+        from comicarr import importer, series_kind
 
-        if str(manga_id).startswith("mal-"):
+        if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
             # MAL-sourced manga: fetch metadata from MAL, chapters from MangaDex
             result = importer.addMangaToDB_MAL(manga_id)
         else:
-            # MangaDex-sourced manga (existing flow)
-            if not str(manga_id).startswith("md-"):
-                manga_id = "md-" + manga_id
+            # An unprefixed id here is a raw MangaDex uuid.
+            manga_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
             result = importer.addMangaToDB(manga_id)
 
         if result and result.get("status") == "complete":

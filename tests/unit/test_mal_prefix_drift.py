@@ -16,6 +16,10 @@ decision made somewhere else:
   * the chapter poll skipped MAL series entirely,
   * and the MangaDex add path never recorded MangaDexID, so a series added that
     way was invisible to every lookup keyed on it.
+
+The rule itself now lives in ``comicarr.series_kind`` and is tested against that
+interface in ``test_series_kind.py``. What remains here is the integration
+coverage: that each of these three call sites actually asks it.
 """
 
 from types import SimpleNamespace
@@ -120,7 +124,9 @@ class TestChapterPollCoversBothProviders:
             ],
         )
 
-        assert polled == ["md-uuid-1", "uuid-2"]
+        # Both providers resolve to a bare MangaDex uuid: md- series carry it in
+        # the ComicID, mal- series in MangaDexID.
+        assert polled == ["uuid-1", "uuid-2"]
 
     def test_a_mal_series_without_a_resolved_uuid_is_skipped(self, monkeypatch):
         polled = self._run(
@@ -200,7 +206,6 @@ class TestMangaDexAddRecordsItsId:
         monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: 0)
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
-        monkeypatch.setattr(mangadex, "strip_manga_prefix", lambda mid: mid[3:] if mid.startswith("md-") else mid)
         monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
         importer.addMangaToDB("md-uuid-42")

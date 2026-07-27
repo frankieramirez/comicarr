@@ -23,7 +23,7 @@ from collections.abc import Mapping
 import sqlalchemy
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db, logger, series_kind
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility, project_legacy_state
@@ -1542,10 +1542,12 @@ def listLibrary(comicid=None):
         try:
             mal_id = row.get("MalID")
             if mal_id:
-                library["mal-" + str(mal_id)] = {"comicid": row["ComicID"], "status": row["Status"]}
+                mal_key = series_kind.add_prefix(mal_id, series_kind.SeriesProvider.MYANIMELIST)
+                library[mal_key] = {"comicid": row["ComicID"], "status": row["Status"]}
             mangadex_id = row.get("MangaDexID")
             if mangadex_id:
-                library["md-" + str(mangadex_id)] = {"comicid": row["ComicID"], "status": row["Status"]}
+                mangadex_key = series_kind.add_prefix(mangadex_id, series_kind.SeriesProvider.MANGADEX)
+                library[mangadex_key] = {"comicid": row["ComicID"], "status": row["Status"]}
         except Exception as e:
             logger.fdebug("[SERIES] Cross-index by MAL/MangaDex ID failed for %s: %s" % (row.get("ComicID"), e))
 

@@ -30,7 +30,7 @@ from collections.abc import Mapping
 from sqlalchemy import bindparam, func, select, text, update
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger
+from comicarr import db, filechecker, helpers, logger, series_kind
 from comicarr.tables import (
     annuals,
     comics,
@@ -353,7 +353,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
             lastupdated = datetime.datetime.strptime(comic["LastUpdated"], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
 
         mismatch = "no"
-        if str(ComicID).startswith(("md-", "mal-")):
+        if series_kind.provider_of(ComicID) in series_kind.MANGA_PROVIDERS:
             # Manga (MangaDex/MAL) refreshes entirely through the manga importer.
             # The CV_ONETIMER reconciliation below deletes issue rows and expects
             # CV issuedata that the manga add functions do not return, so route

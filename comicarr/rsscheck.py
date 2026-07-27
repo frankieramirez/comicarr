@@ -1975,7 +1975,7 @@ def mangadexNewChapterCheck():
 
     Callable from the scheduler or manually.
     """
-    from comicarr import mangadex
+    from comicarr import mangadex, series_kind
     from comicarr.tables import comics as t_comics
     from comicarr.tables import issues as t_issues
 
@@ -2006,9 +2006,7 @@ def mangadexNewChapterCheck():
     for series in manga_series:
         comic_id = series["ComicID"]
         comic_name = series["ComicName"]
-        # md- series carry the MangaDex uuid in the ComicID itself; mal- series
-        # keep it in MangaDexID.
-        mangadex_id = comic_id if str(comic_id).startswith("md-") else series["MangaDexID"]
+        mangadex_id = series_kind.chapter_source_id(series)
         if not mangadex_id:
             continue
 

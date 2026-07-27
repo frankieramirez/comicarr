@@ -32,7 +32,7 @@ from datetime import datetime
 import requests
 
 import comicarr
-from comicarr import logger
+from comicarr import logger, series_kind
 from comicarr.helpers import listLibrary
 
 # MangaDex API base URL
@@ -339,14 +339,14 @@ def search_manga(name, limit=None, offset=None, sort=None):
             links = attributes.get("links", {})
             mal_id = str(links.get("mal")) if links.get("mal") else None
 
-            # Check if we already have this manga (using md- prefix)
+            # Check if we already have this manga, by MangaDex id then MAL id
             haveit = "No"
-            mangadex_id = "md-" + manga_id
+            mangadex_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
+            mal_key = series_kind.add_prefix(mal_id, series_kind.SeriesProvider.MYANIMELIST)
             if mangadex_id in comicLibrary:
                 haveit = comicLibrary[mangadex_id]
-            # Check by MAL ID
-            elif mal_id and ("mal-" + mal_id) in comicLibrary:
-                haveit = comicLibrary["mal-" + mal_id]
+            elif mal_key and mal_key in comicLibrary:
+                haveit = comicLibrary[mal_key]
             # Also check by name and year
             elif title and year:
                 name_key = "name:" + title.lower().strip() + ":" + str(year).strip()
@@ -423,9 +423,7 @@ def get_manga_details(manga_id):
     Returns:
         dict with manga details or None on error
     """
-    # Remove md- prefix if present
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     # Check cache first
     cache_key = manga_id
@@ -469,7 +467,7 @@ def get_manga_details(manga_id):
     links = attributes.get("links", {})
 
     details = {
-        "id": "md-" + manga_id,
+        "id": series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX),
         "mangadex_id": manga_id,
         "name": title,
         "alt_titles": alt_titles,
@@ -515,9 +513,7 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
     Returns:
         MangaDex manga UUID (string) or None if not found
     """
-    mal_id_str = str(mal_id)
-    if mal_id_str.startswith("mal-"):
-        mal_id_str = mal_id_str[4:]
+    mal_id_str = series_kind.strip_prefix(mal_id)
 
     raw_titles = [title_hint]
     if alternate_titles:
@@ -610,9 +606,7 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     Returns:
         dict with 'chapters' list and 'pagination' metadata
     """
-    # Remove md- prefix if present
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     logger.info("[MANGADEX] Fetching chapters for manga: %s (offset=%s, limit=%s)" % (manga_id, offset, limit))
 
@@ -695,9 +689,7 @@ def get_manga_aggregate(manga_id, languages=None):
     Returns:
         dict with volume/chapter structure
     """
-    # Remove md- prefix if present
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     if languages is None:
         languages = _get_languages()
@@ -732,8 +724,7 @@ def get_total_chapter_count(manga_id):
     Returns:
         int: Total unique chapter count, or 0 if the API call fails
     """
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     logger.info("[MANGADEX] Fetching language-unfiltered aggregate for manga: %s" % manga_id)
 
@@ -772,9 +763,7 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     Returns:
         List of all chapters
     """
-    # Remove md- prefix if present
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     # Check cache first
     cache_key = f"{manga_id}:{','.join(languages or _get_languages())}:{include_unavailable}"
@@ -881,9 +870,7 @@ def get_cover_image(manga_id):
     Returns:
         Cover URL string or None
     """
-    # Remove md- prefix if present
-    if manga_id.startswith("md-"):
-        manga_id = manga_id[3:]
+    manga_id = series_kind.strip_prefix(manga_id)
 
     # Check cache first
     if manga_id in _IMAGE_CACHE:
@@ -906,31 +893,3 @@ def clear_cache():
     _MANGA_CACHE = {}
     _CHAPTER_CACHE = {}
     logger.info("[MANGADEX] Caches cleared")
-
-
-def is_manga_id(comic_id):
-    """
-    Check if a comic ID is a MangaDex manga ID.
-
-    Args:
-        comic_id: Comic/Manga ID string
-
-    Returns:
-        True if it's a MangaDex ID (starts with 'md-')
-    """
-    return comic_id and str(comic_id).startswith("md-")
-
-
-def strip_manga_prefix(manga_id):
-    """
-    Remove the 'md-' prefix from a manga ID if present.
-
-    Args:
-        manga_id: Manga ID string
-
-    Returns:
-        Raw MangaDex UUID without prefix
-    """
-    if manga_id and str(manga_id).startswith("md-"):
-        return manga_id[3:]
-    return manga_id
