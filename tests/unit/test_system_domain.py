@@ -30,6 +30,23 @@ from comicarr.app.system import router as system_router
 from comicarr.app.system import service as system_service
 
 
+def _audit_lines(mock_logger):
+    """Collect [AUTH-AUDIT] messages from a mocked logger across every level.
+
+    Scanning all levels rather than just info() means moving an audit call to a
+    different level can't silently satisfy a "no audit emitted" assertion.
+    """
+    lines = []
+    for level in ("info", "warn", "warning", "error", "fdebug", "debug"):
+        recorder = getattr(mock_logger, level, None)
+        if recorder is None:
+            continue
+        for call in recorder.call_args_list:
+            if call.args and "[AUTH-AUDIT]" in str(call.args[0]):
+                lines.append(call.args[0])
+    return lines
+
+
 def _make_test_ctx(**overrides):
     """Create a test AppContext for system domain tests."""
     config = MagicMock()
@@ -767,7 +784,7 @@ class TestConfigService:
     def test_regenerate_api_key_persists_new_key(self, mock_token_hex):
         """regenerate_api_key creates, persists, and returns a server-side key."""
         ctx = _make_test_ctx()
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
 
         assert result == {"success": True, "api_key": "a" * 32}
         assert ctx.config.API_KEY == "a" * 32
@@ -776,10 +793,36 @@ class TestConfigService:
         ctx.config.writeconfig.assert_not_called()
         ctx.config.configure.assert_called_once_with(update=True, startup=False)
 
+    @patch("comicarr.app.system.service.logger")
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_logs_audit_event(self, mock_token_hex, mock_logger):
+        """Successful rotation is recorded as an attributed audit event."""
+        ctx = _make_test_ctx()
+        system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
+
+        audit_lines = _audit_lines(mock_logger)
+        assert len(audit_lines) == 1
+        assert "admin" in audit_lines[0]
+        assert "10.0.0.5" in audit_lines[0]
+        # The key itself must never reach the log.
+        assert "a" * 32 not in audit_lines[0]
+
+    @patch("comicarr.app.system.service.logger")
+    @patch("comicarr.app.system.service.secrets.token_hex", return_value="a" * 32)
+    def test_regenerate_api_key_skips_audit_on_failure(self, mock_token_hex, mock_logger):
+        """A failed rotation must not claim the key was rotated."""
+        ctx = _make_test_ctx()
+        ctx.config.apply_transaction.side_effect = None
+        ctx.config.apply_transaction.return_value = False
+
+        system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
+
+        assert _audit_lines(mock_logger) == []
+
     def test_regenerate_api_key_rejects_missing_config(self):
         """regenerate_api_key fails when config is not loaded."""
         ctx = _make_test_ctx(config=None)
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
         assert result["success"] is False
         assert result["error"] == "Config not loaded"
 
@@ -789,7 +832,7 @@ class TestConfigService:
         ctx = _make_test_ctx()
         ctx.config.configure.side_effect = RuntimeError("cannot reload")
 
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
 
         assert result == {"success": False, "error": "Failed to persist new API key"}
         assert ctx.config.API_KEY == "configured-api-key"
@@ -805,7 +848,7 @@ class TestConfigService:
         ctx.config.apply_transaction.side_effect = None
         ctx.config.apply_transaction.return_value = False
 
-        result = system_service.regenerate_api_key(ctx)
+        result = system_service.regenerate_api_key(ctx, "admin", "10.0.0.5")
 
         assert result == {"success": False, "error": "Failed to persist new API key"}
         assert ctx.config.API_KEY == "configured-api-key"

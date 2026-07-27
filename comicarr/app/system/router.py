@@ -212,10 +212,15 @@ async def update_config(request: Request, ctx: AppContext = Depends(get_context)
     return result
 
 
-@router.post("/config/api-key/regenerate", dependencies=[Depends(require_session)])
-async def regenerate_api_key(ctx: AppContext = Depends(get_context)):
+@router.post("/config/api-key/regenerate")
+async def regenerate_api_key(
+    request: Request,
+    username: str = Depends(require_session),
+    ctx: AppContext = Depends(get_context),
+):
     """Regenerate and persist the API key."""
-    result = await asyncio.to_thread(system_service.regenerate_api_key, ctx)
+    ip = request.client.host if request.client else "unknown"
+    result = await asyncio.to_thread(system_service.regenerate_api_key, ctx, username, ip)
     if not result["success"]:
         return JSONResponse(status_code=500, content=result)
     return result
