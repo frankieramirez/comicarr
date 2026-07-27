@@ -18,6 +18,13 @@ function LocationProbe() {
   return <div data-testid="location">{useLocation().pathname}</div>;
 }
 
+function FullLocationProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="full-location">{`${location.pathname}${location.search}`}</div>
+  );
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -230,11 +237,38 @@ describe("DashboardPage", () => {
     ).toBeTruthy();
   });
 
-  it("renders command hint card", async () => {
+  it("renders the recent chats card", async () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/COMMAND HINT/)).toBeTruthy();
+      expect(screen.getByText("Recent chats")).toBeTruthy();
+    });
+    expect(screen.getByRole("link", { name: "all →" })).toBeTruthy();
+  });
+
+  it("hands a typed question to the chat workspace", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <DashboardPage />
+        <FullLocationProbe />
+      </>,
+      { route: "/", useMemoryRouter: true },
+    );
+
+    const ask = await screen.findByRole("textbox", {
+      name: "Ask about your library",
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Which runs have gaps?" }),
+    );
+    expect((ask as HTMLInputElement).value).toBe("Which runs have gaps?");
+
+    await user.click(screen.getByRole("button", { name: "Ask Comicarr" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("full-location").textContent).toBe(
+        "/chat?q=Which%20runs%20have%20gaps%3F",
+      );
     });
   });
 });

@@ -35,22 +35,24 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
+        <div className="flex items-baseline gap-2">
           <span className="truncate font-medium text-foreground">{name}</span>
           {result.Issue_Number && (
             <span className="mono-meta shrink-0">#{result.Issue_Number}</span>
           )}
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
           {result.ComicYear && (
-            <span className="mono-meta">{result.ComicYear}</span>
+            <span className="mono-meta shrink-0">{result.ComicYear}</span>
           )}
           {result.ComicPublisher && (
-            <span className="truncate text-xs text-muted-foreground">
+            <span className="mono-meta min-w-0 truncate">
               {result.ComicPublisher}
             </span>
           )}
-          {result.Status && <Badge variant="secondary">{result.Status}</Badge>}
+          {result.Status && (
+            <Badge variant="secondary" className="ml-auto shrink-0 uppercase">
+              {result.Status}
+            </Badge>
+          )}
         </div>
         {total > 0 && (
           <div className="mt-2 flex items-center gap-2">

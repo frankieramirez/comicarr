@@ -1,65 +1,55 @@
-import { Button } from "@/components/ui/button";
-import { BookOpenText, Search, Sparkles, TimerReset } from "lucide-react";
-
 interface ChatExamplePromptsProps {
   onSelectPrompt: (prompt: string) => void;
 }
 
 const EXAMPLE_PROMPTS = [
   {
-    icon: Search,
-    label: "Find collection gaps",
-    prompt: "What Batman series am I missing issues from?",
+    label: "Find the gaps",
+    prompt: "Which runs am I missing issues from?",
   },
   {
-    icon: BookOpenText,
-    label: "Browse a publisher",
-    prompt: "Show me everything published by Image Comics",
-  },
-  {
-    icon: Sparkles,
-    label: "Finish a run",
+    label: "Almost done",
     prompt: "Which series are closest to complete?",
   },
   {
-    icon: TimerReset,
-    label: "Review recent additions",
-    prompt: "What did I download this week?",
+    label: "By publisher",
+    prompt: "Show me everything from Image Comics",
+  },
+  {
+    label: "This week",
+    prompt: "What landed in the last seven days?",
   },
 ];
 
+/**
+ * Opening state for a draft thread. It sits directly above the composer rather
+ * than centred in the viewport, so the prompts land where the eye already is.
+ */
 export function ChatExamplePrompts({
   onSelectPrompt,
 }: ChatExamplePromptsProps) {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-5 py-12 text-center">
-      <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border bg-card shadow-sm">
-        <BookOpenText className="text-primary" />
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-5 sm:px-6">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[26px]">
+          What are we hunting today?
+        </h1>
+        <p className="text-sm text-muted-foreground sm:text-[15px]">
+          Ask about anything in your collection — gaps, publishers, duplicates —
+          or drop a cover and I&rsquo;ll tell you what it is.
+        </p>
       </div>
-      <p className="mono-label mb-2">Library intelligence</p>
-      <h1 className="text-2xl font-semibold sm:text-3xl">
-        Ask your collection
-      </h1>
-      <p className="mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
-        Find gaps, compare runs, or attach a cover for a closer look.
-      </p>
-      <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
-        {EXAMPLE_PROMPTS.map(({ icon: Icon, label, prompt }) => (
-          <Button
+      <div className="grid gap-2 sm:grid-cols-2">
+        {EXAMPLE_PROMPTS.map(({ label, prompt }) => (
+          <button
             key={prompt}
             type="button"
-            variant="outline"
-            className="h-auto justify-start gap-3 p-3 text-left whitespace-normal"
+            className="flex flex-col gap-0.5 rounded-[10px] border bg-card/40 px-3.5 py-3 text-left transition-colors hover:border-ring hover:bg-card"
             onClick={() => onSelectPrompt(prompt)}
           >
-            <Icon data-icon="inline-start" />
-            <span>
-              <span className="block text-sm font-medium">{label}</span>
-              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                {prompt}
-              </span>
-            </span>
-          </Button>
+            <span className="text-[13px] font-medium">{label}</span>
+            <span className="text-xs text-muted-foreground">{prompt}</span>
+          </button>
         ))}
       </div>
     </div>

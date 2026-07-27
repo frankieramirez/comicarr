@@ -106,7 +106,7 @@ export function ChatComposer({
     >
       <InputGroup
         data-disabled={isSending || undefined}
-        className="rounded-xl bg-card shadow-lg shadow-background/40"
+        className="rounded-2xl bg-card shadow-lg shadow-background/40"
       >
         {images.length > 0 && (
           <InputGroupAddon align="block-start" className="border-b pb-2">
@@ -136,8 +136,8 @@ export function ChatComposer({
           disabled={isSending}
           aria-label="Message Chat"
           aria-invalid={Boolean(error)}
-          placeholder="Ask about your library or attach a comic cover…"
-          className="min-h-16 max-h-40"
+          placeholder="Ask about your library, or drop a cover to identify it"
+          className="min-h-16 max-h-40 text-sm"
           onChange={(event) => onChange(event.target.value)}
           onPaste={handlePaste}
           onKeyDown={(event) => {
@@ -169,9 +169,6 @@ export function ChatComposer({
           >
             <ImagePlus />
           </InputGroupButton>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            JPEG, PNG, or WebP · 10 MB max
-          </span>
           {isSending ? (
             <InputGroupButton
               type="button"
@@ -197,8 +194,19 @@ export function ChatComposer({
           )}
         </InputGroupAddon>
       </InputGroup>
-      <div className="mt-2 min-h-4 px-1 text-xs text-muted-foreground">
-        {error || "Enter sends · Shift+Enter adds a line"}
+      <div className="mt-2 flex min-h-4 items-center justify-between gap-3 px-1">
+        <span
+          className={
+            error
+              ? "text-xs text-destructive"
+              : "mono-meta hidden text-[10px] sm:inline"
+          }
+        >
+          {error || "enter sends · shift+enter new line"}
+        </span>
+        <span className="mono-meta shrink-0 text-[10px]">
+          jpeg · png · webp · 10 MB
+        </span>
       </div>
     </form>
   );

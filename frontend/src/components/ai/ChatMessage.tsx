@@ -7,16 +7,38 @@ import {
 } from "@/components/ai-elements/attachments";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
-import {
-  Message,
-  MessageAvatar,
-  MessageContent,
-} from "@/components/ui/message";
-import { AlertCircle, Bot, CircleStop, LoaderCircle } from "lucide-react";
+import { Message, MessageContent } from "@/components/ui/message";
+import { AlertCircle, CircleStop } from "lucide-react";
 import { ChatResultCard } from "./ChatResultCard";
 
 interface ChatMessageProps {
   message: LibraryChatMessage;
+}
+
+/** The assistant's mark: an accent, not an avatar. */
+function AssistantMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-4 shrink-0 items-center justify-center rounded-[5px] bg-primary/15"
+    >
+      <span className="size-[5px] rounded-[1px] bg-primary" />
+    </span>
+  );
+}
+
+function ThinkingDots() {
+  return (
+    <span aria-hidden="true" className="flex items-center gap-[3px]">
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="size-1 rounded-full bg-primary animate-pulse motion-reduce:animate-none"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
+    </span>
+  );
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -24,12 +46,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   return (
     <Message align={isUser ? "end" : "start"}>
-      {!isUser && (
-        <MessageAvatar aria-hidden="true" className="size-8 bg-primary/10">
-          <Bot className="text-primary" />
-        </MessageAvatar>
-      )}
-      <MessageContent>
+      <MessageContent className="gap-3">
+        {!isUser && (
+          <div className="flex items-center gap-2">
+            <AssistantMark />
+            <span className="mono-label">Comicarr</span>
+          </div>
+        )}
+
         {message.attachments.length > 0 && (
           <Attachments variant="grid" className={isUser ? "ml-auto" : "ml-0"}>
             {message.attachments.map((attachment) => (
@@ -53,9 +77,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {message.content && message.status !== "error" && (
           <Bubble
             align={isUser ? "end" : "start"}
-            variant={isUser ? "default" : "ghost"}
+            variant={isUser ? "outline" : "ghost"}
           >
-            <BubbleContent className="whitespace-pre-wrap">
+            <BubbleContent
+              className={
+                isUser
+                  ? "rounded-[14px] rounded-br-[4px] bg-card px-3.5 py-2.5 whitespace-pre-wrap"
+                  : "text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap"
+              }
+            >
               {message.content}
             </BubbleContent>
           </Bubble>
@@ -63,7 +93,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
         {message.results && message.results.length > 0 && (
           <div className="flex w-full max-w-2xl flex-col gap-2">
-            <div className="mono-label px-1">Library matches</div>
+            <div className="flex items-center gap-2">
+              <span className="mono-label shrink-0">In your library</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
             {message.results.slice(0, 10).map((result, index) => (
               <ChatResultCard
                 key={`${result.ComicID || result.StoryArc || index}-${index}`}
@@ -80,8 +113,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
         {message.status === "streaming" && !message.content && (
           <Marker aria-live="polite">
-            <MarkerIcon>
-              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+            <MarkerIcon className="flex items-center">
+              <ThinkingDots />
             </MarkerIcon>
             <MarkerContent className="shimmer">
               Reading your library…

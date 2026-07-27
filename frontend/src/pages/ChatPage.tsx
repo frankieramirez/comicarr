@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatComposer } from "@/components/ai/ChatComposer";
 import { ChatExamplePrompts } from "@/components/ai/ChatExamplePrompts";
@@ -41,10 +41,12 @@ import type {
 import {
   AlertTriangle,
   ArrowLeft,
-  History,
   LoaderCircle,
-  MessageSquareText,
+  Menu,
+  Pencil,
+  Plus,
   Settings,
+  Trash2,
 } from "lucide-react";
 
 function optimisticMessage(
@@ -63,10 +65,19 @@ function optimisticMessage(
   };
 }
 
+/** Circuit-breaker state rendered as the status dot next to the model name. */
+const CIRCUIT_DOT: Record<string, string> = {
+  closed: "var(--status-active)",
+  half_open: "var(--status-paused)",
+  "half-open": "var(--status-paused)",
+  open: "var(--status-error)",
+};
+
 export default function ChatPage() {
   const { threadId } = useParams<{ threadId: string }>();
   const activeThreadKey = threadId || "draft";
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { data: aiStatus, isLoading: statusLoading } = useAiStatus();
@@ -81,7 +92,13 @@ export default function ChatPage() {
     images: PendingChatImage[];
     error: string | null;
     retryMessageId?: string;
-  }>({ input: "", images: [], error: null });
+    // A question handed over from another page starts life in the composer, so a
+    // failed turn still leaves the user with their draft.
+  }>(() => ({
+    input: searchParams.get("q")?.trim() || "",
+    images: [],
+    error: null,
+  }));
   const [isSending, setIsSending] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -148,8 +165,9 @@ export default function ChatPage() {
     ]);
   };
 
-  const sendMessage = async () => {
-    const content = input.trim();
+  /** `seeded` carries a question handed over from another page, ahead of state. */
+  const sendMessage = async (seeded?: string) => {
+    const content = (seeded ?? input).trim();
     if ((!content && images.length === 0) || isSending) return;
 
     setComposerError(null);
@@ -334,6 +352,22 @@ export default function ChatPage() {
     }
   };
 
+  // A question typed on another page arrives as ?q= and is asked once, then the
+  // parameter is dropped so a reload never replays the turn.
+  const seedHandledRef = useRef(false);
+  useEffect(() => {
+    if (seedHandledRef.current || !aiStatus?.configured) return;
+    const seed = searchParams.get("q")?.trim();
+    if (!seed) return;
+    seedHandledRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete("q");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- arriving with a question starts the turn, an external request
+    void sendMessage(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per seeded question
+  }, [aiStatus?.configured, searchParams]);
+
   const handleNew = () => {
     if (isSending) return;
     setThreadsOpen(false);
@@ -344,6 +378,22 @@ export default function ChatPage() {
     setLocalMessages({ threadKey: "draft", messages: [] });
     navigate("/chat");
   };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        handleNew();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleNew is stable enough for a global shortcut
+  }, [isSending, threadId]);
 
   const handleRename = async (id: string, title: string) => {
     await renameChatThread(id, title);
@@ -356,6 +406,18 @@ export default function ChatPage() {
     await refreshThreads();
   };
 
+  const renameThread = (id: string, currentTitle: string) => {
+    const title = window.prompt("Rename chat", currentTitle)?.trim();
+    if (!title || title === currentTitle) return;
+    void handleRename(id, title);
+  };
+
+  const confirmDeleteThread = (id: string, title: string) => {
+    if (!window.confirm(`Delete “${title}”? This also removes its images.`))
+      return;
+    void handleDelete(id);
+  };
+
   const threadList = (
     <ChatThreadList
       threads={threads}
@@ -364,6 +426,7 @@ export default function ChatPage() {
       isLoading={threadsQuery.isLoading}
       isLoadingMore={threadsQuery.isFetchingNextPage}
       error={threadsQuery.isError ? "Could not load saved chats." : undefined}
+      seriesIndexed={aiStatus?.library_series}
       onBack={() => navigate("/")}
       onNew={handleNew}
       onSelect={(id) => {
@@ -431,43 +494,80 @@ export default function ChatPage() {
   return (
     <MessageScrollerProvider>
       <div className="flex h-full min-h-0 bg-background">
-        <aside className="hidden w-72 shrink-0 border-r lg:flex">
+        <aside className="hidden w-66 shrink-0 border-r lg:flex">
           {threadList}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/70 px-4 backdrop-blur-sm">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/70 px-3 backdrop-blur-sm sm:px-4">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               className="shrink-0 lg:hidden"
-              onClick={() => navigate("/")}
-              aria-label="Back to Comicarr"
+              onClick={() => setThreadsOpen(true)}
+              aria-label="Chat history"
             >
-              <ArrowLeft />
+              <Menu />
             </Button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <MessageSquareText className="shrink-0 text-primary" />
-                <h1 className="truncate text-base font-semibold">
-                  {selectedThread?.title || "New library chat"}
-                </h1>
-              </div>
-              {selectedThread && (
-                <p className="mono-meta mt-0.5">
-                  {selectedThread.message_count} saved messages
-                </p>
-              )}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-semibold tracking-tight">
+                {selectedThread?.title || "New chat"}
+              </h1>
+              <p className="mono-meta mt-0.5 truncate">
+                {selectedThread
+                  ? `saved · ${selectedThread.message_count} messages`
+                  : "draft · not saved yet"}
+              </p>
             </div>
+            {aiStatus?.model && (
+              <div className="hidden h-7 items-center gap-1.5 rounded-full border bg-card px-2.5 sm:flex">
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full"
+                  style={{
+                    background:
+                      CIRCUIT_DOT[aiStatus.circuit_state] ||
+                      "var(--muted-foreground)",
+                  }}
+                />
+                <span className="mono-meta">{aiStatus.model}</span>
+              </div>
+            )}
+            {selectedThread && (
+              <div className="flex shrink-0 items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Rename chat"
+                  onClick={() =>
+                    renameThread(selectedThread.id, selectedThread.title)
+                  }
+                >
+                  <Pencil />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete chat"
+                  onClick={() =>
+                    confirmDeleteThread(selectedThread.id, selectedThread.title)
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            )}
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="ml-auto lg:hidden"
-              onClick={() => setThreadsOpen(true)}
+              size="icon"
+              className="shrink-0 text-primary lg:hidden"
+              onClick={handleNew}
+              aria-label="New chat"
             >
-              <History data-icon="inline-start" />
-              History
+              <Plus />
             </Button>
           </header>
 
@@ -489,7 +589,7 @@ export default function ChatPage() {
                 </Button>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex size-full items-center overflow-y-auto">
+              <div className="flex size-full flex-col justify-end overflow-y-auto">
                 <ChatExamplePrompts
                   onSelectPrompt={(prompt) => {
                     setInput(prompt);
@@ -502,7 +602,7 @@ export default function ChatPage() {
                 <MessageScrollerViewport>
                   <MessageScrollerContent
                     aria-busy={isSending}
-                    className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
+                    className="mx-auto w-full max-w-3xl gap-8 px-4 py-8 sm:px-6"
                   >
                     {messages.map((message) => (
                       <MessageScrollerItem
@@ -519,7 +619,7 @@ export default function ChatPage() {
             )}
           </div>
 
-          <div className="shrink-0 border-t bg-background/95 px-4 pb-3 pt-3 backdrop-blur-sm sm:px-6">
+          <div className="shrink-0 bg-background/95 px-4 pt-2 pb-4 backdrop-blur-sm sm:px-6">
             <ChatComposer
               value={input}
               images={images}

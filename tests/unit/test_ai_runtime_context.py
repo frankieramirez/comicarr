@@ -84,14 +84,17 @@ def test_ai_status_and_activity_use_the_canonical_runtime_bundle(monkeypatch):
             "latency_ms": 10,
         },
     )
-    assert ai_service.get_ai_status() == {
-        "configured": True,
-        "circuit_state": "closed",
-        "today_tokens": 24,
-        "today_requests": 3,
-        "daily_limit": 1000,
-        "rpm_limit": 12,
-    }
+    with patch.object(ai_service.ai_queries, "get_active_series_count", return_value=7):
+        assert ai_service.get_ai_status() == {
+            "configured": True,
+            "circuit_state": "closed",
+            "model": "test-model",
+            "library_series": 7,
+            "today_tokens": 24,
+            "today_requests": 3,
+            "daily_limit": 1000,
+            "rpm_limit": 12,
+        }
 
 
 def test_activity_remains_durable_when_the_runtime_is_unavailable():

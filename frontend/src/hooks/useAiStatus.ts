@@ -4,6 +4,10 @@ import { apiRequest } from "@/lib/api";
 export interface AiStatusResponse {
   configured: boolean;
   circuit_state: string;
+  /** Model answering chat turns, when a provider is configured. */
+  model?: string | null;
+  /** Active series the chat can read. */
+  library_series?: number;
   today_tokens: number;
   today_requests: number;
   daily_limit: number;

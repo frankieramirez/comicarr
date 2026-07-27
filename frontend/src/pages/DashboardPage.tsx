@@ -1,9 +1,12 @@
+import { useState, type SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { ArrowUp, RefreshCw } from "lucide-react";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import { Kbd } from "@/components/ui/kbd";
 import RelativeTime from "@/components/ui/RelativeTime";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard, type DashboardQueueItem } from "@/hooks/useDashboard";
+import { useChatThreads } from "@/hooks/useLibraryChat";
 import {
   useComicScan,
   useComicScanProgress,
@@ -47,9 +50,30 @@ function QueueStatus({ status }: { status: DashboardQueueItem["status"] }) {
   );
 }
 
+const ASK_SUGGESTIONS = [
+  "Which runs have gaps?",
+  "What landed this week?",
+  "Anything stuck in the queue?",
+];
+
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboard();
   const navigate = useNavigate();
+  const chatThreadsQuery = useChatThreads();
+  const [question, setQuestion] = useState("");
+
+  const recentChats = (
+    chatThreadsQuery.data?.pages.flatMap((page) => page.threads) || []
+  ).slice(0, 3);
+
+  /** Hand the question to the chat workspace, which asks it on arrival. */
+  const handleAsk = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    setQuestion("");
+    navigate(`/chat?q=${encodeURIComponent(trimmed)}`);
+  };
   const comicScan = useComicScan();
   const mangaScan = useMangaScan();
   const { data: comicScanProgress } = useComicScanProgress();
@@ -159,6 +183,46 @@ export default function DashboardPage() {
           />
           {scanPending ? "Scanning…" : "Scan libraries"}
         </button>
+      </div>
+
+      {/* Ask bar — a question here opens as a chat instead of a search */}
+      <div className="px-5 py-3.5 border-b border-border bg-card/30 flex flex-col gap-2.5">
+        <form
+          onSubmit={handleAsk}
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] border border-border bg-card focus-within:border-primary"
+        >
+          <span className="flex size-4.5 shrink-0 items-center justify-center rounded-[5px] bg-primary/15">
+            <span className="size-[5px] rounded-[1px] bg-primary" />
+          </span>
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            aria-label="Ask about your library"
+            placeholder="Ask about your library — gaps, publishers, what to read next…"
+            className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted-foreground"
+          />
+          <Kbd className="hidden sm:inline-flex">⌘⇧K</Kbd>
+          <button
+            type="submit"
+            aria-label="Ask Comicarr"
+            disabled={!question.trim()}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-primary text-primary-foreground disabled:opacity-40"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+          </button>
+        </form>
+        <div className="flex flex-wrap gap-1.5">
+          {ASK_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setQuestion(suggestion)}
+              className="h-[26px] px-2.5 rounded-full border border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-ring"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -397,17 +461,36 @@ export default function DashboardPage() {
           ))}
 
           <div className="mt-4 p-3 rounded-[6px] border border-border bg-card">
-            <div
-              className="font-mono text-[10px] mb-1.5"
-              style={{ color: "var(--primary)" }}
-            >
-              ⌘K · COMMAND HINT
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="mono-label">Recent chats</div>
+              <Link
+                to="/chat"
+                className="font-mono text-[10px] text-primary hover:underline"
+              >
+                all →
+              </Link>
             </div>
-            <div className="text-[12px] text-muted-foreground leading-relaxed">
-              Try <span className="text-foreground">"search wolverine"</span>,{" "}
-              <span className="text-foreground">"queue pause"</span>, or{" "}
-              <span className="text-foreground">"import /downloads/new"</span>.
-            </div>
+            {recentChats.length === 0 ? (
+              <div className="font-mono text-[11px] text-muted-foreground py-1">
+                no saved chats yet
+              </div>
+            ) : (
+              recentChats.map((thread) => (
+                <Link
+                  key={thread.id}
+                  to={`/chat/${thread.id}`}
+                  className="block px-2 py-1.5 -mx-1 rounded-[6px] hover:bg-accent"
+                >
+                  <div className="text-[12px] font-medium truncate">
+                    {thread.title}
+                  </div>
+                  <div className="mono-meta text-[10px]">
+                    {thread.message_count} msgs ·{" "}
+                    <RelativeTime value={thread.updated_at} />
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </section>
       </div>

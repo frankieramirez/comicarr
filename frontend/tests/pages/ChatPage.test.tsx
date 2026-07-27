@@ -51,7 +51,7 @@ describe("ChatPage", () => {
     const user = userEvent.setup();
     renderChat();
 
-    await screen.findByRole("heading", { name: "New library chat" });
+    await screen.findByRole("heading", { name: "New chat" });
     await user.click(
       screen.getAllByRole("button", { name: "Back to Comicarr" })[0],
     );
@@ -122,7 +122,7 @@ describe("ChatPage", () => {
     renderChat();
 
     await user.click(
-      await screen.findByRole("button", { name: /Finish a run/ }),
+      await screen.findByRole("button", { name: /Almost done/ }),
     );
     await user.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -133,6 +133,34 @@ describe("ChatPage", () => {
       await screen.findByText("Saga is closest at 98% complete."),
     ).toBeTruthy();
     expect(await screen.findByText(thread.title)).toBeTruthy();
+  });
+
+  it("asks a question handed over in the URL", async () => {
+    let submittedText = "";
+    server.use(
+      http.get("/api/ai/status", () =>
+        HttpResponse.json({ configured: true, circuit_state: "closed" }),
+      ),
+      http.get("/api/ai/chat/threads", () =>
+        HttpResponse.json({ threads: [], next_cursor: null }),
+      ),
+      http.post("/api/ai/chat/turns/stream", async ({ request }) => {
+        const form = await request.formData();
+        submittedText = String(form.get("content") || "");
+        return new HttpResponse(
+          `data: ${JSON.stringify({ type: "text", content: "Three runs have gaps." })}\n\n` +
+            `data: ${JSON.stringify({ type: "done" })}\n\n`,
+          { headers: { "Content-Type": "text/event-stream" } },
+        );
+      }),
+    );
+
+    renderChat("/chat?q=Which%20runs%20have%20gaps%3F");
+
+    await waitFor(() => {
+      expect(submittedText).toBe("Which runs have gaps?");
+    });
+    expect(await screen.findByText("Three runs have gaps.")).toBeTruthy();
   });
 
   it("keeps a vision-rejected draft ready for retry", async () => {
@@ -276,7 +304,7 @@ describe("ChatPage", () => {
     });
     await user.type(composer, "Only for Alpha");
     await user.click(
-      await screen.findByRole("button", { name: /^Thread Beta 0 messages/ }),
+      await screen.findByRole("button", { name: /^Thread Beta 0 msgs/ }),
     );
 
     await waitFor(() =>

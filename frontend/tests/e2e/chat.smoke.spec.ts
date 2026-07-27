@@ -108,9 +108,7 @@ test("creates, reopens, and deletes an image-aware saved chat", async ({
     page.getByRole("button", { name: "Back to Comicarr" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "New library chat" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "New chat" })).toBeVisible();
 
   await page.getByLabel("Attach images").click();
   await page.locator('input[type="file"]').setInputFiles({
@@ -131,7 +129,7 @@ test("creates, reopens, and deletes an image-aware saved chat", async ({
   await page.getByRole("button", { name: "New chat" }).click();
   await expect(page).toHaveURL(/\/chat$/);
   await page
-    .getByRole("button", { name: /^Identify this cover 2 messages/ })
+    .getByRole("button", { name: /^Identify this cover 2 msgs/ })
     .click();
   await expect(page.getByText(messages[1].content)).toBeVisible();
 
