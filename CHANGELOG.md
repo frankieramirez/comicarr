@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.20.0
+
+### Minor Changes
+
+- ea4b9e9: Add a dedicated saved Library Chat workspace with image attachments.
+- ea4b9e9: Redesign the chat workspace and move its entry point out of the sidebar navigation. Chat now opens from a pinned "Ask Comicarr" launcher above the account menu (or ⌘⇧K), the workspace gains a grouped and searchable thread rail, a thread header with the answering model, and a calmer transcript, and the dashboard gets an ask bar plus a recent-chats list in place of the command hint card.
+
+### Patch Changes
+
+- ea4b9e9: Report a pull-list outage in plain language instead of dumping raw response
+  headers into the log. When the pull-list host is unhealthy, Cloudflare answers
+  on its behalf; only one of those replies was recognised, so the rest were
+  logged as an unreadable header dump. All of them now explain that the source is
+  temporarily unreachable and that the data shown may be stale, including how
+  long upstream asked us to wait when it says so.
+
 ## 0.19.14
 
 ### Patch Changes
