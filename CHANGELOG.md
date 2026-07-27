@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.1
+
+### Patch Changes
+
+- 8c6a834: Route every "is this manga, and which provider owns it?" decision through a single `series_kind` module instead of 23 copied ID-prefix checks.
+
 ## 0.20.0
 
 ### Minor Changes
