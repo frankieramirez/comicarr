@@ -609,7 +609,10 @@ class PostProcessor(object):
 
         self.oneoffinlist = False
 
-        if self.comicid is not None and series_kind.is_manga(self.comicid):
+        # Provider-issued ids only: at this point the series row has not been
+        # loaded, so ContentType cannot participate. Legacy manga predating the
+        # prefixes take the ComicVine path here, as they always have.
+        if self.comicid is not None and series_kind.provider_of(self.comicid) in series_kind.MANGA_PROVIDERS:
             logger.fdebug(
                 "%s Manga series detected (ComicID: %s) - branching to manga post-processing" % (module, self.comicid)
             )
