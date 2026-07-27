@@ -696,6 +696,9 @@ ai_chat_messages = Table(
     Column("prompt_tokens", Integer, nullable=False, server_default="0"),
     Column("completion_tokens", Integer, nullable=False, server_default="0"),
     Column("created_at", String(40), nullable=False),
+    # Monotonic within a thread: clock resolution can tie two created_at values,
+    # and a random uuid tiebreak would then order the conversation arbitrarily.
+    Column("seq", Integer, nullable=False, server_default="0"),
 )
 
 ai_chat_attachments = Table(

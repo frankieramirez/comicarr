@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { useAuth } from "@/contexts/AuthContext";
+import { confirmChatDelete, promptChatTitle } from "@/lib/chatDialogs";
 import type { ChatThreadSummary } from "@/types/chat";
 import {
   ArrowLeft,
@@ -223,10 +224,8 @@ export function ChatThreadList({
                           <DropdownMenuGroup>
                             <DropdownMenuItem
                               onClick={() => {
-                                const title = window
-                                  .prompt("Rename chat", thread.title)
-                                  ?.trim();
-                                if (!title || title === thread.title) return;
+                                const title = promptChatTitle(thread.title);
+                                if (!title) return;
                                 setBusyId(thread.id);
                                 void onRename(thread.id, title).finally(() =>
                                   setBusyId(undefined),
@@ -239,12 +238,7 @@ export function ChatThreadList({
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
                               onClick={() => {
-                                if (
-                                  !window.confirm(
-                                    `Delete “${thread.title}”? This also removes its images.`,
-                                  )
-                                )
-                                  return;
+                                if (!confirmChatDelete(thread.title)) return;
                                 setBusyId(thread.id);
                                 void onDelete(thread.id).finally(() =>
                                   setBusyId(undefined),

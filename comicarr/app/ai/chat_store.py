@@ -32,6 +32,14 @@ def _id():
     return uuid.uuid4().hex
 
 
+def _next_seq(conn, thread_id):
+    """Next position in a thread, assigned inside the caller's transaction."""
+    current = conn.execute(
+        select(func.coalesce(func.max(messages.c.seq), 0)).where(messages.c.thread_id == thread_id)
+    ).scalar()
+    return (current or 0) + 1
+
+
 def new_id():
     """Return an opaque identifier suitable for a new chat record."""
     return _id()
@@ -134,7 +142,7 @@ def get_thread(username, thread_id):
     if row is None:
         return None
     message_rows = db.select_all(
-        select(messages).where(messages.c.thread_id == thread_id).order_by(messages.c.created_at, messages.c.id)
+        select(messages).where(messages.c.thread_id == thread_id).order_by(messages.c.created_at, messages.c.seq)
     )
     attachment_rows = db.select_all(
         select(attachments).where(attachments.c.thread_id == thread_id).order_by(attachments.c.created_at)
@@ -221,6 +229,7 @@ def create_user_turn(username, thread_id, content, image_records, title, create_
                 prompt_tokens=0,
                 completion_tokens=0,
                 created_at=now,
+                seq=_next_seq(conn, thread_id),
             )
         )
         for record in image_records:
@@ -294,6 +303,7 @@ def add_assistant_message(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 created_at=now,
+                seq=_next_seq(conn, thread_id),
             )
         )
         conn.execute(update(threads).where(threads.c.id == thread_id).values(updated_at=now))
@@ -347,7 +357,7 @@ def get_context_messages(username, thread_id):
     recent = db.select_all(
         select(messages)
         .where(messages.c.thread_id == thread_id, messages.c.status == "complete")
-        .order_by(messages.c.created_at.desc(), messages.c.id.desc())
+        .order_by(messages.c.created_at.desc(), messages.c.seq.desc())
         .limit(MAX_CONTEXT_MESSAGES)
     )
     recent.reverse()
@@ -391,7 +401,7 @@ def get_retry_turn(username, thread_id, message_id):
     latest_user = db.select_one(
         select(messages.c.id)
         .where(messages.c.thread_id == thread_id, messages.c.role == "user")
-        .order_by(messages.c.created_at.desc(), messages.c.id.desc())
+        .order_by(messages.c.created_at.desc(), messages.c.seq.desc())
         .limit(1)
     )
     if latest_user is None or latest_user["id"] != message_id:
@@ -403,7 +413,7 @@ def get_retry_turn(username, thread_id, message_id):
             messages.c.thread_id == thread_id,
             messages.c.role == "assistant",
             messages.c.status == "complete",
-            messages.c.created_at > row["created_at"],
+            messages.c.seq > row["seq"],
         )
         .limit(1)
     )
@@ -446,7 +456,12 @@ def compensate_user_turn(username, thread_id, message_id, assistant_message_id=N
                 )
             ).scalars()
         )
-        conn.execute(delete(attachments).where(attachments.c.message_id == message_id))
+        conn.execute(
+            delete(attachments).where(
+                attachments.c.thread_id == thread_id,
+                attachments.c.message_id == message_id,
+            )
+        )
         conn.execute(
             delete(messages).where(
                 messages.c.id == message_id,

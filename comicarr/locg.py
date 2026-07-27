@@ -41,6 +41,16 @@ CLOUDFLARE_ORIGIN_ERRORS = {
 }
 
 
+def _retry_advice(retry_after):
+    """Phrase a Retry-After value, which is either delta-seconds or an HTTP date."""
+    value = str(retry_after or "").strip()
+    if not value:
+        return ""
+    if value.isdigit():
+        return " Upstream asked us to retry in %s seconds." % value
+    return " Upstream asked us to retry after %s." % value
+
+
 def locg(pulldate=None, weeknumber=None, year=None):
 
     todaydate = datetime.datetime.today().replace(second=0, microsecond=0)
@@ -91,13 +101,12 @@ def locg(pulldate=None, weeknumber=None, year=None):
         logger.warn("[%s] No date supplied, or an invalid date was provided [%s]" % (r.status_code, pulldate))
         return {"status": "failure"}
     elif str(r.status_code) in CLOUDFLARE_ORIGIN_ERRORS:
-        retry_after = r.headers.get("Retry-After")
         logger.warn(
             "[%s] Walksoftly %s, so it is currently unreachable. Data shown may be stale until it comes back online.%s"
             % (
                 r.status_code,
                 CLOUDFLARE_ORIGIN_ERRORS[str(r.status_code)],
-                " Upstream asked us to retry in %s seconds." % retry_after if retry_after else "",
+                _retry_advice(r.headers.get("Retry-After")),
             )
         )
         comicarr.BACKENDSTATUS_WS = "down"

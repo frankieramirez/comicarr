@@ -13,6 +13,7 @@ import ast
 import hashlib
 import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 from unittest.mock import patch
@@ -214,6 +215,28 @@ def _first_party_runtime_python_files():
         if any(_is_nested_checkout(parent) for parent in path.parents if REPO_ROOT in parent.parents):
             continue
         yield path
+
+
+@pytest.mark.parametrize("marker_is_directory", [False, True])
+def test_nested_checkouts_are_excluded_but_ordinary_directories_are_scanned(tmp_path, monkeypatch, marker_is_directory):
+    """A linked worktree carries a ``.git`` file, a clone a ``.git`` directory."""
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(module, "VENDOR_ROOT", tmp_path / "comicarr" / "_vendor")
+
+    checkout = tmp_path / ".worktrees" / "feature"
+    checkout.mkdir(parents=True)
+    if marker_is_directory:
+        (checkout / ".git").mkdir()
+    else:
+        (checkout / ".git").write_text("gitdir: /elsewhere\n")
+    (checkout / "sibling.py").write_text("import os\n")
+
+    ordinary = tmp_path / "comicarr"
+    ordinary.mkdir()
+    (ordinary / "runtime.py").write_text("import os\n")
+
+    assert set(_first_party_runtime_python_files()) == {ordinary / "runtime.py"}
 
 
 def _vendor_imports():

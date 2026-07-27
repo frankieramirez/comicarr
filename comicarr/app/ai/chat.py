@@ -117,6 +117,22 @@ def _is_vision_unsupported_error(error):
         "text-only",
         "not allowed",
     )
+    # Account, auth, and quota failures can name images too, and a false match
+    # here compensates the turn away — deleting the user's message and uploads.
+    unrelated_terms = (
+        "api key",
+        "authentication",
+        "unauthorized",
+        "permission",
+        "forbidden",
+        "quota",
+        "billing",
+        "credit",
+        "rate limit",
+        "rate_limit",
+    )
+    if any(term in message for term in unrelated_terms):
+        return False
     return any(term in message for term in vision_terms) and any(term in message for term in rejection_terms)
 
 

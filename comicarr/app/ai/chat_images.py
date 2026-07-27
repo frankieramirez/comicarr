@@ -11,7 +11,7 @@
 
 import base64
 import io
-import os
+import re
 import shutil
 import uuid
 import warnings
@@ -26,11 +26,23 @@ MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 MAX_LONG_EDGE = 2048
+MAX_FILENAME_LENGTH = 120
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+
+# Quotes and control characters would ride along into Content-Disposition and
+# into the prompt context, and posixpath.basename leaves a Windows path intact.
+_UNSAFE_FILENAME_CHARS = re.compile(r'[\x00-\x1f\x7f"]')
 
 
 class InvalidChatImage(ValueError):
     pass
+
+
+def safe_filename(filename):
+    """Reduce an uploaded filename to a bare, printable, length-capped name."""
+    name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    name = _UNSAFE_FILENAME_CHARS.sub("_", name).strip()
+    return name[:MAX_FILENAME_LENGTH] or "image"
 
 
 def attachment_root():
@@ -50,6 +62,9 @@ async def save_uploads(thread_id, uploads):
         raise InvalidChatImage("A maximum of 4 images is allowed")
 
     saved = []
+    # Recorded before each save so a failure between save() and the metadata
+    # build still leaves nothing orphaned on disk.
+    written = []
     try:
         for upload in uploads:
             raw = await upload.read(MAX_IMAGE_BYTES + 1)
@@ -88,11 +103,12 @@ async def save_uploads(thread_id, uploads):
             relative_path = Path("chat_attachments") / thread_id / (attachment_id + ".webp")
             path = resolve_relative_path(str(relative_path))
             path.parent.mkdir(parents=True, exist_ok=True)
+            written.append(str(relative_path))
             normalized.save(path, format="WEBP", quality=88, method=4, exif=b"")
             saved.append(
                 {
                     "id": attachment_id,
-                    "filename": os.path.basename(upload.filename or "image"),
+                    "filename": safe_filename(upload.filename),
                     "media_type": "image/webp",
                     "byte_size": path.stat().st_size,
                     "width": normalized.width,
@@ -101,7 +117,7 @@ async def save_uploads(thread_id, uploads):
                 }
             )
     except Exception:
-        delete_paths(item["relative_path"] for item in saved)
+        delete_paths(written)
         raise
     return saved
 

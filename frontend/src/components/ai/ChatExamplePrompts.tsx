@@ -31,9 +31,9 @@ export function ChatExamplePrompts({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-5 sm:px-6">
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[26px]">
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-[26px]">
           What are we hunting today?
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground sm:text-[15px]">
           Ask about anything in your collection — gaps, publishers, duplicates —
           or drop a cover and I&rsquo;ll tell you what it is.

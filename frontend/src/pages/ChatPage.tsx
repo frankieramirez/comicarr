@@ -33,6 +33,9 @@ import {
   renameChatThread,
   streamChatTurn,
 } from "@/lib/chatApi";
+import { confirmChatDelete, promptChatTitle } from "@/lib/chatDialogs";
+import { createLocalId } from "@/lib/ids";
+import { isEditableTarget } from "@/lib/keyboard";
 import type {
   ChatStreamEvent,
   LibraryChatMessage,
@@ -55,7 +58,7 @@ function optimisticMessage(
   threadId = "",
 ): LibraryChatMessage {
   return {
-    id: `local-${crypto.randomUUID()}`,
+    id: `local-${createLocalId()}`,
     thread_id: threadId,
     role,
     content,
@@ -379,43 +382,55 @@ export default function ChatPage() {
     navigate("/chat");
   };
 
+  // The listener outlives any one render, so it reads the handler through a ref
+  // rather than closing over a `handleNew` whose `images` would go stale.
+  const handleNewRef = useRef(handleNew);
+  useEffect(() => {
+    handleNewRef.current = handleNew;
+  });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         (event.metaKey || event.ctrlKey) &&
         event.shiftKey &&
-        event.key.toLowerCase() === "k"
+        event.key.toLowerCase() === "k" &&
+        !isEditableTarget(event.target)
       ) {
         event.preventDefault();
-        handleNew();
+        handleNewRef.current();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleNew is stable enough for a global shortcut
-  }, [isSending, threadId]);
+  }, []);
 
   const handleRename = async (id: string, title: string) => {
-    await renameChatThread(id, title);
-    await refreshThreads(id);
+    try {
+      await renameChatThread(id, title);
+      await refreshThreads(id);
+    } catch {
+      addToast({ type: "error", message: "Could not rename this chat." });
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteChatThread(id);
-    if (id === threadId) navigate("/chat", { replace: true });
-    await refreshThreads();
+    try {
+      await deleteChatThread(id);
+      if (id === threadId) navigate("/chat", { replace: true });
+      await refreshThreads();
+    } catch {
+      addToast({ type: "error", message: "Could not delete this chat." });
+    }
   };
 
   const renameThread = (id: string, currentTitle: string) => {
-    const title = window.prompt("Rename chat", currentTitle)?.trim();
-    if (!title || title === currentTitle) return;
-    void handleRename(id, title);
+    const title = promptChatTitle(currentTitle);
+    if (title) void handleRename(id, title);
   };
 
   const confirmDeleteThread = (id: string, title: string) => {
-    if (!window.confirm(`Delete “${title}”? This also removes its images.`))
-      return;
-    void handleDelete(id);
+    if (confirmChatDelete(title)) void handleDelete(id);
   };
 
   const threadList = (

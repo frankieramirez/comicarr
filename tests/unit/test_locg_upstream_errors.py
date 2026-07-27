@@ -69,6 +69,15 @@ def test_retry_after_is_surfaced_when_upstream_supplies_one(upstream):
     assert "retry in 120 seconds" in upstream.warnings[-1]
 
 
+def test_date_form_retry_after_is_not_reported_as_seconds(upstream):
+    """RFC 9110 allows an HTTP date here, which is not a delay in seconds."""
+    upstream(523, headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"})
+
+    message = upstream.warnings[-1]
+    assert "retry after Wed, 21 Oct 2026 07:28:00 GMT" in message
+    assert "seconds" not in message
+
+
 def test_no_retry_advice_is_invented_when_upstream_omits_it(upstream):
     upstream(522)
 

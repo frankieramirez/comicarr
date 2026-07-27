@@ -91,20 +91,32 @@ export async function streamChatTurn({
       ? trimmed.slice(5).trim()
       : trimmed;
     if (!value) return;
-    const event = JSON.parse(value) as ChatStreamEvent;
+    let event: ChatStreamEvent;
+    try {
+      event = JSON.parse(value) as ChatStreamEvent;
+    } catch {
+      // A truncated or malformed frame is not worth killing the turn over; a
+      // missing "done" is caught below with a message the user can act on.
+      return;
+    }
     if (event.type === "done") receivedDone = true;
     onEvent(event);
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) parseLine(line);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) parseLine(line);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) parseLine(buffer);
+  } finally {
+    reader.releaseLock();
   }
-  if (buffer.trim()) parseLine(buffer);
   if (!receivedDone) {
     throw new Error(
       "The chat response ended before it completed. Send again to retry.",

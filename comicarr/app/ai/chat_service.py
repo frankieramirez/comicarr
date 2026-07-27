@@ -21,6 +21,11 @@ def get_thread_lock(thread_id):
     return _thread_locks.setdefault(thread_id, asyncio.Lock())
 
 
+def release_thread_lock(thread_id):
+    """Forget a deleted thread's lock so the map does not grow for the process's life."""
+    _thread_locks.pop(thread_id, None)
+
+
 def normalize_title(content, image_records):
     title = " ".join(content.split())[:80]
     if title:

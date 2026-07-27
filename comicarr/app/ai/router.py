@@ -20,7 +20,7 @@ from sse_starlette.sse import EventSourceResponse
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.chat import stream_chat_response
-from comicarr.app.ai.chat_service import get_thread_lock, stream_turn
+from comicarr.app.ai.chat_service import get_thread_lock, release_thread_lock, stream_turn
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
 
@@ -178,6 +178,7 @@ async def chat_thread_delete(thread_id: str, username: str = Depends(require_ses
             return JSONResponse(
                 status_code=500, content={"error": "Chat was deleted but attachment cleanup must be retried"}
             )
+        release_thread_lock(thread_id)
     return JSONResponse(content={"success": True})
 
 
@@ -216,7 +217,13 @@ async def chat_turn_stream(
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "Invalid Content-Length header"})
     try:
-        form = await request.form(max_files=chat_images.MAX_IMAGES, max_fields=3)
+        # Starlette caps each part at 1 MB by default, which would reject a valid
+        # chat image long before save_uploads can report the real 10 MB limit.
+        form = await request.form(
+            max_files=chat_images.MAX_IMAGES,
+            max_fields=3,
+            max_part_size=chat_images.MAX_IMAGE_BYTES + 1,
+        )
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid multipart form data"})
 

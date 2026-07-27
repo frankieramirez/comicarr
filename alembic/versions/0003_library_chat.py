@@ -48,6 +48,7 @@ def upgrade():
             sa.Column("prompt_tokens", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("completion_tokens", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("created_at", sa.String(length=40), nullable=False),
+            sa.Column("seq", sa.Integer(), nullable=False, server_default="0"),
         )
     if "ai_chat_attachments" not in existing_tables:
         op.create_table(

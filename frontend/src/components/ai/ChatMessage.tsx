@@ -1,7 +1,6 @@
 import type { LibraryChatMessage } from "@/types/chat";
 import {
   Attachment,
-  AttachmentInfo,
   AttachmentPreview,
   Attachments,
 } from "@/components/ai-elements/attachments";
@@ -68,7 +67,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 }}
               >
                 <AttachmentPreview />
-                <AttachmentInfo />
               </Attachment>
             ))}
           </Attachments>

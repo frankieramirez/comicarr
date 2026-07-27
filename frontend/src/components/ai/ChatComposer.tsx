@@ -17,6 +17,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
+import { createLocalId } from "@/lib/ids";
 import type { PendingChatImage } from "@/types/chat";
 import { ArrowUp, ImagePlus, Square } from "lucide-react";
 
@@ -69,7 +70,7 @@ export function ChatComposer({
     onImagesChange([
       ...images,
       ...imageFiles.map((file) => ({
-        id: crypto.randomUUID(),
+        id: createLocalId(),
         file,
         previewUrl: URL.createObjectURL(file),
       })),

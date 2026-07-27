@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useChatThreads } from "@/hooks/useLibraryChat";
+import { isEditableTarget } from "@/lib/keyboard";
 import { APP_VERSION } from "@/lib/version";
 import {
   Sidebar,
@@ -143,7 +144,8 @@ export default function AppSidebar() {
       if (
         (event.metaKey || event.ctrlKey) &&
         event.shiftKey &&
-        event.key.toLowerCase() === "k"
+        event.key.toLowerCase() === "k" &&
+        !isEditableTarget(event.target)
       ) {
         event.preventDefault();
         setOpenMobile(false);

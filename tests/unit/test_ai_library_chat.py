@@ -178,6 +178,33 @@ def test_only_twenty_recent_messages_are_sent_to_provider(chat_db):
     assert context[-1]["content"] == "message 24"
 
 
+def test_messages_stay_ordered_when_timestamps_tie(chat_db, monkeypatch):
+    # A coarse platform clock hands every insert the same created_at; ordering
+    # must still follow insertion rather than the random message id.
+    monkeypatch.setattr(chat_store, "_now", lambda: "2026-01-01T00:00:00.000000+00:00")
+    thread, _, _ = _create_turn("alice", "message 0")
+    for index in range(1, 6):
+        chat_store.add_assistant_message("alice", thread["id"], "message %d" % index)
+
+    detail = chat_store.get_thread("alice", thread["id"])
+    assert [message["content"] for message in detail["messages"]] == ["message %d" % i for i in range(6)]
+    context = chat_store.get_context_messages("alice", thread["id"])
+    assert [message["content"] for message in context] == ["message %d" % i for i in range(6)]
+
+
+@pytest.mark.asyncio
+async def test_uploaded_filenames_are_stripped_of_paths_and_control_characters(chat_db):
+    records = await chat_images.save_uploads(
+        "thread-safe",
+        [_image_upload(filename='C:\\Users\\reader\\co"ver\r\n.png', size=(10, 10))],
+    )
+    assert records[0]["filename"] == "co_ver__.png"
+
+    long_name = "a" * 400 + ".png"
+    records = await chat_images.save_uploads("thread-long", [_image_upload(filename=long_name, size=(10, 10))])
+    assert len(records[0]["filename"]) == chat_images.MAX_FILENAME_LENGTH
+
+
 @pytest.mark.asyncio
 async def test_prior_images_are_represented_by_filename_in_context(chat_db):
     thread_id = chat_store.new_id()
@@ -350,6 +377,7 @@ async def test_cancelled_provider_call_persists_cancelled_assistant(chat_db):
     provider_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await provider_task
+    await turn.aclose()
 
     detail = chat_store.get_thread("alice", thread_event["thread"]["id"])
     assert [message["role"] for message in detail["messages"]] == ["user", "assistant"]
