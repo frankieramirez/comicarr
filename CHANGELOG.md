@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.2
+
+### Patch Changes
+
+- 1ff6148: Record API key regeneration as an audit log event with the user and originating IP. Rotation revokes every outstanding API credential, so integrations start failing immediately — previously nothing in the log explained why.
+
 ## 0.20.1
 
 ### Patch Changes
