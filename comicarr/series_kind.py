@@ -127,10 +127,17 @@ def strip_prefix(series_id: str | None) -> str:
 
 
 def add_prefix(raw_id: str | None, provider: SeriesProvider) -> str:
-    """Return a Series id carrying ``provider``'s prefix, adding it if absent."""
+    """Return a Series id carrying ``provider``'s prefix, adding it if absent.
+
+    An id that already names a provider is returned untouched, so this can
+    never relabel one provider's id as another's.
+    """
     if not raw_id:
         return ""
+    raw_id = str(raw_id)
+    if provider_of(raw_id) is not SeriesProvider.COMICVINE:
+        return raw_id
     prefix = _PROVIDER_PREFIXES.get(provider)
     if prefix is None:
-        return str(raw_id)
-    return "%s%s" % (prefix, strip_prefix(raw_id))
+        return raw_id
+    return "%s%s" % (prefix, raw_id)

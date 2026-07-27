@@ -137,8 +137,10 @@ class TestPrefixes:
     def test_add_prefix_is_idempotent(self, raw_id, provider, expected):
         assert add_prefix(raw_id, provider) == expected
 
-    def test_add_prefix_reprefixes_across_providers(self):
-        assert add_prefix("md-uuid-1", SeriesProvider.MYANIMELIST) == "mal-uuid-1"
+    def test_add_prefix_never_relabels_another_providers_id(self):
+        """Rewriting md- to mal- would invent a Series that does not exist."""
+        assert add_prefix("md-uuid-1", SeriesProvider.MYANIMELIST) == "md-uuid-1"
+        assert add_prefix("mal-13", SeriesProvider.MANGADEX) == "mal-13"
 
     @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890", "12345"))
     def test_strip_then_add_round_trips(self, series_id):

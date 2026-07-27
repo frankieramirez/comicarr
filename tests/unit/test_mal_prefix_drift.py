@@ -125,8 +125,9 @@ class TestChapterPollCoversBothProviders:
         )
 
         # Both providers resolve to a bare MangaDex uuid: md- series carry it in
-        # the ComicID, mal- series in MangaDexID.
-        assert polled == ["uuid-1", "uuid-2"]
+        # the ComicID, mal- series in MangaDexID. The query has no ORDER BY, so
+        # compare without depending on row order.
+        assert sorted(polled) == ["uuid-1", "uuid-2"]
 
     def test_a_mal_series_without_a_resolved_uuid_is_skipped(self, monkeypatch):
         polled = self._run(
