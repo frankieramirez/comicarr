@@ -121,6 +121,79 @@ describe("SeriesTable", () => {
     expect(new URLSearchParams(window.location.search).get("page")).toBe("3");
   });
 
+  // Regression: `selectedSeriesIds` used to read the raw rowSelection keys, so
+  // a row filtered out of view stayed selected, stayed counted in the bulk
+  // bar, and stayed a target of bulk delete/pause/resume — the #307 class.
+  // See wayfinder #365 / #390.
+  it("drops a filtered-away row from the selection and the bulk bar", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/library");
+
+    const data = [
+      { ComicID: "1", ComicName: "Akira", Status: "Active" },
+      { ComicID: "2", ComicName: "Berserk", Status: "Active" },
+    ] as Comic[];
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={data} />
+      </NuqsAdapter>,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Select Akira" }));
+    expect(screen.queryAllByText("1 selected")).not.toHaveLength(0);
+
+    // Filter Akira out of view.
+    await user.type(screen.getByLabelText("Filter series"), "Berserk");
+    await settle();
+
+    expect(screen.queryByText("Akira")).toBeNull();
+    expect(screen.queryAllByText(/\d+ selected/)).toHaveLength(0);
+
+    // The selection was pruned, not hidden: clearing the filter brings Akira
+    // back deselected, so no bulk action can reach a row the user never saw
+    // re-selected.
+    await user.clear(screen.getByLabelText("Filter series"));
+    await settle();
+
+    expect(screen.getByText("Akira")).toBeTruthy();
+    expect(screen.queryAllByText(/\d+ selected/)).toHaveLength(0);
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Select Akira" })
+        .getAttribute("aria-checked"),
+    ).toBe("false");
+  });
+
+  it("keeps a selection on rows the pager, not the filter, hid", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Select Series 1" }));
+    await user.click(screen.getByRole("button", { name: "next" }));
+    await settle();
+
+    // Series 1 is on the previous page — out of sight but not out of the
+    // filtered row set, so it must stay selected and counted.
+    expect(screen.queryByText("Series 1")).toBeNull();
+    expect(screen.queryAllByText("1 selected")).not.toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "prev" }));
+    await settle();
+
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Select Series 1" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+  });
+
   it("still resets to the first page when the row set changes later", async () => {
     window.history.pushState({}, "", "/library?page=2");
 
