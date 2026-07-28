@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   getCoreRowModel,
   getExpandedRowModel,
@@ -269,9 +276,14 @@ export function useTableState<TData>({
 
   // A page-size change alters no `data` identity, so TanStack's auto-reset
   // provably cannot see it — the one page reset the hook still owes (#360).
+  //
+  // Layout effect, not effect: the reset has to land before paint, or a
+  // pageSize change renders one frame of the *old* page index against the new
+  // size — on the Library grid/list toggle (20 <-> 24) that is a visible flash
+  // of rows the user did not ask for.
   const pageSize = pagination?.pageSize;
   const previousPageSize = useRef(pageSize);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previousPageSize.current !== pageSize) {
       previousPageSize.current = pageSize;
       if (store) store.setState({ pageIndex: 0 });
