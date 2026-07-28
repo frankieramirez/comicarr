@@ -380,21 +380,6 @@ export interface ComicOrManga extends Comic {
   ExternalID?: string | null;
 }
 
-/** Extended Issue interface with manga chapter support */
-export interface IssueOrChapter extends Issue {
-  ChapterNumber?: string | null;
-  VolumeNumber?: string | null;
-}
-
-/** Volume group for chapters/volumes view */
-export interface VolumeGroup {
-  volume: string;
-  chapters: IssueOrChapter[];
-  status: "Complete" | "Partial" | "Missing";
-  downloadedCount: number;
-  totalCount: number;
-}
-
 /** Import file entity */
 export interface ImportFile {
   impID: string;

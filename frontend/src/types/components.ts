@@ -4,7 +4,6 @@
 
 import type { ReactNode } from "react";
 import type {
-  Issue,
   WantedIssue,
   UpcomingIssue,
   Comic,
@@ -56,12 +55,6 @@ export interface WantedTableProps {
 /** UpcomingTable props */
 export interface UpcomingTableProps {
   issues?: UpcomingIssue[];
-  isLoading?: boolean;
-}
-
-/** IssuesTable props */
-export interface IssuesTableProps {
-  issues?: Issue[];
   isLoading?: boolean;
 }
 
