@@ -53,8 +53,28 @@ export const sortParser = createParser({
  * writes it replaces, which left a 300ms window where the URL read
  * *old search, page 0* (#377).
  */
+/**
+ * The URL is user-supplied, and `?page=-1` parses cleanly to -1, which would
+ * reach TanStack as a negative `pageIndex`. Floored at the parser so the store
+ * cannot expose one.
+ *
+ * Out-of-range *high* pages are deliberately left alone: clamping those is the
+ * render-time, display-only concern #360 assigned to the caller, and the
+ * rewrite that tries to tell "rows have not arrived" from "genuinely out of
+ * range" *is* the bug #381 fixed.
+ */
+const pageParser = createParser({
+  parse(value: string) {
+    const page = parseAsInteger.parse(value);
+    return page === null ? null : Math.max(0, page);
+  },
+  serialize(value: number) {
+    return String(Math.max(0, value));
+  },
+});
+
 export const tableUrlParams = {
-  page: parseAsInteger.withDefault(0),
+  page: pageParser.withDefault(0),
   sort: sortParser,
   search: parseAsString.withDefault("").withOptions({
     limitUrlUpdates: throttle(300),

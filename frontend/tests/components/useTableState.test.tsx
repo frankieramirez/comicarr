@@ -8,6 +8,10 @@ import {
   type TableStore,
 } from "@/components/data-table/useTableState";
 import { encodeRowId } from "@/components/data-table/rowId";
+import {
+  sortParser,
+  tableUrlParams,
+} from "@/components/data-table/tableUrlStore";
 
 /**
  * The hook layer of #365's split: everything here is identical for every caller
@@ -94,9 +98,9 @@ describe("useTableState", () => {
       rerender({ data: rows("a", "c"), scope: "filtered" });
 
       expect(result.current.selectedIds).toEqual([]);
-      expect(
-        Object.keys(result.current.table.getState().rowSelection),
-      ).toEqual([]);
+      expect(Object.keys(result.current.table.getState().rowSelection)).toEqual(
+        [],
+      );
     });
 
     it("prunes raw state, not just the derived output, so the header checkbox agrees (#307)", () => {
@@ -116,9 +120,9 @@ describe("useTableState", () => {
       // this true-but-stale, because the header counts raw state (#359).
       expect(result.current.selectedIds).toEqual(["a"]);
       expect(getIsAllSelected(result.current.table)).toBe(true);
-      expect(
-        Object.keys(result.current.table.getState().rowSelection),
-      ).toEqual(["a"]);
+      expect(Object.keys(result.current.table.getState().rowSelection)).toEqual(
+        ["a"],
+      );
     });
 
     it("keeps a selection whose rows are merely on another page (#307)", () => {
@@ -154,9 +158,9 @@ describe("useTableState", () => {
       });
 
       expect(result.current.selectedIds).toEqual([]);
-      expect(
-        Object.keys(result.current.table.getState().rowSelection),
-      ).toEqual([]);
+      expect(Object.keys(result.current.table.getState().rowSelection)).toEqual(
+        [],
+      );
     });
   });
 
@@ -206,6 +210,31 @@ describe("useTableState", () => {
       // difference is the whole reason the parameter is required (#359, #382).
       expect(getIsAllSelected(result.current.table)).toBe(true);
       expect(result.current.table.getIsAllRowsSelected()).toBe(false);
+    });
+
+    it("does not mark a page indeterminate because another page holds a selection", () => {
+      const { result } = renderTable({
+        data: rows("a", "b", "c", "d"),
+        scope: "page",
+        pageSize: 2,
+      });
+
+      act(() => {
+        result.current.table.nextPage();
+      });
+      act(() => {
+        result.current.table.getRowModel().rows[0].toggleSelected(true);
+      });
+      act(() => {
+        result.current.table.previousPage();
+      });
+
+      // Nothing on page 1 is selected. Reading the all-check at page scope but
+      // the some-check globally renders this checkbox indeterminate anyway.
+      expect(
+        result.current.table.getRowModel().rows.map((row) => row.id),
+      ).toEqual(["a", "b"]);
+      expect(getIsAllSelected(result.current.table)).toBe(false);
     });
 
     it("reports indeterminate under filtered scope for the same selection", () => {
@@ -434,5 +463,33 @@ describe("encodeRowId (#383)", () => {
 
   it("is stable for the same input", () => {
     expect(encodeRowId(["a", 1, null])).toBe(encodeRowId(["a", 1, null]));
+  });
+});
+
+describe("tableUrlParams (#377)", () => {
+  it("floors a negative page from the URL instead of passing it through", () => {
+    // The URL is user-supplied and `?page=-1` parses cleanly to -1, which would
+    // reach TanStack as a negative pageIndex.
+    expect(tableUrlParams.page.parse("-1")).toBe(0);
+    expect(tableUrlParams.page.parse("2")).toBe(2);
+  });
+
+  it("leaves an out-of-range high page alone, which is the caller's concern", () => {
+    // Clamping here cannot tell "rows have not arrived" from "genuinely out of
+    // range" — the rewrite that tries is the bug #381 fixed.
+    expect(tableUrlParams.page.parse("99")).toBe(99);
+  });
+
+  it("omits a sort equal to the default rather than serialising it (#377)", () => {
+    const withDefault = sortParser.withDefault({ id: "name", desc: false });
+    expect(
+      withDefault.eq?.(
+        { id: "name", desc: false },
+        { id: "name", desc: false },
+      ),
+    ).toBe(true);
+    expect(
+      withDefault.eq?.({ id: "name", desc: true }, { id: "name", desc: false }),
+    ).toBe(false);
   });
 });

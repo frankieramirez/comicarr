@@ -83,7 +83,11 @@ type OwnedOptions =
   | "getPaginationRowModel"
   | "getExpandedRowModel"
   | "manualPagination"
-  | "autoResetPageIndex";
+  | "autoResetPageIndex"
+  // Derived from `selection` and set after the passthrough spread, so a caller
+  // passing it would be silently overridden — precisely the quiet no-op the
+  // Omit exists to make impossible.
+  | "enableRowSelection";
 
 export type UseTableStateOptions<TData> = Omit<
   TableOptions<TData>,
@@ -141,12 +145,18 @@ function applyUpdater<T>(updater: Updater<T>, current: T): T {
 export function getIsAllSelected<TData>(
   table: Table<TData>,
 ): boolean | "indeterminate" {
-  const isAll =
-    table.options.meta?.selectAllScope === "page"
-      ? table.getIsAllPageRowsSelected()
-      : table.getIsAllRowsSelected();
+  // Both halves have to read the same scope. Mixing them — an all-check scoped
+  // to the page and a some-check scoped to everything — renders a page with no
+  // selected rows as indeterminate whenever any *other* page holds a selection.
+  const isPageScope = table.options.meta?.selectAllScope === "page";
+  const isAll = isPageScope
+    ? table.getIsAllPageRowsSelected()
+    : table.getIsAllRowsSelected();
+  const isSome = isPageScope
+    ? table.getIsSomePageRowsSelected()
+    : table.getIsSomeRowsSelected();
 
-  return isAll || (table.getIsSomeRowsSelected() && "indeterminate");
+  return isAll || (isSome && "indeterminate");
 }
 
 export function toggleAllSelected<TData>(
