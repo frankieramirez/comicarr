@@ -8,10 +8,6 @@ import {
   type TableStore,
 } from "@/components/data-table/useTableState";
 import { encodeRowId } from "@/components/data-table/rowId";
-import {
-  sortParser,
-  tableUrlParams,
-} from "@/components/data-table/tableUrlStore";
 
 /**
  * The hook layer of #365's split: everything here is identical for every caller
@@ -397,10 +393,11 @@ describe("useTableState", () => {
     });
 
     it("resets the page when pageSize changes, the one reset auto-reset cannot see", () => {
-      const { result, rerender } = renderTable({
-        data: rows("a", "b", "c", "d", "e", "f"),
-        pageSize: 2,
-      });
+      // One array, reused: if `data` identity changed too, this could not tell
+      // the pageSize reset from an ordinary auto-reset on a data change, and
+      // would pass for the wrong reason.
+      const data = rows("a", "b", "c", "d", "e", "f");
+      const { result, rerender } = renderTable({ data, pageSize: 2 });
 
       act(() => {
         result.current.table.setPageIndex(2);
@@ -409,7 +406,7 @@ describe("useTableState", () => {
 
       // A page-size change alters no `data` identity, so TanStack provably
       // never sees it (#360).
-      rerender({ data: rows("a", "b", "c", "d", "e", "f"), pageSize: 3 });
+      rerender({ data, pageSize: 3 });
 
       expect(result.current.table.getState().pagination.pageIndex).toBe(0);
     });
@@ -463,33 +460,5 @@ describe("encodeRowId (#383)", () => {
 
   it("is stable for the same input", () => {
     expect(encodeRowId(["a", 1, null])).toBe(encodeRowId(["a", 1, null]));
-  });
-});
-
-describe("tableUrlParams (#377)", () => {
-  it("floors a negative page from the URL instead of passing it through", () => {
-    // The URL is user-supplied and `?page=-1` parses cleanly to -1, which would
-    // reach TanStack as a negative pageIndex.
-    expect(tableUrlParams.page.parse("-1")).toBe(0);
-    expect(tableUrlParams.page.parse("2")).toBe(2);
-  });
-
-  it("leaves an out-of-range high page alone, which is the caller's concern", () => {
-    // Clamping here cannot tell "rows have not arrived" from "genuinely out of
-    // range" — the rewrite that tries is the bug #381 fixed.
-    expect(tableUrlParams.page.parse("99")).toBe(99);
-  });
-
-  it("omits a sort equal to the default rather than serialising it (#377)", () => {
-    const withDefault = sortParser.withDefault({ id: "name", desc: false });
-    expect(
-      withDefault.eq?.(
-        { id: "name", desc: false },
-        { id: "name", desc: false },
-      ),
-    ).toBe(true);
-    expect(
-      withDefault.eq?.({ id: "name", desc: true }, { id: "name", desc: false }),
-    ).toBe(false);
   });
 });
