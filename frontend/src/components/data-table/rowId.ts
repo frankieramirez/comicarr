@@ -9,8 +9,9 @@
  *
  *   - download history keys on `(IssueID, Status, Provider)`, and `Status`
  *     takes the literal value `Post-Processed`;
- *   - `ImportTable`'s key is `` `${DynamicName}-${Volume || "null"}` ``, which
- *     collapses `null` and `""` even though SQL groups them separately.
+ *   - the import table's key was `` `${DynamicName}-${Volume || "null"}` ``,
+ *     which collapsed `null` and `""` even though SQL groups them separately
+ *     (fixed by #396's `getImportGroupRowId`).
  *
  * So the encoder is shared rather than fixed per site: the class is the bug,
  * not either instance.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { EyeOff, Eye, Inbox, RefreshCw } from "lucide-react";
 import {
   useImportPending,
@@ -13,12 +13,19 @@ import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ImportTable from "@/components/import/ImportTable";
+import {
+  getImportGroupRowId,
+  getSelectedImportFileIds,
+  useImportColumns,
+} from "@/components/import/importColumns";
 import ImportBulkActions from "@/components/import/ImportBulkActions";
 import MatchModal from "@/components/import/MatchModal";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import LibraryScanSection from "@/components/import/LibraryScanSection";
 import ImportInboxSection from "@/components/import/ImportInboxSection";
 import PageHeader from "@/components/layout/PageHeader";
+import { useServerPage } from "@/components/data-table/useServerPage";
+import { useTableState } from "@/components/data-table/useTableState";
 import type { ImportGroup } from "@/types";
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
@@ -48,14 +55,10 @@ function SectionHeader({
 }
 
 export default function ImportPage() {
-  const [page, setPage] = useState(0);
+  const { limit, offset, nextPage, prevPage, resetPage } = useServerPage(50);
   const [showIgnored, setShowIgnored] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchingGroup, setMatchingGroup] = useState<ImportGroup | null>(null);
-  const limit = 50;
-  const offset = page * limit;
 
   const { data, isLoading, error, refetch } = useImportPending(
     limit,
@@ -88,10 +91,40 @@ export default function ImportPage() {
   const { data: appConfig } = useConfig();
   const { addToast } = useToast();
 
-  const handleMatchClick = (group: ImportGroup) => {
+  // The row handlers are hoisted function declarations: the columns need them
+  // here, but their bodies close over `clearSelection`, which the hook below
+  // returns — they only run on click, after both exist.
+  const columns = useImportColumns({
+    onMatchClick: handleMatchClick,
+    onIgnoreClick: handleGroupIgnore,
+    onDeleteClick: handleGroupDelete,
+    isActionLoading:
+      matchImportMutation.isPending ||
+      ignoreImportMutation.isPending ||
+      deleteImportMutation.isPending,
+  });
+
+  // The server page is an input to the fetch that produced `imports`, so the
+  // hook holds no page state (#360); `pagination` is omitted deliberately.
+  const { table, selectedRows, clearSelection } = useTableState({
+    data: imports,
+    columns,
+    getRowId: getImportGroupRowId,
+    selection: { scope: "filtered" },
+    getRowCanExpand: (row) =>
+      !!(row.original.files && row.original.files.length > 0),
+  });
+
+  const selectedFileIds = useMemo(
+    () => getSelectedImportFileIds(selectedRows),
+    [selectedRows],
+  );
+  const selectedGroupCount = selectedRows.length;
+
+  function handleMatchClick(group: ImportGroup) {
     setMatchingGroup(group);
     setMatchModalOpen(true);
-  };
+  }
 
   const handleMatch = async (comicId: string, comicName: string) => {
     if (!matchingGroup) return;
@@ -130,17 +163,7 @@ export default function ImportPage() {
     }
   };
 
-  const clearSelection = () => {
-    setSelectedIds([]);
-    setSelectedGroupIds([]);
-  };
-
-  const handleSelectionChange = (fileIds: string[], groupIds: string[]) => {
-    setSelectedIds(fileIds);
-    setSelectedGroupIds(groupIds);
-  };
-
-  const handleGroupIgnore = async (group: ImportGroup, ignore: boolean) => {
+  async function handleGroupIgnore(group: ImportGroup, ignore: boolean) {
     const impIds = group.files.map((f) => f.impID);
     try {
       await ignoreImportMutation.mutateAsync({ impIds, ignore });
@@ -155,9 +178,9 @@ export default function ImportPage() {
         message: `Failed to ${ignore ? "ignore" : "unignore"} files: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
-  };
+  }
 
-  const handleGroupDelete = async (group: ImportGroup) => {
+  async function handleGroupDelete(group: ImportGroup) {
     const impIds = group.files.map((f) => f.impID);
     if (
       !window.confirm(
@@ -179,17 +202,17 @@ export default function ImportPage() {
         message: `Failed to delete records: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
     }
-  };
+  }
 
   const handleBulkIgnore = async () => {
     try {
       await ignoreImportMutation.mutateAsync({
-        impIds: selectedIds,
+        impIds: selectedFileIds,
         ignore: true,
       });
       addToast({
         type: "success",
-        message: `${selectedIds.length} file${selectedIds.length !== 1 ? "s" : ""} ignored`,
+        message: `${selectedFileIds.length} file${selectedFileIds.length !== 1 ? "s" : ""} ignored`,
       });
       clearSelection();
     } catch (err) {
@@ -203,12 +226,12 @@ export default function ImportPage() {
   const handleBulkUnignore = async () => {
     try {
       await ignoreImportMutation.mutateAsync({
-        impIds: selectedIds,
+        impIds: selectedFileIds,
         ignore: false,
       });
       addToast({
         type: "success",
-        message: `${selectedIds.length} file${selectedIds.length !== 1 ? "s" : ""} unignored`,
+        message: `${selectedFileIds.length} file${selectedFileIds.length !== 1 ? "s" : ""} unignored`,
       });
       clearSelection();
     } catch (err) {
@@ -222,16 +245,16 @@ export default function ImportPage() {
   const handleBulkDelete = async () => {
     if (
       !window.confirm(
-        `Delete ${selectedIds.length} import record${selectedIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
+        `Delete ${selectedFileIds.length} import record${selectedFileIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
       )
     ) {
       return;
     }
     try {
-      await deleteImportMutation.mutateAsync(selectedIds);
+      await deleteImportMutation.mutateAsync(selectedFileIds);
       addToast({
         type: "success",
-        message: `${selectedIds.length} import record${selectedIds.length !== 1 ? "s" : ""} deleted`,
+        message: `${selectedFileIds.length} import record${selectedFileIds.length !== 1 ? "s" : ""} deleted`,
       });
       clearSelection();
     } catch (err) {
@@ -281,7 +304,7 @@ export default function ImportPage() {
               aria-pressed={showIgnored}
               onClick={() => {
                 setShowIgnored((prev) => !prev);
-                setPage(0);
+                resetPage();
                 clearSelection();
               }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-mono text-[11px]"
@@ -329,26 +352,17 @@ export default function ImportPage() {
             !error &&
             (imports.length > 0 ? (
               <ImportTable
-                imports={imports}
+                table={table}
                 pagination={pagination}
                 onNextPage={() => {
-                  setPage((p) => p + 1);
+                  nextPage();
                   clearSelection();
                 }}
                 onPrevPage={() => {
-                  setPage((p) => Math.max(0, p - 1));
+                  prevPage();
                   clearSelection();
                 }}
-                onSelectionChange={handleSelectionChange}
-                onMatchClick={handleMatchClick}
-                onIgnoreClick={handleGroupIgnore}
-                onDeleteClick={handleGroupDelete}
                 onIssueNumberChange={handleIssueNumberChange}
-                isActionLoading={
-                  matchImportMutation.isPending ||
-                  ignoreImportMutation.isPending ||
-                  deleteImportMutation.isPending
-                }
                 isMetadataSaving={updateImportMetadataMutation.isPending}
               />
             ) : (
@@ -394,8 +408,8 @@ export default function ImportPage() {
             ))}
 
           <ImportBulkActions
-            selectedGroupCount={selectedGroupIds.length}
-            selectedFileCount={selectedIds.length}
+            selectedGroupCount={selectedGroupCount}
+            selectedFileCount={selectedFileIds.length}
             onIgnore={handleBulkIgnore}
             onUnignore={handleBulkUnignore}
             onDelete={handleBulkDelete}

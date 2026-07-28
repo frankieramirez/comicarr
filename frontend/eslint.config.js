@@ -66,19 +66,6 @@ export default tseslint.config(
     },
   },
   {
-    // RATCHET — tables not yet migrated to useTableState. Each migration PR
-    // deletes its own line; the last one deletes this whole block. A file that
-    // is not listed here fails immediately, so a *new* call site cannot appear
-    // while the migration is in flight. Tracked by #353.
-    files: [
-      'src/components/import/ImportTable.tsx', // #396
-    ],
-    rules: {
-      'no-restricted-imports': 'off',
-      'react-hooks/incompatible-library': 'off',
-    },
-  },
-  {
     files: ['playwright.config.ts', 'tests/**/*.{ts,tsx}'],
     languageOptions: {
       globals: {
