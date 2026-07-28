@@ -27,6 +27,8 @@ Default HTTP port is **8090**. Vite dev proxy targets `http://localhost:8090` (o
 
 Releases are automated via Changesets. See the `releases` skill (`.claude/skills/releases/SKILL.md`) for the full workflow.
 
+**When a refactor earns a changeset:** when it changes something an *operator* could observe. Pure internal restructuring with verified-identical behaviour does not get one, and neither does tooling/CI-only work — `changeset-status.yml` treats a missing changeset as an allowed warning for exactly that. A change only a *contributor* can observe (a new lint gate, a type that now rejects a bad key) is documented here, not in the changelog.
+
 ## Branch & PR Conventions
 
 **Branch names** must use a conventional prefix with `/` separator:
