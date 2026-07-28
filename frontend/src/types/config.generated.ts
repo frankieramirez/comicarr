@@ -159,6 +159,7 @@ export interface WritableConfig {
   cv_verify?: boolean;
   cv_only?: boolean;
   metron_username?: string;
+  metron_password?: string;
   use_metron_search?: boolean;
   mangadex_enabled?: boolean;
   mangadex_languages?: string;

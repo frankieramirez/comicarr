@@ -15,6 +15,7 @@ const REDACTED_SECRET_FIELDS: ReadonlyArray<{
   { field: "ai_api_key", indicator: "ai_api_key_set" },
   { field: "comicvine_api", indicator: "comicvine_api_set" },
   { field: "mal_client_id", indicator: "mal_client_id_set" },
+  { field: "metron_password", indicator: "metron_password_set" },
   { field: "prowl_keys", indicator: "prowl_keys_set" },
   { field: "slack_webhook_url", indicator: "slack_webhook_url_set" },
   { field: "mattermost_webhook_url", indicator: "mattermost_webhook_url_set" },

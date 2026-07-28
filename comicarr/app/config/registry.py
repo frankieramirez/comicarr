@@ -254,7 +254,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("CV_MAX_PARALLEL_REQUESTS", int, "CV", 3),
     ConfigKey("IMPRINT_MAPPING_TYPE", str, "CV", "CV"),
     ConfigKey("METRON_USERNAME", str, "Metron", None, readable=True, writable=True),
-    ConfigKey("METRON_PASSWORD", str, "Metron", None),
+    ConfigKey("METRON_PASSWORD", str, "Metron", None, writable=True),
     ConfigKey("USE_METRON_SEARCH", bool, "Metron", False, readable=True, writable=True),
     ConfigKey("MANGADEX_ENABLED", bool, "MangaDex", True, readable=True, writable=True),
     ConfigKey("MANGADEX_LANGUAGES", str, "MangaDex", "en", readable=True, writable=True),

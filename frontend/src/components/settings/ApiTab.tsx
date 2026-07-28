@@ -36,15 +36,6 @@ export function ApiTab({
   const comicvineApiIsSet = config.comicvine_api_set || false;
   const metronPasswordIsSet = config.metron_password_set || false;
 
-  // METRON_PASSWORD is default-deny in the registry, so it has no
-  // SettingsFormData/WritableConfig key and update_config silently drops it —
-  // this field has never saved. #398 tracks making it writable; these two
-  // escapes keep the field behaving exactly as before until then.
-  const metronPassword = (formData as { metron_password?: string })
-    .metron_password;
-  const metronPasswordKey =
-    "metron_password" as unknown as keyof WritableConfig;
-
   const handleCopyApiKey = async () => {
     if (!displayedApiKey) {
       addToast({
@@ -206,16 +197,16 @@ export function ApiTab({
           />
           <SettingField
             label="Metron Password"
-            value={metronPassword}
+            value={formData.metron_password}
             type="password"
-            onChange={(value) => onChange(metronPasswordKey, value as string)}
+            onChange={(value) => onChange("metron_password", value as string)}
             placeholder={
               metronPasswordIsSet
                 ? "Password saved (enter new value to change)"
                 : "Your Metron password"
             }
             helpText={
-              metronPasswordIsSet && !metronPassword
+              metronPasswordIsSet && !formData.metron_password
                 ? "Metron password is configured. Enter a new value to change it."
                 : "Register at https://metron.cloud"
             }
