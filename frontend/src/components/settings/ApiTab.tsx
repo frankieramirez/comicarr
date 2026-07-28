@@ -5,10 +5,19 @@ import { useToast } from "@/components/ui/toast";
 import { Copy, RefreshCw } from "lucide-react";
 import { useGenerateApiKey } from "@/hooks/useConfig";
 
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "../../types/config.generated";
+
 interface ApiTabProps {
-  config: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  onChange: (key: string, value: string | boolean) => void;
+  config: ReadableConfig;
+  formData: SettingsFormData;
+  onChange: <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => void;
   regeneratedApiKey: string | null;
   onRegeneratedApiKey: (apiKey: string) => void;
 }
@@ -23,9 +32,18 @@ export function ApiTab({
   const { addToast } = useToast();
   const generateApiKey = useGenerateApiKey();
   const displayedApiKey = regeneratedApiKey || "";
-  const apiKeyIsSet = (config.api_key_set as boolean) || false;
-  const comicvineApiIsSet = (config.comicvine_api_set as boolean) || false;
-  const metronPasswordIsSet = (config.metron_password_set as boolean) || false;
+  const apiKeyIsSet = config.api_key_set || false;
+  const comicvineApiIsSet = config.comicvine_api_set || false;
+  const metronPasswordIsSet = config.metron_password_set || false;
+
+  // METRON_PASSWORD is default-deny in the registry, so it has no
+  // SettingsFormData/WritableConfig key and update_config silently drops it —
+  // this field has never saved. #398 tracks making it writable; these two
+  // escapes keep the field behaving exactly as before until then.
+  const metronPassword = (formData as { metron_password?: string })
+    .metron_password;
+  const metronPasswordKey =
+    "metron_password" as unknown as keyof WritableConfig;
 
   const handleCopyApiKey = async () => {
     if (!displayedApiKey) {
@@ -74,8 +92,8 @@ export function ApiTab({
     }
   };
 
-  const comicvineEnabled = (formData.comicvine_enabled as boolean) ?? true;
-  const mangadexEnabled = (formData.mangadex_enabled as boolean) ?? false;
+  const comicvineEnabled = formData.comicvine_enabled ?? true;
+  const mangadexEnabled = formData.mangadex_enabled ?? false;
 
   return (
     <div className="space-y-6">
@@ -133,7 +151,7 @@ export function ApiTab({
         >
           <SettingField
             label="Comic Vine API Key"
-            value={(formData.comicvine_api as string | undefined) || ""}
+            value={formData.comicvine_api || ""}
             type="password"
             onChange={(value) => onChange("comicvine_api", value as string)}
             placeholder={
@@ -150,14 +168,14 @@ export function ApiTab({
           <SettingField
             label="Verify SSL"
             type="checkbox"
-            checked={formData.cv_verify as boolean | undefined}
+            checked={formData.cv_verify}
             onChange={(checked) => onChange("cv_verify", checked as boolean)}
             helpText="Verify SSL certificates when connecting to Comic Vine"
           />
           <SettingField
             label="Comic Vine Only"
             type="checkbox"
-            checked={formData.cv_only as boolean | undefined}
+            checked={formData.cv_only}
             onChange={(checked) => onChange("cv_only", checked as boolean)}
             helpText="Use only Comic Vine for metadata (ignore local cache)"
           />
@@ -172,7 +190,7 @@ export function ApiTab({
           <SettingField
             label="Use Metron for Search"
             type="checkbox"
-            checked={formData.use_metron_search as boolean | undefined}
+            checked={formData.use_metron_search}
             onChange={(checked) =>
               onChange("use_metron_search", checked as boolean)
             }
@@ -180,7 +198,7 @@ export function ApiTab({
           />
           <SettingField
             label="Metron Username"
-            value={formData.metron_username as string | undefined}
+            value={formData.metron_username}
             type="text"
             onChange={(value) => onChange("metron_username", value as string)}
             placeholder="Your Metron username"
@@ -188,16 +206,16 @@ export function ApiTab({
           />
           <SettingField
             label="Metron Password"
-            value={formData.metron_password as string | undefined}
+            value={metronPassword}
             type="password"
-            onChange={(value) => onChange("metron_password", value as string)}
+            onChange={(value) => onChange(metronPasswordKey, value as string)}
             placeholder={
               metronPasswordIsSet
                 ? "Password saved (enter new value to change)"
                 : "Your Metron password"
             }
             helpText={
-              metronPasswordIsSet && !formData.metron_password
+              metronPasswordIsSet && !metronPassword
                 ? "Metron password is configured. Enter a new value to change it."
                 : "Register at https://metron.cloud"
             }
@@ -212,13 +230,13 @@ export function ApiTab({
         <SettingField
           label="Enable MAL"
           type="checkbox"
-          checked={formData.mal_enabled as boolean | undefined}
+          checked={formData.mal_enabled}
           onChange={(checked) => onChange("mal_enabled", checked as boolean)}
           helpText="Use MyAnimeList for manga search and metadata (MangaDex still provides chapter data)"
         />
         <SettingField
           label="MAL Client ID"
-          value={formData.mal_client_id as string | undefined}
+          value={formData.mal_client_id}
           type="password"
           onChange={(value) => onChange("mal_client_id", value as string)}
           placeholder="Your MAL API Client ID"
@@ -233,7 +251,7 @@ export function ApiTab({
         >
           <SettingField
             label="Languages"
-            value={formData.mangadex_languages as string | undefined}
+            value={formData.mangadex_languages}
             type="text"
             onChange={(value) =>
               onChange("mangadex_languages", value as string)
@@ -243,7 +261,7 @@ export function ApiTab({
           />
           <SettingField
             label="Content Rating"
-            value={formData.mangadex_content_rating as string | undefined}
+            value={formData.mangadex_content_rating}
             type="text"
             onChange={(value) =>
               onChange("mangadex_content_rating", value as string)

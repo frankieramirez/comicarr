@@ -7,10 +7,19 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { apiRequest } from "@/lib/api";
 import { CheckCircle2, XCircle, Loader2, Zap } from "lucide-react";
 
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "../../types/config.generated";
+
 interface AiTabProps {
-  config: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  onChange: (key: string, value: string | boolean | number) => void;
+  config: ReadableConfig;
+  formData: SettingsFormData;
+  onChange: <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => void;
 }
 
 interface TestResult {
@@ -24,10 +33,10 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  const baseUrl = (formData.ai_base_url as string) || "";
-  const apiKey = (formData.ai_api_key as string) || "";
-  const model = (formData.ai_model as string) || "";
-  const apiKeyIsSet = (_config.ai_api_key_set as boolean) || false;
+  const baseUrl = formData.ai_base_url || "";
+  const apiKey = formData.ai_api_key || "";
+  const model = formData.ai_model || "";
+  const apiKeyIsSet = _config.ai_api_key_set || false;
   const canTest = baseUrl.length > 0 && model.length > 0;
 
   const handleTestConnection = async () => {
@@ -64,7 +73,7 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
       >
         <SettingField
           label="Base URL"
-          value={formData.ai_base_url as string | undefined}
+          value={formData.ai_base_url}
           type="text"
           onChange={(value) => onChange("ai_base_url", value as string)}
           placeholder="http://localhost:11434/v1"
@@ -86,7 +95,7 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
         />
         <SettingField
           label="Model Name"
-          value={formData.ai_model as string | undefined}
+          value={formData.ai_model}
           type="text"
           onChange={(value) => onChange("ai_model", value as string)}
           placeholder="llama3.2:latest"
@@ -136,26 +145,33 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
       >
         <SettingField
           label="Timeout (seconds)"
-          value={formData.ai_timeout as number | undefined}
+          value={formData.ai_timeout}
           type="number"
-          onChange={(value) => onChange("ai_timeout", value as string)}
+          onChange={(value) =>
+            onChange("ai_timeout", parseInt(value as string) || 30)
+          }
           placeholder="30"
           helpText="Maximum time to wait for an AI response"
         />
         <SettingField
           label="Requests Per Minute"
-          value={formData.ai_rpm_limit as number | undefined}
+          value={formData.ai_rpm_limit}
           type="number"
-          onChange={(value) => onChange("ai_rpm_limit", value as string)}
+          onChange={(value) =>
+            onChange("ai_rpm_limit", parseInt(value as string) || 20)
+          }
           placeholder="10"
           helpText="Maximum number of AI requests per minute"
         />
         <SettingField
           label="Daily Token Limit"
-          value={formData.ai_daily_token_limit as number | undefined}
+          value={formData.ai_daily_token_limit}
           type="number"
           onChange={(value) =>
-            onChange("ai_daily_token_limit", value as string)
+            onChange(
+              "ai_daily_token_limit",
+              parseInt(value as string) || 100000,
+            )
           }
           placeholder="100000"
           helpText="Maximum total tokens per day across all AI features"

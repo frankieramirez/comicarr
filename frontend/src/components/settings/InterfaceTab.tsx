@@ -1,10 +1,18 @@
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "../../types/config.generated";
 
 interface InterfaceTabProps {
-  config: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  onChange: (key: string, value: string | boolean | number) => void;
+  config: ReadableConfig;
+  formData: SettingsFormData;
+  onChange: <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => void;
 }
 
 export function InterfaceTab({
@@ -20,21 +28,21 @@ export function InterfaceTab({
       >
         <SettingField
           label="Host"
-          value={config.http_host as string | undefined}
+          value={config.http_host}
           type="text"
           readOnly
           helpText="IP address the server listens on"
         />
         <SettingField
           label="Port"
-          value={config.http_port as number | undefined}
+          value={config.http_port}
           type="number"
           readOnly
           helpText="Port number for web interface"
         />
         <SettingField
           label="Username"
-          value={config.http_username as string | undefined}
+          value={config.http_username}
           type="text"
           readOnly
           helpText="HTTP authentication username"
@@ -48,7 +56,7 @@ export function InterfaceTab({
         <SettingField
           label="Launch Browser"
           type="checkbox"
-          checked={formData.launch_browser as boolean | undefined}
+          checked={formData.launch_browser}
           onChange={(checked) => onChange("launch_browser", checked as boolean)}
           helpText="Automatically open browser when Comicarr starts"
         />

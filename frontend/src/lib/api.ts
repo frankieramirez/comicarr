@@ -375,7 +375,7 @@ export async function setupCredentials(
 export async function apiRequest<T = unknown>(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
   path: string,
-  body?: Record<string, unknown> | null,
+  body?: object | null,
 ): Promise<T> {
   if (isMockEnabled()) {
     const mocked = mockApiResponse(method, path);

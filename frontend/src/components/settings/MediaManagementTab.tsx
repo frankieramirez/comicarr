@@ -1,10 +1,18 @@
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "../../types/config.generated";
 
 interface MediaManagementTabProps {
-  config: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  onChange: (key: string, value: string | boolean | number) => void;
+  config: ReadableConfig;
+  formData: SettingsFormData;
+  onChange: <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => void;
 }
 
 export function MediaManagementTab({
@@ -21,14 +29,14 @@ export function MediaManagementTab({
       >
         <SettingField
           label="Folder Format"
-          value={(formData.folder_format as string) || ""}
+          value={formData.folder_format || ""}
           onChange={(v) => onChange("folder_format", v as string)}
           helpText="Pattern for series folders. Variables: $Series, $Year, $Publisher"
           placeholder="$Series ($Year)"
         />
         <SettingField
           label="File Format"
-          value={(formData.file_format as string) || ""}
+          value={formData.file_format || ""}
           onChange={(v) => onChange("file_format", v as string)}
           helpText="Pattern for issue files. Variables: $Series, $Issue, $Year, $Title"
           placeholder="$Series $Issue ($Year)"
@@ -36,14 +44,14 @@ export function MediaManagementTab({
         <SettingField
           label="Lowercase filenames"
           type="checkbox"
-          checked={(formData.lowercase_filenames as boolean) ?? false}
+          checked={formData.lowercase_filenames ?? false}
           onChange={(v) => onChange("lowercase_filenames", v as boolean)}
           helpText="Convert all filenames to lowercase"
         />
         <SettingField
           label="Replace spaces with underscores"
           type="checkbox"
-          checked={(formData.replace_spaces as boolean) ?? false}
+          checked={formData.replace_spaces ?? false}
           onChange={(v) => onChange("replace_spaces", v as boolean)}
         />
       </SettingGroup>
@@ -56,28 +64,28 @@ export function MediaManagementTab({
         <SettingField
           label="Move files on import"
           type="checkbox"
-          checked={(formData.imp_move as boolean) ?? false}
+          checked={formData.imp_move ?? false}
           onChange={(v) => onChange("imp_move", v as boolean)}
           helpText="Move imported files to the library directory"
         />
         <SettingField
           label="Rename files on import"
           type="checkbox"
-          checked={(formData.imp_rename as boolean) ?? false}
+          checked={formData.imp_rename ?? false}
           onChange={(v) => onChange("imp_rename", v as boolean)}
           helpText="Rename imported files using the file format pattern"
         />
         <SettingField
           label="Write metadata on import"
           type="checkbox"
-          checked={(formData.imp_metadata as boolean) ?? false}
+          checked={formData.imp_metadata ?? false}
           onChange={(v) => onChange("imp_metadata", v as boolean)}
           helpText="Tag imported files with ComicInfo.xml metadata"
         />
         <SettingField
           label="Create series folders"
           type="checkbox"
-          checked={(formData.imp_seriesfolders as boolean) ?? false}
+          checked={formData.imp_seriesfolders ?? false}
           onChange={(v) => onChange("imp_seriesfolders", v as boolean)}
           helpText="Automatically create series folders for imported files"
         />
@@ -92,7 +100,7 @@ export function MediaManagementTab({
           label="Search Interval"
           type="number"
           min={1}
-          value={formData.search_interval as number | undefined}
+          value={formData.search_interval}
           onChange={(v) =>
             onChange("search_interval", parseInt(v as string) || 360)
           }
@@ -102,7 +110,7 @@ export function MediaManagementTab({
           label="RSS Check Interval"
           type="number"
           min={1}
-          value={formData.rss_checkinterval as number | undefined}
+          value={formData.rss_checkinterval}
           onChange={(v) =>
             onChange("rss_checkinterval", parseInt(v as string) || 20)
           }
@@ -112,7 +120,7 @@ export function MediaManagementTab({
           label="Database Update Interval"
           type="number"
           min={1}
-          value={formData.dbupdate_interval as number | undefined}
+          value={formData.dbupdate_interval}
           onChange={(v) =>
             onChange("dbupdate_interval", parseInt(v as string) || 1440)
           }
@@ -128,21 +136,21 @@ export function MediaManagementTab({
         <SettingField
           label="Include annuals"
           type="checkbox"
-          checked={(formData.annuals_on as boolean) ?? false}
+          checked={formData.annuals_on ?? false}
           onChange={(v) => onChange("annuals_on", v as boolean)}
           helpText="Automatically include annual issues when monitoring series"
         />
         <SettingField
           label="Create weekly folders"
           type="checkbox"
-          checked={(formData.weekfolder as boolean) ?? false}
+          checked={formData.weekfolder ?? false}
           onChange={(v) => onChange("weekfolder", v as boolean)}
           helpText="Organize downloads into weekly subfolders"
         />
         <SettingField
           label="Enable metadata tagging"
           type="checkbox"
-          checked={(formData.enable_meta as boolean) ?? false}
+          checked={formData.enable_meta ?? false}
           onChange={(v) => onChange("enable_meta", v as boolean)}
           helpText="Write ComicInfo.xml metadata to downloaded files"
         />

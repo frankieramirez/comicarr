@@ -1,10 +1,18 @@
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "../../types/config.generated";
 
 interface SearchTabProps {
-  config: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  onChange: (key: string, value: string | boolean | number) => void;
+  config: ReadableConfig;
+  formData: SettingsFormData;
+  onChange: <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => void;
 }
 
 export function SearchTab({ formData, onChange }: SearchTabProps) {
@@ -39,14 +47,14 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
         <SettingField
           label="Enable Minimum Size"
           type="checkbox"
-          checked={formData.use_minsize as boolean | undefined}
+          checked={formData.use_minsize}
           onChange={(checked) => onChange("use_minsize", checked as boolean)}
           helpText="Reject downloads smaller than the minimum size"
         />
         {Boolean(formData.use_minsize) && (
           <SettingField
             label="Minimum Size (MB)"
-            value={formData.minsize as number | undefined}
+            value={formData.minsize}
             type="number"
             onChange={(value) => onChange("minsize", value as string)}
             placeholder="e.g., 10"
@@ -56,14 +64,14 @@ export function SearchTab({ formData, onChange }: SearchTabProps) {
         <SettingField
           label="Enable Maximum Size"
           type="checkbox"
-          checked={formData.use_maxsize as boolean | undefined}
+          checked={formData.use_maxsize}
           onChange={(checked) => onChange("use_maxsize", checked as boolean)}
           helpText="Reject downloads larger than the maximum size"
         />
         {Boolean(formData.use_maxsize) && (
           <SettingField
             label="Maximum Size (MB)"
-            value={formData.maxsize as number | undefined}
+            value={formData.maxsize}
             type="number"
             onChange={(value) => onChange("maxsize", value as string)}
             placeholder="e.g., 500"

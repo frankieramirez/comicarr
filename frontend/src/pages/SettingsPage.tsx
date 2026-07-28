@@ -14,6 +14,12 @@ import { AcquisitionHealthTab } from "@/components/settings/AcquisitionHealthTab
 import { SaveButton } from "@/components/settings/SaveButton";
 import PageHeader from "@/components/layout/PageHeader";
 import { prepareConfigSaveData } from "@/lib/configSave";
+import type { Config } from "@/types";
+import type {
+  ReadableConfig,
+  SettingsFormData,
+  WritableConfig,
+} from "@/types/config.generated";
 
 type SectionId =
   | "general"
@@ -46,8 +52,8 @@ export default function SettingsPage() {
   const { addToast } = useToast();
 
   const [section, setSection] = useState<SectionId>("general");
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
-  const [originalData, setOriginalData] = useState<Record<string, unknown>>({});
+  const [formData, setFormData] = useState<SettingsFormData>({});
+  const [originalData, setOriginalData] = useState<SettingsFormData>({});
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
     null,
   );
@@ -65,19 +71,20 @@ export default function SettingsPage() {
     [formData, originalData],
   );
 
-  const handleChange = (key: string, value: string | boolean | number) => {
+  const handleChange = <K extends keyof WritableConfig>(
+    key: K,
+    value: NonNullable<WritableConfig[K]>,
+  ) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const validateForm = (
-    data: Record<string, unknown>,
-  ): Record<string, string> => {
+  const validateForm = (data: SettingsFormData): Record<string, string> => {
     const errors: Record<string, string> = {};
-    const comicvineApi = data.comicvine_api as string | undefined;
-    const minsize = data.minsize as string | number | undefined;
-    const maxsize = data.maxsize as string | number | undefined;
-    const comicvineEnabled = (data.comicvine_enabled as boolean) ?? true;
-    const mangadexEnabled = (data.mangadex_enabled as boolean) ?? false;
+    const comicvineApi = data.comicvine_api;
+    const minsize = data.minsize;
+    const maxsize = data.maxsize;
+    const comicvineEnabled = data.comicvine_enabled ?? true;
+    const mangadexEnabled = data.mangadex_enabled ?? false;
 
     if (!comicvineEnabled && !mangadexEnabled) {
       errors.comicvine_enabled =
@@ -160,11 +167,10 @@ export default function SettingsPage() {
     );
   }
 
-  const configPath =
-    (config?.config_path as string | undefined) || "/config/config.ini";
+  const configPath = config?.config_path || "/config/config.ini";
   const version = config?.version ? `comicarr v${config.version}` : "comicarr";
 
-  const configData = (config ?? {}) as Record<string, unknown>;
+  const configData: ReadableConfig = config ?? {};
   const tabProps = { config: configData, formData, onChange: handleChange };
   const apiTabProps = {
     ...tabProps,
@@ -244,7 +250,7 @@ export default function SettingsPage() {
             {section === "notifications" && <NotificationsTab {...tabProps} />}
             {section === "clients" && <DownloadClientsTab config={formData} />}
             {section === "ai" && <AiTab {...tabProps} />}
-            {section === "about" && <AboutSection config={configData} />}
+            {section === "about" && <AboutSection config={config ?? {}} />}
           </div>
         </div>
       </div>
@@ -259,15 +265,12 @@ export default function SettingsPage() {
   );
 }
 
-function AboutSection({ config }: { config: Record<string, unknown> }) {
+function AboutSection({ config }: { config: Config }) {
   const rows: Array<[string, string]> = [
-    ["version", (config.version as string) || "—"],
-    [
-      "config path",
-      (config.config_path as string | undefined) || "/config/config.ini",
-    ],
-    ["data directory", (config.data_dir as string | undefined) || "—"],
-    ["python", (config.python_version as string | undefined) || "—"],
+    ["version", config.version || "—"],
+    ["config path", config.config_path || "/config/config.ini"],
+    ["data directory", config.data_dir || "—"],
+    ["python", config.python_version || "—"],
   ];
 
   return (

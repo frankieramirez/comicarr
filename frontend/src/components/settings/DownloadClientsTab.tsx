@@ -1,8 +1,9 @@
 import { SettingGroup } from "./SettingGroup";
 import { AlertCircle } from "lucide-react";
+import type { ReadableConfig } from "../../types/config.generated";
 
 interface DownloadClientsTabProps {
-  config: Record<string, unknown>;
+  config: ReadableConfig;
 }
 
 export function DownloadClientsTab({ config }: DownloadClientsTabProps) {
@@ -23,13 +24,11 @@ export function DownloadClientsTab({ config }: DownloadClientsTabProps) {
                 <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
                   <p>
                     <span className="font-medium">NZB Client:</span>{" "}
-                    {(config.nzb_downloader_label as string) ||
-                      "Not configured"}
+                    {config.nzb_downloader_label || "Not configured"}
                   </p>
                   <p>
                     <span className="font-medium">Torrent Client:</span>{" "}
-                    {(config.torrent_downloader_label as string) ||
-                      "Not configured"}
+                    {config.torrent_downloader_label || "Not configured"}
                   </p>
                 </div>
               </div>

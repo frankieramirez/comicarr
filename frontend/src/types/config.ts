@@ -2,89 +2,19 @@
  * Configuration type definitions
  */
 
-/** Main configuration object (partial - add fields as needed) */
-export interface Config {
-  // Version
+import type { ReadableConfig } from "./config.generated";
+
+/** Shape of `GET /api/config`: the registry-derived readable keys plus the
+ *  handful of extras `get_safe_config` bolts on outside the registry. */
+export interface Config extends ReadableConfig {
   version?: string;
-
-  // General
-  comic_dir?: string;
-  log_dir?: string;
+  config_path?: string;
   data_dir?: string;
-
-  // API
-  api_key?: string;
-  api_key_set?: boolean;
-  api_enabled?: boolean;
-
-  // Download clients
-  sab_host?: string;
-  sab_apikey?: string;
-  sab_category?: string;
-  nzbget_host?: string;
-  nzbget_username?: string;
-  nzbget_password?: string;
-  nzbget_category?: string;
-
-  // Torrent clients
-  rtorrent_host?: string;
-  rtorrent_auth?: string;
-  qbittorrent_host?: string;
-  qbittorrent_username?: string;
-  qbittorrent_password?: string;
-  deluge_host?: string;
-  deluge_password?: string;
-  transmission_host?: string;
-  transmission_username?: string;
-  transmission_password?: string;
-
-  // Content source toggles
-  comicvine_enabled?: boolean;
-  mangadex_enabled?: boolean;
-  mangadex_languages?: string;
-  mangadex_content_rating?: string;
-
-  // MyAnimeList
-  mal_enabled?: boolean;
-  mal_client_id?: string;
-  mal_client_id_set?: boolean;
-
-  // Comic Vine
-  comicvine_api?: string;
-  comicvine_api_set?: boolean;
+  python_version?: string;
 
   // Search providers
   newznab?: NewznabProvider[];
   torznab?: TorznabProvider[];
-
-  // Import
-  import_dir?: string;
-  import_scan_interval?: number;
-  manga_dir?: string;
-  manga_destination_dir?: string;
-  destination_dir?: string;
-
-  // UI preferences
-  theme?: "light" | "dark" | "system";
-
-  // AI
-  ai_base_url?: string;
-  ai_api_key?: string;
-  ai_api_key_set?: boolean;
-  metron_password_set?: boolean;
-  ai_model?: string;
-  ai_timeout?: number;
-  ai_rpm_limit?: number;
-  ai_daily_token_limit?: number;
-
-  // Redacted notification secrets
-  prowl_keys_set?: boolean;
-  slack_webhook_url_set?: boolean;
-  mattermost_webhook_url_set?: boolean;
-  discord_webhook_url_set?: boolean;
-
-  // Any additional config fields
-  [key: string]: unknown;
 }
 
 /** Newznab provider configuration */

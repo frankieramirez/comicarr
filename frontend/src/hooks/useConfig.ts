@@ -34,7 +34,7 @@ export function useUpdateConfig(): UseMutationResult<
 
   return useMutation({
     mutationFn: (configData: ConfigUpdate) =>
-      apiRequest("PUT", "/api/config", configData as Record<string, unknown>),
+      apiRequest("PUT", "/api/config", configData),
     onSuccess: () => {
       // Invalidate and refetch config
       queryClient.invalidateQueries({ queryKey: ["config"] });
