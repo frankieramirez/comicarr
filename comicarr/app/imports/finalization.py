@@ -11,16 +11,14 @@
 
 from __future__ import annotations
 
-import errno
 import os
-import shutil
-import tempfile
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 import comicarr
 from comicarr import logger, series_kind
+from comicarr.app.common import placement
 from comicarr.app.core.context import AppContext
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import queries as series_queries
@@ -197,69 +195,44 @@ def _build_move_plan(rows: Sequence[dict], series_id: str, series_name: str, tar
                 phase="preflight",
             )
         if os.path.exists(destination_path):
+            # Fails the whole batch before a single file moves. The atomic
+            # publish can only refuse the file it is standing on, by which
+            # point earlier files are placed and need rolling back. This also
+            # catches what no single publish can see: two planned files
+            # resolving to one destination, checked just above.
             raise _fail("Import destination already exists: %s" % destination_path, phase="preflight")
         destination_paths.add(normalized_destination)
         move_plan.append((row["ComicLocation"], destination_path))
     return move_plan
 
 
-def _remove_transfer_destination(destination_path: str, reference_path: str) -> None:
-    """Remove a destination only while it still names this transfer's file."""
-    try:
-        if os.path.samestat(os.stat(destination_path), os.stat(reference_path)):
-            os.unlink(destination_path)
-    except FileNotFoundError:
-        pass
+def _rollback_moves(placed, series_id: str, *, reconcile: bool) -> list[str]:
+    """Undo completed placements, newest first.
 
-
-def _move_no_clobber(source_path: str, destination_path: str) -> None:
-    """Move one file without ever replacing an existing destination.
-
-    Hard-link publication gives same-filesystem moves an atomic no-clobber
-    boundary. Cross-filesystem moves first copy to a private file on the target
-    filesystem, then publish that complete file through the same boundary.
+    Which undo applies is read off each `PlacementResult`, never off config. The
+    configured mode and what actually ran can disagree -- a `hardlink` that hit
+    EXDEV reports `copy` -- and a rollback that guesses wrong destroys the
+    operator's only copy.
     """
-    temporary_path = None
-    published_reference = source_path
-    try:
-        try:
-            os.link(source_path, destination_path)
-        except OSError as e:
-            if e.errno != errno.EXDEV:
-                raise
-
-            descriptor, temporary_path = tempfile.mkstemp(
-                prefix=".comicarr-import-",
-                dir=os.path.dirname(destination_path),
-            )
-            os.close(descriptor)
-            shutil.copy2(source_path, temporary_path)
-            published_reference = temporary_path
-            os.link(temporary_path, destination_path)
-
-        try:
-            os.unlink(source_path)
-        except OSError:
-            _remove_transfer_destination(destination_path, published_reference)
-            raise
-    finally:
-        if temporary_path:
-            try:
-                os.unlink(temporary_path)
-            except FileNotFoundError:
-                pass
-
-
-def _rollback_moves(moved_files, series_id: str, *, reconcile: bool) -> list[str]:
     errors = []
-    for source_path, destination_path in reversed(moved_files):
-        if not os.path.exists(destination_path):
-            if not os.path.exists(source_path):
+    for source_path, result in reversed(placed):
+        destination_path = result.destination
+        if not os.path.lexists(destination_path):
+            if not os.path.lexists(source_path):
                 errors.append("%s -> %s: source and destination are missing" % (destination_path, source_path))
             continue
         try:
-            _move_no_clobber(destination_path, source_path)
-            logger.fdebug("[IMPORT-MATCH] Rolled back moved import file %s to %s" % (destination_path, source_path))
+            if result.source_survived:
+                # copy / hardlink / softlink: the source never left, so undoing
+                # the placement means removing the destination. Moving it back
+                # would be wrong -- under hardlink both paths name one inode.
+                os.unlink(destination_path)
+                logger.fdebug(
+                    "[IMPORT-MATCH] Removed placed import file %s; %s never left" % (destination_path, source_path)
+                )
+            else:
+                placement.restore_moved_file(destination_path, source_path)
+                logger.fdebug("[IMPORT-MATCH] Rolled back moved import file %s to %s" % (destination_path, source_path))
         except (OSError, IOError) as e:
             errors.append("%s -> %s: %s" % (destination_path, source_path, e))
 
@@ -275,37 +248,49 @@ def _rollback_moves(moved_files, series_id: str, *, reconcile: bool) -> list[str
     return errors
 
 
-def _move_and_rescan(move_plan, series_id: str):
+def _move_and_rescan(move_plan, series_id: str, config):
     from comicarr import updater
 
-    moved_files = []
+    placed = []
     for source_path, destination_path in move_plan:
-        logger.fdebug("[IMPORT-MATCH] Moving %s to %s" % (source_path, destination_path))
+        logger.fdebug("[IMPORT-MATCH] Placing %s at %s" % (source_path, destination_path))
+        # Not the correctness boundary -- OnExisting.REFUSE is, because its
+        # publish refuses atomically. This check exists for the better error
+        # message and to roll back before writing anything. Do not remove it
+        # believing the publish covers it, and do not weaken the publish to a
+        # plain exists() check believing this covers it. They defend different
+        # things: this one names the file, the publish closes the race.
         if os.path.exists(destination_path):
-            rollback_errors = _rollback_moves(moved_files, series_id, reconcile=False)
+            rollback_errors = _rollback_moves(placed, series_id, reconcile=False)
             message = "Import destination now exists: %s" % destination_path
             if rollback_errors:
                 message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
             raise _fail(message, phase="move", rollback_failed=bool(rollback_errors))
         try:
-            _move_no_clobber(source_path, destination_path)
+            result = placement.place(
+                source_path,
+                destination_path,
+                placement.Purpose.IMPORT,
+                on_existing=placement.OnExisting.REFUSE,
+                config=config,
+            )
         except (OSError, IOError) as e:
-            rollback_errors = _rollback_moves(moved_files, series_id, reconcile=False)
+            rollback_errors = _rollback_moves(placed, series_id, reconcile=False)
             message = "Failed to move import file %s to %s: %s" % (source_path, destination_path, e)
             if rollback_errors:
                 message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
             raise _fail(message, phase="move", rollback_failed=bool(rollback_errors)) from e
-        moved_files.append((source_path, destination_path))
+        placed.append((source_path, result))
 
     try:
         updater.forceRescan(series_id)
     except Exception as e:
-        rollback_errors = _rollback_moves(moved_files, series_id, reconcile=True)
+        rollback_errors = _rollback_moves(placed, series_id, reconcile=True)
         message = "Failed to rescan imported series %s: %s" % (series_id, e)
         if rollback_errors:
             message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
         raise _fail(message, phase="rescan", rollback_failed=bool(rollback_errors)) from e
-    return moved_files
+    return placed
 
 
 def _archive_and_rescan(rows: Sequence[dict], series_id: str) -> None:
@@ -350,7 +335,7 @@ def _finalize_locked(
     moved_files = []
     if move_enabled:
         move_plan = _build_move_plan(rows, series_id, effective_name, target_directory, config)
-        moved_files = _move_and_rescan(move_plan, series_id)
+        moved_files = _move_and_rescan(move_plan, series_id, config)
         moved = len(rows)
         archived = 0
     else:

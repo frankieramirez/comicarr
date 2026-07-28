@@ -553,6 +553,22 @@ def _publish_move(source, destination, *, purpose, mode):
     return "move"
 
 
+def restore_moved_file(destination: str, source: str) -> None:
+    """Undo a `move` placement by publishing the file back to where it came from.
+
+    The inverse of a `move`, and only of a `move`. The source-preserving modes
+    are undone by unlinking the destination, because their source never left --
+    under `hardlink` the two paths are one inode, so moving "back" would at best
+    do nothing and at worst destroy the only remaining name. Callers decide
+    which undo applies by reading `PlacementResult.source_survived`, never by
+    re-reading config.
+
+    Uses the same atomic no-clobber publish as the forward move, so a file that
+    reappeared at the source path in the meantime is never overwritten.
+    """
+    _publish_move(destination, source, purpose=Purpose.IMPORT, mode="move")
+
+
 def remove_transfer_destination(destination_path: str, reference_path: str) -> None:
     """Remove a destination only while it still names this transfer's file.
 

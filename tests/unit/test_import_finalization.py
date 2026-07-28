@@ -22,20 +22,29 @@ from unittest.mock import call, patch
 import pytest
 from sqlalchemy import create_engine, insert, select
 
+from comicarr.app.common import placement
 from comicarr.app.imports import finalization
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import router as series_router
 from comicarr.tables import importresults
 
 
-def _ctx(*, move=False, rename=False):
+def _config(*, move=False, rename=False, file_opts="move"):
     return SimpleNamespace(
-        config=SimpleNamespace(
-            IMP_MOVE=move,
-            IMP_RENAME=rename,
-            FILE_FORMAT="$Series $Issue",
-        )
+        IMP_MOVE=move,
+        IMP_RENAME=rename,
+        FILE_FORMAT="$Series $Issue",
+        # Finalization ignored FILE_OPTS entirely before #342 and always moved,
+        # so "move" is the setting under which every pre-existing test here was
+        # written. The link and copy modes are new behaviour, covered below.
+        FILE_OPTS=file_opts,
+        ARC_FILEOPS=file_opts,
+        ARC_FILEOPS_SOFTLINK_RELATIVE=False,
     )
+
+
+def _ctx(*, move=False, rename=False, file_opts="move"):
+    return SimpleNamespace(config=_config(move=move, rename=rename, file_opts=file_opts))
 
 
 def _row(import_id, source_path, *, issue_number=None, filename=None, status="Unmatched"):
@@ -222,7 +231,7 @@ def test_move_does_not_overwrite_destination_created_at_transfer_boundary(tmp_pa
 
     with (
         _environment([_row("imp-1", source)], target_directory) as mark_imported,
-        patch.object(finalization.os, "link", side_effect=link_with_late_destination),
+        patch.object(placement.os, "link", side_effect=link_with_late_destination),
         patch("comicarr.updater.forceRescan") as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="File exists") as exc_info:
@@ -251,8 +260,14 @@ def test_no_clobber_move_preserves_cross_filesystem_behavior(tmp_path):
             raise OSError(errno.EXDEV, "cross-device link")
         return original_link(source_path, destination_path)
 
-    with patch.object(finalization.os, "link", side_effect=cross_filesystem_once):
-        finalization._move_no_clobber(str(source), str(destination))
+    with patch.object(placement.os, "link", side_effect=cross_filesystem_once):
+        placement.place(
+            str(source),
+            str(destination),
+            placement.Purpose.IMPORT,
+            on_existing=placement.OnExisting.REFUSE,
+            config=_config(move=True),
+        )
 
     assert not source.exists()
     assert destination.read_text() == "chapter"
@@ -336,16 +351,16 @@ def test_second_move_failure_rolls_back_first_move(tmp_path):
     first.write_text("one")
     second.write_text("two")
     rows = [_row("imp-1", first), _row("imp-2", second)]
-    original_move = finalization._move_no_clobber
+    original_place = placement.place
 
-    def fail_second_move(source_path, destination_path):
+    def fail_second_move(source_path, destination_path, purpose, **kwargs):
         if source_path == str(second):
-            raise OSError("disk full")
-        return original_move(source_path, destination_path)
+            raise placement.PlacementError("disk full")
+        return original_place(source_path, destination_path, purpose, **kwargs)
 
     with (
         _environment(rows, target_directory) as mark_imported,
-        patch.object(finalization, "_move_no_clobber", side_effect=fail_second_move),
+        patch.object(placement, "place", side_effect=fail_second_move),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="disk full") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1", "imp-2"], "mal-123")
@@ -401,17 +416,14 @@ def test_database_failure_surfaces_incomplete_rollback(tmp_path):
     target_directory = tmp_path / "library"
     source.write_text("chapter")
     target_directory.mkdir()
-    original_move = finalization._move_no_clobber
 
-    def fail_reverse_move(source_path, destination_path):
-        if str(source_path).startswith(str(target_directory)):
-            raise OSError("permission denied")
-        return original_move(source_path, destination_path)
+    def fail_reverse_move(destination_path, source_path):
+        raise OSError("permission denied")
 
     with (
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")),
-        patch.object(finalization, "_move_no_clobber", side_effect=fail_reverse_move),
+        patch.object(placement, "restore_moved_file", side_effect=fail_reverse_move),
         patch("comicarr.updater.forceRescan"),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="rollback incomplete") as exc_info:
@@ -667,3 +679,166 @@ def test_router_preserves_error_response_shape():
 
     assert response.status_code == 500
     assert json.loads(response.body) == {"detail": "disk full"}
+
+
+class TestFinalizationHonoursFileOpts:
+    """Finalization always moved, whatever FILE_OPTS said.
+
+    The link and copy modes exist precisely so the download folder survives, so
+    an operator running one of them lost their source file on every manual
+    import. These are new behaviour -- there is no prior art to characterize.
+    """
+
+    @staticmethod
+    def _finalize(tmp_path, file_opts):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory) as mark_imported,
+            patch("comicarr.updater.forceRescan"),
+        ):
+            result = finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
+
+        return source, target_directory / source.name, result, mark_imported
+
+    @pytest.mark.parametrize("file_opts", ("copy", "hardlink", "softlink"))
+    def test_source_preserving_modes_leave_the_operators_file_alone(self, tmp_path, file_opts):
+        source, destination, result, mark_imported = self._finalize(tmp_path, file_opts)
+
+        assert source.exists(), "%s must not consume the import source" % file_opts
+        assert not source.is_symlink(), "an import must not replace the inbox file with a link"
+        assert source.read_text() == "chapter"
+        assert destination.exists()
+        assert result.moved == 1
+        mark_imported.assert_called_once()
+
+    def test_move_still_consumes_the_source(self, tmp_path):
+        source, destination, _result, _mark = self._finalize(tmp_path, "move")
+
+        assert not source.exists()
+        assert destination.read_text() == "chapter"
+
+    def test_hardlink_publishes_one_inode_under_two_names(self, tmp_path):
+        source, destination, _result, _mark = self._finalize(tmp_path, "hardlink")
+
+        assert os.path.samefile(source, destination)
+
+    def test_softlink_points_the_library_at_the_inbox_file(self, tmp_path):
+        source, destination, _result, _mark = self._finalize(tmp_path, "softlink")
+
+        assert destination.is_symlink()
+        assert os.path.realpath(destination) == os.path.realpath(source)
+
+    @pytest.mark.parametrize("file_opts", ("copy", "hardlink", "softlink"))
+    def test_an_existing_destination_is_still_refused(self, tmp_path, file_opts):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("new")
+        (target_directory / source.name).write_text("the operator's file")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory) as mark_imported,
+            patch("comicarr.updater.forceRescan"),
+        ):
+            with pytest.raises(finalization.ImportFinalizationError, match="already exists"):
+                finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
+
+        assert (target_directory / source.name).read_text() == "the operator's file"
+        assert source.read_text() == "new"
+        mark_imported.assert_not_called()
+
+
+class TestRollbackUnderSourcePreservingModes:
+    """Rolling back a copy or a link means removing the destination.
+
+    Moving it back would be wrong: the source never left. Under hardlink the two
+    paths are one inode, so a naive move-back would destroy the only name.
+    """
+
+    @pytest.mark.parametrize("file_opts", ("copy", "hardlink", "softlink"))
+    def test_a_later_failure_removes_the_placed_file_and_keeps_both_sources(self, tmp_path, file_opts):
+        first = tmp_path / "inbox" / "one.cbz"
+        second = tmp_path / "inbox" / "two.cbz"
+        target_directory = tmp_path / "library"
+        first.parent.mkdir()
+        target_directory.mkdir()
+        first.write_text("one")
+        second.write_text("two")
+        original_place = placement.place
+
+        def fail_second(source_path, destination_path, purpose, **kwargs):
+            if source_path == str(second):
+                raise placement.PlacementError("disk full")
+            return original_place(source_path, destination_path, purpose, **kwargs)
+
+        with (
+            _environment([_row("imp-1", first), _row("imp-2", second)], target_directory) as mark_imported,
+            patch.object(placement, "place", side_effect=fail_second),
+        ):
+            with pytest.raises(finalization.ImportFinalizationError, match="disk full") as exc_info:
+                finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1", "imp-2"], "mal-123")
+
+        assert exc_info.value.rollback_failed is False
+        assert first.read_text() == "one", "the first source must survive its rollback"
+        assert second.read_text() == "two"
+        assert not (target_directory / first.name).exists(), "the placed file must be removed, not moved back"
+        mark_imported.assert_not_called()
+
+    @pytest.mark.parametrize("file_opts", ("copy", "hardlink", "softlink"))
+    def test_a_database_failure_removes_the_placed_file(self, tmp_path, file_opts):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch.object(
+                finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
+            ),
+            patch("comicarr.updater.forceRescan"),
+        ):
+            with pytest.raises(finalization.ImportFinalizationError, match="database unavailable"):
+                finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
+
+        assert source.read_text() == "chapter"
+        assert not (target_directory / source.name).exists()
+
+    def test_rollback_reads_what_happened_not_what_was_configured(self, tmp_path):
+        """A hardlink that hit EXDEV ran as a copy. Rollback must follow the
+        result, not FILE_OPTS -- otherwise the mode it reads is a lie."""
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+        real_link = os.link
+        seen = []
+
+        def exdev_on_the_first_publish(source_path, destination_path, *args, **kwargs):
+            seen.append(destination_path)
+            if len(seen) == 1:
+                raise OSError(errno.EXDEV, "cross-device link")
+            return real_link(source_path, destination_path, *args, **kwargs)
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch.object(placement.os, "link", side_effect=exdev_on_the_first_publish),
+            patch.object(
+                finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
+            ),
+            patch("comicarr.updater.forceRescan"),
+        ):
+            with pytest.raises(finalization.ImportFinalizationError) as exc_info:
+                finalization.finalize_manual_match(_ctx(move=True, file_opts="hardlink"), ["imp-1"], "mal-123")
+
+        assert exc_info.value.rollback_failed is False, "rollback must not have tried to move a copy back"
+        assert source.read_text() == "chapter"
+        assert not (target_directory / source.name).exists()
