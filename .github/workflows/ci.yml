@@ -96,3 +96,10 @@ jobs:
 
       - name: Run ruff formatter check
         run: ruff format --check comicarr/
+
+      # The generated TypeScript is a backend artifact — its input is the config
+      # registry, so drift is caused by a Python edit and belongs in this job.
+      # The generator loads registry.py by path and needs no project deps, so
+      # this runs on the ruff-only install above.
+      - name: Check generated settings types are fresh
+        run: python scripts/generate_config_types.py --check

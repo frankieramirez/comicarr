@@ -17,6 +17,9 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 | Test backend | `pytest tests/unit -v` |
 | Lint modern backend | `npm run lint:modern` (`comicarr/app` + `Comicarr.py`) |
 | Lint all (CI parity) | `npm run lint` |
+| Regenerate settings types | `npm run lint:fix:generated` (after editing the config registry) |
+
+`frontend/src/types/config.generated.ts` is generated from `comicarr/app/config/registry.py` and committed. `npm run lint` fails if it is stale; a pre-commit hook regenerates it when the registry or `system/service.py` changes.
 
 Default HTTP port is **8090**. Vite dev proxy targets `http://localhost:8090` (override with `VITE_API_PROXY_TARGET`).
 

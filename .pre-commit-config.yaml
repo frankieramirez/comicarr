@@ -25,6 +25,16 @@ repos:
         entry: python scripts/run_ruff.py modern
         files: ^(comicarr/app/|Comicarr\.py$)
         pass_filenames: false
+      # Rewrites frontend/src/types/config.generated.ts when its inputs change,
+      # so drift is caught before CI. service.py is an input too: the generator
+      # scrapes get_safe_config's synthesised *_set / *_label fields from it.
+      - id: generated-config-types
+        name: regenerate settings types (config registry)
+        language: system
+        entry: python scripts/generate_config_types.py
+        files: ^comicarr/app/(config/registry|system/service)\.py$
+        pass_filenames: false
+
       - id: frontend-prettier
         name: prettier (frontend)
         language: system
