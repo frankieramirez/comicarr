@@ -1,207 +1,31 @@
-import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  createColumnHelper,
-  type SortingState,
-  type RowSelectionState,
-  type Updater,
-} from "@tanstack/react-table";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import StatusBadge from "@/components/StatusBadge";
+import type { Table as TanstackTable } from "@tanstack/react-table";
 import EmptyState from "@/components/ui/EmptyState";
 import { DataTable } from "@/components/data-table/DataTable";
-import { DataTableSortHeader } from "@/components/data-table/DataTableSortHeader";
 import { DataTableServerPagination } from "@/components/data-table/DataTableServerPagination";
-import { CoverCell } from "@/components/data-table/cells/CoverCell";
-import { useUnqueueIssue } from "@/hooks/useSeries";
 import type { WantedIssue, PaginationMeta } from "@/types";
 
-const columnHelper = createColumnHelper<WantedIssue>();
-
 interface WantedTableProps {
-  issues?: WantedIssue[];
+  /**
+   * Built by `WantedPage` with `useTableState` (#395). The page owns the table
+   * instance because it owns selection — `BulkActionBar` is its sibling — and
+   * this component only renders it.
+   */
+  table: TanstackTable<WantedIssue>;
   pagination?: PaginationMeta;
   onNextPage?: () => void;
   onPrevPage?: () => void;
-  /** Controlled selection. The page owns it so Clear and paging reset the checkboxes too. */
-  selectedIds?: string[];
-  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 export default function WantedTable({
-  issues = [],
+  table,
   pagination,
   onNextPage,
   onPrevPage,
-  selectedIds = [],
-  onSelectionChange,
 }: WantedTableProps) {
   const navigate = useNavigate();
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "DateAdded", desc: true },
-  ]);
-  const unqueueIssueMutation = useUnqueueIssue();
 
-  // Derived, never stored: a second copy of the selection is what let the page
-  // clear `selectedIds` while the table kept its rows checked.
-  const rowSelection = useMemo<RowSelectionState>(
-    () => Object.fromEntries(selectedIds.map((id) => [id, true])),
-    [selectedIds],
-  );
-
-  // Rows can disappear under a live selection (refetch, filtering). Drop ids
-  // that are no longer rendered so a bulk action can't hit invisible issues.
-  useEffect(() => {
-    if (!onSelectionChange || selectedIds.length === 0) return;
-    const present = new Set(issues.map((issue) => issue.IssueID));
-    const stillVisible = selectedIds.filter((id) => present.has(id));
-    if (stillVisible.length !== selectedIds.length) {
-      onSelectionChange(stillVisible);
-    }
-  }, [issues, selectedIds, onSelectionChange]);
-
-  const columns = useMemo(
-    () => [
-      columnHelper.display({
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllRowsSelected() ||
-              (table.getIsSomeRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ),
-        size: 40,
-      }),
-      columnHelper.display({
-        id: "cover",
-        header: "",
-        cell: ({ row }) => <CoverCell comicId={row.original.ComicID} />,
-        size: 60,
-        enableSorting: false,
-      }),
-      columnHelper.accessor("ComicName", {
-        header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Series" />
-        ),
-        cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.ComicName}</div>
-            {row.original.ComicYear && (
-              <div className="text-sm text-muted-foreground">
-                ({row.original.ComicYear})
-              </div>
-            )}
-          </div>
-        ),
-      }),
-      columnHelper.accessor("Issue_Number", {
-        header: "#",
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm">{getValue() || "N/A"}</span>
-        ),
-        enableSorting: false,
-      }),
-      columnHelper.accessor("IssueName", {
-        header: "Issue Name",
-        cell: ({ getValue }) => {
-          const name = getValue();
-          return name ? (
-            <span className="text-sm text-foreground">{name}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground/70">N/A</span>
-          );
-        },
-        enableSorting: false,
-      }),
-      columnHelper.accessor("DateAdded", {
-        header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Date Added" />
-        ),
-        cell: ({ getValue }) => {
-          const date = getValue();
-          if (!date)
-            return <span className="text-muted-foreground/70">N/A</span>;
-          return <span className="text-sm">{date}</span>;
-        },
-      }),
-      columnHelper.accessor("IssueDate", {
-        header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Release Date" />
-        ),
-        cell: ({ getValue }) => {
-          const date = getValue();
-          if (!date)
-            return <span className="text-muted-foreground/70">N/A</span>;
-          return <span className="text-sm">{date}</span>;
-        },
-      }),
-      columnHelper.accessor("Status", {
-        header: "Status",
-        cell: ({ getValue }) => <StatusBadge status={getValue()} />,
-        enableSorting: false,
-      }),
-      columnHelper.display({
-        id: "actions",
-        header: "Actions",
-        cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              unqueueIssueMutation.mutate(row.original.IssueID);
-            }}
-            disabled={unqueueIssueMutation.isPending}
-            className="text-xs"
-          >
-            <X className="w-3 h-3 mr-1" />
-            Skip
-          </Button>
-        ),
-      }),
-    ],
-    [unqueueIssueMutation],
-  );
-
-  const table = useReactTable({
-    data: issues,
-    columns,
-    state: { sorting, rowSelection },
-    onSortingChange: setSorting,
-    onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
-      if (!onSelectionChange) return;
-      const newSelection =
-        typeof updater === "function" ? updater(rowSelection) : updater;
-      // getRowId returns IssueID, so the keys are already issue ids --
-      // indexing `issues` by them yields undefined and selects nothing.
-      onSelectionChange(
-        Object.entries(newSelection)
-          .filter(([, isSelected]) => isSelected)
-          .map(([issueId]) => issueId),
-      );
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: (row) => row.IssueID,
-    enableRowSelection: true,
-  });
-
-  if (issues.length === 0) {
+  if (table.getCoreRowModel().rows.length === 0) {
     return <EmptyState variant="wanted" />;
   }
 

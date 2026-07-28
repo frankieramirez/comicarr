@@ -18,7 +18,9 @@ import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
 import UpcomingTable from "@/components/queue/UpcomingTable";
+import { useUpcomingColumns } from "@/components/queue/upcomingColumns";
 import BulkActionBar from "@/components/queue/BulkActionBar";
+import { useTableState } from "@/components/data-table/useTableState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -264,7 +266,6 @@ export default function ReleasesPage() {
 
 function MyReleasesView() {
   const [includeDownloaded, setIncludeDownloaded] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const {
     data: issues = [],
     isLoading,
@@ -278,6 +279,17 @@ function MyReleasesView() {
   const bulkUnqueueMutation = useBulkUnqueueIssues();
   const { addToast } = useToast();
 
+  const columns = useUpcomingColumns();
+  // Unpaginated: the whole week renders at once, so `pagination` is omitted
+  // and the hook holds no page state (#360).
+  const { table, selectedIds, clearSelection } = useTableState({
+    data: issues,
+    columns,
+    getRowId: (row) => row.IssueID,
+    selection: { scope: "filtered" },
+    initialSorting: [{ id: "IssueDate", desc: false }],
+  });
+
   const reportBulkResult = (
     result: BulkIssueResult,
     verb: "queued" | "skipped",
@@ -289,7 +301,7 @@ function MyReleasesView() {
       failureVerb,
     );
     addToast({ type, message });
-    setSelectedIds(keep);
+    table.setRowSelection(Object.fromEntries(keep.map((id) => [id, true])));
   };
 
   const handleBulkQueue = async () => {
@@ -453,18 +465,14 @@ function MyReleasesView() {
       )}
 
       {!isLoading && !error && issues.length > 0 && (
-        <UpcomingTable
-          issues={issues}
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-        />
+        <UpcomingTable table={table} />
       )}
 
       <BulkActionBar
         selectedCount={selectedIds.length}
         onMarkWanted={handleBulkQueue}
         onSkip={handleBulkUnqueue}
-        onClear={() => setSelectedIds([])}
+        onClear={clearSelection}
         isLoading={bulkQueueMutation.isPending || bulkUnqueueMutation.isPending}
       />
     </div>

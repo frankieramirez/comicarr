@@ -15,11 +15,12 @@ import { encodeRowId } from "@/components/data-table/rowId";
  * store adapter, auto-reset arming. It is written once and deliberately NOT
  * re-tested per call site.
  *
- * Five of these carry a #307 reference. They are the generic half of
- * `QueueTableSelection.test.tsx`, which asserts the same invariants through
- * two components; those move here as each site migrates (#395), and per #365 no
- * pin retires unless its replacement lands in the same PR. Until then both
- * exist, which is intentional overlap rather than duplication.
+ * The tests carrying a #307 reference are the generic half of what
+ * `QueueTableSelection.test.tsx` asserted through two components before #395
+ * moved it here: non-adjacent multi-select, header select-all, deselect, not
+ * resurrecting cleared ids, and dropping ids whose rows left. Per #365 no pin
+ * retired before its replacement landed, and the two per-site decode pins
+ * (Wanted and Upcoming decode to `IssueID`) stayed behind.
  *
  * `renderHook` appears nowhere else in this repo — a new idiom adopted
  * deliberately, because six-way duplication of generic behaviour is worse.
@@ -138,6 +139,37 @@ describe("useTableState", () => {
       // Pruning is scoped to the filtered row model, not the page — paging away
       // from a selected row must not silently deselect it.
       expect(result.current.selectedIds).toEqual(["a"]);
+    });
+
+    it("reports every id for the header select-all toggle (#307)", () => {
+      const { result } = renderTable({
+        data: rows("a", "b", "c"),
+        scope: "filtered",
+      });
+
+      act(() => {
+        toggleAllSelected(result.current.table, true);
+      });
+
+      expect(result.current.selectedIds).toEqual(["a", "b", "c"]);
+    });
+
+    it("drops a row from the selection when it is unchecked (#307)", () => {
+      const { result } = renderTable({
+        data: rows("a", "b", "c"),
+        scope: "filtered",
+      });
+
+      act(() => {
+        result.current.table.getRowModel().rows[0].toggleSelected(true);
+      });
+      expect(result.current.selectedIds).toEqual(["a"]);
+
+      act(() => {
+        result.current.table.getRowModel().rows[0].toggleSelected(false);
+      });
+
+      expect(result.current.selectedIds).toEqual([]);
     });
 
     it("does not resurrect ids the caller cleared (#307)", () => {

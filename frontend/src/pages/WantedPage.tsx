@@ -10,17 +10,17 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import WantedTable from "@/components/queue/WantedTable";
+import { useWantedColumns } from "@/components/queue/wantedColumns";
 import BulkActionBar from "@/components/queue/BulkActionBar";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import PageHeader from "@/components/layout/PageHeader";
 import FilterField from "@/components/ui/FilterField";
+import { useServerPage } from "@/components/data-table/useServerPage";
+import { useTableState } from "@/components/data-table/useTableState";
 
 export default function WantedPage() {
-  const [page, setPage] = useState(0);
+  const { limit, offset, nextPage, prevPage } = useServerPage(50);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const limit = 50;
-  const offset = page * limit;
 
   const { data, isLoading, error, refetch } = useWanted(limit, offset);
   const issues = data?.issues || [];
@@ -39,6 +39,17 @@ export default function WantedPage() {
       )
     : issues;
 
+  const columns = useWantedColumns();
+  // The server page is an input to the fetch that produced `issues`, so the
+  // hook holds no page state (#360); `pagination` is omitted deliberately.
+  const { table, selectedIds, clearSelection } = useTableState({
+    data: filteredIssues,
+    columns,
+    getRowId: (row) => row.IssueID,
+    selection: { scope: "filtered" },
+    initialSorting: [{ id: "DateAdded", desc: true }],
+  });
+
   const handleBulkUnqueue = async () => {
     try {
       const { type, message, keep } = describeBulkResult(
@@ -47,7 +58,7 @@ export default function WantedPage() {
         "skip",
       );
       addToast({ type, message });
-      setSelectedIds(keep);
+      table.setRowSelection(Object.fromEntries(keep.map((id) => [id, true])));
     } catch (err) {
       addToast({
         type: "error",
@@ -134,7 +145,7 @@ export default function WantedPage() {
         message:
           result.message || result.error || "Unable to start this search.",
       });
-      if (result.success) setSelectedIds([]);
+      if (result.success) clearSelection();
     } catch (err) {
       addToast({
         type: "error",
@@ -224,25 +235,23 @@ export default function WantedPage() {
 
       {!isLoading && !error && (
         <WantedTable
-          issues={filteredIssues}
+          table={table}
           pagination={pagination}
           onNextPage={() => {
-            setPage((p) => p + 1);
-            setSelectedIds([]);
+            nextPage();
+            clearSelection();
           }}
           onPrevPage={() => {
-            setPage((p) => Math.max(0, p - 1));
-            setSelectedIds([]);
+            prevPage();
+            clearSelection();
           }}
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
         />
       )}
 
       <BulkActionBar
         selectedCount={selectedIds.length}
         onSkip={handleBulkUnqueue}
-        onClear={() => setSelectedIds([])}
+        onClear={clearSelection}
         onSearch={() => void handleSearchSelected()}
         isLoading={bulkUnqueue.isPending || searchWantedIssue.isPending}
       />
