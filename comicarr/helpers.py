@@ -40,7 +40,6 @@ from comicarr.app.common.dates import (  # noqa: F401
 )
 from comicarr.app.common.dates import weekly_info as _weekly_info_impl
 from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
-from comicarr.app.common.filesystem import file_ops as _file_ops_impl
 from comicarr.app.common.filesystem import (  # noqa: F401
     is_path_within_allowed_dirs,
 )
@@ -185,20 +184,6 @@ def weekly_info(week=None, year=None, current=None):
         destination_dir=comicarr.CONFIG.DESTINATION_DIR,
         weekfolder_format=comicarr.CONFIG.WEEKFOLDER_FORMAT,
         sched_weekly_last=comicarr.SCHED_WEEKLY_LAST,
-    )
-
-
-def file_ops(path, dst, arc=False, one_off=False, multiple=False):
-    return _file_ops_impl(
-        path,
-        dst,
-        arc=arc,
-        one_off=one_off,
-        multiple=multiple,
-        file_opts=comicarr.CONFIG.FILE_OPTS,
-        arc_fileops=comicarr.CONFIG.ARC_FILEOPS,
-        arc_fileops_softlink_relative=comicarr.CONFIG.ARC_FILEOPS_SOFTLINK_RELATIVE,
-        os_detect=comicarr.OS_DETECT,
     )
 
 

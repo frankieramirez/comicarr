@@ -21,7 +21,6 @@ from comicarr.app.common.dates import (  # noqa: F401
 )
 from comicarr.app.common.filesystem import (  # noqa: F401
     checkFolder,
-    file_ops,
     is_path_within_allowed_dirs,
 )
 from comicarr.app.common.numbers import (  # noqa: F401

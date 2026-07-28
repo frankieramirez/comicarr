@@ -97,6 +97,20 @@ def test_the_placement_stage_does_not_depend_on_the_downloads_package():
     assert "app/downloads" not in source
 
 
+def test_no_module_outside_placement_performs_raw_placement():
+    """`file_ops` was deleted with the last caller that used it.
+
+    Two entry points that can place a file are two places the call-time-mode
+    invariant can be violated -- one of them by a caller that binds the mode
+    early and hands it down, which is exactly how #303 happened. This is a
+    source scan rather than an import check, so reintroducing the name fails
+    here even before anything calls it.
+    """
+    offenders = [_relative(path) for path in _sources() if path != PLACEMENT and "file_ops" in path.read_text()]
+
+    assert offenders == [], "file_ops is gone; these files bring it back: %s" % offenders
+
+
 def test_the_placement_stage_reads_config_lazily():
     """A module-level `import comicarr` would let the config object be captured early."""
     source = PLACEMENT.read_text()

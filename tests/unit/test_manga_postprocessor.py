@@ -278,11 +278,11 @@ class TestProcessMangaFileMove:
     # interface no longer has. What it actually guarded -- a failed placement
     # never advancing the chapter -- is unchanged and still pinned below.
     @pytest.mark.parametrize(
-        "file_ops_kwargs",
+        "placement_kwargs",
         ({"side_effect": PlacementError("Permission denied")},),
         ids=("raises",),
     )
-    def test_move_failure_continues(self, tmp_path, file_ops_kwargs):
+    def test_move_failure_continues(self, tmp_path, placement_kwargs):
         """When placement fails, should log error and continue."""
         cbz = tmp_path / "Bleach v1.cbz"
         cbz.write_bytes(b"fake cbz")
@@ -303,7 +303,7 @@ class TestProcessMangaFileMove:
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             mock_db.select_one.return_value = comic_row
-            with patch("comicarr.postprocessor.place", **file_ops_kwargs):
+            with patch("comicarr.postprocessor.place", **placement_kwargs):
                 pp._process_manga()
 
         mock_queue.put.assert_called_once()
@@ -344,14 +344,14 @@ class TestProcessMangaFileMove:
 
 
 class TestProcessMangaExistingDestination:
-    """os.link/os.symlink refuse an existing destination (EEXIST) and file_ops
-    reports that as a bare False, so an already-placed chapter would be skipped
-    on every pass. The manga loop clears/recognises the destination first."""
+    """os.link and os.symlink refuse an existing destination with EEXIST, so an
+    already-placed chapter would be skipped on every pass. The DISPLACE policy
+    recognises or clears the destination first."""
 
     # The download folder and the manga destination are separate trees here: a
     # destination nested inside the download folder would be picked up by the
     # loop's own file walk as a second manga file.
-    def _run(self, tmp_path, file_opts, seed_dest=None, source_bytes=b"fresh grab", file_ops=None):
+    def _run(self, tmp_path, file_opts, seed_dest=None, source_bytes=b"fresh grab", placement=None):
         download_dir = tmp_path / "download"
         download_dir.mkdir(exist_ok=True)
         cbz = download_dir / "Chainsaw Man 165.cbz"
@@ -383,25 +383,25 @@ class TestProcessMangaExistingDestination:
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            if file_ops is None:
+            if placement is None:
                 pp._process_manga()
             else:
-                with patch("comicarr.postprocessor.place", **file_ops):
+                with patch("comicarr.postprocessor.place", **placement):
                     pp._process_manga()
 
         return cbz, placed, pp
 
     @pytest.mark.parametrize(
-        "file_ops",
+        "placement",
         ({"side_effect": PlacementError("No space left on device")},),
         ids=("raises",),
     )
-    def test_failed_replacement_restores_the_previous_chapter(self, tmp_path, file_ops):
+    def test_failed_replacement_restores_the_previous_chapter(self, tmp_path, placement):
         """The chapter already in the library is moved aside, not deleted, so a
         placement that fails mid-replacement leaves the library intact. Deleting
         first would strand the DB reporting Status=Downloaded for a chapter that
         is physically gone."""
-        source, placed, pp = self._run(tmp_path, "copy", seed_dest=b"stale copy", file_ops=file_ops)
+        source, placed, pp = self._run(tmp_path, "copy", seed_dest=b"stale copy", placement=placement)
 
         assert placed.exists(), "a failed replacement must not destroy the chapter already in the library"
         assert placed.read_bytes() == b"stale copy"
@@ -420,7 +420,7 @@ class TestProcessMangaExistingDestination:
     @pytest.mark.parametrize("file_opts", ("hardlink", "softlink", "copy", "move"))
     def test_stale_destination_is_replaced(self, tmp_path, file_opts):
         """A repack of a chapter already in the library replaces it, as it did
-        before placement moved to file_ops. Under hardlink/softlink the bare
+        before placement moved to the shared stage. Under hardlink/softlink the bare
         os.link/os.symlink would have raised EEXIST and skipped the chapter."""
         source, placed, pp = self._run(tmp_path, file_opts, seed_dest=b"stale copy")
 

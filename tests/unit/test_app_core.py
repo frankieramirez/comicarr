@@ -11,6 +11,7 @@ import stat
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -470,6 +471,11 @@ class TestCommonNumbers:
         assert not is_number("abc")
 
 
+def _placement_config(mode):
+    """Config source for the placement stage: it reads the mode at call time."""
+    return SimpleNamespace(FILE_OPTS=mode, ARC_FILEOPS=mode, ARC_FILEOPS_SOFTLINK_RELATIVE=False)
+
+
 class TestCommonFilesystem:
     def test_path_within_allowed(self, tmp_path):
         from comicarr.app.common.filesystem import is_path_within_allowed_dirs
@@ -503,108 +509,133 @@ class TestCommonFilesystem:
         assert not is_path_within_allowed_dirs(str(tmp_path), [str(tmp_path)], strict=True)
         assert not is_path_within_allowed_dirs(str(child), [os.sep], strict=True)
 
-    def test_windows_hardlink_uses_os_link(self):
-        from comicarr.app.common.filesystem import file_ops
+    # These were unit tests of `file_ops`, which #334 deleted. They moved to the
+    # placement stage with it, minus the `os_detect="Windows"` argument: #331
+    # measured that parameter as accepted-but-never-read, so the "windows_"
+    # prefixes were asserting the POSIX path. What they genuinely covered -- the
+    # link direction each mode uses and each fallback -- is kept.
 
-        src = "C:/Downloads/book.cbz"
-        dst = "C:/Comics/book.cbz"
+    def test_hardlink_uses_os_link_and_verifies_the_link_count(self):
+        from comicarr.app.common.placement import OnExisting, Purpose, place
+
+        src = "/downloads/book.cbz"
+        dst = "/comics/book.cbz"
         stat_result = MagicMock()
         stat_result.st_nlink = 2
 
         with (
-            patch("comicarr.app.common.filesystem.os.link") as mock_link,
-            patch("comicarr.app.common.filesystem.os.lstat", return_value=stat_result) as mock_lstat,
+            patch("comicarr.app.common.placement.os.link") as mock_link,
+            patch("comicarr.app.common.placement.os.lstat", return_value=stat_result) as mock_lstat,
         ):
-            assert file_ops(src, dst, file_opts="hardlink", os_detect="Windows") is True
+            result = place(
+                src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=_placement_config("hardlink")
+            )
 
+        assert result.effective_mode == "hardlink"
         mock_link.assert_called_once_with(src, dst)
         mock_lstat.assert_called_once_with(dst)
 
-    def test_windows_hardlink_cross_device_falls_back_to_copy(self):
-        from comicarr.app.common.filesystem import file_ops
+    def test_hardlink_cross_device_falls_back_to_copy(self):
+        from comicarr.app.common.placement import OnExisting, Purpose, place
 
-        src = "C:/Downloads/book.cbz"
-        dst = "D:/Comics/book.cbz"
+        src = "/downloads/book.cbz"
+        dst = "/other-volume/book.cbz"
 
         with (
             patch(
-                "comicarr.app.common.filesystem.os.link",
+                "comicarr.app.common.placement.os.link",
                 side_effect=OSError(errno.EXDEV, "Cross-device link"),
             ) as mock_link,
-            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+            patch("comicarr.app.common.placement.shutil.copy") as mock_copy,
         ):
-            assert file_ops(src, dst, file_opts="hardlink", os_detect="Windows") is True
+            result = place(
+                src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=_placement_config("hardlink")
+            )
 
+        assert result.effective_mode == "copy", "the caller must be able to see the link never happened"
         mock_link.assert_called_once_with(src, dst)
         mock_copy.assert_called_once_with(src, dst)
 
-    def test_windows_softlink_moves_then_creates_absolute_symlink(self):
-        from comicarr.app.common.filesystem import file_ops
+    def test_non_arc_softlink_moves_then_links_the_source_back_at_the_destination(self):
+        from comicarr.app.common.placement import OnExisting, Purpose, place
 
-        src = "C:/Downloads/book.cbz"
-        dst = "C:/Comics/book.cbz"
+        src = "/downloads/book.cbz"
+        dst = "/comics/book.cbz"
 
         with (
-            patch("comicarr.app.common.filesystem.shutil.move") as mock_move,
-            patch("comicarr.app.common.filesystem.os.path.lexists", return_value=False) as mock_lexists,
-            patch("comicarr.app.common.filesystem.os.remove") as mock_remove,
-            patch("comicarr.app.common.filesystem.os.symlink") as mock_symlink,
-            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+            patch("comicarr.app.common.placement.shutil.move") as mock_move,
+            patch("comicarr.app.common.placement.os.path.lexists", return_value=False) as mock_lexists,
+            patch("comicarr.app.common.placement.os.remove") as mock_remove,
+            patch("comicarr.app.common.placement.os.symlink") as mock_symlink,
+            patch("comicarr.app.common.placement.shutil.copy") as mock_copy,
         ):
-            assert file_ops(src, dst, file_opts="softlink", os_detect="Windows") is True
+            result = place(
+                src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=_placement_config("softlink")
+            )
 
+        assert result.source_is_symlink is True
         mock_move.assert_called_once_with(src, dst)
         mock_lexists.assert_called_once_with(src)
         mock_remove.assert_not_called()
         mock_symlink.assert_called_once_with(dst, src)
         mock_copy.assert_not_called()
 
-    @pytest.mark.parametrize(
-        ("copy_side_effect", "expected"),
-        [
-            (None, True),
-            (Exception("copy failed"), False),
-        ],
-    )
-    def test_windows_softlink_failure_copies_destination_back(self, copy_side_effect, expected):
-        from comicarr.app.common.filesystem import file_ops
+    @pytest.mark.parametrize("copy_fails", [False, True])
+    def test_non_arc_softlink_failure_copies_the_destination_back(self, copy_fails):
+        from comicarr.app.common.placement import OnExisting, PlacementError, Purpose, place
 
-        src = "C:/Downloads/book.cbz"
-        dst = "C:/Comics/book.cbz"
+        src = "/downloads/book.cbz"
+        dst = "/comics/book.cbz"
 
         with (
-            patch("comicarr.app.common.filesystem.shutil.move") as mock_move,
-            patch("comicarr.app.common.filesystem.os.path.lexists", return_value=False),
-            patch("comicarr.app.common.filesystem.os.remove") as mock_remove,
+            patch("comicarr.app.common.placement.shutil.move") as mock_move,
+            patch("comicarr.app.common.placement.os.path.lexists", return_value=False),
+            patch("comicarr.app.common.placement.os.remove") as mock_remove,
             patch(
-                "comicarr.app.common.filesystem.os.symlink",
+                "comicarr.app.common.placement.os.symlink",
                 side_effect=OSError("symlink denied"),
             ) as mock_symlink,
-            patch("comicarr.app.common.filesystem.shutil.copy", side_effect=copy_side_effect) as mock_copy,
+            patch(
+                "comicarr.app.common.placement.shutil.copy",
+                side_effect=Exception("copy failed") if copy_fails else None,
+            ) as mock_copy,
         ):
-            assert file_ops(src, dst, file_opts="softlink", os_detect="Windows") is expected
+            if copy_fails:
+                with pytest.raises(PlacementError):
+                    place(
+                        src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=_placement_config("softlink")
+                    )
+            else:
+                result = place(
+                    src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=_placement_config("softlink")
+                )
+                assert result.effective_mode == "copy"
 
         mock_move.assert_called_once_with(src, dst)
         mock_remove.assert_not_called()
         mock_symlink.assert_called_once_with(dst, src)
         mock_copy.assert_called_once_with(dst, src)
 
-    def test_arc_softlink_failure_copies_source_to_destination(self):
-        from comicarr.app.common.filesystem import file_ops
+    def test_arc_softlink_failure_copies_the_source_to_the_destination(self):
+        from comicarr.app.common.placement import OnExisting, Purpose, place
 
-        src = "/downloads/book.cbz"
-        dst = "/comics/book.cbz"
+        src = "/comics/book.cbz"
+        dst = "/arcs/book.cbz"
 
         with (
             patch(
-                "comicarr.app.common.filesystem.os.symlink",
+                "comicarr.app.common.placement.os.symlink",
                 side_effect=OSError("symlink denied"),
             ) as mock_symlink,
-            patch("comicarr.app.common.filesystem.shutil.copy") as mock_copy,
+            patch("comicarr.app.common.placement.shutil.copy") as mock_copy,
         ):
-            assert file_ops(src, dst, arc=True, arc_fileops="softlink") is True
+            result = place(
+                src, dst, Purpose.ARC, on_existing=OnExisting.UNGUARDED, config=_placement_config("softlink")
+            )
 
+        assert result.effective_mode == "copy"
         mock_symlink.assert_called_once_with(src, dst)
+        mock_copy.assert_called_once_with(src, dst)
         mock_copy.assert_called_once_with(src, dst)
 
 

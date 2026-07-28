@@ -54,6 +54,12 @@ completed journal stages rather than repeating irreversible file work.
   paths.
 - `test_manga_postprocessor.py`: manga filename, destination, and failure
   behavior.
+- `test_placement.py`: the four file-operation modes against the four
+  on-existing policies, plus the cross-filesystem and symlink fallbacks.
+- `test_pp_placement_sites.py`: what each post-processor site hands the
+  placement stage, and what it does when placement fails.
+- `test_storyarc_placement.py`: the story-arc directory placement, which had
+  no coverage of any kind before the stage existed.
 
 ## Extraction sequence
 
@@ -63,7 +69,16 @@ completed journal stages rather than repeating irreversible file work.
    and an injectable path probe; `Process()` retains the historical queue-stop
    facade for missing SAB paths.
 3. Filesystem operation/result stage, preserving the journal bracket and
-   retry rule.
+   retry rule. **Landed as `comicarr/app/common/placement.py`, not as part of
+   `app/downloads/postprocess_pipeline.py`.** Manual import finalization
+   (`app/imports/finalization.py`) and story arcs (`app/storyarcs/service.py`)
+   both place files, and neither may depend on the downloads package to do it,
+   so the stage lives in `app/common/`. An architecture test
+   (`tests/unit/test_placement_bracket_boundary.py`) asserts that
+   `placement.py` imports nothing from `app/downloads/`, and that the stage is
+   journal-blind: the caller owns the `post_processing`/`moved` bracket, which
+   is why the bracket and retry rule are preserved by the callers rather than
+   by the stage.
 4. Database reconciliation stage using downloads/series query boundaries.
 5. Cleanup and notification stages after durable completion.
 

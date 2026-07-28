@@ -5358,7 +5358,7 @@ class PostProcessor(object):
                             return
 
                         # post-move marker, secondary (COPY2ARCDIR) move —
-                        # markers must bracket EVERY destructive file_ops
+                        # markers must bracket EVERY destructive placement
                         self._journal_pp("moved", issuearcid=arcinfo["IssueArcID"])
                     else:
                         grab_dst = dst

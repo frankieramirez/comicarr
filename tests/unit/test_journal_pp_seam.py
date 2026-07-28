@@ -16,7 +16,7 @@ Covers the U3 contract:
   * The DDL "download complete" site co-commits `ddl_info status='Completed'`
     and journal `downloaded` inside ONE explicit begin() block (atomic).
   * The PP-complete sites write `post_processing` (before the destructive
-    move), `moved` (after helpers.file_ops / fileop success, before tidyup)
+    move), `moved` (after place / fileop success, before tidyup)
     and `post_processed` (after) — verified end-to-end on the manga path and
     via the PostProcessor `_journal_pp` helper for the other sites.
   * The façade is monotonic: a second `downloaded` after `post_processed` is

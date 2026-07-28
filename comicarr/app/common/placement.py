@@ -534,7 +534,7 @@ def _publish_move(source, destination, *, purpose, mode):
         try:
             os.unlink(source)
         except OSError as e:
-            remove_transfer_destination(destination, published_reference)
+            _remove_transfer_destination(destination, published_reference)
             _fail(
                 "published %s but could not consume the source: %s" % (destination, e),
                 purpose=purpose,
@@ -569,7 +569,7 @@ def restore_moved_file(destination: str, source: str) -> None:
     _publish_move(destination, source, purpose=Purpose.IMPORT, mode="move")
 
 
-def remove_transfer_destination(destination_path: str, reference_path: str) -> None:
+def _remove_transfer_destination(destination_path: str, reference_path: str) -> None:
     """Remove a destination only while it still names this transfer's file.
 
     Reachable only from the move publish, where a successful publish is followed

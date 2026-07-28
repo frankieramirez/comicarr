@@ -23,8 +23,8 @@ unlisted site or extra move cannot silently retain the C3 bug.
 
 Region A — Process_next NON-MANUAL story-arc one-off loop (per `ml`):
   ~3161 post_processing (issuearcid=ml[IssueArcID])     [pre-move]
-  ~3176 helpers.file_ops(grab_src, grab_dst, one_off=True, multiple=)  PRIMARY
-  ~3189 moved (issuearcid)                               [post-file_ops, pre-tidyup ~3194]
+  ~3176 place(grab_src, grab_dst, one_off=True, multiple=)  PRIMARY
+  ~3189 moved (issuearcid)                               [post-placement, pre-tidyup ~3194]
   ~3204 begin(): TWO nzblog deletes ("S"+IssueArcID, IssueArcID)
   ~3224 db.upsert("storyarcs") + ~3225 foundsearch(mode=story_arc, down=PP)
         -> INLINE upsert + foundsearch, AFTER the nzblog block
@@ -33,8 +33,8 @@ Region A — Process_next NON-MANUAL story-arc one-off loop (per `ml`):
 
 Region B — Process_next MANUAL-RUN story-arc/oneoff path:
   ~4047 post_processing (issueid, issuearcid)            [pre-move]
-  ~4055 helpers.file_ops(grab_src, grab_dst)             PRIMARY
-  ~4067 moved (issueid, issuearcid)                      [post-file_ops, pre-tidyup ~4071]
+  ~4055 place(grab_src, grab_dst)             PRIMARY
+  ~4067 moved (issueid, issuearcid)                      [post-placement, pre-tidyup ~4071]
   ~4074 begin(): single nzblog delete by issueid
   ~4081 db.upsert("storyarcs")+foundsearch  OR  ~4099 db.upsert("weekly")
         + ~4101 db.upsert("oneoffhistory")  -> INLINE upserts, AFTER the block
@@ -43,7 +43,7 @@ Region B — Process_next MANUAL-RUN story-arc/oneoff path:
 Region C — _process_manga per-file loop (manga has NO tidyup; move IS the
 relocation):
   ~4358 post_processing (release-level identity)         [pre-loop / pre-move]
-  ~4376 helpers.file_ops(filepath, dst)                  PER-FILE placement
+  ~4376 place(filepath, dst)                  PER-FILE placement
   ~4388 moved (release-level)                            [post per-file fileop]
   ~4440 db.upsert("issues" Status=Downloaded)            -> Status FIRST (inline)
   ~4449 begin(): single nzblog delete by issueid
@@ -52,14 +52,14 @@ relocation):
 
 Region D — Process_next MAIN path (the :5082 site):
   ~5141 post_processing (issueid)                        [pre-move]
-  PRIMARY: ml is None  -> ~5168 helpers.file_ops(src,dst) -> ~5184 moved -> tidyup ~5188
-           ml not None  -> ~5216 helpers.file_ops(src,dst) -> ~5230 moved -> tidyup ~5233
+  PRIMARY: ml is None  -> ~5168 place(src,dst) -> ~5184 moved -> tidyup ~5188
+           ml not None  -> ~5216 place(src,dst) -> ~5230 moved -> tidyup ~5233
   ~5260 begin(): single nzblog delete by issueid
   ~5267/5271 foundsearch(comicid, issueid, down=downtype) -> FOUNDSEARCH-DELEGATED
   ~5288 db.upsert(updatetable issues/annuals)            -> Status, AFTER the block
   SECONDARY (per arcinfo, COPY2ARCDIR):
-    ~5367 helpers.file_ops(grab_src, grab_dst, arc=True)  SECONDARY destructive
-    ~5381 moved (issuearcid)                              [post secondary file_ops]
+    ~5367 place(grab_src, grab_dst, arc=True)  SECONDARY destructive
+    ~5381 moved (issuearcid)                              [post secondary placement]
     ~5387 begin(): SECOND nzblog delete ("S"+IssueArcID, SARC)
     ~5398 db.upsert("storyarcs")
   ~5473 post_processed (issueid)                          [terminal, own txn -> U9: into block]
@@ -169,7 +169,7 @@ def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issuei
 # unlisted site / extra move silently retaining the C3 bug.
 #
 # The U3 marker POSITIONS (post_processing strictly before the destructive
-# move; moved strictly after helpers.file_ops/fileop success and strictly
+# move; moved strictly after place()/fileop success and strictly
 # before tidyup deletes the source) are NOT changed by U9 — only the
 # nzblog-delete <-> post_processed atomicity is. So these ordering pins stay
 # GREEN across the reorder; the C3 atomicity tests below assert the changed
@@ -472,7 +472,7 @@ def test_moved_marker_set_even_when_source_still_present_copy_mode():
     """No file probe anywhere: in copy/hardlink/softlink FILE_OPTS the source
     is never deleted, so os.path.isfile(dst) cannot distinguish
     move-completed. The `moved` marker is written purely on
-    helpers.file_ops/fileop SUCCESS regardless of source survival — proving
+    place()/fileop SUCCESS regardless of source survival — proving
     the discriminator does not depend on source/destination filesystem
     state."""
     pp = _make_pp(issueid="ICOPY")
@@ -492,8 +492,8 @@ def test_moved_marker_set_even_when_source_still_present_copy_mode():
 
 def test_story_arc_primary_then_secondary_each_bracketed_no_partial_unrecognized():
     """Region D multi-file: crash BETWEEN the primary move and the secondary
-    COPY2ARCDIR helpers.file_ops. The `moved` marker after the PRIMARY
-    file_ops already records 'move physically committed', so a partial
+    COPY2ARCDIR place(). The `moved` marker after the PRIMARY
+    placement already records 'move physically committed', so a partial
     destination (primary done, secondary not, terminal facts not) is NOT
     unrecognized — replay sees `moved` and finishes DB facts only, never a
     fresh re-import."""
@@ -503,9 +503,9 @@ def test_story_arc_primary_then_secondary_each_bracketed_no_partial_unrecognized
         conn.execute(insert(nzblog).values(IssueID="IARC", NZBName="Saga.ARC.cbz"))
 
     pp._journal_pp("post_processing", issueid="IARC")
-    # primary file_ops succeeds:
+    # primary placement succeeds:
     pp._journal_pp("moved", issueid="IARC")
-    # crash BEFORE the secondary COPY2ARCDIR file_ops / its second nzblog
+    # crash BEFORE the secondary COPY2ARCDIR placement / its second nzblog
     # block / terminal facts.
     assert _stage_of(rk) == journal.MOVED
     open_keys = [r["release_key"] for r in journal.read_open()]
@@ -518,7 +518,7 @@ def test_story_arc_primary_then_secondary_each_bracketed_no_partial_unrecognized
 
 def test_story_arc_secondary_nzblog_delete_also_atomic_with_journal():
     """Region D secondary path: the COPY2ARCDIR branch performs an additional
-    helpers.file_ops AND a SECOND nzblog delete; that second nzblog-delete +
+    place AND a SECOND nzblog delete; that second nzblog-delete +
     its journal advance must also live in an explicit begin() block (atomic).
     Model both nzblog deletes co-committing with the terminal marker."""
     pp = _make_pp(issueid="IARC2")
@@ -556,7 +556,7 @@ def test_move_failure_writes_no_moved_no_terminal_stage_stays_post_processing():
     pp = _make_pp(issueid="IMVF")
     rk = pp._journal_release_key(issueid="IMVF")
     pp._journal_pp("post_processing", issueid="IMVF")
-    # helpers.file_ops would have raised here -> the code returns BEFORE the
+    # place would have raised here -> the code returns BEFORE the
     # `moved` marker and BEFORE the nzblog/post_processed block. Nothing
     # terminal is written.
     assert _stage_of(rk) == journal.POST_PROCESSING

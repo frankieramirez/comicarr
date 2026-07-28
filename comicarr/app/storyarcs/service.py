@@ -23,6 +23,7 @@ import requests
 
 import comicarr
 from comicarr import db, helpers, logger
+from comicarr.app.common import placement
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.tables import comics, issues, storyarcs
@@ -858,7 +859,7 @@ def manualArc(issueid, reading_order, storyarcid):
 def updatearc_locs(storyarcid, arc_issues):
     from sqlalchemy import select
 
-    from comicarr.helpers import file_ops, rename_param, renamefile_readingorder
+    from comicarr.helpers import rename_param, renamefile_readingorder
 
     module = "[UPDATEARC-LOCS]"
     issueid_list = []
@@ -957,25 +958,29 @@ def updatearc_locs(storyarcid, arc_issues):
                         logger.fdebug("[ARC-DIRECTORY] Arc directory doesn't exist. Creating: %s" % grdst)
                         comicarr.filechecker.validateAndCreateDirectory(grdst, create=True)
 
-                    if not os.path.isfile(pathdst):
-                        logger.info(
-                            "[" + comicarr.CONFIG.ARC_FILEOPS.upper() + "] " + pathsrc + " into directory : " + pathdst
-                        )
+                    logger.info(
+                        "[" + comicarr.CONFIG.ARC_FILEOPS.upper() + "] " + pathsrc + " into directory : " + pathdst
+                    )
 
-                        try:
-                            # need to ensure that src is pointing to the series in order to do a soft/hard-link properly
-                            fileoperation = file_ops(pathsrc, pathdst, arc=True)
-                            if not fileoperation:
-                                raise OSError
-                        except (OSError, IOError):
-                            logger.fdebug(
-                                "["
-                                + comicarr.CONFIG.ARC_FILEOPS.upper()
-                                + "] Failure "
-                                + pathsrc
-                                + " - check directories and manually re-run."
-                            )
-                            continue
+                    try:
+                        # SKIP absorbs the `if not os.path.isfile(pathdst)` guard
+                        # this used to carry: anything already sitting at the
+                        # destination means no placement at all. The source must
+                        # keep pointing at the series so a hard or soft link
+                        # resolves into the library rather than the arc folder.
+                        placement.place(pathsrc, pathdst, placement.Purpose.ARC, on_existing=placement.OnExisting.SKIP)
+                    except (OSError, IOError):
+                        logger.fdebug(
+                            "["
+                            + comicarr.CONFIG.ARC_FILEOPS.upper()
+                            + "] Failure "
+                            + pathsrc
+                            + " - check directories and manually re-run."
+                        )
+                        continue
+                    # Rewritten whether or not this run placed anything, exactly
+                    # as before: an arc entry whose file is already in place still
+                    # needs its recorded location to point there.
                     updateloc = pathdst
                 else:
                     updateloc = pathsrc
