@@ -1,24 +1,12 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   createColumnHelper,
-  type SortingState,
   type RowSelectionState,
+  type SortingState,
   type Row,
 } from "@tanstack/react-table";
-import {
-  useQueryState,
-  useQueryStates,
-  parseAsInteger,
-  parseAsString,
-  parseAsStringLiteral,
-  createParser,
-} from "nuqs";
+import { useQueryStates, parseAsStringLiteral } from "nuqs";
 import {
   Trash2,
   Pause,
@@ -42,7 +30,13 @@ import SeriesFilters, {
   type StatusFilter,
 } from "./SeriesFilters";
 import SeriesGrid from "./SeriesGrid";
-import { SORT_DELIMITER } from "@/lib/delimiters";
+import {
+  getIsAllSelected,
+  toggleAllSelected,
+  useTableState,
+  type TableStore,
+} from "@/components/data-table/useTableState";
+import { useTableUrlStore } from "@/components/data-table/tableUrlStore";
 import { getProgressPercentage, getProgressCategory } from "@/lib/series-utils";
 import {
   useBulkDeleteSeries,
@@ -54,20 +48,10 @@ import type { Comic } from "@/types";
 
 const columnHelper = createColumnHelper<Comic>();
 
-const sortParser = createParser({
-  parse(value: string) {
-    const [id, direction] = value.split(SORT_DELIMITER);
-    if (!id) return null;
-    return { id, desc: direction === "desc" };
-  },
-  serialize(value: { id: string; desc: boolean }) {
-    return `${value.id}${SORT_DELIMITER}${value.desc ? "desc" : "asc"}`;
-  },
-});
-
+// Domain filters and the view toggle only. `page`, `sort` and `search` are the
+// table's own state and live in the shared URL store (tableUrlStore.ts) under
+// the same keys as before, so existing bookmarks survive (#377).
 const seriesParams = {
-  page: parseAsInteger.withDefault(0),
-  sort: sortParser,
   type: parseAsStringLiteral(["comic", "manga"] as const),
   progress: parseAsStringLiteral(["0", "partial", "100"] as const),
   status: parseAsStringLiteral(["Active", "Paused", "Ended"] as const),
@@ -90,21 +74,8 @@ export default function SeriesTable({
   const [params, setParams] = useQueryStates(seriesParams, {
     history: "replace",
   });
-  const [search, setSearch] = useQueryState(
-    "search",
-    parseAsString.withDefault("").withOptions({
-      history: "replace",
-      throttleMs: 300,
-    }),
-  );
-  const [localPage, setLocalPage] = useState(params.page);
-
-  useEffect(() => {
-    setLocalPage(params.page);
-  }, [params.page]);
-
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteFor, setConfirmDeleteFor] =
+    useState<RowSelectionState | null>(null);
 
   const bulkDeleteMutation = useBulkDeleteSeries();
   const bulkPauseMutation = useBulkPauseSeries();
@@ -115,12 +86,6 @@ export default function SeriesTable({
   const progressFilter: ProgressFilter = params.progress ?? "all";
   const statusFilter: StatusFilter = params.status ?? "all";
 
-  const sortId = params.sort?.id;
-  const sortDesc = params.sort?.desc;
-  const sorting = useMemo<SortingState>(
-    () => (sortId ? [{ id: sortId, desc: sortDesc ?? false }] : []),
-    [sortDesc, sortId],
-  );
   const isGridView = params.view === "grid";
   const pageSize = isGridView ? 24 : 20;
 
@@ -141,32 +106,70 @@ export default function SeriesTable({
     });
   }, [data, typeFilter, progressFilter, statusFilter]);
 
-  const maxPageEstimate = Math.max(
-    0,
-    Math.ceil(filteredData.length / pageSize) - 1,
+  // Columns are only used by TanStack for sorting & filtering state; rendering
+  // is done inline below to match the compact grid design.
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("ComicName", { id: "ComicName" }),
+      columnHelper.accessor("ComicPublisher", { id: "ComicPublisher" }),
+      columnHelper.accessor("Status", { id: "Status" }),
+      columnHelper.accessor("ComicYear", { id: "ComicYear" }),
+    ],
+    [],
   );
-  const effectivePage = Math.min(Math.max(localPage, 0), maxPageEstimate);
 
-  const pagination = useMemo(
-    () => ({ pageIndex: effectivePage, pageSize }),
-    [effectivePage, pageSize],
+  const urlStore = useTableUrlStore({ history: "replace" });
+
+  // The render-time, display-only clamp that replaced the page-clamp effect
+  // (#360): an out-of-range `pageIndex` renders the last real page and the URL
+  // is never rewritten — "rows have not arrived yet" and "genuinely out of
+  // range" are the same code path here, and the rewrite that tried to tell
+  // them apart was the deep-link bug (#372, #381). The clamp composes over the
+  // URL store because the hook feeds `store.state.pageIndex` straight to
+  // TanStack, which renders an empty page for an index past the end.
+  const maxPage = Math.max(0, Math.ceil(filteredData.length / pageSize) - 1);
+  const pageIndex = Math.min(urlStore.state.pageIndex, maxPage);
+  const store = useMemo<TableStore>(
+    () => ({
+      state: { ...urlStore.state, pageIndex },
+      setState: urlStore.setState,
+    }),
+    [urlStore, pageIndex],
   );
 
-  // Auto-reset is armed one render AFTER data first arrives, so the arrival
-  // itself never resets the page. TanStack queues `_autoResetPageIndex` onto a
-  // microtask that runs after the render which consumed the row model — by then
-  // the render-time clamp has already raised `pageIndex` to the deep-linked
-  // page, so an unarmed reset's 0 differs from it, passes the handler's guard
-  // below, and strips `?page` from the URL. Gating on a ref works because the
-  // option is read synchronously during that render, not inside the microtask.
-  const seenData = useRef(false);
-  useEffect(() => {
-    if (data.length > 0) seenData.current = true;
+  const pagination = useMemo(() => ({ pageSize }), [pageSize]);
+
+  const {
+    table,
+    selectedIds: selectedSeriesIds,
+    clearSelection,
+  } = useTableState({
+    data: filteredData,
+    columns,
+    getRowId: (row) => row.ComicID,
+    pagination,
+    // The one page-scoped select-all left (#382); "filtered" would change what
+    // the header checkbox selects.
+    selection: { scope: "page" },
+    store,
   });
+
+  const sorting = table.getState().sorting;
+  const search = store.state.globalFilter;
+  const effectivePage = table.getState().pagination.pageIndex;
+
+  // A selection change must invalidate an armed delete confirmation. That
+  // reset used to live in `onRowSelectionChange`, which the hook now owns, so
+  // it is derived instead: the confirmation is armed against the selection
+  // state *object*, and every selection change (including the hook's pruning)
+  // produces a new one, disarming it.
+  const rowSelection = table.getState().rowSelection;
+  const confirmDelete =
+    confirmDeleteFor !== null && confirmDeleteFor === rowSelection;
 
   const handleBulkDelete = async () => {
     if (!confirmDelete) {
-      setConfirmDelete(true);
+      setConfirmDeleteFor(rowSelection);
       return;
     }
     try {
@@ -175,8 +178,8 @@ export default function SeriesTable({
         type: "success",
         message: `${selectedSeriesIds.length} series deleted`,
       });
-      setRowSelection({});
-      setConfirmDelete(false);
+      clearSelection();
+      setConfirmDeleteFor(null);
     } catch {
       addToast({
         type: "error",
@@ -193,7 +196,7 @@ export default function SeriesTable({
         type: "success",
         message: `${selectedSeriesIds.length} series paused`,
       });
-      setRowSelection({});
+      clearSelection();
     } catch {
       addToast({
         type: "error",
@@ -210,7 +213,7 @@ export default function SeriesTable({
         type: "success",
         message: `${selectedSeriesIds.length} series resumed`,
       });
-      setRowSelection({});
+      clearSelection();
     } catch {
       addToast({
         type: "error",
@@ -220,101 +223,7 @@ export default function SeriesTable({
     }
   };
 
-  // Columns are only used by TanStack for sorting & filtering state; rendering
-  // is done inline below to match the compact grid design.
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor("ComicName", { id: "ComicName" }),
-      columnHelper.accessor("ComicPublisher", { id: "ComicPublisher" }),
-      columnHelper.accessor("Status", { id: "Status" }),
-      columnHelper.accessor("ComicYear", { id: "ComicYear" }),
-    ],
-    [],
-  );
-
-  const table = useReactTable({
-    data: filteredData,
-    columns,
-    state: { sorting, globalFilter: search, rowSelection, pagination },
-    onSortingChange: (updaterOrValue) => {
-      const newSorting =
-        typeof updaterOrValue === "function"
-          ? updaterOrValue(sorting)
-          : updaterOrValue;
-      setLocalPage(0);
-      setParams({
-        sort: newSorting.length > 0 ? newSorting[0] : null,
-        page: null,
-      });
-    },
-    onPaginationChange: (updaterOrValue) => {
-      const newPagination =
-        typeof updaterOrValue === "function"
-          ? updaterOrValue(pagination)
-          : updaterOrValue;
-      const newPage = newPagination.pageIndex;
-      if (newPage !== effectivePage) {
-        setLocalPage(newPage);
-        setParams({ page: newPage === 0 ? null : newPage });
-      }
-    },
-    onRowSelectionChange: (updater) => {
-      setConfirmDelete(false);
-      setRowSelection(updater);
-    },
-    autoResetPageIndex: seenData.current,
-    getRowId: (row) => row.ComicID,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    enableRowSelection: true,
-  });
-
-  // Selected ids come from the row model, never from raw `rowSelection` keys —
-  // the raw keys are what kept a filtered-away row a target of bulk
-  // delete/pause/resume (see #390, the #307 class).
-  const selectedRows = table.getSelectedRowModel().rows;
-  const selectedSeriesIds = useMemo(
-    () => selectedRows.map((row) => row.id),
-    [selectedRows],
-  );
-
-  // TanStack never prunes stale selection ids, by design, and the header
-  // checkbox counts raw state — so deriving outputs above is not enough on its
-  // own. Drop ids whose rows the filters removed, mirroring WantedTable and
-  // UpcomingTable. Keyed on the filtered row model, not the page model, so
-  // paging away from a selected row never clears it.
-  const filteredRows = table.getFilteredRowModel().rows;
-  useEffect(() => {
-    setRowSelection((prev) => {
-      const selected = Object.keys(prev).filter((id) => prev[id]);
-      if (selected.length === 0) return prev;
-      const present = new Set(filteredRows.map((row) => row.id));
-      const kept = selected.filter((id) => present.has(id));
-      if (kept.length === selected.length) return prev;
-      return Object.fromEntries(kept.map((id) => [id, true]));
-    });
-  }, [filteredRows]);
-
   const pageCount = table.getPageCount();
-
-  useEffect(() => {
-    // Rows have not arrived yet, so `pageCount` is 0 and says nothing about
-    // whether the requested page exists. Clamping here is what strips `?page`
-    // from a cold deep link.
-    if (data.length === 0) return;
-
-    const maxPage = Math.max(0, pageCount - 1);
-    const clampedPage = Math.min(Math.max(localPage, 0), maxPage);
-
-    if (clampedPage !== localPage) {
-      setLocalPage(clampedPage);
-      setParams({ page: clampedPage === 0 ? null : clampedPage });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageCount, localPage]);
-
   const pageRows = table.getRowModel().rows;
   const totalFiltered = table.getFilteredRowModel().rows.length;
 
@@ -333,8 +242,10 @@ export default function SeriesTable({
     } else {
       next = [];
     }
-    setLocalPage(0);
-    setParams({ sort: next[0] ?? null, page: null });
+    // No explicit page reset: the sorted row model recomputing fires TanStack's
+    // `autoResetPageIndex`, and its microtask drains before nuqs' flush, so the
+    // sort write and the page reset are still one URL write (#360, #377).
+    table.setSorting(next);
   };
 
   if (isLoading) {
@@ -373,9 +284,10 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
-              setLocalPage(0);
-              setParams({ view: null, page: null });
-              setRowSelection({});
+              // The page-size change resets the page inside the hook — the one
+              // reset auto-reset provably misses (#360).
+              setParams({ view: null });
+              clearSelection();
             }}
             className={`px-2 py-1.5 transition-colors ${
               !isGridView
@@ -389,9 +301,8 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
-              setLocalPage(0);
-              setParams({ view: "grid", page: null });
-              setRowSelection({});
+              setParams({ view: "grid" });
+              clearSelection();
             }}
             className={`px-2 py-1.5 border-l border-border transition-colors ${
               isGridView
@@ -412,11 +323,7 @@ export default function SeriesTable({
             shortcut="/"
             widthCap="full"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value || null);
-              setLocalPage(0);
-              setParams({ page: null });
-            }}
+            onChange={(e) => table.setGlobalFilter(e.target.value)}
           />
         </div>
 
@@ -425,24 +332,15 @@ export default function SeriesTable({
             typeFilter={typeFilter}
             progressFilter={progressFilter}
             statusFilter={statusFilter}
-            onTypeChange={(value) => {
-              setLocalPage(0);
-              setParams({ type: value === "all" ? null : value, page: null });
-            }}
-            onProgressChange={(value) => {
-              setLocalPage(0);
-              setParams({
-                progress: value === "all" ? null : value,
-                page: null,
-              });
-            }}
-            onStatusChange={(value) => {
-              setLocalPage(0);
-              setParams({
-                status: value === "all" ? null : value,
-                page: null,
-              });
-            }}
+            onTypeChange={(value) =>
+              setParams({ type: value === "all" ? null : value })
+            }
+            onProgressChange={(value) =>
+              setParams({ progress: value === "all" ? null : value })
+            }
+            onStatusChange={(value) =>
+              setParams({ status: value === "all" ? null : value })
+            }
             resultCount={totalFiltered}
             sortLabel={sortLabel}
           />
@@ -489,8 +387,8 @@ export default function SeriesTable({
             size="sm"
             variant="ghost"
             onClick={() => {
-              setRowSelection({});
-              setConfirmDelete(false);
+              clearSelection();
+              setConfirmDeleteFor(null);
             }}
             className="h-7 text-xs ml-auto"
           >
@@ -517,13 +415,8 @@ export default function SeriesTable({
             >
               <Checkbox
                 aria-label="Select all series on page"
-                checked={
-                  table.getIsAllPageRowsSelected() ||
-                  (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) =>
-                  table.toggleAllPageRowsSelected(!!value)
-                }
+                checked={getIsAllSelected(table)}
+                onCheckedChange={(value) => toggleAllSelected(table, !!value)}
               />
               <span />
               <SortHeader

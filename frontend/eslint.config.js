@@ -71,7 +71,6 @@ export default tseslint.config(
     // is not listed here fails immediately, so a *new* call site cannot appear
     // while the migration is in flight. Tracked by #353.
     files: [
-      'src/components/series/SeriesTable.tsx', // #394
       'src/components/queue/WantedTable.tsx', // #395
       'src/components/queue/UpcomingTable.tsx', // #395
       'src/components/import/ImportTable.tsx', // #396

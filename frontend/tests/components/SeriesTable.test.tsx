@@ -118,7 +118,13 @@ describe("SeriesTable", () => {
 
     // 63 rows at 20 a page is pages 0–3, so the last page is Series 61–63.
     expect(screen.getByText("Series 61")).toBeTruthy();
-    expect(new URLSearchParams(window.location.search).get("page")).toBe("3");
+    // Invariant: an out-of-range page never renders an empty table. The URL
+    // half deliberately inverted with the migration: #381's guarded effect
+    // rewrote `?page=99` to `?page=3`, and pinned that rewrite precisely so
+    // deleting the effect would surface the change rather than hide it. The
+    // clamp is now render-time and display-only (#360), so the URL is left
+    // exactly as the user supplied it.
+    expect(new URLSearchParams(window.location.search).get("page")).toBe("99");
   });
 
   // Regression: `selectedSeriesIds` used to read the raw rowSelection keys, so
