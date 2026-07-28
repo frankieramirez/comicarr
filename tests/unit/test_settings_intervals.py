@@ -41,10 +41,18 @@ from comicarr.config import (
 
 
 def _readable_config_keys():
-    """The uppercase config keys get_safe_config reads off the config object."""
-    source = inspect.getsource(system_service.get_safe_config)
-    body = source.split("result = {}")[0]
-    keys = set(re.findall(r'"([A-Z][A-Z0-9_]+)"', body))
+    """The uppercase config keys get_safe_config reads off the config object.
+
+    This used to scrape the `safe_keys` list literal out of the function source.
+    That list is now derived from `comicarr/app/config/registry.py`, so there is
+    nothing left to scrape and the set is read directly.
+
+    The containment assertions below are consequently structural rather than
+    empirical -- `readable_keys()` is built from the same entries that produce
+    `_CONFIG_DEFINITIONS`, so it cannot name an undefined key. They are kept as
+    a guard against a future change reintroducing a hand-maintained literal.
+    """
+    keys = set(system_service._READABLE_KEYS)
     # Without this the extraction could silently return nothing after a refactor
     # and every assertion built on it would pass vacuously.
     assert len(keys) > 50, "get_safe_config key extraction found almost nothing: %s" % sorted(keys)

@@ -43,6 +43,12 @@ from comicarr import db, logger
 from comicarr.app.acquisition.models import DispatchState
 from comicarr.app.common.dates import normalize_utc_datetime
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.config.registry import (
+    readable_keys,
+    scheduler_job_intervals,
+    scheduler_job_required_config,
+    writable_keys,
+)
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.workers import start_background_thread
 from comicarr.tables import comics, jobhistory, storyarcs
@@ -204,119 +210,16 @@ def initial_setup(ctx, username, password, setup_token):
     return {"success": True, "username": username, "needs_restart": True}
 
 
+# Sorted so the response key order is stable; get_safe_config reads it every call.
+_READABLE_KEYS = sorted(readable_keys())
+
+
 def get_safe_config(ctx):
     """Return configuration as a safe dict (no passwords/keys)."""
     if not ctx.config:
         return {}
 
-    safe_keys = [
-        "COMIC_DIR",
-        "MANGA_DIR",
-        "DESTINATION_DIR",
-        "MANGA_DESTINATION_DIR",
-        "CACHE_DIR",
-        "LOG_DIR",
-        "HTTP_HOST",
-        "HTTP_PORT",
-        "HTTP_ROOT",
-        "ENABLE_HTTPS",
-        "HTTP_USERNAME",
-        "AUTHENTICATION",
-        "LAUNCH_BROWSER",
-        "LOG_LEVEL",
-        "DOWNLOAD_SCAN_INTERVAL",
-        "NZB_STARTUP_SEARCH",
-        "SEARCH_INTERVAL",
-        "SEARCH_DELAY",
-        "RSS_CHECKINTERVAL",
-        "AUTO_UPDATE",
-        "ANNUALS_ON",
-        "WEEKFOLDER",
-        "REPLACE_SPACES",
-        "ZERO_LEVEL",
-        "ZERO_LEVEL_N",
-        "LOWERCASE_FILENAMES",
-        "FOLDER_FORMAT",
-        "FILE_FORMAT",
-        "COMICVINE_ENABLED",
-        "MANGADEX_ENABLED",
-        "CV_VERIFY",
-        "CV_ONLY",
-        "USE_METRON_SEARCH",
-        "METRON_USERNAME",
-        "MANGADEX_LANGUAGES",
-        "MANGADEX_CONTENT_RATING",
-        "MAL_ENABLED",
-        "PREFERRED_QUALITY",
-        "USE_MINSIZE",
-        "MINSIZE",
-        "USE_MAXSIZE",
-        "MAXSIZE",
-        "ENABLE_META",
-        "OPDS_ENABLE",
-        "OPDS_PAGESIZE",
-        "NZB_DOWNLOADER",
-        "TORRENT_DOWNLOADER",
-        "DBUPDATE_INTERVAL",
-        "MULTIPLE_DEST_DIRS",
-        "CREATE_FOLDERS",
-        "CHECK_FOLDER",
-        "STORYARC_LOCATION",
-        "AI_BASE_URL",
-        "AI_MODEL",
-        "AI_TIMEOUT",
-        "AI_RPM_LIMIT",
-        "AI_DAILY_TOKEN_LIMIT",
-        "AI_CIRCUIT_THRESHOLD",
-        "AI_CIRCUIT_COOLDOWN",
-        "IMPORT_DIR",
-        "IMPORT_SCAN_INTERVAL",
-        "IMP_MOVE",
-        "IMP_RENAME",
-        "IMP_METADATA",
-        "IMP_SERIESFOLDERS",
-        # Notification services
-        "PROWL_ENABLED",
-        "PROWL_PRIORITY",
-        "PROWL_ONSNATCH",
-        "PUSHOVER_ENABLED",
-        "PUSHOVER_DEVICE",
-        "PUSHOVER_PRIORITY",
-        "PUSHOVER_ONSNATCH",
-        "PUSHOVER_IMAGE",
-        "BOXCAR_ENABLED",
-        "BOXCAR_ONSNATCH",
-        "PUSHBULLET_ENABLED",
-        "PUSHBULLET_DEVICEID",
-        "PUSHBULLET_CHANNEL_TAG",
-        "PUSHBULLET_ONSNATCH",
-        "TELEGRAM_ENABLED",
-        "TELEGRAM_USERID",
-        "TELEGRAM_ONSNATCH",
-        "TELEGRAM_IMAGE",
-        "SLACK_ENABLED",
-        "SLACK_ONSNATCH",
-        "MATTERMOST_ENABLED",
-        "MATTERMOST_ONSNATCH",
-        "DISCORD_ENABLED",
-        "DISCORD_ONSNATCH",
-        "EMAIL_ENABLED",
-        "EMAIL_FROM",
-        "EMAIL_TO",
-        "EMAIL_SERVER",
-        "EMAIL_USER",
-        "EMAIL_PORT",
-        "EMAIL_ENC",
-        "EMAIL_ONGRAB",
-        "EMAIL_ONPOST",
-        "GOTIFY_ENABLED",
-        "GOTIFY_SERVER_URL",
-        "GOTIFY_ONSNATCH",
-        "MATRIX_ENABLED",
-        "MATRIX_HOMESERVER",
-        "MATRIX_ROOM_ID",
-        "MATRIX_ONSNATCH",
-    ]
+    safe_keys = _READABLE_KEYS
     result = {}
     for key in safe_keys:
         val = getattr(ctx.config, key, None)
@@ -376,120 +279,7 @@ def get_safe_config(ctx):
     return result
 
 
-WRITABLE_CONFIG_KEYS = {
-    "COMIC_DIR",
-    "DESTINATION_DIR",
-    "HTTP_HOST",
-    "HTTP_PORT",
-    "HTTP_ROOT",
-    "ENABLE_HTTPS",
-    "LAUNCH_BROWSER",
-    "LOG_LEVEL",
-    "DOWNLOAD_SCAN_INTERVAL",
-    "NZB_STARTUP_SEARCH",
-    "SEARCH_INTERVAL",
-    "SEARCH_DELAY",
-    "RSS_CHECKINTERVAL",
-    "DBUPDATE_INTERVAL",
-    "AUTO_UPDATE",
-    "ANNUALS_ON",
-    "WEEKFOLDER",
-    "REPLACE_SPACES",
-    "ZERO_LEVEL",
-    "ZERO_LEVEL_N",
-    "LOWERCASE_FILENAMES",
-    "FOLDER_FORMAT",
-    "FILE_FORMAT",
-    "COMICVINE_API",
-    "COMICVINE_ENABLED",
-    "MANGADEX_ENABLED",
-    "CV_VERIFY",
-    "CV_ONLY",
-    "USE_METRON_SEARCH",
-    "METRON_USERNAME",
-    "MANGADEX_LANGUAGES",
-    "MANGADEX_CONTENT_RATING",
-    "MAL_ENABLED",
-    "MAL_CLIENT_ID",
-    "PREFERRED_QUALITY",
-    "USE_MINSIZE",
-    "MINSIZE",
-    "USE_MAXSIZE",
-    "MAXSIZE",
-    "ENABLE_META",
-    "OPDS_ENABLE",
-    "OPDS_PAGESIZE",
-    "MULTIPLE_DEST_DIRS",
-    "CREATE_FOLDERS",
-    "CHECK_FOLDER",
-    "STORYARC_LOCATION",
-    "AI_BASE_URL",
-    "AI_API_KEY",
-    "AI_MODEL",
-    "AI_TIMEOUT",
-    "AI_RPM_LIMIT",
-    "AI_DAILY_TOKEN_LIMIT",
-    "AI_CIRCUIT_THRESHOLD",
-    "AI_CIRCUIT_COOLDOWN",
-    # Notification services
-    "PROWL_ENABLED",
-    "PROWL_KEYS",
-    "PROWL_PRIORITY",
-    "PROWL_ONSNATCH",
-    "PUSHOVER_ENABLED",
-    "PUSHOVER_APIKEY",
-    "PUSHOVER_USERKEY",
-    "PUSHOVER_DEVICE",
-    "PUSHOVER_PRIORITY",
-    "PUSHOVER_ONSNATCH",
-    "PUSHOVER_IMAGE",
-    "BOXCAR_ENABLED",
-    "BOXCAR_TOKEN",
-    "BOXCAR_ONSNATCH",
-    "PUSHBULLET_ENABLED",
-    "PUSHBULLET_APIKEY",
-    "PUSHBULLET_DEVICEID",
-    "PUSHBULLET_CHANNEL_TAG",
-    "PUSHBULLET_ONSNATCH",
-    "TELEGRAM_ENABLED",
-    "TELEGRAM_TOKEN",
-    "TELEGRAM_USERID",
-    "TELEGRAM_ONSNATCH",
-    "TELEGRAM_IMAGE",
-    "SLACK_ENABLED",
-    "SLACK_WEBHOOK_URL",
-    "SLACK_ONSNATCH",
-    "MATTERMOST_ENABLED",
-    "MATTERMOST_WEBHOOK_URL",
-    "MATTERMOST_ONSNATCH",
-    "DISCORD_ENABLED",
-    "DISCORD_WEBHOOK_URL",
-    "DISCORD_ONSNATCH",
-    "EMAIL_ENABLED",
-    "EMAIL_FROM",
-    "EMAIL_TO",
-    "EMAIL_SERVER",
-    "EMAIL_USER",
-    "EMAIL_PASSWORD",
-    "EMAIL_PORT",
-    "EMAIL_ENC",
-    "EMAIL_ONGRAB",
-    "EMAIL_ONPOST",
-    "GOTIFY_ENABLED",
-    "GOTIFY_SERVER_URL",
-    "GOTIFY_TOKEN",
-    "GOTIFY_ONSNATCH",
-    "MATRIX_ENABLED",
-    "MATRIX_HOMESERVER",
-    "MATRIX_ACCESS_TOKEN",
-    "MATRIX_ROOM_ID",
-    "MATRIX_ONSNATCH",
-    # Import behavior
-    "IMP_MOVE",
-    "IMP_RENAME",
-    "IMP_METADATA",
-    "IMP_SERIESFOLDERS",
-}
+WRITABLE_CONFIG_KEYS = writable_keys()
 
 
 def update_config(ctx, key_values):
@@ -591,20 +381,11 @@ def update_providers(ctx, provider_data):
 
 
 # Scheduler job id -> the config attribute that drives its cadence, in minutes.
-SCHEDULER_JOB_INTERVALS = {
-    "search": "SEARCH_INTERVAL",
-    "rss": "RSS_CHECKINTERVAL",
-    "monitor": "DOWNLOAD_SCAN_INTERVAL",
-    "importinbox": "IMPORT_SCAN_INTERVAL",
-    "dbupdater": "DBUPDATE_INTERVAL",
-}
+SCHEDULER_JOB_INTERVALS = scheduler_job_intervals()
 
 # Scheduler job id -> a config attribute that must be set for the job to do
 # anything. Mirrors the CHECK_FOLDER / IMPORT_DIR guards in comicarr.start().
-SCHEDULER_JOB_REQUIRED_CONFIG = {
-    "monitor": "CHECK_FOLDER",
-    "importinbox": "IMPORT_DIR",
-}
+SCHEDULER_JOB_REQUIRED_CONFIG = scheduler_job_required_config()
 
 # Job ids this process parked because their interval was non-positive, so a
 # later positive interval can bring them back.
