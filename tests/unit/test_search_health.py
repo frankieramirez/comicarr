@@ -211,6 +211,23 @@ def test_maintenance_blocks_handoff_without_hiding_route_configuration(tmp_path)
     assert all(route["ready"] is False for route in routes.values())
     assert all(route["reason"] == "persistent_maintenance" for route in routes.values())
     assert health.has_viable_route(routes) is False
+    assert health.blocking_route_reason(routes) == "persistent_maintenance"
+
+
+def test_blocking_route_reason_names_the_smallest_remaining_gap(tmp_path):
+    routes = health.build_route_readiness(
+        _config(tmp_path, ENABLE_DDL=False, ENABLE_GETCOMICS=False, POST_PROCESSING=True, SAB_DIRECTORY=None)
+    )
+
+    assert health.has_viable_route(routes) is False
+    assert routes["ddl"]["reason"] == "disabled"
+    # DDL sorts first but is merely off; the NZB route is one directory away.
+    assert health.blocking_route_reason(routes) == "path_not_ready"
+
+
+def test_blocking_route_reason_falls_back_when_routes_report_nothing():
+    assert health.blocking_route_reason({}) == health.NO_VIABLE_ROUTE
+    assert health.blocking_route_reason({"ddl": {"ready": False}}) == health.NO_VIABLE_ROUTE
 
 
 def test_dispatch_success_and_acquisition_completion_are_separate_projections():

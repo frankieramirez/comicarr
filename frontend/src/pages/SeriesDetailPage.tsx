@@ -75,9 +75,29 @@ function getSeparateIntent(issue: Issue): string | null {
   return getIssueStatus(issue).toLowerCase() === intent ? null : intent;
 }
 
+const ROUTE_REASON_COPY: Record<string, string> = {
+  no_viable_acquisition_route:
+    "No download route is configured yet. Enable a DDL, Usenet, or torrent route in Settings.",
+  route_health_unavailable:
+    "Route health could not be read. Check the server logs, then refresh this preview.",
+  disabled:
+    "Every download route is disabled. Enable one in Settings, along with at least one provider.",
+  client_not_ready:
+    "The download client is missing its host or API key. Finish configuring it in Settings.",
+  path_not_ready:
+    "The configured download directory does not exist on the server. Check the path and any container mounts.",
+  providers_temporarily_blocked:
+    "Every provider is in a temporary backoff. This clears on its own — try again shortly.",
+  unsupported_restart_correlation:
+    "The selected download client cannot correlate downloads across a restart. Choose a client that can.",
+};
+
 function formatRouteReason(reason?: string | null): string {
   if (!reason) return "No safe acquisition route is currently ready.";
-  return reason.replace(/_/g, " ");
+  return (
+    ROUTE_REASON_COPY[reason] ??
+    `Search is blocked: ${reason.replace(/_/g, " ")}.`
+  );
 }
 
 function errorMessage(error: unknown): string {
@@ -784,15 +804,14 @@ export default function SeriesDetailPage() {
                       className="mt-1"
                       style={{ color: "var(--muted-foreground)" }}
                     >
-                      Configure a safe download route, then refresh this
-                      preview.
+                      {formatRouteReason(preview.route?.reason)}
                     </div>
                     {preview.route?.reason && (
                       <div
                         className="mt-2 font-mono text-[10px]"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {formatRouteReason(preview.route.reason)}
+                        {preview.route.reason}
                       </div>
                     )}
                   </div>

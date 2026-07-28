@@ -622,7 +622,7 @@ def _search_missing_preview_state(ctx, comic_id):
 
     route = {"viable": True, "reason": None}
     try:
-        from comicarr.app.search.health import get_search_health
+        from comicarr.app.search.health import blocking_route_reason, get_search_health
 
         health = get_search_health(
             ctx.config,
@@ -633,11 +633,8 @@ def _search_missing_preview_state(ctx, comic_id):
             bool((routes.get(name) or {}).get("ready") or (routes.get(name) or {}).get("viable"))
             for name in ("ddl", "nzb", "torrent")
         )
-        if health.get("blocked") or not viable:
-            route = {
-                "viable": False,
-                "reason": health.get("reason") or "no_viable_acquisition_route",
-            }
+        if not viable:
+            route = {"viable": False, "reason": blocking_route_reason(routes)}
     except Exception as e:
         logger.warn("[SERIES] Route readiness unavailable for bulk search preview: %s" % e)
         route = {"viable": False, "reason": "route_health_unavailable"}

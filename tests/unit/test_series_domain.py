@@ -347,11 +347,11 @@ def test_preview_search_all_missing_excludes_owned_future_and_skipped(monkeypatc
         search_health,
         "get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
+            "viable_route": True,
             "routes": {
-                "ddl": {"viable": True},
-                "nzb": {"viable": False},
-                "torrent": {"viable": False},
+                "ddl": {"ready": True, "reason": "ready"},
+                "nzb": {"ready": False, "reason": "disabled"},
+                "torrent": {"ready": False, "reason": "disabled"},
             },
         },
     )

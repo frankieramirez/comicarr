@@ -25,6 +25,24 @@ WORKER_PREFIX = "Worker: "
 ROUTE_PREFIX = "Acquisition Route: "
 _ROUTES = ("ddl", "nzb", "torrent")
 
+# Last-resort reason when no route reported anything usable.
+NO_VIABLE_ROUTE = "no_viable_acquisition_route"
+
+# Blockers ordered from nearest-to-ready to furthest, so the reason surfaced to
+# operators names the smallest remaining gap.
+_ROUTE_REASON_RANK = {
+    reason: rank
+    for rank, reason in enumerate(
+        (
+            "providers_temporarily_blocked",
+            "path_not_ready",
+            "client_not_ready",
+            "unsupported_restart_correlation",
+            "disabled",
+        )
+    )
+}
+
 
 def _truthy(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on", "running"}
@@ -326,6 +344,25 @@ def build_route_readiness(
 def has_viable_route(routes):
     """Return whether at least one centralized route is currently handoff-ready."""
     return any(bool(route.get("ready")) for route in routes.values())
+
+
+def blocking_route_reason(routes):
+    """Return the most actionable reason no route is handoff-ready.
+
+    Routes report why they individually fall short; callers gate on the fleet.
+    Rank the blockers so the operator sees the route closest to ready rather
+    than whichever one happens to sort first, and let an unrecognized reason
+    (a maintenance hold, which suppresses every route at once) outrank the
+    per-route ones because it is the true cause.
+    """
+    reasons = [
+        reason
+        for route in _ROUTES
+        if (reason := str((routes.get(route) or {}).get("reason") or "").strip()) and reason != "ready"
+    ]
+    if not reasons:
+        return NO_VIABLE_ROUTE
+    return min(reasons, key=lambda reason: _ROUTE_REASON_RANK.get(reason, -1))
 
 
 def get_acquisition_health(engine=None):

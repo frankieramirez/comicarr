@@ -187,7 +187,7 @@ def force_search(ctx):
     """Trigger a full search for all wanted issues with a durable outcome."""
     from comicarr import search
     from comicarr.app.acquisition.runs import RunLedger
-    from comicarr.app.search.health import get_search_health
+    from comicarr.app.search.health import blocking_route_reason, get_search_health
 
     health = get_search_health(
         ctx.config,
@@ -198,11 +198,11 @@ def force_search(ctx):
         bool((routes.get(name) or {}).get("ready") or (routes.get(name) or {}).get("viable"))
         for name in ("ddl", "nzb", "torrent")
     )
-    if health.get("blocked") or not viable:
+    if not viable:
         return {
             "success": False,
             "status": "blocked",
-            "error": health.get("reason") or "no_viable_acquisition_route",
+            "error": blocking_route_reason(routes),
             "message": "Search blocked: no complete acquisition route is ready",
         }
 

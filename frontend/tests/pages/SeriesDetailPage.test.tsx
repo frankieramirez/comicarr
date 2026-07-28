@@ -335,7 +335,7 @@ describe("SeriesDetailPage", () => {
           comicId: "1",
           eligibleCount: 2,
           excludedCount: 8,
-          route: { viable: false, reason: "no_viable_acquisition_route" },
+          route: { viable: false, reason: "path_not_ready" },
           canSearch: false,
         }),
       ),
@@ -353,9 +353,10 @@ describe("SeriesDetailPage", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Configure a safe download route, then refresh this preview.",
+        "The configured download directory does not exist on the server. Check the path and any container mounts.",
       ),
     ).toBeTruthy();
+    expect(screen.getByText("path_not_ready")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Confirm search" })

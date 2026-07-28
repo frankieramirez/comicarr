@@ -85,7 +85,6 @@ def _ready_route(monkeypatch):
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": True,
             "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}},
         },

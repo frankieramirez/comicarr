@@ -27,10 +27,12 @@ def test_force_search_reports_blocked_when_no_viable_route(monkeypatch):
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": False,
-            "routes": {"ddl": {"ready": False}, "nzb": {"ready": False}, "torrent": {"ready": False}},
-            "reason": "no_viable_acquisition_route",
+            "routes": {
+                "ddl": {"ready": False, "reason": "disabled"},
+                "nzb": {"ready": False, "reason": "client_not_ready"},
+                "torrent": {"ready": False, "reason": "disabled"},
+            },
         },
     )
     search_for_issue = MagicMock()
@@ -40,6 +42,8 @@ def test_force_search_reports_blocked_when_no_viable_route(monkeypatch):
 
     assert result["success"] is False
     assert result["status"] == "blocked"
+    # The nearest-to-ready route names the gap, not the disabled majority.
+    assert result["error"] == "client_not_ready"
     search_for_issue.assert_not_called()
 
 
@@ -47,7 +51,6 @@ def test_force_search_accepts_when_route_is_ready(monkeypatch):
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": True,
             "routes": {"ddl": {"ready": True}, "nzb": {"ready": False}, "torrent": {"ready": False}},
         },
@@ -78,7 +81,6 @@ def test_force_search_reports_no_match_with_a_terminal_empty_run(monkeypatch):
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": True,
             "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}},
         },
@@ -110,7 +112,6 @@ def test_force_search_reports_partial_when_some_wanted_handoffs_fail(monkeypatch
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": True,
             "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}},
         },
@@ -150,7 +151,6 @@ def test_force_search_closes_rejected_empty_runs(monkeypatch, search_result, exp
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *_args, **_kwargs: {
-            "blocked": False,
             "viable_route": True,
             "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}},
         },
