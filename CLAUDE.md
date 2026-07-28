@@ -52,28 +52,6 @@ Conventional PR titles keep history readable, but they do not control releases. 
 - **Do NOT manually bump versions** - Changesets release automation handles this
 - **Do NOT finish without linting** - Run `npm run lint` (or `npm run lint:fix` then re-check) before considering work done; do not bypass hooks with `--no-verify`
 
-## Common Patterns
-
-### Logging Pattern
-- Import: `from comicarr import logger`
-- Usage: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
-- Always prefix with context in brackets
-
-### Configuration Access
-- Import: `import comicarr`
-- Usage: `comicarr.CONFIG.option_name`
-- Global config object is initialized at startup
-
-### Database Queries
-- Import: `from comicarr import db`
-- Usage: `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
-- Always use parameterized queries
-
-### Adding New Features
-- Prefer `comicarr/app/<domain>/router.py` + `service.py` (+ `queries.py` when needed)
-- Register/include the router from `comicarr/app/main.py`
-- Keep heavy provider/search/post-processing logic in existing business modules when it already lives there
-
 ## Gotchas
 
 - Config `SECURE_DIR` must be initialized before `encrypt_items()` or bcrypt migration — ordering matters in `config.py`
