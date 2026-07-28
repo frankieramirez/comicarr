@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.9
+
+### Patch Changes
+
+- 923ad54: Clearing an AI number field (timeout, requests per minute, daily token limit) no longer fails the whole settings save with "Failed to save configuration" — the field now falls back to its default (30 / 20 / 100000) like the other numeric settings.
+- 12916e8: The Metron Password field in Settings → API now actually saves. `METRON_PASSWORD` was never registered as writable, so every save silently dropped it — the "Password saved" indicator could only ever reflect a value set outside the UI. The password is stored encrypted like the other secrets, and an empty field leaves a previously saved password unchanged.
+- 2617227: Fix the Library table keeping a filtered-out series selected. Selecting a series and then filtering it out of view left it selected: the bulk bar still read "1 selected" and Delete, Pause, and Resume would still act on a series you could no longer see. The selection now follows the view — a series the filters remove is dropped from the selection, and comes back deselected when the filter is cleared. Selections still survive paging, since a series on another page is only out of sight, not filtered out.
+
 ## 0.20.8
 
 ### Patch Changes
