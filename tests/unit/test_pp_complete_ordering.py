@@ -94,11 +94,12 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
+from comicarr import postprocessor
 from comicarr.app.downloads import journal
 from comicarr.db import get_engine, shutdown_engine
-from comicarr import postprocessor
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
+from tests.conftest import placement_result
 
 
 @pytest.fixture(autouse=True)
@@ -210,11 +211,11 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
         seen.append(stage)
         return real_pp(stage, **k)
 
-    def _fake_fileop(s, d):
+    def _fake_fileop(s, d, *a, **k):
         seen.append("__fileop__")
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fake_fileop)
+    monkeypatch.setattr(postprocessor, "place", _fake_fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -240,10 +241,10 @@ def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path, m
 
     pp = _make_pp(nzb_name="Chainsaw Man 165.cbz", nzb_folder=str(tmp_path), comicid="md-csm", issueid=None)
 
-    def _boom_fileop(s, d):
+    def _boom_fileop(s, d, *a, **k):
         raise OSError("disk full")
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _boom_fileop)
+    monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()

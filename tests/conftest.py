@@ -553,3 +553,24 @@ def test_context():
         sse_key="test_sse_key",
         download_apikey="test_dl_key",
     )
+
+
+def placement_result(destination="", *, outcome=None, effective_mode="move", purpose=None, already=False):
+    """Build a PlacementResult for tests that stub the placement stage.
+
+    The seam used to return a bare True/False; it now returns a result or
+    raises, so stubs need a result object rather than a boolean.
+    """
+    from comicarr.app.common.placement import OnExisting, Outcome, PlacementResult, Purpose
+
+    if outcome is None:
+        outcome = Outcome.ALREADY_PLACED if already else Outcome.PLACED
+    return PlacementResult(
+        outcome=outcome,
+        effective_mode=effective_mode,
+        destination=destination,
+        purpose=purpose or Purpose.SERIES,
+        on_existing=OnExisting.DISPLACE,
+        source_survived=effective_mode != "move",
+        source_is_symlink=False,
+    )

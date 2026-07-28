@@ -27,6 +27,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from tests.conftest import placement_result
 
 # Ensure LOG_LEVEL is set for tests
 if comicarr.LOG_LEVEL is None:
@@ -259,24 +261,26 @@ class TestProcessMangaFileMove:
         ):
             # First call: comic lookup. Remaining: chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            with patch("comicarr.postprocessor.helpers.file_ops", return_value=True) as file_ops:
+            with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
                 pp._process_manga()
 
-        # the placement helper should have been called for the file
-        file_ops.assert_called_once()
-        args = file_ops.call_args[0]
+        # the placement stage should have been called for the file
+        placer.assert_called_once()
+        args = placer.call_args[0]
         assert args[0] == str(cbz)
         assert "Bleach v1.cbz" in args[1]
+        assert args[2] is Purpose.SERIES
+        assert placer.call_args[1]["on_existing"] is OnExisting.DISPLACE
 
-    # helpers.file_ops does not raise on a handled error -- it logs and returns
-    # False (comicarr/app/common/filesystem.py). The `if not fileoperation`
-    # bridge in _process_manga is the only thing turning that into the failure
-    # path, so the falsy return is the case that has to be pinned; an exception
-    # escaping file_ops is the rarer shape and is covered alongside it.
+    # The stage always raises on failure -- there is no falsy return to bridge
+    # any more, which is the whole point of PlacementError. The `returns_false`
+    # half of this parametrization is therefore gone: it pinned a shape the
+    # interface no longer has. What it actually guarded -- a failed placement
+    # never advancing the chapter -- is unchanged and still pinned below.
     @pytest.mark.parametrize(
         "file_ops_kwargs",
-        ({"return_value": False}, {"side_effect": OSError("Permission denied")}),
-        ids=("returns_false", "raises"),
+        ({"side_effect": PlacementError("Permission denied")},),
+        ids=("raises",),
     )
     def test_move_failure_continues(self, tmp_path, file_ops_kwargs):
         """When placement fails, should log error and continue."""
@@ -299,18 +303,19 @@ class TestProcessMangaFileMove:
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             mock_db.select_one.return_value = comic_row
-            with patch("comicarr.postprocessor.helpers.file_ops", **file_ops_kwargs):
+            with patch("comicarr.postprocessor.place", **file_ops_kwargs):
                 pp._process_manga()
 
         mock_queue.put.assert_called_once()
         result = mock_queue.put.call_args[0][0]
         assert "0 files matched" in result[0]["self.log"]
 
-    def test_falsy_file_ops_never_marks_the_chapter_downloaded(self, tmp_path):
-        """A False return means the file was NOT placed. Without the
-        `if not fileoperation` bridge the loop would upsert Status=Downloaded and
-        terminalize the journal for a file still sitting in the download folder,
-        which recovery would then never re-drive."""
+    def test_failed_placement_never_marks_the_chapter_downloaded(self, tmp_path):
+        """A raised PlacementError means the file was NOT placed. If the loop
+        carried on it would upsert Status=Downloaded and terminalize the journal
+        for a file still sitting in the download folder, which recovery would
+        then never re-drive. This used to be pinned against a falsy return; the
+        stage raises instead now, and the guarantee is identical."""
         cbz = tmp_path / "Bleach v1.cbz"
         cbz.write_bytes(b"fake cbz")
 
@@ -332,7 +337,7 @@ class TestProcessMangaFileMove:
         ):
             # a chapter match IS available -- only the falsy placement stops it
             mock_db.select_one.side_effect = [comic_row, issue_row, None, None]
-            with patch("comicarr.postprocessor.helpers.file_ops", return_value=False):
+            with patch("comicarr.postprocessor.place", side_effect=PlacementError("no space")):
                 pp._process_manga()
 
         assert mock_db.upsert.call_count == 0, "an unplaced chapter must not be marked Downloaded"
@@ -381,15 +386,15 @@ class TestProcessMangaExistingDestination:
             if file_ops is None:
                 pp._process_manga()
             else:
-                with patch("comicarr.postprocessor.helpers.file_ops", **file_ops):
+                with patch("comicarr.postprocessor.place", **file_ops):
                     pp._process_manga()
 
         return cbz, placed, pp
 
     @pytest.mark.parametrize(
         "file_ops",
-        ({"return_value": False}, {"side_effect": OSError("No space left on device")}),
-        ids=("returns_false", "raises"),
+        ({"side_effect": PlacementError("No space left on device")},),
+        ids=("raises",),
     )
     def test_failed_replacement_restores_the_previous_chapter(self, tmp_path, file_ops):
         """The chapter already in the library is moved aside, not deleted, so a
@@ -481,7 +486,7 @@ class TestProcessMangaChapterMatch:
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
-            patch("comicarr.postprocessor.helpers.file_ops", return_value=True),
+            patch("comicarr.postprocessor.place", return_value=placement_result()),
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             # select_one calls: 1) comic lookup, 2) chapter match, 3) have count
@@ -519,7 +524,7 @@ class TestProcessMangaChapterMatch:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.helpers.file_ops", return_value=True),
+            patch("comicarr.postprocessor.place", return_value=placement_result()),
             patch("comicarr.postprocessor.db") as mock_db,
         ):
             # comic lookup succeeds, all chapter/issue lookups return None

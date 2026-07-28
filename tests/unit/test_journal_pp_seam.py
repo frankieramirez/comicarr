@@ -35,12 +35,13 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
+from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, service
 from comicarr.db import get_engine, shutdown_engine
-from comicarr import postprocessor
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
+from tests.conftest import placement_result
 
 
 @pytest.fixture(autouse=True)
@@ -520,12 +521,12 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
 
     moved_calls = []
 
-    def _fake_fileop(s, d):
+    def _fake_fileop(s, d, *a, **k):
         moved_calls.append(("fileop", s, d))
         seen.append("__fileop__")
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fake_fileop)
+    monkeypatch.setattr(postprocessor, "place", _fake_fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -558,10 +559,10 @@ def test_manga_pp_failure_path_does_not_write_post_processed(tmp_path, monkeypat
 
     pp = _make_pp(nzb_name="Chainsaw Man 165.cbz", nzb_folder=str(tmp_path), comicid="md-csm", issueid=None)
 
-    def _boom_fileop(s, d):
+    def _boom_fileop(s, d, *a, **k):
         raise OSError("disk full")
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _boom_fileop)
+    monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()
@@ -628,16 +629,16 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
     calls = {"n": 0}
     real_fileop_target = tmp_path / "manga" / "Chainsaw Man"
 
-    def _fileop(s, d):
+    def _fileop(s, d, *a, **k):
         calls["n"] += 1
         if calls["n"] >= 2:
             raise KeyboardInterrupt("simulated mid-loop restart after chapter 1")
         import shutil
 
         shutil.copy(s, d)
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
+    monkeypatch.setattr(postprocessor, "place", _fileop)
     assert real_fileop_target.exists()
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
@@ -715,14 +716,14 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
         seen.append(stage)
         return real_pp(stage, **k)
 
-    def _fileop(s, d):
+    def _fileop(s, d, *a, **k):
         seen.append("__fileop__")
         import shutil
 
         shutil.copy(s, d)
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
+    monkeypatch.setattr(postprocessor, "place", _fileop)
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
@@ -799,16 +800,16 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     pp1 = _build_pp()
     calls = {"n": 0}
 
-    def _crashing_fileop(s, d):
+    def _crashing_fileop(s, d, *a, **k):
         calls["n"] += 1
         if calls["n"] >= 2:
             raise KeyboardInterrupt("simulated mid-loop restart after chapter 1")
         import shutil
 
         shutil.move(s, d)
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _crashing_fileop)
+    monkeypatch.setattr(postprocessor, "place", _crashing_fileop)
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
             pp1._process_manga()
@@ -889,13 +890,13 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypa
             journal_release_key=rkey,
         )
 
-    def _fileop(s, d):
+    def _fileop(s, d, *a, **k):
         import shutil
 
         shutil.copy(s, d)
-        return True
+        return placement_result(d)
 
-    monkeypatch.setattr(postprocessor.helpers, "file_ops", _fileop)
+    monkeypatch.setattr(postprocessor, "place", _fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         pp._process_manga()

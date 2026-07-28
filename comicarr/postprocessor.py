@@ -32,6 +32,7 @@ from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
+from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
 from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessContext,
     PostProcessInputContext,
@@ -4327,71 +4328,31 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
-            # Place the file in the series folder. helpers.file_ops honours all
-            # four FILE_OPTS modes; shutil.move would destroy the source for the
-            # two link modes.
+            # Place the file in the series folder. The placement stage reads
+            # FILE_OPTS at call time and honours all four modes; shutil.move
+            # would destroy the source for the two link modes.
             dst = os.path.join(series_folder, filename)
 
             # An existing destination is not a failure. It happens on a repack of
             # a chapter already in the library, on a manual re-run (under the
             # non-move modes the download folder is never consumed, so the source
             # stays there), and on the recovery finalizer's full re-drive after a
-            # mid-loop crash. shutil.move/copy overwrite silently, but os.link and
-            # os.symlink raise EEXIST and file_ops reports that as a bare False —
-            # so without this the link modes would skip the chapter on every pass.
-            # Clear the destination first, keeping all four modes on the same
-            # replace-what-is-there policy the manga path had before file_ops.
-            already_placed = False
-            displaced = None
-            if os.path.lexists(dst):
-                try:
-                    # same inode (hardlinked) or same target (softlinked) means an
-                    # earlier pass already placed this chapter — re-linking it
-                    # would only fail, and the source must survive either way.
-                    already_placed = os.path.samefile(filepath, dst)
-                except OSError:
-                    already_placed = False
-                if not already_placed:
-                    # Move the existing chapter aside instead of deleting it.
-                    # Placement can still fail (disk full, permissions), and the
-                    # copy/move modes truncate the destination as they write, so
-                    # deleting up front would leave the library with nothing while
-                    # the DB still reports the chapter as Downloaded. A rename
-                    # frees dst for every mode and keeps the old file restorable.
-                    displaced = "%s.comicarr-displaced" % dst
-                    try:
-                        os.replace(dst, displaced)
-                        logger.fdebug("%s Replacing existing manga file: %s" % (module, dst))
-                    except OSError as e:
-                        displaced = None
-                        logger.error("%s Failed to replace existing %s: %s" % (module, dst, e))
-                        self._log("Failed to replace existing manga file: %s" % filename)
-                        continue
+            # mid-loop crash. DISPLACE recognises a chapter an earlier pass
+            # already placed, and otherwise moves the existing file aside rather
+            # than deleting it — copy and move truncate the destination as they
+            # write, so deleting up front would leave the library with nothing
+            # while the DB still reports the chapter as Downloaded.
+            try:
+                placement = place(filepath, dst, Purpose.SERIES, on_existing=OnExisting.DISPLACE)
+            except Exception as e:
+                logger.error("%s Failed to place %s: %s" % (module, filename, e))
+                self._log("Failed to move/copy manga file: %s" % filename)
+                continue
 
-            if already_placed:
+            if placement.outcome is Outcome.ALREADY_PLACED:
                 logger.fdebug("%s Manga file already placed, skipping placement: %s" % (module, filename))
             else:
-                try:
-                    fileoperation = helpers.file_ops(filepath, dst)
-                    if not fileoperation:
-                        raise OSError("file_ops returned False for %s -> %s" % (filepath, dst))
-                    logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
-                except Exception as e:
-                    logger.error("%s Failed to place %s: %s" % (module, filename, e))
-                    self._log("Failed to move/copy manga file: %s" % filename)
-                    if displaced is not None:
-                        try:
-                            os.replace(displaced, dst)
-                            logger.info("%s Restored the previous %s after a failed placement" % (module, dst))
-                        except OSError as restore_error:
-                            logger.error("%s Failed to restore the previous %s: %s" % (module, dst, restore_error))
-                    continue
-
-                if displaced is not None:
-                    try:
-                        os.remove(displaced)
-                    except OSError as e:
-                        logger.warn("%s Failed to clean up %s: %s" % (module, displaced, e))
+                logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
 
             # P1: do NOT emit per-file `moved` here. Every chapter in a manga
             # pack shares ONE release_key; advancing it to `moved` after
