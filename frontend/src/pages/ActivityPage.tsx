@@ -2,11 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   createColumnHelper,
-  getCoreRowModel,
-  useReactTable,
   type SortingState,
   type Table as TanstackTable,
-  type Updater,
 } from "@tanstack/react-table";
 import { RefreshCw } from "lucide-react";
 import {
@@ -18,6 +15,9 @@ import {
 } from "@/hooks/useActivity";
 import { useDebounce } from "@/hooks/use-debounce";
 import { DataTable } from "@/components/data-table/DataTable";
+import { useTableState } from "@/components/data-table/useTableState";
+import { useServerPage } from "@/components/data-table/useServerPage";
+import { encodeRowId } from "@/components/data-table/rowId";
 import { DataTableServerPagination } from "@/components/data-table/DataTableServerPagination";
 import { DataTableSortHeader } from "@/components/data-table/DataTableSortHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -199,8 +199,22 @@ function LoadingRows() {
   );
 }
 
-function useActivityTableState(defaultSortId: string) {
-  const [page, setPage] = useState(0);
+/**
+ * Both activity tables are server-driven: the sort and the search are inputs to
+ * the query that produces `data`, so both have to be readable *before* the
+ * table exists. That is what #377's `store` adapter is for — `useTableState`
+ * owns the sorting slice, the caller owns where it is kept. Here that is plain
+ * React state which also resets the server page, because under
+ * `manualPagination` TanStack's `autoResetPageIndex` is inert and the
+ * reset-on-change rule has no other owner (#360).
+ *
+ * What is left here is wiring specific to this page. The table state itself —
+ * sorting, selection, the row models — now lives in `useTableState`, which is
+ * the generalisation of the `useActivityTableState` this replaces.
+ */
+function useActivityTable(defaultSortId: string) {
+  const { page, limit, offset, nextPage, prevPage, resetPage } =
+    useServerPage(PAGE_SIZE);
   const [search, setSearchState] = useState("");
   const debouncedSearch = useDebounce(search, 400);
   const [sorting, setSorting] = useState<SortingState>([
@@ -208,26 +222,36 @@ function useActivityTableState(defaultSortId: string) {
   ]);
   const activeSort = sorting[0] ?? { id: defaultSortId, desc: true };
 
-  const setSearch = (value: string) => {
-    setSearchState(value);
-    setPage(0);
-  };
-  const handleSortingChange = (updater: Updater<SortingState>) => {
-    setSorting((current) =>
-      typeof updater === "function" ? updater(current) : updater,
-    );
-    setPage(0);
-  };
+  const setSearch = useCallback(
+    (value: string) => {
+      setSearchState(value);
+      resetPage();
+    },
+    [resetPage],
+  );
+
+  const store = useMemo(
+    () => ({
+      state: { sorting, globalFilter: "", pageIndex: page },
+      setState: (patch: { sorting?: SortingState }) => {
+        if (!("sorting" in patch) || !patch.sorting) return;
+        setSorting(patch.sorting);
+        resetPage();
+      },
+    }),
+    [sorting, page, resetPage],
+  );
 
   return {
-    page,
-    setPage,
+    limit,
+    offset,
     search,
     setSearch,
     debouncedSearch,
-    sorting,
     activeSort,
-    handleSortingChange,
+    store,
+    nextPage,
+    prevPage,
   };
 }
 
@@ -325,18 +349,19 @@ const queueColumnHelper = createColumnHelper<QueueItem>();
 
 function QueueView() {
   const {
-    page,
-    setPage,
+    limit,
+    offset,
     search,
     setSearch,
     debouncedSearch,
-    sorting,
     activeSort,
-    handleSortingChange,
-  } = useActivityTableState("updated");
+    store,
+    nextPage,
+    prevPage,
+  } = useActivityTable("updated");
   const { data, isLoading, isFetching, error, refetch } = useDownloadQueue({
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
+    limit,
+    offset,
     q: debouncedSearch,
     sort: activeSort.id,
     order: activeSort.desc ? "desc" : "asc",
@@ -465,12 +490,10 @@ function QueueView() {
     [handleRequeue, isRequeuePending, requeueItemId],
   );
 
-  const table = useReactTable({
+  const { table } = useTableState({
     data: queue,
     columns,
-    state: { sorting },
-    onSortingChange: handleSortingChange,
-    getCoreRowModel: getCoreRowModel(),
+    store,
     manualSorting: true,
     enableSortingRemoval: false,
     getRowId: (row) => row.ID,
@@ -494,8 +517,8 @@ function QueueView() {
       emptyDescription="Queued and downloading direct downloads will appear here; failures stay visible for review."
       filteredTitle="No matching queue items"
       onRefresh={() => void refetch()}
-      onNextPage={() => setPage((current) => current + 1)}
-      onPrevPage={() => setPage((current) => Math.max(0, current - 1))}
+      onNextPage={nextPage}
+      onPrevPage={prevPage}
     />
   );
 }
@@ -504,18 +527,19 @@ const historyColumnHelper = createColumnHelper<HistoryItem>();
 
 function HistoryView() {
   const {
-    page,
-    setPage,
+    limit,
+    offset,
     search,
     setSearch,
     debouncedSearch,
-    sorting,
     activeSort,
-    handleSortingChange,
-  } = useActivityTableState("date");
+    store,
+    nextPage,
+    prevPage,
+  } = useActivityTable("date");
   const { data, isLoading, isFetching, error, refetch } = useDownloadHistory({
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
+    limit,
+    offset,
     q: debouncedSearch,
     sort: activeSort.id,
     order: activeSort.desc ? "desc" : "asc",
@@ -579,15 +603,20 @@ function HistoryView() {
     [],
   );
 
-  const table = useReactTable({
+  const { table } = useTableState({
     data: history,
     columns,
-    state: { sorting },
-    onSortingChange: handleSortingChange,
-    getCoreRowModel: getCoreRowModel(),
+    store,
     manualSorting: true,
     enableSortingRemoval: false,
-    getRowId: (row, index) => `${row.IssueID}-${row.Status}-${index}`,
+    // Was `${IssueID}-${Status}-${index}`, which is positional: the same row
+    // gets a different id on any page or sort change. #383 found the real
+    // identity is already database-enforced — `snatched` carries
+    // UNIQUE(IssueID, Status, Provider) — so there is something to key on
+    // without a backend change. Encoded rather than joined because `Status`
+    // takes the value `Post-Processed`, which contains the delimiter a bare
+    // join would use.
+    getRowId: (row) => encodeRowId([row.IssueID, row.Status, row.Provider]),
   });
 
   return (
@@ -608,8 +637,8 @@ function HistoryView() {
       emptyDescription="Download events will appear here."
       filteredTitle="No matching history"
       onRefresh={() => void refetch()}
-      onNextPage={() => setPage((current) => current + 1)}
-      onPrevPage={() => setPage((current) => Math.max(0, current - 1))}
+      onNextPage={nextPage}
+      onPrevPage={prevPage}
     />
   );
 }

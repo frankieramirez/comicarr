@@ -95,6 +95,60 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("Direct download requeued.")).toBeTruthy();
   });
 
+  /**
+   * The server-paginated model gets no page reset from TanStack:
+   * `autoResetPageIndex` is inert under `manualPagination` (#360), so this
+   * invariant has no owner but the caller. It was hand-rolled inside
+   * `useActivityTableState`, which #393 deleted, and nothing else pinned it —
+   * a reset that quietly stopped happening would leave a user on page 3 of a
+   * result set that no longer has one.
+   */
+  it("returns to the first page when the sort or the filter changes", async () => {
+    const requests: URL[] = [];
+    server.use(
+      http.get("/api/downloads/queue", ({ request }) => {
+        const url = new URL(request.url);
+        requests.push(url);
+        const offset = Number(url.searchParams.get("offset") || 0);
+        return HttpResponse.json({
+          queue: [{ ...queueItem, ID: `queue-${offset}` }],
+          pagination: { total: 90, limit: 25, offset, has_more: true },
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<ActivityPage />, { route: "/activity", useMemoryRouter: true });
+    await screen.findByText("Absolute Flash");
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(requests.at(-1)?.searchParams.get("offset")).toBe("25");
+    });
+
+    await user.click(screen.getByRole("button", { name: /Updated/ }));
+    await waitFor(() => {
+      const last = requests.at(-1);
+      expect(last?.searchParams.get("order")).toBe("asc");
+      expect(last?.searchParams.get("offset")).toBe("0");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(requests.at(-1)?.searchParams.get("offset")).toBe("25");
+    });
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Filter queue activity" }),
+      "flash",
+    );
+    await waitFor(() => {
+      const last = requests.at(-1);
+      expect(last?.searchParams.get("q")).toBe("flash");
+      expect(last?.searchParams.get("offset")).toBe("0");
+    });
+  });
+
   it("filters, sorts, and paginates the live queue through the API", async () => {
     const requests: URL[] = [];
     server.use(

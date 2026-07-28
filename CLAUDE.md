@@ -55,6 +55,7 @@ Conventional PR titles keep history readable, but they do not control releases. 
 - **Do NOT use `bun` for frontend** - Use `npm` commands only
 - **Do NOT omit GPL license header** from new Python files
 - **Do NOT manually bump versions** - Changesets release automation handles this
+- **Do NOT call `useReactTable` directly** - `no-restricted-imports` allows it only in `frontend/src/components/data-table/useTableState.ts`. Call `useTableState`, which wraps it so `getRowId` is required and row identity can never fall back to TanStack's index default. Tables still awaiting migration are listed in an `overrides` allowlist in `eslint.config.js`; that list only ever shrinks — never add to it.
 - **Do NOT finish without linting** - Run `npm run lint` (or `npm run lint:fix` then re-check) before considering work done; do not bypass hooks with `--no-verify`
 
 ## Gotchas

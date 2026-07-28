@@ -35,9 +35,49 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true, allowExportNames: ['useAuth', 'useTheme', 'useToast', 'useSidebar', 'buttonVariants'] },
       ],
-      // TanStack Table's useReactTable API is flagged by React Compiler as
-      // incompatible — this is expected and the compiler already skips
-      // memoization for these call sites automatically.
+      // Row identity is the invariant the data-table/useTableState seam exists
+      // to centralise, and `getRowId` can only be *required* if there is one
+      // place to require it from. A comment is not a seam, and a source scan
+      // matches strings; this matches the import and fails at author time.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@tanstack/react-table',
+              importNames: ['useReactTable'],
+              message:
+                'Call useTableState from @/components/data-table/useTableState instead. It wraps useReactTable so getRowId cannot fall back to TanStack’s index default (#307, #359).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one file allowed to build a table instance.
+    files: ['src/components/data-table/useTableState.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+      // React Compiler flags useReactTable as an incompatible library. This
+      // disable used to be repo-wide because the call sites were scattered;
+      // confining them to one file is what lets it narrow to one file.
+      'react-hooks/incompatible-library': 'off',
+    },
+  },
+  {
+    // RATCHET — tables not yet migrated to useTableState. Each migration PR
+    // deletes its own line; the last one deletes this whole block. A file that
+    // is not listed here fails immediately, so a *new* call site cannot appear
+    // while the migration is in flight. Tracked by #353.
+    files: [
+      'src/components/series/SeriesTable.tsx', // #394
+      'src/components/queue/WantedTable.tsx', // #395
+      'src/components/queue/UpcomingTable.tsx', // #395
+      'src/components/import/ImportTable.tsx', // #396
+    ],
+    rules: {
+      'no-restricted-imports': 'off',
       'react-hooks/incompatible-library': 'off',
     },
   },
