@@ -583,13 +583,11 @@ _BAD_DEFINITIONS = OrderedDict(
         "ENABLE_PUBLIC": ("Torrents", "ENABLE_TPSE"),
         "PUBLIC_VERIFY": ("Torrents", "TPSE_VERIFY"),
         "IGNORED_PUBLISHERS": ("CV", "BLACKLISTED_PUBLISHERS"),
-        "NZBSU": ("NZBsu", "nzbsu", bool, None),
-        "NZBSU_UID": ("NZBsu", "nzbsu_uid", str, None),
-        "NZBSU_APIKEY": ("NZBsu", "nzbsu_apikey", str, None),
-        "NZBSU_VERIFY": ("NZBsu", "nzbsu_verify", bool, None),
-        "DOGNZB": ("DOGnzb", "dognzb", bool, None),
-        "DOGNZB_APIKEY": ("DOGnzb", "dognzb_apikey", str, None),
-        "DOGNZB_VERIFY": ("DOGnzb", "dognzb_verify", bool, None),
+        # NZBsu and DOGnzb entries were removed here. They remapped onto keys
+        # Comicarr does not define, and migrate_mylar3_config reads this dict
+        # independently of _CONFIG_DEFINITIONS -- so migrating a Mylar3 config
+        # that used either provider handed writeconfig an undefined key,
+        # process_kwargs raised KeyError, and every setting was discarded.
         "SAB_DIRECT_UNPACK": ("SABnzbd", "SAB_TO_MYLAR"),
     }
 )
@@ -1243,11 +1241,7 @@ class Config(object):
     def _define(self, name):
         key = name.upper()
         ini_key = name.lower()
-        definition = _CONFIG_DEFINITIONS[key]
-        if len(definition) == 3:
-            definition_type, section, default = definition
-        elif len(definition) == 4:
-            definition_type, section, _, default = definition
+        definition_type, section, default = _CONFIG_DEFINITIONS[key]
         return key, definition_type, section, ini_key, default
 
     def _provider_max_id(self):

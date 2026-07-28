@@ -485,6 +485,15 @@ def migrate_mylar3_config(source_path):
                     logger.warn("[MIGRATION] Failed to encrypt %s, skipping" % key)
                     del values[key]
 
+    # Drop anything config cannot define before handing the batch over.
+    # process_kwargs raises KeyError on an undefined key, and the caller treats
+    # that as "config migration failed" -- so one stray key silently costs the
+    # user every other setting in this dict. Skipping it costs only that key.
+    undefined = [key for key in values if key not in _CONFIG_DEFINITIONS]
+    for key in undefined:
+        logger.warn("[MIGRATION] Skipping %s — no config definition for it in this version" % key)
+        del values[key]
+
     # Write config atomically
     comicarr.CONFIG.writeconfig(values)
     logger.info("[MIGRATION] Config migration completed — %d settings imported" % len(values))
