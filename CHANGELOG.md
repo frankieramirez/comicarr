@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.3
+
+### Patch Changes
+
+- 5eab8db: Surface the actual reason a search is blocked instead of a generic placeholder.
+
+  When no acquisition route was handoff-ready, the search-missing preview and the
+  Wanted force-search both read a `reason` key that `get_search_health()` never
+  returns, so every blocked search reported `no_viable_acquisition_route` no matter
+  the cause. Route readiness already computes a specific blocker per route
+  (`path_not_ready`, `client_not_ready`, `disabled`, `providers_temporarily_blocked`,
+  a maintenance hold); the blocked response now reports the one closest to ready,
+  and the series search dialog explains it in plain language while keeping the raw
+  code visible for support.
+
+- f01a1f7: Add a single file placement stage that reads the file operation setting at call time. Callers pass intent — what the file is for, and what to do if the destination is occupied — instead of a resolved mode, so no caller can bind a stale setting and place a file the wrong way. Nothing routes through it yet.
+
 ## 0.20.2
 
 ### Patch Changes
