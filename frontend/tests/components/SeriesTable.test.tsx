@@ -127,6 +127,36 @@ describe("SeriesTable", () => {
     expect(new URLSearchParams(window.location.search).get("page")).toBe("99");
   });
 
+  // The display clamp must count the rows the global search leaves, not just
+  // the domain-filtered set: the search runs inside useTableState, so the
+  // component reproduces it to size the clamp, and this pins the two against
+  // drifting apart. With the clamp counting all 63 rows, page=99 would clamp
+  // to page 3 of a one-row searched set and render an empty table.
+  it("clamps against the searched rows on a deep link with search and page", async () => {
+    window.history.pushState({}, "", "/library?page=99&search=Series+21");
+
+    const { rerender } = render(
+      <NuqsAdapter>
+        <SeriesTable data={[]} isLoading />
+      </NuqsAdapter>,
+    );
+    await settle();
+
+    rerender(
+      <NuqsAdapter>
+        <SeriesTable data={series(63)} />
+      </NuqsAdapter>,
+    );
+    await settle();
+
+    expect(screen.getByText("Series 21")).toBeTruthy();
+    expect(screen.queryByText("No results.")).toBeNull();
+    expect(new URLSearchParams(window.location.search).get("page")).toBe("99");
+    expect(new URLSearchParams(window.location.search).get("search")).toBe(
+      "Series 21",
+    );
+  });
+
   // Regression: `selectedSeriesIds` used to read the raw rowSelection keys, so
   // a row filtered out of view stayed selected, stayed counted in the bulk
   // bar, and stayed a target of bulk delete/pause/resume — the #307 class.

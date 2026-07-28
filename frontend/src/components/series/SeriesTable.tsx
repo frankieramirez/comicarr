@@ -119,6 +119,26 @@ export default function SeriesTable({
   );
 
   const urlStore = useTableUrlStore({ history: "replace" });
+  const search = urlStore.state.globalFilter;
+
+  // The clamp has to count the rows TanStack will actually paginate, and the
+  // global search runs inside the hook — after this clamp is already fixed —
+  // so the search is reproduced here: TanStack's `includesString`
+  // (case-insensitive substring per column value) over the same four accessor
+  // columns. The deep-link test pins a searched out-of-range page so drift
+  // between the two surfaces as a failure, not an empty table.
+  const searchedCount = useMemo(() => {
+    if (!search) return filteredData.length;
+    const query = search.toLowerCase();
+    return filteredData.filter((comic) =>
+      [
+        comic.ComicName,
+        comic.ComicPublisher,
+        comic.Status,
+        comic.ComicYear,
+      ].some((value) => value?.toString().toLowerCase().includes(query)),
+    ).length;
+  }, [filteredData, search]);
 
   // The render-time, display-only clamp that replaced the page-clamp effect
   // (#360): an out-of-range `pageIndex` renders the last real page and the URL
@@ -127,7 +147,7 @@ export default function SeriesTable({
   // them apart was the deep-link bug (#372, #381). The clamp composes over the
   // URL store because the hook feeds `store.state.pageIndex` straight to
   // TanStack, which renders an empty page for an index past the end.
-  const maxPage = Math.max(0, Math.ceil(filteredData.length / pageSize) - 1);
+  const maxPage = Math.max(0, Math.ceil(searchedCount / pageSize) - 1);
   const pageIndex = Math.min(urlStore.state.pageIndex, maxPage);
   const store = useMemo<TableStore>(
     () => ({
@@ -155,7 +175,6 @@ export default function SeriesTable({
   });
 
   const sorting = table.getState().sorting;
-  const search = store.state.globalFilter;
   const effectivePage = table.getState().pagination.pageIndex;
 
   // A selection change must invalidate an armed delete confirmation. That
