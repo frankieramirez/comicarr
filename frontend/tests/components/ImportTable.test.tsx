@@ -203,6 +203,49 @@ describe("ImportTable", () => {
     expect(screen.queryByText("0%")).toBeNull();
   });
 
+  it("labels empty-file groups as Ignore, not Unignore", () => {
+    renderMinimal(
+      <Harness
+        imports={[
+          makeGroup({
+            DynamicName: "folder:empty",
+            ComicName: "Empty Group",
+            FileCount: 0,
+            files: [],
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Ignore import" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Unignore import" }),
+    ).toBeNull();
+  });
+
+  it("labels fully ignored groups as Unignore", () => {
+    renderMinimal(
+      <Harness
+        imports={[
+          makeGroup({
+            files: [
+              makeFile({ impID: "1", IgnoreFile: 1 }),
+              makeFile({
+                impID: "2",
+                IgnoreFile: 1,
+                ComicFilename: "chapter 2.cbz",
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Unignore import" }),
+    ).toBeTruthy();
+  });
+
   it("saves edited chapter values from expanded file rows", async () => {
     const file = makeFile();
     const onIssueNumberChange = vi.fn().mockResolvedValue(undefined);

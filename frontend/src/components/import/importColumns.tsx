@@ -207,8 +207,10 @@ export function useImportColumns({
         id: "actions",
         header: "Actions",
         cell: ({ row }) => {
+          // [].every() is true; require files so empty groups stay "Ignore".
+          const files = row.original.files ?? [];
           const allIgnored =
-            row.original.files?.every((file) => file.IgnoreFile === 1) ?? false;
+            files.length > 0 && files.every((file) => file.IgnoreFile === 1);
           const ignoreLabel = allIgnored ? "Unignore import" : "Ignore import";
 
           return (
