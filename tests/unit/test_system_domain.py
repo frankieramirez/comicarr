@@ -2206,14 +2206,15 @@ class TestConfigTransactions:
         writer.assert_called_once_with()
 
     def test_transaction_restores_state_when_configure_raises_system_exit(self, tmp_path, monkeypatch):
-        """SystemExit from legacy configure cannot bypass transactional rollback."""
+        """SystemExit from legacy configure rolls back, then propagates."""
         cfg, config_path, config_module = _make_real_config(tmp_path, monkeypatch)
         cfg.process_kwargs({"COMIC_DIR": "/old/library"})
         assert cfg.writeconfig() is True
         original_file = config_path.read_bytes()
         cfg.configure = MagicMock(side_effect=SystemExit(1))
 
-        assert cfg.apply_transaction({"COMIC_DIR": "/new/library"}) is False
+        with pytest.raises(SystemExit):
+            cfg.apply_transaction({"COMIC_DIR": "/new/library"})
 
         assert cfg.COMIC_DIR == "/old/library"
         assert config_module.config.get("Import", "comic_dir") == "/old/library"

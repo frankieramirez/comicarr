@@ -1200,6 +1200,10 @@ class Config(object):
                     # but already-completed external effects are not reversible here.
                     self.configure(update=True, startup=False)
                 return True
+            # BaseException is deliberate: rollback must run even for
+            # interpreter-exiting exceptions (a torn config.ini is worse than a
+            # cancelled save); the isinstance re-raise below preserves their
+            # propagation once state is restored.
             except BaseException as e:
                 comicarr.PROVIDER_START_ID = provider_start_id
                 durable_write_happened = self._durable_write_changed(config_path, file_existed, file_contents)
@@ -1226,7 +1230,7 @@ class Config(object):
                         % (runtime_ok, file_ok)
                     )
                 logger.error("[CONFIG] Transactional update failed: %s" % e)
-                if isinstance(e, (KeyboardInterrupt, GeneratorExit)):
+                if isinstance(e, (KeyboardInterrupt, SystemExit, GeneratorExit)):
                     raise
                 return False
 
