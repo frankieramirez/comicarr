@@ -248,7 +248,9 @@ export default function SettingsPage() {
             {section === "acquisition" && <AcquisitionHealthTab />}
             {section === "media" && <MediaManagementTab {...tabProps} />}
             {section === "notifications" && <NotificationsTab {...tabProps} />}
-            {section === "clients" && <DownloadClientsTab config={formData} />}
+            {section === "clients" && (
+              <DownloadClientsTab config={configData} />
+            )}
             {section === "ai" && <AiTab {...tabProps} />}
             {section === "about" && <AboutSection config={config ?? {}} />}
           </div>
