@@ -22,6 +22,7 @@ the ones that would break a naive entry type. The bulk migration is separate.
 
 from __future__ import annotations
 
+import copy
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
@@ -94,8 +95,15 @@ class ConfigKey:
 
     @property
     def as_definition(self) -> tuple[type, str, Any]:
-        """This key as a legacy `_CONFIG_DEFINITIONS` value."""
-        return (self.type, self.section, self.default)
+        """This key as a legacy `_CONFIG_DEFINITIONS` value.
+
+        The default is copied. `frozen=True` stops the field being rebound but
+        not a list default being mutated in place, and `check_setting` hands
+        `v[2]` straight to `setattr`, so without this every `Config` built in
+        the process would share one `IGNORE_SEARCH_WORDS` list -- and an
+        `.append` anywhere would edit the registry's own default.
+        """
+        return (self.type, self.section, copy.copy(self.default))
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +175,36 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("EXTRA_TORZNABS", str, "Torznab", "", provider_extra=True),
 )
 
-REGISTRY: OrderedDict[str, ConfigKey] = OrderedDict((k.name, k) for k in _KEYS)
+
+def _build(keys: tuple[ConfigKey, ...]) -> OrderedDict[str, ConfigKey]:
+    """Index the keys, refusing any collision.
+
+    Building the dict straight from a comprehension would let a duplicate name
+    silently drop a definition, and a duplicate `interval_for` / `gates` would
+    silently rebind a scheduler job to whichever entry happened to come last.
+    The bulk migration emits these 411 entries from a script, so a typo there
+    has to fail at import rather than quietly lose a key.
+    """
+    registry: OrderedDict[str, ConfigKey] = OrderedDict()
+    bindings: dict[str, dict[str, str]] = {"interval_for": {}, "gates": {}}
+
+    for key in keys:
+        if key.name in registry:
+            raise ValueError("duplicate config key: %s" % key.name)
+        registry[key.name] = key
+
+        for attr, claimed in bindings.items():
+            job = getattr(key, attr)
+            if job is None:
+                continue
+            if job in claimed:
+                raise ValueError("%s job %r claimed by both %s and %s" % (attr, job, claimed[job], key.name))
+            claimed[job] = key.name
+
+    return registry
+
+
+REGISTRY: OrderedDict[str, ConfigKey] = _build(_KEYS)
 
 
 # ---------------------------------------------------------------------------
