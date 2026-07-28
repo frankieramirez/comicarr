@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.4
+
+### Patch Changes
+
+- ecc6cd8: Honour the file operation setting when finalizing a manual import. Confirming an import always moved files into the series folder regardless of whether File Operations was set to copy, hardlink, or softlink — so operators using a link mode to keep their download folder intact lost the source file on every manual import. Finalization now copies, hardlinks, or symlinks to match the setting, and only consumes the source under `move`.
+- 85d1830: Route manga post-processing through the shared file placement stage. Sixty-five lines of replace-what-is-there policy — recognising a chapter an earlier pass already placed, moving an existing chapter aside rather than deleting it, putting it back when placement fails — move out of the post-processor and into the one module that owns placement.
+- 3462841: Route the remaining post-processor file placements through the shared placement stage, so every one of them reads the file operation setting at the moment it runs rather than from a value passed in earlier.
+- 0ab31e2: Route story-arc directory placement through the shared placement stage and remove the two legacy file-operation helpers it was the last caller of. Every file Comicarr places now goes through one module that reads the file operation setting at the moment it runs, and an architecture test keeps it that way.
+
 ## 0.20.3
 
 ### Patch Changes
