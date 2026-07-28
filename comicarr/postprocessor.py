@@ -3122,9 +3122,13 @@ class PostProcessor(object):
                                 "ml_cnt: %s / multiple_arcs: %s --- multiple arc entry: %s"
                                 % (ml_cnt, multiple_arcs, mult_count)
                             )
-                            fileoperation = helpers.file_ops(grab_src, grab_dst, one_off=True, multiple=mult_count)
-                            if not fileoperation:
-                                raise OSError
+                            place(
+                                grab_src,
+                                grab_dst,
+                                Purpose.ONE_OFF,
+                                on_existing=OnExisting.UNGUARDED,
+                                multiple=mult_count,
+                            )
                         except Exception as e:
                             logger.error(
                                 "%s [ONE-OFF MODE] Failed to %s %s: %s"
@@ -3998,9 +4002,7 @@ class PostProcessor(object):
                             if all([metaresponse != "fail", metaresponse is not None]):  # meta was done
                                 self.tidyup(src_location, True, cacheonly=True)
                             raise OSError
-                        fileoperation = helpers.file_ops(grab_src, grab_dst)
-                        if not fileoperation:
-                            raise OSError
+                        place(grab_src, grab_dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
                     except Exception as e:
                         logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.FILE_OPTS, grab_src, e))
                         self._log("Failed to %s %s: %s" % (comicarr.CONFIG.FILE_OPTS, grab_src, e))
@@ -5162,9 +5164,7 @@ class PostProcessor(object):
                     if all([pcheck is not None, pcheck != "fail"]):  # meta was done
                         self.tidyup(odir, True, cacheonly=True)
                     raise OSError
-                fileoperation = helpers.file_ops(src, dst)
-                if not fileoperation:
-                    raise OSError
+                place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
             except Exception as e:
                 self._log("Failed to %s %s - check log for exact error." % (comicarr.CONFIG.FILE_OPTS, src))
                 self._log("Post-Processing ABORTED.")
@@ -5206,9 +5206,7 @@ class PostProcessor(object):
                     if all([pcheck != "fail", pcheck is not None]):  # meta was done
                         self.tidyup(odir, True, cacheonly=True)
                     raise OSError
-                fileoperation = helpers.file_ops(src, dst)
-                if not fileoperation:
-                    raise OSError
+                place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
             except Exception as e:
                 logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.FILE_OPTS, src, e))
                 logger.error("%s Post-Processing ABORTED." % module)
@@ -5354,9 +5352,7 @@ class PostProcessor(object):
                             checkspace = helpers.get_free_space(grdst)
                             if checkspace is False:
                                 raise OSError
-                            fileoperation = helpers.file_ops(grab_src, grab_dst, arc=True)
-                            if not fileoperation:
-                                raise OSError
+                            place(grab_src, grab_dst, Purpose.ARC, on_existing=OnExisting.UNGUARDED)
                         except Exception as e:
                             logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e))
                             return
