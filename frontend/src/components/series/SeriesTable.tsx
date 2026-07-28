@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
@@ -152,6 +152,18 @@ export default function SeriesTable({
     [effectivePage, pageSize],
   );
 
+  // Auto-reset is armed one render AFTER data first arrives, so the arrival
+  // itself never resets the page. TanStack queues `_autoResetPageIndex` onto a
+  // microtask that runs after the render which consumed the row model — by then
+  // the render-time clamp has already raised `pageIndex` to the deep-linked
+  // page, so an unarmed reset's 0 differs from it, passes the handler's guard
+  // below, and strips `?page` from the URL. Gating on a ref works because the
+  // option is read synchronously during that render, not inside the microtask.
+  const seenData = useRef(false);
+  useEffect(() => {
+    if (data.length > 0) seenData.current = true;
+  });
+
   const selectedSeriesIds = useMemo(() => {
     return Object.keys(rowSelection).filter((id) => rowSelection[id]);
   }, [rowSelection]);
@@ -254,6 +266,7 @@ export default function SeriesTable({
       setConfirmDelete(false);
       setRowSelection(updater);
     },
+    autoResetPageIndex: seenData.current,
     getRowId: (row) => row.ComicID,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -265,6 +278,11 @@ export default function SeriesTable({
   const pageCount = table.getPageCount();
 
   useEffect(() => {
+    // Rows have not arrived yet, so `pageCount` is 0 and says nothing about
+    // whether the requested page exists. Clamping here is what strips `?page`
+    // from a cold deep link.
+    if (data.length === 0) return;
+
     const maxPage = Math.max(0, pageCount - 1);
     const clampedPage = Math.min(Math.max(localPage, 0), maxPage);
 
