@@ -164,10 +164,6 @@ export default function SeriesTable({
     if (data.length > 0) seenData.current = true;
   });
 
-  const selectedSeriesIds = useMemo(() => {
-    return Object.keys(rowSelection).filter((id) => rowSelection[id]);
-  }, [rowSelection]);
-
   const handleBulkDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -274,6 +270,32 @@ export default function SeriesTable({
     getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: true,
   });
+
+  // Selected ids come from the row model, never from raw `rowSelection` keys —
+  // the raw keys are what kept a filtered-away row a target of bulk
+  // delete/pause/resume (see #390, the #307 class).
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedSeriesIds = useMemo(
+    () => selectedRows.map((row) => row.id),
+    [selectedRows],
+  );
+
+  // TanStack never prunes stale selection ids, by design, and the header
+  // checkbox counts raw state — so deriving outputs above is not enough on its
+  // own. Drop ids whose rows the filters removed, mirroring WantedTable and
+  // UpcomingTable. Keyed on the filtered row model, not the page model, so
+  // paging away from a selected row never clears it.
+  const filteredRows = table.getFilteredRowModel().rows;
+  useEffect(() => {
+    setRowSelection((prev) => {
+      const selected = Object.keys(prev).filter((id) => prev[id]);
+      if (selected.length === 0) return prev;
+      const present = new Set(filteredRows.map((row) => row.id));
+      const kept = selected.filter((id) => present.has(id));
+      if (kept.length === selected.length) return prev;
+      return Object.fromEntries(kept.map((id) => [id, true]));
+    });
+  }, [filteredRows]);
 
   const pageCount = table.getPageCount();
 
