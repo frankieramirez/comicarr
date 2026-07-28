@@ -112,6 +112,16 @@ describe("queue table selection", () => {
 
     expect(onSelectionChange).toHaveBeenCalled();
     expect(lastSelection(onSelectionChange)).toEqual(["issue-1"]);
+
+    // The header checkbox is this table's own column wiring, not the hook's,
+    // so it is driven through the DOM here.
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
+    expect(lastSelection(onSelectionChange)?.sort()).toEqual([
+      "issue-1",
+      "issue-2",
+      "issue-3",
+    ]);
   });
 
   it("reports the selected UpcomingTable issue by id", async () => {
@@ -128,5 +138,13 @@ describe("queue table selection", () => {
 
     expect(onSelectionChange).toHaveBeenCalled();
     expect(lastSelection(onSelectionChange)).toEqual(["issue-1"]);
+
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
+    expect(lastSelection(onSelectionChange)?.sort()).toEqual([
+      "issue-1",
+      "issue-2",
+      "issue-3",
+    ]);
   });
 });

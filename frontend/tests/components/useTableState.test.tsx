@@ -174,12 +174,13 @@ describe("useTableState", () => {
 
     it("does not resurrect ids the caller cleared (#307)", () => {
       const { result } = renderTable({
-        data: rows("a", "b"),
+        data: rows("a", "b", "c"),
         scope: "filtered",
       });
 
       act(() => {
-        toggleAllSelected(result.current.table, true);
+        result.current.table.getRowModel().rows[0].toggleSelected(true);
+        result.current.table.getRowModel().rows[1].toggleSelected(true);
       });
       act(() => {
         result.current.clearSelection();
@@ -189,6 +190,14 @@ describe("useTableState", () => {
       expect(Object.keys(result.current.table.getState().rowSelection)).toEqual(
         [],
       );
+
+      // Resurrection was a bug of the *next* selection change: before the page
+      // owned selection, the table kept its own copy and the next toggle
+      // merged the cleared ids back in.
+      act(() => {
+        result.current.table.getRowModel().rows[2].toggleSelected(true);
+      });
+      expect(result.current.selectedIds).toEqual(["c"]);
     });
   });
 
