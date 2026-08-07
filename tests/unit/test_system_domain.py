@@ -96,7 +96,6 @@ def _make_test_ctx(**overrides):
         "jwt_secret_key": b"test_secret_key_32_bytes_padding!",
         "jwt_generation": 0,
         "sse_key": "test_sse_key",
-        "download_apikey": "test_dl_key",
         "scheduler": MagicMock(),
         "setup_token": None,
     }

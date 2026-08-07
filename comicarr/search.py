@@ -3707,107 +3707,15 @@ def searcher(
         # end nzb.get
 
         elif comicarr.USE_SABNZBD:
-            sab_params = None
-            # let's build the send-to-SAB string now:
-            # changed to just work with direct links now...
-
-            # generate the api key to download here and then kill it immediately after.
-            if comicarr.DOWNLOAD_APIKEY is None:
-                import secrets
-
-                comicarr.DOWNLOAD_APIKEY = secrets.token_hex(16)
-
-            # generate the comicarr host address if applicable.
-            if comicarr.CONFIG.ENABLE_HTTPS:
-                proto = "https://"
-            else:
-                proto = "http://"
-
-            if comicarr.CONFIG.HTTP_ROOT is None:
-                hroot = "/"
-            elif comicarr.CONFIG.HTTP_ROOT.endswith("/"):
-                hroot = comicarr.CONFIG.HTTP_ROOT
-            else:
-                if comicarr.CONFIG.HTTP_ROOT != "/":
-                    hroot = comicarr.CONFIG.HTTP_ROOT + "/"
-                else:
-                    hroot = comicarr.CONFIG.HTTP_ROOT
-
-            if comicarr.LOCAL_IP is None:
-                # if comicarr's local, get the local IP using socket.
-                try:
-                    import socket
-
-                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    s.connect(("8.8.8.8", 80))
-                    comicarr.LOCAL_IP = s.getsockname()[0]
-                    s.close()
-                except Exception as e:
-                    logger.warn(
-                        "Unable to determine local IP. Defaulting to host address for"
-                        " Comicarr provided as : %s. Error returned: %s" % (comicarr.CONFIG.HTTP_HOST, e)
-                    )
-
-            if comicarr.CONFIG.HOST_RETURN:
-                # comicarr has the return value already provided
-                # (easier and will work if it's right)
-                if comicarr.CONFIG.HOST_RETURN.endswith("/"):
-                    comicarr_host = comicarr.CONFIG.HOST_RETURN
-                else:
-                    comicarr_host = comicarr.CONFIG.HOST_RETURN + "/"
-
-            elif comicarr.CONFIG.SAB_DIRECT_UNPACK:
-                # if sab & comicarr are on different machines, check to see if they are
-                # local or external IP's provided for host.
-                if (
-                    comicarr.CONFIG.HTTP_HOST == "localhost"
-                    or comicarr.CONFIG.HTTP_HOST == "0.0.0.0"
-                    or comicarr.CONFIG.HTTP_HOST.startswith("10.")
-                    or comicarr.CONFIG.HTTP_HOST.startswith("192.")
-                    or comicarr.CONFIG.HTTP_HOST.startswith("172.")
-                ):
-                    # if comicarr's local, use the local IP already assigned to LOCAL_IP.
-                    comicarr_host = "%s%s:%s%s" % (proto, comicarr.LOCAL_IP, comicarr.CONFIG.HTTP_PORT, hroot)
-                else:
-                    if comicarr.EXT_IP is None:
-                        # if comicarr isn't local, get the external IP using pystun.
-                        import stun
-
-                        sip = comicarr.CONFIG.HTTP_HOST
-                        port = int(comicarr.CONFIG.HTTP_PORT)
-                        try:
-                            nat_type, ext_ip, ext_port = stun.get_ip_info(sip, port)
-                            comicarr_host = "%s%s:%s%s" % (proto, ext_ip, ext_port, hroot)
-                            comicarr.EXT_IP = ext_ip
-                        except Exception as e:
-                            logger.warn(
-                                "Unable to retrieve External IP - try using the"
-                                " host_return option in the config.ini. Error: %s" % e
-                            )
-                            comicarr_host = "%s%s:%s%s" % (
-                                proto,
-                                comicarr.CONFIG.HTTP_HOST,
-                                comicarr.CONFIG.HTTP_PORT,
-                                hroot,
-                            )
-                    else:
-                        comicarr_host = "%s%s:%s%s" % (proto, comicarr.EXT_IP, comicarr.CONFIG.HTTP_PORT, hroot)
-
-            else:
-                # if all else fails, drop it back to the basic host:port and try that.
-                if comicarr.LOCAL_IP is None:
-                    tmp_host = comicarr.CONFIG.HTTP_HOST
-                else:
-                    tmp_host = comicarr.LOCAL_IP
-                comicarr_host = proto + str(tmp_host) + ":" + str(comicarr.CONFIG.HTTP_PORT) + hroot
-
-            fileURL = comicarr_host + "api?apikey=" + comicarr.DOWNLOAD_APIKEY + "&cmd=downloadNZB&nzbname=" + nzbname
-
+            # Content upload, not a callback. mode=addfile multipart-POSTs the
+            # .nzb already cached at nzbpath, which makes SAB structurally
+            # identical to NZBGet's XML-RPC append: the handoff completes inside
+            # one request and is verifiable from SAB's own response, with
+            # nothing for SAB to fetch back out of Comicarr.
+            # See docs/adr/0002-handoff-no-callback.md (#552 / #564).
             sab_params = {
                 "apikey": comicarr.CONFIG.SAB_APIKEY,
-                "mode": "addurl",
-                "name": fileURL,
-                "cmd": "downloadNZB",
+                "mode": "addfile",
                 "nzbname": nzbname,
                 "output": "json",
             }
@@ -3835,49 +3743,41 @@ def searcher(
             if comicarr.CONFIG.SAB_CATEGORY:
                 sab_params["cat"] = comicarr.CONFIG.SAB_CATEGORY
 
-            if sab_params is not None:
-                ss = sabnzbd.SABnzbd(sab_params)
-                try:
-                    sendtosab, _route_acceptance = handoff.perform_handoff(
-                        journal_release_key,
-                        "sabnzbd",
-                        ss.sender,
-                        payload=journal_payload,
-                        issueid=journal_issueid,
-                        provider=tmpprov,
-                        nzbname=nzbname,
-                    )
-                    journal_managed = True
-                except Exception as e:
-                    logger.error("SABnzbd handoff could not be durably completed: %s" % type(e).__name__)
-                    return "sab-fail"
-                if all(
-                    [
-                        sendtosab["status"] is True,
-                        comicarr.CONFIG.SAB_CLIENT_POST_PROCESSING is True,
-                    ]
-                ):
-                    sendtosab["comicid"] = ComicID
-                    if IssueID is not None:
-                        sendtosab["issueid"] = IssueID
-                    else:
-                        sendtosab["issueid"] = "S" + IssueArcID
-                    sendtosab["apicall"] = True
-                    sendtosab["download_info"] = {"provider": nzbprov, "id": nzbid}
-                    sendtosab["journal_release_key"] = journal_release_key
-                    sendtosab["clientmode"] = "sabnzbd"
-                    logger.info("SABnzbd accepted download id=%s" % sendtosab.get("nzo_id"))
-                    comicarr.NZB_QUEUE.put(sendtosab)
-                elif sendtosab["status"] == "double-pp":
-                    return sendtosab["status"]
-                elif sendtosab["status"] is False:
-                    return "sab-fail"
-            else:
-                logger.warn(
-                    "Unable to send nzb file to SABnzbd. There was a parameter error as"
-                    " there are no values present: %s" % sab_params
+            ss = sabnzbd.SABnzbd(sab_params)
+            try:
+                sendtosab, _route_acceptance = handoff.perform_handoff(
+                    journal_release_key,
+                    "sabnzbd",
+                    lambda: ss.sender(nzbpath),
+                    payload=journal_payload,
+                    issueid=journal_issueid,
+                    provider=tmpprov,
+                    nzbname=nzbname,
                 )
-                comicarr.DOWNLOAD_APIKEY = None
+                journal_managed = True
+            except Exception as e:
+                logger.error("SABnzbd handoff could not be durably completed: %s" % type(e).__name__)
+                return "sab-fail"
+            if all(
+                [
+                    sendtosab["status"] is True,
+                    comicarr.CONFIG.SAB_CLIENT_POST_PROCESSING is True,
+                ]
+            ):
+                sendtosab["comicid"] = ComicID
+                if IssueID is not None:
+                    sendtosab["issueid"] = IssueID
+                else:
+                    sendtosab["issueid"] = "S" + IssueArcID
+                sendtosab["apicall"] = True
+                sendtosab["download_info"] = {"provider": nzbprov, "id": nzbid}
+                sendtosab["journal_release_key"] = journal_release_key
+                sendtosab["clientmode"] = "sabnzbd"
+                logger.info("SABnzbd accepted download id=%s" % sendtosab.get("nzo_id"))
+                comicarr.NZB_QUEUE.put(sendtosab)
+            elif sendtosab["status"] == "double-pp":
+                return sendtosab["status"]
+            elif sendtosab["status"] is False:
                 return "sab-fail"
 
             sent_to = "has sent it to your SABnzbd+"

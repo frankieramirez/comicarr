@@ -65,7 +65,6 @@ def create_test_context(**overrides):
         "jwt_secret_key": b"test_secret_key_32_bytes_padding!",
         "jwt_generation": 0,
         "sse_key": "test_sse_key",
-        "download_apikey": "test_dl_key",
     }
     defaults.update(overrides)
     return AppContext(**defaults)

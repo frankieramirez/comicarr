@@ -240,7 +240,7 @@ class Config(object):
                 count = 0
 
             # this is the current version at this particular point in time.
-            self.newconfig = 16
+            self.newconfig = 17
 
             OLDCONFIG_VERSION = 0
             if count == 0:
@@ -474,6 +474,19 @@ class Config(object):
                     config.remove_option("General", "auto_update")
                 if config.has_option("Git", "check_github_on_startup"):
                     config.remove_option("Git", "check_github_on_startup")
+            if self.CONFIG_VERSION < 17:
+                # host_return told the SAB handoff which address to hand the
+                # download client so it could fetch the NZB back out of
+                # Comicarr. That handoff now uploads the NZB directly, so the
+                # setting has no consumer — scrub it rather than leaving a key
+                # in config.ini that silently does nothing.
+                # See docs/adr/0002-handoff-no-callback.md (#552 / #564).
+                if config.has_option("Interface", "host_return"):
+                    config.remove_option("Interface", "host_return")
+                    logger.info(
+                        "[CONFIG] Removed host_return: the SABnzbd handoff now uploads the "
+                        "nzb directly and no download client is given a Comicarr address."
+                    )
             self.OLDCONFIG_VERSION = str(self.CONFIG_VERSION)
             self.CONFIG_VERSION = self.newconfig
             config.set("General", "CONFIG_VERSION", str(self.newconfig))

@@ -145,7 +145,6 @@ class AppContext:
     import_button: bool = False
 
     # Mutable auth state (ephemeral, NOT on config)
-    download_apikey: str = None
     sse_key: str = None
     setup_token: str = None
 

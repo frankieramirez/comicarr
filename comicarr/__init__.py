@@ -273,8 +273,6 @@ CURRENT_RELEASE_NAME = None
 LATEST_VERSION = None
 UPDATE_STATE = None
 UPDATE_REASON = None
-LOCAL_IP = None
-DOWNLOAD_APIKEY = None
 APILOCK = ThreadSafeLock()
 SEARCHLOCK = ThreadSafeLock()
 DDL_LOCK = ThreadSafeLock()
@@ -311,7 +309,6 @@ ISSUE_EXCEPTIONS = [
     "(DC)",
 ]
 SAB_PARAMS = None
-EXT_IP = None
 PROVIDER_START_ID = 0
 COMICINFO = ()
 CHECK_FOLDER_CACHE = None
@@ -434,8 +431,6 @@ def initialize(config_file):
             PROG_DIR, \
             DATA_DIR, \
             CMTAGGER_PATH, \
-            DOWNLOAD_APIKEY, \
-            LOCAL_IP, \
             STATIC_COMICRN_VERSION, \
             STATIC_APC_VERSION, \
             KEYS_32P, \
@@ -475,7 +470,6 @@ def initialize(config_file):
             BACKENDSTATUS_CV, \
             BACKENDSTATUS_WS, \
             PROVIDER_STATUS, \
-            EXT_IP, \
             ISSUE_EXCEPTIONS, \
             PROVIDER_START_ID, \
             CHECK_FOLDER_CACHE, \
@@ -562,20 +556,11 @@ def initialize(config_file):
         if MAINTENANCE is False:
             comicarr.config.ddl_creations()
 
-            # try to get the local IP using socket. Get this on every startup so it's at least current for existing session.
-            import socket
-
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(("8.8.8.8", 80))
-                LOCAL_IP = s.getsockname()[0]
-                s.close()
-                logger.info("Successfully discovered local IP and locking it in as : " + str(LOCAL_IP))
-            except:
-                logger.warn(
-                    "Unable to determine local IP - this might cause problems when downloading (maybe use host_return in the config.ini)"
-                )
-                LOCAL_IP = CONFIG.HTTP_HOST
+            # Host self-discovery (socket probe to 8.8.8.8 for the local IP, STUN
+            # for the external one) existed solely to build the callback URL the
+            # SAB handoff handed out. That handoff now uploads the NZB directly,
+            # so no download client is ever told where Comicarr lives and there
+            # is nothing left to discover. See docs/adr/0002-handoff-no-callback.md.
 
             # verbatim back the logger being used since it's now started.
             if LOGTYPE == "clog":

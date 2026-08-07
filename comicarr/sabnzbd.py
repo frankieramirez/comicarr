@@ -35,13 +35,33 @@ class SABnzbd(object):
         self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
         self.params = params
 
-    def sender(self, chkstatus=False):
+    def sender(self, nzbpath=None, chkstatus=False):
+        """Hand an NZB to SABnzbd, or query the queue when chkstatus is set.
+
+        ``nzbpath`` is the .nzb already cached by search.py. It is uploaded as
+        multipart content (``mode=addfile``), so the handoff completes inside
+        this one request and SAB never reaches back into Comicarr for the file.
+        See docs/adr/0002-handoff-no-callback.md.
+        """
         try:
             from requests.packages.urllib3 import disable_warnings
 
             disable_warnings()
         except:
             logger.warn("Unable to disable https warnings. Expect some spam if using https nzb providers.")
+
+        files = None
+        if chkstatus is not True:
+            if not nzbpath:
+                logger.error("No nzb file path was provided to send to SABnzbd.")
+                return {"status": False}
+            try:
+                with open(nzbpath, "rb") as nzb_file:
+                    nzb_content = nzb_file.read()
+            except OSError as e:
+                logger.error("Unable to read the cached nzb at %s: %s" % (nzbpath, e))
+                return {"status": False}
+            files = {"name": (os.path.basename(nzbpath), nzb_content, "application/x-nzb")}
 
         try:
             if chkstatus is True:
@@ -51,7 +71,13 @@ class SABnzbd(object):
                 logger.fdebug("parameters set to %s" % self.params)
                 self.params["apikey"] = tmp_apikey
                 logger.fdebug("sending now to %s" % self.sab_url)
-                sendit = requests.post(self.sab_url, data=self.params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+                sendit = requests.post(
+                    self.sab_url,
+                    data=self.params,
+                    files=files,
+                    verify=comicarr.CONFIG.SAB_VERIFY,
+                    timeout=30,
+                )
         except Exception as e:
             logger.warn("Failed to send to client. Error returned: %s" % e)
             return {"status": False}

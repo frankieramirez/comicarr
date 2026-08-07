@@ -201,7 +201,6 @@ def require_api_key(scope="full"):
             raise HTTPException(status_code=401, detail="API key required")
         key_map = {
             "full": getattr(ctx.config, "API_KEY", None) if ctx.config else None,
-            "download": ctx.download_apikey,
             "sse": ctx.sse_key,
         }
         expected = key_map.get(scope)

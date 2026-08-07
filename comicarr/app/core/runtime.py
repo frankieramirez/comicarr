@@ -100,7 +100,6 @@ _CONTEXT_TO_LEGACY = {
     "import_failure_count": "IMPORT_FAILURE_COUNT",
     "import_lock": "IMPORTLOCK",
     "import_button": "IMPORTBUTTON",
-    "download_apikey": "DOWNLOAD_APIKEY",
     "sse_key": "SSE_KEY",
     "setup_token": "SETUP_TOKEN",
     "backend_status_ws": "BACKENDSTATUS_WS",

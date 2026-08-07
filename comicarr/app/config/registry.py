@@ -114,7 +114,7 @@ class ConfigKey:
 # ---------------------------------------------------------------------------
 
 _KEYS: tuple[ConfigKey, ...] = (
-    ConfigKey("CONFIG_VERSION", int, "General", 16),
+    ConfigKey("CONFIG_VERSION", int, "General", 17),
     ConfigKey("MINIMAL_INI", bool, "General", False),
     ConfigKey("CACHE_DIR", str, "General", None, readable=True),
     ConfigKey("DYNAMIC_UPDATE", int, "General", 0),
@@ -222,7 +222,6 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("HTTPS_KEY", str, "Interface", None),
     ConfigKey("HTTPS_CHAIN", str, "Interface", None),
     ConfigKey("HTTPS_FORCE_ON", bool, "Interface", False),
-    ConfigKey("HOST_RETURN", str, "Interface", None),
     ConfigKey("AUTHENTICATION", int, "Interface", 2, readable=True),
     ConfigKey("LOGIN_TIMEOUT", int, "Interface", 43800),
     ConfigKey("ALPHAINDEX", bool, "Interface", True),
