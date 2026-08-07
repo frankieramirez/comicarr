@@ -36,7 +36,12 @@ def test_git_user_default_is_project_owner():
 
 def test_check_github_defaults_on():
     assert REGISTRY["CHECK_GITHUB"].default is True
-    assert REGISTRY["CONFIG_VERSION"].default == 16
+    # 16 is where the CHECK_GITHUB default-on migration landed. This test is
+    # about that default, not about the current schema version, so it asserts
+    # the migration has shipped rather than re-pinning the exact number — which
+    # test_config_version_migrations.py already owns and every later bump would
+    # otherwise break here for no reason.
+    assert REGISTRY["CONFIG_VERSION"].default >= 16
     assert "AUTO_UPDATE" not in REGISTRY
     assert "CHECK_GITHUB_ON_STARTUP" not in REGISTRY
 
