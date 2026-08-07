@@ -20,7 +20,7 @@ from sqlalchemy import insert
 import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
-from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
 from comicarr.app.search import service
 from comicarr.app.search.commands import (
     enqueue_failed_download_retry,
@@ -134,6 +134,49 @@ def test_replayed_search_commands_are_marked_lower_priority(acquisition_ledger):
     assert replay_search_obligations(work_queue=work, ledger=acquisition_ledger) == 1
     assert work.get_nowait()["queue_priority"] == "recovery"
     assert acquisition_ledger.get_item("replay-priority", "issue", "issue-1")["queue_priority"] == "recovery"
+
+
+def test_replay_counts_each_redrive(acquisition_ledger):
+    acquisition_ledger.create_run("replay-count", "search", "wanted_scan")
+    acquisition_ledger.accept_item(
+        "replay-count",
+        "issue",
+        "issue-1",
+        payload={"comicid": "comic-1", "issueid": "issue-1", "manual": False},
+    )
+
+    for expected in (1, 2, 3):
+        assert replay_search_obligations(work_queue=FairSearchQueue(), ledger=acquisition_ledger) == 1
+        item = acquisition_ledger.get_item("replay-count", "issue", "issue-1")
+        assert item["recovery_count"] == expected
+
+
+def test_replay_quarantines_an_item_that_survives_the_bound(acquisition_ledger):
+    """The residue reaper, end to end (#555).
+
+    An item that keeps coming back through replay without ever terminalising
+    is stuck, not interrupted. It stops being re-queued and stops counting as
+    in-flight work.
+    """
+    acquisition_ledger.create_run("replay-bound", "search", "wanted_scan")
+    acquisition_ledger.accept_item(
+        "replay-bound",
+        "issue",
+        "issue-1",
+        payload={"comicid": "comic-1", "issueid": "issue-1", "manual": False},
+    )
+
+    for _ in range(MAX_RECOVERY_ATTEMPTS):
+        assert replay_search_obligations(work_queue=FairSearchQueue(), ledger=acquisition_ledger) == 1
+
+    work = FairSearchQueue()
+    assert replay_search_obligations(work_queue=work, ledger=acquisition_ledger) == 0
+    assert work.empty()
+
+    item = acquisition_ledger.get_item("replay-bound", "issue", "issue-1")
+    assert item["state"] == ItemOutcome.QUARANTINED.value
+    assert item["reason"] == "recovery_attempts_exhausted"
+    assert acquisition_ledger.list_recoverable_items("search") == []
 
 
 def test_unlocked_command_reaches_provider_search_once(monkeypatch):

@@ -661,7 +661,12 @@ def test_open_work_idle_when_ledgers_empty(activity_db):
     from comicarr.app.activity import queries
 
     counts = queries.get_open_work_counts()
-    assert counts == {"in_flight": 0, "attention": 0, "attention_members": 0}
+    assert counts == {
+        "in_flight": 0,
+        "recovery_pending": 0,
+        "attention": 0,
+        "attention_members": 0,
+    }
 
 
 # ---------------------------------------------------------------------------

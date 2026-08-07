@@ -489,8 +489,29 @@ library: unavailable · api: offline · unreachable
 | Number | Query |
 |---|---|
 | `M in flight` | `COUNT(acquisition_run_items WHERE state IN ('accepted','running'))` **+** `COUNT(pipeline_journal WHERE stage IN OPEN_STAGES)` |
+| `recovery_pending` | The subset of those run items with `recovery_count > 0` — a **qualifier** on `M`, never added to it |
 | `K need attention` | Same unresolved band predicate as the Timeline band |
 | `idle` | both open-work counts zero and attention zero |
+
+**Why `M` is now trustworthy (#555).** Crash replay is a *re-driver*, not a
+reaper: it re-queues every non-terminal run item at startup. That is right for
+an obligation a restart interrupted and wrong for one that cannot make progress
+— which was then replayed forever and counted here, producing a number
+(famously "940 in flight") that mixed live work with residue.
+
+`RunLedger.claim_recovery` bounds the re-drive: an item that has survived
+`MAX_RECOVERY_ATTEMPTS` (3) restarts without reaching a terminal outcome is
+quarantined with reason `recovery_attempts_exhausted` instead of re-queued. The
+bound counts **restarts, not time** — a clock cannot tell a stuck item from one
+queued behind a long backlog, while surviving three restarts without
+terminalising can only mean stuck, so there is no TTL and no tuning knob.
+
+Residue predating the bound is cancelled once by acquisition schema v7 with
+reason `stale_before_recovery_bound`, so the number is honest on the first start
+after upgrade rather than after three. That is safe because **the run ledger
+records attempts, not intent**: wanting lives on `issues.Status`, so cancelling
+a dead attempt row cannot lose a want — anything still Wanted is picked up by
+the next sweep.
 
 - Shared app SSE invalidates status React Query; **30s poll** remains; **no** second EventSource.
 - Single click on activity/attention text → `/activity`.

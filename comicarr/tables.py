@@ -827,6 +827,11 @@ acquisition_run_items = Table(
     # must never contain provider credentials or downloader secrets.
     Column("payload_json", Text),
     Column("attempt_count", Integer, nullable=False, server_default="0"),
+    # How many times crash recovery has re-driven this item. Distinct from
+    # attempt_count, which counts worker claims: an item can be re-driven
+    # without ever being claimed. This is the bound that stops a permanently
+    # stuck obligation from being replayed forever (#555).
+    Column("recovery_count", Integer, nullable=False, server_default="0"),
     Column("next_attempt_at", String(40)),
     Column("reason", Text),
     Column("created_at", String(40), nullable=False),

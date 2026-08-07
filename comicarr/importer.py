@@ -3201,6 +3201,11 @@ def replay_refresh_obligations(*, ledger=None, start_worker=True, maintenance=No
     for item in ledger.list_recoverable_items("refresh"):
         run_id = item["run_id"]
         entity_id = item["entity_id"]
+        # Bound the re-drive before doing any work: an item that has survived
+        # MAX_RECOVERY_ATTEMPTS restarts without terminalising is stuck, not
+        # interrupted, and claim_recovery quarantines it instead (#555).
+        if not ledger.claim_recovery(item):
+            continue
         try:
             payload = _refresh_payload(item["payload"] or {})
         except ValueError as e:

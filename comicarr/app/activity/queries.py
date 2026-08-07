@@ -204,6 +204,24 @@ def count_in_flight_run_items():
     return int((row or {}).get("item_count", 0) or 0)
 
 
+def count_recovery_pending_run_items():
+    """Non-terminal run items that have already survived at least one restart.
+
+    Reported alongside ``in_flight`` rather than folded into it so the health
+    number can read "N in flight (K recovered from a restart)". One opaque
+    number could not distinguish live work from obligations that keep coming
+    back, which is what made the old count untrustworthy (#555).
+    """
+    stmt = (
+        select(func.count().label("item_count"))
+        .select_from(acquisition_run_items)
+        .where(acquisition_run_items.c.state.in_(IN_FLIGHT_ITEM_STATES))
+        .where(acquisition_run_items.c.recovery_count > 0)
+    )
+    row = db.select_one(stmt)
+    return int((row or {}).get("item_count", 0) or 0)
+
+
 def count_open_journal_stages():
     """Count pipeline_journal rows still in OPEN_STAGES."""
     stmt = (
@@ -219,6 +237,8 @@ def get_open_work_counts():
     """Quiet-count DTO inputs from derived ledgers only.
 
     ``in_flight`` = accepted|running run items + OPEN_STAGES journal rows.
+    ``recovery_pending`` = the subset of those run items that has already
+    survived a restart — a qualifier on ``in_flight``, not an addition to it.
     ``attention`` = unresolved band **group** count — the number of distinct
     problems, which is what the band shows and what the operator has to act on.
     ``attention_members`` keeps the underlying row count available for copy that
@@ -227,6 +247,7 @@ def get_open_work_counts():
     """
     return {
         "in_flight": count_in_flight_run_items() + count_open_journal_stages(),
+        "recovery_pending": count_recovery_pending_run_items(),
         "attention": count_attention_groups(),
         "attention_members": count_attention_band(),
     }

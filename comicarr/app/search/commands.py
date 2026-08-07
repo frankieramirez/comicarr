@@ -344,6 +344,11 @@ def replay_search_obligations(*, work_queue=None, ledger=None, maintenance=None)
     for item in ledger.list_recoverable_items("search"):
         run_id = item["run_id"]
         entity_id = item["entity_id"]
+        # Bound the re-drive before doing any work: an item that has survived
+        # MAX_RECOVERY_ATTEMPTS restarts without terminalising is stuck, not
+        # interrupted, and claim_recovery quarantines it instead (#555).
+        if not ledger.claim_recovery(item):
+            continue
         try:
             command = SearchCommand.from_mapping(
                 {**(item["payload"] or {}), "run_id": run_id, "entity_type": item["entity_type"]}

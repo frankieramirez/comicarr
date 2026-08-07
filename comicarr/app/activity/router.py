@@ -82,6 +82,8 @@ def get_status():
     """Return derived open-work counts for the quiet-counts status indicator.
 
     ``in_flight`` = accepted|running run items + OPEN_STAGES journal.
+    ``recovery_pending`` = the subset of those run items that has survived a
+    restart — a qualifier on ``in_flight``, not an addition to it (#555).
     ``attention`` = unresolved band count. Never aggregates activity_events.
     """
     return service.get_status()

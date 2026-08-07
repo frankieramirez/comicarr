@@ -19,6 +19,7 @@ from sqlalchemy import func, insert, inspect, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 import comicarr
+from comicarr import logger
 from comicarr.db import get_engine
 from comicarr.tables import (
     acquisition_canary_permits,
@@ -41,7 +42,7 @@ from comicarr.tables import (
 )
 
 SCHEMA_COMPONENT = "acquisition"
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 CONTROL_ID = "acquisition"
 RECONCILIATION_CONTROL_ID = "migration-reconciliation"
 
@@ -248,6 +249,54 @@ def _add_item_queue_priority_column(engine):
         )
 
 
+def _add_item_recovery_count_column(engine):
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("acquisition_run_items")}
+    if "recovery_count" in columns:
+        return
+    quoted_table = engine.dialect.identifier_preparer.quote("acquisition_run_items")
+    quoted_column = engine.dialect.identifier_preparer.quote("recovery_count")
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE %s ADD COLUMN %s INTEGER NOT NULL DEFAULT 0" % (quoted_table, quoted_column)))
+
+
+def _cancel_prebound_residue(engine):
+    """One-time reap of non-terminal items that predate the recovery bound.
+
+    Before #555, replay re-drove every ``accepted``/``running`` item forever
+    and nothing ever terminalised one that could not make progress, so a
+    deployment accumulated hundreds of rows that the in-flight counter reported
+    as live work. Those rows carry no recovery_count history, so the new bound
+    would take three more restarts to clear them; reaping them once here makes
+    the health number honest on the first start after upgrade instead.
+
+    This is safe because the run ledger records **attempts, not intent**.
+    Wanting lives on ``issues.Status``, so cancelling a dead attempt row cannot
+    lose a want — anything still Wanted is picked up by the next search sweep.
+    Migrations run before workers start, so nothing legitimately in flight can
+    be cancelled here.
+    """
+    now = _utcnow()
+    with engine.begin() as conn:
+        result = conn.execute(
+            update(acquisition_run_items)
+            .where(acquisition_run_items.c.state.in_(["accepted", "running"]))
+            .values(
+                state="cancelled",
+                reason="stale_before_recovery_bound",
+                next_attempt_at=None,
+                updated_at=now,
+                completed_at=now,
+            )
+        )
+    if result.rowcount:
+        logger.warn(
+            "[ACQUISITION] Cancelled %s in-flight run items stranded before the "
+            "recovery bound existed (#555). Anything still Wanted is re-searched "
+            "by the next sweep." % result.rowcount
+        )
+
+
 def _ensure_control_row(engine):
     with engine.begin() as conn:
         existing = conn.execute(
@@ -388,6 +437,11 @@ def _apply_schema_v6(engine):
     _add_item_queue_priority_column(engine)
 
 
+def _apply_schema_v7(engine):
+    _add_item_recovery_count_column(engine)
+    _cancel_prebound_residue(engine)
+
+
 def _version_tables(target_version):
     tables = list(_BASE_SCHEMA_TABLES)
     if target_version >= 2:
@@ -428,6 +482,8 @@ def _verify_schema(engine, target_version=SCHEMA_VERSION):
         required_columns["acquisition_run_items"].discard("dispatch_state")
     if target_version < 6:
         required_columns["acquisition_run_items"].discard("queue_priority")
+    if target_version < 7:
+        required_columns["acquisition_run_items"].discard("recovery_count")
     missing_columns = []
     for table_name, expected in required_columns.items():
         actual = {column["name"] for column in inspector.get_columns(table_name)}
@@ -546,6 +602,16 @@ def ensure_acquisition_schema(engine=None):
                     )
                 )
             version = 6
+        if version < 7:
+            _apply_schema_v7(engine)
+            _verify_schema(engine, target_version=7)
+            with engine.begin() as conn:
+                conn.execute(
+                    insert(acquisition_schema_versions).values(
+                        component=SCHEMA_COMPONENT, version=7, applied_at=_utcnow()
+                    )
+                )
+            version = 7
         _verify_schema(engine, target_version=SCHEMA_VERSION)
         status = SchemaStatus(True, version, None)
     except Exception as e:

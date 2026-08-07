@@ -15,12 +15,18 @@ import json
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from comicarr import logger
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.db import get_engine
 from comicarr.tables import acquisition_run_items, acquisition_runs
 
 MAX_PAYLOAD_BYTES = 16 * 1024
+
+# How many times crash recovery may re-drive one non-terminal item before it is
+# quarantined instead. Three restarts is generous for a genuinely interrupted
+# obligation and decisive for a stuck one (#555).
+MAX_RECOVERY_ATTEMPTS = 3
 PAYLOAD_FIELDS = {
     "search": frozenset(
         {
@@ -189,6 +195,7 @@ class RunLedger:
             "queue_priority": str(queue_priority),
             "payload_json": encoded,
             "attempt_count": 0,
+            "recovery_count": 0,
             "next_attempt_at": None,
             "reason": None,
             "created_at": now,
@@ -443,6 +450,73 @@ class RunLedger:
         for row in rows:
             row["payload"] = _decode_payload(row["payload_json"])
         return rows
+
+    def claim_recovery(self, item):
+        """Count one crash-recovery re-drive, or reap the item if it is spent.
+
+        Replay is a re-driver, not a reaper: it faithfully re-queues every
+        non-terminal item, which is correct for an obligation interrupted by a
+        restart and useless for one that cannot make progress at all. Without a
+        bound the second kind is replayed forever and reported as in-flight
+        work — the residue behind the "940 in flight" number (#555).
+
+        The bound counts **restarts, not time**. A clock cannot tell a stuck
+        item from one queued behind a long backlog; surviving
+        ``MAX_RECOVERY_ATTEMPTS`` restarts without ever reaching a terminal
+        outcome can only mean stuck.
+
+        Returns True when the caller should re-drive the item, False when this
+        call terminalised it as ``quarantined``.
+        """
+        run_id = item["run_id"]
+        entity_type = item["entity_type"]
+        entity_id = item["entity_id"]
+        try:
+            recovered = int(item.get("recovery_count") or 0)
+        except (TypeError, ValueError):
+            recovered = 0
+
+        if recovered >= MAX_RECOVERY_ATTEMPTS:
+            self.record_outcome(
+                run_id,
+                entity_type,
+                entity_id,
+                ItemOutcome.QUARANTINED,
+                reason="recovery_attempts_exhausted",
+            )
+            logger.warn(
+                "[ACQUISITION] %s %s/%s quarantined after %s crash recoveries without "
+                "reaching a terminal outcome (#555)." % (item["command_kind"], entity_type, entity_id, recovered)
+            )
+            return False
+
+        now = _utcnow()
+        with self.engine.begin() as conn:
+            conn.execute(
+                update(acquisition_run_items)
+                .where(acquisition_run_items.c.item_id == item["item_id"])
+                .values(
+                    recovery_count=acquisition_run_items.c.recovery_count + 1,
+                    updated_at=now,
+                )
+            )
+        return True
+
+    def count_recovery_pending(self):
+        """Non-terminal items that have already survived at least one restart.
+
+        Separating these from the raw in-flight total is what makes the health
+        number readable: "N in flight (K recovered from a restart)" says
+        something an operator can act on, where one opaque number did not.
+        """
+        stmt = (
+            select(func.count().label("item_count"))
+            .select_from(acquisition_run_items)
+            .where(acquisition_run_items.c.state.in_([ItemOutcome.ACCEPTED.value, ItemOutcome.RUNNING.value]))
+            .where(acquisition_run_items.c.recovery_count > 0)
+        )
+        with self.engine.connect() as conn:
+            return int(conn.execute(stmt).scalar() or 0)
 
     def list_pending_dispatch_items(self, run_id):
         """Return accepted items that have not reached the worker queue."""
