@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26.4
+
+### Patch Changes
+
+- ff69928: Fixed usenet downloads never reaching SABnzbd. Instead of sending the NZB, Comicarr sent SAB a link pointing back at itself and expected SAB to come and fetch the file — from an address Comicarr had to guess (a network probe, a STUN lookup, or the `host_return` setting when both guessed wrong), at an endpoint that did not exist. Inside Docker the guessed address was the container's own short-lived IP, and the missing endpoint answered with a web page rather than an error, so nothing anywhere reported a problem: the snatch looked successful and the download simply never happened. Comicarr now uploads the .nzb to SABnzbd directly, the same way it already does for NZBGet, so the handoff finishes in one step and SAB's own reply confirms it. Your SAB category, priority, and certificate-verification settings are unchanged.
+
+  Because no download client is ever handed a Comicarr address any more, the `host_return` setting has no purpose and is removed from `config.ini` automatically on first start after upgrading. Comicarr also no longer probes the network at startup to work out its own address.
+
+- 455dafb: Fixed the "in flight" count reporting work that stopped happening long ago. When Comicarr restarted, it restored every unfinished search and refresh — correct for something a restart interrupted, but it also restored obligations that could never make progress, over and over, with nothing ever giving up on them. On a long-running install those accumulated into hundreds of entries the health count reported as active work, so the number told you nothing. Comicarr now gives up on an item that has come back from three restarts without ever finishing, records it as quarantined, and stops counting it. The bound is restarts rather than elapsed time, so an item that is simply queued behind a long backlog is never abandoned. Entries stranded before this shipped are cleared once on the first start after upgrading; nothing is lost, because whether an issue is wanted lives on the issue itself and anything still wanted is picked up by the next search.
+
+  The status endpoint also reports `recovery_pending` alongside `in_flight`, so a surface can say "N in flight (K recovered from a restart)" instead of one number that hides the difference.
+
 ## 0.26.3
 
 ### Patch Changes
