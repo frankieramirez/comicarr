@@ -368,14 +368,16 @@ export default function DashboardPage() {
               {() => (
                 <div className="font-mono text-[11px]">
                   {activityEvents.map((d, i) => {
-                    const action = d.Status?.toLowerCase() || "—";
-                    const color = action.includes("down")
-                      ? "var(--chart-4)"
-                      : action.includes("post") || action.includes("import")
-                        ? "var(--status-active)"
-                        : action.includes("snatch") || action.includes("queue")
-                          ? "var(--status-paused)"
-                          : "var(--muted-foreground)";
+                    // Status is title-case at the API; render and match as-is.
+                    const action = d.Status || "—";
+                    const color =
+                      action === "Downloaded"
+                        ? "var(--chart-4)"
+                        : action === "Post-Processed" || action === "Imported"
+                          ? "var(--status-active)"
+                          : action === "Snatched" || action === "Queued"
+                            ? "var(--status-paused)"
+                            : "var(--muted-foreground)";
                     return (
                       <div
                         key={`${d.ComicID}-${d.IssueID}-${i}`}
