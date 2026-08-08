@@ -25,7 +25,14 @@ from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.storyarcs import service as storyarcs_service
 
 RECENT_ACTIVITY_DAYS = 30
+
+# Every panel's preview is bounded here rather than in the client. A panel that
+# renders fewer rows than it counts is claiming a number it is not showing, so
+# the count and the list share one bound — the rule ``get_queue_panel`` already
+# followed by sharing the active DDL predicate.
 ACTIVE_QUEUE_PREVIEW_LIMIT = 5
+RECENT_ACTIVITY_PREVIEW_LIMIT = 5
+UPCOMING_PREVIEW_LIMIT = 6
 
 
 def recent_activity_cutoff(now=None):
@@ -84,22 +91,25 @@ def get_activity_panel():
     """Return the bounded recent-activity preview and the window it covers."""
     cutoff = recent_activity_cutoff().strftime("%Y-%m-%d %H:%M:%S")
     return {
-        "events": dashboard_queries.get_recent_activity(cutoff) or [],
+        "events": dashboard_queries.get_recent_activity(cutoff, limit=RECENT_ACTIVITY_PREVIEW_LIMIT) or [],
         "days": RECENT_ACTIVITY_DAYS,
     }
 
 
 def get_upcoming_panel():
     """Return this week's releases for series already in the library."""
-    return {"releases": storyarcs_service.get_upcoming(include_downloaded=True) or []}
+    releases = storyarcs_service.get_upcoming(include_downloaded=True) or []
+    return {"releases": releases[:UPCOMING_PREVIEW_LIMIT]}
 
 
-def _has_directory(name):
-    """Return whether a library directory is configured to a non-empty path."""
-    value = getattr(comicarr.CONFIG, name, None)
-    return isinstance(value, str) and bool(value)
+def _is_configured_path(value):
+    """Return whether a configured library directory is a usable, non-empty path."""
+    return isinstance(value, str) and bool(value.strip())
 
 
 def get_scan_targets():
     """Return which libraries the dashboard's scan action can start."""
-    return {"comic": _has_directory("COMIC_DIR"), "manga": _has_directory("MANGA_DIR")}
+    return {
+        "comic": _is_configured_path(comicarr.CONFIG.COMIC_DIR),
+        "manga": _is_configured_path(comicarr.CONFIG.MANGA_DIR),
+    }

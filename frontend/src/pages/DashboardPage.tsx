@@ -4,6 +4,7 @@ import { ArrowUp, RefreshCw } from "lucide-react";
 import {
   PanelBody,
   PanelSkeleton,
+  PanelUnavailable,
 } from "@/components/dashboard/DashboardPanel";
 import { panelState, type PanelState } from "@/lib/panelState";
 import { Kbd } from "@/components/ui/kbd";
@@ -121,6 +122,13 @@ function countMeta(state: PanelState, count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+/** The header's version of the same rule: a fact only once a panel has one. */
+function summarize(state: PanelState, source: string, fact: string): string {
+  if (state === "loading") return "loading…";
+  if (state === "unavailable") return `${source} unavailable`;
+  return fact;
+}
+
 const ASK_SUGGESTIONS = [
   "Which runs have gaps?",
   "What landed this week?",
@@ -180,21 +188,24 @@ export default function DashboardPage() {
     mangaScan.isPending ||
     comicScanning ||
     mangaScanning;
+  // A failed read is not a library that was never configured. The button only
+  // renders once the read succeeded, so "Configure a library directory first"
+  // can never end up naming the wrong cause; a failed read says so instead.
   const canScan = Boolean(scanTargets.data?.comic || scanTargets.data?.manga);
+  const scanTitle = canScan
+    ? "Scan configured comic and manga libraries"
+    : "Configure a library directory first";
 
-  // The summary line reports each source separately: a broken one says so
-  // rather than contributing a zero to a line that reads as fact.
+  // The summary repeats each panel's own verdict rather than re-deriving it,
+  // so a broken source says so instead of contributing a zero that reads as
+  // fact. `panelState` stays the only place the precedence lives.
   const summary = [
-    library.isError
-      ? "library unavailable"
-      : library.isPending
-        ? "loading…"
-        : `${activeSeries} series · ${totalIssues} issues`,
-    queue.isError
-      ? "queue unavailable"
-      : queue.isPending
-        ? "loading…"
-        : `${queueCount} in queue`,
+    summarize(
+      libraryState,
+      "library",
+      `${activeSeries} series · ${totalIssues} issues`,
+    ),
+    summarize(queueCountState, "queue", `${queueCount} in queue`),
   ].join(" · ");
 
   const handleLibraryScan = async () => {
@@ -249,23 +260,27 @@ export default function DashboardPage() {
             {summary}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleLibraryScan()}
-          disabled={!canScan || scanPending}
-          title={
-            canScan
-              ? "Scan configured comic and manga libraries"
-              : "Configure a library directory first"
-          }
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border text-[12px] font-medium disabled:opacity-50"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${scanPending ? "animate-spin" : ""}`}
+        {scanTargets.isError ? (
+          <PanelUnavailable
+            label="Scan targets"
+            onRetry={() => void scanTargets.refetch()}
+            isRetrying={scanTargets.isFetching}
           />
-          {scanPending ? "Scanning…" : "Scan libraries"}
-        </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleLibraryScan()}
+            disabled={!canScan || scanPending}
+            title={scanTitle}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border text-[12px] font-medium disabled:opacity-50"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${scanPending ? "animate-spin" : ""}`}
+            />
+            {scanPending ? "Scanning…" : "Scan libraries"}
+          </button>
+        )}
       </div>
 
       {/* Ask bar — a question here opens as a chat instead of a search */}
@@ -427,7 +442,7 @@ export default function DashboardPage() {
               >
                 {() => (
                   <div className="font-mono text-[11px]">
-                    {activityEvents.slice(0, 5).map((d, i) => {
+                    {activityEvents.map((d, i) => {
                       const action = d.Status?.toLowerCase() || "—";
                       const color = action.includes("down")
                         ? "var(--chart-4)"
@@ -508,7 +523,7 @@ export default function DashboardPage() {
               isRetrying={upcoming.isFetching}
             >
               {() =>
-                upcomingReleases.slice(0, 6).map((u, i) => (
+                upcomingReleases.map((u, i) => (
                   <div
                     key={`${u.ComicID}-${u.IssueNumber}-${i}`}
                     className="flex items-center gap-2.5 py-2.5"

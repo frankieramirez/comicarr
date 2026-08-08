@@ -23,7 +23,7 @@ def _dashboard_dependencies(monkeypatch):
     """Keep service tests focused on panel shape, not database transport."""
     runtime = SimpleNamespace(CONFIG=SimpleNamespace(COMIC_DIR=None, MANGA_DIR=None))
     monkeypatch.setattr(service, "comicarr", runtime)
-    monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff: [])
+    monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: [])
     monkeypatch.setattr(service.dashboard_queries, "get_library_stats", lambda content_type=None: None)
     monkeypatch.setattr(service.dl_queries, "count_active_ddl_items", lambda: 0)
     monkeypatch.setattr(service.dl_queries, "get_active_ddl_preview", lambda limit: [])
@@ -107,14 +107,19 @@ class TestActivityPanel:
 
     def test_returns_events_and_the_window_they_cover(self, monkeypatch):
         recent = [{"ComicName": "Spider-Man", "Issue_Number": "1", "IssueID": "200"}]
-        monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff: recent)
+        get_recent = MagicMock(return_value=recent)
+        monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", get_recent)
 
         assert service.get_activity_panel() == {"events": recent, "days": 30}
+        # The count the panel shows and the rows it renders share one bound.
+        assert get_recent.call_args.kwargs["limit"] == 5
 
     def test_uses_an_inclusive_30_day_cutoff(self, monkeypatch):
         seen = []
         monkeypatch.setattr(service, "recent_activity_cutoff", lambda: datetime(2026, 6, 10, 12, 0, 0))
-        monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", seen.append)
+        monkeypatch.setattr(
+            service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: seen.append(cutoff)
+        )
 
         service.get_activity_panel()
 
@@ -144,6 +149,12 @@ class TestUpcomingPanel:
         get_upcoming.assert_called_once_with(include_downloaded=True)
         assert panel == {"releases": upcoming}
 
+    def test_bounds_the_preview_so_the_count_matches_the_rows(self, monkeypatch):
+        releases = [{"ComicName": f"Series {n}"} for n in range(10)]
+        monkeypatch.setattr(service.storyarcs_service, "get_upcoming", lambda include_downloaded: releases)
+
+        assert service.get_upcoming_panel()["releases"] == releases[:6]
+
 
 class TestScanTargets:
     """Which libraries the header's scan action can start."""
@@ -156,3 +167,8 @@ class TestScanTargets:
 
     def test_unconfigured_directories_are_not_scan_targets(self):
         assert service.get_scan_targets() == {"comic": False, "manga": False}
+
+    def test_a_whitespace_only_path_is_not_a_scan_target(self):
+        service.comicarr.CONFIG.COMIC_DIR = "   "
+
+        assert service.get_scan_targets()["comic"] is False

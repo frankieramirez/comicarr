@@ -6,4 +6,4 @@ The dashboard no longer goes blank when one thing behind it breaks. Every panel 
 
 That distinction is the point: an empty panel now means the answer really was nothing, and a broken one says so out loud. The panels also reserve their space while loading, so a slow one no longer shifts the page around as it arrives.
 
-The dashboard reads the same information in the same order as before.
+The dashboard reads the same information in the same order as before, with one correction: the count above each panel now matches the rows beneath it. "Recent activity" could previously say ten events above a list of five.

@@ -42,6 +42,7 @@ export function PanelUnavailable({
         type="button"
         onClick={onRetry}
         disabled={isRetrying}
+        aria-label={`Retry ${label}`}
         className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[5px] border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
       >
         <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />

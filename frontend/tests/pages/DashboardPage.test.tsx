@@ -277,7 +277,10 @@ describe("DashboardPage", () => {
     const user = userEvent.setup();
     render(<DashboardPage />);
 
-    await user.click(await screen.findByRole("button", { name: /retry/ }));
+    // Each retry is named for its own panel, so it is unambiguous.
+    await user.click(
+      await screen.findByRole("button", { name: "Retry Recent activity" }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Spider-Man #1")).toBeTruthy();
@@ -302,6 +305,25 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("unavailable").length).toBe(3);
     expect(screen.getByText("2")).toBeTruthy();
     expect(screen.queryByText("50.0%")).toBeNull();
+  });
+
+  it("says so when the scan targets cannot be read", async () => {
+    server.use(
+      http.get("/api/dashboard/scan-targets", () =>
+        HttpResponse.json({ detail: "Config unavailable" }, { status: 503 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    // A failed read must not read as "no library configured".
+    await waitFor(() => {
+      expect(screen.getByText("Scan targets unavailable")).toBeTruthy();
+    });
+    expect(screen.queryByRole("button", { name: "Scan libraries" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Retry Scan targets" }),
+    ).toBeTruthy();
   });
 
   it("renders the recent chats card", async () => {
