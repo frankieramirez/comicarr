@@ -123,7 +123,6 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage />);
 
-    // An unread count is not a quiet system.
     await waitFor(() => {
       expect(screen.getByText("In flight unavailable")).toBeTruthy();
     });

@@ -179,8 +179,7 @@ export default function DashboardPage() {
   // The summary repeats each panel's own verdict rather than re-deriving it,
   // so a broken source says so instead of contributing a zero that reads as
   // fact. `panelState` stays the only place the precedence lives. Open work is
-  // deliberately absent here: `InFlightLine` is the one place that reports it,
-  // from the one endpoint that defines it (dashboard-spec.md §3.3).
+  // absent here on purpose: `InFlightLine` is the only place that reports it.
   const summary = summarize(
     libraryState,
     "library",
@@ -266,8 +265,7 @@ export default function DashboardPage() {
           whose answer can require action today (dashboard-spec.md §2, §3.1). */}
       <HealthBand />
 
-      {/* How much work is moving, across every route (§3.3). Sits directly
-          under the band; §4's final placement lands with the layout pass. */}
+      {/* How much work is moving, across every route (dashboard-spec.md §3.3) */}
       <InFlightLine />
 
       {/* Ask bar — a question here opens as a chat instead of a search */}
