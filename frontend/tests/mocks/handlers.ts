@@ -145,6 +145,17 @@ export const handlers = [
     HttpResponse.json({ in_flight: 2, attention: 0 }),
   ),
 
+  // Needs-attention groups (dashboard §3.2 / Activity Center band). Default
+  // empty so a page that mounts the band never invents trouble.
+  http.get("/api/activity/band", () =>
+    HttpResponse.json({
+      results: [],
+      total: 0,
+      member_total: 0,
+      preview_cap: 5,
+    }),
+  ),
+
   http.get("/api/downloads/queue", () =>
     HttpResponse.json({
       queue: [],

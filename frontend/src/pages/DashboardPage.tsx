@@ -8,6 +8,7 @@ import {
 } from "@/components/dashboard/DashboardPanel";
 import HealthBand from "@/components/dashboard/HealthBand";
 import InFlightLine from "@/components/dashboard/InFlightLine";
+import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import { panelState, type PanelState } from "@/lib/panelState";
 import { Kbd } from "@/components/ui/kbd";
 import RelativeTime from "@/components/ui/RelativeTime";
@@ -264,6 +265,9 @@ export default function DashboardPage() {
       {/* Health band — above every other panel, because it is the only one
           whose answer can require action today (dashboard-spec.md §2, §3.1). */}
       <HealthBand />
+
+      {/* Actionable half of failure visibility (dashboard-spec.md §3.2) */}
+      <NeedsAttentionBand />
 
       {/* How much work is moving, across every route (dashboard-spec.md §3.3) */}
       <InFlightLine />

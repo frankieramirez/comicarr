@@ -86,6 +86,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText("2 in flight")).toBeTruthy();
   });
 
+  it("surfaces a quiet needs-attention line on the default empty band", async () => {
+    render(<DashboardPage />);
+
+    // Default mock has zero groups — calm, not an empty card with a heading.
+    expect(await screen.findByText("Nothing needs you")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
+  });
+
   it("qualifies the in-flight count with restart recoveries", async () => {
     server.use(
       http.get("/api/activity/status", () =>
