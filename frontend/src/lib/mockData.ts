@@ -465,14 +465,11 @@ function wantedIssues(): WantedIssue[] {
   return out;
 }
 
-function dashboardPayload() {
+function dashboardLibraryPayload() {
   const totalSeries = LIBRARY.length;
   const totalIssues = LIBRARY.reduce((sum, s) => sum + (s.Have || 0), 0);
   const totalExpected = LIBRARY.reduce((sum, s) => sum + (s.Total || 0), 0);
   return {
-    recently_downloaded: recentDownloads(),
-    active_queue: [],
-    upcoming_releases: upcomingReleases(),
     stats: {
       total_series: totalSeries,
       total_issues: totalIssues,
@@ -481,8 +478,6 @@ function dashboardPayload() {
         ? Math.round((totalIssues / totalExpected) * 1000) / 10
         : 0,
     },
-    ai_activity: [],
-    ai_configured: false,
   };
 }
 
@@ -672,8 +667,20 @@ export function mockApiResponse(
     // Quiet-count inputs for AppStatusBar (Variant A). Fixture: light open work.
     return { in_flight: 2, attention: 0 };
   }
-  if (m === "GET" && url === "/api/dashboard") {
-    return dashboardPayload();
+  if (m === "GET" && url === "/api/dashboard/library") {
+    return dashboardLibraryPayload();
+  }
+  if (m === "GET" && url === "/api/dashboard/queue") {
+    return { count: 0, items: [] };
+  }
+  if (m === "GET" && url === "/api/dashboard/activity") {
+    return { days: 30, events: recentDownloads() };
+  }
+  if (m === "GET" && url === "/api/dashboard/upcoming") {
+    return { releases: upcomingReleases() };
+  }
+  if (m === "GET" && url === "/api/dashboard/scan-targets") {
+    return { comic: false, manga: false };
   }
   if (m === "GET" && url === "/api/series") {
     return LIBRARY;

@@ -110,7 +110,7 @@ describe("AppStatusBar", () => {
 
   it("shows unreachable when library and api are both down", async () => {
     server.use(
-      http.get("/api/dashboard", () =>
+      http.get("/api/dashboard/library", () =>
         HttpResponse.json({ detail: "Database unavailable" }, { status: 503 }),
       ),
       http.get("/api/health", () =>

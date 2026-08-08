@@ -12,7 +12,6 @@
 from sqlalchemy import func, or_, select
 
 from comicarr import db
-from comicarr.tables import ai_activity_log as t_ai_activity_log
 from comicarr.tables import comics as t_comics
 from comicarr.tables import snatched as t_snatched
 
@@ -66,20 +65,3 @@ def get_library_stats(content_type=None):
         conditions = (t_comics.c.Status != "Paused",)
 
     return db.select_one(select(*columns).select_from(t_comics).where(*conditions))
-
-
-def get_recent_ai_activity(limit=5):
-    """Return the dashboard's compact newest-first AI activity preview."""
-    stmt = (
-        select(
-            t_ai_activity_log.c.timestamp,
-            t_ai_activity_log.c.feature_type,
-            t_ai_activity_log.c.action_description,
-            t_ai_activity_log.c.prompt_tokens,
-            t_ai_activity_log.c.completion_tokens,
-            t_ai_activity_log.c.success,
-        )
-        .order_by(t_ai_activity_log.c.timestamp.desc())
-        .limit(int(limit))
-    )
-    return db.select_all(stmt)

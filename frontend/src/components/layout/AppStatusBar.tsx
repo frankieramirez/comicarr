@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useDashboardLibrary } from "@/hooks/useDashboard";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
 import { useServerEventsHealth } from "@/contexts/ServerEventsContext";
 import { apiRequest } from "@/lib/api";
@@ -31,7 +31,7 @@ function apiColor(api: ActivityApiState): string | undefined {
  * shared SSE invalidates the activity status query (no second EventSource).
  */
 export default function AppStatusBar() {
-  const dashboard = useDashboard();
+  const library = useDashboardLibrary();
   const activity = useActivityStatus();
   const { live } = useServerEventsHealth();
   const health = useQuery<HealthResponse>({
@@ -41,9 +41,9 @@ export default function AppStatusBar() {
     refetchInterval: STATUS_POLL_MS,
   });
 
-  const libraryPending = dashboard.isPending;
-  const libraryFailed = !dashboard.isPending && !dashboard.data;
-  const librarySeries = dashboard.data?.stats.total_series ?? 0;
+  const libraryPending = library.isPending;
+  const libraryFailed = !library.isPending && !library.data;
+  const librarySeries = library.data?.stats.total_series ?? 0;
 
   const api: ActivityApiState = health.isPending
     ? "checking"

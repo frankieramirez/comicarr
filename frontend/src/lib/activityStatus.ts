@@ -12,7 +12,7 @@ export type ActivityApiState = "online" | "offline" | "checking";
 export type LiveConnectionState = "connected" | "reconnecting" | "lost";
 
 export interface ActivityStatusSnapshot {
-  /** GET /api/dashboard → stats.total_series; null when unavailable */
+  /** GET /api/dashboard/library → stats.total_series; null when unavailable */
   librarySeries: number | null;
   /** GET /api/health */
   api: ActivityApiState;

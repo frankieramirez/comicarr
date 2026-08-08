@@ -12,7 +12,7 @@
 Seams under test (existing product surfaces only — no full UI e2e):
 
 - ``search_service.get_run`` — pruned run id → existing 404 / missing contract
-- ``dashboard_queries.get_recent_ai_activity`` — empty list is honest, not an error
+- ``ai_activity_log`` — an emptied AI log is honestly empty, never tombstoned
 - ``health.get_acquisition_health`` — latest run falls back to newest remaining
   or omits the kind; never invents healthy history from empty
 - ``series_service.get_wanted`` — pruned latest terminal → null acquisition
@@ -37,7 +37,6 @@ from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.activity import queries as activity_queries
 from comicarr.app.core.context import AppContext
-from comicarr.app.dashboard import queries as dashboard_queries
 from comicarr.app.downloads import journal
 from comicarr.app.search import health
 from comicarr.app.search import service as search_service
@@ -73,6 +72,13 @@ def _ctx():
 
 def _iso(days_ago):
     return (FIXED_NOW - datetime.timedelta(days=days_ago)).isoformat()
+
+
+def _ai_activity_rows(limit=10):
+    """Return the AI activity log newest-first — retention's read side."""
+    stmt = select(ai_activity_log.c.action_description).order_by(ai_activity_log.c.timestamp.desc()).limit(limit)
+    with get_engine().connect() as conn:
+        return [row.action_description for row in conn.execute(stmt)]
 
 
 def _journal_ts(days_ago):
@@ -175,14 +181,12 @@ def test_ai_feed_empty_list_is_honest_after_prune(monkeypatch):
             ],
         )
 
-    assert len(dashboard_queries.get_recent_ai_activity(limit=10)) == 2
+    assert len(_ai_activity_rows()) == 2
 
     summary = retention.run_ledger_retention(now=FIXED_NOW)
     assert summary["ai_activity_log"] == 1
 
-    remaining = dashboard_queries.get_recent_ai_activity(limit=10)
-    assert len(remaining) == 1
-    assert remaining[0]["action_description"] == "young"
+    assert _ai_activity_rows() == ["young"]
 
     # Prune the last young row by forcing age past horizon with keep floor 0.
     with get_engine().begin() as conn:
@@ -192,8 +196,7 @@ def test_ai_feed_empty_list_is_honest_after_prune(monkeypatch):
     summary2 = retention.run_ledger_retention(now=FIXED_NOW)
     assert summary2["ai_activity_log"] == 1
 
-    empty = dashboard_queries.get_recent_ai_activity(limit=10)
-    assert empty == []
+    assert _ai_activity_rows() == []
 
 
 def test_acquisition_health_falls_back_to_newest_remaining_or_omits(monkeypatch):
@@ -435,7 +438,7 @@ def test_no_tombstone_rows_written_by_sweep(monkeypatch):
     retention.run_ledger_retention(now=FIXED_NOW)
 
     assert ledger.get_run("gone") is None
-    assert dashboard_queries.get_recent_ai_activity() == []
+    assert _ai_activity_rows() == []
     # Tables empty — no tombstone substitute rows.
     with get_engine().connect() as conn:
         assert conn.execute(select(func.count()).select_from(acquisition_runs)).scalar() == 0

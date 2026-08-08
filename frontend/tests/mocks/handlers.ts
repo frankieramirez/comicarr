@@ -156,9 +156,38 @@ export const handlers = [
   // Dashboard endpoints
   // -------------------------------------------------------------------------
 
-  http.get("/api/dashboard", () => {
-    return HttpResponse.json({
-      recently_downloaded: [
+  http.get("/api/dashboard/library", () =>
+    HttpResponse.json({
+      stats: {
+        total_series: 10,
+        total_issues: 250,
+        total_expected: 500,
+        completion_pct: 50.0,
+      },
+    }),
+  ),
+
+  http.get("/api/dashboard/queue", () =>
+    HttpResponse.json({
+      count: 2,
+      items: [
+        {
+          ID: "queue-1",
+          series: "Spider-Man",
+          filename: "Spider-Man 001.cbz",
+          status: "Downloading",
+          updated_date: "2026-04-05T12:00:00",
+          site: "DDL(GetComics)",
+          comicid: "1",
+        },
+      ],
+    }),
+  ),
+
+  http.get("/api/dashboard/activity", () =>
+    HttpResponse.json({
+      days: 30,
+      events: [
         {
           ComicName: "Spider-Man",
           Issue_Number: "1",
@@ -170,18 +199,12 @@ export const handlers = [
           ComicImage: "https://example.com/spiderman.jpg",
         },
       ],
-      active_queue: [
-        {
-          ID: "queue-1",
-          series: "Spider-Man",
-          filename: "Spider-Man 001.cbz",
-          status: "Downloading",
-          updated_date: "2026-04-05T12:00:00",
-          site: "DDL(GetComics)",
-          comicid: "1",
-        },
-      ],
-      upcoming_releases: [
+    }),
+  ),
+
+  http.get("/api/dashboard/upcoming", () =>
+    HttpResponse.json({
+      releases: [
         {
           ComicName: "Batman",
           IssueNumber: "5",
@@ -191,18 +214,12 @@ export const handlers = [
           Status: "Wanted",
         },
       ],
-      stats: {
-        total_series: 10,
-        total_issues: 250,
-        total_expected: 500,
-        completion_pct: 50.0,
-        queue_count: 2,
-      },
-      ai_activity: [],
-      ai_configured: false,
-      scan_targets: { comic: true, manga: true },
-    });
-  }),
+    }),
+  ),
+
+  http.get("/api/dashboard/scan-targets", () =>
+    HttpResponse.json({ comic: true, manga: true }),
+  ),
 
   http.post("/api/weekly/refresh", () =>
     HttpResponse.json({

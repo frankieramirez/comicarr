@@ -1,7 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 
-interface DashboardDownload {
+/**
+ * One query per dashboard panel.
+ *
+ * There is no aggregate `/api/dashboard` read: a single fan-in payload makes
+ * one broken source blank the whole page, and an unavailable panel then looks
+ * exactly like an empty one. Each hook below backs exactly one panel, so a
+ * failure is scoped to that panel and retried there
+ * (docs/architecture/dashboard-spec.md §5).
+ */
+
+interface DashboardActivityEvent {
   ComicName: string;
   Issue_Number: string;
   DateAdded: string;
@@ -31,40 +41,84 @@ export interface DashboardQueueItem {
   comicid: string | null;
 }
 
-interface DashboardStats {
+export interface DashboardLibraryStats {
   total_series: number;
   total_issues: number;
   total_expected: number;
   completion_pct: number;
-  queue_count: number;
 }
 
-interface DashboardAiActivity {
-  timestamp: string;
-  feature_type: string;
-  action_description: string;
-  prompt_tokens: number;
-  completion_tokens: number;
-  success: boolean;
+interface DashboardLibraryResponse {
+  stats: DashboardLibraryStats;
 }
 
-export interface DashboardData {
-  recently_downloaded: DashboardDownload[];
-  active_queue: DashboardQueueItem[];
-  upcoming_releases: DashboardUpcoming[];
-  stats: DashboardStats;
-  ai_activity: DashboardAiActivity[];
-  ai_configured: boolean;
-  scan_targets: {
-    comic: boolean;
-    manga: boolean;
-  };
+interface DashboardQueueResponse {
+  count: number;
+  items: DashboardQueueItem[];
 }
 
-export function useDashboard() {
-  return useQuery<DashboardData>({
-    queryKey: ["dashboard"],
-    queryFn: () => apiRequest<DashboardData>("GET", "/api/dashboard"),
-    staleTime: 2 * 60 * 1000,
+interface DashboardActivityResponse {
+  events: DashboardActivityEvent[];
+  days: number;
+}
+
+interface DashboardUpcomingResponse {
+  releases: DashboardUpcoming[];
+}
+
+export interface DashboardScanTargets {
+  comic: boolean;
+  manga: boolean;
+}
+
+const PANEL_STALE_TIME = 2 * 60 * 1000;
+
+/** KPI strip: series, issues held, and completion. */
+export function useDashboardLibrary() {
+  return useQuery<DashboardLibraryResponse>({
+    queryKey: ["dashboard", "library"],
+    queryFn: () =>
+      apiRequest<DashboardLibraryResponse>("GET", "/api/dashboard/library"),
+    staleTime: PANEL_STALE_TIME,
+  });
+}
+
+/** Active queue: the count on the KPI strip and the preview below it. */
+export function useDashboardQueue() {
+  return useQuery<DashboardQueueResponse>({
+    queryKey: ["dashboard", "queue"],
+    queryFn: () =>
+      apiRequest<DashboardQueueResponse>("GET", "/api/dashboard/queue"),
+    staleTime: PANEL_STALE_TIME,
+  });
+}
+
+/** Recent activity preview, bounded to the window the response reports. */
+export function useDashboardActivity() {
+  return useQuery<DashboardActivityResponse>({
+    queryKey: ["dashboard", "activity"],
+    queryFn: () =>
+      apiRequest<DashboardActivityResponse>("GET", "/api/dashboard/activity"),
+    staleTime: PANEL_STALE_TIME,
+  });
+}
+
+/** This week's releases for series already in the library. */
+export function useDashboardUpcoming() {
+  return useQuery<DashboardUpcomingResponse>({
+    queryKey: ["dashboard", "upcoming"],
+    queryFn: () =>
+      apiRequest<DashboardUpcomingResponse>("GET", "/api/dashboard/upcoming"),
+    staleTime: PANEL_STALE_TIME,
+  });
+}
+
+/** Which libraries the header's scan action can start. */
+export function useDashboardScanTargets() {
+  return useQuery<DashboardScanTargets>({
+    queryKey: ["dashboard", "scan-targets"],
+    queryFn: () =>
+      apiRequest<DashboardScanTargets>("GET", "/api/dashboard/scan-targets"),
+    staleTime: PANEL_STALE_TIME,
   });
 }

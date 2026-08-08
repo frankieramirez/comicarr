@@ -1,11 +1,22 @@
-import { useState, type SubmitEvent } from "react";
+import { useState, type ReactNode, type SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUp, RefreshCw } from "lucide-react";
-import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import {
+  PanelBody,
+  PanelSkeleton,
+} from "@/components/dashboard/DashboardPanel";
+import { panelState, type PanelState } from "@/lib/panelState";
 import { Kbd } from "@/components/ui/kbd";
 import RelativeTime from "@/components/ui/RelativeTime";
 import { useToast } from "@/components/ui/toast";
-import { useDashboard, type DashboardQueueItem } from "@/hooks/useDashboard";
+import {
+  useDashboardActivity,
+  useDashboardLibrary,
+  useDashboardQueue,
+  useDashboardScanTargets,
+  useDashboardUpcoming,
+  type DashboardQueueItem,
+} from "@/hooks/useDashboard";
 import { useChatThreads } from "@/hooks/useLibraryChat";
 import {
   useComicScan,
@@ -17,19 +28,42 @@ import {
 function Kpi({
   label,
   value,
+  state,
+  onRetry,
   borderLeft,
 }: {
   label: string;
   value: string;
+  state: PanelState;
+  onRetry: () => void;
   borderLeft?: boolean;
 }) {
   return (
     <div className={`px-5 py-4 ${borderLeft ? "border-l border-border" : ""}`}>
       <div className="mono-label">{label}</div>
-      <div className="flex items-end gap-2 mt-1.5">
-        <div className="text-[26px] font-semibold tracking-tight leading-none">
-          {value}
-        </div>
+      <div className="flex items-end gap-2 mt-1.5 h-[26px]">
+        {state === "loading" ? (
+          <div
+            aria-hidden="true"
+            className="h-4 w-16 self-center animate-pulse rounded-[2px] bg-primary/10"
+          />
+        ) : state === "unavailable" ? (
+          <div className="flex items-center gap-2 self-center font-mono text-[11px]">
+            <span style={{ color: "var(--status-error)" }}>unavailable</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              aria-label={`Retry ${label}`}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="text-[26px] font-semibold tracking-tight leading-none">
+            {value}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -50,6 +84,43 @@ function QueueStatus({ status }: { status: DashboardQueueItem["status"] }) {
   );
 }
 
+/** Panel heading plus its count and a link out to the full view. */
+function PanelHeader({
+  title,
+  meta,
+  action,
+}: {
+  title: string;
+  meta: ReactNode;
+  action?: { label: string; to: string };
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex items-center gap-2.5">
+        <div className="text-[13px] font-semibold">{title}</div>
+        <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
+          {meta}
+        </div>
+      </div>
+      {action && (
+        <Link
+          to={action.to}
+          className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** A count that refuses to claim zero for a source that never answered. */
+function countMeta(state: PanelState, count: number, noun: string): string {
+  if (state === "loading") return "…";
+  if (state === "unavailable") return "unavailable";
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 const ASK_SUGGESTIONS = [
   "Which runs have gaps?",
   "What landed this week?",
@@ -57,7 +128,11 @@ const ASK_SUGGESTIONS = [
 ];
 
 export default function DashboardPage() {
-  const { data, isLoading, error } = useDashboard();
+  const library = useDashboardLibrary();
+  const queue = useDashboardQueue();
+  const activity = useDashboardActivity();
+  const upcoming = useDashboardUpcoming();
+  const scanTargets = useDashboardScanTargets();
   const navigate = useNavigate();
   const chatThreadsQuery = useChatThreads();
   const [question, setQuestion] = useState("");
@@ -80,27 +155,24 @@ export default function DashboardPage() {
   const { data: mangaScanProgress } = useMangaScanProgress();
   const { addToast } = useToast();
 
-  if (error) {
-    return (
-      <div className="p-8">
-        <ErrorDisplay
-          error={error}
-          title="Unable to load dashboard"
-          onRetry={() => window.location.reload()}
-        />
-      </div>
-    );
-  }
-
-  const stats = data?.stats;
-  const downloads = data?.recently_downloaded || [];
-  const activeQueue = data?.active_queue || [];
-  const upcoming = data?.upcoming_releases || [];
+  const stats = library.data?.stats;
+  const queueItems = queue.data?.items ?? [];
+  const queueCount = queue.data?.count ?? 0;
+  const activityEvents = activity.data?.events ?? [];
+  const activityDays = activity.data?.days ?? 30;
+  const upcomingReleases = upcoming.data?.releases ?? [];
 
   const activeSeries = stats?.total_series ?? 0;
   const totalIssues = stats?.total_issues ?? 0;
   const completion = stats?.completion_pct ?? 0;
-  const queueCount = stats?.queue_count ?? 0;
+
+  const libraryState = panelState(library, false);
+  const queueState = panelState(queue, queueItems.length === 0);
+  const queueCountState = panelState(queue, false);
+  const activityState = panelState(activity, activityEvents.length === 0);
+  const upcomingState = panelState(upcoming, upcomingReleases.length === 0);
+  const chatsState = panelState(chatThreadsQuery, recentChats.length === 0);
+
   const comicScanning = comicScanProgress?.status === "scanning";
   const mangaScanning = mangaScanProgress?.status === "scanning";
   const scanPending =
@@ -108,16 +180,29 @@ export default function DashboardPage() {
     mangaScan.isPending ||
     comicScanning ||
     mangaScanning;
-  const canScan = Boolean(
-    data?.scan_targets?.comic || data?.scan_targets?.manga,
-  );
+  const canScan = Boolean(scanTargets.data?.comic || scanTargets.data?.manga);
+
+  // The summary line reports each source separately: a broken one says so
+  // rather than contributing a zero to a line that reads as fact.
+  const summary = [
+    library.isError
+      ? "library unavailable"
+      : library.isPending
+        ? "loading…"
+        : `${activeSeries} series · ${totalIssues} issues`,
+    queue.isError
+      ? "queue unavailable"
+      : queue.isPending
+        ? "loading…"
+        : `${queueCount} in queue`,
+  ].join(" · ");
 
   const handleLibraryScan = async () => {
     const scanRequests: Promise<unknown>[] = [];
-    if (data?.scan_targets?.comic) {
+    if (scanTargets.data?.comic) {
       scanRequests.push(comicScan.mutateAsync());
     }
-    if (data?.scan_targets?.manga) {
+    if (scanTargets.data?.manga) {
       scanRequests.push(mangaScan.mutateAsync());
     }
 
@@ -161,9 +246,7 @@ export default function DashboardPage() {
             Dashboard
           </div>
           <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
-            {isLoading
-              ? "loading…"
-              : `${activeSeries} series · ${totalIssues} issues · ${queueCount} in queue`}
+            {summary}
           </div>
         </div>
         <button
@@ -227,242 +310,236 @@ export default function DashboardPage() {
 
       {/* Everything below the ask bar scrolls inside the page column. */}
       <div className="flex-1 min-h-0 overflow-auto">
-        {/* KPI strip */}
+        {/* KPI strip — the first three read the library, the fourth the queue */}
         <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-border">
           <Kpi
             label="Active series"
-            value={isLoading ? "—" : String(activeSeries)}
+            value={String(activeSeries)}
+            state={libraryState}
+            onRetry={() => void library.refetch()}
           />
           <Kpi
             label="Issues"
-            value={isLoading ? "—" : String(totalIssues)}
+            value={String(totalIssues)}
+            state={libraryState}
+            onRetry={() => void library.refetch()}
             borderLeft
           />
           <Kpi
             label="Completion"
-            value={isLoading ? "—" : `${completion.toFixed(1)}%`}
+            value={`${completion.toFixed(1)}%`}
+            state={libraryState}
+            onRetry={() => void library.refetch()}
             borderLeft
           />
-          <Kpi label="Queue" value={String(queueCount)} borderLeft />
+          <Kpi
+            label="Queue"
+            value={String(queueCount)}
+            state={queueCountState}
+            onRetry={() => void queue.refetch()}
+            borderLeft
+          />
         </div>
 
         {/* Operational summaries */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] border-b border-border min-h-[320px]">
           {/* Active queue and recent history */}
           <section className="px-5 py-4 lg:border-r lg:border-border">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="text-[13px] font-semibold">Active queue</div>
-                <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
-                  {queueCount} item{queueCount === 1 ? "" : "s"}
-                </div>
-              </div>
-              <Link
-                to="/activity"
-                className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                open queue →
-              </Link>
-            </div>
+            <PanelHeader
+              title="Active queue"
+              meta={countMeta(queueCountState, queueCount, "item")}
+              action={{ label: "open queue →", to: "/activity" }}
+            />
 
-            {isLoading && (
-              <div className="font-mono text-[11px] text-muted-foreground py-3">
-                loading queue…
-              </div>
-            )}
-
-            {!isLoading && activeQueue.length === 0 && (
-              <div className="font-mono text-[11px] text-muted-foreground py-3">
-                queue is clear
-              </div>
-            )}
-
-            <div className="font-mono text-[11px]">
-              {activeQueue.map((item, index) => (
-                <div
-                  key={item.ID}
-                  className="grid items-center gap-2 py-1.5"
-                  style={{
-                    gridTemplateColumns: "minmax(140px, 1fr) 100px 120px",
-                    borderTop:
-                      index > 0
-                        ? "1px solid var(--border-soft, var(--border))"
-                        : "none",
-                  }}
-                >
-                  <div className="min-w-0">
-                    <div className="font-sans text-foreground truncate">
-                      {item.series || item.filename || "Unnamed download"}
-                    </div>
-                    {item.filename && item.filename !== item.series && (
-                      <div className="text-muted-foreground truncate">
-                        {item.filename}
-                      </div>
-                    )}
-                  </div>
-                  <QueueStatus status={item.status} />
-                  <span className="text-muted-foreground truncate text-right">
-                    {item.updated_date ? (
-                      <RelativeTime value={item.updated_date} />
-                    ) : (
-                      "—"
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-border">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="text-[13px] font-semibold">
-                    Recent activity
-                  </div>
-                  <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
-                    {downloads.length} event{downloads.length === 1 ? "" : "s"}{" "}
-                    · 30 days
-                  </div>
-                </div>
-                <Link
-                  to="/activity?view=history"
-                  className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-                >
-                  open history →
-                </Link>
-              </div>
-
-              {isLoading && (
-                <div className="font-mono text-[11px] text-muted-foreground py-4">
-                  loading recent activity…
-                </div>
-              )}
-
-              {!isLoading && downloads.length === 0 && (
-                <div className="font-mono text-[11px] text-muted-foreground py-4">
-                  no activity in the last 30 days —{" "}
-                  <Link
-                    to="/activity?view=history"
-                    className="hover:text-foreground"
-                  >
-                    open full history
-                  </Link>
-                </div>
-              )}
-
-              <div className="font-mono text-[11px]">
-                {downloads.slice(0, 5).map((d, i) => {
-                  const action = d.Status?.toLowerCase() || "—";
-                  const color = action.includes("down")
-                    ? "var(--chart-4)"
-                    : action.includes("post") || action.includes("import")
-                      ? "var(--status-active)"
-                      : action.includes("snatch") || action.includes("queue")
-                        ? "var(--status-paused)"
-                        : "var(--muted-foreground)";
-                  return (
+            <PanelBody
+              state={queueState}
+              label="Active queue"
+              skeleton={<PanelSkeleton rows={3} />}
+              empty="queue is clear"
+              onRetry={() => void queue.refetch()}
+              isRetrying={queue.isFetching}
+            >
+              {() => (
+                <div className="font-mono text-[11px]">
+                  {queueItems.map((item, index) => (
                     <div
-                      key={`${d.ComicID}-${d.IssueID}-${i}`}
+                      key={item.ID}
                       className="grid items-center gap-2 py-1.5"
                       style={{
-                        gridTemplateColumns:
-                          "120px 90px minmax(180px, 1fr) 140px",
+                        gridTemplateColumns: "minmax(140px, 1fr) 100px 120px",
                         borderTop:
-                          i > 0
+                          index > 0
                             ? "1px solid var(--border-soft, var(--border))"
                             : "none",
                       }}
                     >
-                      <RelativeTime value={d.DateAdded} />
-                      <span className="uppercase truncate" style={{ color }}>
-                        {action}
-                      </span>
-                      <div className="flex items-center gap-2 min-w-0">
-                        {d.ComicID && (
-                          <img
-                            src={`/api/metadata/art/${d.ComicID}`}
-                            alt=""
-                            className="w-4 h-6 object-cover rounded-[1px] shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.style.visibility = "hidden";
-                            }}
-                          />
+                      <div className="min-w-0">
+                        <div className="font-sans text-foreground truncate">
+                          {item.series || item.filename || "Unnamed download"}
+                        </div>
+                        {item.filename && item.filename !== item.series && (
+                          <div className="text-muted-foreground truncate">
+                            {item.filename}
+                          </div>
                         )}
-                        <Link
-                          to={`/library/${d.ComicID}`}
-                          className="font-sans text-foreground truncate hover:text-[var(--primary)]"
-                        >
-                          {d.ComicName} #{d.Issue_Number}
-                        </Link>
                       </div>
-                      <span className="text-muted-foreground truncate">
-                        {d.Provider || "—"}
+                      <QueueStatus status={item.status} />
+                      <span className="text-muted-foreground truncate text-right">
+                        {item.updated_date ? (
+                          <RelativeTime value={item.updated_date} />
+                        ) : (
+                          "—"
+                        )}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
+            </PanelBody>
+
+            <div className="mt-5 pt-4 border-t border-border">
+              <PanelHeader
+                title="Recent activity"
+                meta={`${countMeta(activityState, activityEvents.length, "event")} · ${activityDays} days`}
+                action={{
+                  label: "open history →",
+                  to: "/activity?view=history",
+                }}
+              />
+
+              <PanelBody
+                state={activityState}
+                label="Recent activity"
+                skeleton={<PanelSkeleton rows={5} />}
+                empty={
+                  <>
+                    no activity in the last {activityDays} days —{" "}
+                    <Link
+                      to="/activity?view=history"
+                      className="hover:text-foreground"
+                    >
+                      open full history
+                    </Link>
+                  </>
+                }
+                onRetry={() => void activity.refetch()}
+                isRetrying={activity.isFetching}
+              >
+                {() => (
+                  <div className="font-mono text-[11px]">
+                    {activityEvents.slice(0, 5).map((d, i) => {
+                      const action = d.Status?.toLowerCase() || "—";
+                      const color = action.includes("down")
+                        ? "var(--chart-4)"
+                        : action.includes("post") || action.includes("import")
+                          ? "var(--status-active)"
+                          : action.includes("snatch") ||
+                              action.includes("queue")
+                            ? "var(--status-paused)"
+                            : "var(--muted-foreground)";
+                      return (
+                        <div
+                          key={`${d.ComicID}-${d.IssueID}-${i}`}
+                          className="grid items-center gap-2 py-1.5"
+                          style={{
+                            gridTemplateColumns:
+                              "120px 90px minmax(180px, 1fr) 140px",
+                            borderTop:
+                              i > 0
+                                ? "1px solid var(--border-soft, var(--border))"
+                                : "none",
+                          }}
+                        >
+                          <RelativeTime value={d.DateAdded} />
+                          <span
+                            className="uppercase truncate"
+                            style={{ color }}
+                          >
+                            {action}
+                          </span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {d.ComicID && (
+                              <img
+                                src={`/api/metadata/art/${d.ComicID}`}
+                                alt=""
+                                className="w-4 h-6 object-cover rounded-[1px] shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.style.visibility = "hidden";
+                                }}
+                              />
+                            )}
+                            <Link
+                              to={`/library/${d.ComicID}`}
+                              className="font-sans text-foreground truncate hover:text-[var(--primary)]"
+                            >
+                              {d.ComicName} #{d.Issue_Number}
+                            </Link>
+                          </div>
+                          <span className="text-muted-foreground truncate">
+                            {d.Provider || "—"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </PanelBody>
             </div>
           </section>
 
           {/* This week */}
           <section className="px-5 py-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="text-[13px] font-semibold">This week</div>
-                <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
-                  {upcoming.length} releases
-                </div>
-              </div>
-              <Link
-                to="/releases?view=mine"
-                className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                view mine →
-              </Link>
-            </div>
+            <PanelHeader
+              title="This week"
+              meta={countMeta(
+                upcomingState,
+                upcomingReleases.length,
+                "release",
+              )}
+              action={{ label: "view mine →", to: "/releases?view=mine" }}
+            />
 
-            {isLoading && (
-              <div className="font-mono text-[11px] text-muted-foreground py-4">
-                loading releases…
-              </div>
-            )}
-
-            {!isLoading && upcoming.length === 0 && (
-              <div className="font-mono text-[11px] text-muted-foreground py-4">
-                nothing upcoming this week
-              </div>
-            )}
-
-            {upcoming.slice(0, 6).map((u, i) => (
-              <div
-                key={`${u.ComicID}-${u.IssueNumber}-${i}`}
-                className="flex items-center gap-2.5 py-2.5"
-                style={{
-                  borderTop:
-                    i > 0
-                      ? "1px solid var(--border-soft, var(--border))"
-                      : "none",
-                }}
-              >
-                <div className="font-mono text-[10px] text-muted-foreground w-12 shrink-0">
-                  {u.IssueDate?.slice(5) || "—"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link
-                    to={`/library/${u.ComicID}`}
-                    className="text-[12px] truncate block hover:text-[var(--primary)]"
+            <PanelBody
+              state={upcomingState}
+              label="This week"
+              skeleton={<PanelSkeleton rows={4} rowHeight={41} />}
+              empty="nothing upcoming this week"
+              onRetry={() => void upcoming.refetch()}
+              isRetrying={upcoming.isFetching}
+            >
+              {() =>
+                upcomingReleases.slice(0, 6).map((u, i) => (
+                  <div
+                    key={`${u.ComicID}-${u.IssueNumber}-${i}`}
+                    className="flex items-center gap-2.5 py-2.5"
+                    style={{
+                      borderTop:
+                        i > 0
+                          ? "1px solid var(--border-soft, var(--border))"
+                          : "none",
+                    }}
                   >
-                    {u.ComicName}
-                  </Link>
-                  <div className="font-mono text-[10px] text-muted-foreground">
-                    #{u.IssueNumber}
+                    <div className="font-mono text-[10px] text-muted-foreground w-12 shrink-0">
+                      {u.IssueDate?.slice(5) || "—"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={`/library/${u.ComicID}`}
+                        className="text-[12px] truncate block hover:text-[var(--primary)]"
+                      >
+                        {u.ComicName}
+                      </Link>
+                      <div className="font-mono text-[10px] text-muted-foreground">
+                        #{u.IssueNumber}
+                      </div>
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {u.Status || "auto"}
+                    </div>
                   </div>
-                </div>
-                <div className="font-mono text-[10px] text-muted-foreground">
-                  {u.Status || "auto"}
-                </div>
-              </div>
-            ))}
+                ))
+              }
+            </PanelBody>
 
             <div className="mt-4 p-3 rounded-[6px] border border-border bg-card">
               <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -474,27 +551,32 @@ export default function DashboardPage() {
                   all →
                 </Link>
               </div>
-              {recentChats.length === 0 ? (
-                <div className="font-mono text-[11px] text-muted-foreground py-1">
-                  no saved chats yet
-                </div>
-              ) : (
-                recentChats.map((thread) => (
-                  <Link
-                    key={thread.id}
-                    to={`/chat/${thread.id}`}
-                    className="block px-2 py-1.5 -mx-1 rounded-[6px] hover:bg-accent"
-                  >
-                    <div className="text-[12px] font-medium truncate">
-                      {thread.title}
-                    </div>
-                    <div className="mono-meta text-[10px]">
-                      {thread.message_count} msgs ·{" "}
-                      <RelativeTime value={thread.updated_at} />
-                    </div>
-                  </Link>
-                ))
-              )}
+              <PanelBody
+                state={chatsState}
+                label="Recent chats"
+                skeleton={<PanelSkeleton rows={3} rowHeight={33} />}
+                empty="no saved chats yet"
+                onRetry={() => void chatThreadsQuery.refetch()}
+                isRetrying={chatThreadsQuery.isFetching}
+              >
+                {() =>
+                  recentChats.map((thread) => (
+                    <Link
+                      key={thread.id}
+                      to={`/chat/${thread.id}`}
+                      className="block px-2 py-1.5 -mx-1 rounded-[6px] hover:bg-accent"
+                    >
+                      <div className="text-[12px] font-medium truncate">
+                        {thread.title}
+                      </div>
+                      <div className="mono-meta text-[10px]">
+                        {thread.message_count} msgs ·{" "}
+                        <RelativeTime value={thread.updated_at} />
+                      </div>
+                    </Link>
+                  ))
+                }
+              </PanelBody>
             </div>
           </section>
         </div>

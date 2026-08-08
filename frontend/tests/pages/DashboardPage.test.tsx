@@ -178,21 +178,18 @@ describe("DashboardPage", () => {
 
   it("shows empty states when no data", async () => {
     server.use(
-      http.get("/api/dashboard", () => {
-        return HttpResponse.json({
-          recently_downloaded: [],
-          active_queue: [],
-          upcoming_releases: [],
-          stats: {
-            total_series: 0,
-            total_issues: 0,
-            total_expected: 0,
-            completion_pct: 0,
-          },
-          ai_activity: [],
-          ai_configured: false,
-        });
-      }),
+      http.get("/api/dashboard/queue", () =>
+        HttpResponse.json({ count: 0, items: [] }),
+      ),
+      http.get("/api/dashboard/activity", () =>
+        HttpResponse.json({ days: 30, events: [] }),
+      ),
+      http.get("/api/dashboard/upcoming", () =>
+        HttpResponse.json({ releases: [] }),
+      ),
+      http.get("/api/dashboard/scan-targets", () =>
+        HttpResponse.json({ comic: false, manga: false }),
+      ),
     );
 
     render(<DashboardPage />);
@@ -211,22 +208,8 @@ describe("DashboardPage", () => {
 
   it("links the recent empty state to the full history", async () => {
     server.use(
-      http.get("/api/dashboard", () =>
-        HttpResponse.json({
-          recently_downloaded: [],
-          active_queue: [],
-          upcoming_releases: [],
-          stats: {
-            total_series: 1,
-            total_issues: 1,
-            total_expected: 1,
-            completion_pct: 100,
-            queue_count: 0,
-          },
-          ai_activity: [],
-          ai_configured: false,
-          scan_targets: { comic: false, manga: false },
-        }),
+      http.get("/api/dashboard/activity", () =>
+        HttpResponse.json({ days: 30, events: [] }),
       ),
     );
 
@@ -235,6 +218,90 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByRole("link", { name: "open full history" }),
     ).toBeTruthy();
+  });
+
+  it("keeps every other panel rendered when one source fails", async () => {
+    server.use(
+      http.get("/api/dashboard/activity", () =>
+        HttpResponse.json({ detail: "Database unavailable" }, { status: 503 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    // The failing panel says so; it does not claim a quiet month.
+    await waitFor(() => {
+      expect(screen.getByText("Recent activity unavailable")).toBeTruthy();
+    });
+    expect(screen.queryByText(/no activity in the last 30 days/)).toBeNull();
+
+    // Neighbours still render their own content.
+    expect(screen.getByText("Spider-Man 001.cbz")).toBeTruthy();
+    expect(screen.getByText("Batman")).toBeTruthy();
+    expect(screen.getByText("50.0%")).toBeTruthy();
+  });
+
+  it("retries only the panel that failed", async () => {
+    let activityRequests = 0;
+    let upcomingRequests = 0;
+    server.use(
+      http.get("/api/dashboard/activity", () => {
+        activityRequests += 1;
+        return activityRequests === 1
+          ? HttpResponse.json(
+              { detail: "Database unavailable" },
+              { status: 503 },
+            )
+          : HttpResponse.json({
+              days: 30,
+              events: [
+                {
+                  ComicName: "Spider-Man",
+                  Issue_Number: "1",
+                  DateAdded: "2026-04-05T12:00:00",
+                  Status: "Snatched",
+                  Provider: "nzb",
+                  ComicID: "1",
+                  IssueID: "101",
+                  ComicImage: null,
+                },
+              ],
+            });
+      }),
+      http.get("/api/dashboard/upcoming", () => {
+        upcomingRequests += 1;
+        return HttpResponse.json({ releases: [] });
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await user.click(await screen.findByRole("button", { name: /retry/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Spider-Man #1")).toBeTruthy();
+    });
+    expect(activityRequests).toBe(2);
+    expect(upcomingRequests).toBe(1);
+  });
+
+  it("reports an unavailable KPI instead of a zero it cannot back", async () => {
+    server.use(
+      http.get("/api/dashboard/library", () =>
+        HttpResponse.json({ detail: "Database unavailable" }, { status: 503 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/library unavailable/)).toBeTruthy();
+    });
+    // The three library tiles report unavailable; the queue tile still counts.
+    expect(screen.getAllByText("unavailable").length).toBe(3);
+    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.queryByText("50.0%")).toBeNull();
   });
 
   it("renders the recent chats card", async () => {

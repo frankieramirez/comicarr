@@ -8,21 +8,55 @@
 #  (at your option) any later version.
 
 """
-Dashboard domain router — home dashboard data aggregation endpoint.
+Dashboard domain router — one route per dashboard panel.
+
+There is deliberately no aggregate payload: a single fan-in read makes one
+slow or broken source blank the whole page, which is the failure mode
+``docs/architecture/dashboard-spec.md`` §5 exists to prevent.
 """
 
 from fastapi import APIRouter, Depends
 
-from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
-@router.get("", dependencies=[Depends(require_session)])
-@router.get("/", dependencies=[Depends(require_session)])
-def get_dashboard(ctx: AppContext = Depends(get_context)):
-    """Return aggregated dashboard data for the home page."""
+@router.get("/library", dependencies=[Depends(require_session)])
+def get_library():
+    """Return the library aggregates behind the KPI strip."""
     from comicarr.app.dashboard import service
 
-    return service.get_dashboard_data(ctx)
+    return service.get_library_panel()
+
+
+@router.get("/queue", dependencies=[Depends(require_session)])
+def get_queue():
+    """Return the active-download count and preview."""
+    from comicarr.app.dashboard import service
+
+    return service.get_queue_panel()
+
+
+@router.get("/activity", dependencies=[Depends(require_session)])
+def get_activity():
+    """Return the bounded recent-activity preview."""
+    from comicarr.app.dashboard import service
+
+    return service.get_activity_panel()
+
+
+@router.get("/upcoming", dependencies=[Depends(require_session)])
+def get_upcoming():
+    """Return this week's releases for series in the library."""
+    from comicarr.app.dashboard import service
+
+    return service.get_upcoming_panel()
+
+
+@router.get("/scan-targets", dependencies=[Depends(require_session)])
+def get_scan_targets():
+    """Return which libraries the dashboard's scan action can start."""
+    from comicarr.app.dashboard import service
+
+    return service.get_scan_targets()

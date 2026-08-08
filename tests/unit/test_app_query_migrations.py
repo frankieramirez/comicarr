@@ -24,7 +24,6 @@ from comicarr.app.ai import story_arcs as ai_story_arcs
 from comicarr.app.dashboard import queries as dashboard_queries
 from comicarr.app.weekly import queries as weekly_queries
 from comicarr.tables import (
-    ai_activity_log,
     ai_cache,
     ai_metadata_history,
     comics,
@@ -431,14 +430,6 @@ def test_dashboard_helpers_keep_inclusive_cutoff_order_and_content_type_totals(q
                 },
             ],
         )
-        conn.execute(
-            insert(ai_activity_log),
-            [
-                {"timestamp": "2026-06-10T12:00:00", "feature_type": "older", "success": "true"},
-                {"timestamp": "2026-06-10T12:00:01", "feature_type": "newer", "success": "true"},
-            ],
-        )
-
     recent = dashboard_queries.get_recent_activity("2026-06-10 12:00:00")
     assert [row["IssueID"] for row in recent] == ["newest", "boundary"]
     assert dashboard_queries.get_library_stats() == {
@@ -456,7 +447,6 @@ def test_dashboard_helpers_keep_inclusive_cutoff_order_and_content_type_totals(q
         "comic_have": 5,
         "comic_total": 10,
     }
-    assert [row["feature_type"] for row in dashboard_queries.get_recent_ai_activity()] == ["newer", "older"]
 
 
 def test_weekly_helper_matches_unpadded_week_and_orders_by_title(query_db):
