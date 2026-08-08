@@ -6,6 +6,7 @@ import {
   PanelSkeleton,
   PanelUnavailable,
 } from "@/components/dashboard/DashboardPanel";
+import HealthBand from "@/components/dashboard/HealthBand";
 import { panelState, type PanelState } from "@/lib/panelState";
 import { Kbd } from "@/components/ui/kbd";
 import RelativeTime from "@/components/ui/RelativeTime";
@@ -282,6 +283,10 @@ export default function DashboardPage() {
           </button>
         )}
       </div>
+
+      {/* Health band — above every other panel, because it is the only one
+          whose answer can require action today (dashboard-spec.md §2, §3.1). */}
+      <HealthBand />
 
       {/* Ask bar — a question here opens as a chat instead of a search */}
       <div className="px-5 py-3.5 border-b border-border bg-card/30 flex flex-col gap-2.5">

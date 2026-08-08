@@ -271,6 +271,24 @@ export function sanitizeAcquisitionMessage(value: unknown): string {
 }
 
 /**
+ * The acquisition-health read on its own, for callers that need the health
+ * projection and nothing else — the dashboard health band reads only
+ * `/api/search/health` (docs/architecture/dashboard-spec.md §3.1) and has no use
+ * for the scheduler and diagnostics reads `useAcquisitionHealth` also polls.
+ *
+ * Same query key, so the two share one cache entry and can never disagree.
+ */
+export function useSearchHealth() {
+  return useQuery<AcquisitionHealthResponse>({
+    queryKey: ["acquisition", "health"],
+    queryFn: () =>
+      apiRequest<AcquisitionHealthResponse>("GET", "/api/search/health"),
+    staleTime: 5_000,
+    refetchInterval: HEALTH_POLL_MS,
+  });
+}
+
+/**
  * Load the independent health projections and expose session-cookie-backed
  * repair operations. A repair is only polled after the operator has applied
  * or rolled it back; preview remains read-only and token-bound.
