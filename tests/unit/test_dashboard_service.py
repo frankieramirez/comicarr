@@ -25,8 +25,6 @@ def _dashboard_dependencies(monkeypatch):
     monkeypatch.setattr(service, "comicarr", runtime)
     monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: [])
     monkeypatch.setattr(service.dashboard_queries, "get_library_stats", lambda content_type=None: None)
-    monkeypatch.setattr(service.dl_queries, "count_active_ddl_items", lambda: 0)
-    monkeypatch.setattr(service.dl_queries, "get_active_ddl_preview", lambda limit: [])
     monkeypatch.setattr(service.storyarcs_service, "get_upcoming", lambda include_downloaded: [])
 
 
@@ -77,29 +75,6 @@ class TestLibraryPanel:
 
         with pytest.raises(RuntimeError):
             service.get_library_panel()
-
-
-class TestQueuePanel:
-    """The active-download count and its preview."""
-
-    def test_count_and_preview_share_the_active_predicate(self, monkeypatch):
-        queue_items = [{"ID": "queued-1", "series": "Batman", "status": "Queued"}]
-        get_active_preview = MagicMock(return_value=queue_items)
-        monkeypatch.setattr(service.dl_queries, "count_active_ddl_items", lambda: 3)
-        monkeypatch.setattr(service.dl_queries, "get_active_ddl_preview", get_active_preview)
-
-        panel = service.get_queue_panel()
-
-        get_active_preview.assert_called_once_with(limit=5)
-        assert panel == {"count": 3, "items": queue_items}
-
-    def test_a_failed_count_raises_instead_of_reporting_zero(self, monkeypatch):
-        monkeypatch.setattr(
-            service.dl_queries, "count_active_ddl_items", MagicMock(side_effect=RuntimeError("count failed"))
-        )
-
-        with pytest.raises(RuntimeError):
-            service.get_queue_panel()
 
 
 class TestActivityPanel:

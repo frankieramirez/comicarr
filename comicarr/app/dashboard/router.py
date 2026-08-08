@@ -30,14 +30,6 @@ def get_library():
     return service.get_library_panel()
 
 
-@router.get("/queue", dependencies=[Depends(require_session)])
-def get_queue():
-    """Return the active-download count and preview."""
-    from comicarr.app.dashboard import service
-
-    return service.get_queue_panel()
-
-
 @router.get("/activity", dependencies=[Depends(require_session)])
 def get_activity():
     """Return the bounded recent-activity preview."""

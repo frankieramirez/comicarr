@@ -665,13 +665,10 @@ export function mockApiResponse(
   }
   if (m === "GET" && url === "/api/activity/status") {
     // Quiet-count inputs for AppStatusBar (Variant A). Fixture: light open work.
-    return { in_flight: 2, attention: 0 };
+    return { in_flight: 2, recovery_pending: 1, attention: 0 };
   }
   if (m === "GET" && url === "/api/dashboard/library") {
     return dashboardLibraryPayload();
-  }
-  if (m === "GET" && url === "/api/dashboard/queue") {
-    return { count: 0, items: [] };
   }
   if (m === "GET" && url === "/api/dashboard/activity") {
     return { days: 30, events: recentDownloads() };

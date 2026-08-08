@@ -21,16 +21,13 @@ from datetime import datetime, timedelta
 
 import comicarr
 from comicarr.app.dashboard import queries as dashboard_queries
-from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.storyarcs import service as storyarcs_service
 
 RECENT_ACTIVITY_DAYS = 30
 
 # Every panel's preview is bounded here rather than in the client. A panel that
 # renders fewer rows than it counts is claiming a number it is not showing, so
-# the count and the list share one bound — the rule ``get_queue_panel`` already
-# followed by sharing the active DDL predicate.
-ACTIVE_QUEUE_PREVIEW_LIMIT = 5
+# a count and the list under it always share one bound.
 RECENT_ACTIVITY_PREVIEW_LIMIT = 5
 UPCOMING_PREVIEW_LIMIT = 6
 
@@ -73,18 +70,6 @@ def get_library_panel():
         result["comic_total"] = comic_stats.get("comic_total", 0) or 0
 
     return {"stats": result}
-
-
-def get_queue_panel():
-    """Return the active-download count and its bounded preview.
-
-    Count and preview share the active DDL predicate deliberately, so the
-    tile and the list below it can never disagree.
-    """
-    return {
-        "count": dl_queries.count_active_ddl_items(),
-        "items": dl_queries.get_active_ddl_preview(limit=ACTIVE_QUEUE_PREVIEW_LIMIT) or [],
-    }
 
 
 def get_activity_panel():

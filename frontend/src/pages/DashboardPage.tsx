@@ -7,6 +7,7 @@ import {
   PanelUnavailable,
 } from "@/components/dashboard/DashboardPanel";
 import HealthBand from "@/components/dashboard/HealthBand";
+import InFlightLine from "@/components/dashboard/InFlightLine";
 import { panelState, type PanelState } from "@/lib/panelState";
 import { Kbd } from "@/components/ui/kbd";
 import RelativeTime from "@/components/ui/RelativeTime";
@@ -14,10 +15,8 @@ import { useToast } from "@/components/ui/toast";
 import {
   useDashboardActivity,
   useDashboardLibrary,
-  useDashboardQueue,
   useDashboardScanTargets,
   useDashboardUpcoming,
-  type DashboardQueueItem,
 } from "@/hooks/useDashboard";
 import { useChatThreads } from "@/hooks/useLibraryChat";
 import {
@@ -68,21 +67,6 @@ function Kpi({
         )}
       </div>
     </div>
-  );
-}
-
-function QueueStatus({ status }: { status: DashboardQueueItem["status"] }) {
-  const color =
-    status === "Failed"
-      ? "var(--status-error)"
-      : status === "Downloading"
-        ? "var(--status-active)"
-        : "var(--status-paused)";
-
-  return (
-    <span className="uppercase truncate" style={{ color }}>
-      {status || "Queued"}
-    </span>
   );
 }
 
@@ -138,7 +122,6 @@ const ASK_SUGGESTIONS = [
 
 export default function DashboardPage() {
   const library = useDashboardLibrary();
-  const queue = useDashboardQueue();
   const activity = useDashboardActivity();
   const upcoming = useDashboardUpcoming();
   const scanTargets = useDashboardScanTargets();
@@ -165,8 +148,6 @@ export default function DashboardPage() {
   const { addToast } = useToast();
 
   const stats = library.data?.stats;
-  const queueItems = queue.data?.items ?? [];
-  const queueCount = queue.data?.count ?? 0;
   const activityEvents = activity.data?.events ?? [];
   const activityDays = activity.data?.days ?? 30;
   const upcomingReleases = upcoming.data?.releases ?? [];
@@ -176,8 +157,6 @@ export default function DashboardPage() {
   const completion = stats?.completion_pct ?? 0;
 
   const libraryState = panelState(library, false);
-  const queueState = panelState(queue, queueItems.length === 0);
-  const queueCountState = panelState(queue, false);
   const activityState = panelState(activity, activityEvents.length === 0);
   const upcomingState = panelState(upcoming, upcomingReleases.length === 0);
   const chatsState = panelState(chatThreadsQuery, recentChats.length === 0);
@@ -199,15 +178,14 @@ export default function DashboardPage() {
 
   // The summary repeats each panel's own verdict rather than re-deriving it,
   // so a broken source says so instead of contributing a zero that reads as
-  // fact. `panelState` stays the only place the precedence lives.
-  const summary = [
-    summarize(
-      libraryState,
-      "library",
-      `${activeSeries} series · ${totalIssues} issues`,
-    ),
-    summarize(queueCountState, "queue", `${queueCount} in queue`),
-  ].join(" · ");
+  // fact. `panelState` stays the only place the precedence lives. Open work is
+  // deliberately absent here: `InFlightLine` is the one place that reports it,
+  // from the one endpoint that defines it (dashboard-spec.md §3.3).
+  const summary = summarize(
+    libraryState,
+    "library",
+    `${activeSeries} series · ${totalIssues} issues`,
+  );
 
   const handleLibraryScan = async () => {
     const scanRequests: Promise<unknown>[] = [];
@@ -288,6 +266,10 @@ export default function DashboardPage() {
           whose answer can require action today (dashboard-spec.md §2, §3.1). */}
       <HealthBand />
 
+      {/* How much work is moving, across every route (§3.3). Sits directly
+          under the band; §4's final placement lands with the layout pass. */}
+      <InFlightLine />
+
       {/* Ask bar — a question here opens as a chat instead of a search */}
       <div className="px-5 py-3.5 border-b border-border bg-card/30 flex flex-col gap-2.5">
         <form
@@ -330,8 +312,8 @@ export default function DashboardPage() {
 
       {/* Everything below the ask bar scrolls inside the page column. */}
       <div className="flex-1 min-h-0 overflow-auto">
-        {/* KPI strip — the first three read the library, the fourth the queue */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-border">
+        {/* KPI strip — the library, and only the library */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 border-b border-border">
           <Kpi
             label="Active series"
             value={String(activeSeries)}
@@ -352,159 +334,94 @@ export default function DashboardPage() {
             onRetry={() => void library.refetch()}
             borderLeft
           />
-          <Kpi
-            label="Queue"
-            value={String(queueCount)}
-            state={queueCountState}
-            onRetry={() => void queue.refetch()}
-            borderLeft
-          />
         </div>
 
         {/* Operational summaries */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] border-b border-border min-h-[320px]">
-          {/* Active queue and recent history */}
+          {/* Recent history */}
           <section className="px-5 py-4 lg:border-r lg:border-border">
             <PanelHeader
-              title="Active queue"
-              meta={countMeta(queueCountState, queueCount, "item")}
-              action={{ label: "open queue →", to: "/activity" }}
+              title="Recent activity"
+              meta={`${countMeta(activityState, activityEvents.length, "event")} · ${activityDays} days`}
+              action={{
+                label: "open history →",
+                to: "/activity?view=history",
+              }}
             />
 
             <PanelBody
-              state={queueState}
-              label="Active queue"
-              skeleton={<PanelSkeleton rows={3} />}
-              empty="queue is clear"
-              onRetry={() => void queue.refetch()}
-              isRetrying={queue.isFetching}
+              state={activityState}
+              label="Recent activity"
+              skeleton={<PanelSkeleton rows={5} />}
+              empty={
+                <>
+                  no activity in the last {activityDays} days —{" "}
+                  <Link
+                    to="/activity?view=history"
+                    className="hover:text-foreground"
+                  >
+                    open full history
+                  </Link>
+                </>
+              }
+              onRetry={() => void activity.refetch()}
+              isRetrying={activity.isFetching}
             >
               {() => (
                 <div className="font-mono text-[11px]">
-                  {queueItems.map((item, index) => (
-                    <div
-                      key={item.ID}
-                      className="grid items-center gap-2 py-1.5"
-                      style={{
-                        gridTemplateColumns: "minmax(140px, 1fr) 100px 120px",
-                        borderTop:
-                          index > 0
-                            ? "1px solid var(--border-soft, var(--border))"
-                            : "none",
-                      }}
-                    >
-                      <div className="min-w-0">
-                        <div className="font-sans text-foreground truncate">
-                          {item.series || item.filename || "Unnamed download"}
+                  {activityEvents.map((d, i) => {
+                    const action = d.Status?.toLowerCase() || "—";
+                    const color = action.includes("down")
+                      ? "var(--chart-4)"
+                      : action.includes("post") || action.includes("import")
+                        ? "var(--status-active)"
+                        : action.includes("snatch") || action.includes("queue")
+                          ? "var(--status-paused)"
+                          : "var(--muted-foreground)";
+                    return (
+                      <div
+                        key={`${d.ComicID}-${d.IssueID}-${i}`}
+                        className="grid items-center gap-2 py-1.5"
+                        style={{
+                          gridTemplateColumns:
+                            "120px 90px minmax(180px, 1fr) 140px",
+                          borderTop:
+                            i > 0
+                              ? "1px solid var(--border-soft, var(--border))"
+                              : "none",
+                        }}
+                      >
+                        <RelativeTime value={d.DateAdded} />
+                        <span className="uppercase truncate" style={{ color }}>
+                          {action}
+                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {d.ComicID && (
+                            <img
+                              src={`/api/metadata/art/${d.ComicID}`}
+                              alt=""
+                              className="w-4 h-6 object-cover rounded-[1px] shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.visibility = "hidden";
+                              }}
+                            />
+                          )}
+                          <Link
+                            to={`/library/${d.ComicID}`}
+                            className="font-sans text-foreground truncate hover:text-[var(--primary)]"
+                          >
+                            {d.ComicName} #{d.Issue_Number}
+                          </Link>
                         </div>
-                        {item.filename && item.filename !== item.series && (
-                          <div className="text-muted-foreground truncate">
-                            {item.filename}
-                          </div>
-                        )}
+                        <span className="text-muted-foreground truncate">
+                          {d.Provider || "—"}
+                        </span>
                       </div>
-                      <QueueStatus status={item.status} />
-                      <span className="text-muted-foreground truncate text-right">
-                        {item.updated_date ? (
-                          <RelativeTime value={item.updated_date} />
-                        ) : (
-                          "—"
-                        )}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </PanelBody>
-
-            <div className="mt-5 pt-4 border-t border-border">
-              <PanelHeader
-                title="Recent activity"
-                meta={`${countMeta(activityState, activityEvents.length, "event")} · ${activityDays} days`}
-                action={{
-                  label: "open history →",
-                  to: "/activity?view=history",
-                }}
-              />
-
-              <PanelBody
-                state={activityState}
-                label="Recent activity"
-                skeleton={<PanelSkeleton rows={5} />}
-                empty={
-                  <>
-                    no activity in the last {activityDays} days —{" "}
-                    <Link
-                      to="/activity?view=history"
-                      className="hover:text-foreground"
-                    >
-                      open full history
-                    </Link>
-                  </>
-                }
-                onRetry={() => void activity.refetch()}
-                isRetrying={activity.isFetching}
-              >
-                {() => (
-                  <div className="font-mono text-[11px]">
-                    {activityEvents.map((d, i) => {
-                      const action = d.Status?.toLowerCase() || "—";
-                      const color = action.includes("down")
-                        ? "var(--chart-4)"
-                        : action.includes("post") || action.includes("import")
-                          ? "var(--status-active)"
-                          : action.includes("snatch") ||
-                              action.includes("queue")
-                            ? "var(--status-paused)"
-                            : "var(--muted-foreground)";
-                      return (
-                        <div
-                          key={`${d.ComicID}-${d.IssueID}-${i}`}
-                          className="grid items-center gap-2 py-1.5"
-                          style={{
-                            gridTemplateColumns:
-                              "120px 90px minmax(180px, 1fr) 140px",
-                            borderTop:
-                              i > 0
-                                ? "1px solid var(--border-soft, var(--border))"
-                                : "none",
-                          }}
-                        >
-                          <RelativeTime value={d.DateAdded} />
-                          <span
-                            className="uppercase truncate"
-                            style={{ color }}
-                          >
-                            {action}
-                          </span>
-                          <div className="flex items-center gap-2 min-w-0">
-                            {d.ComicID && (
-                              <img
-                                src={`/api/metadata/art/${d.ComicID}`}
-                                alt=""
-                                className="w-4 h-6 object-cover rounded-[1px] shrink-0"
-                                onError={(e) => {
-                                  e.currentTarget.style.visibility = "hidden";
-                                }}
-                              />
-                            )}
-                            <Link
-                              to={`/library/${d.ComicID}`}
-                              className="font-sans text-foreground truncate hover:text-[var(--primary)]"
-                            >
-                              {d.ComicName} #{d.Issue_Number}
-                            </Link>
-                          </div>
-                          <span className="text-muted-foreground truncate">
-                            {d.Provider || "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </PanelBody>
-            </div>
           </section>
 
           {/* This week */}

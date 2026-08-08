@@ -31,16 +31,6 @@ interface DashboardUpcoming {
   Status: string;
 }
 
-export interface DashboardQueueItem {
-  ID: string;
-  series: string;
-  filename: string;
-  status: string | null;
-  updated_date: string | null;
-  site: string | null;
-  comicid: string | null;
-}
-
 export interface DashboardLibraryStats {
   total_series: number;
   total_issues: number;
@@ -50,11 +40,6 @@ export interface DashboardLibraryStats {
 
 interface DashboardLibraryResponse {
   stats: DashboardLibraryStats;
-}
-
-interface DashboardQueueResponse {
-  count: number;
-  items: DashboardQueueItem[];
 }
 
 interface DashboardActivityResponse {
@@ -79,16 +64,6 @@ export function useDashboardLibrary() {
     queryKey: ["dashboard", "library"],
     queryFn: () =>
       apiRequest<DashboardLibraryResponse>("GET", "/api/dashboard/library"),
-    staleTime: PANEL_STALE_TIME,
-  });
-}
-
-/** Active queue: the count on the KPI strip and the preview below it. */
-export function useDashboardQueue() {
-  return useQuery<DashboardQueueResponse>({
-    queryKey: ["dashboard", "queue"],
-    queryFn: () =>
-      apiRequest<DashboardQueueResponse>("GET", "/api/dashboard/queue"),
     staleTime: PANEL_STALE_TIME,
   });
 }

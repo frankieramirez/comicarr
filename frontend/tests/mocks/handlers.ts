@@ -167,23 +167,6 @@ export const handlers = [
     }),
   ),
 
-  http.get("/api/dashboard/queue", () =>
-    HttpResponse.json({
-      count: 2,
-      items: [
-        {
-          ID: "queue-1",
-          series: "Spider-Man",
-          filename: "Spider-Man 001.cbz",
-          status: "Downloading",
-          updated_date: "2026-04-05T12:00:00",
-          site: "DDL(GetComics)",
-          comicid: "1",
-        },
-      ],
-    }),
-  ),
-
   http.get("/api/dashboard/activity", () =>
     HttpResponse.json({
       days: 30,

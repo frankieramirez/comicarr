@@ -50,31 +50,84 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Active series")).toBeTruthy();
     expect(screen.getByText("Issues")).toBeTruthy();
     expect(screen.getByText("Completion")).toBeTruthy();
-    expect(screen.getByText("Queue")).toBeTruthy();
+    // The Queue tile is gone: it counted active DDL items only, so it read
+    // "0 queued" while SABnzbd was downloading (dashboard-spec.md §3.7).
+    expect(screen.queryByText("Queue")).toBeNull();
     expect(screen.getByText("10")).toBeTruthy();
     expect(screen.getByText("250")).toBeTruthy();
   });
 
-  it("renders separate active queue and recent activity previews", async () => {
+  it("renders the recent activity preview without a queue panel", async () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Active queue")).toBeTruthy();
       expect(screen.getByText("Recent activity")).toBeTruthy();
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Downloading")).toBeTruthy();
-      expect(screen.getByText("Spider-Man 001.cbz")).toBeTruthy();
       expect(screen.getByText("Spider-Man #1")).toBeTruthy();
     });
     expect(screen.getAllByText(/ago$/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "open history →" })).toBeTruthy();
+
+    // Nothing on the page claims a queue depth any more.
+    expect(screen.queryByText("Active queue")).toBeNull();
+    expect(screen.queryByRole("link", { name: "open queue →" })).toBeNull();
+    expect(screen.queryByText(/in queue/)).toBeNull();
+  });
+
+  it("reports in-flight work from the activity status endpoint", async () => {
+    render(<DashboardPage />);
+
+    // The default fixture reports 2 in flight, none of it recovered.
     expect(
-      screen.getByRole("link", { name: "open queue →" }),
+      await screen.findByRole("link", { name: "In flight" }),
     ).toBeTruthy();
+    expect(screen.getByText("2 in flight")).toBeTruthy();
+  });
+
+  it("qualifies the in-flight count with restart recoveries", async () => {
+    server.use(
+      http.get("/api/activity/status", () =>
+        HttpResponse.json({ in_flight: 12, recovery_pending: 3, attention: 0 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    // Qualified, never summed: 12 total, of which 3 survived a restart.
     expect(
-      screen.getByRole("link", { name: "open history →" }),
+      await screen.findByText("12 in flight (3 recovered from a restart)"),
     ).toBeTruthy();
+    expect(screen.queryByText("15 in flight")).toBeNull();
+  });
+
+  it("says nothing is in flight rather than nothing at all", async () => {
+    server.use(
+      http.get("/api/activity/status", () =>
+        HttpResponse.json({ in_flight: 0, recovery_pending: 0, attention: 0 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("nothing in flight")).toBeTruthy();
+  });
+
+  it("says so when the in-flight count cannot be read", async () => {
+    server.use(
+      http.get("/api/activity/status", () =>
+        HttpResponse.json({ detail: "unavailable" }, { status: 503 }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    // An unread count is not a quiet system.
+    await waitFor(() => {
+      expect(screen.getByText("In flight unavailable")).toBeTruthy();
+    });
+    expect(screen.queryByText("nothing in flight")).toBeNull();
   });
 
   it("starts scans for each configured library from the dashboard", async () => {
@@ -178,9 +231,6 @@ describe("DashboardPage", () => {
 
   it("shows empty states when no data", async () => {
     server.use(
-      http.get("/api/dashboard/queue", () =>
-        HttpResponse.json({ count: 0, items: [] }),
-      ),
       http.get("/api/dashboard/activity", () =>
         HttpResponse.json({ days: 30, events: [] }),
       ),
@@ -195,7 +245,6 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("queue is clear")).toBeTruthy();
       expect(screen.getByText(/no activity in the last 30 days/)).toBeTruthy();
       expect(screen.getByText("nothing upcoming this week")).toBeTruthy();
     });
@@ -236,7 +285,7 @@ describe("DashboardPage", () => {
     expect(screen.queryByText(/no activity in the last 30 days/)).toBeNull();
 
     // Neighbours still render their own content.
-    expect(screen.getByText("Spider-Man 001.cbz")).toBeTruthy();
+    expect(screen.getByText("2 in flight")).toBeTruthy();
     expect(screen.getByText("Batman")).toBeTruthy();
     expect(screen.getByText("50.0%")).toBeTruthy();
   });
@@ -301,9 +350,10 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/library unavailable/)).toBeTruthy();
     });
-    // The three library tiles report unavailable; the queue tile still counts.
+    // All three tiles read the library, so all three report unavailable —
+    // while the in-flight line, on its own endpoint, still answers.
     expect(screen.getAllByText("unavailable").length).toBe(3);
-    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.getByText("2 in flight")).toBeTruthy();
     expect(screen.queryByText("50.0%")).toBeNull();
   });
 
