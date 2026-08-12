@@ -347,3 +347,56 @@ def test_owned_record_retries_sqlite_lock_contention(monkeypatch):
             ).scalar_one()
             == "failed"
         )
+
+
+def test_torrent_monitor_not_found_survives_a_raising_record(monkeypatch):
+    """A recording failure must not kill the torrent-monitor worker thread.
+
+    ``worker_main`` catches only ``MaintenanceBlocked``, so anything else that
+    escapes ``_handle_torrent_monitor_result`` takes the monitor down until the
+    process restarts. ``record`` now runs strict reconciliation as well as the
+    journal transition, so it can raise for reasons the old journal-only write
+    never could.
+    """
+    from comicarr.app.downloads import service
+
+    def exploding_record(_entry, **_kwargs):
+        raise RuntimeError("attention persistence failed")
+
+    monkeypatch.setattr(service, "record", exploding_record)
+
+    service._handle_torrent_monitor_result(
+        {
+            "issueid": "iss-torrent",
+            "comicid": "c-torrent",
+            "hash": "deadbeef",
+            "provider": "torrent-provider",
+            "nzbname": "Saga.002",
+        },
+        {"snatch_status": "NOT FOUND"},
+    )
+
+
+def test_torrent_monitor_persistence_quarantine_survives_a_raising_record(monkeypatch):
+    """Same containment for the quarantine written after a journal write fails."""
+    from comicarr.app.downloads import journal, service
+
+    def exploding_record(_entry, **_kwargs):
+        raise RuntimeError("attention persistence failed")
+
+    def exploding_transition(*_args, **_kwargs):
+        raise RuntimeError("journal write failed")
+
+    monkeypatch.setattr(service, "record", exploding_record)
+    monkeypatch.setattr(journal, "record_transition", exploding_transition)
+
+    service._handle_torrent_monitor_result(
+        {
+            "issueid": "iss-torrent-2",
+            "comicid": "c-torrent-2",
+            "hash": "cafebabe",
+            "provider": "torrent-provider",
+            "nzbname": "Saga.003",
+        },
+        {"snatch_status": "MONITOR COMPLETE", "copied_filepath": "/tmp/Saga.003.cbz"},
+    )

@@ -580,16 +580,34 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             from comicarr.app.attention._reconciliation import reconcile_excluded
 
             mapping = existing_row._mapping
-            reconcile_excluded(
-                reason,
-                issueid=mapping.get("issueid") or fields.get("issueid"),
-                provider=mapping.get("provider") or fields.get("provider"),
-                nzbname=mapping.get("nzbname") or fields.get("nzbname"),
-                hash=mapping.get("hash") or fields.get("hash"),
-                payload=existing_payload,
-                conn=conn,
-                strict=True,
-            )
+            # `strict=True` so a reconciliation failure is loud, but caught so
+            # it cannot veto the quarantine. `conn` here is the CALLER's
+            # transaction (post-processing), and postprocess_pipeline re-raises
+            # when `conn is not None` — letting this propagate would roll back
+            # the quarantine UPDATE above and leave the row non-terminal, i.e.
+            # blind-replayable, which is exactly what this block exists to
+            # prevent. The asymmetry with `attention.record()`'s owned
+            # transaction (all-or-nothing, lock-retried) is deliberate: there
+            # the exclusion and its reconciliation are the same durable fact,
+            # whereas here the quarantine is the safety property and has no
+            # catch-up mechanism, while the reconciliation obligation does —
+            # `recovery.reconcile_existing_excluded_rows()` re-scans unresolved
+            # failed/manual_review rows every boot and re-discharges them
+            # idempotently, and a MANUAL_REVIEW row carrying
+            # `immutable_payload_conflict:*` is inside that scan set.
+            try:
+                reconcile_excluded(
+                    reason,
+                    issueid=mapping.get("issueid") or fields.get("issueid"),
+                    provider=mapping.get("provider") or fields.get("provider"),
+                    nzbname=mapping.get("nzbname") or fields.get("nzbname"),
+                    hash=mapping.get("hash") or fields.get("hash"),
+                    payload=existing_payload,
+                    conn=conn,
+                    strict=True,
+                )
+            except Exception as e:
+                logger.error("[JOURNAL] band reconciliation after immutable conflict %s: %s" % (key, e))
             logger.error("[JOURNAL] quarantined release_key=%s: %s" % (key, reason))
         return False
 

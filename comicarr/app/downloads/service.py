@@ -1980,19 +1980,28 @@ def _handle_torrent_monitor_result(item, snstat):
         logger.error(
             "[DOWNLOADS-WORKER] torrent hash not found in client for issueid=%s; marking failed." % item.get("issueid")
         )
-        record(
-            Failure(
-                release_key=rkey,
-                reason="torrent_hash_not_in_client",
-                payload=payload,
-                issue_id=item.get("issueid"),
-                provider=item.get("provider"),
-                downloader_type="torrent",
-                nzb_name=item.get("nzbname"),
-                download_hash=item.get("hash"),
-                comic_id=item.get("comicid"),
+        # `worker_main` catches only MaintenanceBlocked, so anything else that
+        # escapes here kills the torrent-monitor thread until restart. Recording
+        # now also runs strict reconciliation, so degrade a write failure to a
+        # logged error and keep the monitor alive.
+        try:
+            record(
+                Failure(
+                    release_key=rkey,
+                    reason="torrent_hash_not_in_client",
+                    payload=payload,
+                    issue_id=item.get("issueid"),
+                    provider=item.get("provider"),
+                    downloader_type="torrent",
+                    nzb_name=item.get("nzbname"),
+                    download_hash=item.get("hash"),
+                    comic_id=item.get("comicid"),
+                )
             )
-        )
+        except Exception as e:
+            logger.error(
+                "[DOWNLOADS-WORKER] Unable to record failure for %s: %s" % (rkey, type(e).__name__),
+            )
         return
 
     if status not in {"MONITOR FAIL", "MONITOR COMPLETE"}:
@@ -2015,17 +2024,26 @@ def _handle_torrent_monitor_result(item, snstat):
             hash=item.get("hash"),
         )
     except Exception as e:
-        record(
-            ManualReview(
-                release_key=rkey,
-                reason="torrent_artifact_state_persistence_error:%s" % type(e).__name__,
-                payload=payload,
-                issue_id=item.get("issueid"),
-                provider=item.get("provider"),
-                download_hash=item.get("hash"),
+        # Same worker-loop containment as the NOT FOUND branch above: the
+        # quarantine is best-effort, but failing to write it must not take the
+        # monitor thread down with it.
+        try:
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="torrent_artifact_state_persistence_error:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=item.get("issueid"),
+                    provider=item.get("provider"),
+                    download_hash=item.get("hash"),
+                )
             )
-        )
-        logger.error("[DOWNLOADS-WORKER] Copied torrent artifact quarantined; PP not started.")
+            logger.error("[DOWNLOADS-WORKER] Copied torrent artifact quarantined; PP not started.")
+        except Exception as quarantine_error:
+            logger.error(
+                "[DOWNLOADS-WORKER] Unable to quarantine %s after %s; PP not started: %s"
+                % (rkey, type(e).__name__, type(quarantine_error).__name__),
+            )
         return
     if not won:
         return

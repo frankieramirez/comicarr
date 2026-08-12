@@ -80,6 +80,25 @@ test implementations. `read` and `record` use the SQLite-substitutable persisten
 interface directly. Attention is neither a global module instance nor an
 addition to `AppContext`.
 
+### Enforcing the seam
+
+The seam is mechanically enforced. `scripts/check_attention_seam.py`, wired into
+`npm run lint:guards`, AST-scans every module under `comicarr/` outside
+`comicarr/app/attention/` and fails on any import of a private Attention
+submodule, including function-local and relatively spelled ones. A declared
+seam that nothing checks drifts back into the split this decision removed.
+
+Crossings that already exist are waived by an explicit allowlist keyed on
+`(file, private submodule)`, split into permanent internal hooks — the journal's
+post-transition reconciliation hook and the boot-time reconciliation sweep —
+and deprecated compatibility shims that leave with the routes above. Each entry
+carries its reason and its removal trigger.
+
+The allowlist only shrinks. An entry that no longer matches a real import is
+itself a failure, so retiring a shim means deleting its import and its
+allowlist entry in the same change; the guard names the stale entry when the
+second half is forgotten. Widening `__all__` is not a way to satisfy the guard.
+
 ### Canonical HTTP interface
 
 The canonical authenticated interface is:

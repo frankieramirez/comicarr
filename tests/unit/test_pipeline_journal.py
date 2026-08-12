@@ -558,12 +558,12 @@ def test_conflicting_immutable_payload_identity_is_quarantined():
     assert row["fail_reason"] == "immutable_payload_conflict:issueid"
 
 
-def test_immutable_conflict_rolls_back_when_its_private_reconciliation_hook_fails(monkeypatch):
-    key = journal.release_key("safe-tx", "nzb.su")
+def _seed_conflict_row(issue_id, key):
+    """Reserve `key` against `issue_id` so the next write conflicts on issueid."""
     with get_engine().begin() as conn:
         conn.execute(
             issues.insert().values(
-                IssueID="safe-tx",
+                IssueID=issue_id,
                 ComicID="comic-tx",
                 ComicName="Saga",
                 Issue_Number="1",
@@ -573,11 +573,14 @@ def test_immutable_conflict_rolls_back_when_its_private_reconciliation_hook_fail
     journal.record_transition(
         key,
         journal.RESERVED,
-        payload={"issueid": "safe-tx", "provider": "nzb.su", "route": "sabnzbd"},
-        issueid="safe-tx",
+        payload={"issueid": issue_id, "provider": "nzb.su", "route": "sabnzbd"},
+        issueid=issue_id,
         provider="nzb.su",
     )
 
+
+def _break_rewant(monkeypatch):
+    """Make the clause-2 re-want upsert raise, leaving other writes intact."""
     original_upsert_conn = db.upsert_conn
 
     def fail_rewant(conn, table_name, values, controls):
@@ -587,16 +590,56 @@ def test_immutable_conflict_rolls_back_when_its_private_reconciliation_hook_fail
 
     monkeypatch.setattr(db, "upsert_conn", fail_rewant)
 
-    with pytest.raises(RuntimeError, match="rewant persistence failed"):
-        journal.record_transition(
+
+def test_immutable_conflict_quarantine_survives_failing_reconciliation_hook(monkeypatch):
+    """The quarantine is the safety property and must never be vetoed.
+
+    Clause-2 reconciliation has a boot-time idempotent backstop
+    (``reconcile_existing_excluded_rows``); the quarantine has none. If a
+    reconciliation write failure could roll the quarantine back, the row would
+    stay non-terminal and be blind-replayed — exactly what quarantining exists
+    to prevent.
+    """
+    key = journal.release_key("safe-tx", "nzb.su")
+    _seed_conflict_row("safe-tx", key)
+    _break_rewant(monkeypatch)
+
+    won = journal.record_transition(
+        key,
+        journal.SNATCHED,
+        payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-tx"},
+    )
+
+    assert won is False
+    row = _row(key)
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert row["status"] == "manual_review"
+    assert row["fail_reason"] == "immutable_payload_conflict:issueid"
+
+
+def test_immutable_conflict_quarantine_commits_in_caller_transaction(monkeypatch):
+    """Caller-supplied ``conn`` (post-processing) must still see the quarantine.
+
+    ``postprocess_pipeline`` re-raises when ``conn is not None``, so a
+    propagating reconciliation failure here would roll back the caller's
+    transaction along with the quarantine UPDATE.
+    """
+    key = journal.release_key("safe-pp", "nzb.su")
+    _seed_conflict_row("safe-pp", key)
+    _break_rewant(monkeypatch)
+
+    with get_engine().begin() as conn:
+        won = journal.record_transition(
             key,
             journal.SNATCHED,
-            payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-tx"},
+            payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-pp"},
+            conn=conn,
         )
 
+    assert won is False
     row = _row(key)
-    assert row["stage"] == journal.RESERVED
-    assert row["fail_reason"] is None
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert row["fail_reason"] == "immutable_payload_conflict:issueid"
 
 
 def test_read_open_orders_oldest_updated_date_first():

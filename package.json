@@ -10,7 +10,7 @@
     "prepare-github-release": "node scripts/release/prepare-github-release.mjs",
     "lint": "npm run lint:modern && npm run lint:guards && npm run lint:backend && npm run lint:generated && npm run lint:frontend",
     "lint:modern": "python scripts/run_ruff.py modern",
-    "lint:guards": "python scripts/check_retired_globals.py && python scripts/check_fail_reason_registry.py && python scripts/check_upsert_tables.py && python scripts/check_support_bundle_terms.py",
+    "lint:guards": "python scripts/check_retired_globals.py && python scripts/check_fail_reason_registry.py && python scripts/check_upsert_tables.py && python scripts/check_attention_seam.py && python scripts/check_support_bundle_terms.py",
     "lint:backend": "python scripts/run_ruff.py check comicarr/ && python scripts/run_ruff.py format --check comicarr/",
     "lint:generated": "python scripts/generate_config_types.py --check",
     "lint:frontend": "npm --prefix frontend run lint && npm --prefix frontend run format:check",
