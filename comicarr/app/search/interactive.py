@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import threading
+from contextlib import nullcontext
 
 from sqlalchemy import select
 
@@ -19,17 +20,24 @@ from comicarr import db, helpers, logger, search, search_filer
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search.interactive_sessions import (
+    InteractiveCandidateConflict,
+    claim_server_candidate,
     complete_search_session,
     create_pending_session,
+    evaluation_reconstruction,
+    finish_candidate_claim,
     read_session,
+    release_candidate_claim,
     update_search_progress,
 )
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.search.service import _search_route_health
+from comicarr.app.series import queries as series_queries
 from comicarr.tables import storyarcs
 
 _ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue"})
 _WORKER_LOCK = threading.Lock()
+_GRAB_LOCK = threading.Lock()
 
 
 def _resolve_entity(entity_type, entity_id):
@@ -49,7 +57,14 @@ def _resolve_entity(entity_type, entity_id):
         series_id = row.get("ComicID")
     else:
         series_id = row.get("ComicID") or row.get("StoryArcID")
-    return {"entity_type": entity_type, "entity_id": entity_id, "series_id": series_id}, None
+    return {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "series_id": series_id,
+        "release_date": row.get("ReleaseDate"),
+        "issue_date": row.get("IssueDate"),
+        "digital_date": row.get("DigitalDate"),
+    }, None
 
 
 def _provider_plan(ctx):
@@ -88,16 +103,24 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
         for provider in plan
         if provider.blocked
     ]
-    pending = create_pending_session(
-        db.get_engine(),
-        actor=actor,
-        browser_session=browser_session,
-        entity_type=entity["entity_type"],
-        entity_id=entity["entity_id"],
-        series_id=entity["series_id"],
-        provider_total=len(plan),
-        provider_failures=initial_failures,
-    )
+    try:
+        pending = create_pending_session(
+            db.get_engine(),
+            actor=actor,
+            browser_session=browser_session,
+            entity_type=entity["entity_type"],
+            entity_id=entity["entity_id"],
+            series_id=entity["series_id"],
+            provider_total=len(plan),
+            provider_failures=initial_failures,
+        )
+    except InteractiveCandidateConflict as e:
+        return {
+            "success": False,
+            "status_code": 409,
+            "status": "conflict",
+            "error": str(e),
+        }
     try:
         start_background_thread(
             _collect,
@@ -204,3 +227,243 @@ def get_search(*, session_id, actor, browser_session):
         actor=actor,
         browser_session=browser_session,
     )
+
+
+def _same_candidate_identity(stored, current):
+    keys = (
+        "provider_config_id",
+        "provider_type",
+        "provider_name",
+        "source_kind",
+        "provider_item_digest",
+        "pack",
+    )
+    if any(str(stored.get(key)) != str(current.get(key)) for key in keys):
+        return False
+    stored_id = stored.get("provider_item_id")
+    return stored_id in (None, "") or str(stored_id) == str(current.get("provider_item_id"))
+
+
+def _revalidate_candidate(entity, *, override_reason=None):
+    evaluations = []
+
+    def on_evaluations(values):
+        evaluations.extend(values)
+
+    override = search_filer.interactive_candidate_override(override_reason) if override_reason else nullcontext()
+    with (
+        _WORKER_LOCK,
+        override,
+        search_filer.interactive_collection(
+            on_evaluations=on_evaluations,
+            on_provider_complete=lambda _provider: None,
+            on_provider_failure=lambda _provider, _code, _detail: None,
+        ),
+    ):
+        result = search.searchforissue(
+            issueid=entity["entity_id"],
+            manual=True,
+            entity_type=entity["entity_type"] if entity["entity_type"] != "story_arc_issue" else None,
+        )
+    return evaluations, result
+
+
+def _verification_info(match, entity_type):
+    return {
+        "foundc": {"status": False},
+        "nzbprov": match["nzbprov"],
+        "RSS": "no",
+        "ComicName": match["ComicName"],
+        "ComicID": match["ComicID"],
+        "IssueID": match["IssueID"],
+        "IssueNumber": match["IssueNumber"],
+        "ComicYear": match["comyear"],
+        "SARC": match.get("SARC"),
+        "IssueArcID": match.get("IssueArcID"),
+        "oneoff": match.get("oneoff", False),
+        "smode": {
+            "issue": "want",
+            "annual": "want_ann",
+            "story_arc_issue": "story_arc",
+        }[entity_type],
+    }
+
+
+def _candidate_eligibility(entity):
+    candidate = series_queries.get_search_candidate_state(
+        entity["entity_id"],
+        entity_type=entity["entity_type"],
+    )
+    if candidate is None:
+        return {"status": False, "reason": "tracked item no longer exists"}
+    return search.searchforissue_checker(
+        entity["entity_id"],
+        entity.get("release_date"),
+        entity.get("issue_date"),
+        entity.get("digital_date"),
+        {
+            "candidate": candidate,
+            "entity_type": entity["entity_type"],
+        },
+    )
+
+
+def _release_with_error(engine, candidate, *, error, status_code=409, code="candidate_changed"):
+    release_candidate_claim(engine, candidate=candidate)
+    return {
+        "success": False,
+        "status_code": status_code,
+        "status": "blocked",
+        "code": code,
+        "error": error,
+    }
+
+
+def grab_candidate(
+    ctx,
+    *,
+    session_id,
+    candidate_id,
+    actor,
+    browser_session,
+    override=False,
+):
+    """Re-find, revalidate, and journal-handoff one owned release candidate."""
+
+    engine = db.get_engine()
+    with _GRAB_LOCK:
+        claim = claim_server_candidate(
+            engine,
+            session_id=session_id,
+            candidate_id=candidate_id,
+            actor=actor,
+            browser_session=browser_session,
+        )
+        if not claim["claimed"]:
+            outcome = dict(claim.get("outcome") or {"status": claim["state"]})
+            outcome.update({"success": claim["state"] == "submitted", "idempotent": True})
+            return outcome
+
+        candidate = claim["candidate"]
+        public = candidate["public"]
+        verdict = public.get("verdict") or {}
+        if not verdict.get("accepted"):
+            if not verdict.get("overrideable"):
+                return _release_with_error(
+                    engine,
+                    candidate,
+                    error="Release candidate cannot be overridden",
+                )
+            if not override:
+                return _release_with_error(
+                    engine,
+                    candidate,
+                    error="Release candidate requires an explicit override",
+                    code="override_required",
+                )
+            override_reason = verdict.get("reason_code")
+        else:
+            override_reason = None
+
+        entity, error = _resolve_entity(candidate["entity_type"], candidate["entity_id"])
+        if error:
+            return _release_with_error(engine, candidate, error=error["error"], status_code=error["status_code"])
+
+        eligibility = _candidate_eligibility(entity)
+        if not eligibility.get("status"):
+            return _release_with_error(
+                engine,
+                candidate,
+                error="Tracked item is no longer eligible for acquisition",
+                code="item_not_eligible",
+            )
+
+        route_health = _search_route_health(ctx)
+        if not route_health.get("success"):
+            return _release_with_error(
+                engine,
+                candidate,
+                error=route_health.get("error") or "No complete acquisition route is ready",
+                code="route_unavailable",
+            )
+        if not any(not provider.blocked for provider in _provider_plan(ctx)):
+            return _release_with_error(
+                engine,
+                candidate,
+                error="No enabled search provider is currently available",
+                code="provider_unavailable",
+            )
+
+        try:
+            evaluations, search_result = _revalidate_candidate(entity, override_reason=override_reason)
+        except Exception as e:
+            logger.error("[INTERACTIVE-GRAB] Candidate revalidation failed: %s" % redact_sensitive_text(e))
+            return _release_with_error(
+                engine,
+                candidate,
+                error="Release candidate could not be revalidated",
+                status_code=502,
+                code="revalidation_failed",
+            )
+        if isinstance(search_result, dict) and search_result.get("status") == "IN PROGRESS":
+            return _release_with_error(
+                engine,
+                candidate,
+                error="Another search is already running",
+                code="search_busy",
+            )
+
+        matches = [
+            evaluation
+            for evaluation in evaluations
+            if _same_candidate_identity(
+                candidate["reconstruction"],
+                evaluation_reconstruction(evaluation),
+            )
+        ]
+        if len(matches) != 1 or matches[0].legacy_match is None:
+            return _release_with_error(
+                engine,
+                candidate,
+                error="Release candidate is no longer uniquely available under the current provider configuration",
+                code="candidate_changed",
+            )
+
+        match = dict(matches[0].legacy_match)
+        match["downloadit"] = True
+        info = _verification_info(match, entity["entity_type"])
+        try:
+            result = search.verification([match], info)
+        except Exception as e:
+            logger.error("[INTERACTIVE-GRAB] Handoff outcome is ambiguous: %s" % redact_sensitive_text(e))
+            outcome = {
+                "status": "manual_review",
+                "candidate_id": candidate_id,
+                "code": "handoff_outcome_ambiguous",
+                "error": "Handoff outcome requires manual review",
+                "status_code": 500,
+            }
+            finish_candidate_claim(engine, candidate=candidate, state="manual_review", outcome=outcome)
+            return dict(outcome, success=False)
+
+        found = (result or {}).get("foundc") or {}
+        handoff = found.get("info") or {}
+        if not found.get("status"):
+            outcome = {
+                "status": "failed",
+                "candidate_id": candidate_id,
+                "code": "handoff_rejected",
+                "error": "Release handoff was not accepted",
+                "status_code": 502,
+            }
+            finish_candidate_claim(engine, candidate=candidate, state="failed", outcome=outcome)
+            return dict(outcome, success=False)
+
+        outcome = {
+            "status": "submitted",
+            "candidate_id": candidate_id,
+            "journal_release_key": handoff.get("journal_release_key"),
+            "journal_managed": bool(handoff.get("journal_managed")),
+        }
+        outcome = finish_candidate_claim(engine, candidate=candidate, state="submitted", outcome=outcome)
+        return dict(outcome, success=True, idempotent=False)

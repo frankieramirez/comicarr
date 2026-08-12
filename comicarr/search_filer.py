@@ -87,6 +87,35 @@ class ReleaseCandidateEvaluation:
 
 
 _INTERACTIVE_COLLECTOR = contextvars.ContextVar("interactive_release_collector", default=None)
+_INTERACTIVE_OVERRIDE = contextvars.ContextVar("interactive_release_override", default=None)
+
+
+@contextmanager
+def interactive_candidate_override(reason_code):
+    """Override exactly one matcher rejection during server-side revalidation.
+
+    Only reasons already classified as overrideable may enter this context.
+    Every other matcher guard continues to fail closed, so selecting a rejected
+    candidate never bypasses unrelated safety checks.
+    """
+
+    definition = _REASON_DEFINITIONS.get(str(reason_code))
+    if definition is None or not definition[1]:
+        raise ValueError("release candidate rejection is not overrideable")
+    token = _INTERACTIVE_OVERRIDE.set(str(reason_code))
+    try:
+        yield
+    finally:
+        _INTERACTIVE_OVERRIDE.reset(token)
+
+
+def _reject(reason_code, *, cause=None):
+    if _INTERACTIVE_OVERRIDE.get() == reason_code:
+        return
+    rejection = _EntryRejected(reason_code)
+    if cause is not None:
+        raise rejection from cause
+    raise rejection
 
 
 @contextmanager
@@ -359,7 +388,7 @@ class search_check(object):
                 "[IGNORE_SEARCH_WORDS] %s exists within the search result (%s). Ignoring this result."
                 % (ignored, ComicTitle)
             )
-            raise _EntryRejected("ignored.search_word")
+            _reject("ignored.search_word")
 
         comsize_m = 0
         if nzbprov != "dognzb":
@@ -408,19 +437,19 @@ class search_check(object):
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
                         if int(conv_minsize) > int(comsize_b):
                             logger.fdebug("Failure to meet the Minimum size threshold - skipping")
-                            raise _EntryRejected("rejected.size_below_min")
+                            _reject("rejected.size_below_min")
                     if comicarr.CONFIG.USE_MAXSIZE:
                         conv_maxsize = helpers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
                         logger.fdebug("comparing Max threshold %s .. to .. nzb %s" % (conv_maxsize, comsize_b))
                         if int(comsize_b) > int(conv_maxsize):
                             logger.fdebug("Failure to meet the Maximium size threshold - skipping")
-                            raise _EntryRejected("rejected.size_above_max")
+                            _reject("rejected.size_above_max")
 
         if comicarr.CONFIG.IGNORE_COVERS is True:
             cvrchk = re.sub(r"[\s\s+\_\.]", "", entry["title"]).lower()
             if any(["coversonly" in cvrchk, "coveronly" in cvrchk]):
                 logger.fdebug("Cover(s) only detected. Ignoring result.")
-                raise _EntryRejected("rejected.cover_only")
+                _reject("rejected.cover_only")
 
         # ---- date constaints.
         # if the posting date is prior to the publication date,
@@ -436,7 +465,7 @@ class search_check(object):
                     pubdate = entry["pubdate"]
                 except Exception as e:
                     logger.fdebug("Invalid date found. Unable to continue - skipping result. Error returned: %s" % e)
-                    raise _EntryRejected("invalid.pubdate_missing") from e
+                    _reject("invalid.pubdate_missing", cause=e)
 
         if UseFuzzy == "1":
             logger.fdebug("Year has been fuzzied for this series, ignoring store date comparison entirely.")
@@ -452,7 +481,7 @@ class search_check(object):
                         " probably should refresh the series or wait for CV"
                         " to correct the data"
                     )
-                    raise _EntryRejected("invalid.reference_date_missing")
+                    _reject("invalid.reference_date_missing")
                 else:
                     stdate = IssueDate
                 logger.fdebug("issue date used is : %s" % stdate)
@@ -485,7 +514,7 @@ class search_check(object):
                         "Unable to parse posting date from provider result set"
                         " for : %s. Error returned: %s" % (entry["title"], e)
                     )
-                    raise _EntryRejected("invalid.pubdate_unparseable") from e
+                    _reject("invalid.pubdate_unparseable", cause=e)
 
             if all([digitaldate != "0000-00-00", digitaldate is not None]):
                 i = 0
@@ -554,7 +583,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    raise _EntryRejected("rejected.before_reference_date")
+                    _reject("rejected.before_reference_date")
                 else:
                     logger.fdebug("[CONV] %s is after store date of %s" % (pubdate, stdate))
             except _EntryRejected:
@@ -570,7 +599,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    raise _EntryRejected("rejected.before_reference_date") from None
+                    _reject("rejected.before_reference_date")
                 else:
                     logger.fdebug("[INT] %s is after store date of %s" % (pubdate, stdate))
         # -- end size constaints.
@@ -640,12 +669,12 @@ class search_check(object):
                 filecomic = fcomic.matchIT(parsed_comic)
             except Exception as e:
                 logger.error("[PARSE-ERROR]: %s" % e)
-                raise _EntryRejected("error.matcher_exception") from e
+                _reject("error.matcher_exception", cause=e)
             else:
                 logger.fdebug("match_check: %s" % filecomic)
                 if filecomic["process_status"] == "fail":
                     logger.fdebug("%s was not a match to %s (%s)" % (cleantitle, ComicName, SeriesYear))
-                    raise _EntryRejected("rejected.series_mismatch")
+                    _reject("rejected.series_mismatch")
                 elif filecomic["process_status"] == "alt_match":
                     # if it's an alternate series match, we'll retain each value
                     # until the search has compeletely run, compiling matches.
@@ -664,10 +693,10 @@ class search_check(object):
                 "Booktypes do not match. Looking for %s, this is a %s."
                 " Ignoring this result." % (booktype, parsed_comic["booktype"])
             )
-            raise _EntryRejected("rejected.book_type")
+            _reject("rejected.book_type")
         else:
             logger.fdebug("Unable to parse name properly: %s. Ignoring this result" % parsed_comic)
-            raise _EntryRejected("rejected.unparseable_title")
+            _reject("rejected.unparseable_title")
 
         # adjust for covers only by removing them entirely...
         vers4year = "no"
@@ -786,7 +815,7 @@ class search_check(object):
             yearmatch = True
 
         if yearmatch is False and pack is False:
-            raise _EntryRejected("rejected.year_mismatch")
+            _reject("rejected.year_mismatch")
 
         annualize = False
         if "annual" in ComicName.lower():
@@ -897,7 +926,7 @@ class search_check(object):
                     )
                 else:
                     logger.fdebug("Versions wrong. Ignoring possible match.")
-                    raise _EntryRejected("rejected.volume_mismatch")
+                    _reject("rejected.volume_mismatch")
 
         downloadit = False
 
@@ -915,12 +944,12 @@ class search_check(object):
                         logger.info("Issue Number %s exists within pack. Continuing." % IssueNumber)
                     else:
                         logger.fdebug("Issue Number %s does NOT exist within this pack. Skipping" % IssueNumber)
-                        raise _EntryRejected("rejected.pack_issue_absent")
+                        _reject("rejected.pack_issue_absent")
             except _EntryRejected:
                 raise
             except Exception as e:
                 logger.error("Unable to identify pack range for %s. Error returned: %s" % (entry["title"], e))
-                raise _EntryRejected("error.pack_lookup_exception") from e
+                _reject("error.pack_lookup_exception", cause=e)
             # pack support.
             nowrite = False
             if "DDL" in nzbprov:
@@ -1000,7 +1029,7 @@ class search_check(object):
                     },
                     "pack",
                 )
-            raise _EntryRejected("blocked.duplicate")
+            _reject("blocked.duplicate")
         else:
             if filecomic["process_status"] == "match":
                 if cmloopit != 4:
@@ -1205,14 +1234,14 @@ class search_check(object):
                             },
                             "standard",
                         )
-                    raise _EntryRejected("blocked.duplicate")
+                    _reject("blocked.duplicate")
                 else:
                     # log2file = log2file + "issues don't match.." + "\n"
                     downloadit = False
                     # foundc['status'] = False
         if alt_match:
-            raise _EntryRejected("rejected.alternate_series")
-        raise _EntryRejected("rejected.issue_mismatch")
+            _reject("rejected.alternate_series")
+        _reject("rejected.issue_mismatch")
 
     def checker(self, entries, is_info=None):
         comicarr.COMICINFO = []

@@ -26,7 +26,7 @@ import secrets
 import threading
 from collections.abc import Mapping, Sequence
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, exists, insert, select, update
 
 from comicarr import logger
 from comicarr.app.common.redaction import redact_sensitive_text
@@ -38,6 +38,7 @@ MAX_CANDIDATES = 200
 MAX_SESSION_BYTES = 512 * 1024
 MAX_RECORD_BYTES = 64 * 1024
 CLEANUP_BATCH_SIZE = 500
+CLAIM_LEASE_SECONDS = 60 * 60
 JOB_ID = "interactive_search_retention"
 JOB_NAME = "Interactive Search Retention"
 
@@ -62,6 +63,10 @@ class InteractiveSearchExpired(InteractiveSearchAuthorizationError):
 
 class InteractiveSearchLimitError(InteractiveSearchSessionError):
     """A session exceeded its fixed candidate or serialized-size bound."""
+
+
+class InteractiveCandidateConflict(InteractiveSearchSessionError):
+    """A selected candidate cannot start another handoff."""
 
 
 def _now(value=None):
@@ -143,16 +148,16 @@ def _candidate_reconstruction(evaluation, public):
     provider_stat = legacy.get("provider_stat") if isinstance(legacy, dict) else None
     provider_stat = provider_stat if isinstance(provider_stat, dict) else {}
     entry = legacy.get("entry") if isinstance(legacy, dict) else None
-    raw_identity = None
-    if isinstance(legacy, dict):
-        raw_identity = legacy.get("nzbid")
+    # The pre-match provider identity is stable across accepted and overridden
+    # evaluations. A generated legacy nzbid may instead derive from a link and
+    # change merely because the same rejection was explicitly overridden.
+    raw_identity = hint.get("provider_item_id")
     if raw_identity in (None, ""):
         raw_identity = _entry_value(entry, "id")
     if raw_identity in (None, "") and isinstance(legacy, dict):
+        raw_identity = legacy.get("nzbid")
+    if raw_identity in (None, "") and isinstance(legacy, dict):
         raw_identity = legacy.get("link")
-    if raw_identity in (None, ""):
-        raw_identity = hint.get("provider_item_id")
-
     provider_type = str(provider_stat.get("type") or hint.get("provider_type") or "").lower()
     if not _SAFE_PROVIDER_TYPE.fullmatch(provider_type):
         provider_type = "unknown"
@@ -177,6 +182,13 @@ def _candidate_reconstruction(evaluation, public):
     # The digest is useful when an unsafe identity must be re-found under the
     # current provider config; it is not reversible and grants no access.
     return reconstruction
+
+
+def evaluation_reconstruction(evaluation):
+    """Return the same safe identity projection used by persisted candidates."""
+
+    public = _sanitize_public(evaluation.as_dict())
+    return _candidate_reconstruction(evaluation, public)
 
 
 def _evaluation_record(evaluation, ordinal, expires_at, created_at):
@@ -291,6 +303,18 @@ def create_session(
             if previous_id is None:
                 conn.execute(insert(interactive_search_sessions).values(**session_values))
             else:
+                active_claim = conn.execute(
+                    select(interactive_search_candidates.c.candidate_id)
+                    .where(interactive_search_candidates.c.session_id == previous_id)
+                    .where(interactive_search_candidates.c.state == "submitting")
+                    .where(
+                        interactive_search_candidates.c.updated_at
+                        > (created - datetime.timedelta(seconds=CLAIM_LEASE_SECONDS)).isoformat()
+                    )
+                    .limit(1)
+                ).scalar_one_or_none()
+                if active_claim is not None:
+                    raise InteractiveCandidateConflict("release candidate handoff is already in progress")
                 conn.execute(
                     delete(interactive_search_candidates).where(
                         interactive_search_candidates.c.session_id == previous_id
@@ -573,16 +597,154 @@ def read_server_candidate(
     }
 
 
+def claim_server_candidate(
+    engine,
+    *,
+    session_id,
+    candidate_id,
+    actor,
+    browser_session,
+    now=None,
+):
+    """Atomically claim one available candidate for server-side handoff.
+
+    Terminal outcomes are returned verbatim to make browser retries
+    idempotent. An in-progress claim is never stolen: the download journal is
+    the cross-process side-effect boundary, while this state prevents normal
+    concurrent requests from reaching it twice.
+    """
+
+    session = _authorized_row(
+        engine,
+        session_id=session_id,
+        actor=actor,
+        browser_session=browser_session,
+        now=now,
+    )
+    timestamp = _now(now).isoformat()
+    with engine.begin() as conn:
+        row = (
+            conn.execute(
+                select(interactive_search_candidates)
+                .where(interactive_search_candidates.c.session_id == session["session_id"])
+                .where(interactive_search_candidates.c.candidate_id == str(candidate_id))
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            raise InteractiveSearchAuthorizationError("release candidate is not available to this browser")
+        reconstruction = _decode_object(
+            row["reconstruction_json"],
+            label="release candidate reconstruction",
+        )
+        if row["state"] in {"submitted", "failed", "manual_review"}:
+            candidate = _server_candidate(row, reconstruction)
+            candidate["entity_type"] = session["entity_type"]
+            candidate["entity_id"] = session["entity_id"]
+            return {
+                "claimed": False,
+                "state": row["state"],
+                "outcome": reconstruction.get("selection_outcome"),
+                "candidate": candidate,
+            }
+        if row["state"] == "submitting":
+            raise InteractiveCandidateConflict("release candidate handoff is already in progress")
+        if row["state"] != "available":
+            raise InteractiveCandidateConflict("release candidate is not available for handoff")
+        result = conn.execute(
+            update(interactive_search_candidates)
+            .where(interactive_search_candidates.c.candidate_id == row["candidate_id"])
+            .where(interactive_search_candidates.c.session_id == session["session_id"])
+            .where(interactive_search_candidates.c.state == "available")
+            .where(interactive_search_candidates.c.expires_at > timestamp)
+            .values(state="submitting", updated_at=timestamp)
+        )
+        if not result.rowcount:
+            raise InteractiveCandidateConflict("release candidate handoff is already in progress")
+    candidate = _server_candidate(row, reconstruction)
+    candidate["state"] = "submitting"
+    candidate["entity_type"] = session["entity_type"]
+    candidate["entity_id"] = session["entity_id"]
+    return {"claimed": True, "state": "submitting", "outcome": None, "candidate": candidate}
+
+
+def _server_candidate(row, reconstruction):
+    return {
+        "candidate_id": row["candidate_id"],
+        "session_id": row["session_id"],
+        "state": row["state"],
+        "fingerprint": row["fingerprint"],
+        "public": _decode_object(row["public_json"], label="release candidate projection"),
+        "reconstruction": reconstruction,
+    }
+
+
+def finish_candidate_claim(engine, *, candidate, state, outcome, now=None):
+    """Persist one bounded terminal handoff outcome using the claim CAS."""
+
+    if state not in {"submitted", "failed", "manual_review"}:
+        raise ValueError("unsupported release candidate outcome")
+    reconstruction = dict(candidate["reconstruction"])
+    reconstruction["selection_outcome"] = _sanitize_public(outcome)
+    encoded = _bounded_json(reconstruction, label="release candidate handoff outcome")
+    with engine.begin() as conn:
+        result = conn.execute(
+            update(interactive_search_candidates)
+            .where(interactive_search_candidates.c.candidate_id == candidate["candidate_id"])
+            .where(interactive_search_candidates.c.session_id == candidate["session_id"])
+            .where(interactive_search_candidates.c.fingerprint == candidate["fingerprint"])
+            .where(interactive_search_candidates.c.state == "submitting")
+            .values(
+                state=state,
+                reconstruction_json=encoded,
+                updated_at=_now(now).isoformat(),
+            )
+        )
+    if not result.rowcount:
+        raise InteractiveCandidateConflict("release candidate claim changed before completion")
+    return reconstruction["selection_outcome"]
+
+
+def release_candidate_claim(engine, *, candidate, now=None):
+    """Release a claim after a deterministic pre-handoff validation failure."""
+
+    reconstruction = dict(candidate["reconstruction"])
+    reconstruction.pop("selection_outcome", None)
+    with engine.begin() as conn:
+        result = conn.execute(
+            update(interactive_search_candidates)
+            .where(interactive_search_candidates.c.candidate_id == candidate["candidate_id"])
+            .where(interactive_search_candidates.c.session_id == candidate["session_id"])
+            .where(interactive_search_candidates.c.fingerprint == candidate["fingerprint"])
+            .where(interactive_search_candidates.c.state == "submitting")
+            .values(
+                state="available",
+                reconstruction_json=_bounded_json(reconstruction, label="release candidate reconstruction"),
+                updated_at=_now(now).isoformat(),
+            )
+        )
+    return bool(result.rowcount)
+
+
 def purge_expired_sessions(engine, *, now=None, batch_size=CLEANUP_BATCH_SIZE):
     """Delete at most one bounded batch of expired sessions and candidates."""
 
     limit = max(1, min(int(batch_size), CLEANUP_BATCH_SIZE))
     cutoff = _now(now).isoformat()
+    claim_cutoff = (_now(now) - datetime.timedelta(seconds=CLAIM_LEASE_SECONDS)).isoformat()
+    active_claim = exists(
+        select(interactive_search_candidates.c.candidate_id)
+        .where(interactive_search_candidates.c.session_id == interactive_search_sessions.c.session_id)
+        .where(interactive_search_candidates.c.state == "submitting")
+        .where(interactive_search_candidates.c.updated_at > claim_cutoff)
+    )
     with engine.begin() as conn:
         session_ids = list(
             conn.execute(
                 select(interactive_search_sessions.c.session_id)
                 .where(interactive_search_sessions.c.expires_at <= cutoff)
+                .where(~active_claim)
                 .order_by(interactive_search_sessions.c.expires_at)
                 .limit(limit)
             ).scalars()

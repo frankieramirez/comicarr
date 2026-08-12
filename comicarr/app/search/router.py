@@ -21,6 +21,7 @@ from comicarr.app.core.security import COOKIE_NAME, require_session
 from comicarr.app.search import interactive as interactive_search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.interactive_sessions import (
+    InteractiveCandidateConflict,
     InteractiveSearchAuthorizationError,
     InteractiveSearchExpired,
 )
@@ -214,6 +215,45 @@ def poll_interactive_search(
         return JSONResponse(status_code=410, content={"detail": str(e), "status": "expired"})
     except InteractiveSearchAuthorizationError:
         return JSONResponse(status_code=404, content={"detail": "Interactive search session not found"})
+
+
+@router.post(
+    "/interactive/{session_id}/candidates/{candidate_id}/grab",
+    dependencies=[Depends(require_session)],
+)
+async def grab_interactive_candidate(
+    session_id: str,
+    candidate_id: str,
+    request: Request,
+    username: str = Depends(require_session),
+    ctx: AppContext = Depends(get_context),
+):
+    """Safely hand off one owned, freshly revalidated release candidate."""
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    try:
+        result = interactive_search.grab_candidate(
+            ctx,
+            session_id=session_id,
+            candidate_id=candidate_id,
+            actor=username,
+            browser_session=_session_identity(request, username),
+            override=body.get("override") is True,
+        )
+    except InteractiveSearchExpired as e:
+        return JSONResponse(status_code=410, content={"detail": str(e), "status": "expired"})
+    except InteractiveSearchAuthorizationError:
+        return JSONResponse(status_code=404, content={"detail": "Release candidate not found"})
+    except InteractiveCandidateConflict as e:
+        return JSONResponse(status_code=409, content={"detail": str(e), "status": "conflict"})
+    if result.get("success") is False:
+        return JSONResponse(status_code=int(result.pop("status_code", 409)), content=result)
+    return result
 
 
 @router.get("/runs/{run_id}", dependencies=[Depends(require_session)])

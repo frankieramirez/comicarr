@@ -20,7 +20,7 @@ import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
 from comicarr.app.search import interactive
-from comicarr.app.search.interactive_sessions import read_session
+from comicarr.app.search.interactive_sessions import create_session, read_session
 from comicarr.app.search.router import router
 from comicarr.search_filer import ReleaseCandidateEvaluation
 from comicarr.tables import interactive_search_sessions, metadata
@@ -84,6 +84,43 @@ def _evaluation(title="Candidate"):
     )
 
 
+def _handoff_evaluation(title="Candidate"):
+    evaluation = _evaluation(title)
+    evaluation.legacy_match = {
+        "ComicName": "Example",
+        "ComicID": "series-1",
+        "IssueID": "tracked-1",
+        "ComicVolume": None,
+        "IssueNumber": "1",
+        "IssueDate": "2026-08-11",
+        "comyear": "2026",
+        "pack": False,
+        "pack_numbers": None,
+        "pack_issuelist": None,
+        "modcomicname": "Example",
+        "oneoff": False,
+        "nzbprov": "DDL(GetComics)",
+        "provider": "DDL(GetComics)",
+        "nzbtitle": title,
+        "nzbid": "item-1",
+        "link": "https://provider.invalid/private",
+        "pubdate": None,
+        "size": None,
+        "tmpprov": "DDL(GetComics)",
+        "kind": "ddl",
+        "SARC": None,
+        "booktype": "Print",
+        "IssueArcID": None,
+        "newznab": None,
+        "torznab": None,
+        "downloadit": False,
+        "ComicTitle": title,
+        "entry": {"id": "item-1", "link": "https://provider.invalid/private"},
+        "provider_stat": {"id": 200, "type": "ddl", "active": True, "hits": 0},
+    }
+    return evaluation
+
+
 @pytest.fixture
 def api_client():
     app = FastAPI()
@@ -135,6 +172,29 @@ def test_poll_endpoint_never_exposes_private_reconstruction(api_client, monkeypa
 
     assert response.status_code == 200
     assert "reconstruction" not in response.text
+
+
+def test_grab_endpoint_binds_owner_and_explicit_override(api_client, monkeypatch):
+    captured = {}
+
+    def grab(_ctx, **kwargs):
+        captured.update(kwargs)
+        return {"success": True, "status": "submitted"}
+
+    monkeypatch.setattr(interactive, "grab_candidate", grab)
+    response = api_client.post(
+        "/api/search/interactive/session-1/candidates/candidate-1/grab",
+        json={"override": True},
+    )
+
+    assert response.status_code == 200
+    assert captured == {
+        "session_id": "session-1",
+        "candidate_id": "candidate-1",
+        "actor": "alice",
+        "browser_session": "browser-cookie",
+        "override": True,
+    }
 
 
 @pytest.mark.parametrize(
@@ -321,3 +381,164 @@ def test_worker_failure_is_terminal_and_credential_safe(engine, monkeypatch):
     assert row["state"] == "failed"
     assert "secret" not in row["provider_failures_json"]
     assert "https://" not in row["provider_failures_json"]
+
+
+def test_grab_refinds_exact_candidate_handoffs_once_and_replays(engine, monkeypatch):
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="issue",
+        entity_id="tracked-1",
+        series_id="series-1",
+        evaluations=[_handoff_evaluation()],
+    )
+    candidate_id = created["candidates"][0]["candidate_id"]
+    monkeypatch.setattr(
+        interactive,
+        "_resolve_entity",
+        lambda entity_type, entity_id: (
+            {"entity_type": entity_type, "entity_id": entity_id, "series_id": "series-1"},
+            None,
+        ),
+    )
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+    searches = []
+
+    def manual_search(**kwargs):
+        searches.append(kwargs)
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_handoff_evaluation()])
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+    handoffs = []
+
+    def verify(matches, info):
+        handoffs.append((matches, info))
+        info["foundc"] = {
+            "status": True,
+            "info": {"journal_release_key": "release-1", "journal_managed": True},
+        }
+        return info
+
+    monkeypatch.setattr(interactive.search, "verification", verify)
+    kwargs = {
+        "session_id": created["session_id"],
+        "candidate_id": candidate_id,
+        "actor": "alice",
+        "browser_session": "browser-cookie",
+    }
+
+    first = interactive.grab_candidate(AppContext(config=_config()), **kwargs)
+    replay = interactive.grab_candidate(AppContext(config=_config()), **kwargs)
+
+    assert first == {
+        "status": "submitted",
+        "candidate_id": candidate_id,
+        "journal_release_key": "release-1",
+        "journal_managed": True,
+        "success": True,
+        "idempotent": False,
+    }
+    assert replay["success"] is True
+    assert replay["idempotent"] is True
+    assert len(searches) == 1
+    assert len(handoffs) == 1
+    assert handoffs[0][0][0]["downloadit"] is True
+
+
+def test_grab_fails_closed_when_candidate_identity_changes(engine, monkeypatch):
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="issue",
+        entity_id="tracked-1",
+        evaluations=[_handoff_evaluation()],
+    )
+    monkeypatch.setattr(
+        interactive,
+        "_resolve_entity",
+        lambda entity_type, entity_id: (
+            {"entity_type": entity_type, "entity_id": entity_id, "series_id": "series-1"},
+            None,
+        ),
+    )
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+
+    def changed_search(**_kwargs):
+        changed = _handoff_evaluation()
+        changed.legacy_match["nzbid"] = "different-item"
+        changed.reconstruction_hint["provider_item_id"] = "different-item"
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([changed])
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", changed_search)
+    result = interactive.grab_candidate(
+        AppContext(config=_config()),
+        session_id=created["session_id"],
+        candidate_id=created["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+
+    assert result["success"] is False
+    assert result["code"] == "candidate_changed"
+
+
+def test_grab_requires_and_revalidates_explicit_candidate_override(engine, monkeypatch):
+    rejected = _evaluation("Candidate REPACK")
+    rejected.verdict.update(
+        {
+            "status": "rejected",
+            "accepted": False,
+            "overrideable": True,
+            "reason_code": "ignored.search_word",
+            "match_kind": "none",
+        }
+    )
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="issue",
+        entity_id="tracked-1",
+        evaluations=[rejected],
+    )
+    candidate_id = created["candidates"][0]["candidate_id"]
+    monkeypatch.setattr(
+        interactive,
+        "_resolve_entity",
+        lambda entity_type, entity_id: (
+            {"entity_type": entity_type, "entity_id": entity_id, "series_id": "series-1"},
+            None,
+        ),
+    )
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+    kwargs = {
+        "session_id": created["session_id"],
+        "candidate_id": candidate_id,
+        "actor": "alice",
+        "browser_session": "browser-cookie",
+    }
+
+    required = interactive.grab_candidate(AppContext(config=_config()), **kwargs)
+    assert required["code"] == "override_required"
+
+    reasons = []
+
+    def revalidate(_entity, *, override_reason=None):
+        reasons.append(override_reason)
+        return [_handoff_evaluation("Candidate REPACK")], []
+
+    monkeypatch.setattr(interactive, "_revalidate_candidate", revalidate)
+
+    def verify(_matches, info):
+        info["foundc"] = {"status": True, "info": {"journal_release_key": "release-override"}}
+        return info
+
+    monkeypatch.setattr(interactive.search, "verification", verify)
+    result = interactive.grab_candidate(AppContext(config=_config()), override=True, **kwargs)
+
+    assert result["status"] == "submitted"
+    assert reasons == ["ignored.search_word"]

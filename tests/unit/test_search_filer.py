@@ -180,6 +180,22 @@ def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypat
     assert "reconstruction_hint" not in evaluation.as_dict()
 
 
+def test_candidate_override_revalidates_exactly_one_overrideable_reason(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    checker = search_filer.search_check()
+    entry = _entry(title="Example Series 001 REPACK")
+
+    with search_filer.interactive_candidate_override("ignored.search_word"):
+        evaluation = checker.evaluate_entry(entry, _info())
+
+    assert evaluation.verdict["accepted"] is True
+    assert evaluation.legacy_match["ComicTitle"] == "Example Series 001 REPACK"
+
+    with pytest.raises(ValueError, match="not overrideable"):
+        with search_filer.interactive_candidate_override("blocked.duplicate"):
+            pass
+
+
 def test_interactive_collection_disables_first_result_shortcut(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
     collected = []

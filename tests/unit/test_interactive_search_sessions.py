@@ -17,13 +17,17 @@ import pytest
 from sqlalchemy import create_engine, func, select
 
 from comicarr.app.search.interactive_sessions import (
+    CLAIM_LEASE_SECONDS,
     JOB_ID,
     JOB_NAME,
     MAX_CANDIDATES,
+    InteractiveCandidateConflict,
     InteractiveSearchAuthorizationError,
     InteractiveSearchExpired,
     InteractiveSearchLimitError,
+    claim_server_candidate,
     create_session,
+    finish_candidate_claim,
     purge_expired_sessions,
     read_server_candidate,
     read_session,
@@ -293,6 +297,75 @@ def test_session_survives_service_restart_boundary(engine):
     )
 
     assert loaded == created
+
+
+def test_candidate_claim_is_atomic_and_terminal_outcome_replays(engine):
+    created = _create(engine)
+    candidate_id = created["candidates"][0]["candidate_id"]
+
+    claimed = claim_server_candidate(
+        engine,
+        session_id=created["session_id"],
+        candidate_id=candidate_id,
+        actor="alice",
+        browser_session="raw-session-cookie",
+        now=NOW,
+    )
+    assert claimed["claimed"] is True
+    assert claimed["candidate"]["entity_id"] == "issue-125"
+
+    outcome = finish_candidate_claim(
+        engine,
+        candidate=claimed["candidate"],
+        state="submitted",
+        outcome={"status": "submitted", "journal_release_key": "release-1"},
+        now=NOW,
+    )
+    replay = claim_server_candidate(
+        engine,
+        session_id=created["session_id"],
+        candidate_id=candidate_id,
+        actor="alice",
+        browser_session="raw-session-cookie",
+        now=NOW,
+    )
+
+    assert replay["claimed"] is False
+    assert replay["state"] == "submitted"
+    assert replay["outcome"] == outcome
+    assert (
+        read_session(
+            engine,
+            session_id=created["session_id"],
+            actor="alice",
+            browser_session="raw-session-cookie",
+            now=NOW,
+        )["candidates"][0]["state"]
+        == "submitted"
+    )
+
+
+def test_active_claim_blocks_replacement_and_expiry_cleanup_until_lease_ends(engine):
+    created = _create(engine, ttl_seconds=1)
+    claim_server_candidate(
+        engine,
+        session_id=created["session_id"],
+        candidate_id=created["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="raw-session-cookie",
+        now=NOW,
+    )
+
+    with pytest.raises(InteractiveCandidateConflict, match="already in progress"):
+        _create(engine, now=NOW + datetime.timedelta(seconds=2))
+    assert purge_expired_sessions(engine, now=NOW + datetime.timedelta(minutes=10)) == {
+        "sessions": 0,
+        "candidates": 0,
+    }
+    assert purge_expired_sessions(
+        engine,
+        now=NOW + datetime.timedelta(seconds=CLAIM_LEASE_SECONDS + 1),
+    ) == {"sessions": 1, "candidates": 1}
 
 
 def test_candidate_and_record_limits_fail_before_any_write(engine):
