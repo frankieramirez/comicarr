@@ -280,5 +280,5 @@ def test_ddl_worker_fail_reason_is_token_only():
     from comicarr.app.downloads import service as downloads_service
 
     src = inspect.getsource(downloads_service)
-    assert 'fail_reason="ddl-worker-rejected"' in src
+    assert 'reason="ddl-worker-rejected"' in src
     assert 'fail_reason="ddl-worker-rejected: %s"' not in src

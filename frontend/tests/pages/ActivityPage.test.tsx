@@ -32,7 +32,7 @@ function emptyTimelineHandlers() {
         has_more: false,
       }),
     ),
-    http.get("/api/activity/band", () =>
+    http.get("/api/attention", () =>
       HttpResponse.json({
         results: [],
         total: 0,
@@ -133,7 +133,7 @@ describe("ActivityPage", () => {
           has_more: false,
         });
       }),
-      http.get("/api/activity/band", ({ request }) => {
+      http.get("/api/attention", ({ request }) => {
         bandUrl = new URL(request.url);
         // Eight groups against a preview cap of five: the fold has to appear.
         return HttpResponse.json({

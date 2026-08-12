@@ -10,7 +10,7 @@
 """#483 — needs-attention band resolution actions.
 
 Seams under test (agreed):
-  1. journal.read_needs_attention / stamp_resolution
+  1. attention.read / journal.stamp_resolution
   2. ignore_issue intent helper
   3. search_issue scoped entry
   4. service actions: retry / search-again / ignore / import
@@ -20,7 +20,7 @@ Seams under test (agreed):
 
 import queue as queuelib
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -28,6 +28,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.attention import read as read_attention
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import journal
 from comicarr.app.downloads import service as dl_service
@@ -121,9 +122,7 @@ def _seed_failed_row(
                 values["status"] = status
             if retry_count is not None:
                 values["retry_count"] = retry_count
-            conn.execute(
-                pipeline_journal.update().where(pipeline_journal.c.release_key == key).values(**values)
-            )
+            conn.execute(pipeline_journal.update().where(pipeline_journal.c.release_key == key).values(**values))
     return key
 
 
@@ -163,12 +162,16 @@ def _journal_row(key):
     return journal.read_one(key)
 
 
+def _attention_release_keys():
+    return {member.release_key for group in read_attention().groups for member in group.members}
+
+
 # ---------------------------------------------------------------------------
 # 1. Band query + stamp_resolution
 # ---------------------------------------------------------------------------
 
 
-def test_read_needs_attention_settled_predicate():
+def test_attention_read_settled_predicate():
     _seed_issue()
     on_band = _seed_failed_row(key="1001|a")
     off_retried = _seed_failed_row(key="1001|b", status=journal.STATUS_RETRIED)
@@ -177,7 +180,7 @@ def test_read_needs_attention_settled_predicate():
     open_key = journal.release_key("1001", "open")
     journal.record_transition(open_key, journal.SNATCHED, issueid="1001", provider="open")
 
-    keys = {r["release_key"] for r in journal.read_needs_attention()}
+    keys = _attention_release_keys()
     assert on_band in keys
     assert off_retried not in keys
     assert off_ignored not in keys
@@ -199,7 +202,7 @@ def test_stamp_resolution_retried_increments_retry_count_without_stage_change():
     assert after["stage_rank"] == before["stage_rank"]
     assert after["status"] == journal.STATUS_RETRIED
     assert after["retry_count"] == 1
-    assert key not in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key not in _attention_release_keys()
 
 
 def test_stamp_resolution_rejects_open_stage():
@@ -317,7 +320,7 @@ def test_retry_failed_wants_stamps_and_searches(monkeypatch):
     assert row["status"] == journal.STATUS_RETRIED
     assert row["retry_count"] == 1
     assert row["stage"] == journal.FAILED
-    assert key not in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key not in _attention_release_keys()
 
 
 def test_retry_blocked_does_not_stamp(monkeypatch):
@@ -332,7 +335,7 @@ def test_retry_blocked_does_not_stamp(monkeypatch):
     assert result["success"] is False
     assert result["status"] == "blocked"
     assert _journal_row(key).get("status") not in journal.RESOLVED_STATUSES
-    assert key in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key in _attention_release_keys()
 
 
 def test_stop_wanting_failed_stamps_and_sets_intent():
@@ -357,7 +360,7 @@ def test_retired_ignore_action_id_is_rejected():
     result = dl_service.resolve_needs_attention(ctx, key, "ignore", audit_identity="op")
     assert result["success"] is False
     assert result["status_code"] == 400
-    assert key in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key in _attention_release_keys()
 
 
 def test_search_again_manual_review(monkeypatch):
@@ -432,7 +435,7 @@ def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
     assert result["success"] is False
     assert "error" in result
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
-    assert key in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key in _attention_release_keys()
 
 
 def test_retry_not_allowed_on_manual_review():
@@ -490,7 +493,7 @@ def test_batch_stop_wanting_clears_every_member():
     assert result["failed"] == 0
     assert result["capped"] is False
     assert {r["release_key"] for r in result["results"]} == set(keys)
-    assert not {r["release_key"] for r in journal.read_needs_attention()} & set(keys)
+    assert not _attention_release_keys() & set(keys)
 
 
 def test_batch_is_best_effort_and_reports_partials():
@@ -514,7 +517,7 @@ def test_batch_is_best_effort_and_reports_partials():
     assert by_key[orphan]["ok"] is False
     assert by_key[orphan]["error"]
     # The failed member stays on the band for another try; the sibling leaves.
-    on_band = {r["release_key"] for r in journal.read_needs_attention()}
+    on_band = _attention_release_keys()
     assert orphan in on_band
     assert good not in on_band
 
@@ -542,7 +545,7 @@ def test_batch_caps_at_25_newest_first():
     assert result["capped"] is True
     assert result["skipped_for_cap"] == 5
     # Newest processed first: the five oldest are what got left behind.
-    still_on_band = {r["release_key"] for r in journal.read_needs_attention()}
+    still_on_band = _attention_release_keys()
     assert still_on_band == set(keys[:5])
 
 
@@ -552,7 +555,6 @@ def test_batch_keeps_unknown_keys_where_they_were_submitted():
     Unknown keys fail per-item and that failure is the useful output. Ranking
     them behind every dated row would let a capped batch drop them silently.
     """
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
     _seed_issue(issueid="1001", comicid="C1", status="Failed")
     _seed_issue(issueid="1002", comicid="C2", status="Failed")
 
@@ -597,9 +599,15 @@ def test_reason_to_stage_is_a_function():
     import collections
     import pathlib
 
-    stage_of_writer = {"mark_failed": journal.FAILED, "mark_manual_review": journal.MANUAL_REVIEW}
+    stage_of_writer = {
+        "Failure": journal.FAILED,
+        "ManualReview": journal.MANUAL_REVIEW,
+        "mark_failed": journal.FAILED,
+        "mark_manual_review": journal.MANUAL_REVIEW,
+    }
     stages_by_token = collections.defaultdict(set)
-    unresolved = []
+    unresolved = set()
+    direct_journal_writers = set()
 
     # Derived from the installed package, not the working directory, so the
     # scan cannot silently cover nothing when pytest runs from elsewhere.
@@ -610,14 +618,39 @@ def test_reason_to_stage_is_a_function():
         if "_vendor" in path.parts:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+
+        def enclosing_function(node):
+            while node in parents:
+                node = parents[node]
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    return node.name
+            return "<module>"
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
             name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
-            if name not in stage_of_writer or len(node.args) < 2:
+            if name not in stage_of_writer:
                 continue
-            reason = node.args[1]
+            relative_path = path.relative_to(repo_root).as_posix()
+            owner = enclosing_function(node)
+            if name in {"Failure", "ManualReview"}:
+                reason = next((kw.value for kw in node.keywords if kw.arg == "reason"), None)
+                if reason is None:
+                    continue
+            else:
+                direct_journal_writers.add((relative_path, owner, name))
+                if len(node.args) >= 2:
+                    reason = node.args[1]
+                else:
+                    reason = next(
+                        (kw.value for kw in node.keywords if kw.arg in {"reason", "fail_reason"}),
+                        None,
+                    )
+                if reason is None:
+                    continue
             token = None
             if isinstance(reason, ast.Constant) and isinstance(reason.value, str):
                 token = reason.value
@@ -627,25 +660,54 @@ def test_reason_to_stage_is_a_function():
             elif isinstance(reason, ast.BinOp) and isinstance(reason.left, ast.Constant):
                 token = reason.left.value
             if not isinstance(token, str):
-                # Parameterized helper — recorded so a new one cannot slip in
-                # unnoticed, but its tokens are pinned by its own callers.
-                unresolved.append("%s:%d" % (path.relative_to(repo_root), node.lineno))
+                # Parameterized helper — record structural ownership rather
+                # than source line numbers. Its callers pin the concrete
+                # tokens, while the typed entry pins the terminal stage.
+                unresolved.add((relative_path, owner, name, stage_of_writer[name]))
                 continue
             stages_by_token[token.split(":", 1)[0]].add(stage_of_writer[name])
 
-    assert stages_by_token, "found no mark_failed / mark_manual_review call sites — scan is broken"
+    assert stages_by_token, "found no terminal record call sites — scan is broken"
 
     crossovers = {token: stages for token, stages in stages_by_token.items() if len(stages) > 1}
     assert not crossovers, "base tokens written at more than one stage: %s" % crossovers
 
-    # Each parameterized writer must keep feeding exactly one stage. Update this
-    # list only alongside a check that its callers do not cross stages.
-    assert sorted(unresolved) == [
-        "comicarr/app/downloads/handoff.py:183",
-        "comicarr/app/downloads/recovery_classify.py:571",
-        "comicarr/app/downloads/service.py:2153",
-        "comicarr/failed.py:114",
-    ], "a mark_* call site with a non-literal reason changed: %s" % sorted(unresolved)
+    # Low-level journal writes are private to Attention.record. Every producer
+    # must choose a typed Failure or ManualReview entry instead.
+    assert direct_journal_writers == {
+        ("comicarr/app/attention/_recording.py", "_record_on_connection", "mark_failed"),
+        (
+            "comicarr/app/attention/_recording.py",
+            "_record_on_connection",
+            "mark_manual_review",
+        ),
+    }
+
+    # Dynamic reasons are allowed only at explicit typed pass-through seams.
+    # Function identity is stable across formatting and unrelated line edits.
+    assert unresolved == {
+        (
+            "comicarr/app/attention/_recording.py",
+            "_record_on_connection",
+            "mark_failed",
+            journal.FAILED,
+        ),
+        (
+            "comicarr/app/attention/_recording.py",
+            "_record_on_connection",
+            "mark_manual_review",
+            journal.MANUAL_REVIEW,
+        ),
+        ("comicarr/app/downloads/handoff.py", "record_acceptance", "ManualReview", journal.MANUAL_REVIEW),
+        ("comicarr/app/downloads/recovery_classify.py", "apply_verdict", "Failure", journal.FAILED),
+        (
+            "comicarr/app/downloads/service.py",
+            "_quarantine_postprocess_item",
+            "ManualReview",
+            journal.MANUAL_REVIEW,
+        ),
+        ("comicarr/failed.py", "terminalize_failed_download", "Failure", journal.FAILED),
+    }, "a dynamic typed terminal seam changed: %s" % sorted(unresolved)
 
 
 def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch):
@@ -705,7 +767,7 @@ def test_batch_rejects_action_the_member_stage_disallows():
     assert result["success"] is False
     assert result["status_code"] == 409
     assert result["results"][0]["ok"] is False
-    assert key in {r["release_key"] for r in journal.read_needs_attention()}
+    assert key in _attention_release_keys()
 
 
 # ---------------------------------------------------------------------------

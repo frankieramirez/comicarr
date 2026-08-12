@@ -45,7 +45,7 @@ function bandHandler(
 ) {
   const preview_cap = opts.preview_cap ?? 5;
   const total = opts.total ?? groups.length;
-  return http.get("/api/activity/band", () =>
+  return http.get("/api/attention", () =>
     HttpResponse.json({
       results: groups,
       total,
@@ -62,7 +62,9 @@ describe("NeedsAttentionBand", () => {
     render(<NeedsAttentionBand />);
 
     expect(await screen.findByText("Nothing needs you")).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Needs attention" }),
+    ).toBeNull();
     expect(screen.queryByText(/need attention/i)).toBeNull();
   });
 
@@ -142,7 +144,7 @@ describe("NeedsAttentionBand", () => {
     const requests: Array<{ action: string; release_keys: string[] }> = [];
     let hits = 0;
     server.use(
-      http.get("/api/activity/band", () => {
+      http.get("/api/attention", () => {
         hits += 1;
         // After a successful action the band is empty — the count moves without
         // the operator refreshing.
@@ -161,7 +163,7 @@ describe("NeedsAttentionBand", () => {
           preview_cap: 5,
         });
       }),
-      http.post("/api/downloads/needs-attention/batch", async ({ request }) => {
+      http.post("/api/attention/resolve", async ({ request }) => {
         const body = (await request.json()) as {
           action: string;
           release_keys: string[];
@@ -190,9 +192,7 @@ describe("NeedsAttentionBand", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     await waitFor(() => {
-      expect(requests).toEqual([
-        { action: "retry", release_keys: ["rk-1"] },
-      ]);
+      expect(requests).toEqual([{ action: "retry", release_keys: ["rk-1"] }]);
     });
     expect(await screen.findByText("Nothing needs you")).toBeTruthy();
     expect(screen.queryByText("1 needs attention")).toBeNull();
@@ -200,7 +200,7 @@ describe("NeedsAttentionBand", () => {
 
   it("says so when the band cannot be read", async () => {
     server.use(
-      http.get("/api/activity/band", () =>
+      http.get("/api/attention", () =>
         HttpResponse.json({ detail: "unavailable" }, { status: 503 }),
       ),
     );

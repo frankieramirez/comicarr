@@ -77,7 +77,7 @@ function mixedGroup() {
 }
 
 function bandHandler(groups: ReturnType<typeof group>[]) {
-  return http.get("/api/activity/band", () =>
+  return http.get("/api/attention", () =>
     HttpResponse.json({
       results: groups,
       total: groups.length,
@@ -92,7 +92,11 @@ describe("AttentionPage", () => {
     server.use(
       bandHandler(
         Array.from({ length: 9 }, (_, i) =>
-          group({ group_key: `${i}|r`, comicid: String(i), series_label: `S${i}` }),
+          group({
+            group_key: `${i}|r`,
+            comicid: String(i),
+            series_label: `S${i}`,
+          }),
         ),
       ),
     );
@@ -110,7 +114,7 @@ describe("AttentionPage", () => {
     const requests: BatchRequest[] = [];
     server.use(
       bandHandler([group()]),
-      http.post("/api/downloads/needs-attention/batch", async ({ request }) => {
+      http.post("/api/attention/resolve", async ({ request }) => {
         const body = (await request.json()) as BatchRequest;
         requests.push(body);
         return HttpResponse.json({
@@ -145,9 +149,7 @@ describe("AttentionPage", () => {
     });
     // A partial result is a summary, never a blocking modal.
     expect(
-      await screen.findByText(
-        "Search again 1 of 2 — 1 still needs attention.",
-      ),
+      await screen.findByText("Search again 1 of 2 — 1 still needs attention."),
     ).toBeTruthy();
   });
 
@@ -155,7 +157,7 @@ describe("AttentionPage", () => {
     const requests: BatchRequest[] = [];
     server.use(
       bandHandler([group()]),
-      http.post("/api/downloads/needs-attention/batch", async ({ request }) => {
+      http.post("/api/attention/resolve", async ({ request }) => {
         requests.push((await request.json()) as BatchRequest);
         return HttpResponse.json({
           success: true,
@@ -220,7 +222,7 @@ describe("AttentionPage", () => {
     const requests: BatchRequest[] = [];
     server.use(
       bandHandler([mixedGroup()]),
-      http.post("/api/downloads/needs-attention/batch", async ({ request }) => {
+      http.post("/api/attention/resolve", async ({ request }) => {
         const body = (await request.json()) as BatchRequest;
         requests.push(body);
         return HttpResponse.json({

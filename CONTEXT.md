@@ -38,6 +38,12 @@ An operator-initiated review of release candidates for one tracked acquisition i
 
 _Avoid_: Manual search, interactive search
 
+## Needs attention
+
+The work queue of unresolved, actionable acquisition obligations that Comicarr cannot finish without operator information, authority, or judgment. It excludes trouble Comicarr can reconcile itself.
+
+_Avoid_: Attention band (for the complete work queue), failure list
+
 ## Log level
 
 Comicarr's single verbosity dial, named by the severity it admits: `0` warning, `1` info, `2` debug. Level `0` means warnings and errors, not silence, which is why it is never called "quiet" — `--quiet` and `--verbose` are flag spellings, not level names.

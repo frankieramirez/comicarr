@@ -312,6 +312,16 @@ def test_still_ddl_is_quarantined_without_duplicate_sender_call(queues):
     rkey = journal.release_key("40", "DDL", nzbname="Saga.DDL.cbz", discriminant="ddl-9")
     with get_engine().begin() as conn:
         conn.execute(nzblog.insert().values(IssueID="40", PROVIDER="DDL"))
+        conn.execute(issues.insert().values(IssueID="40", ComicID="C4", Status="Snatched"))
+        conn.execute(
+            ddl_info.insert().values(
+                ID="ddl-9",
+                issueid="40",
+                comicid="C4",
+                filename="Saga.DDL.cbz",
+                status="Downloading",
+            )
+        )
     _insert_journal(
         rkey,
         journal.SNATCHED,
@@ -331,7 +341,14 @@ def test_still_ddl_is_quarantined_without_duplicate_sender_call(queues):
     recovery.replay_pipeline(probes=_probe("still"))
     dl = _drain(queues["ddl"])
     assert dl == []
-    assert journal.read_one(rkey)["stage"] == journal.MANUAL_REVIEW
+    attention_row = journal.read_one(rkey)
+    assert attention_row["stage"] == journal.MANUAL_REVIEW
+    assert attention_row["fail_reason"] == "ambiguous_ddl_acceptance_after_restart"
+    with get_engine().connect() as conn:
+        issue = conn.execute(select(issues).where(issues.c.IssueID == "40")).mappings().one()
+        durable = conn.execute(select(ddl_info).where(ddl_info.c.ID == "ddl-9")).mappings().one()
+    assert issue["Status"] == "Wanted"
+    assert durable["status"] == "Manual Review"
     assert _drain(queues["nzb"]) == []
     assert _drain(queues["snatched"]) == []
 

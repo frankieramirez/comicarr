@@ -9,7 +9,11 @@
 
 """Activity Center read service — shapes query results for HTTP handlers."""
 
-from comicarr.app.activity import grouping, queries
+from comicarr.app.activity import queries
+from comicarr.app.attention import Scope, read
+from comicarr.app.attention._serialization import serialize_view
+
+ATTENTION_PREVIEW_CAP = 5
 
 
 def get_timeline(limit=None, offset=None, scope_type=None, scope_id=None):
@@ -23,20 +27,12 @@ def get_timeline(limit=None, offset=None, scope_type=None, scope_id=None):
 
 
 def get_attention_band(scope_type=None, scope_id=None):
-    """Needs-attention **groups**, newest first, with a stable list envelope.
-
-    ``total`` counts groups (the same number the status line shows);
-    ``member_total`` counts the journal rows behind them. The band preview
-    renders the first ``preview_cap`` groups and folds the rest into the
-    triage route (#526).
-    """
-    groups = queries.list_attention_groups(scope_type=scope_type, scope_id=scope_id)
-    return {
-        "results": groups,
-        "total": len(groups),
-        "member_total": sum(group["member_count"] for group in groups),
-        "preview_cap": grouping.BAND_PREVIEW_CAP,
-    }
+    """Deprecated Activity adapter for the canonical Attention read interface."""
+    normalized_type, normalized_id = queries._normalize_scope(scope_type, scope_id)
+    scope = None
+    if normalized_type is not None:
+        scope = Scope(type=normalized_type, id=normalized_id)
+    return serialize_view(read(scope=scope), preview_cap=ATTENTION_PREVIEW_CAP)
 
 
 def get_status():

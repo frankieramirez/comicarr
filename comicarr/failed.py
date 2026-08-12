@@ -83,13 +83,12 @@ def terminalize_failed_download(
     conn=None,
     **fields,
 ):
-    """Advance pipeline_journal to terminal `failed` for a failed-download seam.
+    """Record terminal failure through the Needs attention module interface.
 
     When ``status`` is provided (e.g. STATUS_RETRIED after FAILED_AUTO enqueue),
-    it is stamped in the same ``mark_failed`` write so band membership and the
+    it is stamped in the same terminal write so work-queue membership and the
     stage transition stay transactionally honest. Returns the ``won`` signal
-    from ``journal.mark_failed`` (False when the key is missing or the row was
-    already terminal).
+    from ``attention.record`` (False when the row was already terminal).
     """
     if release_key in (None, ""):
         return False
@@ -97,33 +96,30 @@ def terminalize_failed_download(
         logger.warn("[FAILED-DOWNLOAD] terminalize skipped: empty fail_reason for release_key=%s" % release_key)
         return False
 
-    from comicarr.app.downloads import journal
+    # Keep this import lazy: failed.py is imported by legacy post-processing
+    # code while the modern application modules are still loading.
+    from comicarr.app.attention import Failure, record
 
-    write_fields = dict(fields)
-    if issueid not in (None, ""):
-        write_fields.setdefault("issueid", issueid)
-    if provider not in (None, ""):
-        write_fields.setdefault("provider", provider)
-    if nzbname not in (None, ""):
-        write_fields.setdefault("nzbname", nzbname)
-    if hash not in (None, ""):
-        write_fields.setdefault("hash", hash)
-    if status is not None:
-        write_fields["status"] = status
-
-    won = journal.mark_failed(
-        release_key,
-        fail_reason,
-        payload=payload,
+    outcome = record(
+        Failure(
+            release_key=release_key,
+            reason=fail_reason,
+            payload=payload,
+            issue_id=issueid,
+            provider=provider,
+            downloader_type=fields.get("downloader_type"),
+            nzb_name=nzbname,
+            download_hash=hash,
+            resolved_as=status,
+        ),
         conn=conn,
-        **write_fields,
     )
-    if won:
+    if outcome.transition_won:
         logger.fdebug(
             "[FAILED-DOWNLOAD] journal terminalized release_key=%s fail_reason=%s status=%s"
             % (release_key, fail_reason, status)
         )
-    return won
+    return outcome.transition_won
 
 
 class FailedProcessor(object):
@@ -364,7 +360,7 @@ class FailedProcessor(object):
         # propagated claim key; fall back under existing release_key rules.
         self.issueid = issueid
         if comicarr.CONFIG.FAILED_AUTO:
-            # mark_failed + R9 status=retried in one write: auto re-search is
+            # Terminal failure + R9 status=retried in one write: auto re-search is
             # enqueued (mode=retry) so the row must stay off the attention band.
             self._terminalize_journal(
                 FAIL_REASON_RESEARCHING,
@@ -373,7 +369,7 @@ class FailedProcessor(object):
                 nzbname=nzbname,
             )
             logger.info(module + " Sending back to search to see if we can find something that will not fail.")
-            # Narrative download.failed is emitted from journal.mark_failed when
+            # Narrative download.failed is emitted from Attention recording when
             # the terminalize won (#484); reason_code = FAIL_REASON_RESEARCHING.
             self._log("Sending back to search to see if we can find something better that will not fail.")
             self.valreturn.append(
@@ -397,7 +393,7 @@ class FailedProcessor(object):
                 issueid=issueid,
                 nzbname=nzbname,
             )
-            # Narrative download.failed is emitted from journal.mark_failed when
+            # Narrative download.failed is emitted from Attention recording when
             # the terminalize won (#484); reason_code = FAIL_REASON_NO_AUTO_HANDLING.
             logger.info(
                 module + " Stopping search here as automatic handling of failed downloads is not enabled *hint*"

@@ -231,7 +231,7 @@ export function useActivityBand(scope: ActivityScope = {}) {
       const qs = params.toString();
       return apiRequest<BandPage>(
         "GET",
-        qs ? `/api/activity/band?${qs}` : "/api/activity/band",
+        qs ? `/api/attention?${qs}` : "/api/attention",
       );
     },
     staleTime: ACTIVITY_POLL_MS,
@@ -240,8 +240,8 @@ export function useActivityBand(scope: ActivityScope = {}) {
 }
 
 /**
- * Operator exits for band rows via POST /api/downloads/needs-attention/...
- * Invalidates band + timeline on success.
+ * Resolve one needs-attention item through the canonical command interface.
+ * Invalidates the work queue + timeline on success.
  */
 export function useBandResolution() {
   const queryClient = useQueryClient();
@@ -253,7 +253,8 @@ export function useBandResolution() {
     mutationFn: async ({ releaseKey, action }) => {
       const result = await apiRequest<BandResolutionResult>(
         "POST",
-        `/api/downloads/needs-attention/${encodeURIComponent(releaseKey)}/${action.replace("_", "-")}`,
+        "/api/attention/resolve",
+        { action, release_keys: [releaseKey] },
       );
       if (!result.success) {
         throw new Error(
@@ -289,7 +290,7 @@ export function useBandBatchResolution() {
     mutationFn: async ({ releaseKeys, action }) => {
       const result = await apiRequest<BandBatchResult>(
         "POST",
-        "/api/downloads/needs-attention/batch",
+        "/api/attention/resolve",
         { action, release_keys: releaseKeys },
       );
       if (!result.success) {

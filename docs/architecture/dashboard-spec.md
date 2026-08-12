@@ -62,7 +62,8 @@ catastrophe.
 ## 3. Panels
 
 Every panel names its data source. Panels marked **new source** are the point
-of the redesign: the APIs already exist and the dashboard does not use them.
+of the redesign: the HTTP interfaces already exist and the dashboard does not
+use them.
 
 ### 3.1 Health band — *new source*
 
@@ -91,11 +92,16 @@ component. `blocked` → red, naming it and linking to where it is fixed.
 
 ### 3.2 Needs attention — *new source*
 
-`GET /api/downloads/needs-attention` (band groups, not rows).
+`GET /api/attention` (actionable groups and group/member totals from
+`comicarr.app.attention.read`).
 
 Shows the group count and the top N groups with their operator phrase and
 available actions. Zero groups renders as a single quiet "Nothing needs you"
 line, not an empty card with a heading.
+
+Individual and bulk actions use `POST /api/attention/resolve`. The five-card
+dashboard band is a bounded preview of the complete work queue, not a separate
+membership rule. See [ADR-0003](../adr/0003-attention-module-ownership.md).
 
 This panel is the *actionable* half of failure visibility; §3.1 is the
 *infrastructural* half. Both are required — the band cannot show a downloader
@@ -212,9 +218,10 @@ silent, and must never be optimistic.
    report an error.
 3. **Failure and success share a timeline** (§3.4). A failed attempt cannot be
    invisible merely because it never reached the snatched table.
-4. **No count is derived twice.** `in_flight` and the attention count come from
-   `/api/activity/status` and the band predicate respectively — the same sources
-   the global status bar uses, so the two can never disagree.
+4. **No count is derived twice.** `in_flight` comes from `/api/activity/status`;
+   the attention preview, group count, and member count come from one
+   `AttentionView`. The status endpoint uses those same Attention totals, so the
+   dashboard and global status bar cannot disagree.
 5. **No panel claims coverage it does not have.** The DDL-only "Queue" tile is
    gone rather than relabelled.
 

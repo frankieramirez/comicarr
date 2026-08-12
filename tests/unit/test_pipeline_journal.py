@@ -10,16 +10,17 @@
 #  Tests for comicarr.app.downloads.journal — the U1 forward-only journal facade.
 
 import threading
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-from unittest.mock import patch
 
 import comicarr
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata, pipeline_journal
+from comicarr import db
 from comicarr.app.downloads import journal
+from comicarr.db import get_engine, shutdown_engine
+from comicarr.tables import issues, metadata, pipeline_journal
 
 
 @pytest.fixture(autouse=True)
@@ -45,9 +46,7 @@ def _all_rows():
 
 def _row(key):
     with get_engine().connect() as conn:
-        r = conn.execute(
-            select(pipeline_journal).where(pipeline_journal.c.release_key == key)
-        ).fetchone()
+        r = conn.execute(select(pipeline_journal).where(pipeline_journal.c.release_key == key)).fetchone()
         return dict(r._mapping) if r else None
 
 
@@ -559,6 +558,47 @@ def test_conflicting_immutable_payload_identity_is_quarantined():
     assert row["fail_reason"] == "immutable_payload_conflict:issueid"
 
 
+def test_immutable_conflict_rolls_back_when_its_private_reconciliation_hook_fails(monkeypatch):
+    key = journal.release_key("safe-tx", "nzb.su")
+    with get_engine().begin() as conn:
+        conn.execute(
+            issues.insert().values(
+                IssueID="safe-tx",
+                ComicID="comic-tx",
+                ComicName="Saga",
+                Issue_Number="1",
+                Status="Snatched",
+            )
+        )
+    journal.record_transition(
+        key,
+        journal.RESERVED,
+        payload={"issueid": "safe-tx", "provider": "nzb.su", "route": "sabnzbd"},
+        issueid="safe-tx",
+        provider="nzb.su",
+    )
+
+    original_upsert_conn = db.upsert_conn
+
+    def fail_rewant(conn, table_name, values, controls):
+        if table_name == "issues":
+            raise RuntimeError("rewant persistence failed")
+        return original_upsert_conn(conn, table_name, values, controls)
+
+    monkeypatch.setattr(db, "upsert_conn", fail_rewant)
+
+    with pytest.raises(RuntimeError, match="rewant persistence failed"):
+        journal.record_transition(
+            key,
+            journal.SNATCHED,
+            payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-tx"},
+        )
+
+    row = _row(key)
+    assert row["stage"] == journal.RESERVED
+    assert row["fail_reason"] is None
+
+
 def test_read_open_orders_oldest_updated_date_first():
     """P1 #4: read_open() must return rows oldest-`updated_date` first so the
     U6 inline-PP re-drive cap rotates (oldest obligations drain first) instead
@@ -659,9 +699,7 @@ def test_transition_raises_after_retry_cap_exhausted():
 
     with patch("comicarr.app.downloads.journal.db.get_engine") as mock_engine:
         ctx = mock_engine.return_value.begin.return_value.__enter__
-        ctx.return_value.execute.side_effect = OperationalError(
-            "database is locked", None, None
-        )
+        ctx.return_value.execute.side_effect = OperationalError("database is locked", None, None)
         with pytest.raises(OperationalError):
             journal.record_transition(key, journal.SNATCHED)
 
@@ -671,9 +709,7 @@ def test_non_lock_db_error_raises_immediately():
 
     with patch("comicarr.app.downloads.journal.db.get_engine") as mock_engine:
         ctx = mock_engine.return_value.begin.return_value.__enter__
-        ctx.return_value.execute.side_effect = OperationalError(
-            "no such table", None, None
-        )
+        ctx.return_value.execute.side_effect = OperationalError("no such table", None, None)
         with pytest.raises(OperationalError):
             journal.record_transition(key, journal.SNATCHED)
 

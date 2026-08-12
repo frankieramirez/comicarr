@@ -8,6 +8,18 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for an
 
 Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19 frontend and performance improvements. The HTTP layer is FastAPI + uvicorn (`comicarr.app.main`).
 
+## Architecture
+
+[Comicarr Code Index]|root: ./comicarr
+|Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
+|Business Logic:{search.py:provider search,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
+|Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
+|Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
+|Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
+|Tests:{tests/unit,tests/integration,frontend/tests}
+
+Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloads`, `system`, `dashboard`, `metadata`, `storyarcs`, `weekly`, `opds`, `ai`, plus `core` and `common`.
+
 ## Commands
 
 | Action | Command |
@@ -63,7 +75,7 @@ Conventional PR titles keep history readable, but they do not control releases. 
 - **Log verbosity has exactly one dial** - `comicarr.LOG_LEVEL` (0/1/2) resolves through `logger.threshold_for_level()` and is applied identically to the logger, file, console, and Web UI sinks; ask for the current value with `logger.current_log_level()`, never by reading a global. Level 0 means warnings and errors, not silence. Whether a console sink exists at all is the orthogonal `console=` argument to `initLogger()`. The second dial (`comicarr.QUIET`) is retired and guarded by `RETIRED_GLOBALS`; it caused #610, where raising verbosity under Docker *removed* console output. Contract and history: `docs/architecture/logging-levels.md`.
 - **Do NOT show the saved log level as if it were the running one** - Settings writes `LOG_LEVEL` at the *bottom* of the precedence chain and the write applies live, so the running level, the saved level, and the level the next restart resolves to can all differ. Any surface that reports the level must use `resolve_effective_log_level` (which returns all three plus `pinned`) rather than reading `config.log_level` alone; `GET /system/logs` already carries it. Showing one number where three exist is #610 restated in the UI.
 - **`db.upsert` / `db.upsert_conn` table names must be lowercase `TABLE_MAP` keys** - The table is resolved by dict lookup, so `"Issues"` for `"issues"` lints clean and raises `ValueError: Unknown table for upsert` only when that write branch runs — it broke series refresh in production (#561). `scripts/check_upsert_tables.py` (under `lint:guards`) AST-scans every literal table argument. Runtime-built names are skipped; if you must build one, lowercase it at the source. Contributor-only gate — no changeset.
-- **Every `fail_reason` base token must be classified** in `comicarr/app/activity/reasons.py` before merge (`scripts/check_fail_reason_registry.py` under `lint:guards`). Runtime is fail-open; CI is the gate. Excluding a token requires a reconciliation obligation (never leave `Snatched`). See ADR-0001 / #523 / #541.
+- **Every `fail_reason` base token must be classified** in the private `comicarr.app.attention` reason registry before merge (`scripts/check_fail_reason_registry.py` under `lint:guards`). Runtime is fail-open; CI is the gate. Excluding a token requires reconciliation through `attention.record` (never leave `Snatched`). See ADR-0001, ADR-0003, #523, and #541.
 - **Do NOT make a handoff route depend on the download client reaching back into Comicarr** - A handoff delivers the content, never a pointer to Comicarr, and must be verifiable from the client's own response alone (ADR-0002 / #552 / #564). `blackhole` and `watchdir` are the named exceptions to *verifiability* only — they pay for it by staying out of `_RESTART_SAFE_ROUTES`. There is no cheap static signal for "callback URL", so this is a review gate, not a lint one.
 - **Do NOT add per-feature SSE event types** - `activity` is the only narrative channel; `ai_activity`, `restart`, and `shutdown` are the only other listeners in `useServerEvents`. The client invalidates queries from a payload and never accumulates the stream into a list.
 - **Do NOT finish without linting** - Run `npm run lint` (or `npm run lint:fix` then re-check) before considering work done; do not bypass hooks with `--no-verify`

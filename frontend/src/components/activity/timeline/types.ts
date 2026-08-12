@@ -82,7 +82,7 @@ export interface AttentionMember {
 }
 
 /**
- * A needs-attention *group* from GET /api/activity/band — the unit the operator
+ * A needs-attention *group* from GET /api/attention — the unit the operator
  * acts on. Identity is `(comicid, base_reason)`, or a singleton release key when
  * the payload carries no comicid (#524). The server owns grouping, labels, and
  * `reason_phrase`; the client never re-derives group identity.

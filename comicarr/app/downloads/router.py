@@ -134,15 +134,7 @@ def _resolution_response(result):
     )
 
 
-@router.get("/needs-attention", dependencies=[Depends(require_session)])
-def list_needs_attention(
-    issueid: str = Query(None, max_length=100),
-):
-    """List unresolved failed / manual_review journal rows (band predicate)."""
-    return dl_service.list_needs_attention(issueid=issueid)
-
-
-@router.post("/needs-attention/batch")
+@router.post("/needs-attention/batch", deprecated=True)
 def needs_attention_batch(
     request_body: dict = None,
     username: str = Depends(require_session),
@@ -165,7 +157,7 @@ def needs_attention_batch(
     return _resolution_response(result)
 
 
-@router.post("/needs-attention/{release_key:path}/retry")
+@router.post("/needs-attention/{release_key:path}/retry", deprecated=True)
 def needs_attention_retry(
     release_key: str,
     username: str = Depends(require_session),
@@ -175,7 +167,7 @@ def needs_attention_retry(
     return _resolution_response(dl_service.resolve_needs_attention(ctx, release_key, "retry", audit_identity=username))
 
 
-@router.post("/needs-attention/{release_key:path}/search-again")
+@router.post("/needs-attention/{release_key:path}/search-again", deprecated=True)
 def needs_attention_search_again(
     release_key: str,
     username: str = Depends(require_session),
@@ -187,7 +179,7 @@ def needs_attention_search_again(
     )
 
 
-@router.post("/needs-attention/{release_key:path}/stop-wanting")
+@router.post("/needs-attention/{release_key:path}/stop-wanting", deprecated=True)
 def needs_attention_stop_wanting(
     release_key: str,
     username: str = Depends(require_session),
@@ -199,7 +191,7 @@ def needs_attention_stop_wanting(
     )
 
 
-@router.post("/needs-attention/{release_key:path}/import")
+@router.post("/needs-attention/{release_key:path}/import", deprecated=True)
 def needs_attention_import(
     release_key: str,
     request_body: dict = None,

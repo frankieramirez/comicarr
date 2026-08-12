@@ -32,8 +32,8 @@ Band admission is governed by a **two-clause actionability test**:
    issue at `Status='Snatched'` with nothing watching.
 
 Classification is exhaustive over the 22 known `fail_reason` **base tokens**
-(substring before the first `:`), stored in
-`comicarr/app/activity/reasons.py` beside operator phrases:
+(substring before the first `:`), owned privately by
+`comicarr.app.attention` beside operator phrases:
 
 - 14 admitted (bytes stranded · external ambiguity · operator asked to be asked)
 - 8 excluded, each with a recorded reconciliation obligation
@@ -42,11 +42,8 @@ Unknown tokens are **admitted (fail-open)** at runtime. Completeness is
 enforced in CI (`scripts/check_fail_reason_registry.py` under `lint:guards`),
 not by the predicate — fail-closed would strand the first unregistered writer.
 
-The live predicate is one portable clause on `unresolved_band_condition()`:
-
-```python
-actionable_reason_condition(pipeline_journal.c.fail_reason)
-```
+The live predicate is one portable clause inside `comicarr.app.attention.read`.
+It is not exposed as a second public helper that callers can omit.
 
 No schema column, no migration: the band is computed live; changing admission
 drops rows on deploy. A one-shot re-want/blocklist pass at recovery boot
@@ -58,12 +55,15 @@ handles issues stranded before this ADR shipped.
   changes is *who is admitted* into the queue.
 - Excluded trouble remains visible on the muted timeline and Download History;
   there is no second "quieter problems" tier.
-- Writers of excluded reasons must call
-  `comicarr.app.activity.reconcile.reconcile_excluded` (or already reconcile,
-  as `download_failed_researching` does in `failed.py`).
-- New `fail_reason` writers fail `npm run lint` until classified in `reasons.py`.
+- Writers of terminal trouble must call `comicarr.app.attention.record`; that
+  operation performs any reconciliation obligation carried by an excluded
+  reason. Recording and reconciliation are not separate caller responsibilities.
+- New `fail_reason` writers fail `npm run lint` until classified by Attention's
+  private reason registry.
 - `activity-center.md` documents the widened predicate; this ADR is the
   decision record for rewriting admission underneath the invariant.
+- [ADR-0003](./0003-attention-module-ownership.md) records the later decision
+  to consolidate admission, reads, recording, and resolution in one module.
 
 ## Rejected alternatives
 

@@ -541,7 +541,7 @@ describe("DashboardPage", () => {
 
   it("puts needs-attention and in flight on one row without coupling them", async () => {
     server.use(
-      http.get("/api/activity/band", () =>
+      http.get("/api/attention", () =>
         HttpResponse.json({ detail: "unavailable" }, { status: 503 }),
       ),
     );

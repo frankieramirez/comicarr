@@ -21,10 +21,10 @@ import {
  *
  * This is the *actionable* half of failure visibility — the health band covers
  * infrastructure; this surface shows the specific releases that already need a
- * human decision. It reads `GET /api/activity/band` (group envelope, not rows)
- * and resolves through the same `POST /api/downloads/needs-attention/...`
- * exits the triage route uses, so an action here has the same effect and the
- * count refreshes without a manual reload.
+ * human decision. It reads `GET /api/attention` (group envelope, not rows)
+ * and resolves through the same `POST /api/attention/resolve` command the
+ * triage route uses, so an action here has the same effect and the count
+ * refreshes without a manual reload.
  *
  * Zero groups is a single quiet "Nothing needs you" line, not an empty card.
  * That sentence is only trustworthy alongside the health band's

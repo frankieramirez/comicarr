@@ -60,16 +60,15 @@ def get_timeline(
         _scope_error(e)
 
 
-@router.get("/band", dependencies=[Depends(require_session)])
+@router.get("/band", dependencies=[Depends(require_session)], deprecated=True)
 def get_attention_band(
     scope_type: str | None = Query(None, max_length=32),
     scope_id: str | None = Query(None, max_length=255),
 ):
-    """Return unresolved needs-attention rows grouped by series and reason.
+    """Deprecated adapter for ``GET /api/attention``.
 
-    Predicate: stage in (failed, manual_review) and status is null or not in
-    (retried, ignored, imported). When scoped, members are filtered by that
-    scope **then** grouped, so a scoped view never invents a cross-scope group.
+    Members are filtered by scope before grouping. The canonical route owns
+    this interface; Activity retains the old path for one compatibility release.
     """
     try:
         return service.get_attention_band(scope_type=scope_type, scope_id=scope_id)

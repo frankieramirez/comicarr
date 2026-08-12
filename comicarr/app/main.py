@@ -401,6 +401,7 @@ def create_app():
 
     from comicarr.app.activity.router import router as activity_router
     from comicarr.app.ai.router import router as ai_router
+    from comicarr.app.attention.router import router as attention_router
     from comicarr.app.dashboard.router import router as dashboard_router
     from comicarr.app.downloads.router import router as downloads_router
     from comicarr.app.metadata.router import router as metadata_router
@@ -413,6 +414,7 @@ def create_app():
 
     app.include_router(system_router)
     app.include_router(ai_router)
+    app.include_router(attention_router)
     app.include_router(activity_router)
     app.include_router(dashboard_router)
     app.include_router(weekly_router)

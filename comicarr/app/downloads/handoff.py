@@ -12,6 +12,7 @@
 from dataclasses import dataclass
 
 from comicarr import logger
+from comicarr.app.attention import Failure, ManualReview, record
 
 
 class HandoffError(RuntimeError):
@@ -145,6 +146,22 @@ def _acceptance_identity(route, response):
     return None, None
 
 
+def _attention_identity(fields, *, downloader_type):
+    """Translate legacy handoff field names into Attention's typed entry."""
+
+    return {
+        "issue_id": fields.get("issueid"),
+        "provider": fields.get("provider"),
+        "downloader_type": downloader_type,
+        "nzb_name": fields.get("nzbname"),
+        "release_id": fields.get("release_id"),
+        "download_hash": fields.get("hash"),
+        "comic_id": fields.get("comicid"),
+        "comic_name": fields.get("comicname"),
+        "issue_number": fields.get("issue_number") or fields.get("issuenumber"),
+    }
+
+
 def record_acceptance(release_key, route, response, payload=None, **fields):
     """Persist the actual top-level sender identity before monitor handoff."""
     from comicarr.app.downloads import journal
@@ -153,12 +170,13 @@ def record_acceptance(release_key, route, response, payload=None, **fields):
     explicit_rejection = response is False or response == "fail"
     response = response if isinstance(response, dict) else {}
     if explicit_rejection or response.get("status") is False:
-        journal.mark_failed(
-            release_key,
-            "submission_rejected",
-            payload={"route": normalized},
-            downloader_type=normalized,
-            **fields,
+        record(
+            Failure(
+                release_key=release_key,
+                reason="submission_rejected",
+                payload={"route": normalized},
+                **_attention_identity(fields, downloader_type=normalized),
+            )
         )
         _record_route_health(normalized, False, "submission_rejected")
         return RouteAcceptance(normalized, None, False, False)
@@ -180,12 +198,13 @@ def record_acceptance(release_key, route, response, payload=None, **fields):
             if normalized not in _RESTART_SAFE_ROUTES
             else "route_acceptance_missing_identity:%s" % normalized
         )
-        journal.mark_manual_review(
-            release_key,
-            reason,
-            payload=accepted_payload,
-            downloader_type=normalized,
-            **acceptance_fields,
+        record(
+            ManualReview(
+                release_key=release_key,
+                reason=reason,
+                payload=accepted_payload,
+                **_attention_identity(acceptance_fields, downloader_type=normalized),
+            )
         )
         _record_route_health(normalized, bool(identity), reason)
         return RouteAcceptance(normalized, str(identity) if identity else None, False, True)
@@ -242,12 +261,13 @@ def perform_handoff(
             try:
                 response = sender()
             except Exception as e:
-                journal.mark_manual_review(
-                    release_key,
-                    "submission_outcome_unknown:%s" % type(e).__name__,
-                    payload={"route": normalized},
-                    downloader_type=normalized,
-                    **fields,
+                record(
+                    ManualReview(
+                        release_key=release_key,
+                        reason="submission_outcome_unknown:%s" % type(e).__name__,
+                        payload={"route": normalized},
+                        **_attention_identity(fields, downloader_type=normalized),
+                    )
                 )
                 _record_route_health(normalized, False, "submission_outcome_unknown")
                 outcome = "submission_outcome_unknown"

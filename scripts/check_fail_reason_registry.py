@@ -10,11 +10,12 @@
 """CI completeness gate: every writable fail_reason base token is classified.
 
 Hybrid AST scan (#527): equate base tokens declared in
-``comicarr/app/activity/reasons.py`` with every base token the codebase can
+``comicarr/app/attention/_policy.py`` with every base token the codebase can
 write onto ``pipeline_journal.fail_reason`` via:
 
-* ``journal.mark_failed(...)``
-* ``journal.mark_manual_review(...)``
+* ``attention.record(Failure(...))``
+* ``attention.record(ManualReview(...))``
+* temporary direct ``journal.mark_failed(...)`` / ``mark_manual_review(...)``
 * the inline quarantine write at ``journal.py`` (immutable payload conflict)
 
 Runtime stays fail-open (#523). Contributor-facing only — no changeset.
@@ -29,7 +30,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REASONS_PATH = ROOT / "comicarr" / "app" / "activity" / "reasons.py"
+REASONS_PATH = ROOT / "comicarr" / "app" / "attention" / "_policy.py"
 
 # Trees that can write pipeline_journal.fail_reason. Vendor and test fixtures
 # are out of scope for the gate.
@@ -46,12 +47,14 @@ SKIP_DIR_NAMES = {"_vendor", "__pycache__", ".venv", "node_modules"}
 # allowlisting fails with the unresolvable-site message.
 PASS_THROUGH_WRITERS = frozenset(
     {
+        "record",
+        "_record_on_connection",
         "terminalize_failed_download",
         "_quarantine_postprocess_item",
     }
 )
 
-MARK_ATTRS = frozenset({"mark_failed", "mark_manual_review"})
+MARK_ATTRS = frozenset({"Failure", "ManualReview", "mark_failed", "mark_manual_review"})
 
 # Parameter names that indicate a pass-through body (the enclosing function
 # is the allowlisted writer; callers supply the literal).
@@ -115,7 +118,7 @@ def _load_registry() -> set[str]:
 
     for token in flat | composite:
         if token not in recon:
-            raise SystemExit("Excluded base token %r has no RECONCILIATION entry in reasons.py" % token)
+            raise SystemExit("Excluded base token %r has no RECONCILIATION entry in _policy.py" % token)
     for token in phrases:
         if token in flat or token in composite:
             raise SystemExit("Base token %r is both admitted (REASON_PHRASES) and excluded" % token)
@@ -208,6 +211,11 @@ def _call_name(node: ast.Call) -> str | None:
 
 
 def _reason_arg(node: ast.Call, attr: str) -> ast.AST | None:
+    if attr in {"Failure", "ManualReview"}:
+        for kw in node.keywords:
+            if kw.arg == "reason":
+                return kw.value
+        return None
     if attr == "mark_failed":
         if len(node.args) >= 2:
             return node.args[1]
@@ -312,6 +320,12 @@ def _scan_file(path: Path, const_map: dict[str, str]) -> tuple[set[str], list[st
             parent = enclosing.get(lineno)
             if parent in PASS_THROUGH_WRITERS:
                 continue
+        if (
+            isinstance(reason_node, ast.Attribute)
+            and reason_node.attr == "reason"
+            and enclosing.get(lineno) in PASS_THROUGH_WRITERS
+        ):
+            continue
 
         assigns = local_assigns.get(lineno, {}) if isinstance(lineno, int) else {}
         tokens = _strings_from(reason_node, const_map, assigns)
@@ -372,7 +386,7 @@ def main() -> int:
                 "  token:  %s\n"
                 "\n"
                 "Every base token written to pipeline_journal must be classified in\n"
-                "comicarr/app/activity/reasons.py before merge.\n"
+                "comicarr/app/attention/_policy.py before merge.\n"
                 "\n"
                 "You owe a verdict against the actionability test:\n"
                 "  (1) ADMIT  — resolving needs info/authority/judgement the operator has\n"
@@ -391,9 +405,7 @@ def main() -> int:
     if errors or missing:
         return 1
 
-    print(
-        "fail_reason registry OK: %d known, %d writable bases matched" % (len(registry), len(writable))
-    )
+    print("fail_reason registry OK: %d known, %d writable bases matched" % (len(registry), len(writable)))
     return 0
 
 

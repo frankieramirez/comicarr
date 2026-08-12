@@ -13,8 +13,9 @@ Per-downloader startup classification for the durable pipeline.
 Module boundary: this module is PURE-VERDICT — ``classify()`` returns a
 verdict (STILL/COMPLETE/GONE/UNKNOWN) and NEVER mutates the journal.
 journal.py owns transitions; recovery.py owns replay orchestration.
-``apply_verdict()`` is a thin optional helper mapping a GONE verdict to
-``journal.mark_failed``; it is a deliberate no-op for STILL/COMPLETE/UNKNOWN.
+``apply_verdict()`` is a thin optional helper mapping a GONE verdict to an
+Attention failure record; it is a deliberate no-op for
+STILL/COMPLETE/UNKNOWN.
 
 "Absent from the client" is AMBIGUOUS, never authoritatively gone. SAB/NZBGet
 history is finite and operator/auto-pruned: a release that completed and was
@@ -36,6 +37,7 @@ from sqlalchemy import or_, select
 
 import comicarr
 from comicarr import db, logger
+from comicarr.app.attention import Failure, record
 from comicarr.app.downloads import journal
 from comicarr.tables import ddl_info, issues, nzblog
 
@@ -52,7 +54,7 @@ UNKNOWN = "unknown"
 
 VERDICTS = (STILL, COMPLETE, GONE, UNKNOWN)
 
-# Distinguishable fail_reason written when GONE -> mark_failed. Kept as a
+# Distinguishable fail_reason written when GONE is recorded. Kept as a
 # constant so the manual-retry layer (R9) and tests can match on it exactly.
 FAIL_REASON_GONE = "download_gone"
 
@@ -525,13 +527,13 @@ def classify(row, probes=None, payload=None):
 
 
 # ---------------------------------------------------------------------------
-# Thin optional helper — GONE -> mark_failed ONLY. NOT replay orchestration.
+# Thin optional helper — GONE -> Attention failure. NOT replay orchestration.
 # ---------------------------------------------------------------------------
 
 
 def apply_verdict(row, verdict, conn=None):
     """Optional convenience for a caller (U6) that wants the single journal
-    mutation U5 OWNS: GONE -> journal.mark_failed (distinguishable
+    mutation U5 OWNS: GONE -> Attention failure (distinguishable
     fail_reason, payload retained for R9; replay never re-queues a failed
     row). For STILL/COMPLETE/UNKNOWN this is a deliberate NO-OP — those are
     the caller's / U6 replay's responsibility (re-enqueue / PP / leave
@@ -568,32 +570,20 @@ def apply_verdict(row, verdict, conn=None):
         except Exception as e:
             logger.error("[RECOVERY-CLASSIFY] could not reconcile ddl_info terminal state for %s: %s" % (ddl_id, e))
 
-    journal.mark_failed(
-        rkey,
-        FAIL_REASON_GONE,
-        payload=payload,
-        conn=conn,
-        issueid=row.get("issueid"),
-        provider=row.get("provider"),
-        downloader_type=row.get("downloader_type"),
-    )
-    # Clause 2 (#541): download_gone is non-actionable — blocklist the release
-    # and re-want so the issue is not stranded at Snatched with nothing watching.
-    try:
-        from comicarr.app.activity.reconcile import reconcile_excluded
-
-        reconcile_excluded(
-            FAIL_REASON_GONE,
-            issueid=row.get("issueid"),
-            provider=row.get("provider"),
-            nzbname=row.get("nzbname") or (payload or {}).get("nzbname") or (payload or {}).get("filename"),
-            release_id=ddl_id,
-            hash=row.get("hash"),
+    record(
+        Failure(
+            release_key=rkey,
+            reason=FAIL_REASON_GONE,
             payload=payload,
-            conn=conn,
-        )
-    except Exception as e:
-        logger.error("[RECOVERY-CLASSIFY] band reconciliation after GONE failed for %s: %s" % (rkey, e))
+            issue_id=row.get("issueid"),
+            provider=row.get("provider"),
+            downloader_type=row.get("downloader_type"),
+            nzb_name=row.get("nzbname") or (payload or {}).get("nzbname") or (payload or {}).get("filename"),
+            release_id=ddl_id,
+            download_hash=row.get("hash"),
+        ),
+        conn=conn,
+    )
     logger.warn(
         "[RECOVERY-CLASSIFY] %s marked failed (reason=%s) — release blocklisted and "
         "issue re-wanted when resolvable (#541); replay will NOT re-queue it." % (rkey, FAIL_REASON_GONE)

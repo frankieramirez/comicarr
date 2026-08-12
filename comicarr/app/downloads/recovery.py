@@ -17,7 +17,7 @@ with no operator action. Idempotent and re-runnable.
 
 Module boundary: orchestration ONLY. journal.py owns the monotonic stage
 lattice / release_key derivation / terminal predicate; recovery_classify.py
-owns the per-downloader verdict and the GONE -> mark_failed mutation.
+owns the per-downloader verdict and records the GONE failure through Attention.
 
 Snapshot-then-RECHECK-then-act: anchor reconstruction first (rebuild a
 `snatched` journal row for the residual window where the snatch committed
@@ -37,6 +37,7 @@ from sqlalchemy import and_, delete, or_, select
 
 import comicarr
 from comicarr import db, logger
+from comicarr.app.attention import ManualReview, record
 from comicarr.app.downloads import journal, recovery_classify
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
@@ -95,30 +96,19 @@ def _reconcile_legacy_ddl_downloading():
             "filename": ddl_row.get("filename"),
             "ddl": True,
         }
-        journal.mark_manual_review(
-            rkey,
-            "legacy_downloading_without_correlation",
-            payload=legacy_payload,
-            issueid=ddl_row.get("issueid"),
-            provider="DDL",
-            downloader_type="ddl",
-            nzbname=ddl_row.get("filename"),
-        )
-        # Clause 2 (#541): re-want only if an issue resolves (usually none).
-        try:
-            from comicarr.app.activity.reconcile import reconcile_excluded
-
-            reconcile_excluded(
-                "legacy_downloading_without_correlation",
-                issueid=ddl_row.get("issueid"),
-                provider="DDL",
-                nzbname=ddl_row.get("filename"),
-                release_id=ddl_id,
-                comicid=ddl_row.get("comicid"),
+        record(
+            ManualReview(
+                release_key=rkey,
+                reason="legacy_downloading_without_correlation",
                 payload=legacy_payload,
+                issue_id=ddl_row.get("issueid"),
+                provider="DDL",
+                downloader_type="ddl",
+                nzb_name=ddl_row.get("filename"),
+                release_id=ddl_id,
+                comic_id=ddl_row.get("comicid"),
             )
-        except Exception as e:
-            logger.error("[RECOVERY] band reconciliation after legacy DDL review %s: %s" % (ddl_id, e))
+        )
         db.upsert("ddl_info", {"status": "Manual Review"}, {"ID": ddl_id})
         reviewed += 1
     return reviewed
@@ -626,12 +616,14 @@ def finalize_post_processing(row, payload=None):
                 roots=_configured_postprocess_roots(),
             )
         except PostProcessCommandError as e:
-            journal.mark_manual_review(
-                rkey,
-                "invalid_recovered_postprocess_command:%s" % type(e).__name__,
-                payload=payload,
-                issueid=row.get("issueid"),
-                provider=row.get("provider"),
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="invalid_recovered_postprocess_command:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                )
             )
             logger.error("[RECOVERY] %s PP command is unsafe; quarantined: %s" % (rkey, e))
             return "post_processing-manual-review"
@@ -676,12 +668,14 @@ def finalize_post_processing(row, payload=None):
                     )
                 pprocess.post_process()
         except Exception as e:
-            journal.mark_manual_review(
-                rkey,
-                "recovered_postprocess_error:%s" % type(e).__name__,
-                payload=payload,
-                issueid=row.get("issueid"),
-                provider=row.get("provider"),
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="recovered_postprocess_error:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                )
             )
             logger.error("[RECOVERY] %s PP redrive failed and was quarantined: %s" % (rkey, type(e).__name__))
             return "post_processing-manual-review"
@@ -741,13 +735,15 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
     # automatic resubmission would duplicate work. Quarantine for an explicit
     # operator decision before any done-signal or downloader probe.
     if cur_stage == journal.RESERVED:
-        journal.mark_manual_review(
-            rkey,
-            "reserved_without_persisted_acceptance",
-            payload=payload,
-            issueid=row.get("issueid"),
-            provider=row.get("provider"),
-            downloader_type=row.get("downloader_type"),
+        record(
+            ManualReview(
+                release_key=rkey,
+                reason="reserved_without_persisted_acceptance",
+                payload=payload,
+                issue_id=row.get("issueid"),
+                provider=row.get("provider"),
+                downloader_type=row.get("downloader_type"),
+            )
         )
         return "reserved-manual-review"
 
@@ -779,12 +775,14 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         try:
             item = validate_postprocess_item(item, roots=_configured_postprocess_roots())
         except PostProcessCommandError as e:
-            journal.mark_manual_review(
-                rkey,
-                "downloaded_invalid_artifact_command:%s" % type(e).__name__,
-                payload=payload,
-                issueid=row.get("issueid"),
-                provider=row.get("provider"),
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="downloaded_invalid_artifact_command:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                )
             )
             logger.error("[RECOVERY] %s downloaded artifact command is unsafe; quarantined: %s" % (rkey, e))
             return "downloaded-manual-review"
@@ -862,33 +860,23 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
             # A direct DDL sender has no durable client identity or monitor
             # protocol. After a crash, a live link proves only that the old
             # side effect may still exist; re-sending would duplicate it.
-            journal.mark_manual_review(
-                rkey,
-                "ambiguous_ddl_acceptance_after_restart",
-                payload=payload,
-                issueid=row.get("issueid"),
-                provider=row.get("provider"),
-                downloader_type="ddl",
-            )
             ddl_id = item.get("id")
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="ambiguous_ddl_acceptance_after_restart",
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                    downloader_type="ddl",
+                    nzb_name=row.get("nzbname") or (payload or {}).get("filename") or (payload or {}).get("nzbname"),
+                    release_id=ddl_id,
+                )
+            )
             if ddl_id:
                 from comicarr.app.downloads import queries as dl_queries
 
                 dl_queries.update_ddl_status(ddl_id, "Manual Review")
-            # Clause 2 (#541): attempt ambiguous, no external client to inspect — re-want only.
-            try:
-                from comicarr.app.activity.reconcile import reconcile_excluded
-
-                reconcile_excluded(
-                    "ambiguous_ddl_acceptance_after_restart",
-                    issueid=row.get("issueid"),
-                    provider=row.get("provider"),
-                    nzbname=row.get("nzbname") or (payload or {}).get("filename") or (payload or {}).get("nzbname"),
-                    release_id=ddl_id,
-                    payload=payload,
-                )
-            except Exception as e:
-                logger.error("[RECOVERY] band reconciliation after ambiguous DDL %s: %s" % (rkey, e))
             logger.warn(
                 "[RECOVERY] %s -> MANUAL REVIEW (ambiguous DDL acceptance after restart); "
                 "no duplicate sender call; issue re-wanted when resolvable (#541)." % rkey
@@ -944,7 +932,7 @@ def replay_pipeline(probes=None):
     # #541: re-want / blocklist issues stranded by excluded fail_reasons written
     # before clause-2 reconciliation existed. Idempotent; safe every boot.
     try:
-        from comicarr.app.activity.reconcile import reconcile_existing_excluded_rows
+        from comicarr.app.attention._reconciliation import reconcile_existing_excluded_rows
 
         summary["band_reconcile"] = reconcile_existing_excluded_rows()
     except Exception as e:

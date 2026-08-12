@@ -25,6 +25,7 @@ import rarfile
 
 import comicarr
 from comicarr import db, getcomics, logger, nzbget, process, sabnzbd
+from comicarr.app.attention import Failure, ManualReview, record
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
@@ -169,234 +170,120 @@ def process_issue(comicid, folder, issueid=None):
 
 
 # ---------------------------------------------------------------------------
-# Needs-attention band (R9 resolution actions — #483)
+# Needs-attention compatibility adapters
 # ---------------------------------------------------------------------------
 
-# Hard cap on one bulk request (#525). Fixed in code, not configurable: a knob
-# that raises the 1am fan-out undoes the safety it exists for.
+# Deprecated public constant retained for callers during the route migration.
 BAND_BATCH_CAP = 25
 
 
-def list_needs_attention(*, issueid=None):
-    """Shared band query over the settled unresolved predicate."""
-    from comicarr.app.downloads import journal
-
-    return {"items": journal.read_needs_attention(issueid=issueid)}
-
-
-def _band_row_or_error(release_key):
-    from comicarr.app.downloads import journal
-
-    if release_key in (None, "") or not str(release_key).strip():
-        return None, {
-            "success": False,
-            "status": "failed",
-            "error": "Missing release_key",
-            "status_code": 400,
-        }
-    row = journal.read_one(str(release_key).strip())
-    if row is None:
-        return None, {
-            "success": False,
-            "status": "failed",
-            "error": "Journal row not found",
-            "status_code": 404,
-        }
-    stage = row.get("stage")
-    status = row.get("status")
-    if stage not in journal.BAND_STAGES:
-        return None, {
-            "success": False,
-            "status": "failed",
-            "error": "Row is not on the needs-attention band",
-            "status_code": 409,
-        }
-    if status in journal.RESOLVED_STATUSES:
-        return None, {
-            "success": False,
-            "status": "failed",
-            "error": "Row is already resolved",
-            "status_code": 409,
-        }
-    return row, None
+_ATTENTION_PROBLEM_STATUS = {
+    "row_not_found": 404,
+    "not_in_attention": 409,
+    "already_resolved": 409,
+    "action_not_allowed": 409,
+    "missing_issue": 400,
+    "search_blocked": 409,
+    "search_failed": 500,
+    "missing_import_source": 400,
+    "invalid_import_source": 400,
+    "import_failed": 500,
+}
 
 
-def _issue_id_from_row(row):
-    issueid = row.get("issueid")
-    if issueid not in (None, ""):
-        return str(issueid)
-    payload = None
-    try:
-        from comicarr.app.downloads import journal
-
-        payload = journal.load_payload(row.get("payload_json"))
-    except Exception as e:
-        logger.fdebug("[NEEDS-ATTENTION] payload decode for issueid failed: %s" % e)
-        payload = None
-    if isinstance(payload, dict):
-        for key in ("issueid", "IssueID"):
-            value = payload.get(key)
-            if value not in (None, ""):
-                return str(value)
-    return None
-
-
-def _payload_dict(row):
-    from comicarr.app.downloads import journal
-
-    payload = journal.load_payload(row.get("payload_json"))
-    return payload if isinstance(payload, dict) else {}
-
-
-def _resolve_retry_or_search_again(ctx, row, release_key, *, action, audit_identity):
-    from comicarr.app.downloads import journal
-    from comicarr.app.search import service as search_service
-    from comicarr.app.series import queries as series_queries
-
-    issue_id = _issue_id_from_row(row)
-    if not issue_id:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "Journal row has no issueid",
-            "status_code": 400,
-        }
-
-    # Precheck before side effects: blocked search must leave the band row alone.
-    precheck = search_service._search_route_health(ctx)
-    if not precheck.get("success"):
-        return {
-            "success": False,
-            "status": "blocked",
-            "error": precheck.get("error") or precheck.get("message"),
-            "message": precheck.get("message"),
-            "status_code": 409,
-        }
-
-    # Want first so the worker sees Status=Wanted, then enqueue, then stamp
-    # off-band only after a successful queue so a failed enqueue leaves the
-    # row on the band for another try.
-    series_queries.queue_issue(issue_id, audit_identity)
-    trigger = "band_retry" if action == "retry" else "band_search_again"
-    search_result = search_service.search_issue(ctx, issue_id, trigger=trigger)
-    if not search_result.get("success"):
-        return {
-            "success": False,
-            "status": search_result.get("status") or "failed",
-            "error": search_result.get("error") or search_result.get("message"),
-            "message": search_result.get("message"),
-            "release_key": release_key,
-            "issue_id": issue_id,
-            "stamped": False,
-            "status_code": 409 if search_result.get("status") == "blocked" else 500,
-        }
-
-    stamped = journal.stamp_resolution(release_key, journal.STATUS_RETRIED, increment_retry=True)
+def _legacy_request_error(error, *, single=False):
+    message = str(error)
+    lowered = message.lower()
+    if "actor" in lowered:
+        message = "audit identity required"
+    elif "action" in lowered:
+        message = "Unknown action"
+    elif single:
+        message = "Missing release_key"
+    else:
+        message = "No release_keys supplied"
     return {
+        "success": False,
+        "status": "failed",
+        "error": message,
+        "status_code": 400,
+    }
+
+
+def _legacy_item(item, action):
+    status_code = None if item.ok else _ATTENTION_PROBLEM_STATUS.get(item.problem, 500)
+    if not item.ok:
+        error = item.message
+        if item.problem == "not_in_attention":
+            error = "Row is not on the needs-attention band"
+        result = {
+            "success": False,
+            "status": item.status or "failed",
+            "error": error,
+            "status_code": status_code,
+        }
+        if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
+            result["message"] = item.message
+        if item.problem == "search_failed":
+            result.update(
+                {
+                    "release_key": item.release_key,
+                    "issue_id": item.issue_id,
+                    "stamped": False,
+                }
+            )
+        return result
+
+    result = {
         "success": True,
-        "status": "retried",
+        "status": item.status,
         "action": action,
-        "release_key": release_key,
-        "issue_id": issue_id,
-        "run_id": search_result.get("run_id"),
-        "stamped": stamped,
-        "message": "Issue re-wanted and search queued",
+        "release_key": item.release_key,
+        "stamped": item.stamp_written,
+        "message": item.message,
     }
+    if item.issue_id is not None:
+        result["issue_id"] = item.issue_id
+    if action in {"retry", "search_again"}:
+        result["run_id"] = item.run_id
+    return result
 
 
-def _resolve_stop_wanting(row, release_key, *, audit_identity):
-    """Mark the issue ignored in the library and stamp the row off the band.
-
-    The action id is ``stop_wanting`` (#525) because "ignore" read as
-    dismiss-this-alert; the durable journal stamp stays ``STATUS_IGNORED`` so
-    the unresolved predicate keeps matching every row already stamped.
-    """
-    from comicarr.app.downloads import journal
-    from comicarr.app.series import queries as series_queries
-
-    issue_id = _issue_id_from_row(row)
-    if not issue_id:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "Journal row has no issueid",
-            "status_code": 400,
-        }
-    series_queries.ignore_issue(issue_id, audit_identity)
-    stamped = journal.stamp_resolution(release_key, journal.STATUS_IGNORED)
-    return {
-        "success": True,
-        "status": "ignored",
-        "action": journal.ACTION_STOP_WANTING,
-        "release_key": release_key,
-        "issue_id": issue_id,
-        "stamped": stamped,
-        "message": "Issue will not be searched again until you want it back",
+def _legacy_batch_report(report):
+    results = []
+    for item in report.results:
+        results.append(
+            {
+                "release_key": item.release_key,
+                "ok": item.ok,
+                "status": item.status,
+                "error": (
+                    None
+                    if item.ok
+                    else (
+                        "Row is not on the needs-attention band" if item.problem == "not_in_attention" else item.message
+                    )
+                ),
+                "status_code": None if item.ok else _ATTENTION_PROBLEM_STATUS.get(item.problem, 500),
+            }
+        )
+    response = {
+        "success": report.success,
+        "partial": report.partial,
+        "action": report.action,
+        "requested": report.requested,
+        "processed": report.processed,
+        "succeeded": report.succeeded,
+        "failed": report.failed,
+        "capped": report.capped,
+        "skipped_for_cap": report.skipped_for_cap,
+        "cap": report.cap,
+        "results": results,
     }
-
-
-def _resolve_import(row, release_key, *, nzb_name=None, nzb_folder=None):
-    from comicarr.app.downloads import journal
-
-    payload = _payload_dict(row)
-    name = nzb_name or payload.get("nzb_name") or payload.get("nzbname") or row.get("nzbname")
-    folder = nzb_folder or payload.get("nzb_folder")
-    if not name or not folder:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "Missing nzb_name or nzb_folder for import",
-            "status_code": 400,
-        }
-
-    # Do NOT attach journal_release_key: force_process / PP_QUEUE is the same
-    # unjournaled path as POST /api/downloads/process. Propagating the band's
-    # terminal release_key would make the PP claim lose (stage already terminal)
-    # and queue a silent no-op import.
-    item = {
-        "nzb_name": name,
-        "nzb_folder": folder,
-        "issueid": row.get("issueid") or payload.get("issueid"),
-        "comicid": payload.get("comicid"),
-        "ddl": bool(payload.get("ddl")),
-        "oneoff": bool(payload.get("oneoff")),
-    }
-    try:
-        validated = validate_postprocess_item(item)
-    except PostProcessCommandError as e:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": str(e),
-            "message": str(e),
-            "status_code": 400,
-        }
-
-    result = force_process(
-        nzb_name=validated["nzb_name"],
-        nzb_folder=validated["nzb_folder"],
-        issueid=validated.get("issueid"),
-        comicid=validated.get("comicid"),
-        ddl=validated.get("ddl") or False,
-        oneoff=validated.get("oneoff") or False,
-    )
-    if not result.get("success"):
-        return {
-            "success": False,
-            "status": "failed",
-            "error": result.get("error") or "Post-process queue failed",
-            "status_code": 500,
-        }
-
-    stamped = journal.stamp_resolution(release_key, journal.STATUS_IMPORTED)
-    return {
-        "success": True,
-        "status": "imported",
-        "action": "import",
-        "release_key": release_key,
-        "stamped": stamped,
-        "message": result.get("message") or "Import queued",
-    }
+    if not report.success:
+        response["status_code"] = 409
+        response["error"] = "No rows could be resolved"
+    return response
 
 
 def resolve_needs_attention(
@@ -408,159 +295,52 @@ def resolve_needs_attention(
     nzb_name=None,
     nzb_folder=None,
 ):
-    """Apply one operator band exit without rewriting journal stage.
+    """Deprecated one-row adapter for :func:`comicarr.app.attention.resolve`."""
+    from comicarr.app.attention import ImportSource, InvalidAttentionRequest, ResolutionRequest, resolve
 
-    ``failed``: retry | stop_wanting
-    ``manual_review``: import | search_again | stop_wanting
-    """
-    from comicarr.app.downloads import journal
-
-    if not audit_identity or not str(audit_identity).strip():
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "audit identity required",
-            "status_code": 400,
-        }
-
-    action_name = str(action or "").strip().lower()
-    if action_name not in journal.BAND_ACTIONS:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "Unknown action",
-            "status_code": 400,
-        }
-
-    row, err = _band_row_or_error(release_key)
-    if err is not None:
-        return err
-
-    stage = row.get("stage")
-    legal = journal.STAGE_ACTIONS.get(stage, ())
-    if action_name not in legal:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": "Action %s is not valid for %s rows" % (action_name, stage),
-            "status_code": 409,
-        }
-
-    key = str(release_key).strip()
-    if action_name in {journal.ACTION_RETRY, journal.ACTION_SEARCH_AGAIN}:
-        return _resolve_retry_or_search_again(ctx, row, key, action=action_name, audit_identity=audit_identity)
-    if action_name == journal.ACTION_STOP_WANTING:
-        return _resolve_stop_wanting(row, key, audit_identity=audit_identity)
-    if action_name == journal.ACTION_IMPORT:
-        return _resolve_import(row, key, nzb_name=nzb_name, nzb_folder=nzb_folder)
-    return {
-        "success": False,
-        "status": "failed",
-        "error": "Unknown action",
-        "status_code": 400,
-    }
+    source = None
+    if str(action or "").strip().lower() == "import" and (nzb_name is not None or nzb_folder is not None):
+        source = ImportSource(nzb_name=nzb_name, nzb_folder=nzb_folder)
+    try:
+        report = resolve(
+            ctx,
+            ResolutionRequest(
+                action=action,
+                release_keys=(release_key,),
+                actor=audit_identity,
+                import_source=source,
+            ),
+        )
+    except InvalidAttentionRequest as e:
+        return _legacy_request_error(e, single=True)
+    return _legacy_item(report.results[0], report.action)
 
 
 def _batch_order(release_keys):
-    """Newest ``updated_date`` first, so a capped batch clears the fresh trouble.
+    """Deprecated ordering adapter retained for compatibility tests."""
+    from comicarr.app.attention._resolution import _batch_order as attention_batch_order
 
-    Keys with no journal row keep their submitted position — they will fail
-    per-item in the resolver, and sorting them to the back would let a cap
-    silently swallow the very rows whose failure the operator needs to see.
-    """
-    from comicarr.app.downloads import journal
-
-    stamped = []
-    for key in release_keys:
-        row = journal.read_one(key)
-        updated = (row or {}).get("updated_date")
-        stamped.append((updated is not None, str(updated or ""), key))
-
-    # Rank only the dated rows, then pour them back into the slots dated rows
-    # already occupied. A no-row key keeps whatever position it was submitted
-    # in, so the cap cannot quietly eat it before it can report why it failed.
-    ranked = iter(sorted((item for item in stamped if item[0]), key=lambda item: item[1], reverse=True))
-    return [next(ranked)[2] if item[0] else item[2] for item in stamped]
+    return attention_batch_order(release_keys)
 
 
 def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
-    """Fan one band action out over many rows — best effort, per row (#525).
+    """Deprecated batch adapter for :func:`comicarr.app.attention.resolve`."""
+    from comicarr.app.attention import InvalidAttentionRequest, ResolutionRequest, resolve
 
-    No all-or-nothing transaction: each member runs the same path as the
-    single-row resolver, so a member that fails stays on the band while its
-    siblings leave it. The operator's goal on a restart burst is to clear what
-    can be cleared, not to fail sixteen rows because one orphan has no issueid.
-
-    At most ``BAND_BATCH_CAP`` keys are processed per request; the remainder is
-    reported as ``skipped_for_cap`` and left for another click.
-    """
-    from comicarr.app.downloads import journal
-
-    action_name = str(action or "").strip().lower()
-    if action_name not in journal.BAND_ACTIONS:
-        return {
-            "success": False,
-            "error": "Unknown action",
-            "status_code": 400,
-        }
-
-    keys = []
-    seen = set()
-    for raw in release_keys or []:
-        key = str(raw or "").strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        keys.append(key)
-
-    if not keys:
-        return {
-            "success": False,
-            "error": "No release_keys supplied",
-            "status_code": 400,
-        }
-
-    ordered = _batch_order(keys)
-    processed = ordered[:BAND_BATCH_CAP]
-    skipped = len(ordered) - len(processed)
-
-    results = []
-    succeeded = 0
-    for key in processed:
-        outcome = resolve_needs_attention(ctx, key, action_name, audit_identity=audit_identity)
-        ok = bool(outcome.get("success"))
-        if ok:
-            succeeded += 1
-        results.append(
-            {
-                "release_key": key,
-                "ok": ok,
-                "status": outcome.get("status"),
-                "error": None if ok else (outcome.get("error") or outcome.get("message")),
-                "status_code": None if ok else outcome.get("status_code"),
-            }
+    try:
+        report = resolve(
+            ctx,
+            ResolutionRequest(
+                action=action,
+                release_keys=release_keys,
+                actor=audit_identity,
+            ),
         )
-
-    failed = len(processed) - succeeded
-    response = {
-        # Only a malformed request or a wholly failed batch is an overall
-        # failure; a mixed result is a success the operator can act on again.
-        "success": succeeded > 0,
-        "partial": succeeded > 0 and failed > 0,
-        "action": action_name,
-        "requested": len(ordered),
-        "processed": len(processed),
-        "succeeded": succeeded,
-        "failed": failed,
-        "capped": skipped > 0,
-        "skipped_for_cap": skipped,
-        "cap": BAND_BATCH_CAP,
-        "results": results,
-    }
-    if succeeded == 0:
-        response["status_code"] = 409
-        response["error"] = "No rows could be resolved"
-    return response
+    except InvalidAttentionRequest as e:
+        result = _legacy_request_error(e)
+        result.pop("status", None)
+        return result
+    return _legacy_batch_report(report)
 
 
 # ---------------------------------------------------------------------------
@@ -1350,30 +1130,19 @@ def _finalize_ddl_download(item, ddzstat, release_key):
             "filename": item.get("filename"),
             "ddl": True,
         }
-        journal.mark_failed(
-            release_key,
-            "ddl_download_or_artifact_validation_failed",
-            payload=fail_payload,
-            issueid=item.get("issueid"),
-            provider="DDL",
-            downloader_type="ddl",
-            nzbname=item.get("filename"),
-        )
-        # Clause 2 (#541): release is dead — blocklist + re-want.
-        try:
-            from comicarr.app.activity.reconcile import reconcile_excluded
-
-            reconcile_excluded(
-                "ddl_download_or_artifact_validation_failed",
-                issueid=item.get("issueid"),
-                provider="DDL",
-                nzbname=item.get("filename"),
-                release_id=item.get("id"),
-                comicid=item.get("comicid"),
+        record(
+            Failure(
+                release_key=release_key,
+                reason="ddl_download_or_artifact_validation_failed",
                 payload=fail_payload,
+                issue_id=item.get("issueid"),
+                provider="DDL",
+                downloader_type="ddl",
+                nzb_name=item.get("filename"),
+                release_id=item.get("id"),
+                comic_id=item.get("comicid"),
             )
-        except Exception as e:
-            logger.error("[DOWNLOADS-DDL] band reconciliation after validation failure: %s" % e)
+        )
         return False
 
     nzb_name = ddzstat.get("filename") or os.path.basename(ddzstat["path"])
@@ -1413,14 +1182,16 @@ def _finalize_ddl_download(item, ddzstat, release_key):
         # operator decision; never amplify this into another external fetch.
         try:
             db.upsert("ddl_info", completed, {"ID": item["id"]})
-            journal.mark_manual_review(
-                release_key,
-                "ddl_artifact_state_persistence_error:%s" % type(e).__name__,
-                payload=payload,
-                issueid=item.get("issueid"),
-                provider="DDL",
-                downloader_type="ddl",
-                nzbname=item.get("filename"),
+            record(
+                ManualReview(
+                    release_key=release_key,
+                    reason="ddl_artifact_state_persistence_error:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=item.get("issueid"),
+                    provider="DDL",
+                    downloader_type="ddl",
+                    nzb_name=item.get("filename"),
+                )
             )
         finally:
             raise
@@ -1503,32 +1274,18 @@ def ddl_downloader(queue):
                         fail_detail = redact_sensitive_text(str(e))[:1000]
                         journal_payload = dict(item) if isinstance(item, dict) else {}
                         journal_payload["fail_detail"] = fail_detail
-                        journal.mark_failed(
-                            rkey,
-                            fail_reason="ddl-worker-rejected",
-                            payload=journal_payload,
-                            issueid=issueid,
-                            provider="DDL",
-                            downloader_type="ddl",
-                            nzbname=filename,
-                        )
-                        # Clause 2 (#541): attempt dead, release may be fine — re-want only.
-                        try:
-                            from comicarr.app.activity.reconcile import reconcile_excluded
-
-                            reconcile_excluded(
-                                "ddl-worker-rejected",
-                                issueid=issueid,
-                                provider="DDL",
-                                nzbname=filename,
-                                release_id=item_id,
+                        record(
+                            Failure(
+                                release_key=rkey,
+                                reason="ddl-worker-rejected",
                                 payload=journal_payload,
+                                issue_id=issueid,
+                                provider="DDL",
+                                downloader_type="ddl",
+                                nzb_name=filename,
+                                release_id=item_id,
                             )
-                        except Exception as recon_error:
-                            logger.error(
-                                "[DOWNLOADS-DDL] band reconciliation after worker reject %s: %s"
-                                % (item_id, recon_error)
-                            )
+                        )
                 except Exception as journal_error:
                     logger.error(
                         "[DOWNLOADS-DDL] Unable to close journal for rejected DDL item %s: %s"
@@ -1787,14 +1544,16 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                             },
                             {"ID": item["id"]},
                         )
-                        journal.mark_manual_review(
-                            ddlc_rkey,
-                            "ddl_artifact_state_persistence_error:%s" % type(e).__name__,
-                            payload=ddlc_payload,
-                            issueid=ddlc_issueid,
-                            provider="DDL",
-                            downloader_type="ddl",
-                            nzbname=item.get("filename"),
+                        record(
+                            ManualReview(
+                                release_key=ddlc_rkey,
+                                reason="ddl_artifact_state_persistence_error:%s" % type(e).__name__,
+                                payload=ddlc_payload,
+                                issue_id=ddlc_issueid,
+                                provider="DDL",
+                                downloader_type="ddl",
+                                nzb_name=item.get("filename"),
+                            )
                         )
                     except Exception as quarantine_error:
                         logger.error(
@@ -2150,12 +1909,14 @@ def _quarantine_postprocess_item(item, reason, release_key=None):
     if not key:
         key = journal.derive_release_key(item)
     try:
-        return journal.mark_manual_review(
-            key,
-            reason,
-            payload=item,
-            issueid=item.get("issueid"),
-        )
+        return record(
+            ManualReview(
+                release_key=key,
+                reason=reason,
+                payload=item,
+                issue_id=item.get("issueid"),
+            )
+        ).transition_won
     except Exception as e:
         logger.error("[DOWNLOADS-PP] Unable to persist quarantine for %s: %s" % (key, type(e).__name__))
         return False
@@ -2222,31 +1983,19 @@ def _handle_torrent_monitor_result(item, snstat):
         logger.error(
             "[DOWNLOADS-WORKER] torrent hash not found in client for issueid=%s; marking failed." % item.get("issueid")
         )
-        journal.mark_failed(
-            rkey,
-            "torrent_hash_not_in_client",
-            payload=payload,
-            issueid=item.get("issueid"),
-            provider=item.get("provider"),
-            downloader_type="torrent",
-            nzbname=item.get("nzbname"),
-            hash=item.get("hash"),
-        )
-        # Clause 2 (#541): attempt lost, release may be fine — re-want only.
-        try:
-            from comicarr.app.activity.reconcile import reconcile_excluded
-
-            reconcile_excluded(
-                "torrent_hash_not_in_client",
-                issueid=item.get("issueid"),
-                provider=item.get("provider"),
-                nzbname=item.get("nzbname"),
-                hash=item.get("hash"),
-                comicid=item.get("comicid"),
+        record(
+            Failure(
+                release_key=rkey,
+                reason="torrent_hash_not_in_client",
                 payload=payload,
+                issue_id=item.get("issueid"),
+                provider=item.get("provider"),
+                downloader_type="torrent",
+                nzb_name=item.get("nzbname"),
+                download_hash=item.get("hash"),
+                comic_id=item.get("comicid"),
             )
-        except Exception as e:
-            logger.error("[DOWNLOADS-WORKER] band reconciliation after missing torrent hash: %s" % e)
+        )
         return
 
     if status not in {"MONITOR FAIL", "MONITOR COMPLETE"}:
@@ -2269,13 +2018,15 @@ def _handle_torrent_monitor_result(item, snstat):
             hash=item.get("hash"),
         )
     except Exception as e:
-        journal.mark_manual_review(
-            rkey,
-            "torrent_artifact_state_persistence_error:%s" % type(e).__name__,
-            payload=payload,
-            issueid=item.get("issueid"),
-            provider=item.get("provider"),
-            hash=item.get("hash"),
+        record(
+            ManualReview(
+                release_key=rkey,
+                reason="torrent_artifact_state_persistence_error:%s" % type(e).__name__,
+                payload=payload,
+                issue_id=item.get("issueid"),
+                provider=item.get("provider"),
+                download_hash=item.get("hash"),
+            )
         )
         logger.error("[DOWNLOADS-WORKER] Copied torrent artifact quarantined; PP not started.")
         return
@@ -2475,12 +2226,14 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
         except Exception as e:
             if item.get("journal_release_key"):
                 try:
-                    journal.mark_manual_review(
-                        item["journal_release_key"],
-                        "nzb_artifact_state_persistence_error:%s" % type(e).__name__,
-                        payload=journal_payload,
-                        issueid=nzstat.get("issueid"),
-                        provider=di.get("provider"),
+                    record(
+                        ManualReview(
+                            release_key=item["journal_release_key"],
+                            reason="nzb_artifact_state_persistence_error:%s" % type(e).__name__,
+                            payload=journal_payload,
+                            issue_id=nzstat.get("issueid"),
+                            provider=di.get("provider"),
+                        )
                     )
                 except Exception:
                     pass

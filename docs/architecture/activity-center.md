@@ -6,6 +6,9 @@ Every product and seam choice below is closed on that map; this document consoli
 them for implementers. Do not re-litigate settled tickets — zoom the linked issue for
 detail, evidence, and rejected alternatives.
 
+Needs-attention module ownership and its canonical HTTP interface are recorded in
+[ADR-0003](../adr/0003-attention-module-ownership.md).
+
 **Grounding tree:** decisions were verified against the tree at `ced9e2c7` and later
 amended only by later closed tickets on the same map.
 
@@ -34,10 +37,10 @@ Comicarr gains a plain-language **Activity Center**:
 | Surface | Owns | Source of truth |
 |---|---|---|
 | **Wanted** | Intent (still leave on snatch). Live-and-sticky **annotation** from the latest `acquisition_run_items` row for that issue | Legacy `t_issues.Status == 'Wanted'` membership; annotation from ledger |
-| **Timeline** (`/activity` landing) | Narrative of work + pinned **needs-attention** band | Narrative table (feed); `pipeline_journal` (band) |
+| **Timeline** (`/activity` landing) | Narrative of work + pinned **needs-attention** preview | Narrative table (feed); `comicarr.app.attention.read` (preview) |
 | **Direct Downloads** (renamed Queue tab) | DDL-only provider detail (`t_ddl_info`) | Unchanged |
 | **Download History** | Cross-provider history (`t_snatched`) | Unchanged |
-| **Global status line** (`AppStatusBar`) | Quiet counts: library · api · in flight · optional attention | Derived ledgers only |
+| **Global status line** (`AppStatusBar`) | Quiet counts: library · api · in flight · optional attention | Derived ledgers; Attention view for attention totals |
 
 Decisions: [Decide what Wanted, Queue and Activity each own in the UI](https://github.com/frankieramirez/comicarr/issues/429),
 amended by [Prototype the global one-line status indicator](https://github.com/frankieramirez/comicarr/issues/434)
@@ -62,7 +65,7 @@ SELECT * FROM pipeline_journal
  WHERE stage IN ('failed', 'manual_review')
    AND (status IS NULL OR status NOT IN ('retried', 'ignored', 'imported'))
    AND (fail_reason IS NULL OR fail_reason NOT IN (
-         -- NON_ACTIONABLE_FLAT from comicarr/app/activity/reasons.py
+         -- excluded base reasons from Attention's private reason registry
          'download_gone', 'download_failed_researching',
          'ddl_download_or_artifact_validation_failed', 'ddl-worker-rejected',
          'torrent_hash_not_in_client', 'legacy_downloading_without_correlation',
@@ -77,21 +80,22 @@ Admission is the **two-clause actionability test** ([#523](https://github.com/fr
 the operator holds something the system lacks, and exclusion always reconciles
 the issue (re-want / blocklist) so nothing is left at `Snatched` with the band
 as its only recovery path ([#541](https://github.com/frankieramirez/comicarr/issues/541)).
-The live predicate lives in `unresolved_band_condition()`; the SQL above is the
-shape, not a second source of truth.
+The live predicate is private to `comicarr.app.attention.read`; the SQL above is
+the shape, not a second source of truth.
 
 Those rows are then **grouped server-side** before anything renders them
 ([Decide the grouping key and group-row contract](https://github.com/frankieramirez/comicarr/issues/524)):
 
 - **Key: `(comicid, base_reason)`** from `payload_json`, or a singleton
   `(release_key, base_reason)` when the payload carries no `comicid`. `base_reason` is
-  the substring before the first `:` — the same unit `activity/reasons.py` keys on.
+  the substring before the first `:` — the same unit Attention's private registry
+  keys on.
 - **Labels are payload-first.** No join to `issues` / `annuals` / `comics`, and never a
   key on `comicname` (a typographic apostrophe split one real series in two).
-- **List and count share one builder.** `list_attention_groups` and
-  `count_attention_groups` run the same code, so the band and the status line cannot
-  disagree. `GET /api/activity/status` reports `attention` as a **group** count, with
-  the row count beside it as `attention_members`.
+- **List and count share one view.** `comicarr.app.attention.read` returns the
+  groups and both totals from one implementation, so the preview and the status
+  line cannot disagree. `GET /api/activity/status` reports `attention` as a
+  **group** count, with the row count beside it as `attention_members`.
 - Scoped views filter members **then** group — never a cross-scope group.
 
 The band itself is a **bounded preview that routes, never a workspace**
@@ -106,9 +110,29 @@ gone wrong.
 - Red + actions live **only** on the band and its triage route; stream rows for the same
   trouble are muted history with **no** actions
   ([Decide how failure, retry and degraded states read in the timeline](https://github.com/frankieramirez/comicarr/issues/432)).
-- Band coverage for download failures that never terminalized the journal is achieved by
-  **writing** `journal.mark_failed` at those seams, not by widening the predicate
+- Queue coverage for download failures that never terminalized the journal is achieved by
+  **recording** `Failure` through `comicarr.app.attention.record` at those seams,
+  not by widening the predicate
   ([Decide whether the needs-attention band covers journal-less failures](https://github.com/frankieramirez/comicarr/issues/457)).
+
+### Attention module and HTTP interface
+
+The complete Needs attention work queue is owned by the top-level
+`comicarr.app.attention` module. It exposes only `read`, `resolve`, and `record`;
+the grouping, reason policy, action eligibility, journal stamps, and reconciliation
+machinery are private implementation details.
+
+`GET /api/attention` is the canonical grouped read for both full and scoped
+views. `POST /api/attention/resolve` accepts one action and one or more
+`release_keys`; it is the canonical path for individual and bulk operator exits.
+The authenticated session supplies the actor.
+
+The bundled frontend uses these routes immediately. `GET /api/activity/band`
+and the existing Downloads resolution POST routes remain deprecated,
+serialization-only adapters for the release introducing this interface, then
+are removed in the immediately following release. The unused raw
+`GET /api/downloads/needs-attention` route is removed immediately; it returned
+journal rows rather than the actionable grouped contract.
 
 ### Triage route (`/activity/attention`)
 
@@ -156,15 +180,15 @@ rows sit at different stages. Member-level eligibility is what keeps those rows 
   `ignored` spelling**, since renaming a persisted status would re-admit every row
   already stamped. Two or more issues always require a consequence confirmation first;
   there is no timed undo.
-- `import` → existing validated `POST /api/downloads/process`; stamp
+- `import` → the existing validated post-processing path; stamp
   `status='imported'` **only on success**.
 
-**Bulk fan-out** — `POST /api/downloads/needs-attention/batch` with
-`{action, release_keys}`. Best-effort per row: each member runs the same path as the
-single-row resolver, so a member that fails stays on the band while its siblings leave
-it. At most **25** keys per request (fixed in code, newest `updated_date` first); the
-remainder comes back as `skipped_for_cap`. A mixed outcome is `success: true` with
-`partial: true` and a `results[]` entry per key, surfaced as a summary toast
+**One-or-many fan-out** — `POST /api/attention/resolve` with
+`{action, release_keys, import_source?}`. Best-effort per row: each member runs the
+same resolution path, so a member that fails stays in Needs attention while its
+siblings leave it. At most **25** keys per request (fixed in code, newest
+`updated_date` first); the remainder comes back as `skipped_for_cap`. A mixed outcome
+is `success: true` with `partial: true` and a `results[]` entry per key, surfaced as a summary toast
 ("Search again 13 of 16 — 3 still need attention"), never a blocking modal.
 - Same-provider retries can produce a byte-identical `release_key` and lose
   `record_transition`'s `won` guard — that bug must be fixed **before** `[retry]`
@@ -490,7 +514,7 @@ library: unavailable · api: offline · unreachable
 |---|---|
 | `M in flight` | `COUNT(acquisition_run_items WHERE state IN ('accepted','running'))` **+** `COUNT(pipeline_journal WHERE stage IN OPEN_STAGES)` |
 | `recovery_pending` | The subset of those run items with `recovery_count > 0` — a **qualifier** on `M`, never added to it |
-| `K need attention` | Same unresolved band predicate as the Timeline band |
+| `K need attention` | Same `AttentionView` as the Timeline preview |
 | `idle` | both open-work counts zero and attention zero |
 
 **Why `M` is now trustworthy (#555).** Crash replay is a *re-driver*, not a
