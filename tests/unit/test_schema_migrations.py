@@ -196,8 +196,8 @@ def test_upgrade_database_accepts_a_known_prior_comicarr_revision(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0001_baseline')"))
 
-    assert upgrade_database(engine) == "0005_activity_events"
-    assert current_revision(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
+    assert current_revision(engine) == "0006_interactive_search_sessions"
 
 
 def test_upgrade_database_accepts_pre_chat_revision_without_library_chat_tables(tmp_path):
@@ -218,8 +218,8 @@ def test_upgrade_database_accepts_pre_chat_revision_without_library_chat_tables(
 
     assert "ai_chat_threads" not in set(inspect(engine).get_table_names())
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0005_activity_events"
-    assert current_revision(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
+    assert current_revision(engine) == "0006_interactive_search_sessions"
     assert {"ai_chat_threads", "ai_chat_messages", "ai_chat_attachments"}.issubset(
         set(inspect(engine).get_table_names())
     )
@@ -252,8 +252,8 @@ def test_upgrade_database_accepts_pre_activity_revision_without_activity_events(
 
     assert "activity_events" not in set(inspect(engine).get_table_names())
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0005_activity_events"
-    assert current_revision(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
+    assert current_revision(engine) == "0006_interactive_search_sessions"
     assert "activity_events" in set(inspect(engine).get_table_names())
 
     activity_indexes = {index["name"] for index in inspect(engine).get_indexes("activity_events")}
@@ -277,6 +277,73 @@ def test_head_revision_still_requires_activity_events(tmp_path):
 
     with pytest.raises(MigrationStateError, match="missing tables required by its Comicarr revision"):
         upgrade_database(engine)
+
+
+def test_upgrade_accepts_pre_interactive_revision_without_session_tables(tmp_path):
+    engine = create_engine("sqlite:///%s" % (tmp_path / "pre-interactive-version.db"))
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE interactive_search_candidates"))
+        conn.execute(text("DROP TABLE interactive_search_sessions"))
+        conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
+        conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0005_activity_events')"))
+
+    assert classify_database(engine) is DatabaseState.VERSIONED
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
+    assert {"interactive_search_sessions", "interactive_search_candidates"}.issubset(
+        set(inspect(engine).get_table_names())
+    )
+
+
+def test_head_revision_requires_interactive_search_session_tables(tmp_path):
+    engine = create_engine("sqlite:///%s" % (tmp_path / "head-missing-interactive.db"))
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE interactive_search_candidates"))
+        conn.execute(text("DROP TABLE interactive_search_sessions"))
+        conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
+        conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0006_interactive_search_sessions')"))
+
+    with pytest.raises(MigrationStateError, match="missing tables required by its Comicarr revision"):
+        upgrade_database(engine)
+
+
+def test_interactive_search_tables_match_security_contract():
+    sessions = metadata.tables["interactive_search_sessions"]
+    candidates = metadata.tables["interactive_search_candidates"]
+
+    assert list(sessions.c.keys()) == [
+        "session_id",
+        "slot_digest",
+        "actor_digest",
+        "browser_digest",
+        "entity_type",
+        "entity_id",
+        "series_id",
+        "state",
+        "candidate_count",
+        "created_at",
+        "updated_at",
+        "expires_at",
+    ]
+    assert list(candidates.c.keys()) == [
+        "candidate_id",
+        "session_id",
+        "ordinal",
+        "state",
+        "public_json",
+        "reconstruction_json",
+        "fingerprint",
+        "created_at",
+        "updated_at",
+        "expires_at",
+    ]
+    assert sessions.c.session_id.primary_key
+    assert candidates.c.candidate_id.primary_key
+    assert not {"cookie", "credential", "url", "link", "payload"}.intersection(sessions.c.keys())
+    assert not {"cookie", "credential", "url", "link", "payload"}.intersection(candidates.c.keys())
 
 
 def test_activity_events_table_matches_field_contract():
@@ -321,7 +388,7 @@ def test_upgrade_creates_pipeline_journal_stage_index_when_missing(tmp_path):
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0003_library_chat')"))
 
     assert "pipeline_journal_stage" not in {index["name"] for index in inspect(engine).get_indexes("pipeline_journal")}
-    assert upgrade_database(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
     assert "pipeline_journal_stage" in {index["name"] for index in inspect(engine).get_indexes("pipeline_journal")}
 
 
@@ -339,7 +406,7 @@ def test_upgrade_database_builds_a_fresh_database_to_the_single_head(tmp_path):
 
     revision = upgrade_database(engine)
 
-    assert revision == "0005_activity_events"
+    assert revision == "0006_interactive_search_sessions"
     assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
 
 
@@ -347,7 +414,7 @@ def test_head_includes_ledger_retention_indexes(tmp_path):
     """#478: four retention indexes land at head; pipeline_journal_stage stays."""
 
     engine = create_engine("sqlite:///%s" % (tmp_path / "retention-indexes.db"))
-    assert upgrade_database(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
 
     inspector = inspect(engine)
     expected = {
@@ -382,7 +449,7 @@ def test_upgrade_from_library_chat_creates_missing_retention_indexes(tmp_path):
         for index_name in retention_indexes:
             conn.execute(text("DROP INDEX IF EXISTS %s" % index_name))
 
-    assert upgrade_database(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
     inspector = inspect(engine)
     for table_name, index_name in (
         ("acquisition_run_items", "acquisition_run_items_state_completed"),
@@ -401,8 +468,8 @@ def test_upgrade_database_stamps_only_a_verified_legacy_database(tmp_path):
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
 
-    assert upgrade_database(engine) == "0005_activity_events"
-    assert current_revision(engine) == "0005_activity_events"
+    assert upgrade_database(engine) == "0006_interactive_search_sessions"
+    assert current_revision(engine) == "0006_interactive_search_sessions"
 
 
 def test_upgrade_database_never_stamps_an_unknown_database(tmp_path):

@@ -870,6 +870,48 @@ acquisition_search_previews = Table(
     UniqueConstraint("token_digest", name="uq_acquisition_search_preview_token"),
 )
 
+# An Interactive release search session is authenticated browser-owned state,
+# not a serialized provider response.  The public candidate projection and the
+# credential-free reconstruction allowlist live separately on the candidate
+# row; raw links, provider tuples, cookies, and API credentials are forbidden.
+interactive_search_sessions = Table(
+    "interactive_search_sessions",
+    metadata,
+    Column("session_id", String(64), primary_key=True),
+    Column("slot_digest", String(64), nullable=False),
+    Column("actor_digest", String(64), nullable=False),
+    Column("browser_digest", String(64), nullable=False),
+    Column("entity_type", String(32), nullable=False),
+    Column("entity_id", String(255), nullable=False),
+    Column("series_id", String(255)),
+    Column("state", String(32), nullable=False),
+    Column("candidate_count", Integer, nullable=False, server_default="0"),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+    Column("expires_at", String(40), nullable=False),
+    UniqueConstraint("slot_digest", name="uq_interactive_search_session_slot"),
+)
+
+interactive_search_candidates = Table(
+    "interactive_search_candidates",
+    metadata,
+    Column("candidate_id", String(64), primary_key=True),
+    Column("session_id", String(64), nullable=False),
+    Column("ordinal", Integer, nullable=False),
+    Column("state", String(32), nullable=False),
+    Column("public_json", Text, nullable=False),
+    Column("reconstruction_json", Text, nullable=False),
+    Column("fingerprint", String(64), nullable=False),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+    Column("expires_at", String(40), nullable=False),
+    UniqueConstraint(
+        "session_id",
+        "ordinal",
+        name="uq_interactive_search_candidate_ordinal",
+    ),
+)
+
 # Migration completion is not enough to resume acquisition. This one-row
 # durable control records the operator-visible reconciliation gate across
 # container restarts.
@@ -1131,6 +1173,24 @@ Index(
 )
 Index("acq_search_preview_series_state", acquisition_search_previews.c.series_id, acquisition_search_previews.c.state)
 Index("acq_search_preview_run", acquisition_search_previews.c.run_id)
+Index(
+    "interactive_search_sessions_expiry",
+    interactive_search_sessions.c.expires_at,
+)
+Index(
+    "interactive_search_sessions_scope",
+    interactive_search_sessions.c.entity_type,
+    interactive_search_sessions.c.entity_id,
+)
+Index(
+    "interactive_search_candidates_session",
+    interactive_search_candidates.c.session_id,
+    interactive_search_candidates.c.ordinal,
+)
+Index(
+    "interactive_search_candidates_expiry",
+    interactive_search_candidates.c.expires_at,
+)
 Index("acq_reconciliation_state", acquisition_reconciliation.c.state)
 Index("acq_canary_permit_state", acquisition_canary_permits.c.state, acquisition_canary_permits.c.expires_at)
 Index("acq_canary_permit_release", acquisition_canary_permits.c.release_key)
@@ -1216,6 +1276,8 @@ TABLE_MAP = {
     "acquisition_runs": acquisition_runs,
     "acquisition_run_items": acquisition_run_items,
     "acquisition_search_previews": acquisition_search_previews,
+    "interactive_search_sessions": interactive_search_sessions,
+    "interactive_search_candidates": interactive_search_candidates,
     "acquisition_reconciliation": acquisition_reconciliation,
     "acquisition_canary_permits": acquisition_canary_permits,
     "acquisition_maintenance": acquisition_maintenance,

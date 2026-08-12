@@ -1078,6 +1078,18 @@ def start(ctx):
                 trigger=IntervalTrigger(hours=24, minutes=0, timezone="UTC"),
             )
 
+            # Short-lived Interactive search state gets an independent bounded
+            # sweep, in addition to opportunistic cleanup on session creation.
+            from comicarr.app.search import interactive_sessions
+
+            _add_recurring_job(
+                func=interactive_sessions.run,
+                id="interactive_search_retention",
+                name=interactive_sessions.JOB_NAME,
+                next_run_time=datetime.datetime.utcnow(),
+                trigger=IntervalTrigger(hours=24, minutes=0, timezone="UTC"),
+            )
+
             # A schema failure, persistent repair fence, or explicit operator
             # override suppresses every producer/consumer that can claim or
             # hand off acquisition work. The scheduler itself still starts so

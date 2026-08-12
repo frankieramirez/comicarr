@@ -78,6 +78,7 @@ class ReleaseCandidateEvaluation:
     verdict: dict
     legacy_match: dict | None = field(default=None, repr=False)
     exception: Exception | None = field(default=None, repr=False)
+    reconstruction_hint: dict | None = field(default=None, repr=False)
 
     def as_dict(self):
         return {"candidate": dict(self.candidate), "verdict": dict(self.verdict)}
@@ -171,19 +172,46 @@ class search_check(object):
             "match_kind": match_kind,
         }
 
+    def _reconstruction_hint(self, entry, is_info):
+        """Retain only the raw identity inputs needed for safe persistence.
+
+        The persistence service still validates and hashes these values before
+        writing them. Keeping this hint private lets overrideable rejections be
+        found again even though they never produce an accepted legacy match.
+        """
+
+        info = is_info or {}
+        provider_stat = info.get("provider_stat") or {}
+        if not isinstance(provider_stat, dict):
+            provider_stat = {}
+        raw_identity = self._entry_value(entry, "id")
+        if raw_identity in (None, ""):
+            raw_identity = self._entry_value(entry, "link")
+        return {
+            "provider_config_id": provider_stat.get("id"),
+            "provider_type": provider_stat.get("type"),
+            "provider_item_id": raw_identity,
+        }
+
     def evaluate_entry(self, entry, is_info=None):
         """Evaluate one raw provider entry without exposing provider secrets."""
 
         candidate = self._normalized_candidate(entry, is_info)
+        reconstruction_hint = self._reconstruction_hint(entry, is_info)
         try:
             accepted = self._match_entry(entry, is_info)
         except _EntryRejected as rejection:
-            return ReleaseCandidateEvaluation(candidate, self._verdict(rejection.reason_code))
+            return ReleaseCandidateEvaluation(
+                candidate,
+                self._verdict(rejection.reason_code),
+                reconstruction_hint=reconstruction_hint,
+            )
         except Exception as e:
             return ReleaseCandidateEvaluation(
                 candidate,
                 self._verdict("error.evaluation_exception"),
                 exception=e,
+                reconstruction_hint=reconstruction_hint,
             )
 
         reason_code = "accepted.pack" if accepted.match_kind == "pack" else "accepted.issue"
@@ -191,6 +219,7 @@ class search_check(object):
             candidate,
             self._verdict(reason_code, match_kind=accepted.match_kind),
             legacy_match=accepted.legacy_match,
+            reconstruction_hint=reconstruction_hint,
         )
 
     def evaluate_entries(self, entries, is_info=None):

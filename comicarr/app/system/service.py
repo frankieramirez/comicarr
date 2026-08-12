@@ -77,6 +77,7 @@ SCHEDULER_JOB_NAMES = {
     "ddl_health": "DDL Health Check",
     "ledger_retention": "Ledger Retention",
     "activity_retention": "Activity Event Retention",
+    "interactive_search_retention": "Interactive Search Retention",
 }
 
 SETUP_PERSISTENCE_ERROR = "Failed to persist initial credentials"

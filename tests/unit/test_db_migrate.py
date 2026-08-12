@@ -79,7 +79,7 @@ def test_migrate_deduplicates_unique_keys_across_batches(tmp_path, capsys):
     target_engine = create_engine(_sqlite_url(target_path))
     with target_engine.connect() as conn:
         rows = conn.execute(text("SELECT ComicID, ComicName FROM comics ORDER BY rowid")).mappings().all()
-    assert current_revision(target_engine) == "0005_activity_events"
+    assert current_revision(target_engine) == "0006_interactive_search_sessions"
     target_engine.dispose()
 
     assert rows == [
@@ -120,7 +120,7 @@ def test_migrate_deduplicates_composite_keys_with_empty_components(tmp_path, cap
             .mappings()
             .all()
         )
-    assert current_revision(target_engine) == "0005_activity_events"
+    assert current_revision(target_engine) == "0006_interactive_search_sessions"
     target_engine.dispose()
 
     assert rows == [

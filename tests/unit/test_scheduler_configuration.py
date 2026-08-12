@@ -38,6 +38,7 @@ _RECURRING_JOB_IDS = {
     "ddl_health",
     "ledger_retention",
     "activity_retention",
+    "interactive_search_retention",
 }
 
 

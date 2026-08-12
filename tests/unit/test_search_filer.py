@@ -160,6 +160,24 @@ def test_accepted_candidate_is_normalized_and_credential_safe():
     assert "super-secret" not in str(evaluation.as_dict())
     assert "link" not in evaluation.as_dict()["candidate"]
     assert "provider_stat" not in evaluation.as_dict()["candidate"]
+    assert "reconstruction_hint" not in evaluation.as_dict()
+
+
+def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    evaluation = search_filer.search_check().evaluate_entry(
+        _entry(title="Example Series 001 REPACK"),
+        _info(provider_stat={"type": "newznab", "id": 19, "api_key": "secret"}),
+    )
+
+    assert evaluation.verdict["overrideable"] is True
+    assert evaluation.reconstruction_hint == {
+        "provider_config_id": 19,
+        "provider_type": "newznab",
+        "provider_item_id": "provider-item-1",
+    }
+    assert "secret" not in str(evaluation.reconstruction_hint)
+    assert "reconstruction_hint" not in evaluation.as_dict()
 
 
 def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
