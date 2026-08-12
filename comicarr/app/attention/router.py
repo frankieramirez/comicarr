@@ -13,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from comicarr.app.attention import (
+    PREVIEW_CAP,
+    PROBLEM_STATUS,
     ImportSource,
     InvalidAttentionRequest,
     ResolutionRequest,
@@ -23,8 +25,6 @@ from comicarr.app.attention import (
 from comicarr.app.attention._serialization import serialize_view as _serialize_view
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
-
-PREVIEW_CAP = 5
 
 router = APIRouter(prefix="/api/attention", tags=["attention"])
 
@@ -40,27 +40,13 @@ def _scope_from_query(scope_type, scope_id):
     return Scope(type=scope_type or "", id=scope_id or "")
 
 
-_PROBLEM_STATUS = {
-    "row_not_found": 404,
-    "not_in_attention": 409,
-    "already_resolved": 409,
-    "action_not_allowed": 409,
-    "missing_issue": 400,
-    "search_blocked": 409,
-    "search_failed": 500,
-    "missing_import_source": 400,
-    "invalid_import_source": 400,
-    "import_failed": 500,
-}
-
-
 def _item_wire(item):
     return {
         "release_key": item.release_key,
         "ok": item.ok,
         "status": item.status,
         "error": None if item.ok else item.message,
-        "status_code": None if item.ok else _PROBLEM_STATUS.get(item.problem, 500),
+        "status_code": None if item.ok else PROBLEM_STATUS.get(item.problem, 500),
     }
 
 
@@ -80,7 +66,10 @@ def serialize_report(report):
         "results": [_item_wire(item) for item in report.results],
     }
     if not report.success:
+        # Carry both envelopes: the shipped UI reads `error` first, other
+        # clients (and this route's own 400) speak FastAPI's `detail`.
         body["error"] = "No rows could be resolved"
+        body["detail"] = body["error"]
     return body
 
 

@@ -13,6 +13,9 @@ from comicarr.app.attention._read import read
 from comicarr.app.attention._recording import record
 from comicarr.app.attention._resolution import resolve
 from comicarr.app.attention.contracts import (
+    BATCH_CAP,
+    PREVIEW_CAP,
+    PROBLEM_STATUS,
     AttentionGroup,
     AttentionMember,
     AttentionView,
@@ -28,6 +31,9 @@ from comicarr.app.attention.contracts import (
 )
 
 __all__ = [
+    "BATCH_CAP",
+    "PREVIEW_CAP",
+    "PROBLEM_STATUS",
     "AttentionView",
     "AttentionGroup",
     "AttentionMember",

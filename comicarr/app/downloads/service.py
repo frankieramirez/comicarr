@@ -25,7 +25,7 @@ import rarfile
 
 import comicarr
 from comicarr import db, getcomics, logger, nzbget, process, sabnzbd
-from comicarr.app.attention import Failure, ManualReview, record
+from comicarr.app.attention import BATCH_CAP, PROBLEM_STATUS, Failure, ManualReview, record
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
@@ -173,22 +173,8 @@ def process_issue(comicid, folder, issueid=None):
 # Needs-attention compatibility adapters
 # ---------------------------------------------------------------------------
 
-# Deprecated public constant retained for callers during the route migration.
-BAND_BATCH_CAP = 25
-
-
-_ATTENTION_PROBLEM_STATUS = {
-    "row_not_found": 404,
-    "not_in_attention": 409,
-    "already_resolved": 409,
-    "action_not_allowed": 409,
-    "missing_issue": 400,
-    "search_blocked": 409,
-    "search_failed": 500,
-    "missing_import_source": 400,
-    "invalid_import_source": 400,
-    "import_failed": 500,
-}
+# Deprecated public alias retained for callers during the route migration.
+BAND_BATCH_CAP = BATCH_CAP
 
 
 def _legacy_request_error(error, *, single=False):
@@ -211,7 +197,7 @@ def _legacy_request_error(error, *, single=False):
 
 
 def _legacy_item(item, action):
-    status_code = None if item.ok else _ATTENTION_PROBLEM_STATUS.get(item.problem, 500)
+    status_code = None if item.ok else PROBLEM_STATUS.get(item.problem, 500)
     if not item.ok:
         error = item.message
         if item.problem == "not_in_attention":
@@ -224,7 +210,12 @@ def _legacy_item(item, action):
         }
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
-        if item.problem == "search_failed":
+        # Pre-refactor, any post-queue search failure — blocked or not — carried
+        # the row identity plus ``stamped: False``, while the precheck block did
+        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
+        # what separates "we re-wanted the issue and left it unstamped" from
+        # "we stopped before touching the row".
+        if item.stamp_written is False:
             result.update(
                 {
                     "release_key": item.release_key,
@@ -264,7 +255,7 @@ def _legacy_batch_report(report):
                         "Row is not on the needs-attention band" if item.problem == "not_in_attention" else item.message
                     )
                 ),
-                "status_code": None if item.ok else _ATTENTION_PROBLEM_STATUS.get(item.problem, 500),
+                "status_code": None if item.ok else PROBLEM_STATUS.get(item.problem, 500),
             }
         )
     response = {
@@ -1193,8 +1184,14 @@ def _finalize_ddl_download(item, ddzstat, release_key):
                     nzb_name=item.get("filename"),
                 )
             )
-        finally:
-            raise
+        except Exception as quarantine_error:
+            # Never let a failed quarantine write replace the persistence error
+            # the operator actually needs to see; that one is re-raised below.
+            logger.error(
+                "[DOWNLOADS-DDL] unable to persist quarantine for id=%s: %s"
+                % (item.get("id"), type(quarantine_error).__name__)
+            )
+        raise
 
     if comicarr.CONFIG.POST_PROCESSING is True:
         comicarr.PP_QUEUE.put(

@@ -20,9 +20,9 @@ from comicarr.app.attention._policy import (
     ATTENTION_ACTIONS,
     STAGE_ACTIONS,
     TROUBLE_STAGES,
-    is_actionable,
 )
 from comicarr.app.attention.contracts import (
+    BATCH_CAP,
     ImportSource,
     InvalidAttentionRequest,
     ResolutionItem,
@@ -30,8 +30,6 @@ from comicarr.app.attention.contracts import (
     ResolutionRequest,
 )
 from comicarr.app.downloads import journal
-
-BATCH_CAP = 25
 
 
 class _RuntimeResolutionEffects:
@@ -107,7 +105,7 @@ def _payload(row):
     return value if isinstance(value, dict) else {}
 
 
-def _failure(key, problem, message, *, status="failed", issue_id=None):
+def _failure(key, problem, message, *, status="failed", issue_id=None, stamp_written=None):
     return ResolutionItem(
         release_key=key,
         ok=False,
@@ -115,14 +113,19 @@ def _failure(key, problem, message, *, status="failed", issue_id=None):
         problem=problem,
         message=message,
         issue_id=issue_id,
+        stamp_written=stamp_written,
     )
 
 
 def _admitted_row(key):
+    # Admission is stage + unresolved status only. A non-actionable fail_reason
+    # is a *display* exclusion (see ``_read.unresolved_condition``); gating
+    # resolution on it too would strand the row — hidden from the queue and
+    # refused by every action, so its release key could never be reserved again.
     row = journal.read_one(key)
     if row is None:
         return None, _failure(key, "row_not_found", "Journal row not found")
-    if row.get("stage") not in TROUBLE_STAGES or not is_actionable(row.get("fail_reason")):
+    if row.get("stage") not in TROUBLE_STAGES:
         return None, _failure(key, "not_in_attention", "Row is not in Needs attention")
     if row.get("status") in journal.RESOLVED_STATUSES:
         return None, _failure(key, "already_resolved", "Row is already resolved")
@@ -153,6 +156,10 @@ def _retry_or_search(row, key, *, action, actor, effects):
             result.get("error") or result.get("message") or "Search could not be queued",
             status="blocked" if blocked else (result.get("status") or "failed"),
             issue_id=issue_id,
+            # The issue was already re-wanted; the row deliberately stays on the
+            # band unstamped. Distinguishes this from the precheck block above,
+            # which never touched the row.
+            stamp_written=False,
         )
     stamped = journal.stamp_resolution(key, journal.STATUS_RETRIED, increment_retry=True)
     return ResolutionItem(

@@ -570,7 +570,7 @@ def apply_verdict(row, verdict, conn=None):
         except Exception as e:
             logger.error("[RECOVERY-CLASSIFY] could not reconcile ddl_info terminal state for %s: %s" % (ddl_id, e))
 
-    record(
+    outcome = record(
         Failure(
             release_key=rkey,
             reason=FAIL_REASON_GONE,
@@ -584,8 +584,17 @@ def apply_verdict(row, verdict, conn=None):
         ),
         conn=conn,
     )
-    logger.warn(
-        "[RECOVERY-CLASSIFY] %s marked failed (reason=%s) — release blocklisted and "
-        "issue re-wanted when resolvable (#541); replay will NOT re-queue it." % (rkey, FAIL_REASON_GONE)
-    )
-    return True
+    # Only the winner of the transition may claim the blocklist/re-want
+    # side effects. A lost transition means another writer already moved
+    # this row; say so rather than asserting work we did not do.
+    if outcome.transition_won:
+        logger.warn(
+            "[RECOVERY-CLASSIFY] %s marked failed (reason=%s) — release blocklisted and "
+            "issue re-wanted when resolvable (#541); replay will NOT re-queue it." % (rkey, FAIL_REASON_GONE)
+        )
+    else:
+        logger.fdebug(
+            "[RECOVERY-CLASSIFY] %s not marked failed (reason=%s): the journal transition was "
+            "already taken by another writer; no journal write occurred here." % (rkey, FAIL_REASON_GONE)
+        )
+    return outcome.transition_won

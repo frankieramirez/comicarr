@@ -165,6 +165,28 @@ def test_canonical_resolution_route_uses_one_report_for_one_key():
     }
 
 
+def test_resolve_attention_requires_session_without_override():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from comicarr.app.attention.router import router
+    from comicarr.app.core.context import get_context
+
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_context] = lambda: ctx
+    # Leave require_session real — missing cookie should 401.
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/attention/resolve",
+            json={"action": "stop_wanting", "release_keys": []},
+        )
+
+    assert response.status_code == 401
+
+
 def _canonical_client(ctx):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

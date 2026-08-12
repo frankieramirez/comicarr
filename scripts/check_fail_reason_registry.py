@@ -45,12 +45,16 @@ SKIP_DIR_NAMES = {"_vendor", "__pycache__", ".venv", "node_modules"}
 # Functions that accept a variable reason and forward it. Callers must be
 # scanned so concrete bases still surface. Adding a new dynamic writer without
 # allowlisting fails with the unresolvable-site message.
+#
+# Keyed on (relative file path, function name) — never the bare function name
+# — so a same-named function in an unrelated file (e.g. some other "record")
+# can never ride along on this exemption.
 PASS_THROUGH_WRITERS = frozenset(
     {
-        "record",
-        "_record_on_connection",
-        "terminalize_failed_download",
-        "_quarantine_postprocess_item",
+        ("comicarr/app/attention/_recording.py", "record"),
+        ("comicarr/app/attention/_recording.py", "_record_on_connection"),
+        ("comicarr/failed.py", "terminalize_failed_download"),
+        ("comicarr/app/downloads/service.py", "_quarantine_postprocess_item"),
     }
 )
 
@@ -59,6 +63,14 @@ MARK_ATTRS = frozenset({"Failure", "ManualReview", "mark_failed", "mark_manual_r
 # Parameter names that indicate a pass-through body (the enclosing function
 # is the allowlisted writer; callers supply the literal).
 PASS_THROUGH_PARAM_NAMES = frozenset({"fail_reason", "reason"})
+
+# The one seam where a *typed attribute access* (not a bare Name) carries a
+# dynamic reason: ``entry.reason`` inside ``_record_on_connection``, where
+# ``entry`` is a typed Failure/ManualReview instance. (file, function,
+# attribute base name) — narrower than "any `.reason` inside an allowlisted
+# function" so a second dynamic `.reason` read added later to an allowlisted
+# function does not silently ride along.
+DYNAMIC_REASON_ATTR_SEAM = ("comicarr/app/attention/_recording.py", "_record_on_connection", "entry")
 
 
 def _base_token(value: str) -> str:
@@ -95,7 +107,7 @@ def _literal_set_from_assign(node: ast.Assign) -> set[str] | None:
 
 
 def _load_registry() -> set[str]:
-    """Parse reasons.py via AST — no package import, no sqlalchemy needed."""
+    """Parse comicarr/app/attention/_policy.py via AST — no package import, no sqlalchemy needed."""
     tree = ast.parse(REASONS_PATH.read_text(encoding="utf-8"), filename=str(REASONS_PATH))
     buckets: dict[str, set[str]] = {}
     for node in tree.body:
@@ -304,7 +316,7 @@ def _scan_file(path: Path, const_map: dict[str, str]) -> tuple[set[str], list[st
         attr = _call_name(node)
         if attr is None:
             continue
-        if attr in PASS_THROUGH_WRITERS:
+        if (rel, attr) in PASS_THROUGH_WRITERS:
             continue
         if attr not in MARK_ATTRS:
             continue
@@ -318,12 +330,16 @@ def _scan_file(path: Path, const_map: dict[str, str]) -> tuple[set[str], list[st
         # Inside an allowlisted pass-through function body, a bare Name is OK.
         if isinstance(reason_node, ast.Name) and reason_node.id in PASS_THROUGH_PARAM_NAMES:
             parent = enclosing.get(lineno)
-            if parent in PASS_THROUGH_WRITERS:
+            if (rel, parent) in PASS_THROUGH_WRITERS:
                 continue
+        # The one dynamic-attribute seam (see DYNAMIC_REASON_ATTR_SEAM):
+        # ``entry.reason`` inside ``_record_on_connection`` specifically, not
+        # any ``.reason`` access inside any allowlisted function.
         if (
             isinstance(reason_node, ast.Attribute)
             and reason_node.attr == "reason"
-            and enclosing.get(lineno) in PASS_THROUGH_WRITERS
+            and isinstance(reason_node.value, ast.Name)
+            and (rel, enclosing.get(lineno), reason_node.value.id) == DYNAMIC_REASON_ATTR_SEAM
         ):
             continue
 

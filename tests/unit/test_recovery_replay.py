@@ -29,6 +29,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.attention import RecordOutcome
 from comicarr.app.downloads import journal, recovery, recovery_classify
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
@@ -418,6 +419,58 @@ def test_ae4_gone_marks_failed_not_enqueued(queues):
     row = _journal_row(rkey)
     assert row["stage"] == journal.FAILED
     assert row["fail_reason"] == recovery_classify.FAIL_REASON_GONE
+
+
+def test_apply_verdict_lost_transition_reports_no_write_and_makes_no_claim(monkeypatch):
+    """A lost journal transition is not a write. apply_verdict() must report
+    False (its docstring: "Returns True iff a journal write occurred") and must
+    NOT log the blocklisted/re-wanted claim for work another writer did."""
+    rkey = journal.release_key("31", "nzb.su", nzbname="L.cbz")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "31", "provider": "nzb.su"},
+        issueid="31",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    row = _journal_row(rkey)
+
+    monkeypatch.setattr(
+        recovery_classify,
+        "record",
+        lambda entry, conn=None: RecordOutcome(
+            transition_won=False,
+            base_reason=recovery_classify.FAIL_REASON_GONE,
+            actionable=True,
+            reconciliation="noop",
+        ),
+    )
+    warnings = []
+    monkeypatch.setattr(recovery_classify.logger, "warn", lambda message: warnings.append(message))
+
+    assert recovery_classify.apply_verdict(row, recovery_classify.GONE) is False
+    assert not any("release blocklisted and" in message for message in warnings)
+
+
+def test_apply_verdict_won_transition_reports_write_and_makes_the_claim(monkeypatch):
+    """The winner of the transition does report True and does make the claim."""
+    rkey = journal.release_key("32", "nzb.su", nzbname="W.cbz")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "32", "provider": "nzb.su"},
+        issueid="32",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    row = _journal_row(rkey)
+
+    warnings = []
+    monkeypatch.setattr(recovery_classify.logger, "warn", lambda message: warnings.append(message))
+
+    assert recovery_classify.apply_verdict(row, recovery_classify.GONE) is True
+    assert any("release blocklisted and" in message for message in warnings)
 
 
 # ---------------------------------------------------------------------------

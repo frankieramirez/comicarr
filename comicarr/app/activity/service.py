@@ -10,10 +10,11 @@
 """Activity Center read service — shapes query results for HTTP handlers."""
 
 from comicarr.app.activity import queries
-from comicarr.app.attention import Scope, read
+from comicarr.app.attention import PREVIEW_CAP, Scope, read
 from comicarr.app.attention._serialization import serialize_view
 
-ATTENTION_PREVIEW_CAP = 5
+# Deprecated local alias for the canonical Attention preview cap.
+ATTENTION_PREVIEW_CAP = PREVIEW_CAP
 
 
 def get_timeline(limit=None, offset=None, scope_type=None, scope_id=None):

@@ -31,15 +31,6 @@ export type ActivityScope = {
 /** Wire ids (#525). The URL segment is the same id with `_` swapped for `-`. */
 export type BandResolutionAction = BandAction;
 
-interface BandResolutionResult {
-  success: boolean;
-  error?: string;
-  message?: string;
-  status?: string;
-  action?: string;
-  release_key?: string;
-}
-
 export interface BandBatchResultRow {
   release_key: string;
   ok: boolean;
@@ -236,39 +227,6 @@ export function useActivityBand(scope: ActivityScope = {}) {
     },
     staleTime: ACTIVITY_POLL_MS,
     refetchInterval: ACTIVITY_POLL_MS,
-  });
-}
-
-/**
- * Resolve one needs-attention item through the canonical command interface.
- * Invalidates the work queue + timeline on success.
- */
-export function useBandResolution() {
-  const queryClient = useQueryClient();
-  return useMutation<
-    BandResolutionResult,
-    Error,
-    { releaseKey: string; action: BandResolutionAction }
-  >({
-    mutationFn: async ({ releaseKey, action }) => {
-      const result = await apiRequest<BandResolutionResult>(
-        "POST",
-        "/api/attention/resolve",
-        { action, release_keys: [releaseKey] },
-      );
-      if (!result.success) {
-        throw new Error(
-          result.error || result.message || `Unable to ${action} this item.`,
-        );
-      }
-      return result;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ACTIVITY_BAND_QUERY_KEY });
-      void queryClient.invalidateQueries({
-        queryKey: ACTIVITY_TIMELINE_QUERY_KEY,
-      });
-    },
   });
 }
 

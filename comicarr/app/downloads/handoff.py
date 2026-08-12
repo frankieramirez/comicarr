@@ -261,16 +261,27 @@ def perform_handoff(
             try:
                 response = sender()
             except Exception as e:
-                record(
-                    ManualReview(
-                        release_key=release_key,
-                        reason="submission_outcome_unknown:%s" % type(e).__name__,
-                        payload={"route": normalized},
-                        **_attention_identity(fields, downloader_type=normalized),
-                    )
-                )
-                _record_route_health(normalized, False, "submission_outcome_unknown")
+                # Classify BEFORE recording. The submission may have landed;
+                # only "we do not know" is truthful here. If recording the
+                # manual-review row then fails, the outer handler must not be
+                # able to downgrade this to `handoff_failed` — that would tell
+                # the operator the download definitely did not happen.
                 outcome = "submission_outcome_unknown"
+                _record_route_health(normalized, False, "submission_outcome_unknown")
+                try:
+                    record(
+                        ManualReview(
+                            release_key=release_key,
+                            reason="submission_outcome_unknown:%s" % type(e).__name__,
+                            payload={"route": normalized},
+                            **_attention_identity(fields, downloader_type=normalized),
+                        )
+                    )
+                except Exception as record_error:
+                    logger.error(
+                        "[HANDOFF] ambiguous submission for %s could not be recorded for manual review: %s"
+                        % (release_key, type(record_error).__name__)
+                    )
                 raise
             acceptance = record_acceptance(
                 release_key,

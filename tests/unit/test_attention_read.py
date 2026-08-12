@@ -144,6 +144,24 @@ def test_canonical_get_serializes_the_attention_view(attention_db):
     }
 
 
+def test_get_attention_requires_session_without_override():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from comicarr.app.attention.router import router
+    from comicarr.app.core.context import AppContext, get_context
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_context] = lambda: AppContext()
+    # Leave require_session real — missing cookie should 401.
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/api/attention")
+
+    assert response.status_code == 401
+
+
 def test_raw_downloads_attention_reader_is_removed_but_post_adapters_remain():
     from comicarr.app.downloads.router import router
 
