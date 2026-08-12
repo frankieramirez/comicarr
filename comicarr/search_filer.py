@@ -373,7 +373,7 @@ class search_check(object):
                     pubdate = entry["pubdate"]
                 except Exception as e:
                     logger.fdebug("Invalid date found. Unable to continue - skipping result. Error returned: %s" % e)
-                    raise _EntryRejected("invalid.pubdate_missing")
+                    raise _EntryRejected("invalid.pubdate_missing") from e
 
         if UseFuzzy == "1":
             logger.fdebug("Year has been fuzzied for this series, ignoring store date comparison entirely.")
@@ -422,7 +422,7 @@ class search_check(object):
                         "Unable to parse posting date from provider result set"
                         " for : %s. Error returned: %s" % (entry["title"], e)
                     )
-                    raise _EntryRejected("invalid.pubdate_unparseable")
+                    raise _EntryRejected("invalid.pubdate_unparseable") from e
 
             if all([digitaldate != "0000-00-00", digitaldate is not None]):
                 i = 0
@@ -494,6 +494,8 @@ class search_check(object):
                     raise _EntryRejected("rejected.before_reference_date")
                 else:
                     logger.fdebug("[CONV] %s is after store date of %s" % (pubdate, stdate))
+            except _EntryRejected:
+                raise
             except Exception:
                 # if the above fails, drop down to the integer compare method
                 # as a failsafe.
@@ -505,7 +507,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    raise _EntryRejected("rejected.before_reference_date")
+                    raise _EntryRejected("rejected.before_reference_date") from None
                 else:
                     logger.fdebug("[INT] %s is after store date of %s" % (pubdate, stdate))
         # -- end size constaints.
@@ -575,7 +577,7 @@ class search_check(object):
                 filecomic = fcomic.matchIT(parsed_comic)
             except Exception as e:
                 logger.error("[PARSE-ERROR]: %s" % e)
-                raise _EntryRejected("error.matcher_exception")
+                raise _EntryRejected("error.matcher_exception") from e
             else:
                 logger.fdebug("match_check: %s" % filecomic)
                 if filecomic["process_status"] == "fail":
@@ -855,12 +857,15 @@ class search_check(object):
                 raise
             except Exception as e:
                 logger.error("Unable to identify pack range for %s. Error returned: %s" % (entry["title"], e))
-                raise _EntryRejected("error.pack_lookup_exception")
+                raise _EntryRejected("error.pack_lookup_exception") from e
             # pack support.
             nowrite = False
             if "DDL" in nzbprov:
-                if "getcomics" in entry["link"]:
-                    nzbid = entry["id"]
+                if "GetComics" in nzbprov and RSS == "yes":
+                    entry["id"] = entry["link"]
+                    entry["link"] = "https://getcomics.info/?p=" + str(entry["id"])
+                    entry["filename"] = entry["title"]
+                nzbid = entry["id"]
             else:
                 nzbid = search.generate_id(provider_stat, entry["link"], ComicName)
             if all([manual is not True, alt_match is False]):
@@ -1135,7 +1140,7 @@ class search_check(object):
                                 "entry": entry,
                                 "provider_stat": provider_stat,
                             },
-                            "alternate" if alt_match else "standard",
+                            "standard",
                         )
                     raise _EntryRejected("blocked.duplicate")
                 else:

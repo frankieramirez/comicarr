@@ -220,7 +220,12 @@ def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
         (
             _config(),
             _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
-            _info(UseFuzzy="0", StoreDate="2024-02-01", IssueDate="2024-02-01", digitaldate=None),
+            _info(
+                UseFuzzy="0",
+                StoreDate="2024-02-01",
+                IssueDate="2024-02-01",
+                digitaldate="2024-02-01",
+            ),
             "rejected.before_reference_date",
             True,
         ),
@@ -235,6 +240,23 @@ def test_early_rejection_reasons_are_stable(monkeypatch, config, entry, info, re
     assert evaluation.verdict["accepted"] is False
     assert evaluation.verdict["overrideable"] is overrideable
     assert evaluation.legacy_match is None
+
+
+def test_datetime_rejection_does_not_fall_through_to_disagreeing_integer_comparison(monkeypatch):
+    integer_times = iter([300, 1706659200, 100, 1706659200, 100])
+    monkeypatch.setattr(search_filer.time, "mktime", lambda _value: next(integer_times))
+
+    evaluation = search_filer.search_check().evaluate_entry(
+        _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
+        _info(
+            UseFuzzy="0",
+            StoreDate="2024-02-01",
+            IssueDate="2024-02-01",
+            digitaldate="2024-02-01",
+        ),
+    )
+
+    assert _reason(evaluation) == "rejected.before_reference_date"
 
 
 @pytest.mark.parametrize(
@@ -304,6 +326,16 @@ def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
     monkeypatch.setattr(search_filer.helpers, "issue_find_ids", MagicMock(side_effect=RuntimeError("lookup failed")))
     failed = search_filer.search_check().evaluate_entry(_pack_entry(), info)
     assert _reason(failed) == "error.pack_lookup_exception"
+
+
+def test_rss_getcomics_pack_uses_post_id_as_nzbid(monkeypatch):
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": True, "issues": []})
+    info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)", RSS="yes")
+
+    evaluation = search_filer.search_check().evaluate_entry(_pack_entry(link=123), info)
+
+    assert evaluation.legacy_match["nzbid"] == 123
+    assert evaluation.legacy_match["link"] == "https://getcomics.info/?p=123"
 
 
 def test_alternate_match_is_explainable_and_remains_filtered(monkeypatch):
