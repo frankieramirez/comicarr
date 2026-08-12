@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Download, X } from "lucide-react";
+import { CircleDot, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import StatusBadge from "@/components/StatusBadge";
@@ -22,7 +22,7 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, UpcomingIssue>();
  * `BulkActionBar` as a sibling; the columns live here so the page and the
  * selection tests drive the same select column (#395).
  */
-export function useUpcomingColumns() {
+export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
 
@@ -113,6 +113,20 @@ export function useUpcomingColumns() {
 
             return (
               <div className="flex items-center space-x-2">
+                {status === "wanted" && onReview ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onReview(row.original);
+                    }}
+                    className="text-xs"
+                  >
+                    <CircleDot className="mr-1 size-3" />
+                    Review releases
+                  </Button>
+                ) : null}
                 {status === "wanted" || status === "skipped" ? (
                   <>
                     {status === "wanted" && (
@@ -166,6 +180,6 @@ export function useUpcomingColumns() {
           },
         }),
       ]),
-    [queueIssueMutation, unqueueIssueMutation],
+    [onReview, queueIssueMutation, unqueueIssueMutation],
   );
 }

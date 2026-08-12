@@ -350,6 +350,75 @@ export interface UpcomingIssue extends Omit<Issue, "Status"> {
   Store_Date?: string;
 }
 
+export interface InteractiveVerdictReason {
+  code: string;
+  message: string;
+}
+
+export interface InteractiveReleaseCandidate {
+  candidate_id: string;
+  state:
+    | "available"
+    | "unavailable"
+    | "submitting"
+    | "submitted"
+    | "failed"
+    | "manual_review";
+  candidate: {
+    title: string;
+    provider: string;
+    source_kind: string;
+    published_at: string | null;
+    size_bytes: number | null;
+    pack: boolean;
+    metrics: Record<string, number>;
+  };
+  verdict: {
+    status: string;
+    accepted: boolean;
+    overrideable: boolean;
+    reason_code: string;
+    reasons: InteractiveVerdictReason[];
+    match_kind: string;
+  };
+}
+
+export interface InteractiveProviderFailure {
+  provider: string;
+  code: string;
+  detail: string;
+}
+
+export interface InteractiveSearchSession {
+  success?: boolean;
+  session_id: string;
+  entity_type: "issue" | "annual" | "story_arc_issue";
+  entity_id: string;
+  series_id: string | null;
+  state: "queued" | "running" | "complete" | "failed";
+  candidate_count: number;
+  progress: {
+    provider_total: number;
+    provider_completed: number;
+    current_provider: string | null;
+  };
+  provider_failures: InteractiveProviderFailure[];
+  created_at: string;
+  expires_at: string;
+  candidates: InteractiveReleaseCandidate[];
+}
+
+export interface InteractiveGrabResult {
+  success: boolean;
+  status: "submitted" | "failed" | "manual_review";
+  candidate_id: string;
+  journal_release_key?: string | null;
+  journal_managed?: boolean;
+  idempotent?: boolean;
+  code?: string;
+  error?: string;
+}
+
 /** Series detail response (includes issues) */
 export interface SeriesDetail {
   comic: Comic[] | Comic;

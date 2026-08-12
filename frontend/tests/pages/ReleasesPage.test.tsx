@@ -7,6 +7,16 @@ import { render, screen } from "../test-utils";
 import ReleasesPage from "@/pages/ReleasesPage";
 
 describe("ReleasesPage", () => {
+  const upcomingIssue = {
+    IssueID: "issue-19",
+    ComicID: "comic-1",
+    ComicName: "Absolute Batman",
+    IssueNumber: "19",
+    Issue_Number: "19",
+    IssueDate: "2026-08-12",
+    Status: "Wanted",
+  };
+
   it("queues a weekly refresh and reports its accepted state", async () => {
     const user = userEvent.setup();
     render(<ReleasesPage />);
@@ -40,7 +50,9 @@ describe("ReleasesPage", () => {
     );
 
     expect(await screen.findByText("Weekly refresh is paused")).toBeTruthy();
-    expect(screen.queryByText("Refresh queued — it will start shortly.")).toBeNull();
+    expect(
+      screen.queryByText("Refresh queued — it will start shortly."),
+    ).toBeNull();
   });
 
   it("reports a refresh that finishes before the accepted response is rendered", async () => {
@@ -70,5 +82,16 @@ describe("ReleasesPage", () => {
     );
 
     expect(await screen.findByText("Releases refreshed.")).toBeTruthy();
+  });
+
+  it("offers interactive review for wanted releases", async () => {
+    server.use(
+      http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),
+    );
+    render(<ReleasesPage />);
+
+    expect(
+      await screen.findByRole("button", { name: "Review releases" }),
+    ).toBeTruthy();
   });
 });
