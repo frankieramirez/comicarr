@@ -370,14 +370,25 @@ def split_newznab_category_field(value):
     """
     uid, separator, categories = str(value or "").partition("#")
     if not separator:
-        return uid, ""
-    return uid, categories.replace("#", ",")
+        return uid.strip(), ""
+    return uid.strip(), ",".join(normalize_category_list(categories, "#"))
+
+
+def normalize_category_list(value, separator=","):
+    """Return the category ids in ``value`` with blanks and padding removed.
+
+    `7030, 7020` typed into Settings used to be stored with the space intact
+    and would have reached the indexer as `cat=7030, 7020`. It never showed
+    because the categories were not reaching the searcher at all; now that they
+    are, the field has to survive the way operators actually type a list.
+    """
+    return [part.strip() for part in str(value or "").split(separator) if part.strip()]
 
 
 def join_newznab_category_field(uid, categories):
     """Rebuild the stored ``uid#categories`` field from its two halves."""
     uid = str(uid or "").strip() or DEFAULT_NEWZNAB_RSS_UID
-    categories = str(categories or "").strip().replace(",", "#")
+    categories = "#".join(normalize_category_list(categories))
     # A uid on its own, rather than a trailing '#', so the search path falls
     # back to its built-in category instead of querying `cat=` empty.
     return "%s#%s" % (uid, categories) if categories else uid
@@ -395,7 +406,7 @@ def _safe_provider_projection(config, provider_type):
             "name": str(entry[0] or ""),
             "host": _safe_provider_host(entry[1]),
             "verify": str(entry[2]).lower() in {"1", "true", "yes", "on"},
-            "categories": str(entry[4] or "").replace("#", ","),
+            "categories": ",".join(normalize_category_list(entry[4], "#")),
             "enabled": str(entry[5]).lower() in {"1", "true", "yes", "on"},
             "api_key_set": _secret_is_configured(entry[3]),
         }
@@ -625,7 +636,7 @@ def update_providers(ctx, provider_data):
                 credential = old[3]
             if old is not None and host == _safe_provider_host(old[1]):
                 host = old[1]
-            categories = str(row.get("categories") or "").replace(",", "#")
+            categories = "#".join(normalize_category_list(row.get("categories")))
             if provider_type == "newznab":
                 # Keep the uid the operator is already using when the client
                 # does not send one back, so editing categories cannot silently

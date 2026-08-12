@@ -926,6 +926,26 @@ class TestConfigService:
         assert persisted[4] == "1#7030#7020"
         assert system_service.split_newznab_category_field(persisted[4]) == ("1", "7030,7020")
 
+    def test_category_lists_tolerate_the_spacing_operators_type(self):
+        """`7030, 7020` must not reach the indexer as `cat=7030, 7020`."""
+        ctx = _make_test_ctx()
+        ctx.config.EXTRA_TORZNABS = []
+        providers = [
+            {
+                "name": "Prowlarr",
+                "host": "https://prowlarr.test/1/api",
+                "verify": True,
+                "api_key": "secret",
+                "categories": " 7030, 7020 ,",
+                "enabled": True,
+            }
+        ]
+
+        assert system_service.update_providers(ctx, {"type": "torznab", "providers": providers})["success"] is True
+
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_TORZNABS"][0]
+        assert persisted[4] == "7030#7020"
+
     def test_newznab_edit_preserves_an_existing_rss_uid(self):
         """Editing categories cannot repoint the RSS feed at another user."""
         ctx = _make_test_ctx()
