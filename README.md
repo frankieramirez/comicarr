@@ -147,6 +147,14 @@ python3 Comicarr.py --nolaunch
 
 ## Configuration
 
+### Series content kind
+
+Open a series and use **Catalog this as** to choose **Comic** or **Manga**.
+This classification is independent of the metadata provider, so a series added
+from ComicVine can still use manga chapter labels and matching rules. The
+choice applies to future search, refresh, and post-processing behavior; it does
+not change the provider or rewrite existing files and issue history.
+
 ### Interactive release search
 
 Open **Releases**, stay on the **Mine** tab, and choose **Review releases** for

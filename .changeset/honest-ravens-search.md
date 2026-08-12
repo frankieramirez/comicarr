@@ -2,4 +2,4 @@
 "comicarr": patch
 ---
 
-Honor each series' stored comic or manga classification during search, refresh, and post-processing.
+Let operators classify any series as comic or manga from its detail page, independent of metadata provider. Honor that stored classification during search, refresh, and post-processing.
