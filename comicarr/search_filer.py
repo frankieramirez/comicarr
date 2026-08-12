@@ -22,17 +22,191 @@ import datetime
 import email.utils
 import re
 import time
+from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
 import comicarr
 from comicarr import filechecker, helpers, logger, search
+
+_REASON_DEFINITIONS = {
+    "accepted.issue": ("Accepted issue match", False, "accepted"),
+    "accepted.pack": ("Accepted pack match", False, "accepted"),
+    "ignored.search_word": ("Contains a configured ignored word", True, "rejected"),
+    "rejected.size_below_min": ("Below the configured minimum size", True, "rejected"),
+    "rejected.size_above_max": ("Above the configured maximum size", True, "rejected"),
+    "rejected.cover_only": ("Looks like a cover-only release", True, "rejected"),
+    "invalid.pubdate_missing": ("Provider did not supply a publication date", False, "invalid"),
+    "invalid.reference_date_missing": ("Tracked item has no usable reference date", False, "invalid"),
+    "invalid.pubdate_unparseable": ("Provider publication date could not be parsed", False, "invalid"),
+    "rejected.before_reference_date": ("Published before the tracked item", True, "rejected"),
+    "error.matcher_exception": ("Title matcher failed", False, "error"),
+    "rejected.series_mismatch": ("Series title does not match", True, "rejected"),
+    "rejected.alternate_series": ("Matched only an alternate series name", True, "rejected"),
+    "rejected.book_type": ("Publication format does not match", True, "rejected"),
+    "rejected.unparseable_title": ("Release title could not be parsed", True, "rejected"),
+    "rejected.year_mismatch": ("Series year does not match", True, "rejected"),
+    "rejected.volume_mismatch": ("Series volume does not match", True, "rejected"),
+    "rejected.pack_issue_absent": ("Pack does not contain the tracked item", True, "rejected"),
+    "error.pack_lookup_exception": ("Pack contents could not be evaluated", False, "error"),
+    "rejected.issue_mismatch": ("Issue or chapter number does not match", True, "rejected"),
+    "blocked.duplicate": ("Duplicate candidate was suppressed", False, "blocked"),
+    "error.evaluation_exception": ("Candidate evaluation failed", False, "error"),
+}
+
+
+class _EntryRejected(Exception):
+    def __init__(self, reason_code):
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+@dataclass(frozen=True)
+class _AcceptedMatch:
+    legacy_match: dict
+    match_kind: str
+
+
+@dataclass
+class ReleaseCandidateEvaluation:
+    """One sanitized provider candidate plus its structured match verdict.
+
+    ``legacy_match`` and ``exception`` stay server-side. ``as_dict`` is the
+    credential-safe representation intended for later interactive-search APIs.
+    """
+
+    candidate: dict
+    verdict: dict
+    legacy_match: dict | None = field(default=None, repr=False)
+    exception: Exception | None = field(default=None, repr=False)
+
+    def as_dict(self):
+        return {"candidate": dict(self.candidate), "verdict": dict(self.verdict)}
 
 
 class search_check(object):
     def __init__(self):
         pass
 
+    @staticmethod
+    def _entry_value(entry, key, default=None):
+        try:
+            return entry.get(key, default)
+        except AttributeError:
+            try:
+                return entry[key]
+            except Exception:
+                return default
+
+    def _normalized_candidate(self, entry, is_info):
+        info = is_info or {}
+        nzbprov = str(info.get("nzbprov") or self._entry_value(entry, "site") or "Unknown")
+        provider_stat = info.get("provider_stat") or {}
+        provider_type = str(provider_stat.get("type") or "").lower()
+        newznab_host = info.get("newznab_host")
+        torznab_host = info.get("torznab_host")
+
+        if newznab_host:
+            provider = str(newznab_host[0] or "Newznab")
+        elif torznab_host:
+            provider = str(torznab_host[0] or "Torznab")
+        else:
+            provider = nzbprov
+
+        if "ddl" in nzbprov.lower():
+            source_kind = "ddl"
+        elif provider_type in ("newznab", "usenet") or "newznab" in nzbprov.lower():
+            source_kind = "usenet"
+        elif provider_type in ("torznab", "torrent") or "torrent" in nzbprov.lower() or nzbprov == "32P":
+            source_kind = "torrent"
+        else:
+            source_kind = "unknown"
+
+        provider_lower = provider.lower()
+        if any(marker in provider_lower for marker in ("://", "@", "?", "apikey=", "token=")):
+            provider = {
+                "ddl": "Direct-download provider",
+                "torrent": "Torrent provider",
+                "usenet": "Usenet provider",
+            }.get(source_kind, "Search provider")
+
+        raw_size = self._entry_value(entry, "length")
+        if raw_size in (None, "", "0", 0):
+            raw_size = self._entry_value(entry, "size")
+        try:
+            size_bytes = int(raw_size)
+        except (TypeError, ValueError):
+            try:
+                size_bytes = helpers.human2bytes(str(raw_size))
+            except (AssertionError, TypeError, ValueError):
+                size_bytes = None
+
+        metrics = {}
+        for key in ("seeders", "peers", "leechers", "grabs", "files"):
+            value = self._entry_value(entry, key)
+            if value not in (None, ""):
+                try:
+                    metrics[key] = int(value)
+                except (TypeError, ValueError):
+                    continue
+
+        return {
+            "title": str(self._entry_value(entry, "title") or "Untitled release"),
+            "provider": provider,
+            "source_kind": source_kind,
+            "published_at": self._entry_value(entry, "updated") or self._entry_value(entry, "pubdate"),
+            "size_bytes": size_bytes,
+            "pack": bool(self._entry_value(entry, "pack", False)),
+            "metrics": metrics,
+        }
+
+    @staticmethod
+    def _verdict(reason_code, match_kind="none"):
+        message, overrideable, status = _REASON_DEFINITIONS[reason_code]
+        return {
+            "status": status,
+            "accepted": status == "accepted",
+            "overrideable": overrideable,
+            "reason_code": reason_code,
+            "reasons": [{"code": reason_code, "message": message}],
+            "match_kind": match_kind,
+        }
+
+    def evaluate_entry(self, entry, is_info=None):
+        """Evaluate one raw provider entry without exposing provider secrets."""
+
+        candidate = self._normalized_candidate(entry, is_info)
+        try:
+            accepted = self._match_entry(entry, is_info)
+        except _EntryRejected as rejection:
+            return ReleaseCandidateEvaluation(candidate, self._verdict(rejection.reason_code))
+        except Exception as e:
+            return ReleaseCandidateEvaluation(
+                candidate,
+                self._verdict("error.evaluation_exception"),
+                exception=e,
+            )
+
+        reason_code = "accepted.pack" if accepted.match_kind == "pack" else "accepted.issue"
+        return ReleaseCandidateEvaluation(
+            candidate,
+            self._verdict(reason_code, match_kind=accepted.match_kind),
+            legacy_match=accepted.legacy_match,
+        )
+
+    def evaluate_entries(self, entries, is_info=None):
+        """Return one evaluation per raw provider entry, in provider order."""
+
+        return [self.evaluate_entry(entry, is_info) for entry in entries]
+
     def _process_entry(self, entry, is_info):
+        """Compatibility adapter for existing automatic-search callers."""
+
+        evaluation = self.evaluate_entry(entry, is_info)
+        if evaluation.exception is not None:
+            raise evaluation.exception
+        return evaluation.legacy_match
+
+    def _match_entry(self, entry, is_info):
         if is_info:
             ComicName = is_info["ComicName"]
             nzbprov = is_info["nzbprov"]
@@ -122,7 +296,7 @@ class search_check(object):
                 "[IGNORE_SEARCH_WORDS] %s exists within the search result (%s). Ignoring this result."
                 % (ignored, ComicTitle)
             )
-            return None
+            raise _EntryRejected("ignored.search_word")
 
         comsize_m = 0
         if nzbprov != "dognzb":
@@ -171,19 +345,19 @@ class search_check(object):
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
                         if int(conv_minsize) > int(comsize_b):
                             logger.fdebug("Failure to meet the Minimum size threshold - skipping")
-                            return None
+                            raise _EntryRejected("rejected.size_below_min")
                     if comicarr.CONFIG.USE_MAXSIZE:
                         conv_maxsize = helpers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
                         logger.fdebug("comparing Max threshold %s .. to .. nzb %s" % (conv_maxsize, comsize_b))
                         if int(comsize_b) > int(conv_maxsize):
                             logger.fdebug("Failure to meet the Maximium size threshold - skipping")
-                            return None
+                            raise _EntryRejected("rejected.size_above_max")
 
         if comicarr.CONFIG.IGNORE_COVERS is True:
             cvrchk = re.sub(r"[\s\s+\_\.]", "", entry["title"]).lower()
             if any(["coversonly" in cvrchk, "coveronly" in cvrchk]):
                 logger.fdebug("Cover(s) only detected. Ignoring result.")
-                return None
+                raise _EntryRejected("rejected.cover_only")
 
         # ---- date constaints.
         # if the posting date is prior to the publication date,
@@ -199,7 +373,7 @@ class search_check(object):
                     pubdate = entry["pubdate"]
                 except Exception as e:
                     logger.fdebug("Invalid date found. Unable to continue - skipping result. Error returned: %s" % e)
-                    return None
+                    raise _EntryRejected("invalid.pubdate_missing")
 
         if UseFuzzy == "1":
             logger.fdebug("Year has been fuzzied for this series, ignoring store date comparison entirely.")
@@ -215,7 +389,7 @@ class search_check(object):
                         " probably should refresh the series or wait for CV"
                         " to correct the data"
                     )
-                    return None
+                    raise _EntryRejected("invalid.reference_date_missing")
                 else:
                     stdate = IssueDate
                 logger.fdebug("issue date used is : %s" % stdate)
@@ -248,7 +422,7 @@ class search_check(object):
                         "Unable to parse posting date from provider result set"
                         " for : %s. Error returned: %s" % (entry["title"], e)
                     )
-                    return None
+                    raise _EntryRejected("invalid.pubdate_unparseable")
 
             if all([digitaldate != "0000-00-00", digitaldate is not None]):
                 i = 0
@@ -317,7 +491,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    return None
+                    raise _EntryRejected("rejected.before_reference_date")
                 else:
                     logger.fdebug("[CONV] %s is after store date of %s" % (pubdate, stdate))
             except Exception:
@@ -331,7 +505,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    return None
+                    raise _EntryRejected("rejected.before_reference_date")
                 else:
                     logger.fdebug("[INT] %s is after store date of %s" % (pubdate, stdate))
         # -- end size constaints.
@@ -401,12 +575,12 @@ class search_check(object):
                 filecomic = fcomic.matchIT(parsed_comic)
             except Exception as e:
                 logger.error("[PARSE-ERROR]: %s" % e)
-                return None
+                raise _EntryRejected("error.matcher_exception")
             else:
                 logger.fdebug("match_check: %s" % filecomic)
                 if filecomic["process_status"] == "fail":
                     logger.fdebug("%s was not a match to %s (%s)" % (cleantitle, ComicName, SeriesYear))
-                    return None
+                    raise _EntryRejected("rejected.series_mismatch")
                 elif filecomic["process_status"] == "alt_match":
                     # if it's an alternate series match, we'll retain each value
                     # until the search has compeletely run, compiling matches.
@@ -425,10 +599,10 @@ class search_check(object):
                 "Booktypes do not match. Looking for %s, this is a %s."
                 " Ignoring this result." % (booktype, parsed_comic["booktype"])
             )
-            return None
+            raise _EntryRejected("rejected.book_type")
         else:
             logger.fdebug("Unable to parse name properly: %s. Ignoring this result" % parsed_comic)
-            return None
+            raise _EntryRejected("rejected.unparseable_title")
 
         # adjust for covers only by removing them entirely...
         vers4year = "no"
@@ -547,7 +721,7 @@ class search_check(object):
             yearmatch = True
 
         if yearmatch is False and pack is False:
-            return None
+            raise _EntryRejected("rejected.year_mismatch")
 
         annualize = False
         if "annual" in ComicName.lower():
@@ -658,7 +832,7 @@ class search_check(object):
                     )
                 else:
                     logger.fdebug("Versions wrong. Ignoring possible match.")
-                    return None
+                    raise _EntryRejected("rejected.volume_mismatch")
 
         downloadit = False
 
@@ -676,10 +850,12 @@ class search_check(object):
                         logger.info("Issue Number %s exists within pack. Continuing." % IssueNumber)
                     else:
                         logger.fdebug("Issue Number %s does NOT exist within this pack. Skipping" % IssueNumber)
-                        return None
+                        raise _EntryRejected("rejected.pack_issue_absent")
+            except _EntryRejected:
+                raise
             except Exception as e:
                 logger.error("Unable to identify pack range for %s. Error returned: %s" % (entry["title"], e))
-                return None
+                raise _EntryRejected("error.pack_lookup_exception")
             # pack support.
             nowrite = False
             if "DDL" in nzbprov:
@@ -721,38 +897,42 @@ class search_check(object):
                     if torznab_host is not None:
                         tprov = torznab_host[0]
 
-                return {
-                    "ComicName": ComicName,
-                    "ComicID": ComicID,
-                    "IssueID": IssueID,
-                    "ComicVolume": ComicVersion,
-                    "IssueNumber": IssueNumber,
-                    "IssueDate": IssueDate,
-                    "comyear": comyear,
-                    "pack": True,
-                    "pack_numbers": pack_issuelist,
-                    "pack_issuelist": issueid_info,
-                    "modcomicname": entry["title"],
-                    "oneoff": oneoff,
-                    "nzbprov": nzbprov,
-                    "nzbtitle": entry["title"],
-                    "nzbid": nzbid,
-                    "provider": tprov,
-                    "link": entry["link"],
-                    "pubdate": pubdate,
-                    "size": comsize_m,
-                    "tmpprov": tmpprov,
-                    "kind": kind,
-                    "SARC": SARC,
-                    "booktype": booktype,
-                    "IssueArcID": IssueArcID,
-                    "newznab": newznab_host,
-                    "torznab": torznab_host,
-                    "downloadit": downloadit,
-                    "ComicTitle": ComicTitle,
-                    "entry": entry,
-                    "provider_stat": provider_stat,
-                }
+                return _AcceptedMatch(
+                    {
+                        "ComicName": ComicName,
+                        "ComicID": ComicID,
+                        "IssueID": IssueID,
+                        "ComicVolume": ComicVersion,
+                        "IssueNumber": IssueNumber,
+                        "IssueDate": IssueDate,
+                        "comyear": comyear,
+                        "pack": True,
+                        "pack_numbers": pack_issuelist,
+                        "pack_issuelist": issueid_info,
+                        "modcomicname": entry["title"],
+                        "oneoff": oneoff,
+                        "nzbprov": nzbprov,
+                        "nzbtitle": entry["title"],
+                        "nzbid": nzbid,
+                        "provider": tprov,
+                        "link": entry["link"],
+                        "pubdate": pubdate,
+                        "size": comsize_m,
+                        "tmpprov": tmpprov,
+                        "kind": kind,
+                        "SARC": SARC,
+                        "booktype": booktype,
+                        "IssueArcID": IssueArcID,
+                        "newznab": newznab_host,
+                        "torznab": torznab_host,
+                        "downloadit": downloadit,
+                        "ComicTitle": ComicTitle,
+                        "entry": entry,
+                        "provider_stat": provider_stat,
+                    },
+                    "pack",
+                )
+            raise _EntryRejected("blocked.duplicate")
         else:
             if filecomic["process_status"] == "match":
                 if cmloopit != 4:
@@ -922,43 +1102,49 @@ class search_check(object):
                             if torznab_host is not None:
                                 tprov = torznab_host[0]
 
-                        return {
-                            "ComicName": ComicName,
-                            "ComicID": ComicID,
-                            "IssueID": IssueID,
-                            "ComicVolume": ComicVersion,
-                            "IssueNumber": IssueNumber,
-                            "IssueDate": IssueDate,
-                            "comyear": cyear,
-                            "pack": False,
-                            "pack_numbers": None,
-                            "pack_issuelist": None,
-                            "modcomicname": modcomicname,
-                            "oneoff": oneoff,
-                            "nzbprov": nzbprov,
-                            "provider": tprov,
-                            "nzbtitle": entry["title"],
-                            "nzbid": nzbid,
-                            "link": entry["link"],
-                            "pubdate": pubdate,
-                            "size": comsize_m,
-                            "tmpprov": tmpprov,
-                            "kind": kind,
-                            "booktype": booktype,
-                            "SARC": SARC,
-                            "IssueArcID": IssueArcID,
-                            "newznab": newznab_host,
-                            "torznab": torznab_host,
-                            "downloadit": downloadit,
-                            "ComicTitle": ComicTitle,
-                            "entry": entry,
-                            "provider_stat": provider_stat,
-                        }
+                        return _AcceptedMatch(
+                            {
+                                "ComicName": ComicName,
+                                "ComicID": ComicID,
+                                "IssueID": IssueID,
+                                "ComicVolume": ComicVersion,
+                                "IssueNumber": IssueNumber,
+                                "IssueDate": IssueDate,
+                                "comyear": cyear,
+                                "pack": False,
+                                "pack_numbers": None,
+                                "pack_issuelist": None,
+                                "modcomicname": modcomicname,
+                                "oneoff": oneoff,
+                                "nzbprov": nzbprov,
+                                "provider": tprov,
+                                "nzbtitle": entry["title"],
+                                "nzbid": nzbid,
+                                "link": entry["link"],
+                                "pubdate": pubdate,
+                                "size": comsize_m,
+                                "tmpprov": tmpprov,
+                                "kind": kind,
+                                "booktype": booktype,
+                                "SARC": SARC,
+                                "IssueArcID": IssueArcID,
+                                "newznab": newznab_host,
+                                "torznab": torznab_host,
+                                "downloadit": downloadit,
+                                "ComicTitle": ComicTitle,
+                                "entry": entry,
+                                "provider_stat": provider_stat,
+                            },
+                            "alternate" if alt_match else "standard",
+                        )
+                    raise _EntryRejected("blocked.duplicate")
                 else:
                     # log2file = log2file + "issues don't match.." + "\n"
                     downloadit = False
                     # foundc['status'] = False
-        return None
+        if alt_match:
+            raise _EntryRejected("rejected.alternate_series")
+        raise _EntryRejected("rejected.issue_mismatch")
 
     def checker(self, entries, is_info=None):
         comicarr.COMICINFO = []

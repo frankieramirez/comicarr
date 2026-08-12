@@ -1,0 +1,394 @@
+#  Copyright (C) 2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+
+import comicarr
+from comicarr import search_filer
+
+
+def _config(**overrides):
+    values = {
+        "IGNORE_SEARCH_WORDS": [],
+        "USE_MINSIZE": False,
+        "MINSIZE": "10",
+        "USE_MAXSIZE": False,
+        "MAXSIZE": "1000",
+        "IGNORE_COVERS": False,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def _info(**overrides):
+    values = {
+        "ComicName": "Example Series",
+        "nzbprov": "experimental",
+        "RSS": "no",
+        "UseFuzzy": "1",
+        "StoreDate": "2024-01-01",
+        "IssueDate": "2024-01-01",
+        "digitaldate": "0000-00-00",
+        "booktype": "Print",
+        "ignore_booktype": False,
+        "SeriesYear": "2024",
+        "ComicVersion": None,
+        "IssDateFix": "no",
+        "ComicYear": "2024",
+        "IssueID": "issue-1",
+        "ComicID": "comic-1",
+        "IssueNumber": "1",
+        "manual": True,
+        "newznab_host": None,
+        "torznab_host": None,
+        "oneoff": False,
+        "tmpprov": "Experimental",
+        "SARC": None,
+        "IssueArcID": None,
+        "cmloopit": 3,
+        "findcomiciss": "1",
+        "intIss": 1000,
+        "chktpb": 0,
+        "provider_stat": {"type": "experimental", "id": 1, "active": True, "hits": 0},
+    }
+    values.update(overrides)
+    return values
+
+
+def _entry(**overrides):
+    values = {
+        "title": "Example Series 001 (2024)",
+        "link": "https://indexer.test/download?apikey=super-secret",
+        "pubdate": "Wed, 10 Jan 2024 12:00:00 +0000",
+        "length": "104857600",
+        "site": "experimental",
+        "id": "provider-item-1",
+        "pack": False,
+        "seeders": "7",
+        "peers": "2",
+    }
+    values.update(overrides)
+    return values
+
+
+def _parsed(**overrides):
+    values = {
+        "parse_status": "success",
+        "booktype": "issue",
+        "series_volume": None,
+        "issue_year": "2024",
+        "issue_number": "1",
+    }
+    values.update(overrides)
+    return values
+
+
+def _matched(**overrides):
+    values = {
+        "process_status": "match",
+        "justthedigits": "1",
+        "booktype": "issue",
+    }
+    values.update(overrides)
+    return values
+
+
+@pytest.fixture(autouse=True)
+def _matcher_environment(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config())
+    monkeypatch.setattr(comicarr, "COMICINFO", [])
+    monkeypatch.setattr(search_filer.search, "generate_id", lambda _provider, identity, _name: str(identity))
+    _install_parser(monkeypatch)
+
+
+def _install_parser(monkeypatch, *, parsed=None, matched=None, match_error=None):
+    parsed_result = parsed or _parsed()
+    matched_result = matched or _matched()
+
+    class FakeFileChecker:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def listFiles(self):
+            return parsed_result
+
+        def matchIT(self, _parsed_result):
+            if match_error is not None:
+                raise match_error
+            return matched_result
+
+        def dynamic_replace(self, _series):
+            return {"mod_seriesname": "Example Series"}
+
+    monkeypatch.setattr(search_filer.filechecker, "FileChecker", FakeFileChecker)
+
+
+def _reason(evaluation):
+    return evaluation.verdict["reason_code"]
+
+
+def test_accepted_candidate_is_normalized_and_credential_safe():
+    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info())
+
+    assert evaluation.verdict == {
+        "status": "accepted",
+        "accepted": True,
+        "overrideable": False,
+        "reason_code": "accepted.issue",
+        "reasons": [{"code": "accepted.issue", "message": "Accepted issue match"}],
+        "match_kind": "standard",
+    }
+    assert evaluation.candidate == {
+        "title": "Example Series 001 (2024)",
+        "provider": "experimental",
+        "source_kind": "unknown",
+        "published_at": "Wed, 10 Jan 2024 12:00:00 +0000",
+        "size_bytes": 104857600,
+        "pack": False,
+        "metrics": {"seeders": 7, "peers": 2},
+    }
+    assert evaluation.legacy_match["link"].endswith("super-secret")
+    assert "super-secret" not in str(evaluation.as_dict())
+    assert "link" not in evaluation.as_dict()["candidate"]
+    assert "provider_stat" not in evaluation.as_dict()["candidate"]
+
+
+def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
+    secret = "provider-config-secret"
+    info = _info(
+        nzbprov="dognzb",
+        newznab_host=(f"https://user:{secret}@indexer.test?apikey={secret}", "endpoint", "1", secret),
+        provider_stat={"type": "newznab", "api_key": secret},
+    )
+
+    evaluation = search_filer.search_check().evaluate_entry(_entry(), info)
+    public = evaluation.as_dict()
+
+    assert public["candidate"]["provider"] == "Usenet provider"
+    assert secret not in str(public)
+
+
+@pytest.mark.parametrize(
+    ("config", "entry", "info", "reason_code", "overrideable"),
+    [
+        (
+            _config(IGNORE_SEARCH_WORDS=["repack"]),
+            _entry(title="Example Series 001 REPACK"),
+            _info(),
+            "ignored.search_word",
+            True,
+        ),
+        (_config(USE_MINSIZE=True, MINSIZE="200"), _entry(), _info(), "rejected.size_below_min", True),
+        (_config(USE_MAXSIZE=True, MAXSIZE="50"), _entry(), _info(), "rejected.size_above_max", True),
+        (
+            _config(IGNORE_COVERS=True),
+            _entry(title="Example Series 001 Covers Only"),
+            _info(),
+            "rejected.cover_only",
+            True,
+        ),
+        (
+            _config(),
+            {key: value for key, value in _entry().items() if key != "pubdate"},
+            _info(nzbprov="dognzb", provider_stat={"type": "newznab"}),
+            "invalid.pubdate_missing",
+            False,
+        ),
+        (
+            _config(),
+            _entry(),
+            _info(UseFuzzy="0", StoreDate="0000-00-00", IssueDate="0000-00-00"),
+            "invalid.reference_date_missing",
+            False,
+        ),
+        (
+            _config(),
+            _entry(pubdate="not-a-date"),
+            _info(UseFuzzy="0"),
+            "invalid.pubdate_unparseable",
+            False,
+        ),
+        (
+            _config(),
+            _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
+            _info(UseFuzzy="0", StoreDate="2024-02-01", IssueDate="2024-02-01", digitaldate=None),
+            "rejected.before_reference_date",
+            True,
+        ),
+    ],
+)
+def test_early_rejection_reasons_are_stable(monkeypatch, config, entry, info, reason_code, overrideable):
+    monkeypatch.setattr(comicarr, "CONFIG", config)
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+
+    assert _reason(evaluation) == reason_code
+    assert evaluation.verdict["accepted"] is False
+    assert evaluation.verdict["overrideable"] is overrideable
+    assert evaluation.legacy_match is None
+
+
+@pytest.mark.parametrize(
+    ("parsed", "matched", "match_error", "info", "reason_code"),
+    [
+        (_parsed(), _matched(), RuntimeError("parser broke"), _info(), "error.matcher_exception"),
+        (_parsed(), _matched(process_status="fail"), None, _info(), "rejected.series_mismatch"),
+        (_parsed(booktype="TPB"), _matched(), None, _info(), "rejected.book_type"),
+        (_parsed(parse_status="fail"), _matched(), None, _info(booktype="issue"), "rejected.unparseable_title"),
+        (_parsed(issue_year="2023"), _matched(), None, _info(UseFuzzy="0"), "rejected.year_mismatch"),
+        (
+            _parsed(series_volume="v2"),
+            _matched(),
+            None,
+            _info(ComicVersion="v1"),
+            "rejected.volume_mismatch",
+        ),
+        (_parsed(), _matched(justthedigits="2"), None, _info(), "rejected.issue_mismatch"),
+    ],
+)
+def test_matcher_rejection_reasons_are_stable(
+    monkeypatch,
+    parsed,
+    matched,
+    match_error,
+    info,
+    reason_code,
+):
+    _install_parser(monkeypatch, parsed=parsed, matched=matched, match_error=match_error)
+
+    evaluation = search_filer.search_check().evaluate_entry(_entry(), info)
+
+    assert _reason(evaluation) == reason_code
+    assert evaluation.verdict["status"] == ("error" if reason_code.startswith("error.") else "rejected")
+
+
+def _pack_entry(**overrides):
+    values = _entry(
+        title="Example Series 001-010 (2024)",
+        site="DDL(GetComics)",
+        filename="Example Series 001-010 (2024)",
+        series="Example Series",
+        gc_booktype="issue",
+        issues=["1", "2", "3"],
+        year="2024",
+        pack=True,
+        size="100M",
+        link="https://getcomics.info/post/123",
+    )
+    values.update(overrides)
+    return values
+
+
+def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": True, "issues": []})
+    info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)")
+
+    accepted = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    assert _reason(accepted) == "accepted.pack"
+    assert accepted.verdict["match_kind"] == "pack"
+    assert accepted.candidate["source_kind"] == "ddl"
+
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": False})
+    absent = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    assert _reason(absent) == "rejected.pack_issue_absent"
+
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", MagicMock(side_effect=RuntimeError("lookup failed")))
+    failed = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    assert _reason(failed) == "error.pack_lookup_exception"
+
+
+def test_alternate_match_is_explainable_and_remains_filtered(monkeypatch):
+    _install_parser(monkeypatch, matched=_matched(process_status="alt_match"))
+    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info(manual=False))
+
+    assert _reason(evaluation) == "rejected.alternate_series"
+    assert evaluation.verdict["overrideable"] is True
+    assert evaluation.legacy_match is None
+
+
+def test_duplicate_candidate_is_blocked(monkeypatch):
+    checker = search_filer.search_check()
+    info = _info(manual=True)
+    first = checker._process_entry(_entry(), info)
+    comicarr.COMICINFO.append(first)
+
+    duplicate = checker.evaluate_entry(_entry(), info)
+
+    assert _reason(duplicate) == "blocked.duplicate"
+    assert duplicate.verdict["overrideable"] is False
+
+
+def test_unexpected_evaluator_error_is_structured_but_legacy_adapter_reraises():
+    checker = search_filer.search_check()
+    malformed = {"title": "Example Series 001"}
+
+    evaluation = checker.evaluate_entry(malformed, _info())
+    assert _reason(evaluation) == "error.evaluation_exception"
+    assert evaluation.exception is not None
+
+    with pytest.raises(type(evaluation.exception)):
+        checker._process_entry(malformed, _info())
+
+
+def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    entries = [
+        _entry(id="accepted"),
+        _entry(id="ignored", title="Example Series 001 REPACK"),
+        {"title": "Malformed provider entry"},
+    ]
+
+    evaluations = search_filer.search_check().evaluate_entries(entries, _info())
+
+    assert [_reason(evaluation) for evaluation in evaluations] == [
+        "accepted.issue",
+        "ignored.search_word",
+        "error.evaluation_exception",
+    ]
+
+
+def test_automatic_adapter_preserves_legacy_shape_and_download_flag():
+    match = search_filer.search_check()._process_entry(_entry(), _info(manual=False))
+
+    assert match["downloadit"] is True
+    assert match["pack"] is False
+    assert "verdict" not in match
+    assert "candidate" not in match
+
+
+def test_checker_keeps_only_legacy_matches_and_populates_global(monkeypatch):
+    checker = search_filer.search_check()
+    entries = [_entry(id="one"), _entry(id="ignored", title="Example Series REPACK"), _entry(id="two", link="two")]
+    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+
+    matches = checker.checker(entries, _info())
+
+    assert [match["entry"]["id"] for match in matches] == ["one", "two"]
+    assert comicarr.COMICINFO == matches
+
+
+def test_first_result_preserves_preference_and_last_fallback(monkeypatch):
+    checker = search_filer.search_check()
+    candidates = [
+        {"pack": True, "name": "first-pack"},
+        {"pack": True, "name": "last-pack"},
+        {"pack": False, "name": "preferred-issue"},
+    ]
+    process = MagicMock(side_effect=candidates)
+    monkeypatch.setattr(checker, "_process_entry", process)
+
+    assert checker.check_for_first_result([1, 2, 3], {}, prefer_pack=False)["name"] == "preferred-issue"
+    assert process.call_count == 3
+
+    process.reset_mock(side_effect=True)
+    process.side_effect = candidates[:2]
+    assert checker.check_for_first_result([1, 2], {}, prefer_pack=False)["name"] == "last-pack"
