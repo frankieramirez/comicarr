@@ -180,6 +180,27 @@ def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypat
     assert "reconstruction_hint" not in evaluation.as_dict()
 
 
+def test_interactive_collection_disables_first_result_shortcut(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    collected = []
+
+    with search_filer.interactive_collection(
+        on_evaluations=collected.extend,
+        on_provider_complete=lambda _provider: None,
+        on_provider_failure=lambda _provider, _code, _detail: None,
+    ):
+        match = search_filer.search_check().check_for_first_result(
+            [_entry(), _entry(title="Example Series 001 REPACK", id="provider-item-2")],
+            _info(),
+        )
+
+    assert match["ComicTitle"] == "Example Series 001 (2024)"
+    assert [evaluation.verdict["reason_code"] for evaluation in collected] == [
+        "accepted.issue",
+        "ignored.search_word",
+    ]
+
+
 def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
     secret = "provider-config-secret"
     info = _info(

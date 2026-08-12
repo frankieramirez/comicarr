@@ -220,6 +220,9 @@ def create_session(
     series_id=None,
     now=None,
     ttl_seconds=SESSION_TTL_SECONDS,
+    initial_state="ready",
+    provider_total=0,
+    provider_failures=None,
 ):
     """Replace one actor/browser/item slot with a bounded ready session.
 
@@ -254,6 +257,7 @@ def create_session(
 
     opaque_id = secrets.token_urlsafe(24)
     slot = _slot_digest(actor, browser_session, entity_type, entity_id)
+    safe_failures = _bounded_failures(provider_failures)
     session_values = {
         "session_id": opaque_id,
         "slot_digest": slot,
@@ -262,8 +266,12 @@ def create_session(
         "entity_type": entity_type,
         "entity_id": entity_id,
         "series_id": str(series_id)[:255] if series_id not in (None, "") else None,
-        "state": "ready",
+        "state": str(initial_state)[:32],
         "candidate_count": len(records),
+        "provider_total": max(0, int(provider_total)),
+        "provider_completed": 0,
+        "current_provider": None,
+        "provider_failures_json": _bounded_json(safe_failures, label="provider failures"),
         "created_at": created_at,
         "updated_at": created_at,
         "expires_at": expires_at,
@@ -305,6 +313,148 @@ def create_session(
             browser_session=browser_session,
             now=created,
         )
+
+
+def create_pending_session(
+    engine,
+    *,
+    actor,
+    browser_session,
+    entity_type,
+    entity_id,
+    series_id=None,
+    provider_total=0,
+    provider_failures=None,
+    now=None,
+):
+    """Create an opaque polling resource before provider collection starts."""
+
+    result = create_session(
+        engine,
+        actor=actor,
+        browser_session=browser_session,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        evaluations=[],
+        series_id=series_id,
+        now=now,
+        initial_state="queued",
+        provider_total=provider_total,
+        provider_failures=provider_failures,
+    )
+    return result
+
+
+def update_search_progress(
+    engine,
+    *,
+    session_id,
+    state="running",
+    provider_completed=None,
+    current_provider=None,
+    provider_failures=None,
+    now=None,
+):
+    """Persist one sanitized worker progress snapshot."""
+
+    values = {
+        "state": str(state)[:32],
+        "current_provider": _sanitize_public(current_provider)[:255] if current_provider else None,
+        "updated_at": _now(now).isoformat(),
+    }
+    if provider_completed is not None:
+        values["provider_completed"] = max(0, int(provider_completed))
+    if provider_failures is not None:
+        safe_failures = _bounded_failures(provider_failures)
+        values["provider_failures_json"] = _bounded_json(safe_failures, label="provider failures")
+    with engine.begin() as conn:
+        result = conn.execute(
+            update(interactive_search_sessions)
+            .where(interactive_search_sessions.c.session_id == str(session_id))
+            .where(interactive_search_sessions.c.expires_at > _now(now).isoformat())
+            .values(**values)
+        )
+    return bool(result.rowcount)
+
+
+def complete_search_session(
+    engine,
+    *,
+    session_id,
+    evaluations: Sequence,
+    provider_completed,
+    provider_failures=None,
+    now=None,
+):
+    """Atomically publish all collected candidates and terminal progress."""
+
+    completed = _now(now)
+    completed_at = completed.isoformat()
+    with engine.begin() as conn:
+        session = (
+            conn.execute(
+                select(interactive_search_sessions).where(interactive_search_sessions.c.session_id == str(session_id))
+            )
+            .mappings()
+            .first()
+        )
+        if (
+            session is None
+            or session["state"] not in {"queued", "running"}
+            or completed >= _now(datetime.datetime.fromisoformat(session["expires_at"]))
+        ):
+            return False
+        records = []
+        total_bytes = 0
+        for evaluation in evaluations[:MAX_CANDIDATES]:
+            record = _evaluation_record(evaluation, len(records), session["expires_at"], completed_at)
+            record_bytes = len(record["public_json"].encode("utf-8")) + len(
+                record["reconstruction_json"].encode("utf-8")
+            )
+            if total_bytes + record_bytes > MAX_SESSION_BYTES:
+                break
+            records.append(record)
+            total_bytes += record_bytes
+        safe_failures = _bounded_failures(provider_failures)
+        result = conn.execute(
+            update(interactive_search_sessions)
+            .where(interactive_search_sessions.c.session_id == str(session_id))
+            .where(interactive_search_sessions.c.state.in_(("queued", "running")))
+            .values(
+                state="complete",
+                candidate_count=len(records),
+                provider_completed=max(0, int(provider_completed)),
+                current_provider=None,
+                provider_failures_json=_bounded_json(safe_failures, label="provider failures"),
+                updated_at=completed_at,
+            )
+        )
+        if not result.rowcount:
+            return False
+        conn.execute(
+            delete(interactive_search_candidates).where(interactive_search_candidates.c.session_id == str(session_id))
+        )
+        if records:
+            conn.execute(
+                insert(interactive_search_candidates),
+                [dict(record, session_id=str(session_id)) for record in records],
+            )
+    return bool(result.rowcount)
+
+
+def _bounded_failures(provider_failures):
+    failures = []
+    for failure in list(provider_failures or [])[:25]:
+        if not isinstance(failure, Mapping):
+            continue
+        failures.append(
+            {
+                "provider": str(_sanitize_public(failure.get("provider") or "Search"))[:255],
+                "code": str(_sanitize_public(failure.get("code") or "provider_error"))[:64],
+                "detail": str(_sanitize_public(failure.get("detail") or "Provider search failed"))[:512],
+            }
+        )
+    return failures
 
 
 def _authorized_row(engine, *, session_id, actor, browser_session, now):
@@ -354,6 +504,9 @@ def read_session(engine, *, session_id, actor, browser_session, now=None):
         public["candidate_id"] = candidate_row["candidate_id"]
         public["state"] = candidate_row["state"]
         candidates.append(public)
+    failures = json.loads(row.get("provider_failures_json") or "[]")
+    if not isinstance(failures, list):
+        failures = []
     return {
         "session_id": row["session_id"],
         "entity_type": row["entity_type"],
@@ -361,6 +514,12 @@ def read_session(engine, *, session_id, actor, browser_session, now=None):
         "series_id": row["series_id"],
         "state": row["state"],
         "candidate_count": row["candidate_count"],
+        "progress": {
+            "provider_total": row.get("provider_total") or 0,
+            "provider_completed": row.get("provider_completed") or 0,
+            "current_provider": row.get("current_provider"),
+        },
+        "provider_failures": failures,
         "created_at": row["created_at"],
         "expires_at": row["expires_at"],
         "candidates": candidates,

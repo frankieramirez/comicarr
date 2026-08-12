@@ -92,9 +92,9 @@ def test_fresh_database_uses_application_runner_and_is_idempotent():
     try:
         _reset_database(engine)
 
-        assert upgrade_database(engine) == "0006_interactive_search_sessions"
-        assert upgrade_database(engine) == "0006_interactive_search_sessions"
-        assert current_revision(engine) == "0006_interactive_search_sessions"
+        assert upgrade_database(engine) == "0007_interactive_search_progress"
+        assert upgrade_database(engine) == "0007_interactive_search_progress"
+        assert current_revision(engine) == "0007_interactive_search_progress"
         assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
     finally:
         engine.dispose()
@@ -177,9 +177,9 @@ def test_legacy_adoption_preserves_data_and_is_idempotent_across_dialects():
         _reset_database(engine)
         _build_legacy_fixture(engine)
 
-        assert upgrade_database(engine) == "0006_interactive_search_sessions"
-        assert upgrade_database(engine) == "0006_interactive_search_sessions"
-        assert current_revision(engine) == "0006_interactive_search_sessions"
+        assert upgrade_database(engine) == "0007_interactive_search_progress"
+        assert upgrade_database(engine) == "0007_interactive_search_progress"
+        assert current_revision(engine) == "0007_interactive_search_progress"
 
         table_names = set(inspect(engine).get_table_names())
         assert "readinglist" not in table_names

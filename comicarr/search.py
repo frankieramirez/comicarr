@@ -403,6 +403,7 @@ def search_init(
         while tmp_prov_count > prov_count:
             logger.info("tmp_prov_count: %s / prov_count: %s" % (tmp_prov_count, prov_count))
             tmp_cmloopit = cmloopit
+            progress_provider = provider_list["prov_order"][prov_count]
             while tmp_cmloopit >= 1:
                 if tmp_cmloopit == 4:
                     tmp_IssueNumber = None
@@ -705,6 +706,7 @@ def search_init(
 
                 tmp_cmloopit -= 1
 
+            search_filer.report_provider_complete(progress_provider)
             prov_count += 1
             logger.info("attempting to set %s to not being the active provider." % (list(current_prov.keys())[0]))
             if findit["lastrun"] != 0:
@@ -1347,6 +1349,11 @@ def NZB_SEARCH(
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
                         is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "timeout",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
                         break
                     except requests.exceptions.ConnectionError as e:
                         logger.warn(
@@ -1356,6 +1363,11 @@ def NZB_SEARCH(
                         if helpers.provider_unreachable(e):
                             helpers.disable_provider(tmpprov, "Connection Refused.")
                         is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "connection_error",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
                         break
                     except requests.exceptions.RequestException as e:
                         logger.warn(
@@ -1371,6 +1383,11 @@ def NZB_SEARCH(
                                 "but leaving it enabled." % nzbprov
                             )
                         is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "request_error",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
                         break
                     is_info["foundc"]["lastrun"] = time.time()
                     logger.info(

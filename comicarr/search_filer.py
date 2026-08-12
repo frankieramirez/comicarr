@@ -18,10 +18,12 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
+import contextvars
 import datetime
 import email.utils
 import re
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
@@ -82,6 +84,38 @@ class ReleaseCandidateEvaluation:
 
     def as_dict(self):
         return {"candidate": dict(self.candidate), "verdict": dict(self.verdict)}
+
+
+_INTERACTIVE_COLLECTOR = contextvars.ContextVar("interactive_release_collector", default=None)
+
+
+@contextmanager
+def interactive_collection(*, on_evaluations, on_provider_complete, on_provider_failure):
+    """Scope collection callbacks to one manual-search worker context."""
+
+    token = _INTERACTIVE_COLLECTOR.set(
+        {
+            "evaluations": on_evaluations,
+            "complete": on_provider_complete,
+            "failure": on_provider_failure,
+        }
+    )
+    try:
+        yield
+    finally:
+        _INTERACTIVE_COLLECTOR.reset(token)
+
+
+def report_provider_complete(provider):
+    collector = _INTERACTIVE_COLLECTOR.get()
+    if collector:
+        collector["complete"](str(provider))
+
+
+def report_provider_failure(provider, code, detail):
+    collector = _INTERACTIVE_COLLECTOR.get()
+    if collector:
+        collector["failure"](str(provider), str(code), str(detail))
 
 
 class search_check(object):
@@ -1184,17 +1218,39 @@ class search_check(object):
         comicarr.COMICINFO = []
         hold_the_matches = []
 
-        # logger.fdebug('entries: %s' % (entries,))
-        for entry in entries:
-            maybe_value = self._process_entry(entry, is_info)
-            if maybe_value is not None:
-                comicarr.COMICINFO.append(maybe_value)
-                hold_the_matches.append(maybe_value)
+        collector = _INTERACTIVE_COLLECTOR.get()
+        if collector:
+            evaluations = []
+            for entry in entries:
+                evaluation = self.evaluate_entry(entry, is_info)
+                evaluations.append(evaluation)
+                if evaluation.exception is not None:
+                    raise evaluation.exception
+                maybe_value = evaluation.legacy_match
+                if maybe_value is not None:
+                    comicarr.COMICINFO.append(maybe_value)
+                    hold_the_matches.append(maybe_value)
+            collector["evaluations"](evaluations)
+        else:
+            # Preserve the legacy entry-by-entry order: accepted matches update
+            # COMICINFO before the next entry's duplicate check runs.
+            for entry in entries:
+                maybe_value = self._process_entry(entry, is_info)
+                if maybe_value is not None:
+                    comicarr.COMICINFO.append(maybe_value)
+                    hold_the_matches.append(maybe_value)
 
         # logger.fdebug('returning hold_the_matches: %s' % (hold_the_matches,))
         return hold_the_matches
 
     def check_for_first_result(self, entries, is_info, prefer_pack=False):
+        collector = _INTERACTIVE_COLLECTOR.get()
+        if collector:
+            evaluations = self.evaluate_entries(list(entries), is_info)
+            collector["evaluations"](evaluations)
+            matches = [evaluation.legacy_match for evaluation in evaluations if evaluation.legacy_match is not None]
+            preferred = [match for match in matches if bool(match["pack"]) is bool(prefer_pack)]
+            return (preferred or matches or [None])[0]
         candidate = None
         for entry in entries:
             maybe_value = self._process_entry(entry, is_info)

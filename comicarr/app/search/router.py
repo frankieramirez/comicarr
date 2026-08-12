@@ -13,14 +13,23 @@ Search domain router — provider search, RSS monitoring.
 Depends on series domain for cross-domain lookups (Phase 5).
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from comicarr.app.core.context import AppContext, get_context
-from comicarr.app.core.security import require_session
+from comicarr.app.core.security import COOKIE_NAME, require_session
+from comicarr.app.search import interactive as interactive_search
 from comicarr.app.search import service as search_service
+from comicarr.app.search.interactive_sessions import (
+    InteractiveSearchAuthorizationError,
+    InteractiveSearchExpired,
+)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+def _session_identity(request: Request, username: str):
+    return request.cookies.get(COOKIE_NAME) or username
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +168,52 @@ def get_provider_stats(ctx: AppContext = Depends(get_context)):
 def get_search_health(ctx: AppContext = Depends(get_context)):
     """Get acquisition-route, durable run, worker, and maintenance health."""
     return search_service.get_health(ctx)
+
+
+@router.post("/interactive", dependencies=[Depends(require_session)], status_code=202)
+async def start_interactive_search(
+    request: Request,
+    username: str = Depends(require_session),
+    ctx: AppContext = Depends(get_context),
+):
+    """Start provider collection for one tracked acquisition item."""
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    result = interactive_search.start_search(
+        ctx,
+        actor=username,
+        browser_session=_session_identity(request, username),
+        entity_type=body.get("entity_type"),
+        entity_id=body.get("entity_id"),
+    )
+    if result.get("success") is False:
+        return JSONResponse(status_code=int(result.get("status_code") or 400), content=result)
+    return result
+
+
+@router.get("/interactive/{session_id}", dependencies=[Depends(require_session)])
+def poll_interactive_search(
+    session_id: str,
+    request: Request,
+    username: str = Depends(require_session),
+):
+    """Poll sanitized progress and candidates for an owned search session."""
+
+    try:
+        return interactive_search.get_search(
+            session_id=session_id,
+            actor=username,
+            browser_session=_session_identity(request, username),
+        )
+    except InteractiveSearchExpired as e:
+        return JSONResponse(status_code=410, content={"detail": str(e), "status": "expired"})
+    except InteractiveSearchAuthorizationError:
+        return JSONResponse(status_code=404, content={"detail": "Interactive search session not found"})
 
 
 @router.get("/runs/{run_id}", dependencies=[Depends(require_session)])

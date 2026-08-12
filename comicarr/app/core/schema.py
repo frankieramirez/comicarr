@@ -62,6 +62,7 @@ _REVISION_INTRODUCED_TABLES = {
     ),
     "0005_activity_events": frozenset({"activity_events"}),
     "0006_interactive_search_sessions": frozenset({"interactive_search_sessions", "interactive_search_candidates"}),
+    "0007_interactive_search_progress": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",
