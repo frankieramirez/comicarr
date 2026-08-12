@@ -53,6 +53,7 @@ from comicarr import (
     rsscheck,
     sabnzbd,
     search_filer,
+    series_kind,
     updater,
 )
 from comicarr.app.common.redaction import redact_sensitive_text
@@ -2627,6 +2628,7 @@ def searchforissue(
 
                 allow_packs = False
                 ComicID = result["ComicID"]
+                content_type = "comic"
                 if smode == "story_arc":
                     ComicName = result["ComicName"]
                     Comicname_filesafe = helpers.filesafe(ComicName)
@@ -2665,6 +2667,7 @@ def searchforissue(
                     ignore_booktype = False
                 else:
                     comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+                    content_type = "manga" if series_kind.is_manga(comic) else "comic"
                     if smode == "want_ann":
                         ComicName = result["ReleaseComicName"]
                         Comicname_filesafe = None
@@ -2732,6 +2735,7 @@ def searchforissue(
                     digitaldate=DigitalDate,
                     booktype=booktype,
                     ignore_booktype=ignore_booktype,
+                    content_type=content_type,
                 )
                 if manual is True:
                     comicarr.SEARCHLOCK.release()

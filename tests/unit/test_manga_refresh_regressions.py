@@ -62,6 +62,7 @@ class TestDbUpdateMangaShortCircuit:
                     "ComicID": "mal-161890",
                     "ComicName": "Test Manga",
                     "ComicYear": "2020",
+                    "ContentType": "manga",
                     "Status": "Active",
                     "LastUpdated": None,
                 },
@@ -86,6 +87,67 @@ class TestDbUpdateMangaShortCircuit:
         mock_rescan.assert_called_once_with("mal-161890")
         mock_emit.assert_called()
         assert mock_emit.call_args[0][:2] == ("refresh", "succeeded")
+
+    def test_comicvine_manga_refresh_uses_manga_aware_rescan_path(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": "134064",
+                    "ComicName": "Solo Leveling",
+                    "ComicYear": "2022",
+                    "ContentType": "manga",
+                    "Type": "Print",
+                    "Status": "Active",
+                    "LastUpdated": None,
+                },
+            )
+
+        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
+        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        mock_add = MagicMock(return_value={"status": "complete", "comicid": "134064"})
+        mock_rescan = MagicMock()
+        monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
+        monkeypatch.setattr(updater, "forceRescan", mock_rescan)
+        monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
+
+        updater.dbUpdate(["134064"], calledfrom="refresh")
+
+        mock_add.assert_called_once_with("134064", "no")
+        mock_rescan.assert_called_once_with("134064")
+
+    def test_mangadex_comic_refresh_still_uses_provider_safe_path(self, monkeypatch):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": "md-example",
+                    "ComicName": "Example Series",
+                    "ComicYear": "2022",
+                    "ContentType": "comic",
+                    "Status": "Active",
+                    "LastUpdated": None,
+                },
+            )
+
+        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
+        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        mock_add = MagicMock(return_value={"status": "complete", "comicid": "md-example"})
+        mock_rescan = MagicMock()
+        monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
+        monkeypatch.setattr(updater, "forceRescan", mock_rescan)
+        monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
+
+        updater.dbUpdate(["md-example"], calledfrom="refresh")
+
+        mock_add.assert_called_once_with("md-example", "no")
+        mock_rescan.assert_called_once_with("md-example")
 
 
 class TestForceRescanNullIssueDate:
@@ -425,6 +487,60 @@ class TestMangaRefreshPreservesLibraryState:
         assert row["IssueName"] == "Romance Dawn"
 
 
+class TestMangaRefreshPreservesContentKind:
+    @pytest.mark.parametrize(
+        ("provider", "stored_kind", "expected_kind"),
+        [
+            ("mangadex", "comic", "comic"),
+            ("myanimelist", "comic", "comic"),
+            ("mangadex", None, "manga"),
+            ("myanimelist", None, "manga"),
+        ],
+    )
+    def test_refresh_preserves_explicit_kind_and_fills_legacy_null(
+        self, monkeypatch, provider, stored_kind, expected_kind
+    ):
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        comic_id = "md-uuid-1" if provider == "mangadex" else "mal-13"
+        with engine.begin() as conn:
+            conn.execute(
+                comics.insert(),
+                {
+                    "ComicID": comic_id,
+                    "ComicName": "One Piece",
+                    "ComicYear": "1997",
+                    "ContentType": stored_kind,
+                    "Status": "Active",
+                },
+            )
+
+        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
+        monkeypatch.setattr(
+            comicarr,
+            "CONFIG",
+            SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
+            raising=False,
+        )
+        monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
+        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+
+        if provider == "mangadex":
+            monkeypatch.setattr("comicarr.mangadex.get_manga_details", lambda _id: _mal_details())
+            importer.addMangaToDB(comic_id)
+        else:
+            monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
+            monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
+            importer.addMangaToDB_MAL(comic_id)
+
+        with engine.connect() as conn:
+            row = conn.execute(select(comics).where(comics.c.ComicID == comic_id)).mappings().one()
+        assert row["ContentType"] == expected_kind
+
+
 class TestMangaRefreshForceRescanErrors:
     """#4: forceRescan exceptions must not report Refresh success."""
 
@@ -438,6 +554,7 @@ class TestMangaRefreshForceRescanErrors:
                     "ComicID": "mal-161890",
                     "ComicName": "Test Manga",
                     "ComicYear": "2020",
+                    "ContentType": "manga",
                     "Status": "Active",
                     "LastUpdated": None,
                 },

@@ -83,16 +83,16 @@ def provider_of(series: str | Mapping | None) -> SeriesProvider:
 def is_manga(series: str | Mapping | None) -> bool:
     """Return whether this Series is manga, reconciling prefix and ContentType.
 
-    A provider prefix is sufficient on its own. For rows, ``ContentType`` is
-    also honoured, so legacy manga added before the prefixes existed still
-    answer True.
+    A stored ``ContentType`` is authoritative when a row is available. Provider
+    identity is only the fallback for a bare id or a legacy row whose field is
+    absent/null. This lets an operator classify any provider's Series while
+    retaining prefix inference for old data.
     """
-    if provider_of(series) in MANGA_PROVIDERS:
-        return True
     if isinstance(series, Mapping):
         content_type = series.get("ContentType")
-        return str(content_type or "").strip().casefold() == _MANGA_CONTENT_TYPE
-    return False
+        if content_type is not None:
+            return str(content_type).strip().casefold() == _MANGA_CONTENT_TYPE
+    return provider_of(series) in MANGA_PROVIDERS
 
 
 def chapter_source_id(series: str | Mapping | None) -> str | None:

@@ -47,7 +47,9 @@ def _run(processor, config, *, use_sab=0, use_nzbget=0):
         patch.object(comicarr, "USE_SABNZBD", use_sab),
         patch.object(comicarr, "USE_NZBGET", use_nzbget),
         patch.object(processor, "_process_manga", return_value="manga") as manga,
+        patch("comicarr.postprocessor.db") as mock_db,
     ):
+        mock_db.select_one.return_value = {"ComicID": "md-saga", "ContentType": "manga"}
         result = processor.Process()
     return result, manga
 

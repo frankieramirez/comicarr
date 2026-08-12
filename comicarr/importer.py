@@ -1360,7 +1360,11 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         "DynamicComicName": dynamic_name,
         "ComicLocation": comlocation,
         "Type": "Manga",
-        "ContentType": "manga",
+        "ContentType": (
+            dbmanga["ContentType"]
+            if dbmanga is not None and dbmanga.get("ContentType") in ("comic", "manga")
+            else "manga"
+        ),
         "ReadingDirection": "rtl",
         "MetadataSource": "mangadex",
         "ExternalID": mangadex_uuid,
@@ -1529,7 +1533,11 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
         "DynamicComicName": dynamic_name,
         "ComicLocation": comlocation,
         "Type": "Manga",
-        "ContentType": "manga",
+        "ContentType": (
+            dbmanga["ContentType"]
+            if dbmanga is not None and dbmanga.get("ContentType") in ("comic", "manga")
+            else "manga"
+        ),
         "ReadingDirection": "rtl",
         "MetadataSource": "mal",
         "ExternalID": mal_numeric_id,

@@ -144,7 +144,11 @@ class TestMangaBranchDetection:
             comicid="md-abc123",
             apicall=True,
         )
-        with patch.object(pp, "_process_manga", return_value=None) as mock_pm:
+        with (
+            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.return_value = {"ComicID": "md-abc123", "ContentType": "manga"}
             pp.Process()
             mock_pm.assert_called_once()
 
@@ -169,6 +173,44 @@ class TestMangaBranchDetection:
             except Exception:
                 pass
             mock_pm.assert_not_called()
+
+    def test_comicvine_manga_row_triggers_manga_branch(self):
+        pp, _mock_queue = _make_pp(
+            nzb_name="Solo Leveling v01.cbz",
+            nzb_folder="/tmp/downloads",
+            comicid="134064",
+            apicall=True,
+        )
+        with (
+            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.return_value = {"ComicID": "134064", "ContentType": "manga"}
+            pp.Process()
+
+        mock_pm.assert_called_once()
+
+    def test_explicit_comic_kind_overrides_mangadex_prefix(self):
+        pp, _mock_queue = _make_pp(
+            nzb_name="Example 001.cbz",
+            nzb_folder="/tmp/downloads",
+            comicid="md-example",
+            issueid="issue-1",
+            apicall=True,
+        )
+        with (
+            patch.object(pp, "_process_manga") as mock_pm,
+            patch("comicarr.postprocessor.filechecker") as mock_fc,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.return_value = {"ComicID": "md-example", "ContentType": "comic"}
+            mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
+            try:
+                pp.Process()
+            except Exception:
+                pass
+
+        mock_pm.assert_not_called()
 
     def test_none_comicid_skips_manga_branch(self):
         """When comicid is None, manga branch should be skipped."""

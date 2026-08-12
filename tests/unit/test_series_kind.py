@@ -72,6 +72,14 @@ class TestIsManga:
     def test_a_comic_row_is_not_manga(self):
         assert is_manga({"ComicID": "999", "ContentType": "comic"}) is False
 
+    @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890"))
+    def test_an_explicit_comic_kind_overrides_a_manga_provider(self, series_id):
+        assert is_manga({"ComicID": series_id, "ContentType": "comic"}) is False
+
+    @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890"))
+    def test_a_null_kind_falls_back_to_the_provider(self, series_id):
+        assert is_manga({"ComicID": series_id, "ContentType": None}) is True
+
     def test_a_row_with_neither_signal_is_not_manga(self):
         assert is_manga({"ComicID": "999"}) is False
 

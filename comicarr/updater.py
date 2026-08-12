@@ -190,6 +190,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     comics.c.ComicName,
                     comics.c.Corrected_SeriesYear,
                     comics.c.Corrected_Type,
+                    comics.c.ContentType,
                     comics.c.ComicYear,
                     comics.c.Status,
                 )
@@ -234,6 +235,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                             "Status": comlist["Status"],
                             "Corrected_SeriesYear": comlist["Corrected_SeriesYear"],
                             "Corrected_Type": comlist["Corrected_Type"],
+                            "ContentType": comlist["ContentType"],
                         }
                     )
 
@@ -247,6 +249,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     comics.c.ComicYear,
                     comics.c.Corrected_SeriesYear,
                     comics.c.Corrected_Type,
+                    comics.c.ContentType,
                     comics.c.Status,
                 )
                 .where((comics.c.Status == "Active") | (comics.c.Status == "Loading"))
@@ -262,6 +265,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                 comics.c.ComicYear,
                 comics.c.Corrected_SeriesYear,
                 comics.c.Corrected_Type,
+                comics.c.ContentType,
                 comics.c.LastUpdated,
                 comics.c.Status,
             )
@@ -331,8 +335,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
             lastupdated = datetime.datetime.strptime(comic["LastUpdated"], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
 
         mismatch = "no"
-        if series_kind.provider_of(ComicID) in series_kind.MANGA_PROVIDERS:
-            # Manga (MangaDex/MAL) refreshes entirely through the manga importer.
+        if series_kind.provider_of(ComicID) in series_kind.MANGA_PROVIDERS or series_kind.is_manga(comic):
+            # Provider-backed manga imports and series classified as manga both
+            # avoid ComicVine's issuedata reconciliation. addComictoDB still
+            # owns provider dispatch, while ContentType extends this safe path
+            # to manga whose metadata provider is ComicVine.
             # The CV_ONETIMER reconciliation below deletes issue rows and expects
             # CV issuedata that the manga add functions do not return, so route
             # these series around it and re-match files via forceRescan.

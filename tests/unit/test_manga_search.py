@@ -5,9 +5,12 @@ Tests cover _build_manga_search_terms() which generates NZB/torrent-provider
 query variations for manga chapters and volumes.
 """
 
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+import comicarr
 
 
 # Patch the logger so _build_manga_search_terms can be imported without
@@ -161,3 +164,86 @@ class TestBuildMangaSearchTermsEdgeCases:
         volume_idx = terms.index("Series v05")
         assert combined_idx < chapter_idx
         assert combined_idx < volume_idx
+
+
+class TestSeriesContentKindSearchHandoff:
+    @pytest.mark.parametrize(
+        ("comic_id", "stored_kind", "expected_kind"),
+        (
+            ("134064", "manga", "manga"),
+            ("md-example", "comic", "comic"),
+        ),
+    )
+    def test_search_init_receives_authoritative_series_kind(
+        self,
+        monkeypatch,
+        comic_id,
+        stored_kind,
+        expected_kind,
+    ):
+        from comicarr import search
+
+        monkeypatch.setattr(
+            comicarr,
+            "CONFIG",
+            SimpleNamespace(
+                EXTRA_NEWZNABS=[],
+                EXTRA_TORZNABS=[],
+                ENABLE_DDL=False,
+                ENABLE_GETCOMICS=False,
+                ENABLE_EXTERNAL_SERVER=False,
+                EXPERIMENTAL=True,
+                NEWZNAB=False,
+                ENABLE_TORRENT_SEARCH=False,
+                ENABLE_TORRENTS=False,
+            ),
+        )
+        search_lock = MagicMock()
+        search_lock.locked.return_value = False
+        monkeypatch.setattr(comicarr, "SEARCHLOCK", search_lock)
+        monkeypatch.setattr(
+            search,
+            "_search_source_for_issue",
+            MagicMock(
+                return_value=(
+                    {
+                        "ComicID": comic_id,
+                        "IssueID": "issue-1",
+                        "Issue_Number": "1",
+                        "IssueDate": "2026-01-01",
+                        "ReleaseDate": "2026-01-01",
+                        "DigitalDate": "2026-01-01",
+                    },
+                    "want",
+                    False,
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            search.db,
+            "select_one",
+            MagicMock(
+                return_value={
+                    "ComicID": comic_id,
+                    "ComicName": "Example Series",
+                    "ComicName_Filesafe": "Example_Series",
+                    "ComicYear": "2026",
+                    "ComicPublisher": "Example",
+                    "AlternateSearch": None,
+                    "UseFuzzy": None,
+                    "ComicVersion": None,
+                    "TorrentID_32P": None,
+                    "Type": "Print",
+                    "Corrected_Type": None,
+                    "IgnoreType": 0,
+                    "AllowPacks": 0,
+                    "ContentType": stored_kind,
+                }
+            ),
+        )
+        search_init = MagicMock(return_value=({"status": False}, None))
+        monkeypatch.setattr(search, "search_init", search_init)
+
+        search.searchforissue("issue-1", manual=True)
+
+        assert search_init.call_args.kwargs["content_type"] == expected_kind

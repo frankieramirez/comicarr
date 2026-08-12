@@ -56,7 +56,11 @@ class TestPostProcessingRoutesBothProviders:
     def test_manga_ids_reach_the_manga_path(self, comicid):
         pp = _make_pp(comicid)
 
-        with patch.object(pp, "_process_manga", return_value=None) as process_manga:
+        with (
+            patch.object(pp, "_process_manga", return_value=None) as process_manga,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.return_value = {"ComicID": comicid, "ContentType": "manga"}
             pp.Process()
 
         process_manga.assert_called_once()
