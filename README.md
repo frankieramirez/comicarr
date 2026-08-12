@@ -12,6 +12,7 @@ Comicarr is a modernized fork of [Mylar3](https://github.com/mylar3/mylar3), reb
 
 - **Modern React 19 Frontend** — Fast, responsive UI with dark/light themes and system preference detection
 - **Automated Downloads** — Monitor series and automatically grab new issues
+- **Interactive Release Search** — Review every provider candidate and its match verdict before deliberately grabbing a release
 - **Library Management** — Scan existing collections, identify missing issues, interactive import matching
 - **Multiple Download Clients** — NZB (SABnzbd, NZBGet) and torrent (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
 - **Direct Downloads** — Mega, MediaFire, and Pixeldrain support
@@ -145,6 +146,21 @@ python3 Comicarr.py --nolaunch
 5. Open `http://localhost:8090`
 
 ## Configuration
+
+### Interactive release search
+
+Open **Releases**, stay on the **Mine** tab, and choose **Review releases** for
+a Wanted issue. Comicarr searches the configured providers and opens a review
+sheet with each release candidate's source, age, size, availability, and match
+reasons. Provider failures remain visible even when other providers return
+results.
+
+Selecting **Review grab** opens a final confirmation before Comicarr hands the
+release to the configured download route. Candidates rejected only by an
+operator-overridable match rule require an additional acknowledgement. Comicarr
+never lets this workflow bypass an expired session, missing provider result,
+duplicate or in-flight acquisition, unavailable download route, or ownership
+check.
 
 ### First-run setup
 

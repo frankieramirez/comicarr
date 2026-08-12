@@ -112,3 +112,131 @@ test("acquisition mutations require the session-bound confirmation inputs", asyn
     }),
   );
 });
+
+test("wanted releases support an explainable interactive grab", async ({
+  page,
+}) => {
+  let grabBody: unknown;
+
+  await page.route("**/api/upcoming**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: [
+        {
+          IssueID: "issue-e2e",
+          ComicID: "comic-e2e",
+          ComicName: "Absolute Batman",
+          IssueNumber: "19",
+          Issue_Number: "19",
+          IssueDate: "2026-08-12",
+          Status: "Wanted",
+        },
+      ],
+    });
+  });
+  await page.route("**/api/search/interactive**", async (route, request) => {
+    const path = new URL(request.url()).pathname;
+
+    if (request.method() === "POST" && path.endsWith("/interactive")) {
+      await route.fulfill({
+        contentType: "application/json",
+        status: 202,
+        json: {
+          session_id: "session-e2e",
+          state: "queued",
+          candidates: [],
+          progress: {
+            provider_total: 1,
+            provider_completed: 0,
+            current_provider: null,
+          },
+          provider_failures: [],
+        },
+      });
+      return;
+    }
+
+    if (request.method() === "GET" && path.endsWith("/session-e2e")) {
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          session_id: "session-e2e",
+          entity_type: "issue",
+          entity_id: "issue-e2e",
+          series_id: "comic-e2e",
+          state: "complete",
+          candidate_count: 1,
+          progress: {
+            provider_total: 1,
+            provider_completed: 1,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [
+            {
+              candidate_id: "candidate-e2e",
+              state: "available",
+              candidate: {
+                title: "Absolute Batman 019 (2026) (Digital)",
+                provider: "Indexer",
+                source_kind: "usenet",
+                published_at: "2026-08-12T04:00:00Z",
+                size_bytes: 98000000,
+                pack: false,
+                metrics: { grabs: 8 },
+              },
+              verdict: {
+                status: "accepted",
+                accepted: true,
+                overrideable: false,
+                reason_code: "accepted.issue",
+                reasons: [
+                  {
+                    code: "accepted.issue",
+                    message: "Issue, year, and volume match",
+                  },
+                ],
+                match_kind: "standard",
+              },
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (request.method() === "POST" && path.endsWith("/grab")) {
+      grabBody = request.postDataJSON();
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          success: true,
+          status: "submitted",
+          candidate_id: "candidate-e2e",
+        },
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/releases");
+  await page.getByRole("button", { name: "Review releases" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Review releases" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Absolute Batman 019 (2026) (Digital)"),
+  ).toBeVisible();
+  await expect(page.getByText("Issue, year, and volume match")).toBeVisible();
+
+  await page.getByRole("button", { name: "Review grab" }).click();
+  await page.getByRole("button", { name: "Confirm grab" }).click();
+
+  await expect.poll(() => grabBody).toEqual({ override: false });
+  await expect(page.getByText("Grab started")).toBeVisible();
+});
