@@ -12,6 +12,12 @@ The operator-confirmed workflow that binds pending Import Inbox records to a Ser
 
 A monitored comic or manga title and its library directory, issues or chapters, metadata, and acquisition state.
 
+## Content kind
+
+An operator-controlled classification of a Series as `comic` or `manga`, independent of its Series provider and publication format. A stored kind is authoritative; provider identity is only a fallback for legacy Series without one.
+
+_Avoid_: Content type, comic type, provider type
+
 ## Series provider
 
 Who issued a Series' identifier: ComicVine, MangaDex (`md-` prefix), or MyAnimeList (`mal-` prefix). Distinct from whether the Series is manga — legacy manga rows predate the prefixes and are ComicVine-issued, so the provider answers routing questions while `ContentType` answers content questions. `comicarr/series_kind.py` reconciles the two.
