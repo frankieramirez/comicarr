@@ -103,6 +103,9 @@ def test_relative_import_is_resolved_before_matching(guard, tmp_path, monkeypatc
         "from comicarr.app.attention import AttentionView, Scope\n",
         "from comicarr.app.attention.contracts import Failure\n",
         "from comicarr.app.attention.router import router\n",
+        # A public name bound to a private-looking local alias is still public:
+        # the imported name is what crosses the seam, not what it is called here.
+        "from comicarr.app.attention import read as _read\n",
         # Unrelated packages that merely share a private-module naming style.
         "from comicarr.app.downloads._journal import thing\n",
     ],
@@ -169,6 +172,23 @@ def test_function_local_import_is_caught(guard, tmp_path, monkeypatch):
         {("comicarr/app/leaf.py", "_reconciliation"): "waived for this test"},
     )
     assert guard.main() == 0
+
+
+def test_unparseable_file_is_reported_and_fails(guard, tmp_path, monkeypatch, capsys):
+    """A file the gate cannot parse is not evidence of a clean tree.
+
+    Swallowing the SyntaxError would let the gate print its OK line for a file it
+    never inspected — exactly the silent pass the guard exists to prevent.
+    """
+    _tree(guard, monkeypatch, tmp_path, "def broken(:\n", allowlist={})
+    assert guard.main() == 1
+
+    err = capsys.readouterr().err
+    assert "comicarr/app/leaf.py" in err
+    assert "Could not parse" in err
+    assert "invalid syntax" in err  # the parse error itself, not just the file name
+    # Distinguishable from a seam violation, so a contributor can tell the two apart.
+    assert "Private Attention submodule imported" not in err
 
 
 def test_attention_package_may_use_its_own_internals(guard, tmp_path, monkeypatch):

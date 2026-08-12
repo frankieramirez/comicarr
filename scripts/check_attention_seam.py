@@ -151,7 +151,10 @@ def _iter_source_files():
         for path in sorted(ROOT.glob(glob)):
             if not path.is_file() or path.suffix != ".py":
                 continue
-            if SKIP_DIR_NAMES.intersection(path.parts):
+            # Repository-relative parts only: a checkout that happens to live
+            # under a directory named .venv or node_modules must not skip the
+            # entire tree.
+            if SKIP_DIR_NAMES.intersection(path.relative_to(ROOT).parts):
                 continue
             if path in seen:
                 continue
@@ -188,16 +191,27 @@ def _private_submodule(dotted: str) -> str | None:
     return head if head.startswith("_") else None
 
 
+class UnreadableSource(Exception):
+    """A scanned file could not be read or parsed.
+
+    Returning "no crossings" for such a file would let the gate print its OK
+    line for a file it never inspected — silent-pass behaviour in a gate whose
+    only job is catching silent drift. The scan surfaces the failure instead.
+    """
+
+
 def _crossings(path: Path, rel: str) -> list[tuple[int, str]]:
     """(lineno, private module) for every Attention-private import in the file.
 
     Walks the whole tree, not just module-level nodes: several real crossings
     are function-local imports placed there to break an import cycle.
+
+    Raises ``UnreadableSource`` when the file cannot be read or parsed.
     """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return []
+    except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+        raise UnreadableSource("%s: %s" % (rel, exc)) from exc
 
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
@@ -223,13 +237,19 @@ def _crossings(path: Path, rel: str) -> list[tuple[int, str]]:
 
 def main() -> int:
     violations: list[tuple[str, int, str]] = []
+    unreadable: list[str] = []
     matched: set[tuple[str, str]] = set()
 
     for path in _iter_source_files():
         rel = path.relative_to(ROOT).as_posix()
         if rel.startswith(ATTENTION_DIR):
             continue  # the module owns its own internals
-        for lineno, private in _crossings(path, rel):
+        try:
+            crossings = _crossings(path, rel)
+        except UnreadableSource as exc:
+            unreadable.append(str(exc))
+            continue
+        for lineno, private in crossings:
             key = (rel, private)
             if key in ALLOWLIST:
                 matched.add(key)
@@ -261,7 +281,18 @@ def main() -> int:
         print("The allowlist only ever shrinks. The crossing this entry covered is gone,", file=sys.stderr)
         print("so delete the entry from scripts/check_attention_seam.py.", file=sys.stderr)
 
-    if violations or stale:
+    if unreadable:
+        if violations or stale:
+            print("", file=sys.stderr)
+        print("Could not parse — the seam was NOT checked in these files:", file=sys.stderr)
+        for message in unreadable:
+            print("  %s" % message, file=sys.stderr)
+        print("", file=sys.stderr)
+        print("This is not a seam violation: the gate could not read the file at all,", file=sys.stderr)
+        print("so it cannot say whether the file crosses the seam. Fix the file so it", file=sys.stderr)
+        print("parses, then re-run scripts/check_attention_seam.py.", file=sys.stderr)
+
+    if violations or stale or unreadable:
         return 1
 
     print("Attention seam OK: %d allowlisted crossing(s), no new ones" % len(ALLOWLIST))

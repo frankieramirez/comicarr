@@ -580,15 +580,24 @@ def _seed_conflict_row(issue_id, key):
 
 
 def _break_rewant(monkeypatch):
-    """Make the clause-2 re-want upsert raise, leaving other writes intact."""
+    """Make the clause-2 re-want upsert raise, leaving other writes intact.
+
+    Returns the list of connections the failing ``issues`` upsert was called
+    with. Tests must assert it is non-empty: without that, a reconciliation
+    path that stopped writing ``issues`` (or stopped running) would make the
+    fault injection silently inert and the quarantine assertions vacuous.
+    """
     original_upsert_conn = db.upsert_conn
+    rewant_conns = []
 
     def fail_rewant(conn, table_name, values, controls):
         if table_name == "issues":
+            rewant_conns.append(conn)
             raise RuntimeError("rewant persistence failed")
         return original_upsert_conn(conn, table_name, values, controls)
 
     monkeypatch.setattr(db, "upsert_conn", fail_rewant)
+    return rewant_conns
 
 
 def test_immutable_conflict_quarantine_survives_failing_reconciliation_hook(monkeypatch):
@@ -602,7 +611,7 @@ def test_immutable_conflict_quarantine_survives_failing_reconciliation_hook(monk
     """
     key = journal.release_key("safe-tx", "nzb.su")
     _seed_conflict_row("safe-tx", key)
-    _break_rewant(monkeypatch)
+    rewant_conns = _break_rewant(monkeypatch)
 
     won = journal.record_transition(
         key,
@@ -610,6 +619,7 @@ def test_immutable_conflict_quarantine_survives_failing_reconciliation_hook(monk
         payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-tx"},
     )
 
+    assert rewant_conns, "reconciliation never attempted the issues write — fault injection inert"
     assert won is False
     row = _row(key)
     assert row["stage"] == journal.MANUAL_REVIEW
@@ -626,7 +636,7 @@ def test_immutable_conflict_quarantine_commits_in_caller_transaction(monkeypatch
     """
     key = journal.release_key("safe-pp", "nzb.su")
     _seed_conflict_row("safe-pp", key)
-    _break_rewant(monkeypatch)
+    rewant_conns = _break_rewant(monkeypatch)
 
     with get_engine().begin() as conn:
         won = journal.record_transition(
@@ -636,6 +646,8 @@ def test_immutable_conflict_quarantine_commits_in_caller_transaction(monkeypatch
             conn=conn,
         )
 
+    assert rewant_conns, "reconciliation never attempted the issues write — fault injection inert"
+    assert all(seen is conn for seen in rewant_conns), "reconciliation must run on the caller-supplied transaction"
     assert won is False
     row = _row(key)
     assert row["stage"] == journal.MANUAL_REVIEW
