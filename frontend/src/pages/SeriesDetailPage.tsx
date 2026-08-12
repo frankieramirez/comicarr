@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -33,12 +34,14 @@ import {
   useSearchRun,
   useSeriesDetail,
   useUpdateSeriesSearchSettings,
+  useUpdateSeriesContentKind,
 } from "@/hooks/useSeries";
 import type {
   ComicOrManga,
   Issue,
   SearchMissingPreview,
   SearchMissingResult,
+  ContentType,
 } from "@/types";
 import { displayComicDate, pickComicDate } from "@/lib/format";
 
@@ -166,6 +169,7 @@ export default function SeriesDetailPage() {
   const searchRun = useSearchRun(searchRunId);
   const retrySearchRun = useRetrySearchRun();
   const searchSettingsMutation = useUpdateSeriesSearchSettings();
+  const contentKindMutation = useUpdateSeriesContentKind();
 
   const fetchSearchPreview = async () => {
     setPreview(null);
@@ -330,6 +334,17 @@ export default function SeriesDetailPage() {
     comic.ContentType === "manga" ||
     comicId?.startsWith("md-") ||
     comicId?.startsWith("mal-");
+  const contentKind: ContentType = isManga ? "manga" : "comic";
+  const provider = comicId?.startsWith("md-")
+    ? "MangaDex"
+    : comicId?.startsWith("mal-")
+      ? "MyAnimeList"
+      : "ComicVine";
+  const providerCode = comicId?.startsWith("md-")
+    ? "md"
+    : comicId?.startsWith("mal-")
+      ? "mal"
+      : "cv";
   const slug = (comic.ComicName || "").toLowerCase().replace(/\s+/g, "-");
   const filteredIssues = allIssues.filter((issue) => {
     if (filter === "have") return isIssueOwned(issue);
@@ -374,6 +389,27 @@ export default function SeriesDetailPage() {
     }
   };
 
+  const handleContentKindChange = async (nextKind: ContentType) => {
+    if (!comicId || nextKind === contentKind) return;
+    try {
+      await contentKindMutation.mutateAsync({
+        comicId,
+        contentType: nextKind,
+      });
+      addToast({
+        type: "success",
+        title: "Content kind updated",
+        description: `This series now uses ${nextKind} labels and matching rules.`,
+      });
+    } catch {
+      addToast({
+        type: "error",
+        title: "Content kind not updated",
+        description: "Comicarr could not save this classification. Try again.",
+      });
+    }
+  };
+
   const handleDelete = async () => {
     if (!comicId) return;
     try {
@@ -410,7 +446,7 @@ export default function SeriesDetailPage() {
           {slug}
         </span>
         <span className="ml-auto hidden shrink-0 sm:inline">
-          cv:{comic.ComicID} ·{" "}
+          {providerCode}:{comic.ComicID} ·{" "}
           {comic.LatestDate ? `last sync ${comic.LatestDate}` : "unsynced"}
         </span>
       </div>
@@ -484,6 +520,13 @@ export default function SeriesDetailPage() {
               {comic.Description}
             </p>
           )}
+
+          <SeriesContentKind
+            value={contentKind}
+            provider={provider}
+            pending={contentKindMutation.isPending}
+            onChange={(nextKind) => void handleContentKindChange(nextKind)}
+          />
 
           <div className="flex flex-wrap items-center gap-2">
             <button

@@ -216,6 +216,70 @@ describe("SeriesDetailPage", () => {
     expect(screen.queryByLabelText("Needs attention")).toBeNull();
   });
 
+  it("persists a provider-independent content kind and refreshes the series", async () => {
+    let contentType = "comic";
+    let payload: unknown;
+    let detailReads = 0;
+    server.use(
+      http.get("/api/series/1", () => {
+        detailReads += 1;
+        return HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Absolute Batman",
+            ComicYear: "2024",
+            ComicPublisher: "DC Comics",
+            Status: "Active",
+            ContentType: contentType,
+          },
+          issues: canonicalIssues,
+          annuals: [annual],
+        });
+      }),
+      http.patch("/api/series/1/content-kind", async ({ request }) => {
+        payload = await request.json();
+        contentType = "manga";
+        return HttpResponse.json({ success: true, content_type: "manga" });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    expect(
+      await screen.findByText(/Metadata still comes from ComicVine/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Existing files and issue history stay unchanged/),
+    ).toBeTruthy();
+    screen.getByRole("radio", { name: "Comic" }).focus();
+    await user.keyboard("{ArrowRight}");
+
+    await waitFor(() => expect(payload).toEqual({ content_type: "manga" }));
+    await waitFor(() => expect(detailReads).toBeGreaterThan(1));
+    expect(await screen.findByText("Content kind updated")).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: "Manga" }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByText(/Use manga chapter labels/)).toBeTruthy();
+  });
+
+  it("keeps the current kind and reports an API failure", async () => {
+    server.use(
+      http.patch("/api/series/1/content-kind", () =>
+        HttpResponse.json({ detail: "save failed" }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole("radio", { name: "Manga" }));
+
+    expect(await screen.findByText("Content kind not updated")).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: "Comic" }).getAttribute("aria-checked"),
+    ).toBe("true");
+  });
+
   it("uses the canonical summary and shows annuals, evidence, and intent separately", async () => {
     const user = userEvent.setup();
     renderDetail();

@@ -9,6 +9,7 @@ import {
 import { apiRequest } from "@/lib/api";
 import type {
   Comic,
+  ContentType,
   SearchMissingConfirmationInput,
   SearchMissingPreview,
   SearchMissingResult,
@@ -179,6 +180,32 @@ export interface SeriesSearchSettingsInput {
   comicId: string;
   allowPacks?: boolean;
   ignoreType?: boolean;
+}
+
+export interface SeriesContentKindInput {
+  comicId: string;
+  contentType: ContentType;
+}
+
+export function useUpdateSeriesContentKind(): UseMutationResult<
+  { success: boolean; content_type: ContentType },
+  Error,
+  SeriesContentKindInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ comicId, contentType }) =>
+      apiRequest<{ success: boolean; content_type: ContentType }>(
+        "PATCH",
+        `/api/series/${comicId}/content-kind`,
+        { content_type: contentType },
+      ),
+    onSuccess: (_, { comicId }) => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
+    },
+  });
 }
 
 /**
