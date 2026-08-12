@@ -100,8 +100,9 @@ def reconciliation_for(fail_reason):
 
 def actionable_reason_condition(column):
     """Build the portable, NULL-safe SQL admission clause."""
+    non_actionable_tokens = sorted(NON_ACTIONABLE_FLAT | NON_ACTIONABLE_COMPOSITE)
     non_actionable = or_(
-        column.in_(list(NON_ACTIONABLE_FLAT)),
-        *[column.like("%s:%%" % base) for base in sorted(NON_ACTIONABLE_COMPOSITE)],
+        column.in_(non_actionable_tokens),
+        *[column.like("%s:%%" % base) for base in non_actionable_tokens],
     )
     return or_(column.is_(None), and_(column.isnot(None), not_(non_actionable)))

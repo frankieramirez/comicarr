@@ -26,6 +26,8 @@ def _normalize_scope(scope):
         return None
     if not isinstance(scope, Scope):
         raise TypeError("scope must be a Scope or None")
+    if scope.type is None or scope.id is None:
+        raise ValueError("scope_type and scope_id must be provided together")
     scope_type = str(scope.type).strip().lower()
     scope_id = str(scope.id).strip()
     if not scope_type or not scope_id:

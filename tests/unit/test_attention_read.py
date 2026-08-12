@@ -95,6 +95,35 @@ def test_read_accepts_positional_scope_and_filters_before_grouping(attention_db)
     assert [member.release_key for member in view.groups[0].members] == ["in-scope"]
 
 
+def test_sql_admission_and_is_actionable_agree_on_token_shapes(attention_db):
+    from comicarr.app.attention import read
+    from comicarr.app.attention._policy import is_actionable
+
+    with attention_db.begin() as conn:
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(release_key="suffixed-flat", issueid="iss-1", fail_reason="download_gone:pruned"),
+                _journal(release_key="bare-composite", issueid="iss-2", fail_reason="immutable_payload_conflict"),
+            ],
+        )
+
+    view = read()
+
+    assert view.total == 0
+    assert view.member_total == 0
+    assert len(view.groups) == 0
+    assert is_actionable("download_gone:pruned") is False
+    assert is_actionable("immutable_payload_conflict") is False
+
+
+def test_read_rejects_scope_with_none_id(attention_db):
+    from comicarr.app.attention import Scope, read
+
+    with pytest.raises(ValueError, match="provided together"):
+        read(scope=Scope(type="series", id=None))
+
+
 def test_canonical_get_serializes_the_attention_view(attention_db):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

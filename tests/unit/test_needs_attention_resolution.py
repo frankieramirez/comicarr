@@ -660,10 +660,13 @@ def test_reason_to_stage_is_a_function():
             elif isinstance(reason, ast.BinOp) and isinstance(reason.left, ast.Constant):
                 token = reason.left.value
             if not isinstance(token, str):
-                # Parameterized helper — record structural ownership rather
-                # than source line numbers. Its callers pin the concrete
-                # tokens, while the typed entry pins the terminal stage.
-                unresolved.add((relative_path, owner, name, stage_of_writer[name]))
+                # Parameterized helper — record structural ownership plus the
+                # exact source expression rather than source line numbers. Its
+                # callers pin the concrete tokens, while the typed entry pins
+                # the terminal stage; pinning the expression means a second
+                # dynamic reason inside the same function cannot hide behind
+                # an already-allowed (path, owner, name, stage) tuple.
+                unresolved.add((relative_path, owner, name, stage_of_writer[name], ast.unparse(reason)))
                 continue
             stages_by_token[token.split(":", 1)[0]].add(stage_of_writer[name])
 
@@ -683,30 +686,54 @@ def test_reason_to_stage_is_a_function():
         ),
     }
 
-    # Dynamic reasons are allowed only at explicit typed pass-through seams.
-    # Function identity is stable across formatting and unrelated line edits.
+    # Dynamic reasons are allowed only at explicit typed pass-through seams,
+    # and the reason expression itself is pinned (via ``ast.unparse``, which
+    # is stable across source formatting): any *new* dynamic expression at an
+    # allowed seam fails loudly instead of riding an existing tuple. Function
+    # identity is stable across formatting and unrelated line edits.
     assert unresolved == {
         (
             "comicarr/app/attention/_recording.py",
             "_record_on_connection",
             "mark_failed",
             journal.FAILED,
+            "entry.reason",
         ),
         (
             "comicarr/app/attention/_recording.py",
             "_record_on_connection",
             "mark_manual_review",
             journal.MANUAL_REVIEW,
+            "entry.reason",
         ),
-        ("comicarr/app/downloads/handoff.py", "record_acceptance", "ManualReview", journal.MANUAL_REVIEW),
-        ("comicarr/app/downloads/recovery_classify.py", "apply_verdict", "Failure", journal.FAILED),
+        (
+            "comicarr/app/downloads/handoff.py",
+            "record_acceptance",
+            "ManualReview",
+            journal.MANUAL_REVIEW,
+            "reason",
+        ),
+        (
+            "comicarr/app/downloads/recovery_classify.py",
+            "apply_verdict",
+            "Failure",
+            journal.FAILED,
+            "FAIL_REASON_GONE",
+        ),
         (
             "comicarr/app/downloads/service.py",
             "_quarantine_postprocess_item",
             "ManualReview",
             journal.MANUAL_REVIEW,
+            "reason",
         ),
-        ("comicarr/failed.py", "terminalize_failed_download", "Failure", journal.FAILED),
+        (
+            "comicarr/failed.py",
+            "terminalize_failed_download",
+            "Failure",
+            journal.FAILED,
+            "fail_reason",
+        ),
     }, "a dynamic typed terminal seam changed: %s" % sorted(unresolved)
 
 
