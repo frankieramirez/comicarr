@@ -186,6 +186,16 @@ def update_comic_search_settings(comic_id, values):
     db.upsert("comics", values, {"ComicID": comic_id})
 
 
+def get_comic_content_kind(comic_id):
+    """Get the persisted provider-independent content kind for a Series."""
+    return db.select_one(select(t_comics.c.ComicID, t_comics.c.ContentType).where(t_comics.c.ComicID == comic_id))
+
+
+def update_comic_content_kind(comic_id, content_type):
+    """Atomically persist only the Series content-kind field."""
+    db.upsert("comics", {"ContentType": content_type}, {"ComicID": comic_id})
+
+
 def pause_comic(comic_id):
     """Set comic status to Paused."""
     db.upsert("comics", {"Status": "Paused"}, {"ComicID": comic_id})

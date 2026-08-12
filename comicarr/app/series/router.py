@@ -112,6 +112,30 @@ def update_series_search_settings(
     return result
 
 
+@router.patch("/series/{comic_id}/content-kind", dependencies=[Depends(require_session)])
+def update_series_content_kind(
+    comic_id: str,
+    request_body: dict = None,
+    ctx: AppContext = Depends(get_context),
+):
+    """Set a Series' provider-independent comic-or-manga content kind."""
+    if request_body is None:
+        request_body = {}
+
+    content_type = request_body.get("content_type")
+    if not isinstance(content_type, str) or content_type not in {"comic", "manga"}:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "content_type must be one of: comic, manga"},
+        )
+
+    result = series_service.update_content_kind(ctx, comic_id, content_type)
+    if not result["success"]:
+        status = 404 if "not found" in result.get("error", "").lower() else 400
+        return JSONResponse(status_code=status, content={"detail": result.get("error")})
+    return result
+
+
 @router.put("/series/{comic_id}/pause", dependencies=[Depends(require_session)])
 def pause_series(comic_id: str, ctx: AppContext = Depends(get_context)):
     """Pause a comic series."""

@@ -438,6 +438,27 @@ def update_search_settings(ctx, comic_id, allow_packs=None, ignore_type=None):
     }
 
 
+def update_content_kind(ctx, comic_id, content_type):
+    """Persist an operator-controlled comic-or-manga classification.
+
+    Content kind is deliberately independent of provider identity and legacy
+    publication ``Type``. This write therefore touches only ``ContentType``;
+    provider metadata and issue/annual rows remain unchanged.
+    """
+    if content_type not in ("comic", "manga"):
+        return {"success": False, "error": "Content kind must be comic or manga"}
+
+    existing = series_queries.get_comic_content_kind(comic_id)
+    if not existing:
+        return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
+
+    series_queries.update_comic_content_kind(comic_id, content_type)
+    updated = series_queries.get_comic_content_kind(comic_id)
+    canonical = updated["ContentType"] if updated else content_type
+    logger.fdebug("[SERIES] Updated content kind for %s: %s" % (comic_id, canonical))
+    return {"success": True, "content_type": canonical}
+
+
 def pause_comic(ctx, comic_id):
     """Set comic status to Paused."""
     series_queries.pause_comic(comic_id)

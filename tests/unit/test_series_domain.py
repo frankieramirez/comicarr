@@ -332,9 +332,7 @@ def test_update_search_settings_is_partial_and_rejects_unknown_series(monkeypatc
     monkeypatch.setattr(
         series_service.series_queries,
         "get_comic_search_settings",
-        lambda comic_id: (
-            {"ComicID": "160294", "AllowPacks": "0", "IgnoreType": 1} if comic_id == "160294" else None
-        ),
+        lambda comic_id: {"ComicID": "160294", "AllowPacks": "0", "IgnoreType": 1} if comic_id == "160294" else None,
     )
     monkeypatch.setattr(series_service.series_queries, "update_comic_search_settings", upsert)
 
@@ -358,6 +356,44 @@ def test_search_settings_query_upserts_lowercase_comics_table(monkeypatch):
     series_queries.update_comic_search_settings("160294", {"AllowPacks": "1", "IgnoreType": 1})
 
     upsert.assert_called_once_with("comics", {"AllowPacks": "1", "IgnoreType": 1}, {"ComicID": "160294"})
+
+
+@pytest.mark.parametrize("content_type", ["comic", "manga"])
+def test_update_content_kind_persists_and_returns_canonical_value(monkeypatch, content_type):
+    update = MagicMock()
+    rows = iter(
+        [
+            {"ComicID": "160294", "ContentType": "comic"},
+            {"ComicID": "160294", "ContentType": content_type},
+        ]
+    )
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", content_type)
+
+    update.assert_called_once_with("160294", content_type)
+    assert result == {"success": True, "content_type": content_type}
+
+
+def test_update_content_kind_rejects_unknown_series_without_writing(monkeypatch):
+    update = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: None)
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    result = series_service.update_content_kind(_make_ctx(), "missing", "manga")
+
+    assert result == {"success": False, "error": "ComicID missing not found in watchlist"}
+    update.assert_not_called()
+
+
+def test_content_kind_query_updates_only_content_type(monkeypatch):
+    upsert = MagicMock()
+    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+
+    series_queries.update_comic_content_kind("160294", "manga")
+
+    upsert.assert_called_once_with("comics", {"ContentType": "manga"}, {"ComicID": "160294"})
 
 
 def test_preview_search_all_missing_excludes_owned_future_and_skipped(monkeypatch):
