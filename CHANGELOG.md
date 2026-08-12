@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.0
+
+### Minor Changes
+
+- 97b1687: Add issue-scoped interactive release search with explainable candidates and deliberate, safely revalidated grabs.
+
+### Patch Changes
+
+- 1f1dd78: Let operators classify any series as comic or manga from its detail page, independent of metadata provider. Honor that stored classification during search, refresh, and post-processing.
+
 ## 0.29.1
 
 ### Patch Changes
