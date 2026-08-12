@@ -26,6 +26,12 @@ export interface NewznabProvider {
   enabled: boolean;
   api_key_set: boolean;
   api_key?: string;
+  /**
+   * The `i=` parameter of the indexer's RSS URL. Stored joined to the
+   * categories as `uid#categories`, split apart by the API so the categories
+   * field means categories. Newznab only — Torznab records have no uid.
+   */
+  rss_uid?: string;
 }
 
 export interface ProviderConfigResponse {

@@ -407,7 +407,11 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("TORZNAB_HOST", str, "Torznab", None),
     ConfigKey("TORZNAB_APIKEY", str, "Torznab", None),
     ConfigKey("TORZNAB_CATEGORY", str, "Torznab", None),
-    ConfigKey("TORZNAB_VERIFY", bool, "Torznab", False),
+    # Verify TLS by default. This value is only ever read to seed the verify
+    # field of a legacy torznab_* entry being absorbed into extra_torznabs, and
+    # an absorbed entry inherits every other field from the operator -- so a
+    # False here silently downgraded a provider they never chose to downgrade.
+    ConfigKey("TORZNAB_VERIFY", bool, "Torznab", True),
     ConfigKey("EXPERIMENTAL", bool, "Experimental", False),
     ConfigKey("ALTEXPERIMENTAL", bool, "Experimental", False),
     ConfigKey("TAB_ENABLE", bool, "Tablet", False),

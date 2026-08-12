@@ -810,7 +810,12 @@ class TestConfigService:
 
         provider = result["newznab"]["providers"][0]
         assert provider["host"] == "https://indexer.test:8443/api"
-        assert provider["categories"] == "5030,7000"
+        # `5030#7000` is the stored `uid#categories` form, so the categories
+        # are 7000 alone -- which is what the searcher queries. Reporting
+        # "5030,7000" here was the projection agreeing with the operator's
+        # intent instead of with the search.
+        assert provider["rss_uid"] == "5030"
+        assert provider["categories"] == "7000"
         assert provider["api_key_set"] is True
         assert "secret" not in str(result)
         assert "user:pass" not in str(result)
@@ -888,10 +893,97 @@ class TestConfigService:
                 "host": "https://new.test",
                 "verify": True,
                 "categories": "5030",
+                "rss_uid": "1",
                 "enabled": True,
                 "api_key_set": True,
             }
         ]
+
+    def test_newznab_categories_survive_a_settings_round_trip(self):
+        """What the operator types into Categories is what gets stored.
+
+        The Categories box used to write straight into the `uid#categories`
+        field, so `7030,7020` was stored as `7030#7020` -- read back as uid
+        7030 with 7020 as the only category, and displayed as though both were
+        in use. The uid now has its own field and the categories are the
+        categories.
+        """
+        ctx = _make_test_ctx()
+        providers = [
+            {
+                "name": "Indexer",
+                "host": "https://indexer.test",
+                "verify": True,
+                "api_key": "secret",
+                "categories": "7030,7020",
+                "enabled": True,
+            }
+        ]
+
+        assert system_service.update_providers(ctx, {"type": "newznab", "providers": providers})["success"] is True
+
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_NEWZNABS"][0]
+        assert persisted[4] == "1#7030#7020"
+        assert system_service.split_newznab_category_field(persisted[4]) == ("1", "7030,7020")
+
+    def test_newznab_edit_preserves_an_existing_rss_uid(self):
+        """Editing categories cannot repoint the RSS feed at another user."""
+        ctx = _make_test_ctx()
+        ctx.config.EXTRA_NEWZNABS = [("Indexer", "https://indexer.test", "1", "secret", "42#7030", "1", 101)]
+        providers = [
+            {
+                "id": 101,
+                "name": "Indexer",
+                "host": "https://indexer.test",
+                "verify": True,
+                "categories": "7030,7020",
+                "enabled": True,
+            }
+        ]
+
+        assert system_service.update_providers(ctx, {"type": "newznab", "providers": providers})["success"] is True
+
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_NEWZNABS"][0]
+        assert persisted[4] == "42#7030#7020"
+
+    def test_newznab_without_categories_stores_the_uid_alone(self):
+        """A trailing '#' would query `cat=` empty instead of the default."""
+        ctx = _make_test_ctx()
+        providers = [
+            {
+                "name": "Indexer",
+                "host": "https://indexer.test",
+                "verify": True,
+                "api_key": "secret",
+                "categories": "",
+                "enabled": True,
+            }
+        ]
+
+        assert system_service.update_providers(ctx, {"type": "newznab", "providers": providers})["success"] is True
+
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_NEWZNABS"][0]
+        assert persisted[4] == "1"
+
+    def test_torznab_categories_have_no_uid_prefix(self):
+        """Only Newznab carries the legacy uid; Torznab field 5 is categories."""
+        ctx = _make_test_ctx()
+        ctx.config.EXTRA_TORZNABS = []
+        providers = [
+            {
+                "name": "Prowlarr",
+                "host": "https://prowlarr.test/1/api",
+                "verify": True,
+                "api_key": "secret",
+                "categories": "7030,8020",
+                "enabled": True,
+            }
+        ]
+
+        assert system_service.update_providers(ctx, {"type": "torznab", "providers": providers})["success"] is True
+
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_TORZNABS"][0]
+        assert persisted[4] == "7030#8020"
 
     def test_update_providers_requires_new_key_when_origin_changes(self):
         ctx = _make_test_ctx()
@@ -1600,6 +1692,48 @@ class TestConfigTransactions:
         assert len(parsed) == entry_count
         assert all(len(entry) == entry_width for entry in parsed)
         assert [entry[3] for entry in parsed] == [f"secret-{index}" for index in range(entry_count)]
+
+    @pytest.mark.parametrize(
+        ("stored", "expected"),
+        (
+            ("1", "1"),
+            ("True", "1"),
+            ("true", "1"),
+            ("Yes", "1"),
+            ("on", "1"),
+            ("0", "0"),
+            ("False", "0"),
+            ("no", "0"),
+            ("off", "0"),
+        ),
+    )
+    def test_provider_booleans_are_canonicalized_on_parse(self, stored, expected):
+        """Verify and enabled reach every reader as "1"/"0", never "True".
+
+        `search.py` reads verify as `bool(int(field))` and filters enabled with
+        `field == "1"`, so a legal-but-uncanonical spelling was a crash on one
+        field and a silent skip on the other.
+        """
+        from comicarr import config as config_module
+
+        parsed = config_module.parse_provider_extras(
+            ", ".join(["Indexer", "https://indexer.test", stored, "secret", "5030", stored])
+        )
+
+        assert parsed[0][2] == expected
+        assert parsed[0][5] == expected
+        assert bool(int(parsed[0][2])) is (expected == "1")
+
+    def test_canonicalized_booleans_survive_serialization(self):
+        """A round trip cannot reintroduce a spelling the search path rejects."""
+        from comicarr import config as config_module
+
+        serialized = config_module.serialize_provider_extras(
+            [("Indexer", "https://indexer.test", True, "secret", "5030", "True", 201)]
+        )
+
+        assert ", 1, secret, 5030, 1, " in serialized
+        assert config_module.parse_provider_extras(serialized)[0][2] == "1"
 
     def test_config_read_encrypts_plaintext_provider_before_projection(self, tmp_path, monkeypatch):
         from comicarr import config as config_module

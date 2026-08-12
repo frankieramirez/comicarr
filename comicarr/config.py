@@ -46,6 +46,12 @@ _PROVIDER_EXTRA_FIELDS = ("EXTRA_NEWZNABS", "EXTRA_TORZNABS")
 _PROVIDER_EXTRA_WIDTHS = (6, 7)
 _PROVIDER_CREDENTIAL_INDEX = 3
 _PROVIDER_BOOLEAN_VALUES = {"0", "1", "false", "true", "no", "yes", "off", "on"}
+_PROVIDER_BOOLEAN_TRUE = {"1", "true", "yes", "on"}
+# Verify-TLS and enabled. Both are read as `bool(int(field))` by the search
+# path and compared against the literal "1" by the enabled filters, so a field
+# spelled any other legal way is a crash or a silent skip -- see
+# _canonical_provider_boolean.
+_PROVIDER_BOOLEAN_INDEXES = (2, 5)
 
 
 def config_transaction_lock():
@@ -59,6 +65,22 @@ def config_transaction_lock():
     bug waiting to happen.
     """
     return _CONFIG_TRANSACTION_LOCK
+
+
+def _canonical_provider_boolean(value):
+    """Return a provider boolean field as the only spelling every reader agrees on.
+
+    `_PROVIDER_BOOLEAN_VALUES` accepts eight spellings, but the consumers do
+    not. `search.py` and `rsscheck.py` read verify as `bool(int(field))`, which
+    raises `ValueError` on `"True"`; the enabled filters in `search.py` compare
+    against the literal `"1"` while `health.py` and the providers API accept
+    `true`/`yes`/`on`. So an entry stored as `True` was reported enabled by the
+    Acquisition tab and skipped by the searcher -- and one stored with a
+    non-numeric verify took the search down. Both fields are normalised here,
+    at the single boundary every reader and writer passes through, so tolerance
+    at the edge cannot become disagreement in the middle.
+    """
+    return "1" if str(value).strip().lower() in _PROVIDER_BOOLEAN_TRUE else "0"
 
 
 def _provider_entry_is_structurally_valid(entry):
@@ -103,7 +125,10 @@ def parse_provider_extras(value, config_version=15):
     for entry in entries:
         if not isinstance(entry, (list, tuple)) or not _provider_entry_is_structurally_valid(entry):
             raise ValueError("Provider entries must contain six or seven fields")
-        parsed.append(tuple(entry))
+        values = list(entry)
+        for index in _PROVIDER_BOOLEAN_INDEXES:
+            values[index] = _canonical_provider_boolean(values[index])
+        parsed.append(tuple(values))
     return parsed
 
 
@@ -578,8 +603,9 @@ class Config(object):
         if missing:
             logger.warn(
                 "[CONFIG] Legacy torznab_* fields under [Torznab] are set but incomplete "
-                "(missing: %s) and are NOT used for searching. Configure the provider via "
-                "the Settings UI (extra_torznabs) instead. Ignoring the legacy entry."
+                "(missing: %s) and are NOT used for searching. Complete them, or add the "
+                "provider to extra_torznabs under [Torznab] in config.ini as "
+                "'Name, https://host/api, 1, apikey, 7030, 1'. Ignoring the legacy entry."
                 % ", ".join("torznab_%s" % m for m in missing)
             )
             return
@@ -604,7 +630,7 @@ class Config(object):
             logger.warn(
                 "[CONFIG] Legacy torznab_* fields under [Torznab] reuse the provider name "
                 "'%s' and are NOT used for searching. Rename or remove the legacy fields, or "
-                "configure the provider via the Settings UI (extra_torznabs) instead." % legacy["name"]
+                "edit the existing entry in extra_torznabs under [Torznab] in config.ini." % legacy["name"]
             )
             return
 
@@ -619,17 +645,20 @@ class Config(object):
             (
                 legacy["name"],
                 legacy["host"],
-                self.TORZNAB_VERIFY,
+                # Canonical "1"/"0", not the raw bool: serialised it would
+                # reach the next startup as "True", and the search path reads
+                # this field as bool(int(field)).
+                _canonical_provider_boolean(self.TORZNAB_VERIFY),
                 legacy["apikey"],
                 legacy["category"],
-                str(int(bool(self.ENABLE_TORZNAB))),
+                _canonical_provider_boolean(self.ENABLE_TORZNAB),
                 candidate_id,
             )
         )
         logger.info(
             "[CONFIG] Migrated legacy torznab_* fields under [Torznab] into extra_torznabs "
             "as provider '%s' (%s). The legacy single-provider fields are no longer read; "
-            "manage this provider via the Settings UI from now on." % (legacy["name"], legacy["host"])
+            "manage this provider through extra_torznabs from now on." % (legacy["name"], legacy["host"])
         )
         _scrub()
 
@@ -2456,13 +2485,17 @@ class Config(object):
                 ex = extra_torznabs
 
             for x in ex:
+                # Field 5 is passed through exactly as stored. It used to be
+                # rewritten here -- '#' to ',', then the leading ',' back to
+                # '#' -- which left the runtime value in a shape none of its
+                # readers expected: `search.py` tests for '#' to decide whether
+                # a category was configured at all, so a stored `1#7030`
+                # arrived as `1,7030`, failed that test, and every Newznab
+                # search silently fell back to the built-in 7030. Only a value
+                # that already began with '#' survived the round trip. One
+                # storage contract now, read the same way by search.py,
+                # rsscheck.py, and the providers API.
                 x_cat = x[4]
-                if x_cat:
-                    if "#" in x_cat:
-                        x_t = x[4].split("#")
-                        x_cat = ",".join(x_t)
-                        if x_cat[0] == ",":
-                            x_cat = re.sub(",", "#", x_cat, 1)
                 try:
                     if cnt == 0:
                         x_newzcat.append((x[0], x[1], x[2], x[3], x_cat, x[5], int(x[6])))

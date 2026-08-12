@@ -306,3 +306,75 @@ torznab_host = http://prowlarr.example:9696/1/api
     assert cfg.EXTRA_TORZNABS == []
     assert warn.called
     assert "NOT used for searching" in warn.call_args_list[0][0][0]
+
+
+def test_legacy_torznab_absorption_verifies_tls_and_stores_canonical_booleans(tmp_path, monkeypatch):
+    """An absorbed entry inherits the operator's fields, not a silent downgrade.
+
+    `TORZNAB_VERIFY` used to default to False, so a legacy entry that said
+    nothing about TLS was migrated with verification off. The raw bool was also
+    written straight through, reaching the next startup as the string "True" --
+    which `search.py` reads as `bool(int(field))` and dies on.
+    """
+    cfg, ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        """[General]
+config_version = 18
+minimal_ini = False
+encrypt_passwords = False
+
+[Torznab]
+enable_torznab = True
+torznab_name = Nyaa
+torznab_host = http://prowlarr.example:9696/1/api
+torznab_apikey = abc123
+torznab_category = 8020
+""",
+    )
+
+    assert cfg.read(startup=False) is cfg
+
+    migrated = next(entry for entry in cfg.EXTRA_TORZNABS if entry[1] == "http://prowlarr.example:9696/1/api")
+    assert migrated[2] == "1"
+    assert migrated[5] == "1"
+
+    # The written config must reread into the same canonical form, because
+    # that is the shape the searcher sees on every run after the first.
+    reread = configparser.ConfigParser()
+    reread.read(ini)
+    entries = config_module.parse_provider_extras(reread.get("Torznab", "extra_torznabs"))
+    assert entries[0][2] == "1"
+    assert bool(int(entries[0][2])) is True
+
+
+def test_stored_newznab_categories_reach_runtime_unmangled(tmp_path, monkeypatch):
+    """get_extras no longer rewrites the category field on its way to runtime.
+
+    It used to turn `1#7030` into `1,7030`, which `search.py` reads as "no
+    category configured" -- so every Newznab search fell back to the built-in
+    7030 no matter what the operator asked for.
+    """
+    cfg, _ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        """[General]
+config_version = 18
+minimal_ini = False
+encrypt_passwords = False
+
+[Newznab]
+newznab = True
+extra_newznabs = Indexer, https://indexer.example/api, 1, abc123, 1#7030#7020, 1, 3
+
+[Torznab]
+extra_torznabs =
+""",
+    )
+
+    assert cfg.read(startup=False) is cfg
+
+    assert cfg.EXTRA_NEWZNABS[0][4] == "1#7030#7020"
+    uid, _, categories = cfg.EXTRA_NEWZNABS[0][4].partition("#")
+    assert uid == "1"
+    assert categories.replace("#", ",") == "7030,7020"

@@ -225,6 +225,61 @@ describe("settings configuration", () => {
     );
   });
 
+  it("edits Newznab categories and the RSS user ID as separate fields", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 101,
+                name: "Indexer",
+                host: "https://indexer.test",
+                verify: true,
+                // Server-side split of the stored `42#7030` field. The uid
+                // used to be folded into the Categories box, where editing
+                // categories quietly rewrote it.
+                categories: "7030",
+                rss_uid: "42",
+                enabled: true,
+                api_key_set: true,
+              },
+            ],
+          },
+        }),
+      ),
+      http.put("/api/config/providers", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+
+    const categories = await screen.findByLabelText("Categories");
+    expect((categories as HTMLInputElement).value).toBe("7030");
+    expect(
+      (screen.getByLabelText("RSS user ID") as HTMLInputElement).value,
+    ).toBe("42");
+
+    await user.clear(categories);
+    await user.type(categories, "7030,7020");
+    await user.click(screen.getByRole("button", { name: "Save indexers" }));
+
+    await waitFor(() => expect(saved).not.toBeNull());
+    expect(saved).toMatchObject({
+      type: "newznab",
+      providers: [
+        expect.objectContaining({ categories: "7030,7020", rss_uid: "42" }),
+      ],
+    });
+  });
+
   it("requires a replacement indexer key when its server changes", async () => {
     let saved: unknown = null;
     server.use(

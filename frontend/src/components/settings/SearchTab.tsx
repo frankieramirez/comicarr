@@ -104,7 +104,12 @@ function NewznabProviderForm({
         name: "",
         host: "",
         verify: true,
-        categories: "5030",
+        // 7030 is Books/Comics in the standard Newznab category numbering.
+        // The old 5030 default was a TV category — harmless while categories
+        // were being discarded before reaching the search, and wrong now that
+        // they are not.
+        categories: "7030",
+        rss_uid: "1",
         enabled: true,
         api_key_set: false,
         api_key: "",
@@ -265,13 +270,37 @@ function NewznabProviderForm({
                       id={`indexer-categories-${suffix}`}
                       className="mt-1.5"
                       value={provider.categories}
-                      placeholder="5030"
+                      placeholder="7030"
                       onChange={(event) =>
                         updateProvider(index, {
                           categories: event.target.value,
                         })
                       }
                     />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Newznab category IDs, comma-separated. 7030 is
+                      Books/Comics.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor={`indexer-rss-uid-${suffix}`}>
+                      RSS user ID
+                    </Label>
+                    <Input
+                      id={`indexer-rss-uid-${suffix}`}
+                      className="mt-1.5"
+                      value={provider.rss_uid ?? ""}
+                      placeholder="1"
+                      onChange={(event) =>
+                        updateProvider(index, {
+                          rss_uid: event.target.value,
+                        })
+                      }
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      The <code>i=</code> parameter of this indexer&rsquo;s RSS
+                      URL. Leave as 1 unless your indexer says otherwise.
+                    </p>
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
