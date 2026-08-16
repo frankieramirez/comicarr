@@ -323,12 +323,14 @@ def get_comic_detail(ctx, comic_id):
         series_location=series_location,
     )
     summary = _issue_summary(projected_issues + projected_annuals)
+    comic_row = comic[0] if comic else None
 
     return {
         "comic": comic,
         "issues": projected_issues,
         "annuals": projected_annuals,
         "summary": summary,
+        "providerLinks": series_kind.provider_page_links(comic_row) if comic_row else [],
     }
 
 

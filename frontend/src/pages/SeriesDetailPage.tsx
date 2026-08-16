@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
+  ExternalLink,
   MoreHorizontal,
   Pause,
   Play,
@@ -511,6 +512,24 @@ export default function SeriesDetailPage() {
           <h1 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.02em]">
             {comic.ComicName}
           </h1>
+
+          {seriesData.providerLinks && seriesData.providerLinks.length > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {seriesData.providerLinks.map((link) => (
+                <a
+                  key={`${link.provider}-${link.url}`}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline"
+                  style={{ color: "var(--primary)" }}
+                >
+                  View on {link.label}
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          ) : null}
 
           {comic.Description && (
             <p

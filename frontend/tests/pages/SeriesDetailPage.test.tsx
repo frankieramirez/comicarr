@@ -179,6 +179,13 @@ describe("SeriesDetailPage", () => {
           },
           issues: canonicalIssues,
           annuals: [annual],
+          providerLinks: [
+            {
+              provider: "comicvine",
+              label: "ComicVine",
+              url: "https://comicvine.gamespot.com/-/1/",
+            },
+          ],
           summary: {
             total: 10,
             issues: 9,
@@ -199,6 +206,51 @@ describe("SeriesDetailPage", () => {
         }),
       ),
     );
+  });
+
+  it("links out to the series page on its metadata provider", async () => {
+    renderDetail();
+    const link = await screen.findByRole("link", { name: "View on ComicVine" });
+    expect(link.getAttribute("href")).toBe(
+      "https://comicvine.gamespot.com/-/1/",
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("shows MyAnimeList and MangaDex when both ids exist", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "mal-161890",
+            ComicName: "Absolute Batman",
+            Status: "Active",
+          },
+          issues: canonicalIssues,
+          providerLinks: [
+            {
+              provider: "myanimelist",
+              label: "MyAnimeList",
+              url: "https://myanimelist.net/manga/161890",
+            },
+            {
+              provider: "mangadex",
+              label: "MangaDex",
+              url: "https://mangadex.org/title/uuid-2",
+            },
+          ],
+        }),
+      ),
+    );
+    renderDetail();
+    expect(
+      (await screen.findByRole("link", { name: "View on MyAnimeList" })).getAttribute(
+        "href",
+      ),
+    ).toBe("https://myanimelist.net/manga/161890");
+    expect(
+      screen.getByRole("link", { name: "View on MangaDex" }).getAttribute("href"),
+    ).toBe("https://mangadex.org/title/uuid-2");
   });
 
   it("deep-links to scoped Activity without embedding a feed", async () => {

@@ -44,6 +44,7 @@ COMICS_COLUMNS = [
     t_comics.c.ContentType.label("ContentType"),
     t_comics.c.AllowPacks.label("AllowPacks"),
     t_comics.c.IgnoreType.label("IgnoreType"),
+    t_comics.c.MangaDexID.label("MangaDexID"),
 ]
 
 ISSUES_COLUMNS = [

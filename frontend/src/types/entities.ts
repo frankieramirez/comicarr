@@ -419,12 +419,20 @@ export interface InteractiveGrabResult {
   error?: string;
 }
 
+/** Outbound catalog page for the series' metadata (and chapter) provider. */
+export interface ProviderPageLink {
+  provider: string;
+  label: string;
+  url: string;
+}
+
 /** Series detail response (includes issues) */
 export interface SeriesDetail {
   comic: Comic[] | Comic;
   issues: Issue[];
   annuals?: Issue[];
   summary?: SeriesIssueSummary;
+  providerLinks?: ProviderPageLink[];
 }
 
 /** Content type for comic/manga distinction */
