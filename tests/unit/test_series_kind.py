@@ -120,13 +120,20 @@ class TestChapterSourceId:
 
 class TestProviderPageLinks:
     def test_comicvine_id_builds_the_volume_page(self):
-        assert provider_page_links("160294") == [
+        links = provider_page_links("160294")
+        assert links == [
             {
                 "provider": "comicvine",
                 "label": "ComicVine",
-                "url": "https://comicvine.gamespot.com/-/160294/",
+                "url": "https://comicvine.gamespot.com/volume/4050-160294/",
             }
         ]
+        assert "volume/4050-160294" in links[0]["url"]
+        assert "/-/" not in links[0]["url"]
+
+    def test_comicvine_volume_prefix_is_not_doubled(self):
+        links = provider_page_links("4050-160294")
+        assert links[0]["url"] == "https://comicvine.gamespot.com/volume/4050-160294/"
 
     def test_mangadex_id_builds_the_title_page(self):
         assert provider_page_links("md-uuid-1") == [

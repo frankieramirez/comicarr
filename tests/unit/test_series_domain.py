@@ -199,7 +199,7 @@ def test_get_comic_detail_returns_backend_summary_for_issues_and_null_deleted_an
         {
             "provider": "comicvine",
             "label": "ComicVine",
-            "url": "https://comicvine.gamespot.com/-/160294/",
+            "url": "https://comicvine.gamespot.com/volume/4050-160294/",
         }
     ]
 

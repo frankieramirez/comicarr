@@ -146,7 +146,7 @@ def add_prefix(raw_id: str | None, provider: SeriesProvider) -> str:
 _PROVIDER_PAGE = {
     SeriesProvider.COMICVINE: (
         "ComicVine",
-        "https://comicvine.gamespot.com/-/{id}/",
+        "https://comicvine.gamespot.com/volume/4050-{id}/",
     ),
     SeriesProvider.MANGADEX: ("MangaDex", "https://mangadex.org/title/{id}"),
     SeriesProvider.MYANIMELIST: (
@@ -154,6 +154,15 @@ _PROVIDER_PAGE = {
         "https://myanimelist.net/manga/{id}",
     ),
 }
+
+_COMICVINE_VOLUME_PREFIX = "4050-"
+
+
+def _catalog_id(series_id: str, provider: SeriesProvider) -> str:
+    """Native id for a catalog URL — ComicVine volume ids must not keep 4050-."""
+    if provider is SeriesProvider.COMICVINE and series_id.startswith(_COMICVINE_VOLUME_PREFIX):
+        return series_id[len(_COMICVINE_VOLUME_PREFIX) :]
+    return series_id
 
 
 def provider_page_links(series: str | Mapping | None) -> list[dict[str, str]]:
@@ -172,7 +181,7 @@ def provider_page_links(series: str | Mapping | None) -> list[dict[str, str]]:
             {
                 "provider": provider.value,
                 "label": label,
-                "url": template.format(id=native_id),
+                "url": template.format(id=_catalog_id(native_id, provider)),
             }
         )
     if provider_of(series) is SeriesProvider.MYANIMELIST:

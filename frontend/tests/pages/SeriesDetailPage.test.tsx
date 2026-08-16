@@ -183,7 +183,7 @@ describe("SeriesDetailPage", () => {
             {
               provider: "comicvine",
               label: "ComicVine",
-              url: "https://comicvine.gamespot.com/-/1/",
+              url: "https://comicvine.gamespot.com/volume/4050-1/",
             },
           ],
           summary: {
@@ -212,7 +212,7 @@ describe("SeriesDetailPage", () => {
     renderDetail();
     const link = await screen.findByRole("link", { name: "View on ComicVine" });
     expect(link.getAttribute("href")).toBe(
-      "https://comicvine.gamespot.com/-/1/",
+      "https://comicvine.gamespot.com/volume/4050-1/",
     );
     expect(link.getAttribute("target")).toBe("_blank");
   });
