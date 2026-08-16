@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.33.0
+
+### Minor Changes
+
+- 315b4b6: Torznab indexers can now be added, edited, and removed in Settings → Search, next to the existing Newznab editor. You no longer have to hand-edit `extra_torznabs` in `config.ini` to manage torrent indexers.
+
+### Patch Changes
+
+- 8ab35db: Adding a manga now returns immediately and populates chapters in the background, the same way adding a comic does. Failures show up in Activity instead of hanging or silently dying in the request.
+- 9176fe5: Manga filenames with a bare number (`Naruto 12.cbr`) can now be treated as a volume, a chapter, or auto — auto compares the folder's numbers to the series' known volume and chapter counts. Prefixed names like `One Piece v10.cbz` stay volumes.
+- c14fbdc: Library and series-detail covers now load from Comicarr's local cache (or a same-origin fallback) instead of hotlinking MangaDex, so manga series no longer show the "You can read this at MANGADEX" placeholder.
+- 6654ea1: Searching a manga series now targets the blended frontier by default — missing released volumes plus chapters beyond the last volume — with per-series volumes-only and chapters-only modes.
+- 0d5c41e: Manga series now have a defined chapter and volume ledger: owning a volume covers the chapters it is known to contain (without counting them as individually owned), and the default missing set is released volumes plus chapters beyond the last released volume.
+- 551140d: Manga series now refresh on a schedule: empty chapter ledgers are healed in place (no re-add), new MangaDex chapters are polled, and wanted chapters are searched. Prefix-stamped series stay visible even if ContentType was backfilled as comic.
+- 9b236be: The series-detail header now shows a real last-refresh time (or "unsynced" when there isn't one) and renders the series description instead of leaving every title looking unsynced.
+
 ## 0.32.0
 
 ### Minor Changes
