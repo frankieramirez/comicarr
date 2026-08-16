@@ -81,6 +81,8 @@ export type {
   Config,
   NewznabProvider,
   ProviderConfigResponse,
+  SearchProviderGroup,
+  SearchProviderKind,
   TorznabProvider,
   ConfigUpdate,
 } from "./config";

@@ -461,6 +461,13 @@ export const handlers = [
     });
   }),
 
+  http.get("/api/config/providers", () => {
+    return HttpResponse.json({
+      newznab: { enabled: false, providers: [] },
+      torznab: { enabled: false, providers: [] },
+    });
+  }),
+
   // -------------------------------------------------------------------------
   // System endpoints
   // -------------------------------------------------------------------------

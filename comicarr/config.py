@@ -522,10 +522,10 @@ class Config(object):
         if missing:
             logger.warn(
                 "[CONFIG] Legacy torznab_* fields under [Torznab] are set but incomplete "
-                "(missing: %s) and are NOT used for searching. Complete them, or add the "
-                "provider to extra_torznabs under [Torznab] in config.ini as "
-                "'Name, https://host/api, 1, apikey, 7030, 1'. Ignoring the legacy entry."
-                % ", ".join("torznab_%s" % m for m in missing)
+                "(missing: %s) and are NOT used for searching. Complete them in "
+                "Settings → Search, or add the provider to extra_torznabs under [Torznab] "
+                "in config.ini as 'Name, https://host/api, 1, apikey, 7030, 1'. "
+                "Ignoring the legacy entry." % ", ".join("torznab_%s" % m for m in missing)
             )
             return
 
@@ -549,7 +549,7 @@ class Config(object):
             logger.warn(
                 "[CONFIG] Legacy torznab_* fields under [Torznab] reuse the provider name "
                 "'%s' and are NOT used for searching. Rename or remove the legacy fields, or "
-                "edit the existing entry in extra_torznabs under [Torznab] in config.ini." % legacy["name"]
+                "edit the existing indexer in Settings → Search." % legacy["name"]
             )
             return
 
@@ -577,7 +577,7 @@ class Config(object):
         logger.info(
             "[CONFIG] Migrated legacy torznab_* fields under [Torznab] into extra_torznabs "
             "as provider '%s' (%s). The legacy single-provider fields are no longer read; "
-            "manage this provider through extra_torznabs from now on." % (legacy["name"], legacy["host"])
+            "manage this provider in Settings → Search from now on." % (legacy["name"], legacy["host"])
         )
         _scrub()
 

@@ -306,6 +306,7 @@ torznab_host = http://prowlarr.example:9696/1/api
     assert cfg.EXTRA_TORZNABS == []
     assert warn.called
     assert "NOT used for searching" in warn.call_args_list[0][0][0]
+    assert "Settings" in warn.call_args_list[0][0][0]
 
 
 def test_legacy_torznab_absorption_verifies_tls_and_stores_canonical_booleans(tmp_path, monkeypatch):

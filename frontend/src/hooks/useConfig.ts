@@ -12,6 +12,8 @@ import type {
   ConfigUpdate,
   NewznabProvider,
   ProviderConfigResponse,
+  SearchProviderKind,
+  TorznabProvider,
 } from "@/types";
 
 interface RegenerateApiKeyResponse {
@@ -83,17 +85,21 @@ export function useProviderConfig(): UseQueryResult<ProviderConfigResponse> {
   });
 }
 
-export function useUpdateNewznabProviders(): UseMutationResult<
+export function useUpdateSearchProviders(): UseMutationResult<
   unknown,
   Error,
-  { enabled: boolean; providers: NewznabProvider[] }
+  {
+    type: SearchProviderKind;
+    enabled: boolean;
+    providers: Array<NewznabProvider | TorznabProvider>;
+  }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ enabled, providers }) =>
+    mutationFn: ({ type, enabled, providers }) =>
       apiRequest<unknown>("PUT", "/api/config/providers", {
-        type: "newznab",
+        type,
         enabled,
         providers,
       }),

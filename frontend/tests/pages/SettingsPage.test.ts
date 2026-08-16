@@ -332,6 +332,228 @@ describe("settings configuration", () => {
     expect(saved).toBeNull();
   });
 
+  it("adds a Torznab indexer when both provider lists start empty", async () => {
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: { enabled: false, providers: [] },
+          torznab: { enabled: false, providers: [] },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await screen.findByRole("button", { name: "Add Torznab indexer" });
+    await user.click(
+      screen.getByRole("button", { name: "Add Torznab indexer" }),
+    );
+
+    expect(await screen.findByLabelText("Torznab indexer name")).toBeTruthy();
+    expect(screen.queryByLabelText("RSS user ID")).toBeNull();
+    expect(screen.getByText("Unsaved Torznab indexer changes")).toBeTruthy();
+  });
+
+  it("edits Torznab indexers without an RSS user ID field", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: { enabled: false, providers: [] },
+          torznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 202,
+                name: "Prowlarr",
+                host: "https://prowlarr.test/1/api",
+                verify: true,
+                categories: "7030",
+                enabled: true,
+                api_key_set: true,
+              },
+            ],
+          },
+        }),
+      ),
+      http.put("/api/config/providers", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+
+    const name = await screen.findByLabelText("Torznab indexer name");
+    expect(screen.queryByLabelText("RSS user ID")).toBeNull();
+    expect(
+      screen
+        .getByLabelText("Torznab indexer API key")
+        .getAttribute("placeholder"),
+    ).toBe("API key saved (enter a new value to change)");
+    await user.clear(name);
+    await user.type(name, "My tracker");
+    expect(screen.getByText("Unsaved Torznab indexer changes")).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Save Torznab indexers" }),
+    );
+
+    await waitFor(() => expect(saved).not.toBeNull());
+    expect(saved).toMatchObject({
+      type: "torznab",
+      enabled: true,
+      providers: [
+        expect.objectContaining({
+          id: 202,
+          name: "My tracker",
+          api_key: "",
+          api_key_set: true,
+        }),
+      ],
+    });
+    expect(
+      (saved as { providers: Array<Record<string, unknown>> }).providers[0],
+    ).not.toHaveProperty("rss_uid");
+  });
+
+  it("requires a replacement Torznab key when its server changes", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: { enabled: false, providers: [] },
+          torznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 202,
+                name: "Prowlarr",
+                host: "https://prowlarr.test/1/api",
+                verify: true,
+                categories: "7030",
+                enabled: true,
+                api_key_set: true,
+              },
+            ],
+          },
+        }),
+      ),
+      http.put("/api/config/providers", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    const host = await screen.findByLabelText("Torznab indexer URL");
+    await user.clear(host);
+    await user.type(host, "https://other.test/1/api");
+    await user.click(
+      screen.getByRole("button", { name: "Save Torznab indexers" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Enter the API key again when changing an indexer server.",
+      ),
+    ).toBeTruthy();
+    expect(saved).toBeNull();
+  });
+
+  it("keeps Newznab and Torznab field IDs unique when both have the same saved id", async () => {
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 1,
+                name: "Usenet",
+                host: "https://usenet.test",
+                verify: true,
+                categories: "7030",
+                enabled: true,
+                api_key_set: false,
+              },
+            ],
+          },
+          torznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 1,
+                name: "Prowlarr",
+                host: "https://prowlarr.test",
+                verify: true,
+                categories: "7030",
+                enabled: true,
+                api_key_set: false,
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await screen.findByLabelText("Indexer name");
+
+    const newznabName = screen.getByLabelText("Indexer name");
+    const torznabName = screen.getByLabelText("Torznab indexer name");
+    expect(newznabName.id).toBe("indexer-name-saved-1");
+    expect(torznabName.id).toBe("torznab-indexer-name-saved-1");
+    expect(newznabName.id).not.toBe(torznabName.id);
+  });
+
+  it("blocks dirty Torznab edits on section change when confirmation is declined", async () => {
+    server.use(
+      http.get("/api/config/providers", () =>
+        HttpResponse.json({
+          newznab: { enabled: false, providers: [] },
+          torznab: {
+            enabled: true,
+            providers: [
+              {
+                id: 202,
+                name: "Prowlarr",
+                host: "https://prowlarr.test/1/api",
+                verify: true,
+                categories: "7030",
+                enabled: true,
+                api_key_set: true,
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    const name = await screen.findByLabelText("Torznab indexer name");
+    await user.type(name, " changed");
+    await user.click(screen.getAllByRole("button", { name: "General" })[0]);
+
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved indexer changes?");
+    expect(screen.getByLabelText("Torznab indexer name")).toBeTruthy();
+  });
+
   it("keeps explicit replacement secret values", () => {
     const saveData = prepareConfigSaveData(
       {
