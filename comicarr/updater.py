@@ -1688,6 +1688,11 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
     module += "[FILE-RESCAN]"
     # file check to see if issue exists
     rescan = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+    if rescan and (series_kind.is_manga(rescan) or series_kind.provider_of(ComicID) in series_kind.MANGA_PROVIDERS):
+        from comicarr.app.manga.rescan import rescan_manga_series
+
+        rescan_manga_series(rescan, directory=archive or rescan.get("ComicLocation"))
+        return
     if rescan["AlternateSearch"] is not None:
         altnames = rescan["AlternateSearch"] + "##"
     else:

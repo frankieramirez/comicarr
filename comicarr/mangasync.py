@@ -375,83 +375,10 @@ def _match_series(series_name, files):
 
 
 def _mark_chapters_downloaded(comic_id, files):
-    """Mark chapters as Downloaded based on files found on disk.
+    """Mark chapters as Downloaded based on files found on disk."""
+    from comicarr.app.manga.rescan import mark_parsed_files_downloaded
 
-    Matches parsed chapter/volume numbers from filenames to existing
-    issue records in the database.
-
-    Returns count of chapters marked.
-    """
-    count = 0
-
-    # Get all issues for this comic
-    with db.get_engine().connect() as conn:
-        stmt = select(issues).where(issues.c.ComicID == comic_id)
-        all_issues = [dict(row._mapping) for row in conn.execute(stmt)]
-
-    if not all_issues:
-        return 0
-
-    # Build lookup by chapter number and volume number
-    # Volume lookup maps to a list since multiple chapters share a volume
-    chapter_lookup = {}
-    volume_lookup = {}
-    for issue in all_issues:
-        ch = issue.get("ChapterNumber")
-        vol = issue.get("VolumeNumber")
-        if ch:
-            try:
-                chapter_lookup[float(ch)] = issue
-            except (ValueError, TypeError):
-                pass
-        if vol:
-            try:
-                vol_key = int(float(vol))
-                if vol_key not in volume_lookup:
-                    volume_lookup[vol_key] = []
-                volume_lookup[vol_key].append(issue)
-            except (ValueError, TypeError):
-                pass
-
-    for filepath, parsed in files:
-        if not parsed:
-            continue
-
-        filename = os.path.basename(filepath)
-        matched_issues = []
-
-        # Try chapter match first
-        if parsed.get("chapter_number") is not None:
-            match = chapter_lookup.get(parsed["chapter_number"])
-            if match:
-                matched_issues = [match]
-
-        # Fall back to volume match — mark all chapters in the volume
-        if not matched_issues and parsed.get("volume_number") is not None:
-            matched_issues = volume_lookup.get(parsed["volume_number"], [])
-
-        for matched_issue in matched_issues:
-            if matched_issue.get("Status") != "Downloaded":
-                issue_id = matched_issue["IssueID"]
-                db.upsert(
-                    "issues",
-                    {"Status": "Downloaded", "Location": filename},
-                    {"IssueID": issue_id},
-                )
-                count += 1
-                logger.fdebug("[MANGA-SCAN] Marked as downloaded: %s -> %s" % (filename, issue_id))
-
-    # Update the Have count for the comic
-    if count > 0:
-        with db.get_engine().connect() as conn:
-            stmt = select(issues).where(
-                issues.c.ComicID == comic_id,
-                issues.c.Status == "Downloaded",
-            )
-            have_count = len([dict(row._mapping) for row in conn.execute(stmt)])
-        db.upsert("comics", {"Have": have_count}, {"ComicID": comic_id})
-
-    return count
+    return mark_parsed_files_downloaded(comic_id, files)
 
 
 def import_selected_manga(selected_ids, scan_id):
