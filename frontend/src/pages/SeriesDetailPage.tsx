@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
+import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import {
   useConfirmSearchMissing,
   useDeleteSeries,
@@ -39,6 +41,7 @@ import {
 import type {
   ComicOrManga,
   Issue,
+  ReleaseReviewIssue,
   SearchMissingPreview,
   SearchMissingResult,
   ContentType,
@@ -146,6 +149,30 @@ function pluralize(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+const ISSUE_GRID_COLS =
+  "grid-cols-[54px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
+
+function toReleaseReviewIssue(
+  issue: Issue,
+  seriesName: string,
+): ReleaseReviewIssue {
+  return {
+    IssueNumber: issue.number ?? issue.Issue_Number,
+    Issue_Number: issue.Issue_Number,
+    ComicName: issue.ComicName ?? issue.comicName ?? seriesName,
+    Status: issue.Status ?? issue.status,
+    annual: Boolean(issue.annual),
+  };
+}
+
+function interactiveSearchLabel(issue: Issue): string {
+  const issueName = issue.name ?? issue.IssueName;
+  const issueNumber = issue.number ?? issue.Issue_Number;
+  const fallback =
+    `${issue.annual ? "Annual" : "Issue"} ${issueNumber ?? ""}`.trim();
+  return `Interactive Search for ${issueName || fallback}`;
+}
+
 export default function SeriesDetailPage() {
   const { comicId } = useParams<{ comicId: string }>();
   const navigate = useNavigate();
@@ -170,6 +197,7 @@ export default function SeriesDetailPage() {
   const retrySearchRun = useRetrySearchRun();
   const searchSettingsMutation = useUpdateSeriesSearchSettings();
   const contentKindMutation = useUpdateSeriesContentKind();
+  const { startReview, reviewSheetProps } = useInteractiveReview();
 
   const fetchSearchPreview = async () => {
     setPreview(null);
@@ -774,7 +802,7 @@ export default function SeriesDetailPage() {
       <div className="flex-1 min-h-0 overflow-auto">
         <div className="min-w-[720px]">
           <div
-            className="sticky top-0 z-10 grid grid-cols-[54px_42px_minmax(220px,1fr)_130px_110px_190px] gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]"
+            className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
             style={{
               borderColor: "var(--border)",
               color: "var(--text-muted)",
@@ -787,6 +815,7 @@ export default function SeriesDetailPage() {
             <div>arc</div>
             <div>date</div>
             <div>state</div>
+            <div className="sr-only">search</div>
           </div>
 
           {filteredIssues.length === 0 ? (
@@ -812,7 +841,7 @@ export default function SeriesDetailPage() {
               return (
                 <div
                   key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
-                  className="grid grid-cols-[54px_42px_minmax(220px,1fr)_130px_110px_190px] items-center gap-3 border-b px-5 py-2 text-[12px]"
+                  className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
                   style={{ borderColor: "var(--border)" }}
                 >
                   <div>
@@ -866,6 +895,27 @@ export default function SeriesDetailPage() {
                         intent: {separateIntent}
                       </span>
                     )}
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-[5px] transition-colors hover:bg-secondary/50"
+                      style={{ color: "var(--muted-foreground)" }}
+                      aria-label={interactiveSearchLabel(issue)}
+                      title="Interactive Search"
+                      disabled={!issueId}
+                      onClick={() =>
+                        void startReview(
+                          toReleaseReviewIssue(issue, comic.ComicName),
+                          {
+                            entityType: issue.annual ? "annual" : "issue",
+                            entityId: String(issueId ?? ""),
+                          },
+                        )
+                      }
+                    >
+                      <Search className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
               );
@@ -1116,6 +1166,7 @@ export default function SeriesDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ReleaseReviewSheet {...reviewSheetProps} />
     </div>
   );
 }

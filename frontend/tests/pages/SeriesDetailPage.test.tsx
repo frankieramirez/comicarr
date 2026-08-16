@@ -571,4 +571,94 @@ describe("SeriesDetailPage", () => {
         .getAttribute("href"),
     ).toBe("/settings?section=search");
   });
+
+  it("starts Interactive Search for a series issue in place", async () => {
+    let searchBody: unknown;
+    server.use(
+      http.post("/api/search/interactive", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json({
+          session_id: "session-issue",
+          entity_type: "issue",
+          entity_id: "wanted",
+          series_id: "1",
+          state: "complete",
+          candidate_count: 0,
+          progress: {
+            provider_total: 0,
+            provider_completed: 0,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [],
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Ready to search");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Interactive Search for Ready to search",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(searchBody).toEqual({
+        entity_type: "issue",
+        entity_id: "wanted",
+      });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Review releases" }),
+    ).toBeTruthy();
+  });
+
+  it("starts Interactive Search for an annual in place", async () => {
+    let searchBody: unknown;
+    server.use(
+      http.post("/api/search/interactive", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json({
+          session_id: "session-annual",
+          entity_type: "annual",
+          entity_id: "annual-1",
+          series_id: "1",
+          state: "complete",
+          candidate_count: 0,
+          progress: {
+            provider_total: 0,
+            provider_completed: 0,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [],
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText("Annual event");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Interactive Search for Annual event",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(searchBody).toEqual({
+        entity_type: "annual",
+        entity_id: "annual-1",
+      });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Review releases" }),
+    ).toBeTruthy();
+  });
 });

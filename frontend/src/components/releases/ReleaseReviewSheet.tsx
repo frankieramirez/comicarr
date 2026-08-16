@@ -34,11 +34,11 @@ import { getErrorMessage } from "@/lib/api";
 import type {
   InteractiveGrabResult,
   InteractiveReleaseCandidate,
-  UpcomingIssue,
+  ReleaseReviewIssue,
 } from "@/types";
 
 interface ReleaseReviewSheetProps {
-  issue: UpcomingIssue | null;
+  issue: ReleaseReviewIssue | null;
   sessionId: string | null;
   startPending: boolean;
   startError: unknown;
@@ -164,7 +164,7 @@ function IssueContext({
   issue,
   expiresAt,
 }: {
-  issue: UpcomingIssue;
+  issue: ReleaseReviewIssue;
   expiresAt?: string;
 }) {
   const number = issue.IssueNumber ?? issue.Issue_Number ?? "—";

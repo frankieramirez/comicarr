@@ -347,6 +347,50 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
+  http.post("/api/search/interactive", async ({ request }) => {
+    const body = (await request.json()) as {
+      entity_type?: string;
+      entity_id?: string;
+    };
+    return HttpResponse.json({
+      session_id: "session-test",
+      entity_type: body.entity_type ?? "issue",
+      entity_id: body.entity_id ?? "",
+      series_id: null,
+      state: "complete",
+      candidate_count: 0,
+      progress: {
+        provider_total: 0,
+        provider_completed: 0,
+        current_provider: null,
+      },
+      provider_failures: [],
+      created_at: "2026-08-12T04:00:00Z",
+      expires_at: "2026-08-12T04:10:00Z",
+      candidates: [],
+    });
+  }),
+
+  http.get("/api/search/interactive/:sessionId", ({ params }) => {
+    return HttpResponse.json({
+      session_id: params.sessionId,
+      entity_type: "issue",
+      entity_id: "wanted",
+      series_id: null,
+      state: "complete",
+      candidate_count: 0,
+      progress: {
+        provider_total: 0,
+        provider_completed: 0,
+        current_provider: null,
+      },
+      provider_failures: [],
+      created_at: "2026-08-12T04:00:00Z",
+      expires_at: "2026-08-12T04:10:00Z",
+      candidates: [],
+    });
+  }),
+
   // -------------------------------------------------------------------------
   // Config endpoints
   // -------------------------------------------------------------------------

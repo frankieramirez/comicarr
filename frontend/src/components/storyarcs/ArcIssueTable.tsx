@@ -12,6 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
+import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import { useSetArcIssueStatus, useDelArcIssue } from "@/hooks/useStoryArcs";
 import type { ArcIssue, ArcIssueStatus } from "@/types";
 
@@ -39,6 +41,7 @@ export default function ArcIssueTable({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const { addToast } = useToast();
+  const { startReview, reviewSheetProps } = useInteractiveReview();
 
   const setStatusMutation = useSetArcIssueStatus(storyArcId);
   const delIssueMutation = useDelArcIssue();
@@ -173,6 +176,28 @@ export default function ArcIssueTable({
                         role="menu"
                         className="absolute right-0 top-full mt-1 z-50 min-w-[10rem] rounded-md border border-card-border bg-card shadow-lg p-1"
                       >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            void startReview(
+                              {
+                                IssueNumber: issue.IssueNumber,
+                                ComicName: issue.ComicName,
+                                Status: issue.Status,
+                              },
+                              {
+                                entityType: "story_arc_issue",
+                                entityId: issue.IssueArcID,
+                              },
+                            );
+                          }}
+                        >
+                          <Search className="w-4 h-4" />
+                          Interactive Search
+                        </button>
                         {issue.Status === "Read" ? (
                           <button
                             className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
@@ -264,6 +289,7 @@ export default function ArcIssueTable({
           ))}
         </tbody>
       </table>
+      <ReleaseReviewSheet {...reviewSheetProps} />
     </div>
   );
 }
