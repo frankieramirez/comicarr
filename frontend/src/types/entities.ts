@@ -62,6 +62,7 @@ export interface Comic {
   Total?: number;
   Have?: number;
   LatestDate?: string | null;
+  LastUpdated?: string | null;
   DateAdded?: string | null;
   Description?: string | null;
   DetailURL?: string | null;

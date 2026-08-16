@@ -208,6 +208,54 @@ describe("SeriesDetailPage", () => {
     );
   });
 
+  it("shows last sync from LastUpdated and renders the description", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "md-synced",
+            ComicName: "One Piece",
+            Status: "Active",
+            LatestDate: "Unknown",
+            LastUpdated: "2026-08-16 12:00:00",
+            Description: "Pirates hunt the One Piece.",
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 0, owned: 0, missing: 0 },
+        }),
+      ),
+    );
+    renderDetail();
+    expect(
+      await screen.findByText(/last sync 2026-08-16 12:00:00/),
+    ).toBeTruthy();
+    expect(screen.getByText("Pirates hunt the One Piece.")).toBeTruthy();
+    expect(screen.queryByText("unsynced")).toBeNull();
+  });
+
+  it("still reads unsynced when no refresh timestamp exists", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "mal-unsynced",
+            ComicName: "Akira",
+            Status: "Active",
+            LatestDate: "Unknown",
+            LastUpdated: null,
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 0, owned: 0, missing: 0 },
+        }),
+      ),
+    );
+    renderDetail();
+    expect(await screen.findByText(/unsynced/)).toBeTruthy();
+    expect(screen.queryByText(/last sync/)).toBeNull();
+  });
+
   it("loads the cover from the art proxy, never a MangaDex hotlink", async () => {
     server.use(
       http.get("/api/series/1", () =>

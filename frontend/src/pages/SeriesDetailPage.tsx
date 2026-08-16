@@ -48,7 +48,7 @@ import type {
   ContentType,
 } from "@/types";
 import { displayComicDate, pickComicDate } from "@/lib/format";
-import { seriesCoverSrc } from "@/lib/series-utils";
+import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
 
 type IssueFilter = "all" | "have" | "missing" | "monitored";
 
@@ -477,8 +477,7 @@ export default function SeriesDetailPage() {
           {slug}
         </span>
         <span className="ml-auto hidden shrink-0 sm:inline">
-          {providerCode}:{comic.ComicID} ·{" "}
-          {comic.LatestDate ? `last sync ${comic.LatestDate}` : "unsynced"}
+          {providerCode}:{comic.ComicID} · {seriesSyncLabel(comic)}
         </span>
       </div>
 
