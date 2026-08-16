@@ -14,6 +14,16 @@ interface SelectOption {
   label: string;
 }
 
+/** Label for a coded select value. Used so the trigger does not wait for the popup to mount. */
+export function labelForSelectValue(
+  options: SelectOption[],
+  value?: string | number,
+): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const wanted = value.toString();
+  return options.find((option) => option.value.toString() === wanted)?.label;
+}
+
 interface SettingFieldProps {
   label: string;
   value?: string | number;
@@ -127,6 +137,7 @@ export function SettingField({
 
   // Select field
   if (type === "select") {
+    const selectedLabel = labelForSelectValue(options, value);
     return (
       <div className="py-2.5">
         <Label htmlFor={fieldId} className="text-[12.5px] font-medium">
@@ -139,7 +150,9 @@ export function SettingField({
             disabled={readOnly}
           >
             <SelectTrigger id={fieldId}>
-              <SelectValue placeholder={placeholder || "Select…"} />
+              <SelectValue placeholder={placeholder || "Select…"}>
+                {selectedLabel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {options.map((option) => (
