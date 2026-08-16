@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-table";
 import { RefreshCw } from "lucide-react";
 import {
+  useCancelInFlight,
   useDownloadHistory,
   useDownloadQueue,
   useInFlightItems,
@@ -237,8 +238,32 @@ function inFlightStateLabel(item: InFlightItem): string {
 
 function InFlightView() {
   const inflight = useInFlightItems();
+  const cancelInFlight = useCancelInFlight();
+  const { addToast } = useToast();
   const items = inflight.data?.results ?? [];
   const hardError = !inflight.data ? inflight.error : null;
+
+  const handleCancel = async (item: InFlightItem) => {
+    try {
+      if (item.kind === "run") {
+        await cancelInFlight.mutateAsync({
+          kind: "run",
+          item_id: item.item_id,
+        });
+      } else {
+        await cancelInFlight.mutateAsync({
+          kind: "journal",
+          release_key: item.release_key,
+        });
+      }
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Could not stop this item",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    }
+  };
 
   if (inflight.isLoading && !inflight.data) {
     return <LoadingRows />;
@@ -316,7 +341,19 @@ function InFlightView() {
                 ) : null}
               </div>
             </div>
-            <RelativeTime value={item.updated_at} />
+            <div className="flex shrink-0 items-center gap-2">
+              <RelativeTime value={item.updated_at} />
+              <button
+                type="button"
+                className="rounded-[5px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-secondary/50"
+                style={{ borderColor: "var(--border)" }}
+                aria-label={`Stop ${item.label}`}
+                disabled={cancelInFlight.isPending}
+                onClick={() => void handleCancel(item)}
+              >
+                Stop
+              </button>
+            </div>
           </li>
         );
       })}

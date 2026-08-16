@@ -159,6 +159,13 @@ def emit_for_journal_stage(
             cell = ("import", "failed")
         else:
             cell = ("download", "failed")
+    if cell is None and stage == "cancelled":
+        if prior_stage_rank is not None and int(prior_stage_rank) >= _IMPORT_FAIL_MIN_RANK:
+            cell = ("import", "cancelled")
+        elif prior_stage_rank is not None and int(prior_stage_rank) >= 20:
+            cell = ("download", "cancelled")
+        else:
+            cell = ("grab", "cancelled")
     if cell is None:
         # reserved / moved / unknown — internal only
         return None
@@ -388,6 +395,21 @@ def emit_tag_activity(
     )
 
 
+def emit_search_cancelled(entity_type, entity_id, *, label=None, reason_code="cancelled_by_operator"):
+    """Operator-stopped in-flight search — ``search.cancelled`` @ issue|annual."""
+    if entity_id in (None, ""):
+        return None
+    subject_type = "annual" if str(entity_type or "").strip().lower() == "annual" else "issue"
+    return record_activity(
+        "search",
+        "cancelled",
+        subject_type,
+        str(entity_id),
+        label or str(entity_id),
+        reason_code=reason_code,
+    )
+
+
 def emit_grab_cancelled_series(comicid, *, reason_code="pack_reversed", count=None):
     """Pack-reversal producer — ``grab.cancelled`` @ series (#430)."""
     if comicid in (None, ""):
@@ -413,6 +435,7 @@ __all__ = [
     "emit_arc_activity",
     "emit_for_journal_stage",
     "emit_grab_cancelled_series",
+    "emit_search_cancelled",
     "emit_run_completion",
     "emit_series_activity",
     "emit_tag_activity",

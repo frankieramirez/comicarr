@@ -58,6 +58,7 @@ MOVED = "moved"
 POST_PROCESSED = "post_processed"
 MANUAL_REVIEW = "manual_review"
 FAILED = "failed"
+CANCELLED = "cancelled"
 
 STAGE_RANK = {
     RESERVED: 5,
@@ -68,10 +69,13 @@ STAGE_RANK = {
     POST_PROCESSED: 50,
     MANUAL_REVIEW: 55,
     FAILED: 60,
+    # Above every open stage so an operator cancel wins over a late monitor
+    # write; a later RESERVED/SNATCHED still supersedes it.
+    CANCELLED: 65,
 }
 
 # Stages considered terminal: no further forward transition is legal.
-TERMINAL_STAGES = (POST_PROCESSED, MANUAL_REVIEW, FAILED)
+TERMINAL_STAGES = (POST_PROCESSED, MANUAL_REVIEW, FAILED, CANCELLED)
 
 # Open stages: rows replay must consider as still-in-flight obligations.
 OPEN_STAGES = (RESERVED, SNATCHED, DOWNLOADED, POST_PROCESSING, MOVED)
@@ -111,7 +115,7 @@ _RESNATCH_STAGES = (RESERVED, SNATCHED)
 # This widens the *stage gate* only. The reset is still reachable exclusively
 # from a fresh RESERVED/SNATCHED write, so it does not become an operator exit —
 # the boundary docs/architecture/activity-center.md draws is intact.
-_SUPERSEDABLE_TERMINALS = (FAILED, MANUAL_REVIEW)
+_SUPERSEDABLE_TERMINALS = (FAILED, MANUAL_REVIEW, CANCELLED)
 
 # Synthetic one-off IssueIDs are an unpersisted CONFIG.HIGHCOUNT counter that
 # starts at 900000 (see comicarr/updater.py:1214-1220). Such an IssueID is not

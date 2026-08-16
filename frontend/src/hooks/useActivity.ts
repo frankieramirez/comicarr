@@ -175,6 +175,29 @@ export function useInFlightItems() {
   });
 }
 
+export type CancelInFlightInput =
+  | { kind: "run"; item_id: number }
+  | { kind: "journal"; release_key: string };
+
+export function useCancelInFlight() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CancelInFlightInput) =>
+      apiRequest<{ ok: boolean; state: string }>(
+        "POST",
+        "/api/activity/in-flight/cancel",
+        input,
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ACTIVITY_IN_FLIGHT_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ACTIVITY_STATUS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ACTIVITY_TIMELINE_QUERY_KEY }),
+      ]);
+    },
+  });
+}
+
 export function useDownloadQueue(query: ActivityQuery) {
   return useQuery<QueueResponse>({
     queryKey: ["downloads", "queue", query],

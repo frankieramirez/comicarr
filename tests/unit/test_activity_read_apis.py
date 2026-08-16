@@ -865,8 +865,88 @@ def test_router_registers_session_protected_routes():
     assert "/api/activity/band" in paths
     assert "/api/activity/status" in paths
     assert "/api/activity/in-flight" in paths
+    assert "/api/activity/in-flight/cancel" in paths
 
     for route in router.routes:
         deps = getattr(route, "dependencies", None) or []
         callables = {getattr(d, "dependency", None) for d in deps}
         assert require_session in callables, "route %s missing require_session" % route.path
+
+
+def test_cancel_run_item_leaves_the_in_flight_set(activity_db):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from comicarr.app.acquisition.models import ItemOutcome
+    from comicarr.app.acquisition.runs import RunLedger
+    from comicarr.app.activity import queries
+    from comicarr.app.activity.router import router
+    from comicarr.app.core.security import require_session
+
+    ledger = RunLedger(activity_db)
+    ledger.create_run("run-cancel", command_kind="search", trigger="manual")
+    item = ledger.accept_item("run-cancel", entity_type="issue", entity_id="iss-cancel")
+    assert queries.get_open_work_counts()["in_flight"] == 1
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_session] = lambda: "operator"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/activity/in-flight/cancel",
+            json={"kind": "run", "item_id": item["item_id"]},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ok"] is True
+        assert body["state"] == ItemOutcome.CANCELLED.value
+
+    assert queries.get_open_work_counts()["in_flight"] == 0
+    leftover = [row for row in queries.list_in_flight_items() if row.get("item_id") == item["item_id"]]
+    assert leftover == []
+    stored = ledger.get_item("run-cancel", "issue", "iss-cancel")
+    assert stored["state"] == ItemOutcome.CANCELLED.value
+
+
+def test_cancel_journal_item_leaves_the_in_flight_set(activity_db):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from comicarr.app.activity import queries
+    from comicarr.app.activity.router import router
+    from comicarr.app.core.security import require_session
+    from comicarr.app.downloads import journal
+
+    rkey = "cancel-snatch"
+    with activity_db.begin() as conn:
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(
+                    release_key=rkey,
+                    stage=journal.SNATCHED,
+                    stage_rank=journal.STAGE_RANK[journal.SNATCHED],
+                    status=None,
+                    fail_reason=None,
+                    issueid="iss-20",
+                )
+            ],
+        )
+
+    assert queries.get_open_work_counts()["in_flight"] == 1
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_session] = lambda: "operator"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/activity/in-flight/cancel",
+            json={"kind": "journal", "release_key": rkey},
+        )
+        assert response.status_code == 200
+        assert response.json()["state"] == journal.CANCELLED
+
+    assert queries.get_open_work_counts()["in_flight"] == 0
+    assert journal.read_one(rkey)["stage"] == journal.CANCELLED
+    assert journal.is_terminal(journal.CANCELLED)
+    assert rkey not in {row.get("release_key") for row in queries.list_in_flight_items()}
