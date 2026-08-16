@@ -21,6 +21,6 @@
     "lint:fix:frontend": "npm --prefix frontend run format && npm --prefix frontend exec -- eslint . --fix"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1"
+    "@changesets/cli": "^3.0.0"
   }
 }
