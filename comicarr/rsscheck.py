@@ -34,6 +34,7 @@ from sqlalchemy.exc import OperationalError
 
 import comicarr
 from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr.app.search.provider_config import provider_enabled
 from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
@@ -556,7 +557,7 @@ def nzbs(provider=None, forcerss=False):
 
     if comicarr.CONFIG.NEWZNAB is True:
         for newznab_host in comicarr.CONFIG.EXTRA_NEWZNABS:
-            if str(newznab_host[5]) == "1":
+            if provider_enabled(newznab_host):
                 newznab_hosts.append(newznab_host)
 
     providercount = len(newznab_hosts) + int(comicarr.CONFIG.EXPERIMENTAL is True)

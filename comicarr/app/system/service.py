@@ -59,6 +59,11 @@ from comicarr.app.config.registry import (
 )
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search.provider_config import (
+    SearchProvider,
+    normalize_category_list,
+    providers_from_config,
+)
 from comicarr.tables import comics, jobhistory, storyarcs
 
 # Shared rate limiter instance for authentication endpoints.
@@ -352,73 +357,23 @@ def _http_origin(value):
     return scheme, hostname, port
 
 
-DEFAULT_NEWZNAB_RSS_UID = "1"
-
-
-def split_newznab_category_field(value):
-    """Split a Newznab category field into its RSS uid and its category list.
-
-    Field 5 of a Newznab record is ``uid#categories``: the uid is the ``i=``
-    parameter of the indexer's RSS URL, and everything after the first ``#`` is
-    the category list. A value with no ``#`` is a uid on its own, which is why
-    a bare ``7030`` typed into the Settings Categories box was stored as a uid
-    and searched nothing -- the categories the operator asked for were dropped
-    on the floor with no error. Returned as ``(uid, categories)`` with the
-    category separator normalised to a comma for display.
-
-    Torznab records have no uid; field 5 there is the category list alone.
-    """
-    uid, separator, categories = str(value or "").partition("#")
-    if not separator:
-        return uid.strip(), ""
-    return uid.strip(), ",".join(normalize_category_list(categories, "#"))
-
-
-def normalize_category_list(value, separator=","):
-    """Return the category ids in ``value`` with blanks and padding removed.
-
-    `7030, 7020` typed into Settings used to be stored with the space intact
-    and would have reached the indexer as `cat=7030, 7020`. It never showed
-    because the categories were not reaching the searcher at all; now that they
-    are, the field has to survive the way operators actually type a list.
-    """
-    return [part.strip() for part in str(value or "").split(separator) if part.strip()]
-
-
-def join_newznab_category_field(uid, categories):
-    """Rebuild the stored ``uid#categories`` field from its two halves."""
-    uid = str(uid or "").strip() or DEFAULT_NEWZNAB_RSS_UID
-    categories = "#".join(normalize_category_list(categories))
-    # A uid on its own, rather than a trailing '#', so the search path falls
-    # back to its built-in category instead of querying `cat=` empty.
-    return "%s#%s" % (uid, categories) if categories else uid
-
-
 def _safe_provider_projection(config, provider_type):
     """Build the credential-free provider projection returned by the API."""
-    attr_name = "EXTRA_NEWZNABS" if provider_type == "newznab" else "EXTRA_TORZNABS"
     enabled_key = "NEWZNAB" if provider_type == "newznab" else "ENABLE_TORZNAB"
     rows = []
-    for entry in getattr(config, attr_name, None) or []:
-        if not isinstance(entry, (list, tuple)) or len(entry) < 6:
-            continue
+    for provider in providers_from_config(config, provider_type):
         row = {
-            "name": str(entry[0] or ""),
-            "host": _safe_provider_host(entry[1]),
-            "verify": str(entry[2]).lower() in {"1", "true", "yes", "on"},
-            "categories": ",".join(normalize_category_list(entry[4], "#")),
-            "enabled": str(entry[5]).lower() in {"1", "true", "yes", "on"},
-            "api_key_set": _secret_is_configured(entry[3]),
+            "name": provider.name,
+            "host": _safe_provider_host(provider.host),
+            "verify": provider.verify,
+            "categories": ",".join(provider.categories),
+            "enabled": provider.enabled,
+            "api_key_set": _secret_is_configured(provider.api_key),
         }
         if provider_type == "newznab":
-            rss_uid, categories = split_newznab_category_field(entry[4])
-            row["rss_uid"] = rss_uid
-            row["categories"] = categories
-        if len(entry) >= 7:
-            try:
-                row["id"] = int(entry[6])
-            except (TypeError, ValueError):
-                pass
+            row["rss_uid"] = provider.rss_uid
+        if provider.id is not None:
+            row["id"] = provider.id
         rows.append(row)
     return {"enabled": bool(getattr(config, enabled_key, False)), "providers": rows}
 
@@ -608,13 +563,9 @@ def update_providers(ctx, provider_data):
 
     config_key = "EXTRA_NEWZNABS" if provider_type == "newznab" else "EXTRA_TORZNABS"
     if object_payload:
-        existing = getattr(ctx.config, config_key, []) or []
-        by_id = {str(row[6]): row for row in existing if isinstance(row, (list, tuple)) and len(row) >= 7}
-        by_identity = {
-            (str(row[0]), _safe_provider_host(row[1])): row
-            for row in existing
-            if isinstance(row, (list, tuple)) and len(row) >= 6
-        }
+        existing = providers_from_config(ctx.config, provider_type)
+        by_id = {str(record.id): record for record in existing if record.id is not None}
+        by_identity = {(record.name, _safe_provider_host(record.host)): record for record in existing}
         normalized = []
         for row in providers:
             if not isinstance(row, dict):
@@ -627,38 +578,36 @@ def update_providers(ctx, provider_data):
             new_origin = _http_origin(host)
             if new_origin is None:
                 return {"success": False, "error": "Provider URL must use HTTP or HTTPS"}
-            if credential in (None, "") and old is not None and _secret_is_configured(old[3]):
-                if _http_origin(old[1]) != new_origin:
+            if credential in (None, "") and old is not None and _secret_is_configured(old.api_key):
+                if _http_origin(old.host) != new_origin:
                     return {
                         "success": False,
                         "error": "A new API key is required when changing a provider origin",
                     }
-                credential = old[3]
-            if old is not None and host == _safe_provider_host(old[1]):
-                host = old[1]
-            categories = "#".join(normalize_category_list(row.get("categories")))
+                credential = old.api_key
+            if old is not None and host == _safe_provider_host(old.host):
+                host = old.host
+            rss_uid = None
             if provider_type == "newznab":
                 # Keep the uid the operator is already using when the client
                 # does not send one back, so editing categories cannot silently
                 # repoint the indexer's RSS feed at a different user.
                 rss_uid = row.get("rss_uid")
                 if rss_uid in (None, ""):
-                    rss_uid = split_newznab_category_field(old[4])[0] if old is not None and len(old) >= 5 else None
-                categories = join_newznab_category_field(rss_uid, row.get("categories"))
-            normalized_row = [
-                row.get("name", ""),
-                host,
-                "1" if row.get("verify") else "0",
-                credential or "",
-                categories,
-                "1" if row.get("enabled") else "0",
-            ]
-            provider_id = (
-                row.get("id") if row.get("id") is not None else (old[6] if old is not None and len(old) >= 7 else None)
+                    rss_uid = old.rss_uid if old is not None else None
+            provider_id = row.get("id") if row.get("id") is not None else (old.id if old is not None else None)
+            record = SearchProvider(
+                kind=provider_type,
+                name=row.get("name", ""),
+                host=host,
+                verify=bool(row.get("verify")),
+                api_key=credential or "",
+                categories=tuple(normalize_category_list(row.get("categories"))),
+                enabled=bool(row.get("enabled")),
+                rss_uid=rss_uid,
+                id=provider_id,
             )
-            if provider_id is not None:
-                normalized_row.append(provider_id)
-            normalized.append(normalized_row)
+            normalized.append(list(record.to_entry()))
         providers = normalized
     try:
         ctx.config.validate_provider_extra_value(config_key, providers)

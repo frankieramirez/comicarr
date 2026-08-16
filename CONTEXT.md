@@ -38,6 +38,18 @@ An operator-initiated review of release candidates for one tracked acquisition i
 
 _Avoid_: Manual search, interactive search
 
+## Search provider
+
+A configured acquisition source Comicarr queries for release candidates: a Newznab or Torznab indexer, a DDL site, a torrent site, or the experimental source. Distinct from a Series provider, which answers who issued a Series' identifier — a Search provider answers where releases are found.
+
+_Avoid_: Indexer (as the umbrella term), provider (unqualified where either meaning could apply)
+
+## Acquisition route
+
+The delivery channel a Search provider serves: `ddl`, `nzb`, or `torrent`. Every Search provider serves exactly one route. Route readiness — whether Comicarr can currently acquire through a channel end to end, including its downstream client — is a property of the route, not of any one provider.
+
+_Avoid_: Search route, download method
+
 ## Needs attention
 
 The work queue of unresolved, actionable acquisition obligations that Comicarr cannot finish without operator information, authority, or judgment. It excludes trouble Comicarr can reconcile itself.

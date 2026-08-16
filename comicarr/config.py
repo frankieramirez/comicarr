@@ -37,21 +37,19 @@ import comicarr
 from comicarr import db, encrypted, filechecker, helpers, logger, maintenance
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
+from comicarr.app.search import provider_config
 
 config = configparser.ConfigParser()
 _CONFIG_TRANSACTION_LOCK = threading.RLock()
 _CONFIG_TEMP_PREFIX = ".comicarr-config-"
 _CONFIG_TEMP_SUFFIX = ".tmp"
-_PROVIDER_EXTRA_FIELDS = ("EXTRA_NEWZNABS", "EXTRA_TORZNABS")
-_PROVIDER_EXTRA_WIDTHS = (6, 7)
-_PROVIDER_CREDENTIAL_INDEX = 3
-_PROVIDER_BOOLEAN_VALUES = {"0", "1", "false", "true", "no", "yes", "off", "on"}
-_PROVIDER_BOOLEAN_TRUE = {"1", "true", "yes", "on"}
-# Verify-TLS and enabled. Both are read as `bool(int(field))` by the search
-# path and compared against the literal "1" by the enabled filters, so a field
-# spelled any other legal way is a crash or a silent skip -- see
-# _canonical_provider_boolean.
-_PROVIDER_BOOLEAN_INDEXES = (2, 5)
+# The provider tuple codec is owned by the Search provider module; config.py
+# only calls it at the INI load/store choke points.
+_PROVIDER_EXTRA_FIELDS = provider_config.PROVIDER_EXTRA_FIELDS
+_PROVIDER_CREDENTIAL_INDEX = provider_config.PROVIDER_CREDENTIAL_INDEX
+_canonical_provider_boolean = provider_config.canonical_provider_boolean
+parse_provider_extras = provider_config.parse_provider_extras
+serialize_provider_extras = provider_config.serialize_provider_extras
 
 
 def config_transaction_lock():
@@ -65,85 +63,6 @@ def config_transaction_lock():
     bug waiting to happen.
     """
     return _CONFIG_TRANSACTION_LOCK
-
-
-def _canonical_provider_boolean(value):
-    """Return a provider boolean field as the only spelling every reader agrees on.
-
-    `_PROVIDER_BOOLEAN_VALUES` accepts eight spellings, but the consumers do
-    not. `search.py` and `rsscheck.py` read verify as `bool(int(field))`, which
-    raises `ValueError` on `"True"`; the enabled filters in `search.py` compare
-    against the literal `"1"` while `health.py` and the providers API accept
-    `true`/`yes`/`on`. So an entry stored as `True` was reported enabled by the
-    Acquisition tab and skipped by the searcher -- and one stored with a
-    non-numeric verify took the search down. Both fields are normalised here,
-    at the single boundary every reader and writer passes through, so tolerance
-    at the edge cannot become disagreement in the middle.
-    """
-    return "1" if str(value).strip().lower() in _PROVIDER_BOOLEAN_TRUE else "0"
-
-
-def _provider_entry_is_structurally_valid(entry):
-    """Distinguish historical six- and seven-field provider records safely."""
-    if len(entry) not in _PROVIDER_EXTRA_WIDTHS:
-        return False
-    if str(entry[2]).strip().lower() not in _PROVIDER_BOOLEAN_VALUES:
-        return False
-    if str(entry[5]).strip().lower() not in _PROVIDER_BOOLEAN_VALUES:
-        return False
-    if len(entry) == 7:
-        try:
-            int(entry[6])
-        except (TypeError, ValueError):
-            return False
-    return True
-
-
-def parse_provider_extras(value, config_version=15):
-    """Parse provider extras without assuming one historical tuple width."""
-    if value in (None, "", "None"):
-        return []
-
-    if isinstance(value, (list, tuple)):
-        entries = value
-    elif isinstance(value, str):
-        parts = value.split(", ")
-        candidates = []
-        for width in _PROVIDER_EXTRA_WIDTHS:
-            if len(parts) % width:
-                continue
-            candidate = [parts[index : index + width] for index in range(0, len(parts), width)]
-            if all(_provider_entry_is_structurally_valid(entry) for entry in candidate):
-                candidates.append(candidate)
-        if len(candidates) != 1:
-            raise ValueError("Provider configuration has an invalid field count")
-        entries = candidates[0]
-    else:
-        raise ValueError("Provider configuration must be a list of entries")
-
-    parsed = []
-    for entry in entries:
-        if not isinstance(entry, (list, tuple)) or not _provider_entry_is_structurally_valid(entry):
-            raise ValueError("Provider entries must contain six or seven fields")
-        values = list(entry)
-        for index in _PROVIDER_BOOLEAN_INDEXES:
-            values[index] = _canonical_provider_boolean(values[index])
-        parsed.append(tuple(values))
-    return parsed
-
-
-def serialize_provider_extras(entries):
-    """Serialize validated provider entries using the legacy flat INI format."""
-    flattened = []
-    for entry in parse_provider_extras(entries):
-        for index, value in enumerate(entry):
-            field = "" if value is None else str(value)
-            if index == 4:
-                field = field.replace(",", "#")
-            elif ", " in field:
-                raise ValueError("Provider fields cannot contain the INI delimiter")
-            flattened.append(field)
-    return ", ".join(flattened)
 
 
 def decrypt_provider_credential(value, secure_dir):
