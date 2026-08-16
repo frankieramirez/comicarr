@@ -171,6 +171,7 @@ WEEKLY_STATUS = "Waiting"
 WEEKLY_MANUAL_NEXT_RUN = None
 VERSION_STATUS = "Waiting"
 UPDATER_STATUS = "Waiting"
+MANGA_SYNC_STATUS = "Waiting"
 FORCE_STATUS = {}
 RSS_SCHEDULER = None
 WEEKLY_SCHEDULER = None
@@ -179,12 +180,14 @@ IMPORTINBOX_SCHEDULER = None
 SEARCH_SCHEDULER = None
 VERSION_SCHEDULER = None
 UPDATER_SCHEDULER = None
+MANGA_SYNC_SCHEDULER = None
 SCHED_RSS_LAST = None
 SCHED_WEEKLY_LAST = None
 SCHED_MONITOR_LAST = None
 SCHED_SEARCH_LAST = None
 SCHED_VERSION_LAST = None
 SCHED_DBUPDATE_LAST = None
+SCHED_MANGA_SYNC_LAST = None
 DB_BACKFILL = False
 DBLOCK = False
 DB_FILE = None
@@ -440,6 +443,7 @@ def initialize(config_file):
             WEEKLY_STATUS, \
             VERSION_STATUS, \
             UPDATER_STATUS, \
+            MANGA_SYNC_STATUS, \
             FORCE_STATUS, \
             DB_BACKFILL, \
             APILOCK, \
@@ -452,6 +456,7 @@ def initialize(config_file):
             WEEKLY_SCHEDULER, \
             VERSION_SCHEDULER, \
             UPDATER_SCHEDULER, \
+            MANGA_SYNC_SCHEDULER, \
             START_UP, \
             SCHED_RSS_LAST, \
             SCHED_WEEKLY_LAST, \
@@ -459,6 +464,7 @@ def initialize(config_file):
             SCHED_SEARCH_LAST, \
             SCHED_VERSION_LAST, \
             SCHED_DBUPDATE_LAST, \
+            SCHED_MANGA_SYNC_LAST, \
             COMICINFO, \
             SEARCH_TIER_DATE, \
             BACKENDSTATUS_CV, \
@@ -928,6 +934,7 @@ def resume_acquisition_runtime(config=None):
             "rss": RSS_STATUS,
             "monitor": MONITOR_STATUS,
             "importinbox": IMPORTINBOX_STATUS,
+            "manga_sync": MANGA_SYNC_STATUS,
         }
         scheduler = ctx.scheduler if ctx is not None else SCHED
         resumed_jobs = []
@@ -1159,6 +1166,7 @@ def start(ctx):
             monitors["monitor"]["last"]
             monitors["version"]["last"]
             SCHED_RSS_LAST = monitors["rss"]["last"]
+            SCHED_MANGA_SYNC_LAST = monitors.get("manga_sync", {}).get("last")
 
             # Start our scheduled background tasks
             if UPDATER_STATUS != "Paused":
@@ -1187,6 +1195,16 @@ def start(ctx):
                         % (helpers.utc_date_to_local(updater_diff), CONFIG.DBUPDATE_INTERVAL)
                     )
                     UPDATER_SCHEDULER.modify(next_run_time=updater_diff)
+
+            from comicarr.app.manga.sync import arm_manga_sync_job
+
+            if MANGA_SYNC_STATUS != "Paused":
+                arm_manga_sync_job(
+                    MANGA_SYNC_SCHEDULER,
+                    MANGA_SYNC_STATUS,
+                    SCHED_MANGA_SYNC_LAST,
+                    CONFIG.DBUPDATE_INTERVAL,
+                )
 
             # let's do a run at the Wanted issues here (on startup) if enabled.
             if SEARCH_STATUS != "Paused":

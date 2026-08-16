@@ -348,6 +348,14 @@ def test_matcher_rejection_reasons_are_stable(
     assert evaluation.verdict["status"] == ("error" if reason_code.startswith("error.") else "rejected")
 
 
+def test_manga_booktype_does_not_trip_tpb_format_gate(monkeypatch):
+    _install_parser(monkeypatch, parsed=_parsed(booktype="issue"), matched=_matched())
+
+    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info(booktype="manga"))
+
+    assert _reason(evaluation) != "rejected.book_type"
+
+
 def _pack_entry(**overrides):
     values = _entry(
         title="Example Series 001-010 (2024)",

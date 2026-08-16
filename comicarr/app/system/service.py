@@ -1969,6 +1969,12 @@ def job_management(
                 if any([jstatus == "Waiting", jstatus == "Running"]) and comicarr.CONFIG.CHECK_FOLDER is False:
                     jstatus = "Paused"
                 comicarr.MONITOR_STATUS = jstatus
+            elif "ledger sync" in ji["JobName"].lower():
+                if comicarr.SCHED_MANGA_SYNC_LAST is None:
+                    comicarr.SCHED_MANGA_SYNC_LAST = ji["prev_run_timestamp"]
+                if jstatus is None:
+                    jstatus = "Waiting"
+                comicarr.MANGA_SYNC_STATUS = jstatus
 
         return {
             "weekly": {"last": comicarr.SCHED_WEEKLY_LAST, "status": comicarr.WEEKLY_STATUS},
@@ -1977,6 +1983,7 @@ def job_management(
             "updater": {"last": comicarr.SCHED_DBUPDATE_LAST, "status": comicarr.UPDATER_STATUS},
             "version": {"last": comicarr.SCHED_VERSION_LAST, "status": comicarr.VERSION_STATUS},
             "rss": {"last": comicarr.SCHED_RSS_LAST, "status": comicarr.RSS_STATUS},
+            "manga_sync": {"last": comicarr.SCHED_MANGA_SYNC_LAST, "status": comicarr.MANGA_SYNC_STATUS},
         }
 
     for jb in comicarr.SCHED.get_jobs():
@@ -2048,6 +2055,16 @@ def job_management(
             else:
                 comicarr.MONITOR_STATUS = "Paused"
             sched_status = comicarr.MONITOR_STATUS
+        elif jobname == "Manga ledger sync":
+            prev_run_timestamp = comicarr.SCHED_MANGA_SYNC_LAST
+            if "next run" in jobstatus:
+                comicarr.MANGA_SYNC_STATUS = "Waiting"
+                if any(ky == "manga_sync" for ky, vl in comicarr.FORCE_STATUS.items()):
+                    comicarr.MANGA_SYNC_STATUS = comicarr.FORCE_STATUS["manga_sync"]
+                    next_the_run = True
+            else:
+                comicarr.MANGA_SYNC_STATUS = "Paused"
+            sched_status = comicarr.MANGA_SYNC_STATUS
 
         jtime = None
         try:

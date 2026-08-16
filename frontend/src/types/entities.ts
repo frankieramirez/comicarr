@@ -76,6 +76,10 @@ export interface Comic {
   AllowPacks?: string | number | null;
   /** Per-series booktype-mismatch override — Integer flag column */
   IgnoreType?: number | null;
+  /** Per-series bare-number interpretation: auto | volumes | chapters */
+  BareNumberMode?: "auto" | "volumes" | "chapters" | null;
+  /** Per-series auto-search frontier: blended | volumes | chapters */
+  MonitorMode?: "blended" | "volumes" | "chapters" | null;
 }
 
 /** Issue entity */

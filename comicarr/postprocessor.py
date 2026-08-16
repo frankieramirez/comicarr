@@ -41,7 +41,6 @@ from comicarr.app.downloads.postprocess_pipeline import (
 )
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.config import get_manga_destination
-from comicarr.manga_parser import parse_manga_filename
 from comicarr.tables import (
     annuals,
     comics,
@@ -4343,9 +4342,19 @@ class PostProcessor(object):
         # non-terminal) AND the row only goes terminal once every discovered
         # chapter has been moved.
         matched_issueids = []
+        from comicarr.app.manga.parse import parse_in_series_context
+
+        sibling_names = [os.path.basename(path) for path in manga_files]
+        series_issues = db.select_all(select(issues).where(issues.c.ComicID == self.comicid))
         for filepath in manga_files:
             filename = os.path.basename(filepath)
-            parsed = parse_manga_filename(filename)
+            parsed = parse_in_series_context(
+                filename,
+                series=comicnzb,
+                filenames=sibling_names,
+                series_name=series_name,
+                issues=series_issues,
+            )
             self._log("Found manga file: %s" % filename)
 
             # Validate source path is within download directory

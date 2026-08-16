@@ -254,7 +254,7 @@ def _match_group(group_key, group_info, series_list):
             % (group_name, best_match.get("ComicName", ""), confidence)
         )
         for filepath in files:
-            _auto_import_file(filepath, best_match, confidence)
+            _auto_import_file(filepath, best_match, confidence, filenames=files)
             result["auto_imported"] += 1
     else:
         # Queue for manual review
@@ -265,7 +265,16 @@ def _match_group(group_key, group_info, series_list):
             % (group_name, suggested_name or "none", confidence)
         )
         for filepath in files:
-            _queue_for_review(filepath, group_key, group_name, suggested_id, suggested_name, confidence)
+            _queue_for_review(
+                filepath,
+                group_key,
+                group_name,
+                suggested_id,
+                suggested_name,
+                confidence,
+                filenames=files,
+                series=best_match,
+            )
             result["queued_for_review"] += 1
 
     return result
@@ -276,12 +285,25 @@ def _filepath_to_impid(filepath):
     return hashlib.sha256(filepath.encode("utf-8")).hexdigest()[:32]
 
 
-def _auto_import_file(filepath, series, confidence):
+def _auto_import_file(filepath, series, confidence, filenames=None):
     """Record an auto-imported file in importresults with status=Imported."""
+    from comicarr.app.manga.parse import parse_in_series_context
+
     filename = os.path.basename(filepath)
     imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
-    chapter_number = _format_chapter_number(manga_parser.parse_manga_chapter_number(filename))
+    parsed = parse_in_series_context(
+        filename,
+        series=series,
+        filenames=filenames or [filepath],
+        series_name=series.get("ComicName"),
+    )
+    number = None
+    if parsed:
+        number = parsed.get("volume_number") if parsed.get("chapter_number") is None else parsed.get("chapter_number")
+    chapter_number = _format_chapter_number(
+        number if number is not None else manga_parser.parse_manga_chapter_number(filename)
+    )
 
     db.upsert(
         "importresults",
@@ -305,13 +327,32 @@ def _auto_import_file(filepath, series, confidence):
     logger.fdebug("[IMPORT-INBOX] Auto-imported: %s -> %s" % (filename, series.get("ComicName", "")))
 
 
-def _queue_for_review(filepath, group_key, group_name, suggested_id, suggested_name, confidence):
+def _queue_for_review(
+    filepath,
+    group_key,
+    group_name,
+    suggested_id,
+    suggested_name,
+    confidence,
+    filenames=None,
+    series=None,
+):
     """Queue a file in importresults for manual review."""
+    from comicarr.app.manga.parse import parse_in_series_context
+
     filename = os.path.basename(filepath)
     imp_id = _filepath_to_impid(filepath)
     import_date = time.strftime("%Y-%m-%d %H:%M:%S")
-    parsed = manga_parser.parse_manga_filename(filename, series_name=group_name)
-    chapter_number = _format_chapter_number(parsed["chapter_number"]) if parsed else None
+    parsed = parse_in_series_context(
+        filename,
+        series=series,
+        filenames=filenames or [filepath],
+        series_name=group_name,
+    )
+    number = None
+    if parsed:
+        number = parsed.get("volume_number") if parsed.get("chapter_number") is None else parsed.get("chapter_number")
+    chapter_number = _format_chapter_number(number) if number is not None else None
 
     db.upsert(
         "importresults",

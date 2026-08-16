@@ -48,6 +48,8 @@ COMICS_COLUMNS = [
     t_comics.c.ContentType.label("ContentType"),
     t_comics.c.AllowPacks.label("AllowPacks"),
     t_comics.c.IgnoreType.label("IgnoreType"),
+    t_comics.c.BareNumberMode.label("BareNumberMode"),
+    t_comics.c.MonitorMode.label("MonitorMode"),
     t_comics.c.MangaDexID.label("MangaDexID"),
 ]
 
@@ -199,9 +201,15 @@ def delete_comic(comic_id):
 
 
 def get_comic_search_settings(comic_id):
-    """Get the per-series search flags (pack matching / booktype override)."""
+    """Get the per-series search flags (pack matching / booktype / manga modes)."""
     return db.select_one(
-        select(t_comics.c.ComicID, t_comics.c.AllowPacks, t_comics.c.IgnoreType).where(t_comics.c.ComicID == comic_id)
+        select(
+            t_comics.c.ComicID,
+            t_comics.c.AllowPacks,
+            t_comics.c.IgnoreType,
+            t_comics.c.BareNumberMode,
+            t_comics.c.MonitorMode,
+        ).where(t_comics.c.ComicID == comic_id)
     )
 
 

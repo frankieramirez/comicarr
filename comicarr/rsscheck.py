@@ -1855,21 +1855,20 @@ def ddlrss_pack_detect(title, link):
 
 
 def mangaCheck():
-    """Search for wanted manga chapters using the existing search infrastructure.
+    """Search the blended frontier for each active manga series.
 
-    Queries the database for manga series (ContentType='manga') that have
-    chapters in 'Wanted' status, then triggers a search for each one via
-    the search pipeline.  Paused series are skipped.
-
-    Callable from the scheduler or manually.
+    Uses the persisted per-series MonitorMode (default blended): missing
+    released volumes plus chapters beyond the last released volume. Paused
+    series are skipped. Callable from the scheduler or manually.
     """
     from comicarr import search
+    from comicarr.app.manga.acquisition import search_plan_for_series
+    from comicarr.app.manga.ledger import volume_id
+    from comicarr.app.manga.sync import active_manga_clause
     from comicarr.tables import comics as t_comics
     from comicarr.tables import issues as t_issues
 
-    logger.info("[MANGA-RSS] Starting manga wanted-chapter search")
-
-    from comicarr.app.manga.sync import active_manga_clause
+    logger.info("[MANGA-RSS] Starting manga blended-frontier search")
 
     # Prefix *or* ContentType so a mis-stamped md-/mal- row is still checked.
     manga_series = db.select_all(
@@ -1886,44 +1885,47 @@ def mangaCheck():
     logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
 
     total_searched = 0
+    issues_by_series = {}
 
-    wanted_statuses = ["Wanted"]
-    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
-        wanted_statuses.append("Failed")
+    for series in manga_series:
+        comic_id = series["ComicID"]
+        issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
 
     for series in manga_series:
         comic_id = series["ComicID"]
         comic_name = series["ComicName"]
         series_year = series.get("ComicYear") or str(datetime.now().year)
-
-        wanted_chapters = db.select_all(
-            select(t_issues).where(
-                t_issues.c.ComicID == comic_id,
-                t_issues.c.Status.in_(wanted_statuses),
-            )
-        )
-
-        if not wanted_chapters:
+        issues = issues_by_series.get(comic_id) or []
+        targets = search_plan_for_series(series, issues)
+        if not targets:
             continue
 
-        logger.info("[MANGA-RSS] %s has %d wanted chapter(s)" % (comic_name, len(wanted_chapters)))
+        logger.info("[MANGA-RSS] %s has %d blended-frontier target(s)" % (comic_name, len(targets)))
+        issue_by_id = {row.get("IssueID"): row for row in issues}
 
-        for chapter in wanted_chapters:
-            issue_id = chapter["IssueID"]
-            chapter_number = chapter.get("ChapterNumber") or chapter.get("Issue_Number", "1")
-            issue_date = chapter.get("IssueDate") or "0000-00-00"
-            store_date = chapter.get("ReleaseDate") or "0000-00-00"
-            digital_date = chapter.get("DigitalDate") or "0000-00-00"
+        for target in targets:
+            if target.get("kind") == "volume":
+                issue_id = volume_id(comic_id, target.get("number"))
+                issue_number = target.get("number")
+                chapter_number = None
+                volume_number = target.get("number")
+            else:
+                issue_id = target.get("id")
+                issue_number = target.get("number")
+                chapter_number = target.get("number")
+                volume_number = None
+            issue_row = issue_by_id.get(issue_id) or {}
+            issue_date = issue_row.get("IssueDate") or "0000-00-00"
+            store_date = issue_row.get("ReleaseDate") or "0000-00-00"
+            digital_date = issue_row.get("DigitalDate") or "0000-00-00"
 
-            # Skip chapters that are already downloaded/snatched (race condition guard)
-            isscheck = helpers.issue_status(issue_id)
-            if isscheck is True:
+            if issue_id and helpers.issue_status(issue_id) is True:
                 continue
 
             try:
                 search.search_init(
                     comic_name,
-                    str(chapter_number),
+                    str(issue_number or "1"),
                     str(series_year)[:4],
                     str(series_year)[:4],
                     series.get("ComicPublisher", ""),
@@ -1940,14 +1942,16 @@ def mangaCheck():
                     booktype="manga",
                     digitaldate=digital_date,
                     content_type="manga",
-                    chapter_number=str(chapter_number),
-                    volume_number=chapter.get("VolumeNumber"),
+                    chapter_number=None if chapter_number is None else str(chapter_number),
+                    volume_number=None if volume_number is None else str(volume_number),
                 )
                 total_searched += 1
             except Exception as e:
-                logger.error("[MANGA-RSS] Error searching for %s chapter %s: %s" % (comic_name, chapter_number, e))
+                logger.error(
+                    "[MANGA-RSS] Error searching for %s %s %s: %s" % (comic_name, target.get("kind"), issue_number, e)
+                )
 
-    logger.info("[MANGA-RSS] Manga search complete — searched %d chapter(s)" % total_searched)
+    logger.info("[MANGA-RSS] Manga search complete — searched %d target(s)" % total_searched)
 
 
 def mangadexNewChapterCheck():

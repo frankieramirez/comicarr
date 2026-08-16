@@ -411,13 +411,25 @@ def delete_comic(ctx, comic_id, delete_directory=False):
     }
 
 
-def update_search_settings(ctx, comic_id, allow_packs=None, ignore_type=None):
-    """Update the per-series search flags (#633).
+def update_search_settings(
+    ctx,
+    comic_id,
+    allow_packs=None,
+    ignore_type=None,
+    bare_number_mode=None,
+    monitor_mode=None,
+):
+    """Update the per-series search flags (#633, #689, #691).
 
     ``allow_packs`` gates pack/bundle release matching; ``ignore_type`` lets
-    results through the booktype-mismatch check in search_filer. Both are
-    partial — omitted (None) fields are left untouched.
+    results through the booktype-mismatch check in search_filer.
+    ``bare_number_mode`` is volumes/chapters/auto; ``monitor_mode`` is
+    blended/volumes/chapters. Omitted fields are left untouched.
     """
+    from comicarr.app.manga.acquisition import MONITOR_MODES, normalize_monitor_mode
+    from comicarr.app.manga.bare_numbers import MODES as BARE_MODES
+    from comicarr.app.manga.bare_numbers import normalize_mode
+
     existing = series_queries.get_comic_search_settings(comic_id)
     if not existing:
         return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
@@ -428,6 +440,14 @@ def update_search_settings(ctx, comic_id, allow_packs=None, ignore_type=None):
         values["AllowPacks"] = "1" if allow_packs else "0"
     if ignore_type is not None:
         values["IgnoreType"] = 1 if ignore_type else 0
+    if bare_number_mode is not None:
+        if str(bare_number_mode).strip().lower() not in BARE_MODES:
+            return {"success": False, "error": "bare_number_mode must be auto, volumes, or chapters"}
+        values["BareNumberMode"] = normalize_mode(bare_number_mode)
+    if monitor_mode is not None:
+        if str(monitor_mode).strip().lower() not in MONITOR_MODES:
+            return {"success": False, "error": "monitor_mode must be blended, volumes, or chapters"}
+        values["MonitorMode"] = normalize_monitor_mode(monitor_mode)
 
     if not values:
         return {"success": False, "error": "No search settings provided"}
@@ -440,6 +460,8 @@ def update_search_settings(ctx, comic_id, allow_packs=None, ignore_type=None):
         "settings": {
             "allow_packs": updated["AllowPacks"] in (1, "1"),
             "ignore_type": bool(updated["IgnoreType"]),
+            "bare_number_mode": normalize_mode(updated.get("BareNumberMode")),
+            "monitor_mode": normalize_monitor_mode(updated.get("MonitorMode")),
         },
     }
 

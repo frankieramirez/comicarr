@@ -384,7 +384,11 @@ def search_init(
                     cmloopit = 1
         logger.info("cmloopit: %s" % cmloopit)
         chktpb = 0
-        if any([booktype == "TPB", booktype == "HC", booktype == "GN"]):
+        from comicarr.app.manga.acquisition import booktype_bypasses_format_gates
+
+        if any([booktype == "TPB", booktype == "HC", booktype == "GN"]) and not booktype_bypasses_format_gates(
+            booktype
+        ):
             chktpb = 1
 
         if findit["status"] is True:
@@ -4511,71 +4515,15 @@ def searchforissue_checker(issueid, storedate, issuedate, digitaldate, info):
 def _build_manga_search_terms(series_name, chapter_num, volume_num):
     """Build manga-specific search query variations.
 
-    Returns a list of search term strings suitable for NZB/torrent providers.
-    Each variation covers a common manga release naming convention:
-      - chapter-only:   "Series Name" c001 / "Series Name" chapter 001
-      - volume-only:    "Series Name" v01
-      - combined:       "Series Name" v01c001
-
-    Args:
-        series_name: The manga series title (e.g. "One Piece").
-        chapter_num: Chapter number as string or None.
-        volume_num:  Volume number as string or None.
-
-    Returns:
-        List of search term strings (may be empty if both chapter and volume
-        are None).
+    Volume targets search ``vNN`` only. Chapter targets search ``cNNN`` /
+    ``chapter NNN`` only. Never both — the blended frontier already chose
+    which kind to look for.
     """
-    terms = []
-    if not series_name:
-        return terms
+    from comicarr.app.manga.acquisition import search_terms_for_target
 
-    # Normalize the series name — strip leading/trailing whitespace
-    name = series_name.strip()
-
-    # Zero-pad chapter and volume for consistent matching
-    ch_padded = None
-    if chapter_num is not None:
-        try:
-            ch_float = float(chapter_num)
-            if ch_float == int(ch_float):
-                ch_padded = "%03d" % int(ch_float)
-            else:
-                # Decimal chapters like 10.5 — pad integer part only
-                ch_padded = "%03d.%s" % (int(ch_float), str(round(ch_float % 1, 1))[2:])
-        except (ValueError, TypeError):
-            logger.fdebug("[SEARCH-MANGA] Could not parse chapter number: %s" % chapter_num)
-            ch_padded = str(chapter_num)
-
-    vol_padded = None
-    if volume_num is not None:
-        try:
-            vol_int = int(volume_num)
-            vol_padded = "%02d" % vol_int
-        except (ValueError, TypeError):
-            logger.fdebug("[SEARCH-MANGA] Could not parse volume number: %s" % volume_num)
-            vol_padded = str(volume_num)
-
-    # Build variations in priority order (most specific first)
-    if ch_padded and vol_padded:
-        # Combined: "Series Name" v01c001
-        terms.append("%s v%sc%s" % (name, vol_padded, ch_padded))
-
-    if ch_padded:
-        # Short chapter: "Series Name" c001
-        terms.append("%s c%s" % (name, ch_padded))
-        # Long chapter: "Series Name" chapter 001
-        terms.append("%s chapter %s" % (name, ch_padded))
-
-    if vol_padded:
-        # Volume only: "Series Name" v01
-        terms.append("%s v%s" % (name, vol_padded))
-
-    logger.fdebug(
-        "[SEARCH-MANGA] Built %d search terms for %s (ch=%s, vol=%s)" % (len(terms), name, chapter_num, volume_num)
-    )
-
-    return terms
+    if volume_num not in (None, "") and chapter_num in (None, ""):
+        return search_terms_for_target(series_name, {"kind": "volume", "number": volume_num})
+    return search_terms_for_target(series_name, {"kind": "chapter", "number": chapter_num})
 
 
 def get_findcomiciss(IssueNumber):

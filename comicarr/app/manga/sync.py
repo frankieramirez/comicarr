@@ -23,6 +23,39 @@ JOB_ID = "manga_sync"
 JOB_NAME = "Manga ledger sync"
 
 
+def next_interval_run(last_timestamp, interval_minutes, now_ts=None):
+    """When the next interval job should fire.
+
+    Overdue or never-run jobs return *now*. Otherwise the remaining wait.
+    ``last_timestamp`` is a unix timestamp; interval is minutes.
+    """
+    import datetime
+
+    from comicarr.helpers import utctimestamp
+
+    now = now_ts if now_ts is not None else utctimestamp()
+    interval = max(int(interval_minutes or 0), 1)
+    if last_timestamp is None:
+        return datetime.datetime.utcfromtimestamp(now)
+    elapsed_minutes = (now - float(last_timestamp)) / 60.0
+    if elapsed_minutes >= interval:
+        return datetime.datetime.utcfromtimestamp(now)
+    return datetime.datetime.utcfromtimestamp(now + (interval - elapsed_minutes) * 60.0)
+
+
+def arm_manga_sync_job(scheduler, status, last_timestamp, interval_minutes):
+    """Resume the paused manga_sync job on the DB-update cadence.
+
+    APScheduler ``pause()`` clears ``next_run_time``. ``modify(next_run_time=)``
+    is what actually lets updater/search/rss fire after that pause.
+    """
+    if scheduler is None or status == "Paused":
+        return None
+    when = next_interval_run(last_timestamp, interval_minutes)
+    scheduler.modify(next_run_time=when)
+    return when
+
+
 def active_manga_clause():
     """Active series that are manga by stored kind *or* ComicID prefix."""
     return or_(
@@ -76,8 +109,11 @@ def heal_empty_ledgers():
 
 def run_manga_sync():
     """Scheduled: heal empty ledgers, poll MangaDex, then search wanted."""
+    import comicarr
+    from comicarr.helpers import utctimestamp
     from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck
 
+    comicarr.SCHED_MANGA_SYNC_LAST = utctimestamp()
     healed = heal_empty_ledgers()
     mangadexNewChapterCheck()
     mangaCheck()

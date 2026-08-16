@@ -96,16 +96,25 @@ def update_series_search_settings(
 
     allow_packs = request_body.get("allow_packs")
     ignore_type = request_body.get("ignore_type")
+    bare_number_mode = request_body.get("bare_number_mode")
+    monitor_mode = request_body.get("monitor_mode")
     for name, value in (("allow_packs", allow_packs), ("ignore_type", ignore_type)):
         if value is not None and not isinstance(value, bool):
             return JSONResponse(status_code=400, content={"detail": "%s must be a boolean" % name})
-    if allow_packs is None and ignore_type is None:
+    if all(value is None for value in (allow_packs, ignore_type, bare_number_mode, monitor_mode)):
         return JSONResponse(
             status_code=400,
-            content={"detail": "Provide at least one of allow_packs, ignore_type"},
+            content={"detail": "Provide at least one of allow_packs, ignore_type, bare_number_mode, monitor_mode"},
         )
 
-    result = series_service.update_search_settings(ctx, comic_id, allow_packs=allow_packs, ignore_type=ignore_type)
+    result = series_service.update_search_settings(
+        ctx,
+        comic_id,
+        allow_packs=allow_packs,
+        ignore_type=ignore_type,
+        bare_number_mode=bare_number_mode,
+        monitor_mode=monitor_mode,
+    )
     if not result["success"]:
         status = 404 if "not found" in result.get("error", "").lower() else 400
         return JSONResponse(status_code=status, content={"detail": result.get("error")})

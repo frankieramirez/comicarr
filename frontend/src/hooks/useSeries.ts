@@ -180,6 +180,8 @@ export interface SeriesSearchSettingsInput {
   comicId: string;
   allowPacks?: boolean;
   ignoreType?: boolean;
+  bareNumberMode?: "auto" | "volumes" | "chapters";
+  monitorMode?: "blended" | "volumes" | "chapters";
 }
 
 export interface SeriesContentKindInput {
@@ -219,10 +221,20 @@ export function useUpdateSeriesSearchSettings(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ comicId, allowPacks, ignoreType }) =>
+    mutationFn: ({
+      comicId,
+      allowPacks,
+      ignoreType,
+      bareNumberMode,
+      monitorMode,
+    }) =>
       apiRequest("PATCH", `/api/series/${comicId}/search-settings`, {
         ...(allowPacks !== undefined && { allow_packs: allowPacks }),
         ...(ignoreType !== undefined && { ignore_type: ignoreType }),
+        ...(bareNumberMode !== undefined && {
+          bare_number_mode: bareNumberMode,
+        }),
+        ...(monitorMode !== undefined && { monitor_mode: monitorMode }),
       }),
     onSuccess: (_, { comicId }) => {
       queryClient.invalidateQueries({ queryKey: ["series"] });

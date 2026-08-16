@@ -95,6 +95,64 @@ def booktype_bypasses_format_gates(booktype):
     return str(booktype or "").strip().lower() == "manga"
 
 
+_OWNED_STATUSES = frozenset({"Downloaded", "Snatched", "Archived", "Have", "Reserved"})
+_COVERED_STATUSES = frozenset({"Covered"})
+
+
+def classify_series_issues(issues):
+    """Split a series issue list into ledger rows and ownership sets."""
+    volumes = []
+    seen_volumes = set()
+    chapters = []
+    owned_volumes = set()
+    owned_chapter_ids = set()
+    covered_chapter_ids = set()
+    for issue in issues or ():
+        volume = normalize_volume_number(issue.get("VolumeNumber"))
+        if volume is not None and volume not in seen_volumes:
+            seen_volumes.add(volume)
+            volumes.append({"VolumeNumber": volume})
+        identity = issue.get("IssueID") or issue.get("id")
+        chapter_number = issue.get("ChapterNumber") if issue.get("ChapterNumber") not in (None, "") else None
+        status = issue.get("Status")
+        item = {
+            "id": identity,
+            "IssueID": identity,
+            "chapterNumber": chapter_number or issue.get("Issue_Number"),
+            "VolumeNumber": volume,
+            "Status": status,
+        }
+        if chapter_number is not None:
+            chapters.append(item)
+            if status in _OWNED_STATUSES:
+                owned_chapter_ids.add(identity)
+            if status in _COVERED_STATUSES:
+                covered_chapter_ids.add(identity)
+        elif volume is not None and status in _OWNED_STATUSES:
+            owned_volumes.add(volume)
+    return {
+        "volumes": volumes,
+        "chapters": chapters,
+        "owned_volumes": owned_volumes,
+        "owned_chapter_ids": owned_chapter_ids,
+        "covered_chapter_ids": covered_chapter_ids,
+    }
+
+
+def search_plan_for_series(series, issues):
+    """Blended-frontier search targets for one series' issue list."""
+    classified = classify_series_issues(issues)
+    mode = normalize_monitor_mode((series or {}).get("MonitorMode"))
+    return blended_search_targets(
+        classified["volumes"],
+        classified["chapters"],
+        owned_volumes=classified["owned_volumes"],
+        covered_chapter_ids=classified["covered_chapter_ids"],
+        owned_chapter_ids=classified["owned_chapter_ids"],
+        mode=mode,
+    )
+
+
 def _pad_volume(number):
     try:
         return "%02d" % int(float(number))

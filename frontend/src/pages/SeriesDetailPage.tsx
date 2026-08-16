@@ -361,6 +361,30 @@ export default function SeriesDetailPage() {
       });
     }
   };
+  const handleMangaModeChange = async (
+    setting: "bareNumberMode" | "monitorMode",
+    value: string,
+  ) => {
+    if (!comicId) return;
+    try {
+      await searchSettingsMutation.mutateAsync({
+        comicId,
+        ...(setting === "bareNumberMode"
+          ? {
+              bareNumberMode: value as "auto" | "volumes" | "chapters",
+            }
+          : {
+              monitorMode: value as "blended" | "volumes" | "chapters",
+            }),
+      });
+    } catch {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: "Failed to update search settings",
+      });
+    }
+  };
   const isManga =
     comic.ContentType === "manga" ||
     comicId?.startsWith("md-") ||
@@ -771,6 +795,52 @@ export default function SeriesDetailPage() {
                 />
               </label>
             ))}
+            {isManga ? (
+              <div className="mt-2 grid gap-2">
+                <label className="grid gap-1 font-mono text-[10px]">
+                  <span style={{ color: "var(--text-muted)" }}>
+                    Bare numbers
+                  </span>
+                  <select
+                    aria-label="Bare numbers"
+                    className="h-7 rounded-[5px] border bg-background px-2"
+                    style={{ borderColor: "var(--border)" }}
+                    disabled={searchSettingsMutation.isPending}
+                    value={comic.BareNumberMode || "auto"}
+                    onChange={(event) =>
+                      void handleMangaModeChange(
+                        "bareNumberMode",
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="volumes">Volumes</option>
+                    <option value="chapters">Chapters</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 font-mono text-[10px]">
+                  <span style={{ color: "var(--text-muted)" }}>Monitor</span>
+                  <select
+                    aria-label="Monitor"
+                    className="h-7 rounded-[5px] border bg-background px-2"
+                    style={{ borderColor: "var(--border)" }}
+                    disabled={searchSettingsMutation.isPending}
+                    value={comic.MonitorMode || "blended"}
+                    onChange={(event) =>
+                      void handleMangaModeChange(
+                        "monitorMode",
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="blended">Blended frontier</option>
+                    <option value="volumes">Volumes only</option>
+                    <option value="chapters">Chapters only</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

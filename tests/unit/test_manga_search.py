@@ -90,28 +90,19 @@ class TestBuildMangaSearchTermsVolumeOnly:
 
 
 class TestBuildMangaSearchTermsCombined:
-    """When both chapter and volume are provided."""
+    """When both chapter and volume are provided, chapter terms win exclusively."""
 
-    def test_combined_term_is_first(self):
+    def test_combined_does_not_search_volume_and_chapter_together(self):
         build = _build()
         terms = build("One Piece", "1044", "103")
-        # Combined should be first (most specific)
-        assert terms[0] == "One Piece v103c1044"
-
-    def test_all_variations_present(self):
-        build = _build()
-        terms = build("One Piece", "1044", "103")
-        assert "One Piece v103c1044" in terms
         assert "One Piece c1044" in terms
         assert "One Piece chapter 1044" in terms
-        assert "One Piece v103" in terms
+        assert not any("v103" in term for term in terms)
 
-    def test_combined_zero_padding(self):
+    def test_volume_only_when_chapter_absent(self):
         build = _build()
-        terms = build("Naruto", "5", "2")
-        assert "Naruto v02c005" in terms
-        assert "Naruto c005" in terms
-        assert "Naruto v02" in terms
+        terms = build("Naruto", None, "2")
+        assert terms == ["Naruto v02"]
 
 
 class TestBuildMangaSearchTermsEdgeCases:
@@ -156,14 +147,12 @@ class TestBuildMangaSearchTermsEdgeCases:
         assert "Test c1500" in terms
 
     def test_priority_order(self):
-        """Combined terms should come before individual terms."""
+        """A chapter target never also searches the volume form."""
         build = _build()
         terms = build("Series", "10", "5")
-        combined_idx = terms.index("Series v05c010")
-        chapter_idx = terms.index("Series c010")
-        volume_idx = terms.index("Series v05")
-        assert combined_idx < chapter_idx
-        assert combined_idx < volume_idx
+        assert terms[0] == "Series c010"
+        assert "Series chapter 010" in terms
+        assert not any("v05" in term for term in terms)
 
 
 class TestSeriesContentKindSearchHandoff:

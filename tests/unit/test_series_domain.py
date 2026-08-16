@@ -332,7 +332,15 @@ def test_update_search_settings_stores_flag_columns_in_search_readable_form(monk
     result = series_service.update_search_settings(_make_ctx(), "160294", allow_packs=True, ignore_type=False)
 
     upsert.assert_called_once_with("160294", {"AllowPacks": "1", "IgnoreType": 0})
-    assert result == {"success": True, "settings": {"allow_packs": True, "ignore_type": False}}
+    assert result == {
+        "success": True,
+        "settings": {
+            "allow_packs": True,
+            "ignore_type": False,
+            "bare_number_mode": "auto",
+            "monitor_mode": "blended",
+        },
+    }
 
 
 def test_update_search_settings_is_partial_and_rejects_unknown_series(monkeypatch):
@@ -355,6 +363,35 @@ def test_update_search_settings_is_partial_and_rejects_unknown_series(monkeypatc
     partial = series_service.update_search_settings(_make_ctx(), "160294", ignore_type=False)
     assert partial["success"] is True
     upsert.assert_called_once_with("160294", {"IgnoreType": 0})
+
+
+def test_update_search_settings_persists_manga_modes(monkeypatch):
+    upsert = MagicMock()
+    rows = iter(
+        [
+            {"ComicID": "md-x", "AllowPacks": "0", "IgnoreType": 0, "BareNumberMode": "auto", "MonitorMode": "blended"},
+            {
+                "ComicID": "md-x",
+                "AllowPacks": "0",
+                "IgnoreType": 0,
+                "BareNumberMode": "volumes",
+                "MonitorMode": "chapters",
+            },
+        ]
+    )
+    monkeypatch.setattr(series_service.series_queries, "get_comic_search_settings", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_search_settings", upsert)
+
+    result = series_service.update_search_settings(
+        _make_ctx(),
+        "md-x",
+        bare_number_mode="volumes",
+        monitor_mode="chapters",
+    )
+
+    upsert.assert_called_once_with("md-x", {"BareNumberMode": "volumes", "MonitorMode": "chapters"})
+    assert result["settings"]["bare_number_mode"] == "volumes"
+    assert result["settings"]["monitor_mode"] == "chapters"
 
 
 def test_search_settings_query_upserts_lowercase_comics_table(monkeypatch):

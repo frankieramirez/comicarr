@@ -109,6 +109,8 @@ comics = Table(
     # values need portable server defaults for the baseline migration.
     Column("ContentType", String(16), server_default="comic"),
     Column("ReadingDirection", String(16), server_default="ltr"),
+    Column("BareNumberMode", String(16), server_default="auto"),
+    Column("MonitorMode", String(16), server_default="blended"),
     Column("MetadataSource", Text),
     Column("ExternalID", Text),
     Column("MangaDexID", Text),

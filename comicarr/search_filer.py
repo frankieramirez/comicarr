@@ -652,6 +652,11 @@ class search_check(object):
             "booktype: %s / parsed_booktype: %s [ignore_booktype: %s]"
             % (booktype, parsed_comic["booktype"], ignore_booktype)
         )
+        from comicarr.app.manga.acquisition import booktype_bypasses_format_gates
+
+        manga_booktype = booktype_bypasses_format_gates(booktype) or booktype_bypasses_format_gates(
+            parsed_comic.get("booktype")
+        )
         if parsed_comic["parse_status"] == "success" and (
             all([booktype is None, parsed_comic["booktype"] == "issue"])
             or all([booktype == "Print", parsed_comic["booktype"] == "issue"])
@@ -661,6 +666,7 @@ class search_check(object):
                     any([parsed_comic["booktype"] == "issue", "One-Shot" in parsed_comic["booktype"]]),
                 ]
             )
+            or manga_booktype
             or all([booktype != parsed_comic["booktype"], ignore_booktype is True])
             or re.sub("None", "issue", str(booktype)) in parsed_comic["booktype"]
         ):

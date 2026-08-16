@@ -31,6 +31,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger, series_kind
+from comicarr.app.manga.parse import parse_in_series_context
 from comicarr.manga_parser import parse_manga_filename
 from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.tables import comics, issues
@@ -216,7 +217,28 @@ def _collect_series_files(manga_dir):
                 series_map[series_name] = []
             series_map[series_name].append((filepath, parsed))
 
+    for series_name, items in list(series_map.items()):
+        series_map[series_name] = _reparse_series_files(series_name, items)
+
     return series_map
+
+
+def _reparse_series_files(series_name, files, series=None, issues=None):
+    """Re-parse a folder with the series BareNumberMode and sibling counts."""
+    names = [os.path.basename(path) for path, _ignored in files]
+    return [
+        (
+            path,
+            parse_in_series_context(
+                os.path.basename(path),
+                series=series,
+                filenames=names,
+                series_name=series_name,
+                issues=issues,
+            ),
+        )
+        for path, _ignored in files
+    ]
 
 
 def _guess_series_from_filename(filename):
@@ -248,6 +270,12 @@ def _check_existing_series(series_name, files):
 
     if existing:
         logger.info("[MANGA-SCAN] Series '%s' already in library, updating chapter statuses" % series_name)
+        with db.get_engine().connect() as issues_conn:
+            issue_rows = [
+                dict(row._mapping)
+                for row in issues_conn.execute(select(issues).where(issues.c.ComicID == existing["ComicID"]))
+            ]
+        files = _reparse_series_files(series_name, files, series=existing, issues=issue_rows)
         chapters_downloaded = _mark_chapters_downloaded(existing["ComicID"], files)
         return {"chapters_downloaded": chapters_downloaded, "comic_id": existing["ComicID"]}
 
