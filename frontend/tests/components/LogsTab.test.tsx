@@ -82,11 +82,21 @@ describe("LogsTab", () => {
   });
 
   it("wraps long log lines instead of forcing horizontal scroll", async () => {
-    stubLogs(LINES, UNPINNED);
+    const unbrokenToken = `/config/cache/${"a".repeat(200)}.cbz`;
+    stubLogs(
+      [
+        ...LINES,
+        `11-Aug-2026 14:31:40 - DEBUG   :: comicarr.postprocessor : Thread-7 : scanned ${unbrokenToken}`,
+      ],
+      UNPINNED,
+    );
     renderTab();
 
     const consoleBox = await screen.findByText(/pool open/);
-    expect(consoleBox.closest("pre")?.className).toContain("whitespace-pre-wrap");
+    const pre = consoleBox.closest("pre");
+    expect(pre?.textContent).toContain(unbrokenToken);
+    expect(pre?.className).toContain("whitespace-pre-wrap");
+    expect(pre?.className).toContain("break-words");
   });
 
   it("says nothing extra when the config file is the top of the chain", async () => {

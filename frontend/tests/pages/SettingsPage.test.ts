@@ -6,7 +6,8 @@ import { server } from "../mocks/server";
 import { render, screen, waitFor } from "../test-utils";
 import { prepareConfigSaveData } from "@/lib/configSave";
 import { formatAppVersion } from "@/lib/version";
-import SettingsPage, { settingsPanelClassName } from "@/pages/SettingsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import { settingsPanelClassName } from "@/lib/settingsPanel";
 
 afterEach(() => {
   vi.unstubAllGlobals();

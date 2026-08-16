@@ -19,25 +19,13 @@ import PageHeader from "@/components/layout/PageHeader";
 import { prepareConfigSaveData } from "@/lib/configSave";
 import { formatAppVersion } from "@/lib/version";
 import { httpOrigin } from "@/lib/httpOrigin";
+import { settingsPanelClassName, type SectionId } from "@/lib/settingsPanel";
 import type { Config } from "@/types";
 import type {
   ReadableConfig,
   SettingsFormData,
   WritableConfig,
 } from "@/types/config.generated";
-
-type SectionId =
-  | "general"
-  | "interface"
-  | "api"
-  | "search"
-  | "acquisition"
-  | "media"
-  | "notifications"
-  | "clients"
-  | "ai"
-  | "logs"
-  | "about";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "general", label: "General" },
@@ -56,14 +44,6 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 ];
 
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
-
-/** Logs use the full content pane; other tabs stay a readable centered column. */
-export function settingsPanelClassName(section: SectionId): string {
-  const padding = "px-4 py-5 md:px-6 md:py-6 mx-auto pb-24";
-  return section === "logs"
-    ? `${padding} w-full max-w-none`
-    : `${padding} max-w-4xl`;
-}
 
 function parseSectionParam(raw: string | null): SectionId | null {
   if (!raw) return null;
