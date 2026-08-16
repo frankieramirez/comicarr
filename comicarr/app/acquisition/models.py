@@ -32,10 +32,15 @@ class Fulfillment(str, Enum):
     DOWNLOADED = "downloaded"
     ARCHIVED = "archived"
     FAILED = "failed"
+    COVERED = "covered"
 
     @property
     def is_owned(self):
         return self in {self.DOWNLOADED, self.ARCHIVED}
+
+    @property
+    def is_covered(self):
+        return self is self.COVERED
 
     @property
     def is_in_flight(self):

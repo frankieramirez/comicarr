@@ -134,6 +134,8 @@ def evaluate_eligibility(item, today=None):
         return EligibilityDecision(False, "paused")
     if item.fulfillment.is_owned:
         return EligibilityDecision(False, "owned")
+    if getattr(item.fulfillment, "is_covered", False):
+        return EligibilityDecision(False, "covered")
     if item.fulfillment.is_in_flight:
         return EligibilityDecision(False, "in_flight")
     if item.intent is AcquisitionIntent.SKIPPED:

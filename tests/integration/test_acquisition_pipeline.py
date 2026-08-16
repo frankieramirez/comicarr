@@ -228,6 +228,7 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
         "issues": 1,
         "annuals": 0,
         "owned": 1,
+        "covered": 0,
         "physicalOwned": 1,
         "archived": 0,
         "inFlight": 0,

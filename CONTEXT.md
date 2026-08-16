@@ -26,6 +26,34 @@ Who issued a Series' identifier: ComicVine, MangaDex (`md-` prefix), or MyAnimeL
 
 The MangaDex UUID a manga Series polls for new chapters. MangaDex Series carry it in their ComicID; MyAnimeList Series supply metadata from MAL but keep the chapter source in `MangaDexID`, and have none until it is resolved.
 
+## Chapter ledger
+
+The complete, language-unfiltered list of chapters MangaDex knows for a Series. It is not a language-filtered reading list.
+
+_Avoid_: Chapter list (when the filtered English subset is meant)
+
+## Volume ledger
+
+The complete roster of released volumes for a manga Series, taken from MangaDex cover art. A volume's date is a known-to-exist bound, not a street date.
+
+_Avoid_: Volume entity inside issues, street date
+
+## Covered-by-volume
+
+The chapter fulfillment that means a physically owned volume lists that chapter. It is not Have, not Downloaded, and not Missing.
+
+_Avoid_: Have, downloaded-via-volume
+
+## Last released volume
+
+The highest volume number present on the Volume ledger. Volumes up to this number are the released set; chapters beyond it are the chapter frontier.
+
+## Blended frontier
+
+The default acquisition surface for a manga Series: missing released volumes, plus missing chapters beyond the last released volume.
+
+_Avoid_: Missing issues (unqualified, for manga)
+
 ## Release candidate
 
 A provider result considered for acquiring one tracked issue, chapter, annual, or story-arc item. Its match verdict explains whether automatic search would accept it, whether an operator may override that decision, and every reason for rejection.

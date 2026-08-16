@@ -100,6 +100,7 @@ def test_release_date_precedence_and_eligibility_are_deterministic():
         ({"intent": AcquisitionIntent.SKIPPED}, "intent_skipped"),
         ({"fulfillment": Fulfillment.SNATCHED}, "in_flight"),
         ({"fulfillment": Fulfillment.DOWNLOADED}, "owned"),
+        ({"fulfillment": Fulfillment.COVERED}, "covered"),
     ],
 )
 def test_policy_defers_non_actionable_work(changes, reason):

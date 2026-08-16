@@ -57,6 +57,7 @@ _DISPLAY_BY_FULFILLMENT = {
     Fulfillment.DOWNLOADED: "Downloaded",
     Fulfillment.ARCHIVED: "Archived",
     Fulfillment.FAILED: "Failed",
+    Fulfillment.COVERED: "Covered",
 }
 _DISPLAY_BY_INTENT = {
     AcquisitionIntent.WANTED: "Wanted",
@@ -141,7 +142,8 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
     )
     owned = fulfillment.is_owned
     in_flight = fulfillment.is_in_flight
-    missing = not owned and not in_flight
+    covered = fulfillment is Fulfillment.COVERED
+    missing = not owned and not in_flight and not covered
     monitored = projection.intent not in {AcquisitionIntent.SKIPPED, AcquisitionIntent.IGNORED}
     selected_date = decision.selected_date.isoformat() if decision.selected_date else None
     date_source = _DATE_SOURCE_NAMES.get(decision.date_source, decision.date_source)
@@ -166,6 +168,7 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
                 "source": date_source,
             },
             "owned": owned,
+            "covered": covered,
             "physicalOwned": bool(verified_file),
             "archived": fulfillment is Fulfillment.ARCHIVED,
             "inFlight": in_flight,
@@ -187,6 +190,7 @@ def _issue_summary(projected):
         "issues": sum(not row["annual"] for row in projected),
         "annuals": sum(bool(row["annual"]) for row in projected),
         "owned": owned,
+        "covered": sum(bool(row.get("covered")) for row in projected),
         "physicalOwned": sum(bool(row["physicalOwned"]) for row in projected),
         "archived": sum(bool(row["archived"]) for row in projected),
         "inFlight": sum(bool(row["inFlight"]) for row in projected),

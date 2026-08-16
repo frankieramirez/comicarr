@@ -1,0 +1,123 @@
+#  Copyright (C) 2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+
+"""Executable contract for manga chapter and volume ledgers."""
+
+from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
+from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility
+from comicarr.app.manga.ledger import (
+    apply_volume_coverage,
+    blended_progress,
+    chapter_id,
+    covers_to_volume_rows,
+    last_released_volume,
+    merge_refresh_row,
+    normalize_volume_number,
+    volume_id,
+)
+
+
+def test_ids_match_importer_chapter_scheme_and_keep_volumes_off_issues():
+    assert chapter_id("md-onepiece", "1100") == "md-onepiece-ch1100"
+    assert volume_id("md-onepiece", "1.0") == "md-onepiece-v1"
+    assert volume_id("md-onepiece", "none") is None
+
+
+def test_last_released_volume_is_cover_feed_max_not_aggregate_holes():
+    covers = [
+        {"attributes": {"volume": "1", "createdAt": "2022-06-13T00:00:00"}},
+        {"attributes": {"volume": "115", "createdAt": "2022-06-13T00:00:00"}},
+        {"attributes": {"volume": "7", "createdAt": "2022-06-13T00:00:00"}},
+    ]
+    assert last_released_volume(covers) == "115"
+    rows = covers_to_volume_rows("md-onepiece", covers)
+    assert [row["VolumeID"] for row in rows] == [
+        "md-onepiece-v1",
+        "md-onepiece-v115",
+        "md-onepiece-v7",
+    ]
+    assert rows[0]["KnownAt"] == "2022-06-13T00:00:00"
+
+
+def test_owning_a_volume_covers_only_mapped_chapters():
+    chapters = [
+        {"id": "md-x-ch1", "fulfillment": "missing", "acquisitionIntent": "policy"},
+        {"id": "md-x-ch2", "fulfillment": "missing", "acquisitionIntent": "policy"},
+        {"id": "md-x-ch3", "fulfillment": "missing", "acquisitionIntent": "skipped"},
+        {"id": "md-x-ch4", "fulfillment": "downloaded", "acquisitionIntent": "policy"},
+    ]
+    projected = apply_volume_coverage(
+        chapters,
+        owned_volumes=["1"],
+        containment={"1": ["md-x-ch1", "md-x-ch3"], "2": ["md-x-ch2"]},
+    )
+    by_id = {row["id"]: row for row in projected}
+    assert by_id["md-x-ch1"]["fulfillment"] == Fulfillment.COVERED.value
+    assert by_id["md-x-ch1"]["covered"] is True
+    assert by_id["md-x-ch1"]["owned"] is False
+    assert by_id["md-x-ch1"]["missing"] is False
+    assert by_id["md-x-ch2"]["fulfillment"] == "missing"
+    assert by_id["md-x-ch3"]["fulfillment"] == "missing"
+    assert by_id["md-x-ch4"]["fulfillment"] == "downloaded"
+
+
+def test_unknown_containment_does_not_cover_chapters():
+    chapters = [{"id": "md-x-ch8", "fulfillment": "missing", "acquisitionIntent": "policy"}]
+    projected = apply_volume_coverage(chapters, owned_volumes=["8"], containment={})
+    assert projected[0]["fulfillment"] == "missing"
+    assert projected[0].get("covered") is not True
+
+
+def test_blended_frontier_counts_volumes_then_chapters_beyond():
+    volumes = [{"VolumeNumber": n} for n in ("1", "2", "3")]
+    chapters = [
+        {"id": "md-x-ch1", "VolumeNumber": "1", "owned": False},
+        {"id": "md-x-ch100", "VolumeNumber": None, "owned": False, "fulfillment": "missing"},
+        {"id": "md-x-ch101", "VolumeNumber": "4", "owned": True, "fulfillment": "downloaded"},
+    ]
+    progress = blended_progress(volumes, chapters, owned_volumes=["1"], containment={"1": ["md-x-ch1"]})
+    assert progress["lastReleasedVolume"] == "3"
+    assert progress["volumeTotal"] == 3
+    assert progress["volumeHave"] == 1
+    assert progress["volumeMissing"] == 2
+    assert progress["chapterBeyondTotal"] == 2
+    assert progress["chapterBeyondHave"] == 1
+    assert progress["missing"] == 3
+    assert progress["have"] == 2
+    assert progress["total"] == 5
+
+
+def test_refresh_preserves_operator_status():
+    incoming = {"IssueID": "md-x-ch1", "ChapterNumber": "1", "Status": "Skipped"}
+    existing = {"IssueID": "md-x-ch1", "Status": "Downloaded", "AcquisitionIntent": "skipped", "Location": "v1.cbz"}
+    merged = merge_refresh_row(existing, incoming)
+    assert merged["Status"] == "Downloaded"
+    assert merged["AcquisitionIntent"] == "skipped"
+    assert merged["Location"] == "v1.cbz"
+    assert merged["ChapterNumber"] == "1"
+
+
+def test_covered_fulfillment_is_not_have_and_is_not_searchable():
+    assert Fulfillment.COVERED.is_owned is False
+    assert Fulfillment.COVERED.is_covered is True
+    decision = evaluate_eligibility(
+        EligibilityInput(
+            series_active=True,
+            intent=AcquisitionIntent.POLICY,
+            fulfillment=Fulfillment.COVERED,
+        ),
+    )
+    assert decision.eligible is False
+    assert decision.reason == "covered"
+
+
+def test_normalize_volume_number_treats_none_sentinel_as_absent():
+    assert normalize_volume_number("1.0") == "1"
+    assert normalize_volume_number("none") is None
+    assert normalize_volume_number("") is None

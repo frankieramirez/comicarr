@@ -151,6 +151,7 @@ def test_absolute_batman_projection_reconciles_18_owned_2_released_2_future(tmp_
         "issues": 22,
         "annuals": 0,
         "owned": 18,
+        "covered": 0,
         "physicalOwned": 18,
         "archived": 0,
         "inFlight": 0,
