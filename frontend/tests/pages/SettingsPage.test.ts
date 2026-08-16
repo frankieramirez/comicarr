@@ -7,12 +7,20 @@ import { render, screen, waitFor } from "../test-utils";
 import { prepareConfigSaveData } from "@/lib/configSave";
 import { formatAppVersion } from "@/lib/version";
 import SettingsPage from "@/pages/SettingsPage";
+import { settingsPanelClassName } from "@/lib/settingsPanel";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("settings configuration", () => {
+  it("widens the Logs panel and keeps other tabs in a readable column", () => {
+    expect(settingsPanelClassName("logs")).toContain("max-w-none");
+    expect(settingsPanelClassName("logs")).not.toContain("max-w-4xl");
+    expect(settingsPanelClassName("general")).toContain("max-w-4xl");
+    expect(settingsPanelClassName("clients")).toContain("max-w-4xl");
+  });
+
   it.each([
     ["disabled client with empty host", 3, ""],
     ["non-SAB client with legacy-invalid host", 1, "sab host without scheme"],

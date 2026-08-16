@@ -19,25 +19,13 @@ import PageHeader from "@/components/layout/PageHeader";
 import { prepareConfigSaveData } from "@/lib/configSave";
 import { formatAppVersion } from "@/lib/version";
 import { httpOrigin } from "@/lib/httpOrigin";
+import { settingsPanelClassName, type SectionId } from "@/lib/settingsPanel";
 import type { Config } from "@/types";
 import type {
   ReadableConfig,
   SettingsFormData,
   WritableConfig,
 } from "@/types/config.generated";
-
-type SectionId =
-  | "general"
-  | "interface"
-  | "api"
-  | "search"
-  | "acquisition"
-  | "media"
-  | "notifications"
-  | "clients"
-  | "ai"
-  | "logs"
-  | "about";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "general", label: "General" },
@@ -385,7 +373,7 @@ export default function SettingsPage() {
 
         {/* Content panel */}
         <div className="overflow-auto min-w-0">
-          <div className="px-4 py-5 md:px-6 md:py-6 max-w-4xl mx-auto pb-24">
+          <div className={settingsPanelClassName(section)}>
             {section === "general" && <GeneralTab {...tabProps} />}
             {section === "interface" && <InterfaceTab {...tabProps} />}
             {section === "api" && <ApiTab {...apiTabProps} />}
