@@ -175,7 +175,7 @@ def test_get_comic_detail_returns_backend_summary_for_issues_and_null_deleted_an
     monkeypatch.setattr(
         series_service.series_queries,
         "get_comic",
-        lambda _comic_id: [{"Status": "Active", "ComicLocation": str(series_root)}],
+        lambda _comic_id: [{"ComicID": "160294", "Status": "Active", "ComicLocation": str(series_root)}],
     )
     monkeypatch.setattr(
         series_service.series_queries,
@@ -195,6 +195,13 @@ def test_get_comic_detail_returns_backend_summary_for_issues_and_null_deleted_an
     assert result["summary"]["issues"] == 1
     assert result["summary"]["annuals"] == 1
     assert result["annuals"][0]["annual"] is True
+    assert result["providerLinks"] == [
+        {
+            "provider": "comicvine",
+            "label": "ComicVine",
+            "url": "https://comicvine.gamespot.com/volume/4050-160294/",
+        }
+    ]
 
 
 def test_get_annuals_keeps_legacy_null_deleted_rows(monkeypatch):

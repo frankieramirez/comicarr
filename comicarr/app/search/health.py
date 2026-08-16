@@ -18,6 +18,7 @@ import time
 import comicarr
 from comicarr import db
 from comicarr.app.search import queries
+from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.search.providers import effective_provider_plan, enabled_provider_entries, ordered_provider_names
 from comicarr.db import get_engine
 
@@ -302,9 +303,7 @@ def build_route_readiness(
             if route == "nzb":
                 raw_providers = list(getattr(config, "EXTRA_NEWZNABS", None) or [])
                 valid_providers = [row for row in raw_providers if isinstance(row, (list, tuple)) and len(row) >= 6]
-                enabled_providers = [
-                    row for row in valid_providers if str(row[5]).lower() in {"1", "true", "yes", "on"}
-                ]
+                enabled_providers = [row for row in valid_providers if provider_enabled(row)]
                 downloader = int(getattr(config, "NZB_DOWNLOADER", 3) or 0)
                 if downloader == 3:
                     reason = "downloader_disabled"

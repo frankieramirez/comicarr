@@ -32,7 +32,7 @@ describe("formatQuietStatus", () => {
     const meta = formatQuietStatus(snap({ inFlight: 5 }));
     expect(meta.line).toBe("library: 412 series · api: online · 5 in flight");
     expect(meta.segments.find((s) => s.role === "activity")?.href).toBe(
-      "/activity",
+      "/activity?state=in_flight",
     );
   });
 

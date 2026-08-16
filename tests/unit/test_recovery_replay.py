@@ -154,6 +154,68 @@ def test_replay_does_not_acquire_init_lock(queues):
 # ---------------------------------------------------------------------------
 
 
+def test_complete_sab_recovery_keeps_historycheck_folder(queues, tmp_path, monkeypatch):
+    """A snatched SAB row has nzo_id/nzb_name but no nzb_folder (addfile only
+    returns nzo_ids). Historycheck already resolved the completed folder;
+    recovery must keep that path on the PP item instead of raising
+    PostProcessCommandError("nzb_folder is required")."""
+    sab_root = tmp_path / "sab-complete"
+    sab_root.mkdir()
+    completed = sab_root / "Spawn.344"
+    completed.mkdir()
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_DIRECTORY", str(sab_root), raising=False)
+
+    nzb_name = "Spawn.344.cbz"
+    history = {
+        "status": True,
+        "location": str(completed),
+        "name": nzb_name,
+        "failed": False,
+    }
+    rkey = journal.release_key("681", "nzb.su", nzbname=nzb_name)
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="681", PROVIDER="nzb.su"))
+        conn.execute(issues.insert().values(IssueID="681", Status="Snatched"))
+    payload = {
+        "issueid": "681",
+        "comicid": "C681",
+        "provider": "nzb.su",
+        "route": "sabnzbd",
+        "nzo_id": "SABnzbd_nzo_spawn344",
+        "nzb_name": nzb_name,
+        "download_info": {"provider": "nzb.su", "nzo_id": "SABnzbd_nzo_spawn344"},
+    }
+    assert "nzb_folder" not in payload
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload=payload,
+        issueid="681",
+        provider="nzb.su",
+        downloader_type="sabnzbd",
+    )
+
+    import comicarr.sabnzbd as sabnzbd_mod
+
+    monkeypatch.setattr(sabnzbd_mod.SABnzbd, "historycheck", lambda self, nzbinfo, **k: history)
+
+    action = recovery._resolve_row(journal.read_one(rkey))
+    assert action == "complete-pp-enqueued"
+
+    items = _drain(queues["pp"])
+    assert len(items) == 1
+    assert items[0]["nzb_folder"] == history["location"]
+    assert items[0]["nzb_name"] == nzb_name
+    assert items[0]["journal_release_key"] == rkey
+
+    persisted = journal.load_payload(journal.read_one(rkey)["payload_json"])
+    assert persisted["nzb_folder"] == history["location"]
+    row_after = journal.read_one(rkey)
+    assert row_after["stage"] == journal.DOWNLOADED
+    assert row_after.get("fail_reason") != "downloaded_invalid_artifact_command:PostProcessCommandError"
+    assert row_after.get("fail_reason") in (None, "")
+
+
 def test_complete_enqueues_pp_with_stamped_key(queues, tmp_path):
     rkey = journal.release_key("10", "nzb.su", nzbname="A.cbz")
     with get_engine().begin() as conn:
@@ -714,16 +776,16 @@ def test_one_bad_row_skipped_loop_continues_and_is_rerunnable(queues, monkeypatc
         downloader_type="nzb",
     )
 
-    real_classify = recovery_classify.classify
+    real_details = recovery_classify.classify_details
     fail_once = {"done": False}
 
-    def _classify(row, probes=None):
+    def _classify_details(row, probes=None, payload=None):
         if row.get("release_key") == bad and not fail_once["done"]:
             fail_once["done"] = True
             raise RuntimeError("boom: simulated bad row")
-        return real_classify(row, probes=probes)
+        return real_details(row, probes=probes, payload=payload)
 
-    monkeypatch.setattr(recovery_classify, "classify", _classify)
+    monkeypatch.setattr(recovery_classify, "classify_details", _classify_details)
     summary = recovery.replay_pipeline(probes=_probe("complete"))
     # Good row still processed despite the bad row raising.
     pp = _drain(queues["pp"])

@@ -141,3 +141,58 @@ def add_prefix(raw_id: str | None, provider: SeriesProvider) -> str:
     if prefix is None:
         return raw_id
     return "%s%s" % (prefix, raw_id)
+
+
+_PROVIDER_PAGE = {
+    SeriesProvider.COMICVINE: (
+        "ComicVine",
+        "https://comicvine.gamespot.com/volume/4050-{id}/",
+    ),
+    SeriesProvider.MANGADEX: ("MangaDex", "https://mangadex.org/title/{id}"),
+    SeriesProvider.MYANIMELIST: (
+        "MyAnimeList",
+        "https://myanimelist.net/manga/{id}",
+    ),
+}
+
+_COMICVINE_VOLUME_PREFIX = "4050-"
+
+
+def _catalog_id(series_id: str, provider: SeriesProvider) -> str:
+    """Native id for a catalog URL — ComicVine volume ids must not keep 4050-."""
+    if provider is SeriesProvider.COMICVINE and series_id.startswith(_COMICVINE_VOLUME_PREFIX):
+        return series_id[len(_COMICVINE_VOLUME_PREFIX) :]
+    return series_id
+
+
+def provider_page_links(series: str | Mapping | None) -> list[dict[str, str]]:
+    """Return outbound catalog links for this Series.
+
+    Always includes the issuing provider when a native id is present. A
+    MyAnimeList Series also includes its MangaDex chapter source when
+    ``MangaDexID`` is set — MAL is metadata, MangaDex is chapters.
+    """
+    links: list[dict[str, str]] = []
+    native_id = strip_prefix(_series_id_of(series))
+    if native_id:
+        provider = provider_of(series)
+        label, template = _PROVIDER_PAGE[provider]
+        links.append(
+            {
+                "provider": provider.value,
+                "label": label,
+                "url": template.format(id=_catalog_id(native_id, provider)),
+            }
+        )
+    if provider_of(series) is SeriesProvider.MYANIMELIST:
+        mangadex_id = chapter_source_id(series)
+        if mangadex_id:
+            label, template = _PROVIDER_PAGE[SeriesProvider.MANGADEX]
+            links.append(
+                {
+                    "provider": SeriesProvider.MANGADEX.value,
+                    "label": label,
+                    "url": template.format(id=mangadex_id),
+                }
+            )
+    return links

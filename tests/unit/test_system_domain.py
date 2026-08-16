@@ -22,6 +22,7 @@ if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
 from comicarr.app.config import log_level
+from comicarr.app.search.provider_config import split_newznab_category_field
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.security import (
     create_session_token,
@@ -924,7 +925,7 @@ class TestConfigService:
 
         persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_NEWZNABS"][0]
         assert persisted[4] == "1#7030#7020"
-        assert system_service.split_newznab_category_field(persisted[4]) == ("1", "7030,7020")
+        assert split_newznab_category_field(persisted[4]) == ("1", "7030,7020")
 
     def test_category_lists_tolerate_the_spacing_operators_type(self):
         """`7030, 7020` must not reach the indexer as `cat=7030, 7020`."""

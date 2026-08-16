@@ -64,6 +64,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
+from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
 from comicarr.downloaders import external_server as exs
 from comicarr.tables import (
     annuals,
@@ -940,8 +941,7 @@ def NZB_SEARCH(
         if any([category_torznab is None, category_torznab == "None"]):
             category_torznab = "8020"
         if "#" in category_torznab:
-            t_cats = category_torznab.split("#")
-            category_torznab = ",".join(t_cats)
+            category_torznab = category_torznab.replace("#", ",")
         logger.fdebug("Using Torznab host of : %s" % name_torznab)
     elif provider_stat["type"] == "newznab":
         # updated to include Newznab Name now
@@ -957,8 +957,7 @@ def NZB_SEARCH(
         apikey = newznab_host[3].rstrip()
         verify = bool(int(newznab_host[2]))
         if "#" in newznab_host[4].rstrip():
-            catstart = newznab_host[4].find("#")
-            category_newznab = re.sub("#", ",", newznab_host[4][catstart + 1 :]).strip()
+            category_newznab = split_newznab_category_field(newznab_host[4])[1]
             logger.fdebug("Non-default Newznab category set to : %s" % category_newznab)
         else:
             category_newznab = "7030"
@@ -1815,8 +1814,8 @@ def searchforissue(
         logger.info("A search is currently in progress....queueing this up again to try in a bit.")
         return {"status": "IN PROGRESS"}
 
-    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if x[5] == "1"]
-    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if x[5] == "1"]
+    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
+    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
     if (
         (
             comicarr.CONFIG.ENABLE_DDL is True
@@ -2811,8 +2810,8 @@ def searchforissue(
 
 
 def searchIssueIDList(issuelist):
-    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if x[5] == "1"]
-    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if x[5] == "1"]
+    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
+    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
     if (
         (
             comicarr.CONFIG.ENABLE_DDL is True

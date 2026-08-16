@@ -40,6 +40,7 @@ export type {
   WantedAcquisitionAnnotation,
   WantedIssue,
   UpcomingIssue,
+  ReleaseReviewIssue,
   InteractiveVerdictReason,
   InteractiveReleaseCandidate,
   InteractiveProviderFailure,

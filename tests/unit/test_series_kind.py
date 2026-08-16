@@ -23,6 +23,7 @@ from comicarr.series_kind import (
     chapter_source_id,
     is_manga,
     provider_of,
+    provider_page_links,
     strip_prefix,
 )
 
@@ -115,6 +116,57 @@ class TestChapterSourceId:
     def test_a_comicvine_series_has_no_mangadex_chapter_source(self):
         assert chapter_source_id("12345") is None
         assert chapter_source_id({"ComicID": "999", "ContentType": "manga"}) is None
+
+
+class TestProviderPageLinks:
+    def test_comicvine_id_builds_the_volume_page(self):
+        links = provider_page_links("160294")
+        assert links == [
+            {
+                "provider": "comicvine",
+                "label": "ComicVine",
+                "url": "https://comicvine.gamespot.com/volume/4050-160294/",
+            }
+        ]
+        assert "volume/4050-160294" in links[0]["url"]
+        assert "/-/" not in links[0]["url"]
+
+    def test_comicvine_volume_prefix_is_not_doubled(self):
+        links = provider_page_links("4050-160294")
+        assert links[0]["url"] == "https://comicvine.gamespot.com/volume/4050-160294/"
+
+    def test_mangadex_id_builds_the_title_page(self):
+        assert provider_page_links("md-uuid-1") == [
+            {
+                "provider": "mangadex",
+                "label": "MangaDex",
+                "url": "https://mangadex.org/title/uuid-1",
+            }
+        ]
+
+    def test_mal_series_includes_mangadex_when_both_ids_exist(self):
+        links = provider_page_links({"ComicID": "mal-161890", "MangaDexID": "md-uuid-2"})
+        assert links == [
+            {
+                "provider": "myanimelist",
+                "label": "MyAnimeList",
+                "url": "https://myanimelist.net/manga/161890",
+            },
+            {
+                "provider": "mangadex",
+                "label": "MangaDex",
+                "url": "https://mangadex.org/title/uuid-2",
+            },
+        ]
+
+    def test_mal_without_mangadex_id_is_only_myanimelist(self):
+        assert provider_page_links("mal-161890") == [
+            {
+                "provider": "myanimelist",
+                "label": "MyAnimeList",
+                "url": "https://myanimelist.net/manga/161890",
+            }
+        ]
 
 
 class TestPrefixes:

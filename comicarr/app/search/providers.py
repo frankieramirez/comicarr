@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
+from comicarr.app.search.provider_config import provider_enabled
+
 
 @dataclass(frozen=True)
 class ProviderCandidate:
@@ -35,9 +37,9 @@ class ProviderCandidate:
 def enabled_provider_entries(entries: Iterable[object]):
     for entry in entries or []:
         try:
-            if str(entry[5]) == "1":
+            if provider_enabled(entry):
                 yield tuple(entry)
-        except (IndexError, TypeError):
+        except TypeError:
             continue
 
 

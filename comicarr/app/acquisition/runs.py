@@ -437,6 +437,12 @@ class RunLedger:
                 )
         return self.reconcile(run_id)
 
+    def get_item_by_id(self, item_id):
+        stmt = select(acquisition_run_items).where(acquisition_run_items.c.item_id == int(item_id))
+        with self.engine.connect() as conn:
+            row = conn.execute(stmt).first()
+        return _row_dict(row)
+
     def list_recoverable_items(self, command_kind=None):
         stmt = (
             select(acquisition_run_items)

@@ -14,6 +14,8 @@ every count. These queries never aggregate ``activity_events`` for open-work
 or attention numbers — only ordered time slices of that table are allowed.
 """
 
+import json
+
 from sqlalchemy import and_, func, or_, select
 
 from comicarr import db
@@ -23,7 +25,7 @@ from comicarr.app.attention._read import list_rows as _list_attention_rows
 from comicarr.app.attention._read import unresolved_condition as _unresolved_attention_condition
 from comicarr.app.attention._serialization import serialize_groups as _serialize_attention_groups
 from comicarr.app.core.database import paginated_query
-from comicarr.app.downloads.journal import OPEN_STAGES
+from comicarr.app.downloads.journal import OPEN_STAGES, load_payload
 from comicarr.tables import acquisition_run_items, activity_events, pipeline_journal
 
 # Pagination pages *events* (not pre-grouped stories). Story grouping of 25 is
@@ -187,6 +189,115 @@ def count_open_journal_stages():
     )
     row = db.select_one(stmt)
     return int((row or {}).get("journal_count", 0) or 0)
+
+
+def _text(value):
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _json_object(raw):
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    try:
+        decoded = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
+def _run_item_label(row, payload):
+    name = _text(payload.get("comicname"))
+    number = _text(payload.get("issue_number")) or _text(payload.get("issuenumber"))
+    if name and number:
+        return "%s #%s" % (name, number)
+    if name:
+        return name
+    entity_type = _text(row.get("entity_type")) or "item"
+    entity_id = _text(row.get("entity_id"))
+    if entity_id:
+        return "%s %s" % (entity_type, entity_id)
+    return _text(row.get("command_kind")) or "search"
+
+
+def _journal_item_label(row, payload):
+    name = _text(payload.get("comicname")) or _text(payload.get("ComicName"))
+    number = _text(payload.get("issuenumber")) or _text(payload.get("Issue_Number"))
+    if name and number:
+        return "%s #%s" % (name, number)
+    if name:
+        return name
+    nzbname = _text(payload.get("nzbname")) or _text(payload.get("nzb_name")) or _text(row.get("nzbname"))
+    if nzbname:
+        return nzbname
+    issueid = _text(row.get("issueid")) or _text(payload.get("issueid"))
+    if issueid:
+        return "issue %s" % issueid
+    return _text(row.get("release_key")) or "download"
+
+
+def _shape_run_item(row):
+    payload = _json_object(row.get("payload_json"))
+    entity_type = _text(row.get("entity_type"))
+    entity_id = _text(row.get("entity_id"))
+    issueid = _text(payload.get("issueid"))
+    if issueid is None and entity_type in ("issue", "annual"):
+        issueid = entity_id
+    return {
+        "kind": "run",
+        "item_id": row.get("item_id"),
+        "run_id": row.get("run_id"),
+        "state": row.get("state"),
+        "label": _run_item_label(row, payload),
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "comicid": _text(payload.get("comicid")),
+        "issueid": issueid,
+        "command_kind": row.get("command_kind"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _shape_journal_item(row):
+    payload = _json_object(load_payload(row.get("payload_json")))
+    issueid = _text(row.get("issueid")) or _text(payload.get("issueid"))
+    return {
+        "kind": "journal",
+        "release_key": row.get("release_key"),
+        "stage": row.get("stage"),
+        "label": _journal_item_label(row, payload),
+        "issueid": issueid,
+        "comicid": _text(payload.get("comicid")) or _text(payload.get("ComicID")),
+        "provider": _text(row.get("provider")),
+        "updated_at": row.get("updated_date"),
+    }
+
+
+def _in_flight_sort_key(item):
+    identity = item.get("item_id") if item.get("kind") == "run" else item.get("release_key")
+    return (item.get("updated_at") or "", item.get("kind") or "", str(identity or ""))
+
+
+def list_in_flight_items():
+    """Return the same rows ``get_open_work_counts()['in_flight']`` counts.
+
+    Membership is the count predicates — accepted|running run items plus
+    OPEN_STAGES journal rows. Each item carries a stable identity (``kind``
+    plus ``item_id`` or ``release_key``) so a later cancel can target a row
+    without inventing a second list (#676 / #677).
+    """
+    run_rows = db.select_all(
+        select(acquisition_run_items).where(acquisition_run_items.c.state.in_(IN_FLIGHT_ITEM_STATES))
+    )
+    journal_rows = db.select_all(select(pipeline_journal).where(pipeline_journal.c.stage.in_(OPEN_STAGES)))
+    items = [_shape_run_item(row) for row in run_rows]
+    items.extend(_shape_journal_item(row) for row in journal_rows)
+    items.sort(key=_in_flight_sort_key, reverse=True)
+    return items
 
 
 def get_open_work_counts():

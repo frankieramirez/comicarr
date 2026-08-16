@@ -145,6 +145,37 @@ export const handlers = [
     HttpResponse.json({ in_flight: 2, attention: 0 }),
   ),
 
+  http.get("/api/activity/in-flight", () =>
+    HttpResponse.json({
+      results: [
+        {
+          kind: "run",
+          item_id: 1,
+          run_id: "run-1",
+          state: "running",
+          label: "Saga #1",
+          entity_type: "issue",
+          entity_id: "iss-1",
+          comicid: "42",
+          issueid: "iss-1",
+          command_kind: "search_issue",
+          updated_at: "2026-07-10 10:01:00",
+        },
+        {
+          kind: "journal",
+          release_key: "open-pp",
+          stage: "post_processing",
+          label: "Invincible #12",
+          issueid: "iss-10",
+          comicid: "7",
+          provider: "DDL",
+          updated_at: "2026-07-10 12:00:00",
+        },
+      ],
+      total: 2,
+    }),
+  ),
+
   // Needs-attention groups (dashboard §3.2 / Activity Center band). Default
   // empty so a page that mounts the band never invents trouble.
   http.get("/api/attention", () =>
@@ -345,6 +376,50 @@ export const handlers = [
 
   http.post("/api/search/force", () => {
     return HttpResponse.json({ success: true });
+  }),
+
+  http.post("/api/search/interactive", async ({ request }) => {
+    const body = (await request.json()) as {
+      entity_type?: string;
+      entity_id?: string;
+    };
+    return HttpResponse.json({
+      session_id: "session-test",
+      entity_type: body.entity_type ?? "issue",
+      entity_id: body.entity_id ?? "",
+      series_id: null,
+      state: "complete",
+      candidate_count: 0,
+      progress: {
+        provider_total: 0,
+        provider_completed: 0,
+        current_provider: null,
+      },
+      provider_failures: [],
+      created_at: "2026-08-12T04:00:00Z",
+      expires_at: "2026-08-12T04:10:00Z",
+      candidates: [],
+    });
+  }),
+
+  http.get("/api/search/interactive/:sessionId", ({ params }) => {
+    return HttpResponse.json({
+      session_id: params.sessionId,
+      entity_type: "issue",
+      entity_id: "wanted",
+      series_id: null,
+      state: "complete",
+      candidate_count: 0,
+      progress: {
+        provider_total: 0,
+        provider_completed: 0,
+        current_provider: null,
+      },
+      provider_failures: [],
+      created_at: "2026-08-12T04:00:00Z",
+      expires_at: "2026-08-12T04:10:00Z",
+      candidates: [],
+    });
   }),
 
   // -------------------------------------------------------------------------
