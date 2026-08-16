@@ -12,6 +12,8 @@ Per-downloader startup classification for the durable pipeline.
 
 Module boundary: this module is PURE-VERDICT — ``classify()`` returns a
 verdict (STILL/COMPLETE/GONE/UNKNOWN) and NEVER mutates the journal.
+``classify_details()`` is the same decision plus any completion evidence
+(location/name/failed) the SAB/NZBGet probe already resolved.
 journal.py owns transitions; recovery.py owns replay orchestration.
 ``apply_verdict()`` is a thin optional helper mapping a GONE verdict to an
 Attention failure record; it is a deliberate no-op for
@@ -212,10 +214,11 @@ def has_done_signal(row):
 
 
 # ---------------------------------------------------------------------------
-# Per-downloader probes. Each returns one of:
+# Per-downloader probes. Each returns either a raw state string
 #   "still" / "complete" / "absent" / "unreachable"
-# (raw client state, BEFORE the done-signal cross-check turns "absent" into
-# COMPLETE-or-GONE). Probes are injectable for tests via classify(..., probes=).
+# or a richer historycheck-shaped dict (status + optional location/name/failed).
+# Raw state is decided BEFORE the done-signal cross-check turns "absent" into
+# COMPLETE-or-GONE. Probes are injectable for tests via classify(..., probes=).
 # ---------------------------------------------------------------------------
 
 
@@ -291,7 +294,7 @@ def _sab_history_or_queue(row, payload=None):
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
         return "unreachable"
-    return _nzstat_to_raw(nzstat)
+    return nzstat
 
 
 def _nzbget_history(row, payload=None):
@@ -317,7 +320,7 @@ def _nzbget_history(row, payload=None):
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] NZBGet unreachable probing %s: %s" % (nzbid, e))
         return "unreachable"
-    return _nzstat_to_raw(nzstat)
+    return nzstat
 
 
 def _nzstat_to_raw(nzstat):
@@ -345,6 +348,36 @@ def _nzstat_to_raw(nzstat):
     # post-processing could not proceed. It is NOT absent; treat as complete
     # at the downloader (the PP/failure path owns it, replay must not GONE it).
     return "complete"
+
+
+_RAW_PROBE_STATES = frozenset(("still", "complete", "absent", "unreachable"))
+
+
+def _probe_evidence(raw):
+    """Normalize a probe return to (raw_state, location, name, failed).
+
+    Test probes may return a raw state string. Built-in SAB/NZBGet probes
+    (and richer test probes) may return a historycheck dict; location/name/
+    failed are kept so recovery can stamp nzb_folder instead of discarding
+    the path historycheck already resolved.
+    """
+    if isinstance(raw, str):
+        return raw, None, None, None
+    if not isinstance(raw, dict):
+        return "unreachable", None, None, None
+    location = raw.get("location")
+    name = raw.get("name")
+    failed = raw.get("failed")
+    status = raw.get("status")
+    if status in _RAW_PROBE_STATES:
+        raw_state = status
+    else:
+        raw_state = _nzstat_to_raw(raw)
+    return raw_state, location, name, failed
+
+
+def _empty_details(verdict=UNKNOWN):
+    return {"verdict": verdict, "location": None, "name": None, "failed": None}
 
 
 def _probe_nzb(row, payload=None):
@@ -458,13 +491,18 @@ def _resolve_downloader(row, payload=None):
 # ---------------------------------------------------------------------------
 
 
-def classify(row, probes=None, payload=None):
-    """Classify one open journal row. Returns one of STILL/COMPLETE/GONE/
-    UNKNOWN. PURE: never mutates the journal.
+def classify_details(row, probes=None, payload=None):
+    """Classify one open journal row and return completion evidence.
+
+    Returns ``{verdict, location, name, failed}``. ``verdict`` is one of
+    STILL/COMPLETE/GONE/UNKNOWN. ``location``/``name``/``failed`` come from a
+    richer SAB/NZBGet probe result when present; they are None when the probe
+    returned only a raw state string. PURE: never mutates the journal.
 
     `probes` (test seam): optional {downloader_type: callable(row)->raw}
     overriding the real client-query paths. `raw` is one of
-    "still"/"complete"/"absent"/"unreachable".
+    "still"/"complete"/"absent"/"unreachable", or a historycheck-shaped dict
+    with ``status`` plus optional ``location``/``name``/``failed``.
 
     `payload` (efficiency): the already-decoded payload_json dict, parsed once
     per replay row by the caller and threaded in to avoid re-parsing it for
@@ -474,7 +512,7 @@ def classify(row, probes=None, payload=None):
     their own single internal parse.
     """
     if not row:
-        return UNKNOWN
+        return _empty_details(UNKNOWN)
     if payload is None:
         payload = journal.load_payload(row.get("payload_json"))
     rkey = row.get("release_key")
@@ -485,29 +523,35 @@ def classify(row, probes=None, payload=None):
             "[RECOVERY-CLASSIFY] No probe for downloader_type=%r (release_key=%s) "
             "— UNKNOWN, journal left unchanged." % (downloader, rkey)
         )
-        return UNKNOWN
+        return _empty_details(UNKNOWN)
 
     try:
         raw = probe(row)
     except Exception as e:
         # A probe blowing up is treated as a transient outage — NEVER a GONE.
         logger.warn("[RECOVERY-CLASSIFY] probe raised for %s (%s) — UNKNOWN: %s" % (rkey, downloader, e))
-        return UNKNOWN
+        return _empty_details(UNKNOWN)
 
-    if raw == "still":
+    raw_state, location, name, failed = _probe_evidence(raw)
+    details = {"verdict": UNKNOWN, "location": location, "name": name, "failed": failed}
+
+    if raw_state == "still":
         logger.fdebug("[RECOVERY-CLASSIFY] %s -> still (in client)" % rkey)
-        return STILL
-    if raw == "complete":
+        details["verdict"] = STILL
+        return details
+    if raw_state == "complete":
         logger.fdebug("[RECOVERY-CLASSIFY] %s -> complete (done at downloader)" % rkey)
-        return COMPLETE
-    if raw == "unreachable":
+        details["verdict"] = COMPLETE
+        return details
+    if raw_state == "unreachable":
         # Transient outage / API unreachable. Leave the journal stage
         # UNCHANGED — reclassified next startup. NEVER write failed here.
         logger.warn(
             "[RECOVERY-CLASSIFY] %s -> UNKNOWN (downloader API unreachable / "
             "transient) — journal stage left unchanged." % rkey
         )
-        return UNKNOWN
+        details["verdict"] = UNKNOWN
+        return details
 
     # raw == "absent". Ambiguous, NOT authoritatively gone. Cross-check the
     # done-signals (history-eviction guard) BEFORE classifying GONE.
@@ -516,14 +560,26 @@ def classify(row, probes=None, payload=None):
             "[RECOVERY-CLASSIFY] %s absent in client BUT done-signal present "
             "(history likely evicted while down) -> complete, NOT gone." % rkey
         )
-        return COMPLETE
+        details["verdict"] = COMPLETE
+        return details
 
     # Absent AND no done-signal AND client reachable ⇒ authoritatively GONE.
     logger.warn(
         "[RECOVERY-CLASSIFY] %s absent from a reachable client with NO "
         "done-signal -> GONE (will be marked failed, payload retained)." % rkey
     )
-    return GONE
+    details["verdict"] = GONE
+    return details
+
+
+def classify(row, probes=None, payload=None):
+    """Classify one open journal row. Returns one of STILL/COMPLETE/GONE/
+    UNKNOWN. PURE: never mutates the journal.
+
+    Thin wrapper over :func:`classify_details` so existing callers and tests
+    keep receiving the same verdict strings.
+    """
+    return classify_details(row, probes=probes, payload=payload)["verdict"]
 
 
 # ---------------------------------------------------------------------------

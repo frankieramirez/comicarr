@@ -103,6 +103,19 @@ def test_sab_in_history_complete_is_complete():
     assert recovery_classify.classify(row, probes=_probe("complete")) == recovery_classify.COMPLETE
 
 
+def test_string_complete_probe_still_classifies_complete_without_inventing_folder():
+    """Existing test-seam contract: a string-only probe returning "complete"
+    still classifies COMPLETE. Recovery must not invent a folder the probe
+    did not return."""
+    row = _insert_journal("I2s|sab|nzb2s", journal.SNATCHED, issueid="I2s", provider="sab", downloader_type="nzb")
+    probes = _probe("complete")
+    assert recovery_classify.classify(row, probes=probes) == recovery_classify.COMPLETE
+    details = recovery_classify.classify_details(row, probes=probes)
+    assert details["verdict"] == recovery_classify.COMPLETE
+    assert details["location"] is None
+    assert details["name"] is None
+
+
 def test_sab_absent_no_done_signal_reachable_is_gone():
     """Absent AND no done-signal (issue not post-processed, nzblog present)
     AND client reachable ⇒ GONE."""
@@ -371,6 +384,49 @@ def test_sab_real_historycheck_status_true_maps_complete():
     )
     with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": True, "failed": False}):
         assert recovery_classify.classify(row) == recovery_classify.COMPLETE
+
+
+def test_sab_historycheck_keeps_completion_location():
+    """Built-in SAB probe must not collapse historycheck to the string
+    "complete" and drop the folder it already resolved."""
+    location = "/downloads/Spawn.344"
+    nzb_name = "Spawn.344.cbz"
+    row = _insert_journal(
+        "S1loc|sab|n",
+        journal.SNATCHED,
+        issueid="S1loc",
+        provider="sab",
+        downloader_type="sabnzbd",
+        payload={
+            "comicid": "C1",
+            "route": "sabnzbd",
+            "nzo_id": "nzoSpawn",
+            "nzb_name": nzb_name,
+            "download_info": {"nzo_id": "nzoSpawn"},
+        },
+    )
+    nzstat = {"status": True, "location": location, "name": nzb_name, "failed": False}
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+        details = recovery_classify.classify_details(row)
+        assert recovery_classify.classify(row) == recovery_classify.COMPLETE
+    assert details["verdict"] == recovery_classify.COMPLETE
+    assert details["location"] == location
+    assert details["name"] == nzb_name
+    assert details["failed"] is False
+
+
+def test_dict_probe_with_location_classifies_complete_and_keeps_folder():
+    """Richer injectable probes (historycheck-shaped dicts) are accepted
+    without breaking the string-returning test seam."""
+    location = "/downloads/Spawn.344"
+    nzb_name = "Spawn.344.cbz"
+    row = _insert_journal("S1dict|sab|n", journal.SNATCHED, issueid="S1dict", provider="sab", downloader_type="nzb")
+    probes = _probe({"status": True, "location": location, "name": nzb_name, "failed": False})
+    details = recovery_classify.classify_details(row, probes=probes)
+    assert details["verdict"] == recovery_classify.COMPLETE
+    assert details["location"] == location
+    assert details["name"] == nzb_name
+    assert recovery_classify.classify(row, probes=probes) == recovery_classify.COMPLETE
 
 
 def test_sab_real_historycheck_status_false_is_absent_then_gone():

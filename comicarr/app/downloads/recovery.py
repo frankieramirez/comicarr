@@ -377,6 +377,26 @@ def _reconstruct_anchors():
 # ---------------------------------------------------------------------------
 
 
+def _merge_completion_evidence(payload, details):
+    """Copy probe-reported completion location/name into the journal payload.
+
+    SAB/NZBGet snatch payloads have no nzb_folder (addfile returns nzo_ids
+    only). Recovery already resolved the folder via historycheck; keep it.
+    Do not invent a path the probe did not return.
+    """
+    merged = dict(payload or {})
+    details = details or {}
+    location = details.get("location")
+    if location:
+        merged["nzb_folder"] = str(location)
+    name = details.get("name")
+    if name and not merged.get("nzb_name") and not merged.get("nzbname"):
+        merged["nzb_name"] = name
+    if details.get("failed") is not None:
+        merged["failed"] = bool(details.get("failed"))
+    return merged
+
+
 def _pp_item_from_row(row, payload):
     """Reconstruct a PP_QUEUE item dict from a journal row's payload. The
     authoritative release_key is stamped as `journal_release_key` so the U4
@@ -801,12 +821,10 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "done-check"
 
     # --- per-downloader classification (U5) -------------------------------
-    # classify() accepts an optional payload= for direct callers, but we do
-    # NOT pass it here: the recovery_classify.classify symbol is a test
-    # monkeypatch seam whose stubs take (row, probes=) only. classify's own
-    # single internal parse covers _resolve_downloader/has_done_signal; the
-    # bigger re-parse wins (item-builders, finalizer) are already threaded.
-    verdict = recovery_classify.classify(row, probes=probes)
+    # classify_details keeps historycheck location/name/failed. classify()
+    # remains the string-verdict wrapper used by existing tests.
+    details = recovery_classify.classify_details(row, probes=probes, payload=payload)
+    verdict = details.get("verdict")
 
     if verdict == recovery_classify.GONE:
         recovery_classify.apply_verdict(row, verdict)
@@ -831,6 +849,9 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         # works. release_key (rkey) is authoritative and is what the PP item
         # carries as journal_release_key (the U3/U4/U6 propagated-key
         # contract — never re-derived).
+        # SAB/NZBGet snatch payloads omit nzb_folder; merge the folder the
+        # probe just resolved so PP does not fail with "nzb_folder is required".
+        payload = _merge_completion_evidence(payload, details)
         journal.record_transition(
             rkey,
             journal.DOWNLOADED,
