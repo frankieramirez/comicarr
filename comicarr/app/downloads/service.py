@@ -19,7 +19,6 @@ import os
 import re
 import time
 import zipfile
-from pathlib import Path
 
 import rarfile
 
@@ -27,6 +26,7 @@ import comicarr
 from comicarr import db, getcomics, logger, nzbget, process, sabnzbd
 from comicarr.app.attention import BATCH_CAP, PROBLEM_STATUS, Failure, ManualReview, record
 from comicarr.app.downloads import queries as dl_queries
+from comicarr.app.downloads.completed_path import resolve_completed_download_file
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
 from comicarr.downloaders import mediafire, mega, pixeldrain
@@ -2184,10 +2184,14 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
             comicarr.NZB_QUEUE.put(item)
     elif nzstat["status"] is True:
         if nzstat["failed"] is False:
-            fullpath = Path(nzstat["location"]) / nzstat["name"]
-            filecondition = check_file_condition(fullpath)
-            if not filecondition["status"]:
+            resolved = resolve_completed_download_file(nzstat["location"], nzstat.get("name"))
+            if resolved is None:
+                logger.warn("Unable to locate completed download file under %s" % nzstat.get("location"))
                 nzstat["failed"] = True
+            else:
+                filecondition = check_file_condition(resolved)
+                if not filecondition["status"]:
+                    nzstat["failed"] = True
         if nzstat["failed"] is False:
             logger.info("File successfully downloaded - now initiating completed downloading handling.")
         else:

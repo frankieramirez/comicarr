@@ -24,7 +24,7 @@ import { useTableState } from "@/components/data-table/useTableState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import EmptyState from "@/components/ui/EmptyState";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
-import { useStartInteractiveSearch } from "@/hooks/useInteractiveSearch";
+import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import type { UpcomingIssue } from "@/types";
 
 interface WeeklyIssue {
@@ -281,26 +281,15 @@ function MyReleasesView() {
   const bulkQueueMutation = useBulkQueueIssues();
   const bulkUnqueueMutation = useBulkUnqueueIssues();
   const { addToast } = useToast();
-  const startInteractiveSearch = useStartInteractiveSearch();
-  const [reviewIssue, setReviewIssue] = useState<UpcomingIssue | null>(null);
-  const [reviewSessionId, setReviewSessionId] = useState<string | null>(null);
+  const { startReview, reviewSheetProps } = useInteractiveReview();
 
-  const startReview = async (issue: UpcomingIssue) => {
-    setReviewIssue(issue);
-    setReviewSessionId(null);
-    startInteractiveSearch.reset();
-    try {
-      const session = await startInteractiveSearch.mutateAsync({
-        entityType: issue.annual ? "annual" : "issue",
-        entityId: issue.IssueID,
-      });
-      setReviewSessionId(session.session_id);
-    } catch {
-      // The sheet owns the actionable error and retry affordance.
-    }
-  };
+  const startIssueReview = (issue: UpcomingIssue) =>
+    startReview(issue, {
+      entityType: issue.annual ? "annual" : "issue",
+      entityId: issue.IssueID,
+    });
 
-  const columns = useUpcomingColumns((issue) => void startReview(issue));
+  const columns = useUpcomingColumns((issue) => void startIssueReview(issue));
   // Unpaginated: the whole week renders at once, so `pagination` is omitted
   // and the hook holds no page state (#360).
   const { table, selectedIds, clearSelection } = useTableState({
@@ -500,32 +489,7 @@ function MyReleasesView() {
         onClear={clearSelection}
         isLoading={bulkQueueMutation.isPending || bulkUnqueueMutation.isPending}
       />
-      <ReleaseReviewSheet
-        issue={reviewIssue}
-        sessionId={reviewSessionId}
-        startPending={startInteractiveSearch.isPending}
-        startError={startInteractiveSearch.error}
-        onRetry={() =>
-          reviewIssue ? void startReview(reviewIssue) : undefined
-        }
-        onClose={() => {
-          setReviewIssue(null);
-          setReviewSessionId(null);
-          startInteractiveSearch.reset();
-        }}
-        onGrabbed={(result) => {
-          addToast({
-            type: "success",
-            title: result.idempotent ? "Grab already started" : "Grab started",
-            message: result.idempotent
-              ? "Comicarr returned the existing handoff outcome."
-              : "The selected release was handed to the configured download route.",
-          });
-          setReviewIssue(null);
-          setReviewSessionId(null);
-          startInteractiveSearch.reset();
-        }}
-      />
+      <ReleaseReviewSheet {...reviewSheetProps} />
     </div>
   );
 }
