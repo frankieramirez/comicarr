@@ -1053,6 +1053,18 @@ def start(ctx):
             )
             IMPORTINBOX_SCHEDULER.pause()
 
+            from comicarr.app.manga.sync import JOB_NAME as MANGA_SYNC_JOB_NAME
+            from comicarr.app.manga.sync import run_manga_sync
+
+            MANGA_SYNC_SCHEDULER = _add_recurring_job(
+                func=run_manga_sync,
+                id="manga_sync",
+                name=MANGA_SYNC_JOB_NAME,
+                next_run_time=datetime.datetime.utcnow(),
+                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DBUPDATE_INTERVAL), timezone="UTC"),
+            )
+            MANGA_SYNC_SCHEDULER.pause()
+
             # Shared daily prune for the five unbounded operational ledgers
             # (#480). Independent of SEARCH_INTERVAL / DB Updater / narrative
             # retention; not paused — runs on the daily cadence from start.

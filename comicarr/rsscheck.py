@@ -1869,10 +1869,12 @@ def mangaCheck():
 
     logger.info("[MANGA-RSS] Starting manga wanted-chapter search")
 
-    # Get all active manga series
+    from comicarr.app.manga.sync import active_manga_clause
+
+    # Prefix *or* ContentType so a mis-stamped md-/mal- row is still checked.
     manga_series = db.select_all(
         select(t_comics).where(
-            t_comics.c.ContentType == "manga",
+            active_manga_clause(),
             t_comics.c.Status != "Paused",
         )
     )
@@ -1971,9 +1973,11 @@ def mangadexNewChapterCheck():
     # Every active manga series MangaDex can supply chapters for. MAL-added
     # series carry a resolved MangaDexID; restricting this to md- ComicIDs meant
     # they never polled for new chapters at all.
+    from comicarr.app.manga.sync import active_manga_clause
+
     manga_series = db.select_all(
         select(t_comics).where(
-            t_comics.c.ContentType == "manga",
+            active_manga_clause(),
             t_comics.c.Status != "Paused",
             or_(
                 t_comics.c.ComicID.like("md-%"),

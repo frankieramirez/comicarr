@@ -39,6 +39,7 @@ _RECURRING_JOB_IDS = {
     "ledger_retention",
     "activity_retention",
     "interactive_search_retention",
+    "manga_sync",
 }
 
 

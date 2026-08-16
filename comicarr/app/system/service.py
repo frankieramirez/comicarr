@@ -83,6 +83,7 @@ SCHEDULER_JOB_NAMES = {
     "ledger_retention": "Ledger Retention",
     "activity_retention": "Activity Event Retention",
     "interactive_search_retention": "Interactive Search Retention",
+    "manga_sync": "Manga ledger sync",
 }
 
 SETUP_PERSISTENCE_ERROR = "Failed to persist initial credentials"
