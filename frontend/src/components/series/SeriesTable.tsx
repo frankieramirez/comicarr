@@ -39,7 +39,11 @@ import {
 } from "@/components/data-table/useTableState";
 import { DataTableFooter } from "@/components/data-table/DataTableFooter";
 import { useTableUrlStore } from "@/components/data-table/tableUrlStore";
-import { getProgressPercentage, getProgressCategory } from "@/lib/series-utils";
+import {
+  getProgressPercentage,
+  getProgressCategory,
+  seriesCoverSrc,
+} from "@/lib/series-utils";
 import {
   useBulkDeleteSeries,
   useBulkPauseSeries,
@@ -621,7 +625,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         />
       </div>
 
-      <CoverThumb url={comic.ComicImage} alt={comic.ComicName} />
+      <CoverThumb comicId={comic.ComicID} alt={comic.ComicName} />
 
       <div className="min-w-0" data-series-title-slot>
         <div className="flex min-w-0 items-center gap-2">
@@ -710,23 +714,24 @@ function statusTextColor(status: string): string {
 }
 
 interface CoverThumbProps {
-  url?: string | null;
+  comicId?: string | null;
   alt?: string;
 }
 
-function CoverThumb({ url, alt }: CoverThumbProps) {
-  const [erroredUrl, setErroredUrl] = useState<string | null>(null);
-  const errored = erroredUrl !== null && erroredUrl === url;
+function CoverThumb({ comicId, alt }: CoverThumbProps) {
+  const src = seriesCoverSrc(comicId);
+  const [erroredSrc, setErroredSrc] = useState<string | null>(null);
+  const errored = erroredSrc !== null && erroredSrc === src;
 
   return (
     <div className="w-[32px] h-[44px] bg-muted rounded-sm overflow-hidden flex-shrink-0">
-      {url && !errored ? (
+      {src && !errored ? (
         <img
-          src={url}
+          src={src}
           alt={alt || ""}
           className="w-full h-full object-cover"
           loading="lazy"
-          onError={() => setErroredUrl(url)}
+          onError={() => setErroredSrc(src)}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">

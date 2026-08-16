@@ -208,6 +208,29 @@ describe("SeriesDetailPage", () => {
     );
   });
 
+  it("loads the cover from the art proxy, never a MangaDex hotlink", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "md-onepiece",
+            ComicName: "One Piece",
+            Status: "Active",
+            ComicImage: "https://uploads.mangadex.org/covers/uuid/cover.jpg",
+            ComicImageURL: "https://uploads.mangadex.org/covers/uuid/cover.jpg",
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 0, owned: 0, missing: 0 },
+        }),
+      ),
+    );
+    renderDetail();
+    const cover = await screen.findByRole("img", { name: "One Piece" });
+    expect(cover.getAttribute("src")).toBe("/api/metadata/art/md-onepiece");
+    expect(cover.getAttribute("src")).not.toContain("uploads.mangadex.org");
+  });
+
   it("links out to the series page on its metadata provider", async () => {
     renderDetail();
     const link = await screen.findByRole("link", { name: "View on ComicVine" });
@@ -244,12 +267,14 @@ describe("SeriesDetailPage", () => {
     );
     renderDetail();
     expect(
-      (await screen.findByRole("link", { name: "View on MyAnimeList" })).getAttribute(
-        "href",
-      ),
+      (
+        await screen.findByRole("link", { name: "View on MyAnimeList" })
+      ).getAttribute("href"),
     ).toBe("https://myanimelist.net/manga/161890");
     expect(
-      screen.getByRole("link", { name: "View on MangaDex" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "View on MangaDex" })
+        .getAttribute("href"),
     ).toBe("https://mangadex.org/title/uuid-2");
   });
 

@@ -3,6 +3,7 @@ import type { ChatResult } from "@/types/chat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight } from "lucide-react";
+import { seriesCoverSrc } from "@/lib/series-utils";
 
 interface ChatResultCardProps {
   result: ChatResult;
@@ -18,12 +19,13 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
     result.pct ?? (total > 0 ? Math.round((have / total) * 100) : 0),
   );
 
+  const coverSrc = seriesCoverSrc(comicId);
   const card = (
     <div className="group flex min-w-0 flex-1 items-center gap-3 text-left">
       <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm border bg-muted shadow-sm">
-        {result.ComicImage ? (
+        {coverSrc ? (
           <img
-            src={result.ComicImage}
+            src={coverSrc}
             alt=""
             className="size-full object-cover transition-transform group-hover:scale-105 motion-reduce:transition-none"
             loading="lazy"

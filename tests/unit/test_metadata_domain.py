@@ -293,6 +293,40 @@ class TestGetArtwork:
         result = metadata_service.get_artwork(ctx, comic_id)
         assert result == str(cache_file)
 
+    def test_mal_comic_id_cache_hit(self, tmp_path):
+        """MyAnimeList-style mal-* ids are accepted for cache paths."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "mal-13"
+        cache_file = tmp_path / (comic_id + ".jpg")
+        cache_file.write_bytes(_jpeg_bytes())
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        assert result == str(cache_file)
+
+    @patch("comicarr.app.metadata.image_fetch.requests.get")
+    @patch("comicarr.db")
+    def test_mangadex_url_fallback_writes_cache_server_side(self, mock_db, mock_get, tmp_path):
+        """Cache miss fetches MangaDex server-side; the browser never hotlinks."""
+        ctx = _make_test_ctx()
+        ctx.config.CACHE_DIR = str(tmp_path)
+        comic_id = "md-onepiece"
+        jpeg = _jpeg_bytes()
+        mock_db.select_all.return_value = [
+            {
+                "ComicID": comic_id,
+                "ComicImageURL": "https://uploads.mangadex.org/covers/uuid/cover.jpg",
+                "ComicImageALTURL": None,
+            }
+        ]
+        mock_get.return_value = _mock_image_response(jpeg)
+
+        result = metadata_service.get_artwork(ctx, comic_id)
+        assert result == str(tmp_path / (comic_id + ".jpg"))
+        assert (tmp_path / (comic_id + ".jpg")).read_bytes() == jpeg
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == "https://uploads.mangadex.org/covers/uuid/cover.jpg"
+
     @patch("comicarr.app.metadata.image_fetch.requests.get")
     @patch("comicarr.db")
     def test_ssrf_url_does_not_call_network(self, mock_db, mock_get, tmp_path):

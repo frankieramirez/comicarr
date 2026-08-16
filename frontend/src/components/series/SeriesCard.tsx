@@ -2,7 +2,7 @@ import { useState, type SyntheticEvent } from "react";
 import { BookOpen, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import StatusBadge from "@/components/StatusBadge";
-import { getProgressPercentage } from "@/lib/series-utils";
+import { getProgressPercentage, seriesCoverSrc } from "@/lib/series-utils";
 import type { Comic } from "@/types";
 
 interface SeriesCardProps {
@@ -13,11 +13,7 @@ interface SeriesCardProps {
 export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  const src =
-    comic.ComicImage ||
-    (comic.ComicID
-      ? `/api/metadata/art/${encodeURIComponent(comic.ComicID)}`
-      : null);
+  const src = seriesCoverSrc(comic.ComicID);
 
   const percentage = getProgressPercentage(comic);
   const have = parseInt(String(comic.Have)) || 0;

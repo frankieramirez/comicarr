@@ -48,6 +48,48 @@ describe("SeriesTable", () => {
     vi.restoreAllMocks();
   });
 
+  it("loads list covers from the art proxy, never a MangaDex hotlink", () => {
+    window.history.pushState({}, "", "/library");
+    const comics: Comic[] = [
+      {
+        ComicID: "md-onepiece",
+        ComicName: "One Piece",
+        ComicPublisher: "Shueisha",
+        ComicYear: "1997",
+        Status: "Active",
+        Have: 0,
+        Total: 1,
+        ComicImage: "https://uploads.mangadex.org/covers/uuid/cover.jpg",
+      },
+      {
+        ComicID: "mal-13",
+        ComicName: "Naruto",
+        ComicPublisher: "Shueisha",
+        ComicYear: "1999",
+        Status: "Active",
+        Have: 0,
+        Total: 1,
+        ComicImage: "https://cdn.myanimelist.net/images/manga/2/x.jpg",
+      },
+    ];
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={comics} />
+      </NuqsAdapter>,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "One Piece" }).getAttribute("src"),
+    ).toBe("/api/metadata/art/md-onepiece");
+    expect(
+      screen.getByRole("img", { name: "Naruto" }).getAttribute("src"),
+    ).toBe("/api/metadata/art/mal-13");
+    expect(
+      screen.getByRole("img", { name: "One Piece" }).getAttribute("src"),
+    ).not.toContain("uploads.mangadex.org");
+  });
+
   it("shows the next page when pagination advances", async () => {
     const user = userEvent.setup();
     window.history.pushState({}, "", "/library");

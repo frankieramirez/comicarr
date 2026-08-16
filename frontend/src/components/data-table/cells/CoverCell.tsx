@@ -1,10 +1,11 @@
 import { useState, SyntheticEvent } from "react";
 import { BookOpen, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { seriesCoverSrc } from "@/lib/series-utils";
 
 interface CoverCellProps {
   comicId?: string;
-  /** External image URL (e.g., from ComicVine). Takes precedence over API URL. */
+  /** External image URL used only when the row has no library ComicID. */
   imageUrl?: string | null;
   /** Full variant shows title, year, and manga badge alongside the image */
   variant?: "thumbnail" | "full";
@@ -23,7 +24,7 @@ export function CoverCell({
 }: CoverCellProps) {
   const [imageError, setImageError] = useState(false);
 
-  const src = imageUrl || (comicId ? `/api/metadata/art/${comicId}` : null);
+  const src = seriesCoverSrc(comicId) || imageUrl || null;
 
   const thumbnail = (
     <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">

@@ -291,7 +291,7 @@ def list_comics(ctx, limit=None, offset=None):
     if limit is not None:
         paginated = series_queries.list_comics_paginated(limit, offset=offset or 0)
         return {
-            "comics": paginated["results"],
+            "comics": [series_queries.with_library_cover_src(row) for row in paginated["results"]],
             "pagination": {
                 "total": paginated["total"],
                 "limit": paginated["limit"],
@@ -299,12 +299,12 @@ def list_comics(ctx, limit=None, offset=None):
                 "has_more": paginated["has_more"],
             },
         }
-    return series_queries.list_comics()
+    return [series_queries.with_library_cover_src(row) for row in series_queries.list_comics()]
 
 
 def get_comic_detail(ctx, comic_id):
     """Get a single comic with its issues and annuals."""
-    comic = series_queries.get_comic(comic_id)
+    comic = [series_queries.with_library_cover_src(row) for row in series_queries.get_comic(comic_id)]
     issue_rows = series_queries.get_issues(comic_id)
 
     annuals_on = getattr(ctx.config, "ANNUALS_ON", False) if ctx.config else False

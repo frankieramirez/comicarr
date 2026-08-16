@@ -32,7 +32,8 @@ from comicarr.tables import upcoming as t_upcoming
 COMICS_COLUMNS = [
     t_comics.c.ComicID.label("ComicID"),
     t_comics.c.ComicName.label("ComicName"),
-    t_comics.c.ComicImageURL.label("ComicImage"),
+    t_comics.c.ComicImage.label("ComicImage"),
+    t_comics.c.ComicImageURL.label("ComicImageURL"),
     t_comics.c.Status.label("Status"),
     t_comics.c.ComicPublisher.label("ComicPublisher"),
     t_comics.c.ComicYear.label("ComicYear"),
@@ -82,6 +83,29 @@ ANNUALS_COLUMNS = [
 # ---------------------------------------------------------------------------
 # Series (comics) queries
 # ---------------------------------------------------------------------------
+
+
+def library_cover_src(comic_id):
+    """Same-origin cover URL for a library series.
+
+    The browser must load covers through ``GET /api/metadata/art/{id}``
+    (cache-first, server-side fallback). Never return a provider CDN URL
+    here — MangaDex hotlink-protects ``uploads.mangadex.org``.
+    """
+    if not comic_id:
+        return None
+    return "/api/metadata/art/%s" % comic_id
+
+
+def with_library_cover_src(row):
+    """Copy a comics row and point ComicImage at the same-origin art URL."""
+    if row is None:
+        return None
+    item = dict(row)
+    src = library_cover_src(item.get("ComicID"))
+    if src:
+        item["ComicImage"] = src
+    return item
 
 
 def list_comics():

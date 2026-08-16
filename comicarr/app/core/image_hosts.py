@@ -16,11 +16,11 @@ One set, two derived views:
 - ``core.middleware`` splices ``https://host`` tokens into the CSP img-src
   directive, permitting the browser to load a cover directly.
 
-Both are needed because covers reach the browser two ways: proxied through
-``/api/metadata/art/{comic_id}``, and — when the cache-on-add fetch failed —
-as the raw external URL left in ``comics.ComicImage``, which the library grid
-renders with no proxy fallback. This module lives in ``core`` rather than
-``metadata`` because ``middleware`` may not import from a domain package.
+Library and series-detail covers load only through
+``/api/metadata/art/{comic_id}``. The CSP ``img-src`` tokens still matter
+for search-result thumbnails and any cache-miss path that still renders a
+raw provider URL. This module lives in ``core`` rather than ``metadata``
+because ``middleware`` may not import from a domain package.
 """
 
 ALLOWED_IMAGE_DOMAINS = frozenset(

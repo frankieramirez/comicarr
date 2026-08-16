@@ -48,6 +48,7 @@ import type {
   ContentType,
 } from "@/types";
 import { displayComicDate, pickComicDate } from "@/lib/format";
+import { seriesCoverSrc } from "@/lib/series-utils";
 
 type IssueFilter = "all" | "have" | "missing" | "monitored";
 
@@ -338,6 +339,7 @@ export default function SeriesDetailPage() {
   const isPaused = comic.Status?.toLowerCase() === "paused";
   const allowPacks = comic.AllowPacks === 1 || comic.AllowPacks === "1";
   const ignoreType = Boolean(comic.IgnoreType);
+  const coverSrc = seriesCoverSrc(comic.ComicID);
 
   const handleSearchSettingChange = async (
     setting: "allowPacks" | "ignoreType",
@@ -488,9 +490,9 @@ export default function SeriesDetailPage() {
           className="aspect-[2/3] w-[112px] overflow-hidden rounded-[5px] border md:w-[140px]"
           style={{ borderColor: "var(--border)" }}
         >
-          {comic.ComicImage && (
+          {coverSrc && (
             <img
-              src={comic.ComicImage}
+              src={coverSrc}
               alt={comic.ComicName}
               className="h-full w-full object-cover"
               onError={(event) => {
