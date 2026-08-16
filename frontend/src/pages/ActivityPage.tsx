@@ -233,7 +233,7 @@ function inFlightKindLabel(item: InFlightItem): string {
 
 function inFlightStateLabel(item: InFlightItem): string {
   if (item.kind === "run") return item.state;
-  return item.stage.replaceAll("_", " ");
+  return (item.stage || "").replace(/_/g, " ");
 }
 
 function InFlightView() {
