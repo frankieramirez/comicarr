@@ -256,7 +256,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
         </div>
       ) : (
         <pre
-          className="max-h-[min(62vh,640px)] overflow-auto rounded-[6px] border p-3 font-mono text-[11.5px] leading-[1.45] whitespace-pre"
+          className="max-h-[min(62vh,640px)] overflow-auto rounded-[6px] border p-3 font-mono text-[11.5px] leading-[1.45] whitespace-pre-wrap break-words"
           style={{
             borderColor: "var(--border)",
             background: "color-mix(in oklab, var(--card) 70%, black)",

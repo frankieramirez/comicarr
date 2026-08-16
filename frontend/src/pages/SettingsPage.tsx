@@ -57,6 +57,14 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 
+/** Logs use the full content pane; other tabs stay a readable centered column. */
+export function settingsPanelClassName(section: SectionId): string {
+  const padding = "px-4 py-5 md:px-6 md:py-6 mx-auto pb-24";
+  return section === "logs"
+    ? `${padding} w-full max-w-none`
+    : `${padding} max-w-4xl`;
+}
+
 function parseSectionParam(raw: string | null): SectionId | null {
   if (!raw) return null;
   return SECTION_IDS.has(raw as SectionId) ? (raw as SectionId) : null;
@@ -385,7 +393,7 @@ export default function SettingsPage() {
 
         {/* Content panel */}
         <div className="overflow-auto min-w-0">
-          <div className="px-4 py-5 md:px-6 md:py-6 max-w-4xl mx-auto pb-24">
+          <div className={settingsPanelClassName(section)}>
             {section === "general" && <GeneralTab {...tabProps} />}
             {section === "interface" && <InterfaceTab {...tabProps} />}
             {section === "api" && <ApiTab {...apiTabProps} />}

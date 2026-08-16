@@ -81,6 +81,14 @@ describe("LogsTab", () => {
     expect(screen.getByText(/refused/)).toBeTruthy();
   });
 
+  it("wraps long log lines instead of forcing horizontal scroll", async () => {
+    stubLogs(LINES, UNPINNED);
+    renderTab();
+
+    const consoleBox = await screen.findByText(/pool open/);
+    expect(consoleBox.closest("pre")?.className).toContain("whitespace-pre-wrap");
+  });
+
   it("says nothing extra when the config file is the top of the chain", async () => {
     stubLogs(LINES, UNPINNED);
     renderTab();
