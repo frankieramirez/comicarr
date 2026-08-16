@@ -58,6 +58,7 @@ describe("invalidation contract", () => {
       ["activity", "timeline"],
       ["activity", "band"],
       ["activity", "status"],
+      ["activity", "in-flight"],
     ]);
   });
 

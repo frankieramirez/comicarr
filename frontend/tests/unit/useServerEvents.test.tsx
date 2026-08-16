@@ -144,6 +144,7 @@ describe("coalesced invalidation", () => {
       "activity/timeline",
       "activity/band",
       "activity/status",
+      "activity/in-flight",
       "wanted",
     ]);
   });
@@ -173,6 +174,7 @@ describe("coalesced invalidation", () => {
       "activity/timeline",
       "activity/band",
       "activity/status",
+      "activity/in-flight",
       "series",
       "series/42",
       "wanted",
@@ -220,6 +222,7 @@ describe("coalesced invalidation", () => {
       "activity/timeline",
       "activity/band",
       "activity/status",
+      "activity/in-flight",
     ]);
   });
 

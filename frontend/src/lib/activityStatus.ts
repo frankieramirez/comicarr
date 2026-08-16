@@ -56,7 +56,8 @@ function apiText(s: ActivityStatusSnapshot): string {
 
 /**
  * Compose the quiet-count status line and segment roles.
- * Attention segment only when K > 0. Activity/idle/attention/unreachable link to /activity.
+ * Attention segment only when K > 0. In-flight links to
+ * `/activity?state=in_flight`; idle/unreachable stay on `/activity`.
  */
 export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
   const segments: StatusSegment[] = [];
@@ -84,7 +85,7 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
       segments.push({
         role: "activity",
         text: `${s.inFlight} in flight`,
-        href: "/activity",
+        href: "/activity?state=in_flight",
       });
     } else {
       segments.push({

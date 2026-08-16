@@ -568,93 +568,133 @@ def test_reason_phrase_matches_on_base_token(activity_db):
 # ---------------------------------------------------------------------------
 
 
+def _seed_open_work_count_fixtures(conn):
+    """2 accepted|running run items + 1 OPEN_STAGES journal (+ terminal noise)."""
+    conn.execute(
+        insert(activity_events),
+        [
+            _event(activity="search", status="started", subject_type="run", subject_id="r1"),
+            _event(activity="grab", status="failed", subject_type="issue", subject_id="iss-1"),
+        ],
+    )
+    conn.execute(
+        insert(acquisition_run_items),
+        [
+            {
+                "run_id": "run-1",
+                "command_kind": "search_issue",
+                "entity_type": "issue",
+                "entity_id": "iss-1",
+                "state": "accepted",
+                "dispatch_state": "pending",
+                "queue_priority": "routine",
+                "attempt_count": 0,
+                "created_at": "2026-07-10 10:00:00",
+                "updated_at": "2026-07-10 10:00:00",
+            },
+            {
+                "run_id": "run-1",
+                "command_kind": "search_issue",
+                "entity_type": "issue",
+                "entity_id": "iss-2",
+                "state": "running",
+                "dispatch_state": "accepted",
+                "queue_priority": "routine",
+                "attempt_count": 1,
+                "created_at": "2026-07-10 10:00:00",
+                "updated_at": "2026-07-10 10:01:00",
+            },
+            {
+                "run_id": "run-1",
+                "command_kind": "search_issue",
+                "entity_type": "issue",
+                "entity_id": "iss-3",
+                "state": "succeeded",
+                "dispatch_state": "accepted",
+                "queue_priority": "routine",
+                "attempt_count": 1,
+                "created_at": "2026-07-10 10:00:00",
+                "updated_at": "2026-07-10 10:02:00",
+                "completed_at": "2026-07-10 10:02:00",
+            },
+        ],
+    )
+    conn.execute(
+        insert(pipeline_journal),
+        [
+            _journal(
+                release_key="open-pp",
+                stage="post_processing",
+                stage_rank=30,
+                status=None,
+                issueid="iss-10",
+            ),
+            _journal(
+                release_key="done",
+                stage="post_processed",
+                stage_rank=50,
+                status=None,
+                issueid="iss-11",
+            ),
+            _journal(release_key="need-attn", stage="failed", status=None, issueid="iss-12"),
+            _journal(
+                release_key="resolved",
+                stage="failed",
+                status="ignored",
+                issueid="iss-13",
+            ),
+        ],
+    )
+
+
 def test_open_work_counts_from_ledgers_not_narrative(activity_db):
     """Authority rule: never aggregate activity_events for counts."""
     from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
-        # Narrative noise — must not affect counts
-        conn.execute(
-            insert(activity_events),
-            [
-                _event(activity="search", status="started", subject_type="run", subject_id="r1"),
-                _event(activity="grab", status="failed", subject_type="issue", subject_id="iss-1"),
-            ],
-        )
-        conn.execute(
-            insert(acquisition_run_items),
-            [
-                {
-                    "run_id": "run-1",
-                    "command_kind": "search_issue",
-                    "entity_type": "issue",
-                    "entity_id": "iss-1",
-                    "state": "accepted",
-                    "dispatch_state": "pending",
-                    "queue_priority": "routine",
-                    "attempt_count": 0,
-                    "created_at": "2026-07-10 10:00:00",
-                    "updated_at": "2026-07-10 10:00:00",
-                },
-                {
-                    "run_id": "run-1",
-                    "command_kind": "search_issue",
-                    "entity_type": "issue",
-                    "entity_id": "iss-2",
-                    "state": "running",
-                    "dispatch_state": "accepted",
-                    "queue_priority": "routine",
-                    "attempt_count": 1,
-                    "created_at": "2026-07-10 10:00:00",
-                    "updated_at": "2026-07-10 10:01:00",
-                },
-                {
-                    "run_id": "run-1",
-                    "command_kind": "search_issue",
-                    "entity_type": "issue",
-                    "entity_id": "iss-3",
-                    "state": "succeeded",
-                    "dispatch_state": "accepted",
-                    "queue_priority": "routine",
-                    "attempt_count": 1,
-                    "created_at": "2026-07-10 10:00:00",
-                    "updated_at": "2026-07-10 10:02:00",
-                    "completed_at": "2026-07-10 10:02:00",
-                },
-            ],
-        )
-        conn.execute(
-            insert(pipeline_journal),
-            [
-                _journal(
-                    release_key="open-pp",
-                    stage="post_processing",
-                    stage_rank=30,
-                    status=None,
-                    issueid="iss-10",
-                ),
-                _journal(
-                    release_key="done",
-                    stage="post_processed",
-                    stage_rank=50,
-                    status=None,
-                    issueid="iss-11",
-                ),
-                _journal(release_key="need-attn", stage="failed", status=None, issueid="iss-12"),
-                _journal(
-                    release_key="resolved",
-                    stage="failed",
-                    status="ignored",
-                    issueid="iss-13",
-                ),
-            ],
-        )
+        _seed_open_work_count_fixtures(conn)
 
     counts = queries.get_open_work_counts()
     # 2 in-flight run items + 1 open journal stage
     assert counts["in_flight"] == 3
     assert counts["attention"] == 1
     assert "activity_events" not in counts
+
+
+def test_list_in_flight_items_matches_open_work_count_rows(activity_db):
+    """The listed rows are exactly the rows the in-flight count uses (#676)."""
+    from comicarr.app.activity import queries
+
+    with activity_db.begin() as conn:
+        _seed_open_work_count_fixtures(conn)
+
+    items = queries.list_in_flight_items()
+    counts = queries.get_open_work_counts()
+    assert len(items) == counts["in_flight"] == 3
+
+    by_identity = {}
+    for item in items:
+        if item["kind"] == "run":
+            by_identity[("run", item["entity_id"])] = item
+        else:
+            by_identity[("journal", item["release_key"])] = item
+
+    assert set(by_identity) == {
+        ("run", "iss-1"),
+        ("run", "iss-2"),
+        ("journal", "open-pp"),
+    }
+    accepted = by_identity[("run", "iss-1")]
+    assert accepted["state"] == "accepted"
+    assert accepted["run_id"] == "run-1"
+    assert accepted["item_id"] is not None
+    assert accepted["entity_type"] == "issue"
+    running = by_identity[("run", "iss-2")]
+    assert running["state"] == "running"
+    assert running["item_id"] != accepted["item_id"]
+    journal = by_identity[("journal", "open-pp")]
+    assert journal["stage"] == "post_processing"
+    assert journal["issueid"] == "iss-10"
 
 
 def test_open_work_idle_when_ledgers_empty(activity_db):
@@ -698,6 +738,9 @@ def test_service_timeline_and_status_shapes(activity_db):
     assert status["in_flight"] == 0
     assert status["attention"] == 1
 
+    inflight = service.get_in_flight()
+    assert inflight == {"results": [], "total": 0}
+
 
 def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
     """The wire shape the frontend types mirror, at the volume that broke it.
@@ -723,9 +766,7 @@ def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
                 stage="manual_review",
                 stage_rank=55,
                 fail_reason="downloaded_invalid_artifact_command:PostProcessCommandError",
-                payload_json=json.dumps(
-                    {"comicid": "18839", "comicname": "Looney Tunes", "issuenumber": str(index)}
-                ),
+                payload_json=json.dumps({"comicid": "18839", "comicname": "Looney Tunes", "issuenumber": str(index)}),
             )
         )
     for index in range(226):
@@ -736,9 +777,7 @@ def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
                 stage="manual_review",
                 stage_rank=55,
                 fail_reason="postprocess_error:OperationalError",
-                payload_json=json.dumps(
-                    {"comicid": "s%d" % (index % 38), "comicname": "Series %d" % (index % 38)}
-                ),
+                payload_json=json.dumps({"comicid": "s%d" % (index % 38), "comicname": "Series %d" % (index % 38)}),
             )
         )
 
@@ -786,6 +825,36 @@ def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
         assert status.json()["attention_members"] == 399
 
 
+def test_in_flight_endpoint_returns_same_rows_as_count(activity_db):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from comicarr.app.activity.router import router
+    from comicarr.app.core.security import require_session
+
+    with activity_db.begin() as conn:
+        _seed_open_work_count_fixtures(conn)
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_session] = lambda: "operator"
+
+    with TestClient(app) as client:
+        response = client.get("/api/activity/in-flight")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 3
+        assert len(body["results"]) == 3
+        identities = {(item["kind"], item.get("entity_id") or item.get("release_key")) for item in body["results"]}
+        assert identities == {
+            ("run", "iss-1"),
+            ("run", "iss-2"),
+            ("journal", "open-pp"),
+        }
+        status = client.get("/api/activity/status")
+        assert status.json()["in_flight"] == body["total"]
+
+
 def test_router_registers_session_protected_routes():
     """Auth class matches other operator APIs (require_session dependency)."""
     from comicarr.app.activity.router import router
@@ -795,6 +864,7 @@ def test_router_registers_session_protected_routes():
     assert "/api/activity/timeline" in paths
     assert "/api/activity/band" in paths
     assert "/api/activity/status" in paths
+    assert "/api/activity/in-flight" in paths
 
     for route in router.routes:
         deps = getattr(route, "dependencies", None) or []

@@ -7,6 +7,7 @@ import {
 import { apiRequest } from "@/lib/api";
 import {
   ACTIVITY_BAND_QUERY_KEY,
+  ACTIVITY_IN_FLIGHT_QUERY_KEY,
   ACTIVITY_STATUS_QUERY_KEY,
   ACTIVITY_TIMELINE_QUERY_KEY,
 } from "@/lib/activityKeys";
@@ -91,6 +92,38 @@ interface QueueResponse {
   pagination: PaginationMeta;
 }
 
+export type InFlightRunItem = {
+  kind: "run";
+  item_id: number;
+  run_id: string;
+  state: string;
+  label: string;
+  entity_type: string;
+  entity_id: string;
+  comicid?: string | null;
+  issueid?: string | null;
+  command_kind: string;
+  updated_at: string;
+};
+
+export type InFlightJournalItem = {
+  kind: "journal";
+  release_key: string;
+  stage: string;
+  label: string;
+  issueid?: string | null;
+  comicid?: string | null;
+  provider?: string | null;
+  updated_at: string;
+};
+
+export type InFlightItem = InFlightRunItem | InFlightJournalItem;
+
+export interface InFlightPage {
+  results: InFlightItem[];
+  total: number;
+}
+
 interface RequeueDownloadResult {
   success: boolean;
   error?: string;
@@ -126,6 +159,19 @@ export function useDownloadHistory(query: ActivityQuery) {
         activityUrl("/api/downloads/history", query),
       ),
     staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * Derived in-flight rows — the same set GET /api/activity/status counts.
+ * Do not reuse the DDL queue as the source of truth (#676).
+ */
+export function useInFlightItems() {
+  return useQuery<InFlightPage>({
+    queryKey: ACTIVITY_IN_FLIGHT_QUERY_KEY,
+    queryFn: () => apiRequest<InFlightPage>("GET", "/api/activity/in-flight"),
+    staleTime: ACTIVITY_POLL_MS,
+    refetchInterval: ACTIVITY_POLL_MS,
   });
 }
 

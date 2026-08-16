@@ -395,6 +395,84 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("renders the in-flight items from the dedicated endpoint when state=in_flight", async () => {
+    let inFlightCalls = 0;
+    let timelineCalls = 0;
+    server.use(
+      http.get("/api/activity/in-flight", () => {
+        inFlightCalls += 1;
+        return HttpResponse.json({
+          results: [
+            {
+              kind: "run",
+              item_id: 11,
+              run_id: "run-1",
+              state: "running",
+              label: "Saga #1",
+              entity_type: "issue",
+              entity_id: "iss-1",
+              comicid: "42",
+              issueid: "iss-1",
+              command_kind: "search_issue",
+              updated_at: "2026-07-10 10:01:00",
+            },
+            {
+              kind: "journal",
+              release_key: "open-pp",
+              stage: "post_processing",
+              label: "Invincible #12",
+              issueid: "iss-10",
+              comicid: "7",
+              provider: "DDL",
+              updated_at: "2026-07-10 12:00:00",
+            },
+          ],
+          total: 2,
+        });
+      }),
+      http.get("/api/activity/timeline", () => {
+        timelineCalls += 1;
+        return HttpResponse.json({
+          results: [],
+          total: 0,
+          limit: 100,
+          offset: 0,
+          has_more: false,
+        });
+      }),
+      http.get("/api/downloads/queue", () =>
+        HttpResponse.json({
+          queue: [queueItem],
+          pagination: { total: 1, limit: 25, offset: 0, has_more: false },
+        }),
+      ),
+    );
+
+    render(<ActivityPage />, {
+      route: "/activity?state=in_flight",
+      useMemoryRouter: true,
+    });
+
+    expect(await screen.findByText("Saga #1")).toBeTruthy();
+    expect(screen.getByText("Invincible #12")).toBeTruthy();
+    expect(screen.getByText(/searching/i)).toBeTruthy();
+    expect(screen.getByText(/post-processing/i)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "In flight" }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+
+    // Same set as the status-bar count — not the timeline and not the DDL queue.
+    expect(screen.queryByText("Nothing has happened yet")).toBeNull();
+    expect(screen.queryByText("Absolute Flash")).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "Filter queue activity" }),
+    ).toBeNull();
+    expect(inFlightCalls).toBeGreaterThan(0);
+    expect(timelineCalls).toBe(0);
+  });
+
   it("uses the shared table for history with newest-first defaults", async () => {
     let historyRequest: URL | undefined;
     server.use(

@@ -658,6 +658,36 @@ export function mockApiResponse(
     // Quiet-count inputs for AppStatusBar (Variant A). Fixture: light open work.
     return { in_flight: 2, recovery_pending: 1, attention: 0 };
   }
+  if (m === "GET" && url === "/api/activity/in-flight") {
+    return {
+      results: [
+        {
+          kind: "run",
+          item_id: 1,
+          run_id: "run-1",
+          state: "running",
+          label: "Saga #1",
+          entity_type: "issue",
+          entity_id: "iss-1",
+          comicid: "absolute-flash",
+          issueid: "iss-1",
+          command_kind: "search_issue",
+          updated_at: "2026-07-10 10:01:00",
+        },
+        {
+          kind: "journal",
+          release_key: "open-pp",
+          stage: "post_processing",
+          label: "Invincible #12",
+          issueid: "iss-10",
+          comicid: "invincible",
+          provider: "DDL",
+          updated_at: "2026-07-10 12:00:00",
+        },
+      ],
+      total: 2,
+    };
+  }
   if (m === "GET" && url === "/api/dashboard/library") {
     return dashboardLibraryPayload();
   }

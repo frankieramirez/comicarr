@@ -32,9 +32,9 @@ describe("AppStatusBar", () => {
     expect(screen.queryByText("production")).toBeNull();
     expect(screen.queryByText("healthy")).toBeNull();
 
-    // Activity segment links to /activity; library/api do not.
+    // In-flight count links to the items it counts; library/api do not.
     const activityLink = screen.getByRole("link", { name: "2 in flight" });
-    expect(activityLink.getAttribute("href")).toBe("/activity");
+    expect(activityLink.getAttribute("href")).toBe("/activity?state=in_flight");
     expect(screen.queryByRole("link", { name: /10 series/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /online/ })).toBeNull();
 

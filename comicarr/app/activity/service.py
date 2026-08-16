@@ -39,3 +39,9 @@ def get_attention_band(scope_type=None, scope_id=None):
 def get_status():
     """Open-work counts for the global quiet-counts status indicator."""
     return queries.get_open_work_counts()
+
+
+def get_in_flight():
+    """Rows counted as in-flight — same membership as ``get_status()['in_flight']``."""
+    items = queries.list_in_flight_items()
+    return {"results": items, "total": len(items)}

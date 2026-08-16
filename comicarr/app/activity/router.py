@@ -14,6 +14,7 @@ Endpoints:
 * ``GET /api/activity/timeline`` — narrative events, newest first
 * ``GET /api/activity/band`` — needs-attention groups (R9 predicate, grouped)
 * ``GET /api/activity/status`` — derived open-work counts (never narrative)
+* ``GET /api/activity/in-flight`` — the rows that status counts as in-flight
 
 **Pagination choice:** timeline pages *events* ordered by ``created_at``.
 Story grouping (25 stories per UI page) is a client concern so the API can
@@ -86,3 +87,14 @@ def get_status():
     ``attention`` = unresolved band count. Never aggregates activity_events.
     """
     return service.get_status()
+
+
+@router.get("/in-flight", dependencies=[Depends(require_session)])
+def get_in_flight():
+    """Return the rows counted as in-flight.
+
+    Same membership as ``GET /api/activity/status`` ``in_flight``:
+    accepted|running run items plus OPEN_STAGES journal rows. Each item has a
+    stable identity (``kind`` plus ``item_id`` or ``release_key``).
+    """
+    return service.get_in_flight()
