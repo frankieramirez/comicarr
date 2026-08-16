@@ -81,7 +81,7 @@
     "msw": "^2.15.0",
     "portless": "^0.15.5",
     "postcss": "^8.5.25",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.1.18",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.66.0",
