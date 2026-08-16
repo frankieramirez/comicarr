@@ -543,7 +543,14 @@ def regenerate_api_key(ctx, username, ip):
 
 
 def update_providers(ctx, provider_data):
-    """Update Newznab/Torznab provider configuration."""
+    """Update Newznab/Torznab provider configuration.
+
+    Object-payload ``verify`` and ``enabled`` — on each provider row and the
+    top-level enablement flag — must be JSON booleans when present. Non-boolean
+    values are rejected so a string like ``"false"`` cannot silently enable a
+    provider.
+    """
+
     if not ctx.config:
         return {"success": False, "error": "Config not loaded"}
 
@@ -570,6 +577,10 @@ def update_providers(ctx, provider_data):
         for row in providers:
             if not isinstance(row, dict):
                 return {"success": False, "error": "Invalid provider configuration"}
+            if "enabled" in row and not isinstance(row["enabled"], bool):
+                return {"success": False, "error": "Provider enabled must be a boolean"}
+            if "verify" in row and not isinstance(row["verify"], bool):
+                return {"success": False, "error": "Provider verify must be a boolean"}
             old = by_id.get(str(row.get("id"))) or by_identity.get(
                 (str(row.get("name") or ""), _safe_provider_host(row.get("host")))
             )

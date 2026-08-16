@@ -1061,6 +1061,46 @@ class TestConfigService:
         assert result == {"success": False, "error": "Provider enabled must be a boolean"}
         ctx.config.apply_transaction.assert_not_called()
 
+    @pytest.mark.parametrize("field", ("verify", "enabled"))
+    @pytest.mark.parametrize("value", ("false", 0, 1, None))
+    def test_update_providers_rejects_non_boolean_row_flags(self, field, value):
+        """Object-payload verify/enabled must be JSON booleans, like top-level enabled."""
+        ctx = _make_test_ctx()
+        row = {
+            "name": "Indexer",
+            "host": "https://indexer.test",
+            "verify": True,
+            "api_key": "secret",
+            "categories": "5030",
+            "enabled": True,
+        }
+        row[field] = value
+
+        result = system_service.update_providers(ctx, {"type": "newznab", "providers": [row]})
+
+        assert result == {"success": False, "error": "Provider %s must be a boolean" % field}
+        ctx.config.apply_transaction.assert_not_called()
+
+    def test_update_providers_persists_json_false_row_flags(self):
+        ctx = _make_test_ctx()
+        providers = [
+            {
+                "name": "Indexer",
+                "host": "https://indexer.test",
+                "verify": False,
+                "api_key": "secret",
+                "categories": "5030",
+                "enabled": False,
+            }
+        ]
+
+        result = system_service.update_providers(ctx, {"type": "newznab", "providers": providers})
+
+        assert result["success"] is True
+        persisted = ctx.config.apply_transaction.call_args.args[0]["EXTRA_NEWZNABS"][0]
+        assert persisted[2] == "0"
+        assert persisted[5] == "0"
+
     def test_update_providers_persists_rows_and_enablement_atomically(self):
         old_providers = [("Old", "https://old.test", "1", "old-key", "5030", "1", 100)]
         new_providers = [
