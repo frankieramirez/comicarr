@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.32.0
+
+### Minor Changes
+
+- 09984d7: Each issue on a series page (and the matching annual and story-arc rows) now has an Interactive Search action that opens the release picker for that issue, so you do not have to leave the page and find it again under Releases.
+- c7fa5ad: The series page now has a "View on ComicVine", "View on MangaDex", or "View on MyAnimeList" link for the catalog that issued the series. MyAnimeList series also get a MangaDex link when that chapter source is known.
+- 33c0d16: You can stop an in-flight search or an open download/post-processing item from Activity. The status bar's in-flight list now has a Stop action that moves that item to cancelled instead of leaving you to wait for it to finish or fail.
+
+### Patch Changes
+
+- 1efbdf4: The status bar's "N in flight" count now opens Activity on exactly those items — running searches and open download/post-processing rows — instead of a generic unfiltered Activity page.
+- 334abb9: The Settings → Logs console now uses the available page width and wraps long lines, so debug output no longer requires sideways scrolling in a narrow centered column.
+- e35ed19: Completed NZBGet downloads are imported from the files actually sitting in the job folder. Comicarr used to look for a file with the same name as the release inside that folder, miss the real `.cbr`/`.cbz`, and mark a successful download as failed.
+- d4b4d73: Restart recovery of a finished SABnzbd or NZBGet download now keeps the completed folder the downloader already reported. Comicarr used to throw away that path and then fail post-processing with "nzb_folder is required", leaving a successful download stuck after a restart.
+- acf1db1: Coded Settings dropdowns (for example NZB client) now show the option name on first load. They used to show the raw stored value until you opened the menu once.
+
 ## 0.31.0
 
 ### Minor Changes
