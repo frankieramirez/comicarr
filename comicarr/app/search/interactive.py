@@ -19,6 +19,7 @@ from sqlalchemy import select
 from comicarr import db, helpers, logger, search, search_filer
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search import routes as search_routes
 from comicarr.app.search.interactive_sessions import (
     InteractiveCandidateConflict,
     claim_server_candidate,
@@ -31,7 +32,6 @@ from comicarr.app.search.interactive_sessions import (
     update_search_progress,
 )
 from comicarr.app.search.providers import effective_provider_plan
-from comicarr.app.search.service import _search_route_health
 from comicarr.app.series import queries as series_queries
 from comicarr.tables import storyarcs
 
@@ -80,7 +80,7 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
     entity, error = _resolve_entity(entity_type, entity_id)
     if error:
         return error
-    route_health = _search_route_health(ctx)
+    route_health = search_routes.route_health(ctx)
     if not route_health.get("success"):
         return {
             "success": False,
@@ -378,7 +378,7 @@ def grab_candidate(
                 code="item_not_eligible",
             )
 
-        route_health = _search_route_health(ctx)
+        route_health = search_routes.route_health(ctx)
         if not route_health.get("success"):
             return _release_with_error(
                 engine,

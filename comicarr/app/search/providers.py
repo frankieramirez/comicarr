@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 from comicarr.app.search.provider_config import provider_enabled
+from comicarr.app.search.routes import classify
 
 
 @dataclass(frozen=True)
@@ -27,11 +28,7 @@ class ProviderCandidate:
 
     @property
     def route(self) -> str:
-        if self.kind in {"torznab", "torrent"}:
-            return "torrent"
-        if self.kind in {"newznab", "experimental"}:
-            return "nzb"
-        return "ddl"
+        return classify(self)
 
 
 def enabled_provider_entries(entries: Iterable[object]):

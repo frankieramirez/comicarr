@@ -30,6 +30,7 @@ from comicarr import db, logger
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
+from comicarr.app.search.routes import classify, route_health
 from comicarr.tables import issues, ref32p
 from comicarr.torrent import monitor as torrent_monitor
 
@@ -184,30 +185,6 @@ def add_manga(ctx, manga_id):
         return {"success": False, "error": "Error adding manga: %s" % str(e)}
 
 
-def _search_route_health(ctx):
-    """Shared get_search_health precheck for force_search and search_issue."""
-    from comicarr.app.search.health import blocking_route_reason, get_search_health
-
-    health = get_search_health(
-        ctx.config,
-        provider_blocklist=getattr(ctx, "provider_blocklist", None) or comicarr.PROVIDER_BLOCKLIST,
-    )
-    routes = health.get("routes") or {}
-    viable = bool(health.get("viable_route")) or any(
-        bool((routes.get(name) or {}).get("ready") or (routes.get(name) or {}).get("viable"))
-        for name in ("ddl", "nzb", "torrent")
-    )
-    if not viable:
-        return {
-            "success": False,
-            "status": "blocked",
-            "error": blocking_route_reason(routes),
-            "message": "Search blocked: no complete acquisition route is ready",
-            "routes": routes,
-        }
-    return {"success": True, "routes": routes, "health": health}
-
-
 def search_issue(ctx, issue_id, *, trigger="issue_retry"):
     """Scoped single-issue search with the same route precheck as force_search.
 
@@ -224,7 +201,7 @@ def search_issue(ctx, issue_id, *, trigger="issue_retry"):
             "message": "Missing issue_id",
         }
 
-    precheck = _search_route_health(ctx)
+    precheck = route_health(ctx)
     if not precheck.get("success"):
         return {
             "success": False,
@@ -253,7 +230,7 @@ def force_search(ctx):
     from comicarr import search
     from comicarr.app.acquisition.runs import RunLedger
 
-    precheck = _search_route_health(ctx)
+    precheck = route_health(ctx)
     if not precheck.get("success"):
         return {
             "success": False,
@@ -811,9 +788,9 @@ def block_provider_check(site, simple=True, force=False):
             if force is True:
                 comicarr.PROVIDER_BLOCKLIST.remove(prov)
                 try:
-                    from comicarr.app.search.health import clear_route_block, route_for_site
+                    from comicarr.app.search.health import clear_route_block
 
-                    clear_route_block(route_for_site(site))
+                    clear_route_block(classify(site))
                 except Exception as e:
                     logger.fdebug("[SEARCH] Unable to clear durable route block: %s" % e)
                 if simple is True:
@@ -900,10 +877,10 @@ def disable_provider(site, reason=None, delay=0):
     newentry = {"site": site, "resume": int(time.time()) + delay, "reason": reason}
     comicarr.PROVIDER_BLOCKLIST.append(newentry)
     try:
-        from comicarr.app.search.health import record_route_outcome, route_for_site
+        from comicarr.app.search.health import record_route_outcome
 
         record_route_outcome(
-            route_for_site(site),
+            classify(site),
             success=False,
             error=reason or "Provider temporarily blocked",
             blocked_until=newentry["resume"],

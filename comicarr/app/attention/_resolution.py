@@ -39,9 +39,9 @@ class _RuntimeResolutionEffects:
         self.ctx = ctx
 
     def search_health(self):
-        from comicarr.app.search import service as search_service
+        from comicarr.app.search import routes as search_routes
 
-        return search_service._search_route_health(self.ctx)
+        return search_routes.route_health(self.ctx)
 
     def rewant(self, issue_id, actor):
         from comicarr.app.series import queries as series_queries

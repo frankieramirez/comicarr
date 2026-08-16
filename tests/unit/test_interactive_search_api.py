@@ -52,7 +52,7 @@ def engine(tmp_path, monkeypatch):
     monkeypatch.setattr(interactive.db, "get_engine", lambda: value)
     monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", [])
     monkeypatch.setattr(interactive.helpers, "block_provider_check", lambda _name: False)
-    monkeypatch.setattr(interactive, "_search_route_health", lambda _ctx: {"success": True, "routes": {}})
+    monkeypatch.setattr(interactive.search_routes, "route_health", lambda _ctx: {"success": True, "routes": {}})
     yield value
     value.dispose()
 
@@ -284,8 +284,8 @@ def test_start_exposes_sanitized_route_health_block(engine, monkeypatch):
         lambda *_args, **_kwargs: ({"ComicID": "series-1"}, "want", False),
     )
     monkeypatch.setattr(
-        interactive,
-        "_search_route_health",
+        interactive.search_routes,
+        "route_health",
         lambda _ctx: {
             "success": False,
             "error": "client_not_ready",

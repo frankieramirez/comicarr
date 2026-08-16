@@ -20,11 +20,12 @@ from comicarr import db
 from comicarr.app.search import queries
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.search.providers import effective_provider_plan, enabled_provider_entries, ordered_provider_names
+from comicarr.app.search.routes import ROUTES, classify
 from comicarr.db import get_engine
 
 WORKER_PREFIX = "Worker: "
 ROUTE_PREFIX = "Acquisition Route: "
-_ROUTES = ("ddl", "nzb", "torrent")
+_ROUTES = ROUTES
 
 # Last-resort reason when no route reported anything usable.
 NO_VIABLE_ROUTE = "no_viable_acquisition_route"
@@ -81,44 +82,12 @@ def _enabled_extra(entries):
     return any(enabled_provider_entries(entries))
 
 
-def _route_for_provider(row):
-    provider_type = str(row.get("type") or "").strip().lower()
-    if provider_type.startswith("ddl"):
-        return "ddl"
-    if provider_type in {"torrent", "torznab"}:
-        return "torrent"
-    if provider_type in {"nzb", "newznab", "experimental"}:
-        return "nzb"
-    name = str(row.get("provider") or "").strip().lower()
-    if name.startswith("ddl(") or "getcomics" in name:
-        return "ddl"
-    if "torznab" in name or name in {"32p", "public torrents", "torrent"}:
-        return "torrent"
-    return "nzb"
-
-
-def route_for_site(site, config=None):
-    """Classify a configured provider name without persisting its URL or credentials."""
-    config = config or getattr(comicarr, "CONFIG", None)
-    name = str(site or "").strip().lower()
-    if name.startswith("ddl(") or "getcomics" in name or name == "external":
-        return "ddl"
-    if name in {"32p", "public torrents", "torrent"}:
-        return "torrent"
-    if config is not None:
-        for entry in getattr(config, "EXTRA_TORZNABS", None) or []:
-            candidates = [str(value or "").strip().lower() for value in entry[:2]]
-            if name in candidates:
-                return "torrent"
-    return "nzb"
-
-
 def _route_provider_names(config, provider_stats):
     names = {route: [] for route in _ROUTES}
     for row in provider_stats:
         name = str(row.get("provider") or "").strip()
         if name:
-            names[_route_for_provider(row)].append(name)
+            names[classify(row)].append(name)
 
     ordered = _provider_names(config)
     if not names["ddl"]:
@@ -256,7 +225,7 @@ def build_route_readiness(
     planned_by_route = {
         route: [candidate for candidate in provider_plan if candidate.route == route] for route in _ROUTES
     }
-    stats_by_route = {route: [row for row in provider_stats if _route_for_provider(row) == route] for route in _ROUTES}
+    stats_by_route = {route: [row for row in provider_stats if classify(row) == route] for route in _ROUTES}
     routes = {}
 
     for route in _ROUTES:
