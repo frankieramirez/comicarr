@@ -155,34 +155,29 @@ def add_comic(ctx, comic_id):
 
 
 def add_manga(ctx, manga_id):
-    """Add a manga by MAL ID or MangaDex ID."""
+    """Queue a manga add on the mass-add thread (same contract as add_comic)."""
     mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
     mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
     if not ctx.config or not (mal_ok or mdex_ok):
         return {"success": False, "error": "Manga integration is not enabled"}
 
+    from comicarr import importer, series_kind
+
     try:
-        from comicarr import importer, series_kind
-
         if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
-            # MAL-sourced manga: fetch metadata from MAL, chapters from MangaDex
-            result = importer.addMangaToDB_MAL(manga_id)
+            comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MYANIMELIST)
         else:
-            # An unprefixed id here is a raw MangaDex uuid.
-            manga_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
-            result = importer.addMangaToDB(manga_id)
-
-        if result and result.get("status") == "complete":
-            return {
-                "success": True,
-                "message": "Successfully added manga: %s" % result.get("comicname", manga_id),
-                "comicid": result.get("comicid", manga_id),
-                "content_type": "manga",
-            }
-        return {"success": False, "error": "Failed to add manga: %s" % manga_id}
+            comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
+        importer.importer_thread([{"comicid": comic_id, "comicname": None, "seriesyear": None}])
     except Exception as e:
-        logger.error("[SEARCH] Error adding manga %s: %s" % (manga_id, e))
+        logger.error("[SEARCH] Error queueing manga %s: %s" % (manga_id, e))
         return {"success": False, "error": "Error adding manga: %s" % str(e)}
+    return {
+        "success": True,
+        "message": "Successfully queued adding id: %s" % comic_id,
+        "comicid": comic_id,
+        "content_type": "manga",
+    }
 
 
 def search_issue(ctx, issue_id, *, trigger="issue_retry"):

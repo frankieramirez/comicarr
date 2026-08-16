@@ -99,6 +99,23 @@ def is_exists(comicid):
         return False
 
 
+def _emit_add_activity(status, comicid, comicname=None, reason_detail=None):
+    """Narrate a series add. Failures must not be swallowed silently."""
+    try:
+        from comicarr.app.activity.producers import emit_series_activity
+
+        emit_series_activity(
+            "add",
+            status,
+            comicid,
+            comicname=comicname,
+            reason_code="import_failed" if status == "failed" else None,
+            reason_detail=reason_detail,
+        )
+    except Exception as e:
+        logger.fdebug("[ACTIVITY] add.%s emit skipped: %s" % (status, e))
+
+
 def addvialist(seriesQueue, issueWantQueue):
     while True:
         if seriesQueue.qsize() >= 1:
@@ -123,10 +140,14 @@ def addvialist(seriesQueue, issueWantQueue):
             else:
                 logger.info("[MASS-ADD][1/%s] Now adding ComicID: %s " % (seriesQueue.qsize() + 1, item["comicid"]))
 
-            if "suppress_addall" in item.keys():
-                addComictoDB(item["comicid"], suppress_addall=item["suppress_addall"])
-            else:
-                addComictoDB(item["comicid"])
+            try:
+                if "suppress_addall" in item.keys():
+                    addComictoDB(item["comicid"], suppress_addall=item["suppress_addall"])
+                else:
+                    addComictoDB(item["comicid"])
+            except Exception as e:
+                logger.error("[MASS-ADD] Failed adding %s: %s" % (item["comicid"], e))
+                _emit_add_activity("failed", item["comicid"], comicname=item.get("comicname"), reason_detail=str(e))
         elif issueWantQueue.qsize() > 0:
             time.sleep(1)
             issueItem = issueWantQueue.get(True)
@@ -1306,6 +1327,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
                 {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
                 controlValueDict,
             )
+        _emit_add_activity("failed", mangaid, reason_detail="MangaDex details fetch failed")
         return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
@@ -1407,6 +1429,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
 
     logger.info("[MANGADEX] Successfully added manga: %s" % manga_name)
+    _emit_add_activity("succeeded", mangaid, comicname=manga_name)
 
     return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
 
@@ -1472,6 +1495,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
                 {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
                 controlValueDict,
             )
+        _emit_add_activity("failed", mangaid, reason_detail="MyAnimeList details fetch failed")
         return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
@@ -1580,6 +1604,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
     helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
 
     logger.info("[MAL] Successfully added manga: %s" % manga_name)
+    _emit_add_activity("succeeded", mangaid, comicname=manga_name)
 
     return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
 
