@@ -458,9 +458,9 @@ describe("ActivityPage", () => {
     expect(screen.getByText(/searching/i)).toBeTruthy();
     expect(screen.getByText(/post-processing/i)).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "In flight" }).getAttribute(
-        "aria-pressed",
-      ),
+      screen
+        .getByRole("button", { name: "In flight" })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
 
     // Same set as the status-bar count — not the timeline and not the DDL queue.
@@ -498,7 +498,12 @@ describe("ActivityPage", () => {
       ),
       http.post("/api/activity/in-flight/cancel", async ({ request }) => {
         cancelBody = await request.json();
-        return HttpResponse.json({ ok: true, kind: "run", item_id: 11, state: "cancelled" });
+        return HttpResponse.json({
+          ok: true,
+          kind: "run",
+          item_id: 11,
+          state: "cancelled",
+        });
       }),
     );
     const user = userEvent.setup();

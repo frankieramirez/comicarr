@@ -176,8 +176,7 @@ export function useInFlightItems() {
 }
 
 export type CancelInFlightInput =
-  | { kind: "run"; item_id: number }
-  | { kind: "journal"; release_key: string };
+  { kind: "run"; item_id: number } | { kind: "journal"; release_key: string };
 
 export function useCancelInFlight() {
   const queryClient = useQueryClient();
@@ -190,9 +189,13 @@ export function useCancelInFlight() {
       ),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ACTIVITY_IN_FLIGHT_QUERY_KEY }),
+        queryClient.invalidateQueries({
+          queryKey: ACTIVITY_IN_FLIGHT_QUERY_KEY,
+        }),
         queryClient.invalidateQueries({ queryKey: ACTIVITY_STATUS_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: ACTIVITY_TIMELINE_QUERY_KEY }),
+        queryClient.invalidateQueries({
+          queryKey: ACTIVITY_TIMELINE_QUERY_KEY,
+        }),
       ]);
     },
   });
