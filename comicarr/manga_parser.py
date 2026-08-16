@@ -26,7 +26,7 @@ Handles common naming conventions found in manga libraries:
     Title v01 c001.cbz
     Title - Chapter 001.cbz
     Title Vol.01 Ch.001.cbz
-    Title 001.cbz              (bare number = chapter)
+    Title 001.cbz              (bare number; volumes/chapters/auto)
     Title v01.cbz              (volume only)
     chapter 001.cbz            (when series_name is supplied)
 """
@@ -122,7 +122,14 @@ _PATTERNS = [
 ]
 
 
-def parse_manga_filename(filename, series_name=None):
+def parse_manga_filename(
+    filename,
+    series_name=None,
+    bare_number_mode="auto",
+    bare_numbers=None,
+    volume_count=None,
+    chapter_count=None,
+):
     """Parse a manga filename and return extracted metadata.
 
     Args:
@@ -130,6 +137,10 @@ def parse_manga_filename(filename, series_name=None):
         series_name: Optional folder-derived series name. When supplied, the
             parser can infer chapter-only names like ``chapter 1.cbz`` without
             replacing the caller's series name.
+        bare_number_mode: ``volumes``, ``chapters``, or ``auto``.
+        bare_numbers: Folder-level bare numbers used by auto.
+        volume_count: Known volume-ledger size for auto.
+        chapter_count: Known chapter-ledger size for auto.
 
     Returns:
         A dict with keys ``series_name``, ``chapter_number`` (float or None),
@@ -155,10 +166,21 @@ def parse_manga_filename(filename, series_name=None):
             return None
         return _build_context_result(series_name, chapter_only)
 
+    from comicarr.app.manga.bare_numbers import apply_bare_number, interpret_bare_numbers
+
+    resolved_mode = interpret_bare_numbers(
+        bare_number_mode,
+        bare_numbers=bare_numbers,
+        volume_count=volume_count,
+        chapter_count=chapter_count,
+    )
     for pattern in _PATTERNS:
         m = pattern.match(stem)
         if m:
-            return _build_result(m)
+            result = _build_result(m)
+            if result is not None and pattern is _PAT_BARE_NUMBER:
+                return apply_bare_number(result, resolved_mode)
+            return result
 
     if series_name:
         chapter = parse_manga_chapter_number(filename)

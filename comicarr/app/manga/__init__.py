@@ -9,6 +9,7 @@
 
 """Manga ledger contract — chapters, volumes, and the blended frontier."""
 
+from comicarr.app.manga.bare_numbers import interpret_bare_numbers
 from comicarr.app.manga.ledger import (
     apply_volume_coverage,
     blended_progress,
@@ -21,6 +22,7 @@ from comicarr.app.manga.ledger import (
 )
 
 __all__ = [
+    "interpret_bare_numbers",
     "apply_volume_coverage",
     "blended_progress",
     "chapter_id",
