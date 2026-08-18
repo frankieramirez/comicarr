@@ -303,20 +303,23 @@ def _union_satisfies(existing, incoming):
 
 def _merge_series_evaluation(collected, evaluation):
     identity = _evaluation_identity(evaluation)
-    for existing_identity, existing in collected:
-        if existing_identity == identity:
-            _union_satisfies(existing, evaluation)
-            return
-    collected.append((identity, evaluation))
+    existing = collected.get(identity)
+    if existing is not None:
+        _union_satisfies(existing, evaluation)
+        return
+    collected[identity] = evaluation
 
 
 def _order_series_evaluations(collected):
-    evaluations = [evaluation for _identity, evaluation in collected]
+    # Acceptance ranks above coverage and the pack flag: complete_search_session
+    # truncates this ordered list, so rejected packs must never crowd out
+    # grabbable releases.
+    evaluations = list(collected.values())
     evaluations.sort(
         key=lambda evaluation: (
-            0 if evaluation.candidate.get("pack") else 1,
-            -len(evaluation.satisfies or []),
             0 if (evaluation.verdict or {}).get("accepted") else 1,
+            -len(evaluation.satisfies or []),
+            0 if evaluation.candidate.get("pack") else 1,
         )
     )
     return evaluations
@@ -405,20 +408,23 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
 
 
 def _collect_series(*, session_id, entity, initial_failures, provider_total):
-    collected = []
+    collected = {}
     failures = list(initial_failures)
     completed_count = 0
     engine = db.get_engine()
     missing = entity.get("missing") or []
     targets = entity.get("targets") or _search_targets(missing)
     eligible = {(item["entity_type"], str(item["entity_id"])): item for item in missing}
+    # provider_total counts every provider once per target, so blocked providers
+    # (which never report completion) have to be offset per target too.
+    blocked_offset = len(initial_failures) * max(1, len(targets))
 
     def publish_progress(provider=None):
         update_search_progress(
             engine,
             session_id=session_id,
             state="running",
-            provider_completed=min(provider_total, completed_count + len(initial_failures)),
+            provider_completed=min(provider_total, completed_count + blocked_offset),
             current_provider=provider,
             provider_failures=failures,
         )
@@ -487,7 +493,7 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
             engine,
             session_id=session_id,
             state="failed",
-            provider_completed=min(provider_total, completed_count + len(initial_failures)),
+            provider_completed=min(provider_total, completed_count + blocked_offset),
             provider_failures=failures,
         )
         return

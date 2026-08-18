@@ -633,7 +633,11 @@ export default function SeriesDetailPage() {
                     )
                   : undefined
               }
-              disabled={!comicId || reviewableMissing === 0}
+              disabled={
+                !comicId ||
+                reviewableMissing === 0 ||
+                reviewSheetProps.startPending
+              }
               className={ghostBtn}
               style={{ borderColor: "var(--border)" }}
               aria-label="Interactive Search for missing issues"

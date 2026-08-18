@@ -804,3 +804,162 @@ def test_series_grab_revalidates_against_the_pack_anchor_issue(engine, monkeypat
     assert ("issue", "i1") in resolved
     assert ("series", "series-1") not in resolved
     assert searches == [{"issueid": "i1", "manual": True, "entity_type": "issue"}]
+
+
+def test_series_worker_scales_the_blocked_provider_offset_across_targets(engine, monkeypatch):
+    initial_failures = [
+        {"provider": "Indexer", "code": "temporarily_blocked", "detail": "Provider is temporarily blocked"}
+    ]
+    targets = [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+    ]
+    # Two planned providers over two targets, one of them blocked before the
+    # worker starts, so provider_total is len(plan) * len(targets).
+    provider_total = 2 * len(targets)
+    pending = interactive.create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        provider_total=provider_total,
+        provider_failures=initial_failures,
+    )
+    reported = []
+
+    def manual_search(**kwargs):
+        evaluation = _evaluation("Example %s" % kwargs["issueid"])
+        evaluation.reconstruction_hint = {
+            "provider_config_id": 200,
+            "provider_type": "ddl",
+            "provider_item_id": "item-%s" % kwargs["issueid"],
+        }
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([evaluation])
+        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        reported.append(
+            read_session(
+                engine,
+                session_id=pending["session_id"],
+                actor="alice",
+                browser_session="browser-cookie",
+            )["progress"]["provider_completed"]
+        )
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    interactive._collect(
+        session_id=pending["session_id"],
+        entity={
+            "entity_type": "series",
+            "entity_id": "series-1",
+            "series_id": "series-1",
+            "missing": _missing_items(),
+            "targets": targets,
+        },
+        initial_failures=initial_failures,
+        provider_total=provider_total,
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    # One blocked provider over two targets occupies two of the four slots, so
+    # the first target finishing reports 1 + 2 and not the unscaled 1 + 1.
+    assert reported == [3, 4]
+    assert result["state"] == "complete"
+    assert result["progress"]["provider_total"] == provider_total
+    assert result["progress"]["provider_completed"] == provider_total
+
+
+def test_series_worker_marks_the_session_failed_when_every_target_fails(engine, monkeypatch):
+    initial_failures = [
+        {"provider": "Indexer", "code": "temporarily_blocked", "detail": "Provider is temporarily blocked"}
+    ]
+    targets = [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+    ]
+    provider_total = 2 * len(targets)
+    pending = interactive.create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        provider_total=provider_total,
+        provider_failures=initial_failures,
+    )
+    monkeypatch.setattr(
+        interactive.search,
+        "searchforissue",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("https://host/api?token=secret")),
+    )
+
+    interactive._collect(
+        session_id=pending["session_id"],
+        entity={
+            "entity_type": "series",
+            "entity_id": "series-1",
+            "series_id": "series-1",
+            "missing": _missing_items(),
+            "targets": targets,
+        },
+        initial_failures=initial_failures,
+        provider_total=provider_total,
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    assert result["state"] == "failed"
+    assert result["candidates"] == []
+    assert [failure["code"] for failure in result["provider_failures"]] == [
+        "temporarily_blocked",
+        "collection_failed",
+        "collection_failed",
+    ]
+    # No provider ever completed, so only the blocked provider slots count.
+    assert result["progress"]["provider_completed"] == 2
+    assert "secret" not in str(result)
+    assert "https://" not in str(result)
+
+
+def test_series_grab_rejects_a_candidate_without_a_tracked_anchor(engine, monkeypatch):
+    pack = _pack_evaluation()
+    pack.satisfies = []
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        evaluations=[pack],
+    )
+    searches = []
+    monkeypatch.setattr(interactive.search, "searchforissue", lambda **kwargs: searches.append(kwargs) or [])
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+
+    result = interactive.grab_candidate(
+        AppContext(config=_config()),
+        session_id=created["session_id"],
+        candidate_id=created["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+
+    assert result["success"] is False
+    assert result["status_code"] == 409
+    assert result["status"] == "blocked"
+    assert result["error"] == "Release candidate has no tracked issue to grab against"
+    assert searches == []
