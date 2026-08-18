@@ -1005,7 +1005,32 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
     return rtnval
 
 
-def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id):
+def _pack_row_matches(row, int_iss, iss_item, kind):
+    """Decide whether one issues-table row belongs to a pack range entry.
+
+    A volume pack (e.g. ``v01-14``) covers rows by their ``VolumeNumber``
+    — including manga chapter rows that belong to a covered volume — but
+    must never claim a chapter numbered like a volume (a chapter 7 with
+    an unknown volume is not volume 7). Rows without volume metadata
+    (TPB/GN-tracked series) fall back to the plain issue-number match.
+    Issue/chapter packs symmetrically never claim volume rows.
+    """
+    volume = row.get("VolumeNumber")
+    chapter = row.get("ChapterNumber")
+    if kind == "volume":
+        if volume not in (None, ""):
+            try:
+                return int(float(volume)) == int(iss_item)
+            except (TypeError, ValueError):
+                return False
+        if chapter not in (None, ""):
+            return False
+    elif volume not in (None, "") and chapter in (None, ""):
+        return False
+    return row["Int_IssueNumber"] == int_iss
+
+
+def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue"):
     from sqlalchemy import select
 
     from comicarr.helpers import issuedigits
@@ -1054,12 +1079,15 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id):
         int_iss = issuedigits(str(iss_item))
         for xb in issuelist:
             if xb["Status"] != "Downloaded":
-                if xb["Int_IssueNumber"] == int_iss:
+                if _pack_row_matches(xb, int_iss, iss_item, kind):
                     if Int_IssueNumber == xb["Int_IssueNumber"]:
                         valid = True
                     issueinfo.append({"issueid": xb["IssueID"], "int_iss": int_iss, "issuenumber": xb["Issue_Number"]})
                     write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
-                    break
+                    if kind != "volume":
+                        # one row per issue number, but a covered volume can
+                        # hold many chapter rows - keep collecting those.
+                        break
             else:
                 ignores.append(iss_item)
 

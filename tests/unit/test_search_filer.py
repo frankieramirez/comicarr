@@ -374,7 +374,7 @@ def _pack_entry(**overrides):
 
 
 def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": True, "issues": []})
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
     info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)")
 
     accepted = search_filer.search_check().evaluate_entry(_pack_entry(), info)
@@ -382,7 +382,7 @@ def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
     assert accepted.verdict["match_kind"] == "pack"
     assert accepted.candidate["source_kind"] == "ddl"
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": False})
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False})
     absent = search_filer.search_check().evaluate_entry(_pack_entry(), info)
     assert _reason(absent) == "rejected.pack_issue_absent"
 
@@ -391,8 +391,84 @@ def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
     assert _reason(failed) == "error.pack_lookup_exception"
 
 
+def test_non_ddl_volume_pack_is_detected_and_accepted(monkeypatch):
+    calls = {}
+
+    def fake_issue_find_ids(*args, **kwargs):
+        calls["args"] = args
+        calls["kwargs"] = kwargs
+        return {"valid": True, "issues": [{"issueid": "id-1"}]}
+
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", fake_issue_find_ids)
+    info = _info(
+        nzbprov="torznab",
+        tmpprov="nyaa [api]",
+        booktype="manga",
+        allow_packs=True,
+        RSS="yes",
+        torznab_host=("nyaa", "https://nyaa.test", "0", "key"),
+    )
+    entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)", site="torznab")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+
+    assert _reason(evaluation) == "accepted.pack"
+    assert evaluation.verdict["match_kind"] == "pack"
+    assert evaluation.legacy_match["pack"] is True
+    assert evaluation.legacy_match["pack_numbers"] == "1-14"
+    assert evaluation.legacy_match["kind"] == "torrent"
+    # the entry is enriched so the downstream pack snatch/notify path works
+    assert entry["pack"] is True
+    assert entry["issues"] == "1-14"
+    assert entry["series"] == "Example Series"
+    assert calls["args"][2] == "1-14"
+    assert calls["kwargs"] == {"kind": "volume"}
+
+
+def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
+    monkeypatch.setattr(
+        search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
+    )
+    info = _info(allow_packs=True)
+    entry = _entry(title="Example Series #1-10 (2024)")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+
+    assert _reason(evaluation) == "accepted.pack"
+
+
+def test_pack_title_without_allow_packs_uses_single_issue_path():
+    entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, _info(booktype="manga"))
+
+    # the stub parser matches, proving the legacy single-issue path ran
+    assert _reason(evaluation) == "accepted.issue"
+    assert evaluation.legacy_match["pack"] is False
+
+
+def test_volume_pack_is_not_matched_against_issue_tracked_series():
+    # A v01-14 release cannot satisfy individual issues 1-14 of a Print
+    # series, so detection must not trigger for issue-tracked booktypes.
+    entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, _info(allow_packs=True, booktype="Print"))
+
+    assert evaluation.legacy_match["pack"] is False
+
+
+def test_non_ddl_pack_missing_wanted_issue_is_rejected(monkeypatch):
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False})
+    info = _info(allow_packs=True)
+    entry = _entry(title="Example Series #1-10 (2024)")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+
+    assert _reason(evaluation) == "rejected.pack_issue_absent"
+
+
 def test_rss_getcomics_pack_uses_post_id_as_nzbid(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args: {"valid": True, "issues": []})
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
     info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)", RSS="yes")
 
     evaluation = search_filer.search_check().evaluate_entry(_pack_entry(link=123), info)

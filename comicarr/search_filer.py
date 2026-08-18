@@ -328,11 +328,13 @@ class search_check(object):
             intIss = is_info["intIss"]
             chktpb = is_info["chktpb"]
             provider_stat = is_info["provider_stat"]
+            allow_packs = is_info.get("allow_packs") in (1, "1", True)
 
         try:
             pack = entry["pack"]
         except Exception:
             pack = False
+        detected_pack = None
 
         alt_match = False
         # logger.fdebug('entry: %s' % (entry,))
@@ -644,8 +646,54 @@ class search_check(object):
 
         # send it to the parser here.
         else:
-            p_comic = filechecker.FileChecker(file=ComicTitle, watchcomic=ComicName)
-            parsed_comic = p_comic.listFiles()
+            if pack is not True and allow_packs and "DDL" not in nzbprov:
+                from comicarr.app.manga.acquisition import booktype_bypasses_format_gates as _manga_bypass
+                from comicarr.app.search.packs import parse_pack_title
+
+                detected_pack = parse_pack_title(ComicTitle)
+                if detected_pack is not None and detected_pack["kind"] == "volume":
+                    # a v01-14 release holds volumes; matching it against an
+                    # issue-tracked series would mark the wrong issues.
+                    volume_ok = booktype in ("TPB", "HC", "GN", "TPB/GN/HC/One-Shot") or _manga_bypass(booktype)
+                    if not volume_ok:
+                        detected_pack = None
+            if detected_pack is not None:
+                logger.fdebug(
+                    "[PACK-DETECT] %s detected as a multi-%s release covering %s"
+                    % (ComicTitle, detected_pack["kind"], detected_pack["issues"])
+                )
+                pack = True
+                entry["pack"] = True
+                entry["issues"] = detected_pack["issues"]
+                # the pack snatch/notify path reads these off the entry.
+                entry["series"] = detected_pack["series"]
+                entry["year"] = detected_pack["year"]
+                if "filename" not in entry:
+                    entry["filename"] = entry["title"]
+                ffc = filechecker.FileChecker()
+                dnr = ffc.dynamic_replace(detected_pack["series"])
+                parsed_comic = {
+                    "booktype": detected_pack["booktype"],
+                    "comicfilename": entry["title"],
+                    "series_name": detected_pack["series"],
+                    "series_name_decoded": detected_pack["series"],
+                    "issueid": None,
+                    "dynamic_name": dnr["mod_seriesname"],
+                    "issues": detected_pack["issues"],
+                    "series_volume": None,
+                    "alt_series": None,
+                    "alt_issue": None,
+                    "issue_year": detected_pack["year"],
+                    "issue_number": None,
+                    "scangroup": None,
+                    "reading_order": None,
+                    "sub": None,
+                    "comiclocation": None,
+                    "parse_status": "success",
+                }
+            else:
+                p_comic = filechecker.FileChecker(file=ComicTitle, watchcomic=ComicName)
+                parsed_comic = p_comic.listFiles()
 
         logger.fdebug("parsed_info: %s" % parsed_comic)
         logger.fdebug(
@@ -936,7 +984,7 @@ class search_check(object):
 
         downloadit = False
 
-        if all(["DDL" in nzbprov, pack is True]):
+        if pack is True and any(["DDL" in nzbprov, detected_pack is not None]):
             logger.fdebug("[PACK-QUEUE] %s Pack detected for %s." % (nzbprov, entry["filename"]))
 
             # find the pack range.
@@ -945,7 +993,11 @@ class search_check(object):
             try:
                 if not entry["title"].startswith("0-Day Comics Pack"):
                     pack_issuelist = entry["issues"]
-                    issueid_info = helpers.issue_find_ids(ComicName, ComicID, pack_issuelist, IssueNumber, entry["id"])
+                    pack_kind = detected_pack["kind"] if detected_pack is not None else "issue"
+                    pack_ref = entry["id"] if "id" in entry else entry["link"]
+                    issueid_info = helpers.issue_find_ids(
+                        ComicName, ComicID, pack_issuelist, IssueNumber, pack_ref, kind=pack_kind
+                    )
                     if issueid_info["valid"] is True:
                         logger.info("Issue Number %s exists within pack. Continuing." % IssueNumber)
                     else:

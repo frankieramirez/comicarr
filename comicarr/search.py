@@ -1078,6 +1078,7 @@ def NZB_SEARCH(
         "chktpb": chktpb,
         "smode": smode,
         "provider_stat": provider_stat,
+        "allow_packs": allow_packs,
         "foundc": foundc,
     }
 
@@ -2490,6 +2491,9 @@ def searchforissue(
                             "chktpb": chktpb,
                             "smode": xr["searchmode"],
                             "provider_stat": provider_stat,
+                            "allow_packs": (
+                                xr["AllowPacks"] in (1, "1", True) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH
+                            ),
                             "foundc": foundc,
                         }
 
@@ -2644,7 +2648,9 @@ def searchforissue(
                             " still wanted, perform a Manual search or mark issue as Skipped"
                             " or Wanted."
                         )
-                        return
+                        # an explicit outcome so queued bulk-search items that a
+                        # pack already covered terminalise as blocked, not failed.
+                        return {"status": "BLOCKED", "reason": "already downloaded or snatched"}
 
                 allow_packs = False
                 ComicID = result["ComicID"]
