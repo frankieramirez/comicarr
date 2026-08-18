@@ -12,7 +12,7 @@ const INTERACTIVE_POLL_MS = 2_000;
 const ACTIVE_STATES = new Set(["queued", "running"]);
 
 export interface StartInteractiveSearchInput {
-  entityType: "issue" | "annual" | "story_arc_issue";
+  entityType: "issue" | "annual" | "story_arc_issue" | "series";
   entityId: string;
 }
 

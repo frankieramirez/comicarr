@@ -34,6 +34,7 @@ import { getErrorMessage } from "@/lib/api";
 import type {
   InteractiveGrabResult,
   InteractiveReleaseCandidate,
+  InteractiveSatisfiedIssue,
   ReleaseReviewIssue,
 } from "@/types";
 
@@ -116,12 +117,34 @@ function formatPublished(value: string | null) {
   }).format(date);
 }
 
+function formatSatisfies(
+  satisfies: InteractiveSatisfiedIssue[] | undefined,
+): string | null {
+  if (!satisfies?.length) return null;
+  const numbers = satisfies
+    .map((item) => String(item.issue_number ?? "").trim())
+    .filter(Boolean);
+  if (numbers.length === 0) return null;
+  if (numbers.length === 1) return `#${numbers[0]}`;
+  const numeric = numbers.map((value) => Number(value));
+  const contiguous =
+    numeric.every((value) => Number.isFinite(value)) &&
+    numeric.every(
+      (value, index) => index === 0 || value === numeric[index - 1] + 1,
+    );
+  if (contiguous) {
+    return `#${numbers[0]}–#${numbers[numbers.length - 1]}`;
+  }
+  return numbers.map((value) => `#${value}`).join(", ");
+}
+
 function CandidateFacts({
   candidate,
 }: {
   candidate: InteractiveReleaseCandidate;
 }) {
   const metrics = Object.entries(candidate.candidate.metrics ?? {});
+  const coverage = formatSatisfies(candidate.satisfies);
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
       <span>{candidate.candidate.provider}</span>
@@ -129,6 +152,7 @@ function CandidateFacts({
       <span>{formatBytes(candidate.candidate.size_bytes)}</span>
       <span>{formatPublished(candidate.candidate.published_at)}</span>
       {candidate.candidate.pack ? <span>pack</span> : null}
+      {coverage ? <span>covers {coverage}</span> : null}
       {metrics.slice(0, 3).map(([key, value]) => (
         <span key={key}>
           {value} {key}
@@ -167,8 +191,13 @@ function IssueContext({
   issue: ReleaseReviewIssue;
   expiresAt?: string;
 }) {
+  const isSeries = issue.scope === "series";
   const number = issue.IssueNumber ?? issue.Issue_Number ?? "—";
   const name = issue.ComicName ?? issue.ReleaseComicName ?? "Tracked issue";
+  const missingLabel =
+    issue.missingCount === 1
+      ? "1 missing issue"
+      : `${issue.missingCount ?? 0} missing issues`;
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div
@@ -180,12 +209,14 @@ function IssueContext({
         }}
         aria-hidden="true"
       >
-        #{number}
+        {isSeries ? "Series" : `#${number}`}
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold">{name}</div>
         <div className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-          {issue.annual ? "Annual" : "Issue"} · {issue.Status ?? "Tracked"}
+          {isSeries
+            ? missingLabel
+            : `${issue.annual ? "Annual" : "Issue"} · ${issue.Status ?? "Tracked"}`}
           {expiresAt ? ` · available until ${formatPublished(expiresAt)}` : ""}
         </div>
       </div>
@@ -325,8 +356,9 @@ export function ReleaseReviewSheet({
           <SheetHeader className="shrink-0 border-b border-border p-5 pr-12 text-left">
             <SheetTitle>Review releases</SheetTitle>
             <SheetDescription>
-              Choose one result for this issue. Nothing downloads until you
-              confirm.
+              {issue?.scope === "series"
+                ? "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
+                : "Choose one result for this issue. Nothing downloads until you confirm."}
             </SheetDescription>
             {issue ? (
               <div className="pt-2">

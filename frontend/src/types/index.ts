@@ -41,6 +41,7 @@ export type {
   WantedIssue,
   UpcomingIssue,
   ReleaseReviewIssue,
+  InteractiveSatisfiedIssue,
   InteractiveVerdictReason,
   InteractiveReleaseCandidate,
   InteractiveProviderFailure,

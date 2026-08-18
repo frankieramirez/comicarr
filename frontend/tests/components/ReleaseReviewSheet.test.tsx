@@ -125,7 +125,9 @@ describe("ReleaseReviewSheet", () => {
       />,
     );
 
-    expect(await screen.findByText("Example 001 (2026) (Digital)")).toBeTruthy();
+    expect(
+      await screen.findByText("Example 001 (2026) (Digital)"),
+    ).toBeTruthy();
     expect(screen.getByText("Issue, year, and volume match")).toBeTruthy();
     expect(screen.getByText("Slow indexer")).toBeTruthy();
     expect(screen.getByText("Provider timed out")).toBeTruthy();
@@ -135,6 +137,81 @@ describe("ReleaseReviewSheet", () => {
 
     await waitFor(() => expect(grabBody).toEqual({ override: false }));
     expect(onGrabbed).toHaveBeenCalledOnce();
+  });
+
+  it("shows which missing issues a pack would satisfy", async () => {
+    server.use(
+      http.get("/api/search/interactive/session-series", () =>
+        HttpResponse.json({
+          session_id: "session-series",
+          entity_type: "series",
+          entity_id: "comic-1",
+          state: "complete",
+          candidate_count: 1,
+          progress: {
+            provider_total: 1,
+            provider_completed: 1,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [
+            {
+              ...sessionCandidate(true, false),
+              candidate: {
+                ...sessionCandidate(true, false).candidate,
+                title: "Example 001-003 (2026)",
+                pack: true,
+              },
+              verdict: {
+                ...sessionCandidate(true, false).verdict,
+                reason_code: "accepted.pack",
+                match_kind: "pack",
+              },
+              satisfies: [
+                {
+                  entity_type: "issue",
+                  entity_id: "i1",
+                  issue_number: "1",
+                },
+                {
+                  entity_type: "issue",
+                  entity_id: "i2",
+                  issue_number: "2",
+                },
+                {
+                  entity_type: "issue",
+                  entity_id: "i3",
+                  issue_number: "3",
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(
+      <ReleaseReviewSheet
+        issue={{
+          ComicName: "Example",
+          Status: "Wanted",
+          scope: "series",
+          missingCount: 4,
+        }}
+        sessionId="session-series"
+        startPending={false}
+        startError={null}
+        onRetry={vi.fn()}
+        onClose={vi.fn()}
+        onGrabbed={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Example 001-003 (2026)")).toBeTruthy();
+    expect(screen.getByText("covers #1–#3")).toBeTruthy();
+    expect(screen.getByText(/4 missing issues/i)).toBeTruthy();
   });
 
   it("requires acknowledgement before submitting an override", async () => {

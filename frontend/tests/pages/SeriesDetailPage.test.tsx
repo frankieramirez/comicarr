@@ -786,4 +786,51 @@ describe("SeriesDetailPage", () => {
       await screen.findByRole("heading", { name: "Review releases" }),
     ).toBeTruthy();
   });
+
+  it("starts Interactive Search for missing issues on the series", async () => {
+    let searchBody: unknown;
+    server.use(
+      http.post("/api/search/interactive", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json({
+          session_id: "session-series",
+          entity_type: "series",
+          entity_id: "1",
+          series_id: "1",
+          state: "complete",
+          candidate_count: 0,
+          progress: {
+            provider_total: 0,
+            provider_completed: 0,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [],
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Interactive Search for missing issues",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(searchBody).toEqual({
+        entity_type: "series",
+        entity_id: "1",
+      });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Review releases" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/pack can cover several missing issues/i),
+    ).toBeTruthy();
+  });
 });

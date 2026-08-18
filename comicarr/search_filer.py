@@ -81,9 +81,13 @@ class ReleaseCandidateEvaluation:
     legacy_match: dict | None = field(default=None, repr=False)
     exception: Exception | None = field(default=None, repr=False)
     reconstruction_hint: dict | None = field(default=None, repr=False)
+    satisfies: list | None = None
 
     def as_dict(self):
-        return {"candidate": dict(self.candidate), "verdict": dict(self.verdict)}
+        payload = {"candidate": dict(self.candidate), "verdict": dict(self.verdict)}
+        if self.satisfies:
+            payload["satisfies"] = [dict(item) for item in self.satisfies]
+        return payload
 
 
 _INTERACTIVE_COLLECTOR = contextvars.ContextVar("interactive_release_collector", default=None)

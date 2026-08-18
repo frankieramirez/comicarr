@@ -42,7 +42,7 @@ CLAIM_LEASE_SECONDS = 60 * 60
 JOB_ID = "interactive_search_retention"
 JOB_NAME = "Interactive Search Retention"
 
-_ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue"})
+_ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue", "series"})
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$")
 _SAFE_PROVIDER_TYPE = re.compile(r"^[a-z0-9_-]{1,32}$")
 _URL_PATTERN = re.compile(r"(?i)https?://[^\s]+")
@@ -179,6 +179,13 @@ def _candidate_reconstruction(evaluation, public):
         "match_kind": str(verdict.get("match_kind") or "none")[:32],
         "pack": bool(candidate.get("pack")),
     }
+    satisfies = getattr(evaluation, "satisfies", None) or public.get("satisfies")
+    if isinstance(satisfies, list) and satisfies and isinstance(satisfies[0], Mapping):
+        anchor_type = str(satisfies[0].get("entity_type") or "").strip().lower()
+        anchor_id = str(satisfies[0].get("entity_id") or "").strip()
+        if anchor_type in {"issue", "annual", "story_arc_issue"} and anchor_id:
+            reconstruction["anchor_entity_type"] = anchor_type
+            reconstruction["anchor_entity_id"] = anchor_id[:255]
     # The digest is useful when an unsafe identity must be re-found under the
     # current provider config; it is not reversible and grants no access.
     return reconstruction

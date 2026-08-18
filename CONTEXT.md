@@ -62,7 +62,7 @@ _Avoid_: Search result, NZB result, torrent result
 
 ## Interactive release search
 
-An operator-initiated review of release candidates for one tracked acquisition item, followed optionally by a deliberate manual grab. It is distinct from metadata search, which finds a Series to add to the library.
+An operator-initiated review of release candidates for one tracked acquisition item, or for the eligible missing issues on a Series. A series-scoped review can surface packs and show which missing issues each release would satisfy, then optionally perform a deliberate manual grab. It is distinct from metadata search, which finds a Series to add to the library, and from Search all missing, which queues automatic acquisition.
 
 _Avoid_: Manual search, interactive search
 

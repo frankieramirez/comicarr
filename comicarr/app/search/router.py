@@ -177,7 +177,7 @@ async def start_interactive_search(
     username: str = Depends(require_session),
     ctx: AppContext = Depends(get_context),
 ):
-    """Start provider collection for one tracked acquisition item."""
+    """Start provider collection for one tracked item or a series' missing issues."""
 
     try:
         body = await request.json()

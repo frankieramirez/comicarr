@@ -355,6 +355,13 @@ export interface UpcomingIssue extends Omit<Issue, "Status"> {
   Store_Date?: string;
 }
 
+/** One missing issue a series-scoped release candidate would satisfy. */
+export interface InteractiveSatisfiedIssue {
+  entity_type: "issue" | "annual" | "story_arc_issue";
+  entity_id: string;
+  issue_number?: string | null;
+}
+
 /** Fields the interactive-search review sheet actually renders. */
 export interface ReleaseReviewIssue {
   IssueNumber?: string | null;
@@ -363,6 +370,8 @@ export interface ReleaseReviewIssue {
   ReleaseComicName?: string | null;
   Status?: string | null;
   annual?: boolean;
+  scope?: "issue" | "series";
+  missingCount?: number;
 }
 
 export interface InteractiveVerdictReason {
@@ -396,6 +405,7 @@ export interface InteractiveReleaseCandidate {
     reasons: InteractiveVerdictReason[];
     match_kind: string;
   };
+  satisfies?: InteractiveSatisfiedIssue[];
 }
 
 export interface InteractiveProviderFailure {
@@ -407,7 +417,7 @@ export interface InteractiveProviderFailure {
 export interface InteractiveSearchSession {
   success?: boolean;
   session_id: string;
-  entity_type: "issue" | "annual" | "story_arc_issue";
+  entity_type: "issue" | "annual" | "story_arc_issue" | "series";
   entity_id: string;
   series_id: string | null;
   state: "queued" | "running" | "complete" | "failed";

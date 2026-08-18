@@ -33,11 +33,69 @@ from comicarr.app.search.interactive_sessions import (
 )
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.series import queries as series_queries
-from comicarr.tables import storyarcs
+from comicarr.tables import comics, storyarcs
 
-_ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue"})
+_ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue", "series"})
 _WORKER_LOCK = threading.Lock()
 _GRAB_LOCK = threading.Lock()
+MAX_SERIES_SEARCH_TARGETS = 8
+_ISSUE_NUMBER_STEP = 1000
+
+
+def _series_missing_items(ctx, series_id):
+    """Eligible missing issues for a series-scoped Interactive release search."""
+
+    from comicarr.app.search.bulk import selection_from_detail
+    from comicarr.app.series.service import get_comic_detail
+
+    return selection_from_detail(get_comic_detail(ctx, series_id))
+
+
+def _ordered_missing(missing):
+    from comicarr.helpers import issuedigits
+
+    return sorted(
+        missing or [],
+        key=lambda item: (
+            str(item.get("entity_type") or ""),
+            issuedigits(item.get("issue_number")),
+            str(item.get("entity_id") or ""),
+        ),
+    )
+
+
+def _search_targets(missing, *, limit=MAX_SERIES_SEARCH_TARGETS):
+    """Eligible missing items to query live, preferring each range start.
+
+    Every eligible item is searched when the set fits the bound. Larger
+    series keep range starts first so packs are still discovered.
+    """
+
+    from comicarr.helpers import issuedigits
+
+    ordered = _ordered_missing(missing)
+    starts = []
+    previous_type = None
+    previous_number = None
+    for item in ordered:
+        number = issuedigits(item.get("issue_number"))
+        entity_type = item.get("entity_type")
+        if previous_type != entity_type or previous_number is None or number - previous_number > _ISSUE_NUMBER_STEP:
+            starts.append(item)
+            if len(starts) >= limit:
+                return starts
+        previous_type = entity_type
+        previous_number = number
+    seen = {(item["entity_type"], str(item["entity_id"])) for item in starts}
+    targets = list(starts)
+    for item in ordered:
+        key = (item["entity_type"], str(item["entity_id"]))
+        if key in seen:
+            continue
+        targets.append(item)
+        if len(targets) >= limit:
+            break
+    return targets
 
 
 def _resolve_entity(entity_type, entity_id):
@@ -45,6 +103,16 @@ def _resolve_entity(entity_type, entity_id):
     entity_id = str(entity_id or "").strip()
     if entity_type not in _ENTITY_TYPES or not entity_id:
         return None, {"success": False, "status_code": 400, "error": "Unsupported tracked item"}
+    if entity_type == "series":
+        row = db.select_one(select(comics).where(comics.c.ComicID == entity_id))
+        if row is None:
+            return None, {"success": False, "status_code": 404, "error": "Tracked item not found"}
+        return {
+            "entity_type": "series",
+            "entity_id": entity_id,
+            "series_id": entity_id,
+            "comic_name": row.get("ComicName"),
+        }, None
     if entity_type == "story_arc_issue":
         row = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == entity_id))
         mode = "story_arc" if row is not None else None
@@ -67,6 +135,23 @@ def _resolve_entity(entity_type, entity_id):
     }, None
 
 
+def _resolve_grab_entity(candidate):
+    """Resolve the tracked item used to revalidate and hand off a candidate."""
+
+    reconstruction = candidate.get("reconstruction") or {}
+    if candidate.get("entity_type") == "series":
+        anchor_type = reconstruction.get("anchor_entity_type")
+        anchor_id = reconstruction.get("anchor_entity_id")
+        if not anchor_type or not anchor_id:
+            return None, {
+                "success": False,
+                "status_code": 409,
+                "error": "Release candidate has no tracked issue to grab against",
+            }
+        return _resolve_entity(anchor_type, anchor_id)
+    return _resolve_entity(candidate["entity_type"], candidate["entity_id"])
+
+
 def _provider_plan(ctx):
     return effective_provider_plan(
         ctx.config,
@@ -75,11 +160,22 @@ def _provider_plan(ctx):
 
 
 def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
-    """Validate one tracked item, create polling state, and start collection."""
+    """Validate one tracked item or series, create polling state, and start collection."""
 
     entity, error = _resolve_entity(entity_type, entity_id)
     if error:
         return error
+    if entity["entity_type"] == "series":
+        missing = _series_missing_items(ctx, entity["entity_id"])
+        if not missing:
+            return {
+                "success": False,
+                "status_code": 409,
+                "status": "blocked",
+                "error": "No eligible missing issues remain to search",
+            }
+        entity["missing"] = missing
+        entity["targets"] = _search_targets(missing)
     route_health = search_routes.route_health(ctx)
     if not route_health.get("success"):
         return {
@@ -103,6 +199,7 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
         for provider in plan
         if provider.blocked
     ]
+    provider_total = len(plan) * max(1, len(entity.get("targets") or [entity]))
     try:
         pending = create_pending_session(
             db.get_engine(),
@@ -111,7 +208,7 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
             entity_type=entity["entity_type"],
             entity_id=entity["entity_id"],
             series_id=entity["series_id"],
-            provider_total=len(plan),
+            provider_total=provider_total,
             provider_failures=initial_failures,
         )
     except InteractiveCandidateConflict as e:
@@ -128,7 +225,7 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
                 "session_id": pending["session_id"],
                 "entity": entity,
                 "initial_failures": initial_failures,
-                "provider_total": len(plan),
+                "provider_total": provider_total,
             },
             name="InteractiveReleaseSearch",
             registry=getattr(ctx, "background_workers", None),
@@ -146,7 +243,94 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
     return pending
 
 
+def _evaluation_identity(evaluation):
+    reconstruction = evaluation_reconstruction(evaluation)
+    return tuple(
+        str(reconstruction.get(key))
+        for key in (
+            "provider_config_id",
+            "provider_type",
+            "provider_name",
+            "source_kind",
+            "provider_item_digest",
+            "pack",
+        )
+    )
+
+
+def _satisfies_for_evaluation(evaluation, searched_item, eligible):
+    legacy = evaluation.legacy_match or {}
+    pack_info = legacy.get("pack_issuelist")
+    found = []
+    if legacy.get("pack") and isinstance(pack_info, dict):
+        for issue in pack_info.get("issues") or []:
+            issue_id = str(issue.get("issueid") or issue.get("IssueID") or "")
+            match = eligible.get(("issue", issue_id))
+            if match is None:
+                continue
+            found.append(
+                {
+                    "entity_type": "issue",
+                    "entity_id": issue_id,
+                    "issue_number": match.get("issue_number") or issue.get("issuenumber"),
+                }
+            )
+        if found:
+            return found
+    match = eligible.get((searched_item["entity_type"], str(searched_item["entity_id"])))
+    if match is None:
+        return []
+    return [
+        {
+            "entity_type": match["entity_type"],
+            "entity_id": match["entity_id"],
+            "issue_number": match.get("issue_number"),
+        }
+    ]
+
+
+def _union_satisfies(existing, incoming):
+    merged = list(existing.satisfies or [])
+    seen = {(item["entity_type"], str(item["entity_id"])) for item in merged}
+    for item in incoming.satisfies or []:
+        key = (item["entity_type"], str(item["entity_id"]))
+        if key in seen:
+            continue
+        merged.append(item)
+        seen.add(key)
+    existing.satisfies = merged
+
+
+def _merge_series_evaluation(collected, evaluation):
+    identity = _evaluation_identity(evaluation)
+    for existing_identity, existing in collected:
+        if existing_identity == identity:
+            _union_satisfies(existing, evaluation)
+            return
+    collected.append((identity, evaluation))
+
+
+def _order_series_evaluations(collected):
+    evaluations = [evaluation for _identity, evaluation in collected]
+    evaluations.sort(
+        key=lambda evaluation: (
+            0 if evaluation.candidate.get("pack") else 1,
+            -len(evaluation.satisfies or []),
+            0 if (evaluation.verdict or {}).get("accepted") else 1,
+        )
+    )
+    return evaluations
+
+
 def _collect(*, session_id, entity, initial_failures, provider_total):
+    if entity.get("entity_type") == "series":
+        _collect_series(
+            session_id=session_id,
+            entity=entity,
+            initial_failures=initial_failures,
+            provider_total=provider_total,
+        )
+        return
     evaluations = []
     failures = list(initial_failures)
     completed = set()
@@ -215,6 +399,102 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
         engine,
         session_id=session_id,
         evaluations=evaluations,
+        provider_completed=provider_total,
+        provider_failures=failures,
+    )
+
+
+def _collect_series(*, session_id, entity, initial_failures, provider_total):
+    collected = []
+    failures = list(initial_failures)
+    completed_count = 0
+    engine = db.get_engine()
+    missing = entity.get("missing") or []
+    targets = entity.get("targets") or _search_targets(missing)
+    eligible = {(item["entity_type"], str(item["entity_id"])): item for item in missing}
+
+    def publish_progress(provider=None):
+        update_search_progress(
+            engine,
+            session_id=session_id,
+            state="running",
+            provider_completed=min(provider_total, completed_count + len(initial_failures)),
+            current_provider=provider,
+            provider_failures=failures,
+        )
+
+    publish_progress()
+
+    def _bind_progress():
+        finished_providers = set()
+
+        def on_complete(provider):
+            nonlocal completed_count
+            key = provider.casefold()
+            if key not in finished_providers:
+                finished_providers.add(key)
+                completed_count += 1
+            publish_progress(provider)
+
+        return on_complete
+
+    target_failures = 0
+    for target in targets:
+
+        def on_evaluations(values, searched=target):
+            for evaluation in values:
+                evaluation.satisfies = _satisfies_for_evaluation(evaluation, searched, eligible)
+                _merge_series_evaluation(collected, evaluation)
+
+        def on_failure(provider, code, detail):
+            failures.append(
+                {
+                    "provider": provider,
+                    "code": code,
+                    "detail": redact_sensitive_text(detail),
+                }
+            )
+            publish_progress(provider)
+
+        on_complete = _bind_progress()
+
+        try:
+            with (
+                _WORKER_LOCK,
+                search_filer.interactive_collection(
+                    on_evaluations=on_evaluations,
+                    on_provider_complete=on_complete,
+                    on_provider_failure=on_failure,
+                ),
+            ):
+                result = search.searchforissue(
+                    issueid=target["entity_id"],
+                    manual=True,
+                    entity_type=target["entity_type"] if target["entity_type"] != "story_arc_issue" else None,
+                )
+            if isinstance(result, dict) and result.get("status") == "IN PROGRESS":
+                failures.append(
+                    {"provider": "Search", "code": "search_busy", "detail": "Another search is already running"}
+                )
+                target_failures += 1
+        except Exception as e:
+            logger.error("[INTERACTIVE-SEARCH] Series collection failed: %s" % redact_sensitive_text(e))
+            failures.append({"provider": "Search", "code": "collection_failed", "detail": redact_sensitive_text(e)})
+            target_failures += 1
+
+    if target_failures == len(targets) and not collected:
+        update_search_progress(
+            engine,
+            session_id=session_id,
+            state="failed",
+            provider_completed=min(provider_total, completed_count + len(initial_failures)),
+            provider_failures=failures,
+        )
+        return
+    complete_search_session(
+        engine,
+        session_id=session_id,
+        evaluations=_order_series_evaluations(collected),
         provider_completed=provider_total,
         provider_failures=failures,
     )
@@ -365,7 +645,7 @@ def grab_candidate(
         else:
             override_reason = None
 
-        entity, error = _resolve_entity(candidate["entity_type"], candidate["entity_id"])
+        entity, error = _resolve_grab_entity(candidate)
         if error:
             return _release_with_error(engine, candidate, error=error["error"], status_code=error["status_code"])
 

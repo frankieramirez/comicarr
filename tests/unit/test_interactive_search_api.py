@@ -542,3 +542,265 @@ def test_grab_requires_and_revalidates_explicit_candidate_override(engine, monke
 
     assert result["status"] == "submitted"
     assert reasons == ["ignored.search_word"]
+
+
+def _missing_items():
+    return [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i2", "issue_number": "2"},
+        {"entity_type": "issue", "entity_id": "i3", "issue_number": "3"},
+        {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+    ]
+
+
+def _pack_evaluation(title="Example 001-010"):
+    evaluation = _evaluation(title)
+    evaluation.candidate["pack"] = True
+    evaluation.verdict.update(
+        {
+            "reason_code": "accepted.pack",
+            "reasons": [{"code": "accepted.pack", "message": "Accepted pack match"}],
+            "match_kind": "pack",
+        }
+    )
+    evaluation.legacy_match = {
+        "ComicName": "Example",
+        "ComicID": "series-1",
+        "IssueID": "i1",
+        "IssueNumber": "1",
+        "pack": True,
+        "pack_numbers": "1-10",
+        "pack_issuelist": {
+            "valid": True,
+            "issues": [
+                {"issueid": "i1", "issuenumber": "1"},
+                {"issueid": "i2", "issuenumber": "2"},
+                {"issueid": "i3", "issuenumber": "3"},
+                {"issueid": "owned-4", "issuenumber": "4"},
+            ],
+        },
+        "nzbprov": "DDL(GetComics)",
+        "provider": "DDL(GetComics)",
+        "nzbtitle": title,
+        "nzbid": "pack-1",
+        "link": "https://provider.invalid/pack",
+        "entry": {"id": "pack-1"},
+        "provider_stat": {"id": 200, "type": "ddl", "active": True, "hits": 0},
+        "comyear": "2026",
+        "downloadit": False,
+        "oneoff": False,
+        "SARC": None,
+        "IssueArcID": None,
+        "ComicTitle": title,
+        "tmpprov": "DDL(GetComics)",
+        "kind": "ddl",
+        "booktype": "Print",
+        "newznab": None,
+        "torznab": None,
+        "pubdate": None,
+        "size": None,
+        "modcomicname": title,
+        "ComicVolume": None,
+        "IssueDate": "2026-08-11",
+    }
+    evaluation.reconstruction_hint = {
+        "provider_config_id": 200,
+        "provider_type": "ddl",
+        "provider_item_id": "pack-1",
+    }
+    return evaluation
+
+
+def test_start_accepts_series_with_eligible_missing_issues(engine, monkeypatch):
+    monkeypatch.setattr(
+        interactive.db,
+        "select_one",
+        lambda _stmt: {"ComicID": "series-1", "ComicName": "Example"},
+    )
+    monkeypatch.setattr(interactive, "_series_missing_items", lambda *_args, **_kwargs: _missing_items())
+    worker = {}
+    monkeypatch.setattr(
+        interactive, "start_background_thread", lambda target, **kwargs: worker.update({"target": target, **kwargs})
+    )
+
+    result = interactive.start_search(
+        AppContext(config=_config()),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+    )
+
+    assert result["success"] is True
+    assert result["entity_type"] == "series"
+    assert result["entity_id"] == "series-1"
+    assert result["state"] == "queued"
+    assert worker["target"] is interactive._collect
+    assert [item["entity_id"] for item in worker["kwargs"]["entity"]["targets"]] == [
+        "i1",
+        "i10",
+        "i2",
+        "i3",
+    ]
+    assert worker["kwargs"]["provider_total"] == result["progress"]["provider_total"] == 4
+
+
+def test_start_rejects_series_with_no_eligible_missing_issues(engine, monkeypatch):
+    monkeypatch.setattr(
+        interactive.db,
+        "select_one",
+        lambda _stmt: {"ComicID": "series-1", "ComicName": "Example"},
+    )
+    monkeypatch.setattr(interactive, "_series_missing_items", lambda *_args, **_kwargs: [])
+
+    result = interactive.start_search(
+        AppContext(config=_config()),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+    )
+
+    assert result == {
+        "success": False,
+        "status_code": 409,
+        "status": "blocked",
+        "error": "No eligible missing issues remain to search",
+    }
+
+
+def test_start_rejects_unknown_series(engine, monkeypatch):
+    monkeypatch.setattr(interactive.db, "select_one", lambda _stmt: None)
+
+    result = interactive.start_search(
+        AppContext(config=_config()),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="missing",
+    )
+
+    assert result == {"success": False, "status_code": 404, "error": "Tracked item not found"}
+
+
+def test_series_worker_searches_gap_starts_and_annotates_pack_coverage(engine, monkeypatch):
+    pending = interactive.create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        provider_total=1,
+    )
+    searched = []
+
+    def _single(title, item_id):
+        evaluation = _evaluation(title)
+        evaluation.reconstruction_hint = {
+            "provider_config_id": 200,
+            "provider_type": "ddl",
+            "provider_item_id": item_id,
+        }
+        return evaluation
+
+    def manual_search(**kwargs):
+        searched.append(kwargs)
+        evaluations = [_pack_evaluation(), _single("Example 001", "item-1")]
+        if kwargs["issueid"] == "i10":
+            evaluations = [_single("Example 010", "item-10")]
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"](evaluations)
+        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    interactive._collect(
+        session_id=pending["session_id"],
+        entity={
+            "entity_type": "series",
+            "entity_id": "series-1",
+            "series_id": "series-1",
+            "missing": _missing_items(),
+            "targets": [
+                {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+                {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+            ],
+        },
+        initial_failures=[],
+        provider_total=1,
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    assert [call["issueid"] for call in searched] == ["i1", "i10"]
+    assert all(call["manual"] is True for call in searched)
+    assert result["state"] == "complete"
+    pack = next(candidate for candidate in result["candidates"] if candidate["candidate"]["pack"])
+    assert pack["satisfies"] == [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i2", "issue_number": "2"},
+        {"entity_type": "issue", "entity_id": "i3", "issue_number": "3"},
+    ]
+    titles = [candidate["candidate"]["title"] for candidate in result["candidates"]]
+    assert titles[0] == "Example 001-010"
+    assert "Example 001" in titles
+    assert "Example 010" in titles
+    assert titles.count("Example 001-010") == 1
+
+
+def test_series_grab_revalidates_against_the_pack_anchor_issue(engine, monkeypatch):
+    pack = _pack_evaluation()
+    pack.satisfies = [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i2", "issue_number": "2"},
+    ]
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        evaluations=[pack],
+    )
+    resolved = []
+
+    def resolve(entity_type, entity_id):
+        resolved.append((entity_type, entity_id))
+        return {"entity_type": entity_type, "entity_id": entity_id, "series_id": "series-1"}, None
+
+    monkeypatch.setattr(interactive, "_resolve_entity", resolve)
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+    searches = []
+
+    def manual_search(**kwargs):
+        searches.append(kwargs)
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_pack_evaluation()])
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    def verify(matches, info):
+        info["foundc"] = {"status": True, "info": {"journal_release_key": "pack-release", "journal_managed": True}}
+        return info
+
+    monkeypatch.setattr(interactive.search, "verification", verify)
+
+    result = interactive.grab_candidate(
+        AppContext(config=_config()),
+        session_id=created["session_id"],
+        candidate_id=created["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+
+    assert result["success"] is True
+    assert result["status"] == "submitted"
+    assert ("issue", "i1") in resolved
+    assert ("series", "series-1") not in resolved
+    assert searches == [{"issueid": "i1", "manual": True, "entity_type": "issue"}]

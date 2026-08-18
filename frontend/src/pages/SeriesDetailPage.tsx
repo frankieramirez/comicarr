@@ -327,6 +327,7 @@ export default function SeriesDetailPage() {
   const total = summary?.total ?? allIssues.length;
   const have = summary?.owned ?? allIssues.filter(isIssueOwned).length;
   const missing = summary?.missing ?? allIssues.filter(isIssueMissing).length;
+  const reviewableMissing = summary?.eligible ?? missing;
   const monitored =
     summary?.monitored ?? allIssues.filter(isIssueMonitored).length;
   const inFlight =
@@ -613,6 +614,32 @@ export default function SeriesDetailPage() {
             >
               <Search className="h-3.5 w-3.5" />
               Search all missing
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                comicId
+                  ? void startReview(
+                      {
+                        ComicName: comic.ComicName,
+                        Status: comic.Status,
+                        scope: "series",
+                        missingCount: reviewableMissing,
+                      },
+                      {
+                        entityType: "series",
+                        entityId: String(comicId),
+                      },
+                    )
+                  : undefined
+              }
+              disabled={!comicId || reviewableMissing === 0}
+              className={ghostBtn}
+              style={{ borderColor: "var(--border)" }}
+              aria-label="Interactive Search for missing issues"
+            >
+              <Search className="h-3.5 w-3.5" />
+              Review missing
             </button>
             <button
               type="button"
