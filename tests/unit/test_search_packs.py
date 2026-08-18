@@ -98,6 +98,20 @@ class TestChapterRangePacks:
         assert result["kind"] == "chapter"
         assert result["issues"] == "0-179"
 
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "One Piece c001.5-003.5",
+            "One Piece c1.5-10",
+            "One Piece c1-10.5",
+        ],
+    )
+    def test_fractional_endpoints_are_not_truncated_into_a_wrong_range(self, title):
+        # Truncating "c001.5-003.5" to 1-3 would claim chapter 1, which the
+        # pack does not contain. Range expansion is integer-only, so refuse
+        # the release rather than cover the wrong chapters.
+        assert parse_pack_title(title) is None
+
 
 class TestNonPacks:
     @pytest.mark.parametrize(

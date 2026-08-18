@@ -34,7 +34,7 @@ _VOLUME_RANGE = re.compile(
     re.IGNORECASE,
 )
 _CHAPTER_RANGE = re.compile(
-    r"\bc(?:h(?:apter)?s?)?\.?\s*(?P<start>\d{1,4})(?:\.\d+)?\s*[-–]\s*c?h?\.?\s*(?P<end>\d{1,4})(?:\.\d+)?(?!\d)",
+    r"\bc(?:h(?:apter)?s?)?\.?\s*(?P<start>\d{1,4}(?:\.\d+)?)\s*[-–]\s*c?h?\.?\s*(?P<end>\d{1,4}(?:\.\d+)?)(?!\d)",
     re.IGNORECASE,
 )
 _ISSUE_RANGE = re.compile(r"(?P<marker>#)?\s*(?P<start>\d{1,4})\s*[-–]\s*#?(?P<end>\d{1,4})(?!\d)")
@@ -44,6 +44,12 @@ _ISSUE_RANGE = re.compile(r"(?P<marker>#)?\s*(?P<start>\d{1,4})\s*[-–]\s*#?(?P
 _MIN_UNMARKED_SPAN = 2
 
 _FIRST_YEAR = re.compile(r"\(\s*((?:19|20)\d{2})")
+
+# Range expansion downstream is integer-only, so a fractional endpoint
+# ("c001.5-003.5") cannot be represented: truncating it to 1-3 would claim
+# chapter 1, which the pack does not contain. Refuse the whole title rather
+# than let a looser pattern re-match the same text into a wrong range.
+_FRACTIONAL_ENDPOINT = re.compile(r"\d+\.\d+\s*[-–]|[-–]\s*[a-z]*\.?\s*\d+\.\d+", re.IGNORECASE)
 
 
 def _range_values(match, kind):
@@ -86,6 +92,8 @@ def parse_pack_title(title):
         return None
 
     stripped = _PARENTHESIZED.sub(" ", title)
+    if _FRACTIONAL_ENDPOINT.search(stripped):
+        return None
 
     for pattern, kind, booktype in (
         (_VOLUME_RANGE, "volume", "TPB"),
