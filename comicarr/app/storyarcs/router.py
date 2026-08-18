@@ -13,6 +13,8 @@ Story Arcs domain router — arc CRUD, reading list, upcoming endpoints.
 Small, well-bounded, minimal cross-domain dependencies (Phase 3).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
@@ -42,16 +44,17 @@ async def generate_story_arc(request: Request):
             content={"success": False, "error": "Description must be at least 3 characters"},
         )
 
-    # Generate reading order via AI
-    result = story_arcs.generate_reading_order(description)
+    # Off the event loop: AI generation and ComicVine enrichment are
+    # network-bound and would stall every other request (#733).
+    result = await asyncio.to_thread(story_arcs.generate_reading_order, description)
     if not result["success"]:
         return JSONResponse(content=result)
 
     # Enrich with provider data (ComicVine match)
-    issues = story_arcs.enrich_with_providers(result["issues"])
+    issues = await asyncio.to_thread(story_arcs.enrich_with_providers, result["issues"])
 
     # Map against user's library
-    issues = story_arcs.map_to_library(issues)
+    issues = await asyncio.to_thread(story_arcs.map_to_library, issues)
 
     return JSONResponse(content={"success": True, "issues": issues, "description": description})
 
@@ -71,7 +74,8 @@ async def save_generated_arc(request: Request):
             content={"success": False, "error": "arc_name and issues are required"},
         )
 
-    result = story_arcs.save_arc(arc_name, issues)
+    # Off the event loop: the save writes the storyarcs table (#733).
+    result = await asyncio.to_thread(story_arcs.save_arc, arc_name, issues)
     return JSONResponse(content=result)
 
 

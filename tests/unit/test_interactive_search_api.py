@@ -9,6 +9,7 @@
 
 """Collection and polling contracts for issue-scoped Interactive search."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -195,6 +196,73 @@ def test_grab_endpoint_binds_owner_and_explicit_override(api_client, monkeypatch
         "browser_session": "browser-cookie",
         "override": True,
     }
+
+
+def test_grab_returns_busy_instead_of_waiting_on_a_concurrent_grab():
+    acquired = interactive._GRAB_LOCK.acquire(blocking=False)
+    assert acquired, "test requires the grab lock to be free"
+    try:
+        result = interactive.grab_candidate(
+            None,
+            session_id="session-1",
+            candidate_id="candidate-1",
+            actor="alice",
+            browser_session="browser-cookie",
+        )
+    finally:
+        interactive._GRAB_LOCK.release()
+
+    assert result == {
+        "success": False,
+        "status_code": 409,
+        "status": "blocked",
+        "code": "grab_busy",
+        "error": "Another release grab is already being processed",
+    }
+
+
+def _record_event_loop_presence(observed):
+    try:
+        asyncio.get_running_loop()
+        observed["on_event_loop"] = True
+    except RuntimeError:
+        observed["on_event_loop"] = False
+
+
+def test_grab_endpoint_runs_service_off_the_event_loop(api_client, monkeypatch):
+    observed = {}
+
+    def grab(_ctx, **_kwargs):
+        _record_event_loop_presence(observed)
+        return {"success": True, "status": "submitted"}
+
+    monkeypatch.setattr(interactive, "grab_candidate", grab)
+
+    response = api_client.post(
+        "/api/search/interactive/session-1/candidates/candidate-1/grab",
+        json={},
+    )
+
+    assert response.status_code == 200
+    assert observed["on_event_loop"] is False
+
+
+def test_start_endpoint_runs_service_off_the_event_loop(api_client, monkeypatch):
+    observed = {}
+
+    def start(_ctx, **_kwargs):
+        _record_event_loop_presence(observed)
+        return {"success": True, "session_id": "opaque", "state": "queued"}
+
+    monkeypatch.setattr(interactive, "start_search", start)
+
+    response = api_client.post(
+        "/api/search/interactive",
+        json={"entity_type": "issue", "entity_id": "issue-1"},
+    )
+
+    assert response.status_code == 202
+    assert observed["on_event_loop"] is False
 
 
 @pytest.mark.parametrize(

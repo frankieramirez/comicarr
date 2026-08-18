@@ -14,6 +14,8 @@ The core domain. Largest route count but well-understood patterns
 established by Phases 1-3 (Phase 4).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
@@ -279,7 +281,9 @@ async def search_all_missing(
     if not isinstance(body, dict):
         body = {}
     confirm = bool(body.get("confirm"))
-    result = series_service.search_all_missing(
+    # Off the event loop: durable-run queue handoff is DB-bound (#733).
+    result = await asyncio.to_thread(
+        series_service.search_all_missing,
         ctx,
         comic_id,
         audit_identity=username,
@@ -344,7 +348,9 @@ async def search_one_wanted_issue(
         body = await request.json()
     except Exception:
         body = {}
-    result = series_service.search_wanted_issue(
+    # Off the event loop: durable-run queue handoff is DB-bound (#733).
+    result = await asyncio.to_thread(
+        series_service.search_wanted_issue,
         issue_id,
         username,
         preview_token=(body or {}).get("preview_token"),

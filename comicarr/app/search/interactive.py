@@ -616,8 +616,19 @@ def grab_candidate(
 ):
     """Re-find, revalidate, and journal-handoff one owned release candidate."""
 
-    engine = db.get_engine()
-    with _GRAB_LOCK:
+    # Fail fast instead of queueing: a grab holds the lock for its whole
+    # revalidation + handoff, and each waiter would park a worker thread from
+    # the shared to_thread pool for that duration (#733).
+    if not _GRAB_LOCK.acquire(blocking=False):
+        return {
+            "success": False,
+            "status_code": 409,
+            "status": "blocked",
+            "code": "grab_busy",
+            "error": "Another release grab is already being processed",
+        }
+    try:
+        engine = db.get_engine()
         claim = claim_server_candidate(
             engine,
             session_id=session_id,
@@ -753,3 +764,5 @@ def grab_candidate(
         }
         outcome = finish_candidate_claim(engine, candidate=candidate, state="submitted", outcome=outcome)
         return dict(outcome, success=True, idempotent=False)
+    finally:
+        _GRAB_LOCK.release()

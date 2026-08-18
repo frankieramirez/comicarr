@@ -13,6 +13,8 @@ Search domain router — provider search, RSS monitoring.
 Depends on series domain for cross-domain lookups (Phase 5).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -185,7 +187,10 @@ async def start_interactive_search(
         body = {}
     if not isinstance(body, dict):
         body = {}
-    result = interactive_search.start_search(
+    # Off the event loop: validation hits the DB and provider plan checks
+    # before the collection thread is spawned (#733).
+    result = await asyncio.to_thread(
+        interactive_search.start_search,
         ctx,
         actor=username,
         browser_session=_session_identity(request, username),
@@ -237,7 +242,11 @@ async def grab_interactive_candidate(
     if not isinstance(body, dict):
         body = {}
     try:
-        result = interactive_search.grab_candidate(
+        # Off the event loop: revalidation re-runs a provider search and the
+        # handoff talks to the download client — minutes, not milliseconds.
+        # Running it inline froze every other request (#733).
+        result = await asyncio.to_thread(
+            interactive_search.grab_candidate,
             ctx,
             session_id=session_id,
             candidate_id=candidate_id,
