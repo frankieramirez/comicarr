@@ -443,3 +443,74 @@ def test_sab_real_historycheck_status_false_is_absent_then_gone():
     )
     with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": False}):
         assert recovery_classify.classify(row) == recovery_classify.GONE
+
+
+# ---------------------------------------------------------------------------
+# has_library_placement — the import-evidence cross-check (#734). A done-signal
+# proves the DOWNLOAD finished; only the library row (Location / a
+# Downloaded/Post-Processed status written by successful placement) proves the
+# IMPORT happened.
+# ---------------------------------------------------------------------------
+
+
+def test_placement_false_when_no_library_row_exists():
+    row = _insert_journal("P1|nzb.su|n", journal.SNATCHED, issueid="P1", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.has_library_placement(row) is False
+
+
+def test_placement_false_for_snatched_issue_without_location():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="P2", Status="Snatched", Location=None))
+    row = _insert_journal("P2|nzb.su|n", journal.SNATCHED, issueid="P2", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.has_library_placement(row) is False
+
+
+def test_placement_true_when_issue_has_location():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="P3", Status="Snatched", Location="Spawn 344 (2024).cbz"))
+    row = _insert_journal("P3|nzb.su|n", journal.SNATCHED, issueid="P3", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.has_library_placement(row) is True
+
+
+def test_placement_true_when_issue_status_downloaded_or_post_processed():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="P4", Status="Downloaded"))
+        conn.execute(issues.insert().values(IssueID="P5", Status="Post-Processed"))
+    row4 = _insert_journal("P4|nzb.su|n", journal.SNATCHED, issueid="P4", provider="nzb.su", downloader_type="nzb")
+    row5 = _insert_journal("P5|nzb.su|n", journal.SNATCHED, issueid="P5", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.has_library_placement(row4) is True
+    assert recovery_classify.has_library_placement(row5) is True
+
+
+def test_placement_true_for_annual_with_location():
+    from comicarr.tables import annuals
+
+    with get_engine().begin() as conn:
+        conn.execute(annuals.insert().values(IssueID="P6", Status="Snatched", Location="Ann 2024.cbz"))
+    row = _insert_journal("P6|nzb.su|n", journal.SNATCHED, issueid="P6", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.has_library_placement(row) is True
+
+
+def test_placement_for_story_arc_obligation_uses_storyarcs_row():
+    from comicarr.tables import storyarcs
+
+    with get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(IssueArcID="P7", StoryArc="Arc", Status="Downloaded"))
+    placed = _insert_journal(
+        "P7|nzb.su|n",
+        journal.SNATCHED,
+        issueid="P7",
+        provider="nzb.su",
+        downloader_type="nzb",
+        payload={"mode": "story_arc"},
+    )
+    assert recovery_classify.has_library_placement(placed) is True
+    unplaced = _insert_journal(
+        "P8|nzb.su|n",
+        journal.SNATCHED,
+        issueid="P8",
+        provider="nzb.su",
+        downloader_type="nzb",
+        payload={"mode": "story_arc"},
+    )
+    assert recovery_classify.has_library_placement(unplaced) is False

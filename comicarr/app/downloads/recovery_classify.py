@@ -41,7 +41,7 @@ import comicarr
 from comicarr import db, logger
 from comicarr.app.attention import Failure, record
 from comicarr.app.downloads import journal
-from comicarr.tables import ddl_info, issues, nzblog
+from comicarr.tables import annuals, ddl_info, issues, nzblog, storyarcs
 
 # ---------------------------------------------------------------------------
 # Verdict enum
@@ -151,6 +151,59 @@ def _nzblog_present(issueid, provider, story_arc=None):
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] nzblog lookup failed for %s: %s" % (issueid, e))
         return None
+
+
+_PLACED_STATUSES = ("Downloaded", "Post-Processed")
+
+
+def _row_shows_placement(rec):
+    if rec is None:
+        return False
+    if (rec["Status"] or "") in _PLACED_STATUSES:
+        return True
+    return bool(str(rec["Location"] or "").strip())
+
+
+def has_library_placement(row, payload=None):
+    """True iff the LIBRARY itself shows the import happened for this
+    obligation (#734). A done-signal (nzblog absent / snatched history) only
+    proves the DOWNLOAD finished; successful placement additionally writes
+    Location + Status='Downloaded' onto the issues/annuals row (postprocessor
+    ~3214/4052/4458) or Status='Downloaded' onto the storyarcs row
+    (updater.foundsearch). Absent that evidence, "download complete" must not
+    be conflated with "import complete".
+
+    Arc scoping mirrors has_done_signal: payload["mode"]=="story_arc" means
+    row.issueid is the IssueArcID and the storyarcs row is the authority.
+    When mode is absent (e.g. a reconstructed anchor payload), check
+    storyarcs first, then issues/annuals — evidence on any matching row
+    counts. A lookup failure returns False (never fabricate placement)."""
+    row = row or {}
+    issueid = row.get("issueid")
+    if issueid is None:
+        return False
+    if payload is None:
+        payload = journal.load_payload(row.get("payload_json"))
+    story_arc = None
+    if isinstance(payload, dict) and "mode" in payload:
+        story_arc = payload.get("mode") == "story_arc"
+    try:
+        if story_arc is not False:
+            rec = db.select_one(
+                select(storyarcs.c.Status, storyarcs.c.Location).where(storyarcs.c.IssueArcID == str(issueid))
+            )
+            if _row_shows_placement(rec):
+                return True
+            if story_arc is True:
+                return False
+        for table in (issues, annuals):
+            rec = db.select_one(select(table.c.Status, table.c.Location).where(table.c.IssueID == str(issueid)))
+            if _row_shows_placement(rec):
+                return True
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] library placement lookup failed for %s: %s" % (issueid, e))
+        return False
+    return False
 
 
 def has_done_signal(row):

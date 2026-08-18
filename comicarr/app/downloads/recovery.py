@@ -811,14 +811,30 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "downloaded-pp-enqueued"
 
     # --- authoritative done-check (history-eviction safe) -----------------
+    # #734: a done-signal (Status/nzblog) proves only that the DOWNLOAD
+    # finished. mark_done advances to `post_processed` — which activity
+    # renders as "import / succeeded" — so it additionally requires library
+    # placement evidence (Location / Downloaded status written by a real
+    # import). Without it, fall through to classification so the import can
+    # be re-driven (probe may still resolve the completed folder) instead of
+    # silently stranding the files in the download directory.
+    done_without_placement = False
     if recovery_classify.has_done_signal(row):
-        logger.info("[RECOVERY] %s authoritatively done (Status/nzblog) — mark_done, skip." % rkey)
-        journal.mark_done(
-            rkey,
-            issueid=row.get("issueid"),
-            provider=row.get("provider"),
+        if recovery_classify.has_library_placement(row, payload=payload):
+            logger.info("[RECOVERY] %s authoritatively done (Status/nzblog) — mark_done, skip." % rkey)
+            journal.mark_done(
+                rkey,
+                issueid=row.get("issueid"),
+                provider=row.get("provider"),
+            )
+            return "done-check"
+        done_without_placement = True
+        logger.warn(
+            "[RECOVERY] %s has a done-signal (Status/nzblog) but NO library "
+            "placement evidence — download complete is not import complete "
+            "(#734); NOT marking post_processed. Classifying so the import "
+            "can be re-driven." % rkey
         )
-        return "done-check"
 
     # --- per-downloader classification (U5) -------------------------------
     # classify_details keeps historycheck location/name/failed. classify()
@@ -831,6 +847,31 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "gone-failed"
 
     if verdict == recovery_classify.UNKNOWN:
+        if done_without_placement:
+            # The downloader says it is done with this item but the library
+            # never received it, and no probe can resolve where the files
+            # landed (a reconstructed payload has no client id). Leaving it
+            # UNKNOWN would re-loop every start with no owner; quarantine so
+            # the operator sees needs_attention (files remain in the download
+            # directory, importable via manual PP) instead of a false
+            # import/succeeded (#734).
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="done_signal_without_library_placement",
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                    downloader_type=row.get("downloader_type"),
+                    nzb_name=row.get("nzbname") or (payload or {}).get("nzbname") or (payload or {}).get("nzb_name"),
+                )
+            )
+            logger.warn(
+                "[RECOVERY] %s -> MANUAL REVIEW (download reported done but "
+                "never imported and the completed folder is unresolvable); "
+                "files remain in the download directory (#734)." % rkey
+            )
+            return "done-unplaced-manual-review"
         logger.warn(
             "[RECOVERY] %s -> UNKNOWN (transient downloader outage) — stage "
             "left UNCHANGED, reclassified next start." % rkey

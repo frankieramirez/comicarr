@@ -35,6 +35,7 @@ REASON_PHRASES = {
     "torrent_artifact_state_persistence_error": "could not save download state (torrent)",
     "nzb_artifact_state_persistence_error": "could not save download state (NZB)",
     "reserved_without_persisted_acceptance": "download reserved but never fully accepted",
+    "done_signal_without_library_placement": "download finished but was never imported into the library",
     "route_acceptance_missing_identity": "the downloader accepted it without identifying it",
     "submission_outcome_unknown": "submission result unknown — check the downloader",
     "route_not_restart_safe": "this route can't resume after a restart",

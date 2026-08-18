@@ -1252,3 +1252,116 @@ def test_plain_issue_finalize_does_not_delete_unrelated_arc_S_row(queues, monkey
         arc = conn.execute(select(nzblog).where(nzblog.c.IssueID == "S302")).fetchall()
     assert plain == [], "the plain issue's own nzblog row must still be deleted"
     assert len(arc) == 1, "the UNRELATED arc's S302 row must NOT be deleted by a plain finalize"
+
+
+# ===========================================================================
+# #734 — a done-signal proves the DOWNLOAD finished, not that the IMPORT ran.
+# Recovery must never advance a row to `post_processed` (=> activity
+# "import / succeeded") without library placement evidence.
+# ===========================================================================
+
+
+def _issue_row(issueid, status="Snatched", location=None):
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID=issueid, ComicID="C%s" % issueid, Status=status, Location=location))
+
+
+def test_done_signal_without_placement_is_not_marked_post_processed(queues):
+    """#734 repro: reconstructed snatched row, nzblog ABSENT (done-signal),
+    but the issue row is still Snatched with no Location — no import ever
+    ran. The downloader cannot be probed (reconstructed payload has no
+    client id). The row must NOT become `post_processed`; it must be
+    quarantined to manual_review so the operator sees needs_attention
+    instead of a false import/succeeded."""
+    rkey = journal.release_key("734", "nzb.su", nzbname="Ghosted.001.cbz")
+    _issue_row("734")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "734", "provider": "nzb.su", "nzbname": "Ghosted.001.cbz"},
+        issueid="734",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("unreachable"))
+
+    row = _journal_row(rkey)
+    assert row["stage"] != journal.POST_PROCESSED, "#734: no placement evidence => never post_processed"
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert str(row["fail_reason"] or "").startswith("done_signal_without_library_placement")
+    assert _drain(queues["pp"]) == []
+    assert summary["actions"].get("done-check") is None
+
+
+def test_done_signal_without_placement_redrives_import_when_probe_resolves_folder(queues):
+    """When the downloader history is still available and resolves the
+    completed folder, the unplaced row falls through to classification and
+    is re-driven through PP (real import) instead of being marked done."""
+    rkey = journal.release_key("735", "nzb.su", nzbname="Ghosted.002.cbz")
+    _issue_row("735")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "735", "provider": "nzb.su", "nzbname": "Ghosted.002.cbz"},
+        issueid="735",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    probes = _probe({"status": True, "location": "/downloads/Ghosted.002", "name": "Ghosted.002.cbz"})
+    recovery.replay_pipeline(probes=probes)
+
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED, "#734: unplaced done-signal row is re-driven, not marked done"
+    items = _drain(queues["pp"])
+    assert len(items) == 1
+    assert items[0]["nzb_folder"] == "/downloads/Ghosted.002"
+    assert items[0]["journal_release_key"] == rkey
+
+
+def test_done_signal_with_placement_evidence_still_marks_done(queues):
+    """The history-eviction guard is preserved: nzblog absent AND the issue
+    row shows the import happened (Location written by placement) => the
+    done-check marks the journal terminal without re-importing."""
+    rkey = journal.release_key("736", "nzb.su", nzbname="Ghosted.003.cbz")
+    _issue_row("736", status="Downloaded", location="Ghosted 003 (2026).cbz")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "736", "provider": "nzb.su", "nzbname": "Ghosted.003.cbz"},
+        issueid="736",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("absent"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert summary["actions"].get("done-check") == 1
+    assert _drain(queues["pp"]) == []
+
+
+def test_done_signal_without_placement_absent_probe_enqueues_pp_not_done(queues):
+    """Downloader history evicted (probe absent) + done-signal + NO placement:
+    the cross-check inside classification still yields COMPLETE (never GONE),
+    so the row advances to `downloaded` and is handed to the PP worker —
+    whose validation owns the missing-folder quarantine. It must not be
+    marked post_processed by the done-check."""
+    rkey = journal.release_key("737", "nzb.su", nzbname="Ghosted.004.cbz")
+    _issue_row("737")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "737", "provider": "nzb.su", "nzbname": "Ghosted.004.cbz"},
+        issueid="737",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("absent"))
+
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED
+    assert summary["actions"].get("done-check") is None
+    assert len(_drain(queues["pp"])) == 1
