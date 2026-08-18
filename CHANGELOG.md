@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.34.0
+
+### Minor Changes
+
+- 48383ed: Searches can now match pack releases from any indexer, not just DDL. When a series has *Allow packs* enabled (which still requires torrent search to be on), a result like `Solo Leveling v01-14` or `Invincible #001-144` is recognized as a multi-volume or multi-issue pack instead of being thrown away for having no single issue number. Comicarr checks the pack against what the series is missing, and one grab marks every issue it covers as Snatched — so during "Search all missing", the queued searches for the rest of those issues stop instead of hunting for each one individually. A volume pack covers every chapter belonging to its volumes, and only ever matches volume-tracked series, so a `v01-14` release can never claim issues 1–14 of an issue-tracked comic.
+- cf8638c: The series page now has **Review missing**, an Interactive release search for the series' eligible missing issues. Results include packs, show which missing issues each release would satisfy, and a single grab can cover more than one issue. Per-issue Interactive release search is unchanged.
+
+### Patch Changes
+
+- 882db3b: The web UI stays responsive while "Override and grab this release" is processing. The grab's revalidation and download-client handoff now run off the server's request loop, so other tabs and pages load normally instead of hanging until the grab finishes or fails. The same fix covers starting an Interactive release search, series "Search all missing", single-issue search, and AI story arc generation. Grabbing a release while another grab is still processing now answers immediately with "Another release grab is already being processed" instead of silently waiting its turn.
+- 533a106: Refreshing a manga series rematches the folder with the series' bare-number setting, so a volume file like `Naruto 12.cbr` marks the chapters in volume 12 instead of being read as issue 12.
+- 05d7e98: Manga series now actually refresh on the database-update schedule, search only the blended frontier (or the per-series volumes/chapters toggle), and interpret bare filenames like `Naruto 12.cbr` using the series setting on import, scan, and post-process.
+- 7d67f3e: Startup recovery no longer reports *import / succeeded* for downloads that were never actually moved into the library. Previously, recovery could trust old download-history state as proof of completion and mark an item post-processed without running file placement, leaving the files stranded in the download directory while activity claimed a successful import. Recovery now also checks the library itself (the issue's stored location or Downloaded status) before closing an item out. When the download really did finish but was never imported, recovery re-runs the import if it can resolve the completed folder; otherwise the item lands in Needs attention as "download finished but was never imported into the library", with the files still in the download directory ready for a manual import.
+
 ## 0.33.0
 
 ### Minor Changes
