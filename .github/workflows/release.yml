@@ -44,7 +44,7 @@ jobs:
 
       - name: Prepare GitHub release
         id: prepare
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs['has-changesets'] == 'false'
         run: npm run prepare-github-release
 
       - name: Create GitHub release
