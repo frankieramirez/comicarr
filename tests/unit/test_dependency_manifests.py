@@ -7,6 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
+import re
 from pathlib import Path
 
 import yaml
@@ -17,7 +18,9 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-SETUP_UV_ACTION = "astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d"
+# Matches a SHA-pinned setup-uv step. The SHA is deliberately not hardcoded here:
+# Dependabot bumps it, and pinning the value would fail this test on every bump.
+SETUP_UV_PIN = re.compile(r"astral-sh/setup-uv@([0-9a-f]{40})\b")
 ALTERNATE_PYTHON_MANIFESTS = (
     "requirements*.txt",
     "requirements*.in",
@@ -56,7 +59,10 @@ def test_delivery_paths_install_from_the_committed_uv_lock():
     workflow = (ROOT_DIR / ".github/workflows/test.yml").read_text()
     dockerfile = (ROOT_DIR / "Dockerfile").read_text()
 
-    assert workflow.count(SETUP_UV_ACTION) == 4
+    setup_uv_pins = SETUP_UV_PIN.findall(workflow)
+
+    assert len(setup_uv_pins) == 4
+    assert len(set(setup_uv_pins)) == 1
     assert "uv sync --locked --extra dev" in workflow
     assert workflow.count("uv sync --locked") >= 4
     assert "COMICARR_E2E_PYTHON: ${{ github.workspace }}/.venv/bin/python" in workflow
