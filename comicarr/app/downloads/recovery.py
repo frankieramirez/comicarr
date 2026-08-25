@@ -373,6 +373,55 @@ def _reconstruct_anchors():
 
 
 # ---------------------------------------------------------------------------
+# #742 — reopen rows the pre-#736 code falsely terminalized
+# ---------------------------------------------------------------------------
+
+
+def _reclassify_false_terminal_imports():
+    """#742 backfill (idempotent, safe every boot): rows the pre-#736 recovery
+    marked ``post_processed`` off a bare done-signal are terminal, so
+    read_open() never revisits them — the false "import / succeeded" is
+    permanent and the files stay stranded in the download directory. Scan the
+    terminal ``post_processed`` rows, and for each one the LIBRARY contradicts
+    (no placement evidence, still tracked, no operator-intent status — the
+    recovery_classify.false_terminal_reopen_candidate contract), demote it
+    back to ``snatched`` via the journal's single sanctioned backward write.
+    The reopened rows join THIS pass's read_open() snapshot, where the fixed
+    #736 path re-drives the import or quarantines to needs_attention.
+
+    Rows that end the pass at manual_review/failed/post_processed-with-
+    placement are never re-scanned; a row left open (UNKNOWN) is a normal
+    obligation from then on. Returns the number of reopened rows."""
+    try:
+        rows = db.select_all(select(pipeline_journal).where(pipeline_journal.c.stage == journal.POST_PROCESSED)) or []
+    except Exception as e:
+        logger.error("[RECOVERY] #742 backfill could not read terminal rows: %s" % type(e).__name__)
+        return 0
+
+    reopened = 0
+    for row in rows:
+        rkey = row.get("release_key")
+        try:
+            payload = journal.load_payload(row.get("payload_json"))
+            if not recovery_classify.false_terminal_reopen_candidate(row, payload=payload):
+                continue
+            if journal.reopen_false_terminal(rkey):
+                reopened += 1
+                logger.warn(
+                    "[RECOVERY] %s was terminal `post_processed` but the library "
+                    "shows NO placement evidence (pre-#736 false done-signal) — "
+                    "reopened for re-evaluation this pass (#742)." % rkey
+                )
+        except Exception as e:
+            # A single bad row must never abort the backfill scan.
+            logger.error("[RECOVERY] #742 backfill error for %s — SKIPPED: %s" % (rkey, type(e).__name__))
+            continue
+    if reopened:
+        logger.info("[RECOVERY] #742 backfill reopened %d falsely-terminal row(s)." % reopened)
+    return reopened
+
+
+# ---------------------------------------------------------------------------
 # Payload reconstruction for re-enqueue
 # ---------------------------------------------------------------------------
 
@@ -975,6 +1024,7 @@ def replay_pipeline(probes=None):
         "key_migration": 0,
         "reconstructed": 0,
         "legacy_ddl_review": 0,
+        "reopened_false_terminal": 0,
         "band_reconcile": None,
         "open": 0,
         "actions": {},
@@ -1009,6 +1059,15 @@ def replay_pipeline(probes=None):
         summary["band_reconcile"] = reconcile_existing_excluded_rows()
     except Exception as e:
         logger.error("[RECOVERY] band actionability one-shot failed; continuing: %s" % type(e).__name__)
+
+    # #742: reopen rows the pre-#736 code falsely terminalized to
+    # `post_processed` off a bare done-signal (library shows no placement).
+    # BEFORE the read_open() snapshot so the reopened rows are re-evaluated
+    # in THIS pass. Idempotent; safe every boot.
+    try:
+        summary["reopened_false_terminal"] = _reclassify_false_terminal_imports()
+    except Exception as e:
+        logger.error("[RECOVERY] #742 false-terminal backfill failed; continuing: %s" % type(e).__name__)
 
     # 1. Anchor reconstruction FIRST (U2 residual window).
     try:

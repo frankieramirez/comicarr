@@ -514,3 +514,78 @@ def test_placement_for_story_arc_obligation_uses_storyarcs_row():
         payload={"mode": "story_arc"},
     )
     assert recovery_classify.has_library_placement(unplaced) is False
+
+
+# ---------------------------------------------------------------------------
+# false_terminal_reopen_candidate — the #742 backfill's evidence check. A
+# terminal `post_processed` row is reopenable ONLY when the library still
+# tracks the obligation, shows NO placement evidence, and carries no
+# operator-intent status. Anything unverifiable stays terminal.
+# ---------------------------------------------------------------------------
+
+
+def _terminal_row(release_key, issueid, payload=None):
+    return _insert_journal(
+        release_key,
+        journal.POST_PROCESSED,
+        issueid=issueid,
+        provider="nzb.su",
+        downloader_type="nzb",
+        payload=payload,
+    )
+
+
+def test_reopen_candidate_true_for_snatched_issue_without_location():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="R1", Status="Snatched", Location=None))
+    row = _terminal_row("R1|nzb.su", "R1")
+    assert recovery_classify.false_terminal_reopen_candidate(row) is True
+
+
+def test_reopen_candidate_false_with_placement_evidence():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="R2", Status="Snatched", Location="Placed.cbz"))
+        conn.execute(issues.insert().values(IssueID="R3", Status="Downloaded", Location=None))
+    assert recovery_classify.false_terminal_reopen_candidate(_terminal_row("R2|nzb.su", "R2")) is False
+    assert recovery_classify.false_terminal_reopen_candidate(_terminal_row("R3|nzb.su", "R3")) is False
+
+
+def test_reopen_candidate_false_without_library_row():
+    row = _terminal_row("R4|nzb.su", "R4")
+    assert recovery_classify.false_terminal_reopen_candidate(row) is False
+
+
+def test_reopen_candidate_false_for_oneoff_and_missing_issueid():
+    oneoff = _terminal_row("oneoff|nzb.su|x|d", "900001")
+    assert recovery_classify.false_terminal_reopen_candidate(oneoff) is False
+    orphan = _terminal_row("R5|nzb.su", None)
+    assert recovery_classify.false_terminal_reopen_candidate(orphan) is False
+
+
+def test_reopen_candidate_false_for_operator_intent_status():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="R6", Status="Ignored", Location=None))
+        conn.execute(issues.insert().values(IssueID="R7", Status="Skipped", Location=None))
+        conn.execute(issues.insert().values(IssueID="R8", Status="Archived", Location=None))
+    for issueid in ("R6", "R7", "R8"):
+        row = _terminal_row("%s|nzb.su" % issueid, issueid)
+        assert recovery_classify.false_terminal_reopen_candidate(row) is False
+
+
+def test_reopen_candidate_false_for_non_terminal_stage():
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="R9", Status="Snatched", Location=None))
+    row = _insert_journal("R9|nzb.su", journal.SNATCHED, issueid="R9", provider="nzb.su", downloader_type="nzb")
+    assert recovery_classify.false_terminal_reopen_candidate(row) is False
+
+
+def test_reopen_candidate_story_arc_scoped_to_storyarcs_row():
+    from comicarr.tables import storyarcs
+
+    with get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(IssueArcID="R10", StoryArc="Arc", Status="Wanted", Location=None))
+        conn.execute(storyarcs.insert().values(IssueArcID="R11", StoryArc="Arc", Status="Downloaded"))
+    reopenable = _terminal_row("R10|nzb.su", "R10", payload={"mode": "story_arc"})
+    assert recovery_classify.false_terminal_reopen_candidate(reopenable) is True
+    placed = _terminal_row("R11|nzb.su", "R11", payload={"mode": "story_arc"})
+    assert recovery_classify.false_terminal_reopen_candidate(placed) is False

@@ -828,9 +828,13 @@ def test_ae3_two_replays_complete_exactly_once(queues, tmp_path):
     assert len(first) == 1
 
     # The PP consumer (U4) wins the claim downloaded -> post_processing, then
-    # completes -> post_processed. Simulate that durable progression.
+    # completes -> post_processed. Simulate that durable progression — a real
+    # import also writes the library placement facts (#736/#742: without them
+    # the terminal row would rightly be reopened by the startup backfill).
     assert journal.record_transition(rkey, journal.POST_PROCESSING) is True
     journal.record_transition(rkey, journal.POST_PROCESSED)
+    with get_engine().begin() as conn:
+        conn.execute(issues.update().where(issues.c.IssueID == "100").values(Status="Downloaded", Location="L.cbz"))
 
     # Second replay (process restarted again): row is terminal -> NOT
     # re-driven. Exactly once overall.
@@ -1340,6 +1344,198 @@ def test_done_signal_with_placement_evidence_still_marks_done(queues):
     assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
     assert summary["actions"].get("done-check") == 1
     assert _drain(queues["pp"]) == []
+
+
+# ===========================================================================
+# #742 — rows already falsely terminalized to `post_processed` by the
+# pre-#736 code have no open obligation for replay to revisit. The startup
+# backfill must reopen exactly those rows (terminal post_processed, library
+# still tracks the issue, NO placement evidence, no operator-intent status)
+# so the #736 placement contract re-evaluates them in the same pass.
+# ===========================================================================
+
+
+def test_false_terminal_without_placement_is_reopened_and_quarantined(queues):
+    """#742 repro: a row the pre-#736 recovery marked `post_processed` off a
+    bare done-signal — issue still Snatched, Location NULL, files stranded in
+    the download directory. The backfill reopens it; the downloader cannot be
+    probed (old payload has no client id), so the #736 path quarantines it to
+    manual_review with the placement reason instead of leaving it a false
+    import/succeeded forever."""
+    rkey = journal.release_key("742", "nzb.su", nzbname="Stranded.001.cbz")
+    _issue_row("742")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "742", "provider": "nzb.su", "nzbname": "Stranded.001.cbz"},
+        issueid="742",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("unreachable"))
+
+    assert summary["reopened_false_terminal"] == 1
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert str(row["fail_reason"] or "").startswith("done_signal_without_library_placement")
+    assert _drain(queues["pp"]) == []
+
+
+def test_false_terminal_reopen_redrives_import_when_probe_resolves_folder(queues):
+    """When the downloader history still resolves the completed folder, a
+    reopened #742 row is re-driven through PP (real import) in the SAME
+    replay pass instead of being quarantined."""
+    rkey = journal.release_key("743", "nzb.su", nzbname="Stranded.002.cbz")
+    _issue_row("743")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={
+            "issueid": "743",
+            "provider": "nzb.su",
+            "nzbname": "Stranded.002.cbz",
+            "download_info": {"nzo_id": "nzo743"},
+        },
+        issueid="743",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    probes = _probe({"status": True, "location": "/downloads/Stranded.002", "name": "Stranded.002.cbz"})
+    summary = recovery.replay_pipeline(probes=probes)
+
+    assert summary["reopened_false_terminal"] == 1
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED
+    items = _drain(queues["pp"])
+    assert len(items) == 1
+    assert items[0]["nzb_folder"] == "/downloads/Stranded.002"
+    assert items[0]["journal_release_key"] == rkey
+
+
+def test_legit_post_processed_with_placement_is_left_terminal(queues):
+    """A genuinely-imported row (Location written by placement) must NEVER be
+    reopened — the backfill is scoped to rows the library contradicts."""
+    rkey = journal.release_key("744", "nzb.su", nzbname="Placed.001.cbz")
+    _issue_row("744", status="Downloaded", location="Placed 001 (2026).cbz")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "744", "provider": "nzb.su", "nzbname": "Placed.001.cbz"},
+        issueid="744",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert summary["reopened_false_terminal"] == 0
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert _drain(queues["pp"]) == []
+
+
+def test_post_processed_oneoff_is_left_terminal(queues):
+    """A synthetic-HIGHCOUNT one-off has no library row by design — placement
+    is unverifiable, so the backfill must leave it terminal."""
+    rkey = "oneoff|nzb.su|OneOff.cbz|disc1"
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "900001", "provider": "nzb.su", "nzbname": "OneOff.cbz"},
+        issueid="900001",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("unreachable"))
+
+    assert summary["reopened_false_terminal"] == 0
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+
+
+def test_post_processed_with_operator_intent_status_is_left_terminal(queues):
+    """An issue the operator has since set to Ignored/Skipped/Archived is an
+    explicit decision — the backfill must not resurrect the download."""
+    rkey = journal.release_key("745i", "nzb.su", nzbname="Ignored.001.cbz")
+    _issue_row("745i", status="Ignored")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "745i", "provider": "nzb.su", "nzbname": "Ignored.001.cbz"},
+        issueid="745i",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("unreachable"))
+
+    assert summary["reopened_false_terminal"] == 0
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+
+
+def test_post_processed_with_no_library_row_is_left_terminal(queues):
+    """The library no longer tracks the issue (series removed): nothing to
+    recover into, so the row stays terminal."""
+    rkey = journal.release_key("746", "nzb.su", nzbname="Deleted.001.cbz")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "746", "provider": "nzb.su", "nzbname": "Deleted.001.cbz"},
+        issueid="746",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    summary = recovery.replay_pipeline(probes=_probe("unreachable"))
+
+    assert summary["reopened_false_terminal"] == 0
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+
+
+def test_backfill_is_idempotent_across_restarts(queues):
+    """Second boot after the quarantine: the row is manual_review, not
+    post_processed — the backfill must not touch it again."""
+    rkey = journal.release_key("747", "nzb.su", nzbname="Stranded.003.cbz")
+    _issue_row("747")
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSED,
+        payload={"issueid": "747", "provider": "nzb.su", "nzbname": "Stranded.003.cbz"},
+        issueid="747",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+
+    first = recovery.replay_pipeline(probes=_probe("unreachable"))
+    assert first["reopened_false_terminal"] == 1
+    assert _journal_row(rkey)["stage"] == journal.MANUAL_REVIEW
+
+    second = recovery.replay_pipeline(probes=_probe("unreachable"))
+    assert second["reopened_false_terminal"] == 0
+    assert _journal_row(rkey)["stage"] == journal.MANUAL_REVIEW
+
+
+def test_reopen_false_terminal_only_demotes_post_processed():
+    """journal.reopen_false_terminal is the single sanctioned backward write:
+    gated on stage == post_processed exactly — failed / manual_review / open
+    rows and absent keys are all no-ops."""
+    done = _insert_journal("j742-done|p", journal.POST_PROCESSED, issueid="800", provider="p")
+    assert journal.reopen_false_terminal(done["release_key"]) is True
+    row = journal.read_one(done["release_key"])
+    assert row["stage"] == journal.SNATCHED
+    assert row["stage_rank"] == journal.stage_rank(journal.SNATCHED)
+
+    failed = _insert_journal("j742-failed|p", journal.FAILED, issueid="801", provider="p")
+    review = _insert_journal("j742-review|p", journal.MANUAL_REVIEW, issueid="802", provider="p")
+    open_row = _insert_journal("j742-open|p", journal.DOWNLOADED, issueid="803", provider="p")
+    assert journal.reopen_false_terminal(failed["release_key"]) is False
+    assert journal.reopen_false_terminal(review["release_key"]) is False
+    assert journal.reopen_false_terminal(open_row["release_key"]) is False
+    assert journal.reopen_false_terminal("j742-absent|p") is False
+    assert journal.read_one(failed["release_key"])["stage"] == journal.FAILED
+    assert journal.read_one(review["release_key"])["stage"] == journal.MANUAL_REVIEW
+    assert journal.read_one(open_row["release_key"])["stage"] == journal.DOWNLOADED
 
 
 def test_done_signal_without_placement_absent_probe_enqueues_pp_not_done(queues):

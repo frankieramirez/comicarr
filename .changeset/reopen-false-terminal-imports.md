@@ -1,0 +1,5 @@
+---
+"comicarr": patch
+---
+
+Downloads that were falsely marked as imported before v0.34.0's recovery fix are now healed automatically. That fix stopped startup recovery from reporting *import / succeeded* for downloads that were never actually moved into the library, but rows already corrupted by earlier versions stayed permanently stuck: the pipeline considered them finished, so no future startup would ever look at them again, while the files sat stranded in the download directory. On the next startup, recovery now re-examines finished pipeline records that the library itself contradicts — no stored file location, no Downloaded status, and no operator decision such as Ignored or Archived — and puts them back through the normal recovery path. When the completed download folder can still be resolved, the import runs for real; otherwise the item lands in Needs attention as "download finished but was never imported into the library", with the files still in the download directory ready for a manual import. Genuinely imported items, one-off downloads, and issues from removed series are left untouched.

@@ -1037,6 +1037,47 @@ def migrate_release_key_provider_format():
     return migrated
 
 
+def reopen_false_terminal(release_key):
+    """#742 backfill: demote ONE falsely-terminal ``post_processed`` row back
+    to ``snatched`` so startup replay re-evaluates it under the #736 library
+    placement contract.
+
+    This is the single sanctioned BACKWARD write in the lattice, and it is
+    deliberately not a record_transition path: the monotonic guard exists to
+    reject exactly this shape of write from every live seam. The gate is the
+    stage predicate — only a row currently at exactly ``post_processed`` can
+    be demoted, so failed/manual_review/cancelled terminals (other contracts)
+    and open rows are untouchable, and the write is race-safe against a
+    concurrent re-snatch (whose reset leaves the stage != post_processed).
+    The CALLER (recovery's #742 scan) owns the evidence check
+    (recovery_classify.false_terminal_reopen_candidate); this helper is pure
+    mechanism. status/fail_reason are cleared so the reopened row replays as
+    a clean open obligation; the payload is retained for reconstruction.
+
+    Returns True iff a row was demoted."""
+    if release_key in (None, ""):
+        return False
+    with db.get_engine().begin() as conn:
+        result = conn.execute(
+            update(pipeline_journal)
+            .where(pipeline_journal.c.release_key == release_key)
+            .where(pipeline_journal.c.stage == POST_PROCESSED)
+            .values(
+                stage=SNATCHED,
+                stage_rank=STAGE_RANK[SNATCHED],
+                status=None,
+                fail_reason=None,
+                updated_date=_now(),
+            )
+        )
+        won = bool(result.rowcount)
+    if won:
+        # Mechanism-level trace only; the recovery scan owns the operator-
+        # facing narration for the reopen.
+        logger.fdebug("[JOURNAL] demoted release_key=%s post_processed -> snatched (#742 backfill)." % release_key)
+    return won
+
+
 def stamp_resolution(release_key, status, *, increment_retry=False, conn=None):
     """Stamp an R9 resolution status without rewriting stage / stage_rank.
 

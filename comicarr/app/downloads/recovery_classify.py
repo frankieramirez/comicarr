@@ -164,6 +164,39 @@ def _row_shows_placement(rec):
     return bool(str(rec["Location"] or "").strip())
 
 
+def _payload_story_arc(payload):
+    """Tri-state arc signal from a journal payload: True (story arc), False
+    (plain issue), or None when the payload carries no `mode`."""
+    if isinstance(payload, dict) and "mode" in payload:
+        return payload.get("mode") == "story_arc"
+    return None
+
+
+def _library_rows(issueid, story_arc):
+    """The library rows that can carry placement evidence for an obligation
+    (arc scoping as documented on has_library_placement): storyarcs unless the
+    obligation is known-plain, issues/annuals unless it is known-arc. Returns
+    a list of (Status, Location) rows, or None when a lookup failed — callers
+    must treat None as "no evidence available", never fabricate."""
+    recs = []
+    try:
+        if story_arc is not False:
+            rec = db.select_one(
+                select(storyarcs.c.Status, storyarcs.c.Location).where(storyarcs.c.IssueArcID == str(issueid))
+            )
+            if rec is not None:
+                recs.append(rec)
+        if story_arc is not True:
+            for table in (issues, annuals):
+                rec = db.select_one(select(table.c.Status, table.c.Location).where(table.c.IssueID == str(issueid)))
+                if rec is not None:
+                    recs.append(rec)
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] library row lookup failed for %s: %s" % (issueid, e))
+        return None
+    return recs
+
+
 def has_library_placement(row, payload=None):
     """True iff the LIBRARY itself shows the import happened for this
     obligation (#734). A done-signal (nzblog absent / snatched history) only
@@ -184,26 +217,59 @@ def has_library_placement(row, payload=None):
         return False
     if payload is None:
         payload = journal.load_payload(row.get("payload_json"))
-    story_arc = None
-    if isinstance(payload, dict) and "mode" in payload:
-        story_arc = payload.get("mode") == "story_arc"
-    try:
-        if story_arc is not False:
-            rec = db.select_one(
-                select(storyarcs.c.Status, storyarcs.c.Location).where(storyarcs.c.IssueArcID == str(issueid))
-            )
-            if _row_shows_placement(rec):
-                return True
-            if story_arc is True:
-                return False
-        for table in (issues, annuals):
-            rec = db.select_one(select(table.c.Status, table.c.Location).where(table.c.IssueID == str(issueid)))
-            if _row_shows_placement(rec):
-                return True
-    except Exception as e:
-        logger.warn("[RECOVERY-CLASSIFY] library placement lookup failed for %s: %s" % (issueid, e))
+    recs = _library_rows(issueid, _payload_story_arc(payload))
+    if recs is None:
         return False
-    return False
+    return any(_row_shows_placement(rec) for rec in recs)
+
+
+# Library statuses that carry NO operator intent to keep the issue out of the
+# pipeline. Anything else (Ignored/Skipped/Archived/...) is an explicit
+# decision the #742 backfill must not override by resurrecting the download.
+_REOPEN_SAFE_STATUSES = frozenset({"", "Snatched", "Wanted", "Failed"})
+
+
+def false_terminal_reopen_candidate(row, payload=None):
+    """#742: True iff a terminal ``post_processed`` journal row is safe to
+    reopen for re-evaluation under the #736 placement contract. The pre-#736
+    recovery could terminalize a row off a bare done-signal; such rows are
+    structurally invisible to replay (read_open excludes terminals), so a
+    startup backfill has to identify them from the library's own evidence.
+
+    Reopenable ONLY when ALL hold:
+      * the row is exactly at ``post_processed`` (never failed/manual_review/
+        cancelled — those are other contracts);
+      * the issueid is real (a synthetic-HIGHCOUNT one-off has no library row
+        by design, so placement is unverifiable — leave terminal);
+      * the library still tracks the obligation (a matching issues/annuals/
+        storyarcs row exists — a removed series has nothing to recover into);
+      * NO matching row shows placement evidence (same authority as
+        has_library_placement); and
+      * every matching row's status is placement-neutral (Snatched/Wanted/
+        Failed/empty) — an operator-intent status stays untouched.
+
+    Arc scoping mirrors has_library_placement. A lookup failure returns
+    False — never reopen a terminal row on uncertainty."""
+    row = row or {}
+    if row.get("stage") != journal.POST_PROCESSED:
+        return False
+    issueid = row.get("issueid")
+    if issueid is None or journal.is_synthetic_oneoff(issueid):
+        return False
+    if payload is None:
+        payload = journal.load_payload(row.get("payload_json"))
+    recs = _library_rows(issueid, _payload_story_arc(payload))
+    if not recs:
+        # Lookup failed (None) or the library no longer tracks the issue ([]):
+        # either way there is nothing to verify placement against — stay
+        # terminal.
+        return False
+    for rec in recs:
+        if _row_shows_placement(rec):
+            return False
+        if (rec["Status"] or "") not in _REOPEN_SAFE_STATUSES:
+            return False
+    return True
 
 
 def has_done_signal(row):
