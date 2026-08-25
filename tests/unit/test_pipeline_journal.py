@@ -446,6 +446,47 @@ def test_provider_normalization_converges_seam_variants():
     assert journal.release_key("99", "nzb.su[RSS]") == base
 
 
+def test_provider_normalization_strips_type_label_suffix():
+    # #745: the snatch seam writes search.py's tmpprov ("Name (newznab)"),
+    # the downloaded seam writes the raw nzbprov ("Name"). Both must converge
+    # on ONE token for the key AND the immutable-field conflict comparison.
+    base = journal.release_key("99", "DrunkenSlug")
+    assert journal.release_key("99", "DrunkenSlug (newznab)") == base
+    assert journal.release_key("99", "DrunkenSlug (torznab)") == base
+    assert journal.release_key("99", "DrunkenSlug (newznab) [RSS]") == base
+    # A provider literally NAMED with a label converges with its own tmpprov.
+    named = journal.release_key("99", "Foo (newznab)")
+    assert journal.release_key("99", "Foo (newznab) (newznab)") == named
+    assert named == journal.release_key("99", "Foo")
+    # The label is only stripped as a trailing suffix, never mid-name.
+    assert journal.normalize_provider("newznab mirror") == "newznab mirror"
+
+
+def test_labelled_snatch_then_bare_downloaded_does_not_quarantine():
+    # #745 regression: snatch-time provider carries the "(newznab)" label,
+    # completion-time provider is the bare name; the row must ADVANCE, not
+    # quarantine with immutable_payload_conflict:provider.
+    key = journal.release_key("1099461", "DrunkenSlug (newznab)")
+    journal.record_transition(
+        key,
+        journal.SNATCHED,
+        payload={"issueid": "1099461", "provider": "DrunkenSlug (newznab)"},
+        issueid="1099461",
+        provider="DrunkenSlug (newznab)",
+    )
+    won = journal.record_transition(
+        key,
+        journal.DOWNLOADED,
+        payload={"issueid": "1099461", "provider": "DrunkenSlug"},
+        issueid="1099461",
+        provider="DrunkenSlug",
+    )
+    assert won is True
+    row = _row(key)
+    assert row["stage"] == journal.DOWNLOADED
+    assert row["fail_reason"] is None
+
+
 def test_oneoff_release_key_reproducible_across_two_builds():
     # Synthetic HIGHCOUNT issueid differs across restart, but a stable
     # discriminant (downloader id) reproduces the same key.
@@ -844,3 +885,52 @@ def test_is_terminal_predicate():
     assert journal.is_terminal(journal.FAILED) is True
     assert journal.is_terminal(journal.SNATCHED) is False
     assert journal.is_terminal(journal.MOVED) is False
+
+
+# ---------------------------------------------------------------------------
+# #745 release_key provider-format migration
+# ---------------------------------------------------------------------------
+
+
+def test_key_migration_rewrites_labelled_provider_segment():
+    # Pre-fix rows keyed with the "(newznab)"-labelled provider segment must
+    # be rewritten so post-fix re-derivation (anchor reconstruction, the
+    # downloaded-seam fallback) finds them again. Terminal rows included —
+    # read_one on a terminal row is what stops a spurious re-drive.
+    old_open = "42|drunkenslug (newznab)"
+    old_terminal = "oneoff|drunkenslug (newznab)|Absolute.Flash.001|disc-1"
+    journal.record_transition(old_open, journal.SNATCHED, issueid="42", provider="DrunkenSlug (newznab)")
+    journal.record_transition(old_terminal, journal.SNATCHED, provider="DrunkenSlug (newznab)")
+    journal.record_transition(old_terminal, journal.DOWNLOADED, provider="DrunkenSlug (newznab)")
+    journal.record_transition(old_terminal, journal.POST_PROCESSED, provider="DrunkenSlug (newznab)")
+
+    migrated = journal.migrate_release_key_provider_format()
+
+    assert migrated == 2
+    assert _row(old_open) is None
+    assert _row(old_terminal) is None
+    assert _row("42|drunkenslug")["stage"] == journal.SNATCHED
+    assert _row("oneoff|drunkenslug|Absolute.Flash.001|disc-1")["stage"] == journal.POST_PROCESSED
+    # New-form key now matches post-fix derivation.
+    assert journal.release_key("42", "DrunkenSlug") == "42|drunkenslug"
+    # Idempotent: a second pass is a no-op.
+    assert journal.migrate_release_key_provider_format() == 0
+
+
+def test_key_migration_leaves_collisions_alone(capture_logs):
+    journal.record_transition("42|drunkenslug (newznab)", journal.SNATCHED, issueid="42", provider="DrunkenSlug")
+    journal.record_transition("42|drunkenslug", journal.DOWNLOADED, issueid="42", provider="DrunkenSlug")
+
+    assert journal.migrate_release_key_provider_format() == 0
+    assert _row("42|drunkenslug (newznab)")["stage"] == journal.SNATCHED
+    assert _row("42|drunkenslug")["stage"] == journal.DOWNLOADED
+    assert "collision" in capture_logs.text
+
+
+def test_key_migration_ignores_unlabelled_and_malformed_keys():
+    journal.record_transition("42|nzb.su", journal.SNATCHED, issueid="42", provider="nzb.su")
+    journal.record_transition("weird-key-no-pipe", journal.SNATCHED)
+
+    assert journal.migrate_release_key_provider_format() == 0
+    assert _row("42|nzb.su") is not None
+    assert _row("weird-key-no-pipe") is not None

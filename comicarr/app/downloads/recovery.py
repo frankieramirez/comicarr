@@ -972,6 +972,7 @@ def replay_pipeline(probes=None):
     Returns a small summary dict (counts) for logging/tests.
     """
     summary = {
+        "key_migration": 0,
         "reconstructed": 0,
         "legacy_ddl_review": 0,
         "band_reconcile": None,
@@ -985,6 +986,15 @@ def replay_pipeline(probes=None):
         return summary
 
     logger.info("[RECOVERY] Startup recovery replay starting (post-start, lock-free).")
+
+    # #745: converge pre-fix `(newznab)`/`(torznab)`-labelled release_keys onto
+    # the current normalize_provider derivation BEFORE anchor reconstruction —
+    # reconstruction re-derives keys from snatched.Provider and would otherwise
+    # miss (and duplicate) every pre-fix row. Idempotent; safe every boot.
+    try:
+        summary["key_migration"] = journal.migrate_release_key_provider_format()
+    except Exception as e:
+        logger.error("[RECOVERY] #745 key-format migration failed; continuing: %s" % type(e).__name__)
 
     try:
         summary["legacy_ddl_review"] = _reconcile_legacy_ddl_downloading()

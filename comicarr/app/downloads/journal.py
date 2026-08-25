@@ -161,13 +161,18 @@ def normalize_provider(provider):
     The snatch seam passes an RSS-stripped `tmpprov` (search.py:1678/1694) or a
     raw `nzbprov`; the downloaded seam reads `download_info['provider']` (the
     raw `nzbprov`); anchor reconstruction reads `snatched.Provider`. These can
-    differ by an `[RSS]` suffix, surrounding whitespace, or case. Stripping the
-    `[RSS]` marker, collapsing whitespace and lowercasing makes the four seams
-    converge on one token. None/empty normalizes to "" (stable)."""
+    differ by an `[RSS]` suffix, a `(newznab)`/`(torznab)` type-label suffix
+    (search.py's `tmpprov` carries it, the raw `nzbprov` does not — #745),
+    surrounding whitespace, or case. Stripping the `[RSS]` marker and the
+    trailing type label, collapsing whitespace and lowercasing makes the four
+    seams converge on one token. None/empty normalizes to "" (stable)."""
     if provider is None:
         return ""
     p = str(provider)
     p = re.sub(r"\[RSS\]", "", p, flags=re.IGNORECASE)
+    # `+` so a provider literally NAMED "Foo (newznab)" converges with its own
+    # tmpprov form "Foo (newznab) (newznab)" instead of drifting by one label.
+    p = re.sub(r"(\s*\((?:newznab|torznab)\))+\s*$", "", p, flags=re.IGNORECASE)
     p = re.sub(r"\s+", " ", p).strip()
     return p.lower()
 
@@ -968,6 +973,68 @@ def read_one(release_key):
     """Cheap point lookup of a single journal row by release_key (used by the
     U6 replay snapshot-then-recheck), or None."""
     return db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == release_key))
+
+
+def migrate_release_key_provider_format():
+    """One-shot #745 key-format reconciliation (idempotent, safe every boot).
+
+    normalize_provider now strips the trailing `(newznab)`/`(torznab)` type
+    label, so keys derived BEFORE the fix (snatch seam passed the labelled
+    `tmpprov`) no longer reproduce from the same durable inputs: anchor
+    reconstruction and the downloaded-seam fallback would re-derive the new
+    form, miss the existing row, and either duplicate or re-drive an
+    obligation that already advanced. Rewrite the provider segment of every
+    stored key (terminal rows included — read_one on a terminal row is what
+    stops a re-drive) through the current normalizer.
+
+    A collision (old-form and new-form rows both present) is left alone and
+    logged loudly — never silently coalesced. Post-fix derivations cannot
+    produce a labelled segment, so after the first pass this is a no-op scan.
+
+    Returns the number of rewritten rows.
+    """
+    try:
+        rows = db.select_all(select(pipeline_journal.c.release_key))
+    except Exception as e:
+        logger.error("[JOURNAL] #745 key migration could not read journal rows: %s" % type(e).__name__)
+        return 0
+    renames = []
+    for row in rows:
+        key = row.get("release_key") or ""
+        parts = key.split("|")
+        if len(parts) < 2:
+            continue
+        new_prov = normalize_provider(parts[1])
+        if new_prov == parts[1]:
+            continue
+        renames.append((key, "|".join([parts[0], new_prov] + parts[2:])))
+    migrated = 0
+    for old_key, new_key in renames:
+        try:
+            with db.get_engine().begin() as conn:
+                collision = conn.execute(
+                    select(pipeline_journal.c.release_key).where(pipeline_journal.c.release_key == new_key)
+                ).fetchone()
+                if collision is not None:
+                    logger.warn(
+                        "[JOURNAL] #745 key migration collision: %r already exists — "
+                        "leaving %r unmigrated (operator attention may be required)." % (new_key, old_key)
+                    )
+                    continue
+                result = conn.execute(
+                    update(pipeline_journal)
+                    .where(pipeline_journal.c.release_key == old_key)
+                    .values(release_key=new_key)
+                )
+                migrated += int(bool(result.rowcount))
+        except Exception as e:
+            logger.error(
+                "[JOURNAL] #745 key migration failed for %r — SKIPPED (resumable next start): %s"
+                % (old_key, type(e).__name__)
+            )
+    if migrated:
+        logger.info("[JOURNAL] #745 key migration rewrote %d journal release_key(s)." % migrated)
+    return migrated
 
 
 def stamp_resolution(release_key, status, *, increment_retry=False, conn=None):
