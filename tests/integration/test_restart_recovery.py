@@ -196,8 +196,16 @@ def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue):
     # Re-running replay (second restart) must NOT double-enqueue
     # (idempotent / re-runnable): the U4 claim convergence is simulated by
     # advancing the row as the PP consumer would, then asserting a second
-    # replay is a no-op.
+    # replay is a no-op. A real import also writes the library placement
+    # facts (#736/#742: a terminal row the library contradicts is rightly
+    # reopened by the startup backfill).
     journal.record_transition(rkey, journal.POST_PROCESSED)
+    with get_engine().begin() as conn:
+        conn.execute(
+            issues.update()
+            .where(issues.c.IssueID == "500")
+            .values(Status="Downloaded", Location="Batman 010 (2026).cbz")
+        )
     recovery.replay_pipeline(probes=_probe("complete"))
     assert _drain(fake_pp_queue) == [], "AE1: completed row must not be re-driven"
     assert journal.read_one(rkey)["stage"] == journal.POST_PROCESSED
@@ -486,6 +494,15 @@ def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once
         "AE3: the real downloaded->post_processing atomic claim must succeed once"
     )
     journal.record_transition(rkey, journal.POST_PROCESSED)
+    # A real import also writes the library placement facts (#736/#742: a
+    # terminal row the library contradicts is rightly reopened by the
+    # startup backfill).
+    with get_engine().begin() as conn:
+        conn.execute(
+            issues.update()
+            .where(issues.c.IssueID == "550")
+            .values(Status="Downloaded", Location="Flash 001 (2026).cbz")
+        )
 
     # ---- Restart #2: SAME release replayed again — must be a pure no-op
     # (terminal-state / advanced-stage guard), no duplicate grab/PP. --------
