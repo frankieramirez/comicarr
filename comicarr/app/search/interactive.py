@@ -301,13 +301,30 @@ def _union_satisfies(existing, incoming):
     existing.satisfies = merged
 
 
+def _verdict_rank(evaluation):
+    verdict = evaluation.verdict or {}
+    if verdict.get("accepted"):
+        return 0
+    if verdict.get("overrideable"):
+        return 1
+    return 2
+
+
 def _merge_series_evaluation(collected, evaluation):
     identity = _evaluation_identity(evaluation)
     existing = collected.get(identity)
-    if existing is not None:
-        _union_satisfies(existing, evaluation)
+    if existing is None:
+        collected[identity] = evaluation
         return
-    collected[identity] = evaluation
+    if _verdict_rank(evaluation) < _verdict_rank(existing):
+        # The same release can be rejected for one searched target (e.g. a
+        # pack that does not contain it) yet accepted for another. Keep the
+        # grabbable evaluation — its satisfies list leads, so the persisted
+        # anchor (satisfies[0]) stays a target the grab can revalidate against.
+        _union_satisfies(evaluation, existing)
+        collected[identity] = evaluation
+        return
+    _union_satisfies(existing, evaluation)
 
 
 def _order_series_evaluations(collected):

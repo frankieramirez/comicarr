@@ -821,6 +821,74 @@ def test_series_worker_searches_gap_starts_and_annotates_pack_coverage(engine, m
     assert titles.count("Example 001-010") == 1
 
 
+def test_series_worker_keeps_the_accepted_verdict_when_a_target_rejected_the_same_pack(engine, monkeypatch):
+    pending = interactive.create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        provider_total=1,
+    )
+
+    def _rejected_pack():
+        evaluation = _pack_evaluation()
+        evaluation.legacy_match = None
+        evaluation.verdict = {
+            "status": "rejected",
+            "accepted": False,
+            "overrideable": True,
+            "reason_code": "rejected.pack_issue_absent",
+            "reasons": [{"code": "rejected.pack_issue_absent", "message": "Pack does not contain the tracked item"}],
+            "match_kind": "none",
+        }
+        return evaluation
+
+    def manual_search(**kwargs):
+        evaluations = [_rejected_pack()] if kwargs["issueid"] == "i10" else [_pack_evaluation()]
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"](evaluations)
+        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    interactive._collect(
+        session_id=pending["session_id"],
+        entity={
+            "entity_type": "series",
+            "entity_id": "series-1",
+            "series_id": "series-1",
+            "missing": _missing_items(),
+            "targets": [
+                {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+                {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+            ],
+        },
+        initial_failures=[],
+        provider_total=1,
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    assert result["state"] == "complete"
+    packs = [candidate for candidate in result["candidates"] if candidate["candidate"]["pack"]]
+    assert len(packs) == 1
+    # i10 rejected the pack first; i1's accepted evaluation must still win,
+    # and its own coverage must lead so the grab anchor is a covered issue.
+    assert packs[0]["verdict"]["accepted"] is True
+    assert packs[0]["satisfies"] == [
+        {"entity_type": "issue", "entity_id": "i1", "issue_number": "1"},
+        {"entity_type": "issue", "entity_id": "i2", "issue_number": "2"},
+        {"entity_type": "issue", "entity_id": "i3", "issue_number": "3"},
+        {"entity_type": "issue", "entity_id": "i10", "issue_number": "10"},
+    ]
+
+
 def test_series_grab_revalidates_against_the_pack_anchor_issue(engine, monkeypatch):
     pack = _pack_evaluation()
     pack.satisfies = [
