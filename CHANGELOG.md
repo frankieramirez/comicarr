@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.34.1
+
+### Patch Changes
+
+- 835c307: Usenet downloads are no longer quarantined at completion with "immutable_payload_conflict:provider". The download pipeline recorded the provider two different ways for the same download — as "DrunkenSlug (newznab)" when the release was grabbed and as plain "DrunkenSlug" when the download finished — so the safety check that guards against a download changing identity mid-flight fired on every completed NZBGet download, sending it to Needs attention instead of importing it. Both spellings now resolve to the same provider, and existing pipeline records written under the old spelling are reconciled automatically on the next startup.
+- 0bbc620: Downloads that were falsely marked as imported before v0.34.0's recovery fix are now healed automatically. That fix stopped startup recovery from reporting *import / succeeded* for downloads that were never actually moved into the library, but rows already corrupted by earlier versions stayed permanently stuck: the pipeline considered them finished, so no future startup would ever look at them again, while the files sat stranded in the download directory. On the next startup, recovery now re-examines finished pipeline records that the library itself contradicts — no stored file location, no Downloaded status, and no operator decision such as Ignored or Archived — and puts them back through the normal recovery path. When the completed download folder can still be resolved, the import runs for real; otherwise the item lands in Needs attention as "download finished but was never imported into the library", with the files still in the download directory ready for a manual import. Genuinely imported items, one-off downloads, and issues from removed series are left untouched.
+
 ## 0.34.0
 
 ### Minor Changes
