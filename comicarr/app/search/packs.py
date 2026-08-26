@@ -137,9 +137,12 @@ def parse_series_pack_title(title):
     a series name whose only digits live inside bracketed metadata groups,
     one of which is a multi-year span. ``parse_pack_title`` deliberately
     refuses these (a year range is not an issue range), so this is a
-    separate, riskier detector: callers must gate it behind *Allow packs*
-    and normal series-name matching. ``issues`` is the marker string
-    ``"all"`` — the pack claims every issue of the matched series.
+    separate, riskier detector: callers must gate it behind *Allow packs*,
+    a manga booktype, and normal series-name matching. On a print comic a
+    bracketed span usually states when the *series* ran rather than what
+    the release holds, and a false positive here claims the whole series
+    at once. ``issues`` is the marker string ``"all"`` — the pack claims
+    every issue of the matched series.
 
     A digit left outside the metadata groups means an issue, volume, or
     chapter marker (or a numbered series name indistinguishable from one),

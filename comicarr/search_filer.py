@@ -661,7 +661,13 @@ class search_check(object):
                     volume_ok = booktype in ("TPB", "HC", "GN", "TPB/GN/HC/One-Shot") or _manga_bypass(booktype)
                     if not volume_ok:
                         detected_pack = None
-                if detected_pack is None:
+                if detected_pack is None and _manga_bypass(booktype):
+                    # A numberless "(2021-2026)" title carries no range, so a
+                    # false positive claims the entire series at once. For
+                    # print comics that bracketed span usually states when the
+                    # *series* ran, not what the release holds, so restrict
+                    # the detector to manga, where it is the known
+                    # complete-series idiom (#744).
                     detected_pack = parse_series_pack_title(ComicTitle)
             if detected_pack is not None:
                 logger.fdebug(
