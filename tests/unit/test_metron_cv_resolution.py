@@ -123,3 +123,73 @@ class TestAddComictoDBResolution:
 
         assert result == {"status": "incomplete"}
         mock_cv.getComic.assert_called_once_with("145678", "comic", series=True)
+
+
+class TestAddComicServiceResolution:
+    """The search add endpoint resolves metron- ids before queueing, so the id
+    it queues, returns, and later narrates in activity events all agree - the
+    frontend keys its comic-added settle/navigate handshake on that id."""
+
+    def test_metron_id_resolved_before_queueing_and_returned(self):
+        from comicarr.app.search import service
+
+        with (
+            patch("comicarr.metron.get_cv_id", return_value="145678") as mock_resolve,
+            patch("comicarr.importer.importer_thread") as mock_thread,
+        ):
+            result = service.add_comic(None, "metron-9253")
+
+        mock_resolve.assert_called_once_with("metron-9253")
+        mock_thread.assert_called_once_with([{"comicid": "145678", "comicname": None, "seriesyear": None}])
+        assert result["success"] is True
+        assert result["comicid"] == "145678"
+
+    def test_unmappable_metron_id_fails_without_queueing(self):
+        from comicarr.app.search import service
+
+        with (
+            patch("comicarr.metron.get_cv_id", return_value=None),
+            patch("comicarr.importer.importer_thread") as mock_thread,
+        ):
+            result = service.add_comic(None, "metron-9253")
+
+        mock_thread.assert_not_called()
+        assert result["success"] is False
+        assert "no ComicVine mapping" in result["error"]
+
+    def test_plain_comicvine_id_passes_through_untouched(self):
+        from comicarr.app.search import service
+
+        with (
+            patch("comicarr.metron.get_cv_id") as mock_resolve,
+            patch("comicarr.importer.importer_thread") as mock_thread,
+        ):
+            result = service.add_comic(None, "145678")
+
+        mock_resolve.assert_not_called()
+        mock_thread.assert_called_once_with([{"comicid": "145678", "comicname": None, "seriesyear": None}])
+        assert result["comicid"] == "145678"
+
+
+class TestAnnualSearchRouting:
+    def test_annual_check_bypasses_metron(self):
+        """The importer's annual sub-search matches CV volume ids inside CV
+        description text (Metron results carry description=None and would
+        crash it, then feed metron- ids to cv.getComic), so findComic must
+        never route it to Metron."""
+        from comicarr import mb
+
+        class _StopSearch(Exception):
+            pass
+
+        fake_config = MagicMock(USE_METRON_SEARCH=True, MANGADEX_ENABLED=False)
+        with (
+            patch.object(comicarr, "CONFIG", fake_config),
+            patch.object(comicarr, "METRON_API", MagicMock()),
+            patch("comicarr.metron.search_series") as mock_metron_search,
+            patch("comicarr.mb.listLibrary", side_effect=_StopSearch),
+        ):
+            with pytest.raises(_StopSearch):
+                mb.findComic("Example Series annual", "series", issue=None, annual_check=True)
+
+        mock_metron_search.assert_not_called()

@@ -161,9 +161,19 @@ function AddButton({
     try {
       comicIdRef.current = comic.comicid ?? comic.id ?? null;
       setIsProcessing(true);
-      if (isManga)
-        await addMangaMutation.mutateAsync(comic.comicid ?? comic.id);
-      else await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      const response = (
+        isManga
+          ? await addMangaMutation.mutateAsync(comic.comicid ?? comic.id)
+          : await addComicMutation.mutateAsync(comic.comicid ?? comic.id)
+      ) as {
+        comicid?: string;
+      };
+      // Metron search ids are resolved to their ComicVine id server-side; the
+      // add response carries the id the comic-added event will name, so track
+      // that one for the settle/navigate handshake.
+      if (response?.comicid) {
+        comicIdRef.current = response.comicid;
+      }
       setIsAdded(true);
       addToast({
         type: "success",

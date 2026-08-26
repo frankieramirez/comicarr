@@ -148,8 +148,11 @@ def findComic(
 
         return mangadex.search_manga(name, limit=limit, offset=offset, sort=sort)
 
-    # Check if Metron search is enabled and configured (only for volume/series search, not story arcs)
-    if search_type != "story_arc" and comicarr.CONFIG.USE_METRON_SEARCH and comicarr.METRON_API:
+    # Check if Metron search is enabled and configured (only for volume/series
+    # search - not story arcs, and not the importer's annual sub-search, whose
+    # matching logic is ComicVine-specific: it looks for the CV volume id inside
+    # CV description text and feeds result ids straight to cv.getComic).
+    if search_type != "story_arc" and not annual_check and comicarr.CONFIG.USE_METRON_SEARCH and comicarr.METRON_API:
         logger.info("[METRON] Using Metron API for search")
         from comicarr import metron
 

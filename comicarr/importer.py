@@ -2879,17 +2879,20 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
         num_res = 0
         while num_res < len(sresults):
             sr = sresults[num_res]
-            # logger.fdebug('description:%s' % sr['description'])
+            # Not every provider returns a description (Metron list results
+            # carry None) - the matching below is text-based, so treat a
+            # missing description as empty rather than crashing the add.
+            sr_description = sr.get("description") or ""
             for x in annual_types_ignore:
-                if x in sr["description"].lower():
-                    test_id_position = sr["description"].find(comicid)
-                    if test_id_position >= sr["description"].lower().find(x) or test_id_position == -1:
+                if x in sr_description.lower():
+                    test_id_position = sr_description.find(comicid)
+                    if test_id_position >= sr_description.lower().find(x) or test_id_position == -1:
                         logger.fdebug(
                             "[IMPORTER-ANNUAL] - tradeback/collected edition detected - skipping " + str(sr["comicid"])
                         )
                         continue
 
-            if comicid in sr["description"]:
+            if comicid in sr_description:
                 logger.fdebug(
                     "[IMPORTER-ANNUAL] - " + str(comicid) + " found. Assuming it is part of the greater collection."
                 )

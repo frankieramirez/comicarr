@@ -67,7 +67,15 @@ export default function ComicCard({ comic }: ComicCardProps) {
       comicIdRef.current = comic.comicid ?? null;
       setIsProcessing(true);
 
-      await addComicMutation.mutateAsync(comic.comicid ?? comic.id);
+      const response = (await addComicMutation.mutateAsync(
+        comic.comicid ?? comic.id,
+      )) as { comicid?: string };
+      // Metron search ids are resolved to their ComicVine id server-side; the
+      // add response carries the resolved id, and the comic-added event (and
+      // the library route we navigate to) use that id, not the one we sent.
+      if (response?.comicid) {
+        comicIdRef.current = response.comicid;
+      }
       setIsAdded(true);
       addToast({
         type: "success",

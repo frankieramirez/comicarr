@@ -143,15 +143,33 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 
 def add_comic(ctx, comic_id):
     """Add a comic to the watchlist via importer."""
-    from comicarr import importer
+    from comicarr import importer, metron
 
     try:
+        # Metron search results carry "metron-"-prefixed ids (#765). Resolve to
+        # the ComicVine volume id before queueing so the id we queue, narrate in
+        # activity events, and eventually store is the one the frontend hears
+        # back on the comic-added handshake (the response carries it below).
+        if metron.is_metron_id(comic_id):
+            cv_comicid = metron.get_cv_id(comic_id)
+            if not cv_comicid:
+                return {
+                    "success": False,
+                    "error": "Metron series %s has no ComicVine mapping - cannot add. "
+                    "Try disabling Metron search and re-searching via ComicVine."
+                    % metron.strip_metron_prefix(comic_id),
+                }
+            comic_id = cv_comicid
         watch = [{"comicid": comic_id, "comicname": None, "seriesyear": None}]
         importer.importer_thread(watch)
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))
         return {"success": False, "error": str(e)}
-    return {"success": True, "message": "Successfully queued adding id: %s" % comic_id}
+    return {
+        "success": True,
+        "message": "Successfully queued adding id: %s" % comic_id,
+        "comicid": comic_id,
+    }
 
 
 def add_manga(ctx, manga_id):

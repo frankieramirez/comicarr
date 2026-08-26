@@ -2165,7 +2165,21 @@ def future_check():
                                 + " series as requested."
                             )
 
-                        future_check_add(cid, ser, chkthewanted, theissdate)
+                        # One un-addable series (e.g. a Metron search result
+                        # with no ComicVine mapping, #765) must not abort the
+                        # whole future-check pass for the series behind it.
+                        try:
+                            future_check_add(cid, ser, chkthewanted, theissdate)
+                        except Exception as e:
+                            logger.error(
+                                "[FUTURE-CHECK] Unable to auto-add "
+                                + ser["ComicName"]
+                                + " ("
+                                + str(cid)
+                                + "): "
+                                + str(e)
+                            )
+                            continue
 
                     else:
                         logger.info(
