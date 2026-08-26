@@ -1,0 +1,16 @@
+{
+  "name": "Comicarr",
+  "user": "ubuntu",
+  "install": "curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && uv sync --extra dev && npm ci && npm --prefix frontend ci && npm --prefix frontend run build",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "export PATH=\"$HOME/.local/bin:$PATH\" && uv run python3 Comicarr.py --nolaunch"
+    },
+    {
+      "name": "frontend-dev",
+      "command": "npm --prefix frontend run dev:vite"
+    }
+  ],
+  "ports": [8090, 5173]
+}
