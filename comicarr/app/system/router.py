@@ -362,6 +362,19 @@ def get_logs(
     return system_service.get_recent_logs(ctx, lines=lines)
 
 
+@router.post("/system/logs/rotate", dependencies=[Depends(require_session)])
+def rotate_logs(ctx: AppContext = Depends(get_context)):
+    """Start a new log file: roll `comicarr.log` over and clear the Web UI buffer.
+
+    The previous file is kept as a rotated archive; `rotated: false` means
+    logging runs without a file sink and only the buffer was cleared.
+    """
+    result = system_service.start_new_log(ctx)
+    if not result.get("success"):
+        return JSONResponse(status_code=500, content=result)
+    return result
+
+
 @router.get("/system/jobs", dependencies=[Depends(require_session)])
 def get_jobs(include_acquisition: bool = True, ctx: AppContext = Depends(get_context)):
     """Return scheduled job information."""

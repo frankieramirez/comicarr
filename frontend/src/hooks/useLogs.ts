@@ -1,4 +1,10 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 
 /**
@@ -41,6 +47,33 @@ export const LOGS_QUERY_KEY = ["system", "logs"] as const;
  * log surface that refetched on a timer would fight the operator's scroll
  * position while they read. Refresh is a button.
  */
+export interface StartNewLogResult {
+  success: boolean;
+  /** false means logging has no file sink; only the in-memory buffer cleared. */
+  rotated: boolean;
+  error?: string;
+}
+
+/**
+ * Start a new log file (#743): the server rolls `comicarr.log` over — the old
+ * file survives as a rotated archive — and empties the Web UI buffer. Clearing
+ * and rotating are the same action from the viewer's perspective, so this is
+ * the only verb the page offers.
+ */
+export function useStartNewLog(): UseMutationResult<
+  StartNewLogResult,
+  Error,
+  void
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<StartNewLogResult>("POST", "/api/system/logs/rotate"),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: LOGS_QUERY_KEY }),
+  });
+}
+
 export function useLogs(
   lines: number,
   options?: { enabled?: boolean },

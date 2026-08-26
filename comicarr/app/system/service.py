@@ -926,6 +926,25 @@ def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
         return {"logs": [], "level": level, "requested": requested, "path": log_file, "error": str(e)}
 
 
+def start_new_log(ctx):
+    """Roll `comicarr.log` over so the viewer starts clean (#743).
+
+    One verb on purpose: from the log viewer's perspective "clear the log" and
+    "start a new file" are the same outcome. The previous file survives as
+    `comicarr.log.1` under the retention settings — nothing is deleted, so an
+    operator who rotates by accident has lost nothing.
+    """
+    try:
+        rotated = logger.rotate_log_file()
+    except Exception as e:
+        logger.error("[SYSTEM] Error starting a new log file: %s" % e)
+        return {"success": False, "rotated": False, "error": str(e)}
+    if rotated:
+        # First line of the fresh file: says why history stops here.
+        logger.info("[SYSTEM] Started a new log file at operator request; previous log kept as a rotated archive")
+    return {"success": True, "rotated": rotated}
+
+
 def get_job_info(ctx, include_acquisition=True):
     """Return scheduled job information."""
     acquisition = None

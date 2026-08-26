@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, FilePlus2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import {
   LOG_LINE_CHOICES,
   useLogs,
+  useStartNewLog,
   type LogLevelContext,
 } from "@/hooks/useLogs";
 import {
@@ -102,7 +104,30 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
   const [lineCount, setLineCount] = useState<number>(LOG_LINE_CHOICES[0]);
   const [viewFilter, setViewFilter] = useState<"all" | LogLineSeverity>("all");
   const { copy, isCopied } = useCopyToClipboard();
+  const { addToast } = useToast();
   const { data, isLoading, isFetching, error, refetch } = useLogs(lineCount);
+  const startNewLog = useStartNewLog();
+
+  const handleStartNewLog = async () => {
+    if (
+      !confirm(
+        "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const result = await startNewLog.mutateAsync();
+      addToast({
+        type: "success",
+        message: result.rotated
+          ? "Started a new log file. The previous log was archived."
+          : "Cleared the log view. No log file is being written to disk.",
+      });
+    } catch {
+      addToast({ type: "error", message: "Failed to start a new log file" });
+    }
+  };
 
   // A save on this page changes what the level context says, and the config
   // query is what tells us the save landed.
@@ -232,6 +257,16 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
           >
             <Copy className="size-3.5" />
             {isCopied ? "Copied" : "Copy"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleStartNewLog}
+            disabled={startNewLog.isPending}
+          >
+            <FilePlus2 className="size-3.5" />
+            New log
           </Button>
         </div>
       </div>
