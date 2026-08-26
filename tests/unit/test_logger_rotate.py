@@ -126,3 +126,25 @@ class TestStartNewLogService:
         result = system_service.start_new_log(ctx=None)
         assert result["success"] is False
         assert "disk says no" in result["error"]
+
+
+def test_a_suppressed_rollover_failure_is_reported_not_swallowed(isolated_logger, monkeypatch):
+    """The Windows ConcurrentRotatingFileHandler catches a failed rename and
+    degrades instead of raising, leaving the current file untouched. Reporting
+    that as a successful rotation would tell the operator a clean log exists
+    when it does not, so the postcondition check must turn it into an error.
+    """
+    lg = isolated_logger()
+    lg.info("line that stays because the rename silently failed")
+    for handler in lg.handlers:
+        if isinstance(handler, logging.handlers.BaseRotatingHandler):
+            monkeypatch.setattr(handler, "doRollover", lambda: None)
+
+    with pytest.raises(OSError, match="did not complete"):
+        comicarr_logger.rotate_log_file()
+
+    from comicarr.app.system import service as system_service
+
+    result = system_service.start_new_log(ctx=None)
+    assert result["success"] is False
+    assert "did not complete" in result["error"]
