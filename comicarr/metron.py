@@ -38,6 +38,59 @@ _IMAGE_CACHE = OrderedDict()  # {series_id: image_url}
 _IMAGE_CACHE_MAXSIZE = 1000
 _IMAGE_CACHE_LOCK = threading.Lock()
 
+# Metron series ids are bare integers, indistinguishable from ComicVine volume
+# ids once they leave this module. Search results therefore carry this prefix so
+# the add path knows to resolve them to ComicVine first (#765). The prefix never
+# reaches the database — addComictoDB translates it before any row is written.
+METRON_ID_PREFIX = "metron-"
+
+
+def is_metron_id(series_id):
+    """Return whether an id carries the Metron search-result prefix."""
+    return str(series_id or "").startswith(METRON_ID_PREFIX)
+
+
+def strip_metron_prefix(series_id):
+    """Return a series id with the Metron prefix removed, if present."""
+    series_id = str(series_id or "")
+    if series_id.startswith(METRON_ID_PREFIX):
+        return series_id[len(METRON_ID_PREFIX) :]
+    return series_id
+
+
+def get_cv_id(series_id):
+    """
+    Resolve a Metron series id to its ComicVine volume id.
+
+    Metron's series list endpoint does not include cv_id, so search results
+    can't carry it; this fetches the full series record at add time instead.
+
+    Args:
+        series_id: Metron series id, with or without the "metron-" prefix
+
+    Returns:
+        str ComicVine volume id, or None if Metron has no mapping or the
+        lookup fails
+    """
+    series_id = strip_metron_prefix(series_id)
+
+    api = comicarr.METRON_API
+    if api is None:
+        logger.error("[METRON] Metron API not initialized - cannot resolve series %s to ComicVine" % series_id)
+        return None
+
+    try:
+        series = api.series(int(series_id))
+    except Exception as e:
+        logger.error("[METRON] Failed to fetch series %s while resolving ComicVine id: %s" % (series_id, e))
+        return None
+
+    cv_id = getattr(series, "cv_id", None)
+    if not cv_id:
+        logger.warn("[METRON] Series %s has no ComicVine id on Metron" % series_id)
+        return None
+    return str(cv_id)
+
 
 def initialize_metron_api():
     """
@@ -202,7 +255,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                 {
                     "name": series_name,
                     "comicyear": start_year,
-                    "comicid": metron_id,  # Use Metron ID as primary
+                    "comicid": METRON_ID_PREFIX + metron_id,  # Prefixed so the add path resolves it to CV (#765)
                     "cv_comicid": cv_id,  # Not available in list results
                     "url": "https://metron.cloud/series/%s/" % metron_id,
                     "issues": str(issue_count),
@@ -285,7 +338,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
 
 def _backfill_images(comiclist):
     """Fetch cover images for all results in parallel, updating comiclist in-place."""
-    needs_image = [(i, c["comicid"]) for i, c in enumerate(comiclist) if not c.get("comicimage")]
+    needs_image = [(i, strip_metron_prefix(c["comicid"])) for i, c in enumerate(comiclist) if not c.get("comicimage")]
     if not needs_image:
         return
 

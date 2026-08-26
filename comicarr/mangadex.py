@@ -709,6 +709,20 @@ def get_manga_aggregate(manga_id, languages=None):
     return data
 
 
+def _aggregate_values(container):
+    """Iterate a MangaDex aggregate mapping that may arrive as a list.
+
+    The aggregate endpoint returns "volumes" (and sometimes "chapters") as a
+    keyed object normally, but as a bare JSON array when empty - calling
+    .items() on that crashed manga import for chapterless series (#765).
+    """
+    if isinstance(container, dict):
+        return container.values()
+    if isinstance(container, list):
+        return container
+    return []
+
+
 def get_total_chapter_count(manga_id):
     """
     Get the total number of chapters for a manga, regardless of language.
@@ -737,8 +751,12 @@ def get_total_chapter_count(manga_id):
 
     # Count unique chapter numbers across all volumes
     chapter_numbers = set()
-    for volume_key, volume_data in data.get("volumes", {}).items():
-        for ch_key, ch_data in volume_data.get("chapters", {}).items():
+    for volume_data in _aggregate_values(data.get("volumes")):
+        if not isinstance(volume_data, dict):
+            continue
+        for ch_data in _aggregate_values(volume_data.get("chapters")):
+            if not isinstance(ch_data, dict):
+                continue
             chapter_num = ch_data.get("chapter")
             if chapter_num is not None:
                 chapter_numbers.add(str(chapter_num))

@@ -253,6 +253,23 @@ def addComictoDB(
     if provider is series_kind.SeriesProvider.MYANIMELIST:
         return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom)
 
+    # Metron search results carry "metron-"-prefixed ids; everything below is
+    # ComicVine-only, so resolve to the CV volume id before any row is written.
+    # An unresolvable id must fail here — passing a Metron id to CV looks up an
+    # unrelated volume and dies with "list index out of range" (#765).
+    from comicarr import metron
+
+    if metron.is_metron_id(comicid):
+        metron_id = metron.strip_metron_prefix(comicid)
+        cv_comicid = metron.get_cv_id(metron_id)
+        if not cv_comicid:
+            raise ValueError(
+                "Metron series %s has no ComicVine mapping - cannot add. "
+                "Try disabling Metron search and re-searching via ComicVine." % metron_id
+            )
+        logger.info("[METRON] Resolved Metron series %s to ComicVine volume %s" % (metron_id, cv_comicid))
+        comicid = cv_comicid
+
     controlValueDict = {"ComicID": comicid}
 
     with db.get_engine().connect() as conn:
