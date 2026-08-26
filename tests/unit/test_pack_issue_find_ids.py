@@ -14,7 +14,7 @@ from comicarr.app.downloads import service as downloads_service
 from comicarr.helpers import issuedigits
 
 
-def _row(issueid, number, status="Wanted", chapter=None, volume=None):
+def _row(issueid, number, status="Wanted", chapter=None, volume=None, released=None):
     return {
         "IssueID": issueid,
         "Issue_Number": str(number),
@@ -22,6 +22,9 @@ def _row(issueid, number, status="Wanted", chapter=None, volume=None):
         "Status": status,
         "ChapterNumber": chapter,
         "VolumeNumber": volume,
+        "ReleaseDate": released,
+        "IssueDate": None,
+        "DigitalDate": None,
     }
 
 
@@ -118,6 +121,34 @@ def test_series_kind_claims_every_undownloaded_row(monkeypatch):
     assert [x["issueid"] for x in result["issues"]] == ["vol-1", "c-2", "c-3"]
     assert "done" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
     assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"vol-1": "pack-7", "c-2": "pack-7", "c-3": "pack-7"}
+
+
+def test_series_kind_excludes_rows_released_after_the_pack_span(monkeypatch):
+    # A "Series {2021-2023}" pack cut in 2023 cannot contain chapters
+    # published later; claiming them would mark unattainable issues Snatched.
+    rows = [
+        _row("c-1", 1, released="2021-05-01"),
+        _row("c-2", 2, released="2023-11-01"),
+        _row("c-3", 3, released="2024-02-01"),
+        _row("c-4", 4, released="0000-00-00"),
+    ]
+    _install_rows(monkeypatch, rows)
+
+    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-9", kind="series", span_end="2023")
+
+    assert result["valid"] is True
+    assert [x["issueid"] for x in result["issues"]] == ["c-1", "c-2", "c-4"]
+    assert "c-3" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
+
+
+def test_series_kind_invalid_when_searched_issue_is_past_the_span(monkeypatch):
+    rows = [_row("c-1", 1, released="2021-05-01"), _row("c-9", 9, released="2026-01-01")]
+    _install_rows(monkeypatch, rows)
+
+    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "9", "pack-10", kind="series", span_end="2023")
+
+    assert result["valid"] is False
+    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
 
 
 def test_series_kind_invalid_when_searched_issue_already_downloaded(monkeypatch):

@@ -1030,7 +1030,27 @@ def _pack_row_matches(row, int_iss, iss_item, kind):
     return row["Int_IssueNumber"] == int_iss
 
 
-def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue"):
+def _register_pack_claims(write_valids, valid):
+    if valid:
+        for wv in write_valids:
+            comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+
+
+def _row_released_after(row, cutoff_year):
+    """True when the row's first usable date is later than cutoff_year.
+
+    A pack whose title span ends in ``cutoff_year`` cannot contain anything
+    published after it. Rows with no parseable date (or the 0000-00-00
+    sentinel) are not excluded — the pack keeps the benefit of the doubt.
+    """
+    for field in ("ReleaseDate", "IssueDate", "DigitalDate"):
+        value = str(row.get(field) or "")
+        if len(value) >= 4 and value[:4].isdigit() and int(value[:4]) > 0:
+            return int(value[:4]) > cutoff_year
+    return False
+
+
+def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue", span_end=None):
     from sqlalchemy import select
 
     from comicarr.helpers import issuedigits
@@ -1040,13 +1060,21 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue")
     if kind == "series":
         # A numberless complete-series pack ("Solo Leveling (2021-2026)")
         # carries no range to expand: it claims every row of the series
-        # that is not already Downloaded, volume and chapter rows alike.
+        # that is not already Downloaded, volume and chapter rows alike —
+        # except rows published after the pack's own year span, which the
+        # pack cannot contain (span_end from parse_series_pack_title).
+        try:
+            cutoff = int(span_end)
+        except (TypeError, ValueError):
+            cutoff = None
         Int_IssueNumber = issuedigits(IssueNumber)
         issueinfo = []
         write_valids = []
         valid = False
         for xb in issuelist:
             if xb["Status"] == "Downloaded":
+                continue
+            if cutoff is not None and _row_released_after(xb, cutoff):
                 continue
             if Int_IssueNumber == xb["Int_IssueNumber"]:
                 valid = True
@@ -1058,9 +1086,7 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue")
                 }
             )
             write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
-        if valid:
-            for wv in write_valids:
-                comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+        _register_pack_claims(write_valids, valid)
         return {
             "issues": issueinfo,
             "issue_range": [x["issuenumber"] for x in issueinfo],
@@ -1121,9 +1147,7 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue")
             else:
                 ignores.append(iss_item)
 
-    if valid:
-        for wv in write_valids:
-            comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+    _register_pack_claims(write_valids, valid)
 
     iss["issues"] = issueinfo
 

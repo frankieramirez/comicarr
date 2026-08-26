@@ -1002,7 +1002,13 @@ class search_check(object):
                     pack_kind = detected_pack["kind"] if detected_pack is not None else "issue"
                     pack_ref = entry["id"] if "id" in entry else entry["link"]
                     issueid_info = helpers.issue_find_ids(
-                        ComicName, ComicID, pack_issuelist, IssueNumber, pack_ref, kind=pack_kind
+                        ComicName,
+                        ComicID,
+                        pack_issuelist,
+                        IssueNumber,
+                        pack_ref,
+                        kind=pack_kind,
+                        span_end=(detected_pack or {}).get("year_end"),
                     )
                     if issueid_info["valid"] is True:
                         logger.info("Issue Number %s exists within pack. Continuing." % IssueNumber)

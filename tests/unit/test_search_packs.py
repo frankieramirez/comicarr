@@ -159,6 +159,7 @@ class TestSeriesPacks:
             "issues": "all",
             "kind": "series",
             "year": "2021",
+            "year_end": "2026",
             "booktype": "issue",
         }
 
@@ -183,6 +184,18 @@ class TestSeriesPacks:
 
     def test_unbracketed_year_span_is_refused(self):
         assert parse_series_pack_title("Batman 1999-2005") is None
+
+    def test_degenerate_year_spans_are_refused(self):
+        # A reversed or single-repeated year is noise, not a span.
+        assert parse_series_pack_title("Solo Leveling (2026-2021) (Digital)") is None
+        assert parse_series_pack_title("Solo Leveling (2021-2021) (Digital)") is None
+
+    def test_range_hidden_inside_bracket_group_is_refused(self):
+        # "[v01-05]" is stripped with the metadata groups, so the outside-digit
+        # check alone would escalate a 5-volume partial pack to "all".
+        assert parse_series_pack_title("Example Series [v01-05] (2021-2022)") is None
+        assert parse_series_pack_title("Example Series (v01-05) (2021-2022)") is None
+        assert parse_series_pack_title("Example Series (2021-2026) [01-05]") is None
 
     def test_numbered_packs_are_not_series_packs(self):
         # parse_pack_title owns numbered ranges; this detector must not

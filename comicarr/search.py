@@ -206,6 +206,20 @@ def get_http_session():
     return _http_session
 
 
+def _allow_packs_enabled(allow_packs):
+    """Per-series AllowPacks arrives as 1, '1', or True depending on source."""
+    return any([allow_packs == 1, allow_packs == "1", allow_packs is True])
+
+
+def _bare_pack_pass_allowed(provider_stat):
+    """The cmloopit-0 bare-title pack pass targets word-AND torrent indexers.
+
+    Usenet (newznab) and experimental providers get nothing from a bare
+    query that pack matching needs, so they keep the numbered passes only.
+    """
+    return isinstance(provider_stat, dict) and provider_stat.get("type") == "torznab"
+
+
 def search_init(
     ComicName,
     IssueNumber,
@@ -400,7 +414,7 @@ def search_init(
         # feed where the bare pass would only repeat the same lookup.
         pack_title_pass = all(
             [
-                any([allow_packs == 1, allow_packs == "1", allow_packs is True]),
+                _allow_packs_enabled(allow_packs),
                 comicarr.CONFIG.ENABLE_TORRENT_SEARCH,
                 chktpb == 0,
                 IssueNumber is not None,
@@ -634,6 +648,7 @@ def search_init(
                     "chktpb": chktpb,
                     "ignore_booktype": ignore_booktype,
                     "smode": smode,
+                    "allow_packs": allow_packs,
                     "findit": findit,
                 }
 
@@ -937,7 +952,7 @@ def NZB_SEARCH(
     # Pack eligibility only requires torrent search to be enabled; historically it
     # was also gated behind ENABLE_32P, which blocked packs from every other
     # torrent/Torznab provider (#632).
-    if any([allow_packs == 1, allow_packs == "1", allow_packs is True]) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
+    if _allow_packs_enabled(allow_packs) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
         allow_packs = True
     else:
         allow_packs = False
@@ -1140,6 +1155,10 @@ def NZB_SEARCH(
                 # retrieve pack releases whose titles carry no single issue
                 # number ("v01-14", "(2021-2026)"). Only runs when the series
                 # allows packs — see pack_title_pass in search_init.
+                if not _bare_pack_pass_allowed(provider_stat):
+                    is_info["foundc"]["status"] = False
+                    done = True
+                    break
                 comsearch = comsrc
                 issdig = ""
             else:
@@ -1487,8 +1506,22 @@ def NZB_SEARCH(
                             break
                     except Exception:
                         logger.fdebug("no errors on data retrieval...proceeding")
+                        entries = verified_matches["entries"]
+                        if cmloopit == 0:
+                            # the bare-title pass can return the provider's whole
+                            # series listing; only pack-shaped titles are worth
+                            # the full per-entry evaluation (and its DB lookups).
+                            from comicarr.app.search.packs import pack_shaped
+
+                            kept = [entry for entry in entries if pack_shaped(entry.get("title"))]
+                            if len(kept) != len(entries):
+                                logger.fdebug(
+                                    "[PACK-PASS] %s of %s bare-title results are pack-shaped; dropping the rest"
+                                    % (len(kept), len(entries))
+                                )
+                            entries = kept
                         sfs = search_filer.search_check()
-                        verified_matches = sfs.checker(verified_matches["entries"], is_info)
+                        verified_matches = sfs.checker(entries, is_info)
 
             elif nzbprov == "experimental":
                 logger.info("sending %s to experimental search" % findcomic)
@@ -4407,6 +4440,7 @@ def search_the_matrix(scarios):
         chktpb=scarios["chktpb"],
         ignore_booktype=scarios["ignore_booktype"],
         smode=scarios["smode"],
+        allow_packs=scarios.get("allow_packs"),
     )
 
 

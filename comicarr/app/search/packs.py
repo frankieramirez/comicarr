@@ -48,7 +48,12 @@ _FIRST_YEAR = re.compile(r"[(\[{]\s*((?:19|20)\d{2})")
 # A bracketed multi-year span ("(2021-2026)", "{2021-2023}") is the one
 # signal a numberless complete-series pack carries; a single year would
 # equally describe a lone volume or one-shot, so it is not trusted.
-_YEAR_SPAN_GROUP = re.compile(r"[(\[{]\s*((?:19|20)\d{2})\s*[-–]\s*(?:19|20)\d{2}\s*[)\]}]")
+_YEAR_SPAN_GROUP = re.compile(r"[(\[{]\s*((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\s*[)\]}]")
+
+# Any digit range left in the title once the year span is removed means a
+# numbered (partial) release hiding inside bracketed metadata ("[v01-05]"),
+# which the group-stripping digit check below cannot see.
+_HIDDEN_RANGE = re.compile(r"\d\s*[-–]\s*\d")
 
 # Range expansion downstream is integer-only, so a fractional endpoint
 # ("c001.5-003.5") cannot be represented: truncating it to 1-3 would claim
@@ -139,11 +144,22 @@ def parse_series_pack_title(title):
     A digit left outside the metadata groups means an issue, volume, or
     chapter marker (or a numbered series name indistinguishable from one),
     so the title is refused rather than risk claiming a partial release.
+    A digit range surviving anywhere else in the title once the year span
+    is removed ("Series [v01-05] (2021-2022)") is a partial release whose
+    range hides inside a bracketed group — also refused. ``year_end`` is
+    the span's final year: the pack cannot contain anything published
+    after it, and coverage claims must honor that cutoff.
     """
     if not title or not isinstance(title, str):
         return None
     year_match = _YEAR_SPAN_GROUP.search(title)
     if year_match is None:
+        return None
+    year_start, year_end = int(year_match.group(1)), int(year_match.group(2))
+    if year_start >= year_end:
+        return None
+    remainder = _YEAR_SPAN_GROUP.sub(" ", title)
+    if _VOLUME_RANGE.search(remainder) or _CHAPTER_RANGE.search(remainder) or _HIDDEN_RANGE.search(remainder):
         return None
     stripped = _PARENTHESIZED.sub(" ", title).strip()
     if not re.search(r"[A-Za-z]", stripped) or re.search(r"\d", stripped):
@@ -152,6 +168,17 @@ def parse_series_pack_title(title):
         "series": re.sub(r"\s+", " ", stripped),
         "issues": "all",
         "kind": "series",
-        "year": year_match.group(1),
+        "year": str(year_start),
+        "year_end": str(year_end),
         "booktype": "issue",
     }
+
+
+def pack_shaped(title):
+    """Cheap gate: could this title be any kind of pack release?
+
+    The bare-title search pass can return a provider's whole series
+    listing; entries failing this check skip the far costlier per-entry
+    evaluation (file parsing plus a DB coverage lookup per candidate).
+    """
+    return parse_pack_title(title) is not None or parse_series_pack_title(title) is not None

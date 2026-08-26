@@ -422,7 +422,7 @@ def test_non_ddl_volume_pack_is_detected_and_accepted(monkeypatch):
     assert entry["issues"] == "1-14"
     assert entry["series"] == "Example Series"
     assert calls["args"][2] == "1-14"
-    assert calls["kwargs"] == {"kind": "volume"}
+    assert calls["kwargs"] == {"kind": "volume", "span_end": None}
 
 
 def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
@@ -456,7 +456,7 @@ def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
     assert entry["issues"] == "all"
     assert entry["series"] == "Example Series"
     assert calls["args"][2] == "all"
-    assert calls["kwargs"] == {"kind": "series"}
+    assert calls["kwargs"] == {"kind": "series", "span_end": "2026"}
 
 
 def test_numberless_series_pack_without_allow_packs_is_not_detected():
