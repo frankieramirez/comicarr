@@ -248,8 +248,8 @@ def rotate_log_file():
                 # this report a rotation that never happened. We hold the
                 # handler lock, so nothing can have written since the roll:
                 # a non-empty current file means the rollover did not land.
-                filename = getattr(handler, "baseFilename", None)
-                if filename and os.path.exists(filename) and os.path.getsize(filename) > 0:
+                filename = handler.baseFilename
+                if os.path.exists(filename) and os.path.getsize(filename) > 0:
                     raise OSError("log rotation did not complete; the log file may be locked by another process")
             finally:
                 handler.release()

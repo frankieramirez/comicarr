@@ -47,6 +47,24 @@ export const LOGS_QUERY_KEY = ["system", "logs"] as const;
  * log surface that refetched on a timer would fight the operator's scroll
  * position while they read. Refresh is a button.
  */
+export function useLogs(
+  lines: number,
+  options?: { enabled?: boolean },
+): UseQueryResult<LogsResponse> {
+  const enabled = options?.enabled ?? true;
+  return useQuery({
+    queryKey: [...LOGS_QUERY_KEY, lines],
+    queryFn: () =>
+      apiRequest<LogsResponse>("GET", `/api/system/logs?lines=${lines}`),
+    enabled,
+    // The level context is only true as of the moment it was read, and a save
+    // from this very page changes it.
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
 export interface StartNewLogResult {
   success: boolean;
   /** false means logging has no file sink; only the in-memory buffer cleared. */
@@ -71,23 +89,5 @@ export function useStartNewLog(): UseMutationResult<
       apiRequest<StartNewLogResult>("POST", "/api/system/logs/rotate"),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: LOGS_QUERY_KEY }),
-  });
-}
-
-export function useLogs(
-  lines: number,
-  options?: { enabled?: boolean },
-): UseQueryResult<LogsResponse> {
-  const enabled = options?.enabled ?? true;
-  return useQuery({
-    queryKey: [...LOGS_QUERY_KEY, lines],
-    queryFn: () =>
-      apiRequest<LogsResponse>("GET", `/api/system/logs?lines=${lines}`),
-    enabled,
-    // The level context is only true as of the moment it was read, and a save
-    // from this very page changes it.
-    staleTime: 0,
-    refetchOnWindowFocus: false,
-    retry: false,
   });
 }
