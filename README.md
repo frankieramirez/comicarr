@@ -1,43 +1,43 @@
 # Comicarr
 
-An automated comic book (and manga) manager with a modern React frontend. Part of the *arr ecosystem (like Sonarr, Radarr, Lidarr).
+An automated comic book (and manga) manager with a modern React frontend. Part of the *arr ecosystem, alongside Sonarr and Radarr.
 
 [Website](https://comicarr.com) · [Documentation](https://comicarr.com/docs) · [Installation Guide](https://comicarr.com/docs/installation) · [Contributing](CONTRIBUTING.md)
 
 ## Overview
 
-Comicarr is a modernized fork of [Mylar3](https://github.com/mylar3/mylar3), rebuilt with a **React 19** frontend and a **FastAPI** backend. It provides automated comic book library management — monitoring series, searching indexers, downloading via NZB/torrent/DDL clients, and post-processing with metadata tagging.
+Comicarr is a modernized fork of [Mylar3](https://github.com/mylar3/mylar3), rebuilt with a **React 19** frontend and a **FastAPI** backend. It monitors your series, searches indexers, downloads through NZB, torrent, and DDL clients, and post-processes what arrives with metadata tagging.
 
 ## Features
 
-- **Modern React 19 Frontend** — Fast, responsive UI with dark/light themes and system preference detection
-- **Automated Downloads** — Monitor series and automatically grab new issues
-- **Interactive Release Search** — Review every provider candidate and its match verdict before deliberately grabbing a release, for a single issue or for everything a series is missing
-- **Pack Releases** — Recognize multi-issue and multi-volume packs such as `v01-14` or `#001-144`, and mark every issue a single grab covers
-- **Library Management** — Scan existing collections, identify missing issues, interactive import matching
-- **Multiple Download Clients** — NZB (SABnzbd, NZBGet) and torrent (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
-- **Direct Downloads** — Mega, MediaFire, and Pixeldrain support
-- **Metadata Providers** — ComicVine and Metron for series/issue metadata
-- **Manga Support** — MangaDex (and optional MyAnimeList) with dedicated manga library paths
-- **Weekly Pull Lists** — Track the current week's releases and match them to your library
-- **Story Arc Management** — Organize and track story arcs across series
-- **OPDS Catalog** — Optional OPDS feed for compatible comic readers (enable via `config.ini`)
-- **Optional AI Assist** — Bring-your-own-key LLM features (suggestions, enrichment) when configured in Settings
-- **Activity Feed** — Watch searches and grabs as they run, and stop anything still in flight
-- **Needs Attention** — One queue for downloads that failed or never landed in the library, each with its reason and the ways to clear it
-- **Real-time Updates** — Server-Sent Events for live status without page refreshes
-- **Mylar3 Migration** — First-run wizard to import config and library data from an existing Mylar3 install
+- **Modern React 19 Frontend**: Fast, responsive UI with dark/light themes and system preference detection
+- **Automated Downloads**: Monitor series and automatically grab new issues
+- **Interactive Release Search**: Review every provider candidate and its match verdict before deliberately grabbing a release, for a single issue or for everything a series is missing
+- **Pack Releases**: Recognize multi-issue and multi-volume packs such as `v01-14` or `#001-144`, and mark every issue a single grab covers
+- **Library Management**: Scan an existing collection to find what's missing, with interactive matching on import
+- **Multiple Download Clients**: NZB (SABnzbd, NZBGet) and torrent (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
+- **Direct Downloads**: Mega, MediaFire, and Pixeldrain support
+- **Metadata Providers**: ComicVine and Metron for series/issue metadata
+- **Manga Support**: MangaDex (and optional MyAnimeList) with dedicated manga library paths
+- **Weekly Pull Lists**: Track the current week's releases and match them to your library
+- **Story Arc Management**: Organize and track story arcs across series
+- **OPDS Catalog**: Optional OPDS feed for compatible comic readers (enable via `config.ini`)
+- **Optional AI Assist**: Bring-your-own-key LLM features (suggestions, enrichment) when configured in Settings
+- **Activity Feed**: Watch searches and grabs as they run, and stop anything still in flight
+- **Needs Attention**: One queue for downloads that failed or never landed in the library, each with its reason and the ways to clear it
+- **Real-time Updates**: Server-Sent Events for live status without page refreshes
+- **Mylar3 Migration**: First-run wizard to import config and library data from an existing Mylar3 install
 
 ## Documentation
 
 The [Comicarr documentation](https://comicarr.com/docs) contains complete guides for installing, configuring, using, and maintaining your server. Good places to start:
 
-- [Installation](https://comicarr.com/docs/installation) — Recommended Docker Compose deployment
-- [Initial setup](https://comicarr.com/docs/initial-setup) — Create your account and connect metadata, download, and search providers
-- [Configuration](https://comicarr.com/docs/configuration) — Settings, credentials, integrations, and database options
-- [Updating](https://comicarr.com/docs/deployment/updating) — Back up and upgrade Docker or source installations
-- [Troubleshooting](https://comicarr.com/docs/troubleshooting) — Solutions for common setup and runtime issues
-- [API reference](https://comicarr.com/docs/api) — REST and Mylar3-compatible API documentation
+- [Installation](https://comicarr.com/docs/installation): Recommended Docker Compose deployment
+- [Initial setup](https://comicarr.com/docs/initial-setup): Create your account and connect metadata, download, and search providers
+- [Configuration](https://comicarr.com/docs/configuration): Settings, credentials, integrations, and database options
+- [Updating](https://comicarr.com/docs/deployment/updating): Back up and upgrade Docker or source installations
+- [Troubleshooting](https://comicarr.com/docs/troubleshooting): Solutions for common setup and runtime issues
+- [API reference](https://comicarr.com/docs/api): REST and Mylar3-compatible API documentation
 
 ## Quick Start
 
@@ -74,15 +74,15 @@ Multi-architecture images (`amd64`, `arm64`) are published to two registries wit
 | GitHub Container Registry | `ghcr.io/frankieramirez/comicarr` | canonical |
 | Docker Hub | `comicarr/comicarr` | mirror |
 
-Either works. GHCR does not rate-limit anonymous pulls; Docker Hub does.
+Either works, though Docker Hub rate-limits anonymous pulls and GHCR doesn't.
 
-To pin a release instead of tracking `:latest`, note that **image tags are bare semver — they drop the `v` that GitHub releases and git tags carry**. Release `v0.26.0` is image tag `0.26.0`:
+To pin a release instead of tracking `:latest`, remember that **image tags are bare semver**. They drop the `v` that GitHub releases and git tags carry, so release `v0.26.0` is image tag `0.26.0`:
 
 ```bash
 docker pull ghcr.io/frankieramirez/comicarr:0.26.0
 ```
 
-Pulling on its own never moves a running container to the new image — you have to recreate it:
+Pulling on its own never moves a running container to the new image. You have to recreate it:
 
 - **Compose:** change the `image:` line to the pinned tag, then `docker compose up -d`.
 - **Standalone:** `docker stop comicarr && docker rm comicarr`, then re-run the `docker run` command above with the pinned tag.
@@ -111,17 +111,17 @@ cd comicarr
 2. Install Python dependencies:
 
 ```bash
-# Using uv (recommended — creates .venv automatically)
+# Using uv (recommended, creates .venv automatically)
 uv sync
 
 # Or using pip
 pip install .
 ```
 
-`pyproject.toml` is the editable runtime dependency source and `uv.lock` is
-the reproducible resolution used by development, CI, and production builds.
-The pip command installs from the project metadata but does not reproduce the
-exact transitive versions in `uv.lock`.
+`pyproject.toml` is where runtime dependencies are edited, and `uv.lock` pins the
+resolution that development, CI, and production builds all share. The pip
+command installs from the project metadata, so it won't reproduce the exact
+transitive versions in `uv.lock`.
 
 When changing a dependency, update the project metadata, then run:
 
@@ -152,11 +152,11 @@ python3 Comicarr.py --nolaunch
 
 ### Series content kind
 
-Open a series and use **Catalog this as** to choose **Comic** or **Manga**.
-This classification is independent of the metadata provider, so a series added
-from ComicVine can still use manga chapter labels and matching rules. The
-choice applies to future search, refresh, and post-processing behavior; it does
-not change the provider or rewrite existing files and issue history.
+Open a series and use **Catalog this as** to choose **Comic** or **Manga**. It
+works independently of the metadata provider, so a series added from ComicVine
+can still use manga chapter labels and matching rules. The choice applies to
+future searches, refreshes, and post-processing. It won't change the provider or
+rewrite existing files and issue history.
 
 ### Interactive release search
 
@@ -172,20 +172,21 @@ single grab can close out more than one. Per-issue review is still there on the
 series and story-arc issue rows.
 
 Selecting **Review grab** opens a final confirmation before Comicarr hands the
-release to the configured download route. Candidates rejected only by an
-operator-overridable match rule require an additional acknowledgement. Comicarr
-never lets this workflow bypass an expired session, missing provider result,
-duplicate or in-flight acquisition, unavailable download route, or ownership
-check.
+release to the configured download route. If a candidate was rejected only by an
+operator-overridable match rule, you have to acknowledge that separately.
+Comicarr never lets this workflow bypass an expired session, missing provider
+result, duplicate or in-flight acquisition, unavailable download route, or
+ownership check.
 
 ### Pack releases
 
 Turn on **Allow packs** under a series' search options and Comicarr will match
 multi-issue and multi-volume releases, which otherwise get discarded for
 carrying no single issue number. `Solo Leveling v01-14` and
-`Invincible #001-144` both qualify. Comicarr checks the pack against what the series is still missing, and
-grabbing it marks every issue it covers as Snatched, so "Search all missing" and
-**Review missing** stop hunting for those issues individually.
+`Invincible #001-144` both qualify. Comicarr checks the pack against what the
+series is still missing, and grabbing it marks every issue it covers as
+Snatched, so "Search all missing" and **Review missing** stop hunting for those
+issues individually.
 
 Packs require torrent search to be enabled. Comicarr takes pack-shaped results
 from any indexer, but sends the extra bare-title query that surfaces them only
@@ -211,10 +212,10 @@ Enter that token (when prompted) along with a username and password (minimum 8 c
 
 In **Settings**, configure:
 
-1. **Comic Vine API key** — from [Comic Vine](https://comicvine.gamespot.com/api/) (required for most metadata/search workflows)
-2. **Download clients** — SABnzbd, NZBGet, and/or torrent clients
-3. **Paths** — comic library, optional manga library, and download directories
-4. **Optional** — Metron credentials, MangaDex/MyAnimeList, AI (BYOK), indexers, and notifiers
+1. **Comic Vine API key**: from [Comic Vine](https://comicvine.gamespot.com/api/) (required for most metadata/search workflows)
+2. **Download clients**: SABnzbd, NZBGet, and/or torrent clients
+3. **Paths**: comic library, optional manga library, and download directories
+4. **Optional**: Metron credentials, MangaDex/MyAnimeList, AI (BYOK), indexers, and notifiers
 
 If you are migrating from Mylar3, the first-run onboarding wizard can import an existing install. For Docker, mount the Mylar3 config directory read-only (see comments in `docker-compose.yml`, typically at `/mylar3`).
 
@@ -222,7 +223,7 @@ If you are migrating from Mylar3, the first-run onboarding wizard can import an 
 
 One dial, three levels: **0** warnings and errors, **1** normal (the default), **2** everything. It applies to the console, the log file, and the log list in the web UI alike.
 
-Set it wherever suits the install — a startup argument wins over the environment variable, which wins over the level saved in Settings, and each only counts when you actually supply it:
+Set it wherever suits the install. A startup argument wins over the environment variable, which wins over the level saved in Settings, and each one only counts when you actually supply it:
 
 ```bash
 docker run -e COMICARR_LOG_LEVEL=2 ...   # Docker / Compose
@@ -269,23 +270,23 @@ uv sync --extra dev
 cd frontend && npm ci && cd ..
 python3 Comicarr.py --nolaunch   # backend on :8090
 
-# separate terminal — frontend HMR (proxies API to :8090)
+# separate terminal, frontend HMR (proxies API to :8090)
 cd frontend && npm run dev   # https://comicarr.localhost:1355 (portless)
 ```
 
 ## Attribution
 
-Comicarr is built on the foundation of [Mylar3](https://github.com/mylar3/mylar3), created by the Mylar3 team. The original project provided the robust backend for comic management, downloading, and post-processing.
+Comicarr is built on [Mylar3](https://github.com/mylar3/mylar3), created by the Mylar3 team. The original project handled comic management, downloading, and post-processing.
 
 ## Support
 
-- [Documentation](https://comicarr.com/docs) — Setup, configuration, usage, deployment, and API guides
-- [Troubleshooting](https://comicarr.com/docs/troubleshooting) — Common problems and their solutions
-- [GitHub Discussions](https://github.com/frankieramirez/comicarr/discussions) — Questions, ideas, and community help
-- [GitHub Issues](https://github.com/frankieramirez/comicarr/issues) — Confirmed bug reports and feature requests
-- [Security policy](SECURITY.md) — How to report vulnerabilities
-- [Contributing guide](CONTRIBUTING.md) — Development setup and PR process
-- [Code of Conduct](CODE_OF_CONDUCT.md) — Community participation guidelines
+- [Documentation](https://comicarr.com/docs): Setup, configuration, usage, deployment, and API guides
+- [Troubleshooting](https://comicarr.com/docs/troubleshooting): Common problems and their solutions
+- [GitHub Discussions](https://github.com/frankieramirez/comicarr/discussions): Questions, ideas, and community help
+- [GitHub Issues](https://github.com/frankieramirez/comicarr/issues): Confirmed bug reports and feature requests
+- [Security policy](SECURITY.md): How to report vulnerabilities
+- [Contributing guide](CONTRIBUTING.md): Development setup and PR process
+- [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
 
 ## License
 
