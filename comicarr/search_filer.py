@@ -652,7 +652,7 @@ class search_check(object):
         else:
             if pack is not True and allow_packs and "DDL" not in nzbprov:
                 from comicarr.app.manga.acquisition import booktype_bypasses_format_gates as _manga_bypass
-                from comicarr.app.search.packs import parse_pack_title
+                from comicarr.app.search.packs import parse_pack_title, parse_series_pack_title
 
                 detected_pack = parse_pack_title(ComicTitle)
                 if detected_pack is not None and detected_pack["kind"] == "volume":
@@ -661,6 +661,8 @@ class search_check(object):
                     volume_ok = booktype in ("TPB", "HC", "GN", "TPB/GN/HC/One-Shot") or _manga_bypass(booktype)
                     if not volume_ok:
                         detected_pack = None
+                if detected_pack is None:
+                    detected_pack = parse_series_pack_title(ComicTitle)
             if detected_pack is not None:
                 logger.fdebug(
                     "[PACK-DETECT] %s detected as a multi-%s release covering %s"

@@ -1037,6 +1037,36 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue")
 
     issuelist = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
 
+    if kind == "series":
+        # A numberless complete-series pack ("Solo Leveling (2021-2026)")
+        # carries no range to expand: it claims every row of the series
+        # that is not already Downloaded, volume and chapter rows alike.
+        Int_IssueNumber = issuedigits(IssueNumber)
+        issueinfo = []
+        write_valids = []
+        valid = False
+        for xb in issuelist:
+            if xb["Status"] == "Downloaded":
+                continue
+            if Int_IssueNumber == xb["Int_IssueNumber"]:
+                valid = True
+            issueinfo.append(
+                {
+                    "issueid": xb["IssueID"],
+                    "int_iss": xb["Int_IssueNumber"],
+                    "issuenumber": xb["Issue_Number"],
+                }
+            )
+            write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
+        if valid:
+            for wv in write_valids:
+                comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+        return {
+            "issues": issueinfo,
+            "issue_range": [x["issuenumber"] for x in issueinfo],
+            "valid": valid,
+        }
+
     if "Annual" not in pack:
         if "," not in pack:
             packlist = pack.split(" ")

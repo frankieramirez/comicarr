@@ -100,6 +100,36 @@ def test_volume_kind_falls_back_to_issue_numbers_for_plain_rows(monkeypatch):
     assert [x["issueid"] for x in result["issues"]] == ["tpb-1", "tpb-2"]
 
 
+def test_series_kind_claims_every_undownloaded_row(monkeypatch):
+    # A numberless complete-series pack ("Solo Leveling (2021-2026)") has no
+    # range to expand - it covers volume rows and chapter rows alike, minus
+    # anything already Downloaded.
+    rows = [
+        _row("vol-1", 1, volume="1"),
+        _row("c-2", 2, chapter="2", volume="1"),
+        _row("c-3", 3, chapter="3"),
+        _row("done", 4, status="Downloaded"),
+    ]
+    _install_rows(monkeypatch, rows)
+
+    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-7", kind="series")
+
+    assert result["valid"] is True
+    assert [x["issueid"] for x in result["issues"]] == ["vol-1", "c-2", "c-3"]
+    assert "done" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
+    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"vol-1": "pack-7", "c-2": "pack-7", "c-3": "pack-7"}
+
+
+def test_series_kind_invalid_when_searched_issue_already_downloaded(monkeypatch):
+    rows = [_row("done-2", 2, status="Downloaded"), _row("id-3", 3)]
+    _install_rows(monkeypatch, rows)
+
+    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-8", kind="series")
+
+    assert result["valid"] is False
+    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
+
+
 def test_volume_kind_invalid_when_searched_number_outside_pack(monkeypatch):
     rows = [_row("vol-1", 1, volume="1")]
     _install_rows(monkeypatch, rows)

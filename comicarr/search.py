@@ -391,6 +391,23 @@ def search_init(
         ):
             chktpb = 1
 
+        # A pack title ("v01-14", "(2021-2026)") rarely contains the single
+        # issue number being searched, so the numbered query variants never
+        # retrieve packs from word-AND indexers (Nyaa et al) — the 0.34.0 pack
+        # matcher starves (#744). When packs are allowed, one extra bare-title
+        # pass (cmloopit 0) runs after the numbered variants. TPB/HC/GN
+        # already get a bare pass through chktpb; RSS mode queries a cached
+        # feed where the bare pass would only repeat the same lookup.
+        pack_title_pass = all(
+            [
+                any([allow_packs == 1, allow_packs == "1", allow_packs is True]),
+                comicarr.CONFIG.ENABLE_TORRENT_SEARCH,
+                chktpb == 0,
+                IssueNumber is not None,
+                searchmode != "rss",
+            ]
+        )
+
         if findit["status"] is True:
             logger.fdebug("Found result on first run, exiting search module now.")
             break
@@ -409,7 +426,7 @@ def search_init(
             logger.info("tmp_prov_count: %s / prov_count: %s" % (tmp_prov_count, prov_count))
             tmp_cmloopit = cmloopit
             progress_provider = provider_list["prov_order"][prov_count]
-            while tmp_cmloopit >= 1:
+            while tmp_cmloopit >= (0 if pack_title_pass else 1):
                 if tmp_cmloopit == 4:
                     tmp_IssueNumber = None
                 else:
@@ -1118,6 +1135,13 @@ def NZB_SEARCH(
                     # and ONLY for tpb items hopefully will help it not retrieve 1000's.
                     comsearch = comsrc
                     chktpb += 1
+            elif cmloopit == 0:
+                # bare-title pack pass: the numbered variants above cannot
+                # retrieve pack releases whose titles carry no single issue
+                # number ("v01-14", "(2021-2026)"). Only runs when the series
+                # allows packs — see pack_title_pass in search_init.
+                comsearch = comsrc
+                issdig = ""
             else:
                 is_info["foundc"]["status"] = False
                 done = True

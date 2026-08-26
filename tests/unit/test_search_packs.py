@@ -9,7 +9,7 @@
 
 import pytest
 
-from comicarr.app.search.packs import parse_pack_title
+from comicarr.app.search.packs import parse_pack_title, parse_series_pack_title
 
 
 class TestVolumeRangePacks:
@@ -140,6 +140,58 @@ class TestNonPacks:
 
     def test_huge_range_rejected(self):
         assert parse_pack_title("Example 1-5000") is None
+
+
+class TestBraceMetadata:
+    def test_brace_delimited_metadata_is_stripped(self):
+        result = parse_pack_title("Solo Leveling v01-14 {2021-2025} {Digital}")
+        assert result["kind"] == "volume"
+        assert result["issues"] == "1-14"
+        assert result["series"] == "Solo Leveling"
+        assert result["year"] == "2021"
+
+
+class TestSeriesPacks:
+    def test_numberless_year_span_pack(self):
+        result = parse_series_pack_title("Solo Leveling (2021-2026) (Digital) (1r0n)")
+        assert result == {
+            "series": "Solo Leveling",
+            "issues": "all",
+            "kind": "series",
+            "year": "2021",
+            "booktype": "issue",
+        }
+
+    def test_brace_delimited_year_span_pack(self):
+        result = parse_series_pack_title("Solo Leveling {2021-2023} {Digital} {Tapas} {4str0}")
+        assert result["kind"] == "series"
+        assert result["series"] == "Solo Leveling"
+        assert result["year"] == "2021"
+
+    def test_single_year_is_not_a_series_pack(self):
+        # "(2021)" equally describes a lone volume or one-shot.
+        assert parse_series_pack_title("Solo Leveling (2021) (Digital)") is None
+
+    def test_digits_outside_metadata_groups_are_refused(self):
+        assert parse_series_pack_title("Solo Leveling v05 (2022-2023)") is None
+        assert parse_series_pack_title("Solo Leveling 001 (2021-2026)") is None
+
+    def test_numbered_series_name_is_refused(self):
+        # Conservative: "2099" is indistinguishable from an issue marker
+        # from the title alone.
+        assert parse_series_pack_title("Spider-Man 2099 (2019-2021)") is None
+
+    def test_unbracketed_year_span_is_refused(self):
+        assert parse_series_pack_title("Batman 1999-2005") is None
+
+    def test_numbered_packs_are_not_series_packs(self):
+        # parse_pack_title owns numbered ranges; this detector must not
+        # double-claim them.
+        assert parse_series_pack_title("Solo Leveling v01-14 (2021-2025)") is None
+
+    def test_none_and_empty(self):
+        assert parse_series_pack_title(None) is None
+        assert parse_series_pack_title("") is None
 
 
 class TestYearExtraction:

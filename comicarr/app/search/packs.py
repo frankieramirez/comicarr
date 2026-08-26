@@ -27,7 +27,7 @@ _MAX_RANGE_SPAN = 2000
 # range (e.g. "Batman 1999-2005"), not an issue range.
 _YEAR_RANGE = re.compile(r"^(?:19|20)\d{2}$")
 
-_PARENTHESIZED = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+_PARENTHESIZED = re.compile(r"\([^)]*\)|\[[^\]]*\]|\{[^}]*\}")
 
 _VOLUME_RANGE = re.compile(
     r"\bv(?:ol(?:ume)?s?)?\.?\s*(?P<start>\d{1,3})\s*[-–]\s*(?:v(?:ol(?:ume)?s?)?\.?\s*)?(?P<end>\d{1,3})(?!\d)",
@@ -43,7 +43,12 @@ _ISSUE_RANGE = re.compile(r"(?P<marker>#)?\s*(?P<start>\d{1,4})\s*[-–]\s*#?(?P
 # often a date fragment than a pack, so it needs a '#' marker to be trusted.
 _MIN_UNMARKED_SPAN = 2
 
-_FIRST_YEAR = re.compile(r"\(\s*((?:19|20)\d{2})")
+_FIRST_YEAR = re.compile(r"[(\[{]\s*((?:19|20)\d{2})")
+
+# A bracketed multi-year span ("(2021-2026)", "{2021-2023}") is the one
+# signal a numberless complete-series pack carries; a single year would
+# equally describe a lone volume or one-shot, so it is not trusted.
+_YEAR_SPAN_GROUP = re.compile(r"[(\[{]\s*((?:19|20)\d{2})\s*[-–]\s*(?:19|20)\d{2}\s*[)\]}]")
 
 # Range expansion downstream is integer-only, so a fractional endpoint
 # ("c001.5-003.5") cannot be represented: truncating it to 1-3 would claim
@@ -118,3 +123,35 @@ def parse_pack_title(title):
             "booktype": booktype,
         }
     return None
+
+
+def parse_series_pack_title(title):
+    """Return complete-series pack info parsed from a numberless title, or None.
+
+    Detects releases like ``Solo Leveling (2021-2026) (Digital) (1r0n)``:
+    a series name whose only digits live inside bracketed metadata groups,
+    one of which is a multi-year span. ``parse_pack_title`` deliberately
+    refuses these (a year range is not an issue range), so this is a
+    separate, riskier detector: callers must gate it behind *Allow packs*
+    and normal series-name matching. ``issues`` is the marker string
+    ``"all"`` — the pack claims every issue of the matched series.
+
+    A digit left outside the metadata groups means an issue, volume, or
+    chapter marker (or a numbered series name indistinguishable from one),
+    so the title is refused rather than risk claiming a partial release.
+    """
+    if not title or not isinstance(title, str):
+        return None
+    year_match = _YEAR_SPAN_GROUP.search(title)
+    if year_match is None:
+        return None
+    stripped = _PARENTHESIZED.sub(" ", title).strip()
+    if not re.search(r"[A-Za-z]", stripped) or re.search(r"\d", stripped):
+        return None
+    return {
+        "series": re.sub(r"\s+", " ", stripped),
+        "issues": "all",
+        "kind": "series",
+        "year": year_match.group(1),
+        "booktype": "issue",
+    }

@@ -425,6 +425,48 @@ def test_non_ddl_volume_pack_is_detected_and_accepted(monkeypatch):
     assert calls["kwargs"] == {"kind": "volume"}
 
 
+def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
+    # "Solo Leveling (2021-2026) (Digital)" carries no issue range at all;
+    # the complete-series detector claims it when packs are allowed (#744).
+    calls = {}
+
+    def fake_issue_find_ids(*args, **kwargs):
+        calls["args"] = args
+        calls["kwargs"] = kwargs
+        return {"valid": True, "issues": [{"issueid": "id-1"}]}
+
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", fake_issue_find_ids)
+    info = _info(
+        nzbprov="torznab",
+        tmpprov="nyaa [api]",
+        booktype="manga",
+        allow_packs=True,
+        RSS="yes",
+        torznab_host=("nyaa", "https://nyaa.test", "0", "key"),
+    )
+    entry = _entry(title="Example Series (2021-2026) (Digital) (1r0n)", site="torznab")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+
+    assert _reason(evaluation) == "accepted.pack"
+    assert evaluation.verdict["match_kind"] == "pack"
+    assert evaluation.legacy_match["pack"] is True
+    assert evaluation.legacy_match["pack_numbers"] == "all"
+    assert entry["pack"] is True
+    assert entry["issues"] == "all"
+    assert entry["series"] == "Example Series"
+    assert calls["args"][2] == "all"
+    assert calls["kwargs"] == {"kind": "series"}
+
+
+def test_numberless_series_pack_without_allow_packs_is_not_detected():
+    entry = _entry(title="Example Series (2021-2026) (Digital)")
+
+    evaluation = search_filer.search_check().evaluate_entry(entry, _info(booktype="manga"))
+
+    assert evaluation.legacy_match["pack"] is False
+
+
 def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
     monkeypatch.setattr(
         search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
@@ -563,3 +605,4 @@ def test_first_result_preserves_preference_and_last_fallback(monkeypatch):
     process.reset_mock(side_effect=True)
     process.side_effect = candidates[:2]
     assert checker.check_for_first_result([1, 2], {}, prefer_pack=False)["name"] == "last-pack"
+
