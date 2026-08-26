@@ -214,6 +214,113 @@ describe("ReleaseReviewSheet", () => {
     expect(screen.getByText(/4 missing issues/i)).toBeTruthy();
   });
 
+  it("shows a timed-out state and stops polling when the session expired", async () => {
+    let polls = 0;
+    server.use(
+      http.get("/api/search/interactive/session-1", () => {
+        polls += 1;
+        return HttpResponse.json(
+          { detail: "interactive search session expired", status: "expired" },
+          { status: 410 },
+        );
+      }),
+    );
+    const onRetry = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ReleaseReviewSheet
+        issue={issue}
+        sessionId="session-1"
+        startPending={false}
+        startError={null}
+        onRetry={onRetry}
+        onClose={vi.fn()}
+        onGrabbed={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Search timed out" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Search session expired")).toBeTruthy();
+    expect(screen.queryByText("Search unavailable")).toBeNull();
+    // 410 is terminal: no retry fires for it.
+    expect(polls).toBe(1);
+
+    await user.click(
+      screen.getByRole("button", { name: "Start a new search" }),
+    );
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("suggests a single-issue search when a series-wide session expired", async () => {
+    server.use(
+      http.get("/api/search/interactive/session-series", () =>
+        HttpResponse.json(
+          { detail: "interactive search session expired", status: "expired" },
+          { status: 410 },
+        ),
+      ),
+    );
+    render(
+      <ReleaseReviewSheet
+        issue={{
+          ComicName: "Example",
+          Status: "Wanted",
+          scope: "series",
+          missingCount: 40,
+        }}
+        sessionId="session-series"
+        startPending={false}
+        startError={null}
+        onRetry={vi.fn()}
+        onClose={vi.fn()}
+        onGrabbed={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(/search for a single issue instead/i),
+    ).toBeTruthy();
+  });
+
+  it("explains expiry when a grab hits an expired session", async () => {
+    handleSession(true, false);
+    server.use(
+      http.post(
+        "/api/search/interactive/session-1/candidates/candidate-1/grab",
+        () =>
+          HttpResponse.json(
+            { detail: "interactive search session expired", status: "expired" },
+            { status: 410 },
+          ),
+      ),
+    );
+    const onGrabbed = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ReleaseReviewSheet
+        issue={issue}
+        sessionId="session-1"
+        startPending={false}
+        startError={null}
+        onRetry={vi.fn()}
+        onClose={vi.fn()}
+        onGrabbed={onGrabbed}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Review grab" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm grab" }));
+
+    expect(
+      await screen.findByText(/can no longer be grabbed/i),
+    ).toBeTruthy();
+    expect(onGrabbed).not.toHaveBeenCalled();
+  });
+
   it("requires acknowledgement before submitting an override", async () => {
     handleSession(false, true);
     let grabBody: unknown;

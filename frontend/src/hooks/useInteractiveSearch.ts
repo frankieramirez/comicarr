@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import type {
   InteractiveGrabResult,
   InteractiveSearchSession,
@@ -10,6 +10,13 @@ import type {
 
 const INTERACTIVE_POLL_MS = 2_000;
 const ACTIVE_STATES = new Set(["queued", "running"]);
+
+// Expiry never appears as a session `state` — the server signals it as a
+// 410 on poll and grab (router returns {"status": "expired"}), so it must
+// be recognized from the error, not the payload.
+export function isInteractiveSessionExpired(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 410;
+}
 
 export interface StartInteractiveSearchInput {
   entityType: "issue" | "annual" | "story_arc_issue" | "series";
@@ -43,10 +50,17 @@ export function useInteractiveSearch(sessionId: string | null) {
     enabled: Boolean(sessionId),
     staleTime: 0,
     gcTime: 15 * 60 * 1_000,
-    refetchInterval: (query) =>
-      ACTIVE_STATES.has(query.state.data?.state ?? "")
+    retry: (failureCount, error) =>
+      !isInteractiveSessionExpired(error) && failureCount < 1,
+    refetchInterval: (query) => {
+      // After an error the query keeps its last payload, so a session that
+      // expired mid-run still reads as "running" — without this branch the
+      // client polls the dead session (and its 410) forever.
+      if (isInteractiveSessionExpired(query.state.error)) return false;
+      return ACTIVE_STATES.has(query.state.data?.state ?? "")
         ? INTERACTIVE_POLL_MS
-        : false,
+        : false;
+    },
   });
 }
 

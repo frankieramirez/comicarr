@@ -7,6 +7,7 @@ import {
   RefreshCw,
   SearchX,
   ShieldAlert,
+  TimerOff,
   TriangleAlert,
   XCircle,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  isInteractiveSessionExpired,
   useGrabInteractiveCandidate,
   useInteractiveSearch,
 } from "@/hooks/useInteractiveSearch";
@@ -240,12 +242,17 @@ function ConfirmationDialog({
   const needsOverride =
     candidate.verdict.overrideable && !candidate.verdict.accepted;
   const submit = async () => {
-    const result = await grab.mutateAsync({
-      sessionId,
-      candidateId: candidate.candidate_id,
-      override: needsOverride,
-    });
-    onGrabbed(result);
+    try {
+      const result = await grab.mutateAsync({
+        sessionId,
+        candidateId: candidate.candidate_id,
+        override: needsOverride,
+      });
+      onGrabbed(result);
+    } catch {
+      // The dialog renders grab.error below; without this catch the
+      // rejection from mutateAsync escapes `void submit()` unhandled.
+    }
   };
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
@@ -290,7 +297,9 @@ function ConfirmationDialog({
         ) : null}
         {grab.error ? (
           <div role="alert" className="text-sm text-[var(--status-error)]">
-            {getErrorMessage(grab.error)}
+            {isInteractiveSessionExpired(grab.error)
+              ? "This search session has expired, so its results can no longer be grabbed. Close this dialog and start a new search."
+              : getErrorMessage(grab.error)}
           </div>
         ) : null}
         <DialogFooter>
@@ -335,8 +344,13 @@ export function ReleaseReviewSheet({
     candidates.find((candidate) => candidate.state === "available") ??
     candidates[0] ??
     null;
+  // The query keeps the last payload after a 410, so once the session
+  // expires `data.state` still reads "queued"/"running" — expiry must win
+  // over `active` or the strip keeps its spinner on a dead session.
+  const expired = isInteractiveSessionExpired(session.error);
   const active =
-    startPending || data?.state === "queued" || data?.state === "running";
+    !expired &&
+    (startPending || data?.state === "queued" || data?.state === "running");
   const displayError = startError ?? session.error;
   const canGrab = Boolean(
     selected &&
@@ -390,19 +404,44 @@ export function ReleaseReviewSheet({
             )}
             {startPending
               ? "Starting provider search…"
-              : active && data
-                ? `${data.progress.provider_completed} of ${data.progress.provider_total} providers complete${data.progress.current_provider ? ` · ${data.progress.current_provider}` : ""}`
-                : data?.state === "failed"
-                  ? "Provider search stopped before completion"
-                  : data
-                    ? `${data.progress.provider_completed} providers checked · ${data.candidate_count} candidates`
-                    : displayError
-                      ? "Provider search could not start"
-                      : "Preparing search…"}
+              : expired
+                ? "Search session expired"
+                : active && data
+                  ? `${data.progress.provider_completed} of ${data.progress.provider_total} providers complete${data.progress.current_provider ? ` · ${data.progress.current_provider}` : ""}`
+                  : data?.state === "failed"
+                    ? "Provider search stopped before completion"
+                    : data
+                      ? `${data.progress.provider_completed} providers checked · ${data.candidate_count} candidates`
+                      : displayError
+                        ? "Provider search could not start"
+                        : "Preparing search…"}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {displayError ? (
+            {expired ? (
+              <div className="grid min-h-52 place-items-center text-center">
+                <div className="max-w-sm">
+                  <TimerOff
+                    className="mx-auto size-6 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <h3 className="mt-3 text-sm font-semibold">
+                    Search timed out
+                  </h3>
+                  <p
+                    role="alert"
+                    className="mt-1 text-sm text-muted-foreground"
+                  >
+                    {issue?.scope === "series"
+                      ? "This search session expired before it finished. Start a new search, or search for a single issue instead — it completes faster."
+                      : "This search session expired. Start a new search to get fresh results."}
+                  </p>
+                  <Button className="mt-4" variant="outline" onClick={onRetry}>
+                    <RefreshCw /> Start a new search
+                  </Button>
+                </div>
+              </div>
+            ) : displayError ? (
               <div className="grid min-h-52 place-items-center text-center">
                 <div className="max-w-sm">
                   <TriangleAlert
