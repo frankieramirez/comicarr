@@ -12,7 +12,8 @@ Comicarr is a modernized fork of [Mylar3](https://github.com/mylar3/mylar3), reb
 
 - **Modern React 19 Frontend** — Fast, responsive UI with dark/light themes and system preference detection
 - **Automated Downloads** — Monitor series and automatically grab new issues
-- **Interactive Release Search** — Review every provider candidate and its match verdict before deliberately grabbing a release
+- **Interactive Release Search** — Review every provider candidate and its match verdict before deliberately grabbing a release, for a single issue or for everything a series is missing
+- **Pack Releases** — Recognize multi-issue and multi-volume packs such as `v01-14` or `#001-144`, and mark every issue a single grab covers
 - **Library Management** — Scan existing collections, identify missing issues, interactive import matching
 - **Multiple Download Clients** — NZB (SABnzbd, NZBGet) and torrent (qBittorrent, Deluge, Transmission, rTorrent, uTorrent)
 - **Direct Downloads** — Mega, MediaFire, and Pixeldrain support
@@ -22,6 +23,8 @@ Comicarr is a modernized fork of [Mylar3](https://github.com/mylar3/mylar3), reb
 - **Story Arc Management** — Organize and track story arcs across series
 - **OPDS Catalog** — Optional OPDS feed for compatible comic readers (enable via `config.ini`)
 - **Optional AI Assist** — Bring-your-own-key LLM features (suggestions, enrichment) when configured in Settings
+- **Activity Feed** — Watch searches and grabs as they run, and stop anything still in flight
+- **Needs Attention** — One queue for downloads that failed or never landed in the library, each with its reason and the ways to clear it
 - **Real-time Updates** — Server-Sent Events for live status without page refreshes
 - **Mylar3 Migration** — First-run wizard to import config and library data from an existing Mylar3 install
 
@@ -163,12 +166,35 @@ sheet with each release candidate's source, age, size, availability, and match
 reasons. Provider failures remain visible even when other providers return
 results.
 
+**Review missing** on a series page runs that same review across every eligible
+missing issue at once, and shows which of them each release would satisfy, so a
+single grab can close out more than one. Per-issue review is still there on the
+series and story-arc issue rows.
+
 Selecting **Review grab** opens a final confirmation before Comicarr hands the
 release to the configured download route. Candidates rejected only by an
 operator-overridable match rule require an additional acknowledgement. Comicarr
 never lets this workflow bypass an expired session, missing provider result,
 duplicate or in-flight acquisition, unavailable download route, or ownership
 check.
+
+### Pack releases
+
+Turn on **Allow packs** under a series' search options and Comicarr will match
+multi-issue and multi-volume releases, which otherwise get discarded for
+carrying no single issue number. `Solo Leveling v01-14` and
+`Invincible #001-144` both qualify. Comicarr checks the pack against what the series is still missing, and
+grabbing it marks every issue it covers as Snatched, so "Search all missing" and
+**Review missing** stop hunting for those issues individually.
+
+Packs require torrent search to be enabled. Comicarr takes pack-shaped results
+from any indexer, but sends the extra bare-title query that surfaces them only
+to Torznab indexers, where pack releases live. Volume packs only ever match
+volume-tracked series, so a `v01-14` release can never claim issues 1 through 14
+of an issue-tracked comic. On manga series, Comicarr also recognizes numberless
+complete-series releases such as `Solo Leveling (2021-2026) (Digital)` and
+treats them as covering every issue you do not already have, leaving out any
+issue published after the pack's own year span.
 
 ### First-run setup
 
@@ -204,6 +230,11 @@ python3 Comicarr.py --log-level 2        # source install
 ```
 
 Changing it in **Settings** takes effect immediately, no restart. Leave `COMICARR_LOG_LEVEL` unset unless you are debugging: setting it wins over Settings on every restart. (`--quiet` still works as an alias for `--log-level 0`, but it is deprecated.)
+
+When you are reproducing a problem, **Settings → Logs → New log** starts a fresh
+`comicarr.log` so the viewer shows only what happened after you clicked. It asks
+for confirmation first, and the old log is kept as a rotated archive under your
+existing retention settings.
 
 ## Project Structure
 
