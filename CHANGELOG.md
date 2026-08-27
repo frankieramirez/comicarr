@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.1
+
+### Patch Changes
+
+- 305ca1f: Clarify the directory descriptions on the General settings tab. Destination Directory is now described as the root of your organized library where new series folders are created and downloads are filed, and Comic/Manga Directory as the existing folders scanned by library import, matching what each setting actually does.
+
 ## 0.37.0
 
 ### Minor Changes
