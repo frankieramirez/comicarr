@@ -338,7 +338,8 @@ def _parse_telegram_target(userid):
     if ":" not in raw:
         return raw, None
     chat_id, topic_id = raw.rsplit(":", 1)
-    if topic_id.isdigit():
+    # isdigit() accepts non-decimal Unicode digits that int() rejects, so gate on ASCII.
+    if topic_id.isascii() and topic_id.isdigit():
         return chat_id, int(topic_id)
     return raw, None
 
@@ -488,9 +489,7 @@ class SLACK:
         else:
             pass
 
-        payload = {
-            "text": attachment_text
-        }
+        payload = {"text": attachment_text}
 
         response = None
         try:
