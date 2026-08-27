@@ -236,3 +236,24 @@ class TestSeriesContentKindSearchHandoff:
         search.searchforissue("issue-1", manual=True)
 
         assert search_init.call_args.kwargs["content_type"] == expected_kind
+
+
+class TestProvidersWithoutDdl:
+    def test_manga_search_order_excludes_getcomics(self):
+        from comicarr.search import _providers_without_ddl
+
+        filtered = _providers_without_ddl(
+            {
+                "prov_order": ["DDL(GetComics)", "torznab: Nyaa.si", "32p"],
+                "totalproviders": 3,
+            }
+        )
+
+        assert filtered["prov_order"] == ["torznab: Nyaa.si", "32p"]
+        assert filtered["totalproviders"] == 2
+
+    def test_comic_order_is_unchanged_when_not_filtering(self):
+        from comicarr.search import _providers_without_ddl
+
+        original = {"prov_order": ["DDL(GetComics)", "32p"], "totalproviders": 2}
+        assert _providers_without_ddl(original)["prov_order"] == original["prov_order"]
