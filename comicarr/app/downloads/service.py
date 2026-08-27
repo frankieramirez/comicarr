@@ -1,1 +1,1 @@
-file:///workspace/comicarr/app/downloads/service.py
+HALF_CONTENT_PLACEHOLDER_50K
