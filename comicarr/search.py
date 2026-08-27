@@ -351,11 +351,19 @@ def search_init(
     searchcnt = 0
     srchloop = 1
 
+    # Interactive review: the operator is watching, so the retry layers built
+    # for unattended search only delay the result sheet (#768). Skip the RSS
+    # cache pass and (below) run one numbered query per provider.
+    interactive = search_filer.interactive_collection_active()
+
     if rsschecker:
         if comicarr.CONFIG.ENABLE_RSS:
             searchcnt = 1  # rss-only
         else:
             searchcnt = 1  # if it's not enabled, don't even bother.
+    elif interactive:
+        searchcnt = 2
+        srchloop = 2  # straight to API, no RSS pass
     else:
         if comicarr.CONFIG.ENABLE_RSS:
             searchcnt = 2  # rss first, then api on non-matches
@@ -741,7 +749,12 @@ def search_init(
                     # don't think this is needed as we do the check_time btwn searches now
                     pass
 
-                tmp_cmloopit -= 1
+                if interactive:
+                    # One numbered query per provider; keep only the
+                    # bare-title pack pass that pack discovery needs (#744).
+                    tmp_cmloopit = 0 if (pack_title_pass and tmp_cmloopit > 0) else -1
+                else:
+                    tmp_cmloopit -= 1
 
             search_filer.report_provider_complete(progress_provider)
             prov_count += 1
@@ -1373,19 +1386,8 @@ def NZB_SEARCH(
                     logger.fdebug("[SSL: %s] Search URL: %s" % (verify, logsearch))
 
                     # check search time here
-                    if localbypass is False and foundc["lastrun"] != 0:
-                        diff = check_time(foundc["lastrun"])
-                        if diff < pause_the_search:
-                            logger.warn(
-                                "[PROVIDER-SEARCH-DELAY][%s] Waiting %s seconds before we search again..."
-                                % (nzbprov, (pause_the_search - int(diff)))
-                            )
-                            time.sleep(pause_the_search - int(diff))
-                        else:
-                            logger.fdebug(
-                                "[PROVIDER-SEARCH-DELAY][%s] Last search took place %s seconds ago. We're clear..."
-                                % (nzbprov, int(diff))
-                            )
+                    if localbypass is False:
+                        _honour_search_delay(nzbprov, pause_the_search, foundc["lastrun"])
 
                     try:
                         r = get_http_session().get(findurl, params=payload, verify=verify, headers=headers, timeout=30)
@@ -4407,6 +4409,35 @@ def check_the_search_delay(manual=False):
         logger.warn("Check Search Delay - invalid numerical given. Force-setting to 30 seconds.")
         pause_the_search = 30
     return pause_the_search
+
+
+def _honour_search_delay(nzbprov, pause_the_search, lastrun):
+    """Sleep out the remainder of a provider's backoff window.
+
+    Interactive review never blocks on the window (#768): the operator is
+    waiting on the session, and a provider that objects to the pace answers
+    with an error that surfaces as a provider failure instead.
+    """
+
+    if lastrun == 0:
+        return
+    diff = check_time(lastrun)
+    if diff >= pause_the_search:
+        logger.fdebug(
+            "[PROVIDER-SEARCH-DELAY][%s] Last search took place %s seconds ago. We're clear..." % (nzbprov, int(diff))
+        )
+        return
+    if search_filer.interactive_collection_active():
+        logger.fdebug(
+            "[PROVIDER-SEARCH-DELAY][%s] Interactive search - skipping the remaining %s second backoff."
+            % (nzbprov, (pause_the_search - int(diff)))
+        )
+        return
+    logger.warn(
+        "[PROVIDER-SEARCH-DELAY][%s] Waiting %s seconds before we search again..."
+        % (nzbprov, (pause_the_search - int(diff)))
+    )
+    time.sleep(pause_the_search - int(diff))
 
 
 def search_the_matrix(scarios):

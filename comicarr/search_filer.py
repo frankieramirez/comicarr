@@ -139,6 +139,17 @@ def interactive_collection(*, on_evaluations, on_provider_complete, on_provider_
         _INTERACTIVE_COLLECTOR.reset(token)
 
 
+def interactive_collection_active():
+    """True while an Interactive-search worker is collecting in this context.
+
+    The legacy search pipeline consults this to drop the retry layers built
+    for unattended search — RSS pass, issue-number variants, backoff sleeps —
+    when an operator is watching the results arrive (#768).
+    """
+
+    return _INTERACTIVE_COLLECTOR.get() is not None
+
+
 def report_provider_complete(provider):
     collector = _INTERACTIVE_COLLECTOR.get()
     if collector:
