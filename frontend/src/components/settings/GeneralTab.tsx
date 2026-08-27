@@ -54,28 +54,28 @@ export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
           value={config.comic_dir}
           type="text"
           readOnly
-          helpText="Location where your comic library is stored"
+          helpText="Existing comic folder scanned by library import; imported series stay in place here"
         />
         <SettingField
           label="Destination Directory"
           value={config.destination_dir}
           type="text"
           readOnly
-          helpText="Default destination for downloaded comics"
+          helpText="Root of your organized comic library — new series folders are created here and downloads are filed into them"
         />
         <SettingField
           label="Manga Directory"
           value={config.manga_dir}
           type="text"
           readOnly
-          helpText="Location where your manga library is stored"
+          helpText="Existing manga folder scanned by library import; imported series stay in place here"
         />
         <SettingField
           label="Manga Destination Directory"
           value={config.manga_destination_dir}
           type="text"
           readOnly
-          helpText="Default destination for downloaded manga (falls back to Manga Directory, then Destination Directory)"
+          helpText="Root of your organized manga library (falls back to Manga Directory, then Destination Directory)"
         />
         <SettingField
           label="Import Directory"
