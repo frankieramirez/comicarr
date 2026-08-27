@@ -248,14 +248,27 @@ def _match_group(group_key, group_info, series_list):
     confidence = int(best_score * 100)
 
     if best_match and confidence >= AUTO_IMPORT_CONFIDENCE:
-        # Auto-import: mark files as belonging to this series
+        # Auto-import: persist pending rows, then finalize through the same
+        # move/rescan seam used for manual matches (#783). Files whose row is
+        # already Imported are skipped first: finalized files can survive in
+        # the inbox (archive-in-place, copy placement), and resetting their
+        # rows to pending would re-import them on every scheduled scan.
+        pending_files = _files_pending_import(files)
+        skipped = len(files) - len(pending_files)
+        if skipped:
+            logger.fdebug("[IMPORT-INBOX] Skipping %d already-imported file(s) in group '%s'" % (skipped, group_name))
+        if not pending_files:
+            return result
         logger.info(
             "[IMPORT-INBOX] Auto-matching group '%s' to '%s' (%d%% confidence)"
             % (group_name, best_match.get("ComicName", ""), confidence)
         )
-        for filepath in files:
-            _auto_import_file(filepath, best_match, confidence, filenames=files)
-            result["auto_imported"] += 1
+        for filepath in pending_files:
+            _pending_auto_import_record(filepath, best_match, confidence, filenames=files)
+        if _finalize_auto_import_group(pending_files, best_match, confidence):
+            result["auto_imported"] += len(pending_files)
+        else:
+            result["queued_for_review"] += len(pending_files)
     else:
         # Queue for manual review
         suggested_id = best_match["ComicID"] if best_match else None
@@ -285,8 +298,17 @@ def _filepath_to_impid(filepath):
     return hashlib.sha256(filepath.encode("utf-8")).hexdigest()[:32]
 
 
-def _auto_import_file(filepath, series, confidence, filenames=None):
-    """Record an auto-imported file in importresults with status=Imported."""
+def _files_pending_import(files):
+    """Filter out files whose importresults row is already Imported."""
+    from comicarr.app.imports.queries import get_import_rows
+
+    rows = get_import_rows([_filepath_to_impid(filepath) for filepath in files])
+    imported = {row["impID"] for row in rows if str(row.get("Status") or "").strip().casefold() == "imported"}
+    return [filepath for filepath in files if _filepath_to_impid(filepath) not in imported]
+
+
+def _pending_auto_import_record(filepath, series, confidence, filenames=None):
+    """Record a high-confidence auto-match as pending until finalization runs."""
     from comicarr.app.manga.parse import parse_in_series_context
 
     filename = os.path.basename(filepath)
@@ -309,7 +331,7 @@ def _auto_import_file(filepath, series, confidence, filenames=None):
         "importresults",
         {
             "ComicName": series.get("ComicName", ""),
-            "Status": "Imported",
+            "Status": "Not Imported",
             "ImportDate": import_date,
             "ComicFilename": filename,
             "ComicLocation": filepath,
@@ -317,14 +339,54 @@ def _auto_import_file(filepath, series, confidence, filenames=None):
             "MatchConfidence": confidence,
             "SuggestedComicID": series["ComicID"],
             "SuggestedComicName": series.get("ComicName", ""),
-            "MatchSource": "inbox",
+            "MatchSource": "inbox-auto",
             "DynamicName": series.get("DynamicName", ""),
             "IssueNumber": chapter_number,
         },
         {"impID": imp_id},
     )
 
-    logger.fdebug("[IMPORT-INBOX] Auto-imported: %s -> %s" % (filename, series.get("ComicName", "")))
+    logger.fdebug("[IMPORT-INBOX] Auto-match pending finalization: %s -> %s" % (filename, series.get("ComicName", "")))
+
+
+def _finalize_auto_import_group(files, series, confidence):
+    """Move and register auto-matched inbox files through the finalization seam."""
+    from types import SimpleNamespace
+
+    from comicarr.app.core.runtime import get_runtime_if_initialized
+    from comicarr.app.imports.finalization import ImportFinalizationError, finalize_manual_match
+
+    imp_ids = [_filepath_to_impid(filepath) for filepath in files]
+    ctx = get_runtime_if_initialized()
+    if ctx is None:
+        ctx = SimpleNamespace(config=comicarr.CONFIG)
+
+    try:
+        finalize_manual_match(
+            ctx,
+            imp_ids,
+            series["ComicID"],
+            series_name=series.get("ComicName"),
+            match_source="inbox-auto",
+            match_confidence=confidence,
+        )
+    except ImportFinalizationError as e:
+        logger.error(
+            "[IMPORT-INBOX] Auto-import finalization failed for '%s' [%s%s]: %s"
+            % (
+                series.get("ComicName", ""),
+                e.phase,
+                "; rollback incomplete" if e.rollback_failed else "",
+                e,
+            )
+        )
+        return False
+    except Exception as e:
+        logger.error("[IMPORT-INBOX] Auto-import finalization failed for '%s': %s" % (series.get("ComicName", ""), e))
+        return False
+
+    logger.info("[IMPORT-INBOX] Auto-imported %d file(s) into '%s'" % (len(files), series.get("ComicName", "")))
+    return True
 
 
 def _queue_for_review(

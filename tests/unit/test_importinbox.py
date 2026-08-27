@@ -154,20 +154,115 @@ class TestMatchGroup:
     """Tests for _match_group — matching file groups against library."""
 
     def test_high_confidence_auto_imports(self, importinbox, _mock_globals):
+        from unittest.mock import ANY
+
         series_list = [
             {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
         ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
 
         _mock_globals["db"].upsert = MagicMock()
 
-        result = importinbox._match_group(
-            "folder:batman",
-            {"group_name": "Batman", "files": ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]},
-            series_list,
-        )
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
 
         assert result["auto_imported"] == 2
         assert result["queued_for_review"] == 0
+        assert _mock_globals["db"].upsert.call_count == 2
+        pending = _mock_globals["db"].upsert.call_args_list[0].args[1]
+        assert pending["Status"] == "Not Imported"
+        assert pending["MatchSource"] == "inbox-auto"
+        finalize.assert_called_once_with(
+            ANY,
+            [importinbox._filepath_to_impid(filepath) for filepath in files],
+            "cv-100",
+            series_name="Batman",
+            match_source="inbox-auto",
+            match_confidence=100,
+        )
+
+    def test_finalization_failure_queues_group_for_review(self, importinbox, _mock_globals):
+        from comicarr.app.imports.finalization import ImportFinalizationError
+
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch(
+                "comicarr.app.imports.finalization.finalize_manual_match",
+                side_effect=ImportFinalizationError("destination exists", phase="preflight"),
+            ),
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result["auto_imported"] == 0
+        assert result["queued_for_review"] == 2
+        assert _mock_globals["db"].upsert.call_count == 2
+
+    def test_rescan_skips_already_imported_files(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+        imported_row = {"impID": importinbox._filepath_to_impid(files[0]), "Status": "Imported"}
+
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[imported_row]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result["auto_imported"] == 1
+        assert result["queued_for_review"] == 0
+        assert _mock_globals["db"].upsert.call_count == 1
+        finalize.assert_called_once()
+        assert finalize.call_args.args[1] == [importinbox._filepath_to_impid(files[1])]
+
+    def test_rescan_with_whole_group_already_imported_is_a_noop(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz"]
+        imported_row = {"impID": importinbox._filepath_to_impid(files[0]), "Status": "Imported"}
+
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[imported_row]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result["auto_imported"] == 0
+        assert result["queued_for_review"] == 0
+        _mock_globals["db"].upsert.assert_not_called()
+        finalize.assert_not_called()
 
     def test_low_confidence_queues_for_review(self, importinbox, _mock_globals):
         series_list = [
@@ -216,11 +311,15 @@ class TestMatchGroup:
         _mock_globals["db"].upsert = MagicMock()
 
         # Exact match to "Batman" should win
-        result = importinbox._match_group(
-            "folder:batman",
-            {"group_name": "Batman", "files": ["/import/Batman/001.cbz"]},
-            series_list,
-        )
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch.object(importinbox, "_finalize_auto_import_group", return_value=True),
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": ["/import/Batman/001.cbz"]},
+                series_list,
+            )
 
         assert result["auto_imported"] == 1
 
