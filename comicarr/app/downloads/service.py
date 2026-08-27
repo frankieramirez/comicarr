@@ -1,1 +1,1 @@
-@file:/tmp/service784.content
+file:///workspace/comicarr/app/downloads/service.py
