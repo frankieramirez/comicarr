@@ -318,6 +318,8 @@ def _finalize_locked(
     *,
     series_name: str | None,
     fallback_issue_id: str | None,
+    match_source: str,
+    match_confidence: int,
 ) -> ImportFinalizationResult:
     normalized_ids = _normalize_import_ids(import_ids)
     rows = _load_and_validate_rows(normalized_ids)
@@ -345,7 +347,13 @@ def _finalize_locked(
 
     matches = [(row["impID"], row.get("_ResolvedIssueID")) for row in rows]
     try:
-        import_queries.mark_imported(matches, series_id, effective_name)
+        import_queries.mark_imported(
+            matches,
+            series_id,
+            effective_name,
+            match_source=match_source,
+            match_confidence=match_confidence,
+        )
     except Exception as e:
         rollback_errors = _rollback_moves(moved_files, series_id, reconcile=True) if move_enabled else []
         message = "Failed to record finalized imports for %s: %s" % (series_id, e)
@@ -369,6 +377,8 @@ def finalize_manual_match(
     *,
     series_name: str | None = None,
     fallback_issue_id: str | None = None,
+    match_source: str = "manual",
+    match_confidence: int = 100,
 ) -> ImportFinalizationResult:
     """Finalize one operator-confirmed match through a single testable seam."""
     try:
@@ -379,6 +389,8 @@ def finalize_manual_match(
                 series_id,
                 series_name=series_name,
                 fallback_issue_id=fallback_issue_id,
+                match_source=match_source,
+                match_confidence=match_confidence,
             )
     except ImportFinalizationError as e:
         logger.error("[IMPORT-MATCH] [%s] %s" % (e.phase, e))

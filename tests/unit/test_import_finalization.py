@@ -130,7 +130,7 @@ def test_move_mode_finalizes_through_one_interface(tmp_path):
         _environment(rows, target_directory),
         patch.object(finalization.import_queries, "get_issue_id", return_value="mal-123-ch1"),
         patch.object(
-            finalization.import_queries, "mark_imported", side_effect=lambda *_args: events.append("commit")
+            finalization.import_queries, "mark_imported", side_effect=lambda *_args, **_kwargs: events.append("commit")
         ) as mark_imported,
         patch("comicarr.updater.forceRescan", side_effect=lambda *_args: events.append("rescan")) as force_rescan,
     ):
@@ -140,7 +140,9 @@ def test_move_mode_finalizes_through_one_interface(tmp_path):
     assert not source.exists()
     assert (target_directory / source.name).read_text() == "chapter"
     force_rescan.assert_called_once_with("mal-123")
-    mark_imported.assert_called_once_with([("imp-1", "mal-123-ch1")], "mal-123", "Berserk")
+    mark_imported.assert_called_once_with(
+        [("imp-1", "mal-123-ch1")], "mal-123", "Berserk", match_source="manual", match_confidence=100
+    )
     assert events == ["rescan", "commit"]
 
 
@@ -188,6 +190,8 @@ def test_issue_ids_resolve_per_record_with_fallback(tmp_path):
         [("imp-1", "chapter-1"), ("imp-2", "fallback")],
         "mal-123",
         "Berserk",
+        match_source="manual",
+        match_confidence=100,
     )
 
 
@@ -440,7 +444,7 @@ def test_database_failure_does_not_overwrite_recreated_source_during_rollback(tm
     target_directory.mkdir()
     source.write_text("chapter")
 
-    def recreate_source(*_args):
+    def recreate_source(*_args, **_kwargs):
         source.write_text("external")
         raise RuntimeError("database unavailable")
 
@@ -463,7 +467,7 @@ def test_database_failure_surfaces_missing_source_and_destination_during_rollbac
     source.write_text("chapter")
     target_directory.mkdir()
 
-    def delete_moved_file(*_args):
+    def delete_moved_file(*_args, **_kwargs):
         (target_directory / source.name).unlink()
         raise RuntimeError("database unavailable")
 

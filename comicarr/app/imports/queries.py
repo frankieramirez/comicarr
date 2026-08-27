@@ -55,7 +55,14 @@ def get_issue_id(series_id: str, issue_number: str | None) -> str | None:
     return row["IssueID"] if row else None
 
 
-def mark_imported(matches: Sequence[tuple[str, str | None]], series_id: str, series_name: str) -> None:
+def mark_imported(
+    matches: Sequence[tuple[str, str | None]],
+    series_id: str,
+    series_name: str,
+    *,
+    match_source: str = "manual",
+    match_confidence: int = 100,
+) -> None:
     """Mark every selected record imported in one database transaction."""
     pending = or_(t_importresults.c.Status.is_(None), func.lower(t_importresults.c.Status) != "imported")
     with db.get_engine().begin() as conn:
@@ -66,8 +73,8 @@ def mark_imported(matches: Sequence[tuple[str, str | None]], series_id: str, ser
                 "Status": "Imported",
                 "SuggestedComicID": series_id,
                 "SuggestedComicName": series_name,
-                "MatchSource": "manual",
-                "MatchConfidence": 100,
+                "MatchSource": match_source,
+                "MatchConfidence": match_confidence,
                 "WatchMatch": "C" + series_id,
                 "IgnoreFile": 0,
             }
