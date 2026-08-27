@@ -752,6 +752,10 @@ def search_init(
                 if interactive:
                     # One numbered query per provider; keep only the
                     # bare-title pack pass that pack discovery needs (#744).
+                    # Alternate names still each get their query above:
+                    # they are distinct titles (aliases, manga chapter
+                    # forms), not padding retries, and dropping them would
+                    # hide results a manual review exists to surface.
                     tmp_cmloopit = 0 if (pack_title_pass and tmp_cmloopit > 0) else -1
                 else:
                     tmp_cmloopit -= 1

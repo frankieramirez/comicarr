@@ -45,7 +45,7 @@ def search_env(monkeypatch):
     calls = []
 
     def fake_matrix(scarios):
-        calls.append({"cmloopit": scarios["cmloopit"], "RSS": scarios["RSS"]})
+        calls.append({"cmloopit": scarios["cmloopit"], "RSS": scarios["RSS"], "ComicName": scarios["ComicName"]})
         return {"status": False, "lastrun": 0}
 
     monkeypatch.setattr(
@@ -77,7 +77,7 @@ def search_env(monkeypatch):
     return calls
 
 
-def _run_search_init(allow_packs=1):
+def _run_search_init(allow_packs=1, alternate_search=None):
     return search.search_init(
         "Example Series",
         "2",
@@ -87,6 +87,7 @@ def _run_search_init(allow_packs=1):
         "2024-01-01",
         "2024-01-01",
         "issue-1",
+        AlternateSearch=alternate_search,
         smode=None,
         ComicID="comic-1",
         allow_packs=allow_packs,
@@ -117,6 +118,19 @@ def test_interactive_search_without_packs_runs_exactly_one_query(search_env):
         _run_search_init(allow_packs=0)
 
     assert [call["cmloopit"] for call in search_env] == [3]
+
+
+def test_interactive_search_keeps_alternate_names_but_stays_bounded(search_env):
+    # Alternate names are distinct titles (aliases, manga chapter forms), not
+    # padding retries: each still gets its own query, so total interactive
+    # queries per provider are bounded at names x passes (at most two passes).
+    with _noop_collection():
+        _run_search_init(alternate_search="Alias One##Alias Two")
+
+    assert [call["cmloopit"] for call in search_env] == [3, 3, 3, 0, 0, 0]
+    names = [call["ComicName"] for call in search_env]
+    assert names[:3] == ["Example Series", "Alias One", "Alias Two"]
+    assert names[3:] == ["Example Series", "Alias One", "Alias Two"]
 
 
 def test_search_delay_sleeps_for_automatic_search(monkeypatch):
