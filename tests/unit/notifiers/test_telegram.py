@@ -13,6 +13,13 @@ class TestTelegramInit:
 
         assert telegram.userid == "123456789"
         assert telegram.token == "test_telegram_token"
+        assert telegram.message_thread_id is None
+
+    def test_init_parses_forum_topic_from_userid(self, notifiers_module, mock_notifier_config):
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:15")
+
+        assert telegram.userid == "-1007356238347"
+        assert telegram.message_thread_id == 15
 
     def test_init_test_params_override_config(
         self, notifiers_module, mock_notifier_config
@@ -58,6 +65,24 @@ class TestTelegramNotify:
         request_body = json.loads(responses.calls[0].request.body)
         assert request_body["chat_id"] == "123456789"
         assert request_body["text"] == "Test message"
+
+    @responses.activate
+    def test_notify_forum_topic_includes_message_thread_id(self, notifiers_module, mock_notifier_config):
+        responses.add(
+            responses.POST,
+            "https://api.telegram.org/bottest_telegram_token/sendMessage",
+            json={"ok": True, "result": {}},
+            status=200,
+        )
+
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:15")
+        assert telegram.notify("Test message") is True
+
+        import json
+
+        request_body = json.loads(responses.calls[0].request.body)
+        assert request_body["chat_id"] == "-1007356238347"
+        assert request_body["message_thread_id"] == 15
 
     @responses.activate
     def test_notify_with_image(
