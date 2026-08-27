@@ -384,3 +384,73 @@ def test_candidate_and_record_limits_fail_before_any_write(engine):
 def test_scheduler_job_name_matches_retention_service():
     assert JOB_ID == "interactive_search_retention"
     assert system_service.SCHEDULER_JOB_NAMES[JOB_ID] == JOB_NAME
+
+
+def test_completion_surfaces_truncated_results_as_a_failure(engine):
+    from comicarr.app.search.interactive_sessions import complete_search_session, create_pending_session
+
+    pending = create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="raw-session-cookie",
+        entity_type="series",
+        entity_id="series-batman",
+        series_id="series-batman",
+        provider_total=1,
+        now=NOW,
+    )
+
+    assert complete_search_session(
+        engine,
+        session_id=pending["session_id"],
+        evaluations=[_evaluation("Result %s" % index) for index in range(MAX_CANDIDATES + 5)],
+        provider_completed=1,
+        provider_failures=[{"provider": "Indexer", "code": "timeout", "detail": "timed out"}],
+        now=NOW + datetime.timedelta(seconds=5),
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="raw-session-cookie",
+        now=NOW + datetime.timedelta(seconds=6),
+    )
+    assert result["candidate_count"] == MAX_CANDIDATES
+    truncated = result["provider_failures"][0]
+    assert truncated["code"] == "results_truncated"
+    assert "%d of %d" % (MAX_CANDIDATES, MAX_CANDIDATES + 5) in truncated["detail"]
+    # The original provider failure survives behind the notice.
+    assert result["provider_failures"][1]["code"] == "timeout"
+
+
+def test_completion_reports_no_truncation_when_everything_fits(engine):
+    from comicarr.app.search.interactive_sessions import complete_search_session, create_pending_session
+
+    pending = create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="raw-session-cookie",
+        entity_type="series",
+        entity_id="series-batman",
+        series_id="series-batman",
+        provider_total=1,
+        now=NOW,
+    )
+
+    assert complete_search_session(
+        engine,
+        session_id=pending["session_id"],
+        evaluations=[_evaluation()],
+        provider_completed=1,
+        now=NOW + datetime.timedelta(seconds=5),
+    )
+
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="raw-session-cookie",
+        now=NOW + datetime.timedelta(seconds=6),
+    )
+    assert result["provider_failures"] == []

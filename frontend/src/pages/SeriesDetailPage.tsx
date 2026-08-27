@@ -674,7 +674,7 @@ export default function SeriesDetailPage() {
               className={ghostBtn}
               style={{ borderColor: "var(--border)" }}
               aria-label="Browse every indexer's releases for this series"
-              title="Query every enabled indexer once with the bare series title and show everything"
+              title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
             >
               <TextSearch className="h-3.5 w-3.5" />
               Browse releases
