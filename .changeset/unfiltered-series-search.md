@@ -1,5 +1,0 @@
----
-"comicarr": minor
----
-
-A new *Browse releases* button on the series page queries every enabled indexer that supports a bare title search exactly once with the bare series title and shows everything that comes back, so you can pick a release yourself instead of relying on the per-chapter searches. Unlike *Review missing*, which runs numbered per-issue queries, this pass sends no issue numbers, evaluates every returned title (not only pack-shaped ones), and skips alternate-name variants, so a word-AND indexer like Nyaa returns its full listing for the series — packs, oddly numbered releases, and all. Each indexer is queried once with no transport retries: an indexer that fails answers with a visible error in the review sheet instead of being retried or silently skipped, and providers that cannot take a single title query (DDL, experimental, public torrents) are listed as unsupported rather than dropped quietly. Results still carry the usual match verdicts, so accepted or overrideable releases can be grabbed straight from the sheet, and grabbing one revalidates it with the same bare-title query it was found by.
