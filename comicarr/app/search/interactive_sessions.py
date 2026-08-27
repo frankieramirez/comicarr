@@ -179,6 +179,10 @@ def _candidate_reconstruction(evaluation, public):
         "match_kind": str(verdict.get("match_kind") or "none")[:32],
         "pack": bool(candidate.get("pack")),
     }
+    if hint.get("search_mode") == "unfiltered":
+        # An unfiltered-mode candidate must be revalidated under the same
+        # bare-title pass, so the mode is part of the safe reconstruction.
+        reconstruction["search_mode"] = "unfiltered"
     satisfies = getattr(evaluation, "satisfies", None) or public.get("satisfies")
     if isinstance(satisfies, list) and satisfies and isinstance(satisfies[0], Mapping):
         anchor_type = str(satisfies[0].get("entity_type") or "").strip().lower()

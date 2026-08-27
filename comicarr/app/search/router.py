@@ -196,6 +196,7 @@ async def start_interactive_search(
         browser_session=_session_identity(request, username),
         entity_type=body.get("entity_type"),
         entity_id=body.get("entity_id"),
+        mode=body.get("mode"),
     )
     if result.get("success") is False:
         return JSONResponse(status_code=int(result.get("status_code") or 400), content=result)

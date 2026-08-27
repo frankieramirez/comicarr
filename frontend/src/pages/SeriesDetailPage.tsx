@@ -8,6 +8,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  TextSearch,
   Trash2,
 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
@@ -644,6 +645,39 @@ export default function SeriesDetailPage() {
             >
               <Search className="h-3.5 w-3.5" />
               Review missing
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                comicId
+                  ? void startReview(
+                      {
+                        ComicName: comic.ComicName,
+                        Status: comic.Status,
+                        scope: "series",
+                        missingCount: reviewableMissing,
+                        unfiltered: true,
+                      },
+                      {
+                        entityType: "series",
+                        entityId: String(comicId),
+                        mode: "unfiltered",
+                      },
+                    )
+                  : undefined
+              }
+              disabled={
+                !comicId ||
+                reviewableMissing === 0 ||
+                reviewSheetProps.startPending
+              }
+              className={ghostBtn}
+              style={{ borderColor: "var(--border)" }}
+              aria-label="Browse every indexer's releases for this series"
+              title="Query every enabled indexer once with the bare series title and show everything"
+            >
+              <TextSearch className="h-3.5 w-3.5" />
+              Browse releases
             </button>
             <button
               type="button"

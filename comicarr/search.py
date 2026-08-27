@@ -18,6 +18,7 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import contextvars
 import datetime
 import os
 import pathlib
@@ -30,6 +31,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from operator import itemgetter
 from urllib.parse import unquote, urljoin, urlparse
 
@@ -185,6 +187,8 @@ def get_http_session():
     Creates the session lazily on first use.
     """
     global _http_session
+    if unfiltered_pass_active():
+        return _get_no_retry_http_session()
     if _http_session is None:
         _http_session = requests.Session()
 
@@ -206,6 +210,43 @@ def get_http_session():
     return _http_session
 
 
+_no_retry_http_session = None
+
+_UNFILTERED_SERIES_PASS = contextvars.ContextVar("unfiltered_series_pass", default=False)
+
+
+def unfiltered_pass_active():
+    return bool(_UNFILTERED_SERIES_PASS.get())
+
+
+@contextmanager
+def unfiltered_series_pass():
+    """Scope an unfiltered series search: one bare-title query per indexer.
+
+    While active (#767): the bare-title pass runs on newznab as well as
+    torznab, the pack-shaped pre-filter is skipped so every result reaches
+    evaluation, RSS and alternate-name query variants are skipped so each
+    indexer is queried exactly once, and HTTP transport retries are disabled
+    so a failing indexer surfaces its error instead of being retried.
+    """
+
+    token = _UNFILTERED_SERIES_PASS.set(True)
+    try:
+        yield
+    finally:
+        _UNFILTERED_SERIES_PASS.reset(token)
+
+
+def _get_no_retry_http_session():
+    global _no_retry_http_session
+    if _no_retry_http_session is None:
+        _no_retry_http_session = requests.Session()
+        adapter = HTTPAdapter(max_retries=Retry(total=0), pool_connections=10, pool_maxsize=20)
+        _no_retry_http_session.mount("http://", adapter)
+        _no_retry_http_session.mount("https://", adapter)
+    return _no_retry_http_session
+
+
 def _allow_packs_enabled(allow_packs):
     """Per-series AllowPacks arrives as 1, '1', or True depending on source."""
     return any([allow_packs == 1, allow_packs == "1", allow_packs is True])
@@ -216,8 +257,14 @@ def _bare_pack_pass_allowed(provider_stat):
 
     Usenet (newznab) and experimental providers get nothing from a bare
     query that pack matching needs, so they keep the numbered passes only.
+    The unfiltered series pass widens this to newznab: there the operator
+    asked for every indexer's bare-title results, packs or not (#767).
     """
-    return isinstance(provider_stat, dict) and provider_stat.get("type") == "torznab"
+    if not isinstance(provider_stat, dict):
+        return False
+    if unfiltered_pass_active():
+        return provider_stat.get("type") in ("torznab", "newznab")
+    return provider_stat.get("type") == "torznab"
 
 
 def search_init(
@@ -363,6 +410,12 @@ def search_init(
             searchcnt = 2  # set the searchcnt to 2 (api)
             srchloop = 2  # start the counter at API, so itll exit without running RSS
 
+    if unfiltered_pass_active():
+        # One live query per indexer: the RSS pass would only replay cached
+        # feed entries against the same session.
+        searchcnt = 2
+        srchloop = 2
+
     findcomiciss, c_number = get_findcomiciss(IssueNumber)
 
     while srchloop <= searchcnt:
@@ -421,6 +474,12 @@ def search_init(
                 searchmode != "rss",
             ]
         )
+
+        if unfiltered_pass_active():
+            # Unfiltered series search (#767): exactly one bare-title query
+            # per indexer — no numbered variants, regardless of Allow Packs.
+            cmloopit = 0
+            pack_title_pass = True
 
         if findit["status"] is True:
             logger.fdebug("Found result on first run, exiting search module now.")
@@ -668,7 +727,12 @@ def search_init(
                 else:
                     logger.info("API searchmode enabled for %s" % ComicName)
                     scarios["RSS"] = "no"
-                    for xx in gen_altnames(ComicName, AlternateSearch, filesafe, smode):
+                    altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
+                    if unfiltered_pass_active():
+                        # One query per indexer: alternate-name variants would
+                        # each add another query against the same provider.
+                        altnames = altnames[:1]
+                    for xx in altnames:
                         logger.info("comicname searched for: %s" % ComicName)
                         if all([findit["status"] is False, not provider_blocked]):
                             scarios["ComicName"] = xx["ComicName"]
@@ -1507,7 +1571,7 @@ def NZB_SEARCH(
                     except Exception:
                         logger.fdebug("no errors on data retrieval...proceeding")
                         entries = verified_matches["entries"]
-                        if cmloopit == 0:
+                        if cmloopit == 0 and not unfiltered_pass_active():
                             # the bare-title pass can return the provider's whole
                             # series listing; only pack-shaped titles are worth
                             # the full per-entry evaluation (and its DB lookups).

@@ -372,6 +372,8 @@ export interface ReleaseReviewIssue {
   annual?: boolean;
   scope?: "issue" | "series";
   missingCount?: number;
+  /** Series scope only: the session was an unfiltered all-indexer search. */
+  unfiltered?: boolean;
 }
 
 export interface InteractiveVerdictReason {

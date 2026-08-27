@@ -21,7 +21,7 @@ import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
 from comicarr.app.search import interactive
-from comicarr.app.search.interactive_sessions import create_session, read_session
+from comicarr.app.search.interactive_sessions import create_session, read_server_candidate, read_session
 from comicarr.app.search.router import router
 from comicarr.search_filer import ReleaseCandidateEvaluation
 from comicarr.tables import interactive_search_sessions, metadata
@@ -154,6 +154,7 @@ def test_start_endpoint_binds_actor_and_browser_cookie(api_client, monkeypatch):
         "browser_session": "browser-cookie",
         "entity_type": "annual",
         "entity_id": "annual-1",
+        "mode": None,
     }
 
 
@@ -595,7 +596,7 @@ def test_grab_requires_and_revalidates_explicit_candidate_override(engine, monke
 
     reasons = []
 
-    def revalidate(_entity, *, override_reason=None):
+    def revalidate(_entity, *, override_reason=None, unfiltered=False):
         reasons.append(override_reason)
         return [_handoff_evaluation("Candidate REPACK")], []
 
@@ -1099,3 +1100,201 @@ def test_series_grab_rejects_a_candidate_without_a_tracked_anchor(engine, monkey
     assert result["status"] == "blocked"
     assert result["error"] == "Release candidate has no tracked issue to grab against"
     assert searches == []
+
+
+# ---------------------------------------------------------------------------
+# Unfiltered series search (#767)
+# ---------------------------------------------------------------------------
+
+
+def test_start_endpoint_forwards_the_search_mode(api_client, monkeypatch):
+    captured = {}
+
+    def start(_ctx, **kwargs):
+        captured.update(kwargs)
+        return {"success": True, "session_id": "opaque", "state": "queued"}
+
+    monkeypatch.setattr(interactive, "start_search", start)
+
+    response = api_client.post(
+        "/api/search/interactive",
+        json={"entity_type": "series", "entity_id": "series-1", "mode": "unfiltered"},
+    )
+
+    assert response.status_code == 202
+    assert captured["mode"] == "unfiltered"
+
+
+def test_start_rejects_an_unknown_mode(engine):
+    result = interactive.start_search(
+        AppContext(config=_config()),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        mode="everything",
+    )
+
+    assert result["success"] is False
+    assert result["status_code"] == 400
+
+
+def test_start_rejects_unfiltered_mode_for_non_series_items(engine):
+    result = interactive.start_search(
+        AppContext(config=_config()),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="issue",
+        entity_id="i1",
+        mode="unfiltered",
+    )
+
+    assert result["success"] is False
+    assert result["status_code"] == 400
+    assert "series" in result["error"]
+
+
+def test_start_unfiltered_series_targets_one_anchor_and_flags_unsupported_providers(engine, monkeypatch):
+    monkeypatch.setattr(
+        interactive.db,
+        "select_one",
+        lambda _stmt: {"ComicID": "series-1", "ComicName": "Example"},
+    )
+    monkeypatch.setattr(interactive, "_series_missing_items", lambda *_args, **_kwargs: _missing_items())
+    worker = {}
+    monkeypatch.setattr(
+        interactive, "start_background_thread", lambda target, **kwargs: worker.update({"target": target, **kwargs})
+    )
+
+    result = interactive.start_search(
+        AppContext(
+            config=_config(
+                ENABLE_TORRENT_SEARCH=True,
+                ENABLE_TORZNAB=True,
+                EXTRA_TORZNABS=[("nyaa", "https://nyaa.test", "0", "key", "8020", "1")],
+            )
+        ),
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        mode="unfiltered",
+    )
+
+    assert result["success"] is True
+    entity = worker["kwargs"]["entity"]
+    assert entity["search_mode"] == "unfiltered"
+    # One query per indexer: a single anchor target, not the gap-start fan-out.
+    assert [item["entity_id"] for item in entity["targets"]] == ["i1"]
+    assert worker["kwargs"]["provider_total"] == result["progress"]["provider_total"] == 2
+    # The DDL provider has no bare-query seam; it is surfaced, never silent.
+    unsupported = [
+        failure for failure in result["provider_failures"] if failure["code"] == "unsupported_provider"
+    ]
+    assert [failure["provider"] for failure in unsupported] == ["DDL(GetComics)"]
+
+
+def test_unfiltered_worker_runs_the_bare_pass_and_tags_reconstruction(engine, monkeypatch):
+    pending = interactive.create_pending_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        provider_total=1,
+    )
+    observed = {}
+
+    def manual_search(**kwargs):
+        observed["unfiltered"] = interactive.search.unfiltered_pass_active()
+        observed["issueid"] = kwargs["issueid"]
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_evaluation("Example 001")])
+        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    interactive._collect(
+        session_id=pending["session_id"],
+        entity={
+            "entity_type": "series",
+            "entity_id": "series-1",
+            "series_id": "series-1",
+            "search_mode": "unfiltered",
+            "missing": _missing_items(),
+            "targets": [{"entity_type": "issue", "entity_id": "i1", "issue_number": "1"}],
+        },
+        initial_failures=[],
+        provider_total=1,
+    )
+
+    assert observed == {"unfiltered": True, "issueid": "i1"}
+    assert interactive.search.unfiltered_pass_active() is False
+    result = read_session(
+        engine,
+        session_id=pending["session_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    assert result["state"] == "complete"
+    server_candidate = read_server_candidate(
+        engine,
+        session_id=pending["session_id"],
+        candidate_id=result["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+    assert server_candidate["reconstruction"]["search_mode"] == "unfiltered"
+
+
+def test_unfiltered_grab_revalidates_under_the_unfiltered_pass(engine, monkeypatch):
+    evaluation = _handoff_evaluation("Example 001")
+    evaluation.reconstruction_hint["search_mode"] = "unfiltered"
+    evaluation.satisfies = [{"entity_type": "issue", "entity_id": "i1", "issue_number": "1"}]
+    created = create_session(
+        engine,
+        actor="alice",
+        browser_session="browser-cookie",
+        entity_type="series",
+        entity_id="series-1",
+        series_id="series-1",
+        evaluations=[evaluation],
+    )
+    monkeypatch.setattr(
+        interactive,
+        "_resolve_entity",
+        lambda entity_type, entity_id: (
+            {"entity_type": entity_type, "entity_id": entity_id, "series_id": "series-1"},
+            None,
+        ),
+    )
+    monkeypatch.setattr(interactive, "_candidate_eligibility", lambda _entity: {"status": True})
+    observed = {}
+
+    def manual_search(**kwargs):
+        observed["unfiltered"] = interactive.search.unfiltered_pass_active()
+        revalidated = _handoff_evaluation("Example 001")
+        revalidated.reconstruction_hint["search_mode"] = "unfiltered"
+        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([revalidated])
+        return []
+
+    monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
+
+    def verify(_matches, info):
+        info["foundc"] = {"status": True, "info": {"journal_release_key": "release-1"}}
+        return info
+
+    monkeypatch.setattr(interactive.search, "verification", verify)
+
+    result = interactive.grab_candidate(
+        AppContext(config=_config()),
+        session_id=created["session_id"],
+        candidate_id=created["candidates"][0]["candidate_id"],
+        actor="alice",
+        browser_session="browser-cookie",
+    )
+
+    assert result["success"] is True
+    assert result["status"] == "submitted"
+    assert observed == {"unfiltered": True}

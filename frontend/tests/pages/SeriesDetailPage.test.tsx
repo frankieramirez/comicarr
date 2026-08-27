@@ -833,4 +833,50 @@ describe("SeriesDetailPage", () => {
       screen.getByText(/pack can cover several missing issues/i),
     ).toBeTruthy();
   });
+
+  it("starts an unfiltered all-indexer search from Browse releases", async () => {
+    let searchBody: unknown;
+    server.use(
+      http.post("/api/search/interactive", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json({
+          session_id: "session-unfiltered",
+          entity_type: "series",
+          entity_id: "1",
+          series_id: "1",
+          state: "complete",
+          candidate_count: 0,
+          progress: {
+            provider_total: 0,
+            provider_completed: 0,
+            current_provider: null,
+          },
+          provider_failures: [],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [],
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Browse every indexer's releases for this series",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(searchBody).toEqual({
+        entity_type: "series",
+        entity_id: "1",
+        mode: "unfiltered",
+      });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Review releases" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/Unfiltered ·/)).toBeTruthy();
+  });
 });

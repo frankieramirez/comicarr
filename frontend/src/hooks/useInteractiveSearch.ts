@@ -21,6 +21,8 @@ export function isInteractiveSessionExpired(error: unknown): boolean {
 export interface StartInteractiveSearchInput {
   entityType: "issue" | "annual" | "story_arc_issue" | "series";
   entityId: string;
+  /** Omitted = the default per-issue review search. */
+  mode?: "unfiltered";
 }
 
 interface GrabInteractiveCandidateInput {
@@ -31,10 +33,11 @@ interface GrabInteractiveCandidateInput {
 
 export function useStartInteractiveSearch() {
   return useMutation({
-    mutationFn: ({ entityType, entityId }: StartInteractiveSearchInput) =>
+    mutationFn: ({ entityType, entityId, mode }: StartInteractiveSearchInput) =>
       apiRequest<InteractiveSearchSession>("POST", "/api/search/interactive", {
         entity_type: entityType,
         entity_id: entityId,
+        ...(mode ? { mode } : {}),
       }),
   });
 }

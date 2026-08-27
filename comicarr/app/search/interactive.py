@@ -36,6 +36,10 @@ from comicarr.app.series import queries as series_queries
 from comicarr.tables import comics, storyarcs
 
 _ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue", "series"})
+_SEARCH_MODES = frozenset({"review", "unfiltered"})
+# Only newznab/torznab indexers accept one bare-title API query; the other
+# provider kinds (DDL, experimental, public torrents, 32p) have no such seam.
+_UNFILTERED_PROVIDER_KINDS = frozenset({"newznab", "torznab"})
 _WORKER_LOCK = threading.Lock()
 _GRAB_LOCK = threading.Lock()
 MAX_SERIES_SEARCH_TARGETS = 8
@@ -159,9 +163,18 @@ def _provider_plan(ctx):
     )
 
 
-def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
+def start_search(ctx, *, actor, browser_session, entity_type, entity_id, mode=None):
     """Validate one tracked item or series, create polling state, and start collection."""
 
+    mode = str(mode or "review").strip().lower()
+    if mode not in _SEARCH_MODES:
+        return {"success": False, "status_code": 400, "error": "Unsupported search mode"}
+    if mode == "unfiltered" and str(entity_type or "").strip().lower() != "series":
+        return {
+            "success": False,
+            "status_code": 400,
+            "error": "Unfiltered search is only available for a series",
+        }
     entity, error = _resolve_entity(entity_type, entity_id)
     if error:
         return error
@@ -175,7 +188,13 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
                 "error": "No eligible missing issues remain to search",
             }
         entity["missing"] = missing
-        entity["targets"] = _search_targets(missing)
+        if mode == "unfiltered":
+            # One bare-title query per indexer (#767): a single anchor issue
+            # carries the evaluation context instead of the gap-start fan-out.
+            entity["search_mode"] = "unfiltered"
+            entity["targets"] = _ordered_missing(missing)[:1]
+        else:
+            entity["targets"] = _search_targets(missing)
     route_health = search_routes.route_health(ctx)
     if not route_health.get("success"):
         return {
@@ -199,6 +218,18 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id):
         for provider in plan
         if provider.blocked
     ]
+    if mode == "unfiltered":
+        # Surfaced, never silently skipped: these providers complete without
+        # querying because they cannot run one bare series-title query.
+        initial_failures += [
+            {
+                "provider": provider.name,
+                "code": "unsupported_provider",
+                "detail": "This provider cannot run a single unfiltered series query",
+            }
+            for provider in plan
+            if not provider.blocked and provider.kind not in _UNFILTERED_PROVIDER_KINDS
+        ]
     provider_total = len(plan) * max(1, len(entity.get("targets") or [entity]))
     try:
         pending = create_pending_session(
@@ -432,9 +463,13 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
     missing = entity.get("missing") or []
     targets = entity.get("targets") or _search_targets(missing)
     eligible = {(item["entity_type"], str(item["entity_id"])): item for item in missing}
+    unfiltered = entity.get("search_mode") == "unfiltered"
     # provider_total counts every provider once per target, so blocked providers
-    # (which never report completion) have to be offset per target too.
-    blocked_offset = len(initial_failures) * max(1, len(targets))
+    # (which never report completion) have to be offset per target too. Other
+    # initial failures (unfiltered mode's unsupported providers) still report
+    # completion themselves and must not be offset.
+    blocked_count = sum(1 for failure in initial_failures if failure.get("code") == "temporarily_blocked")
+    blocked_offset = blocked_count * max(1, len(targets))
 
     def publish_progress(provider=None):
         update_search_progress(
@@ -466,6 +501,12 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
 
         def on_evaluations(values, searched=target):
             for evaluation in values:
+                if unfiltered:
+                    # Grab must revalidate under the same bare-title pass, so
+                    # the mode travels with the persisted reconstruction.
+                    evaluation.reconstruction_hint = dict(
+                        evaluation.reconstruction_hint or {}, search_mode="unfiltered"
+                    )
                 evaluation.satisfies = _satisfies_for_evaluation(evaluation, searched, eligible)
                 _merge_series_evaluation(collected, evaluation)
 
@@ -484,6 +525,7 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
         try:
             with (
                 _WORKER_LOCK,
+                search.unfiltered_series_pass() if unfiltered else nullcontext(),
                 search_filer.interactive_collection(
                     on_evaluations=on_evaluations,
                     on_provider_complete=on_complete,
@@ -547,7 +589,7 @@ def _same_candidate_identity(stored, current):
     return stored_id in (None, "") or str(stored_id) == str(current.get("provider_item_id"))
 
 
-def _revalidate_candidate(entity, *, override_reason=None):
+def _revalidate_candidate(entity, *, override_reason=None, unfiltered=False):
     evaluations = []
 
     def on_evaluations(values):
@@ -557,6 +599,7 @@ def _revalidate_candidate(entity, *, override_reason=None):
     with (
         _WORKER_LOCK,
         override,
+        search.unfiltered_series_pass() if unfiltered else nullcontext(),
         search_filer.interactive_collection(
             on_evaluations=on_evaluations,
             on_provider_complete=lambda _provider: None,
@@ -709,7 +752,13 @@ def grab_candidate(
             )
 
         try:
-            evaluations, search_result = _revalidate_candidate(entity, override_reason=override_reason)
+            evaluations, search_result = _revalidate_candidate(
+                entity,
+                override_reason=override_reason,
+                # An unfiltered candidate may only be retrievable by the bare
+                # pass (e.g. a newznab result), so revalidation reuses it.
+                unfiltered=(candidate.get("reconstruction") or {}).get("search_mode") == "unfiltered",
+            )
         except Exception as e:
             logger.error("[INTERACTIVE-GRAB] Candidate revalidation failed: %s" % redact_sensitive_text(e))
             return _release_with_error(

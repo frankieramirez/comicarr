@@ -217,7 +217,7 @@ function IssueContext({
         <div className="truncate text-sm font-semibold">{name}</div>
         <div className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
           {isSeries
-            ? missingLabel
+            ? `${issue.unfiltered ? "Unfiltered · " : ""}${missingLabel}`
             : `${issue.annual ? "Annual" : "Issue"} · ${issue.Status ?? "Tracked"}`}
           {expiresAt ? ` · available until ${formatPublished(expiresAt)}` : ""}
         </div>
