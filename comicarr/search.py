@@ -727,11 +727,19 @@ def search_init(
                 else:
                     logger.info("API searchmode enabled for %s" % ComicName)
                     scarios["RSS"] = "no"
-                    altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
                     if unfiltered_pass_active():
                         # One query per indexer: alternate-name variants would
-                        # each add another query against the same provider.
-                        altnames = altnames[:1]
+                        # each add another query against the same provider, and
+                        # the query must be the bare series title even when an
+                        # alternate name carries `!!` priority.
+                        altnames = [
+                            {
+                                "ComicName": ComicName,
+                                "unaltered_ComicName": ComicName,
+                            }
+                        ]
+                    else:
+                        altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
                     for xx in altnames:
                         logger.info("comicname searched for: %s" % ComicName)
                         if all([findit["status"] is False, not provider_blocked]):
