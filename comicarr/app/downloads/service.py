@@ -363,13 +363,7 @@ def delete_ddl_item(item_id):
 
 
 def _enqueue_ddl_queue_item(target_queue, item):
-    """Hand a DDL command to the in-memory worker queue with process-local dedupe.
-
-    ``DDL_QUEUED`` tracks ids already handed to this process's worker (queued or
-    in-flight). Skipping duplicates prevents cold-start Queued recovery from
-    racing journal STILL re-enqueue of the same id, and allows live outbox
-    sweeps without double-dispatching items already sitting in the queue.
-    """
+    """Hand a DDL command to the in-memory worker queue with process-local dedupe."""
     item_id = None
     if isinstance(item, dict):
         item_id = item.get("id") or item.get("ID")
@@ -382,11 +376,7 @@ def _enqueue_ddl_queue_item(target_queue, item):
 
 
 def recover_queued_ddl_commands(queue=None):
-    """Replay the durable Queued outbox before the DDL worker starts.
-
-    Only ``Queued`` rows are eligible: ``Downloading`` rows belong to the
-    pipeline journal recovery path and must never be duplicated here.
-    """
+    """Replay the durable Queued outbox before the DDL worker starts."""
     target_queue = queue if queue is not None else comicarr.DDL_QUEUE
     result = {"enqueued_ids": [], "failed_ids": [], "handoff_failed_ids": []}
 
@@ -487,12 +477,7 @@ def requeue_ddl_item(item_id):
 
 
 def queue_ddl_download(command_values):
-    """Validate, persist, and queue a complete direct-download command.
-
-    The durable row is committed before the in-memory handoff. If the queue
-    insertion fails, the row remains Queued so cold-start recovery can replay
-    the command without losing it.
-    """
+    """Validate, persist, and queue a complete direct-download command."""
     try:
         command = DDLCommand.from_mapping(command_values)
     except DDLCommandError as e:
@@ -527,11 +512,7 @@ def queue_ddl_download(command_values):
 
 
 def get_issue_file_path(issue_id):
-    """Resolve the on-disk file path for an issue.
-
-    Returns (path, filename) tuple or (None, None) if not found.
-    Checks primary ComicLocation and MULTIPLE_DEST_DIRS secondary.
-    """
+    """Resolve the on-disk file path for an issue."""
     issue = dl_queries.get_issue_file_info(issue_id)
     if not issue:
         return None, None
