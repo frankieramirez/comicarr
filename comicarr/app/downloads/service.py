@@ -581,4 +581,259 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     comicid = str(comicid)
 
     logger.fdebug(type(comicid))
-    lo
+    logger.fdebug(type(issueid))
+    logger.fdebug("comicid: %s" % comicid)
+    logger.fdebug("issue# as per cv: %s" % issue)
+
+    if issueid is None:
+        logger.fdebug("annualize is " + str(annualize))
+        if arc:
+            chkissue = db.select_one(
+                select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.IssueNumber == issue)
+            )
+        else:
+            chkissue = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.Issue_Number == issue))
+            if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
+                chkissue = db.select_one(
+                    select(annuals).where(
+                        annuals.c.ComicID == comicid, annuals.c.Issue_Number == issue, annuals.c.Deleted != 1
+                    )
+                )
+
+        if chkissue is None:
+            if arc:
+                chkissue = db.select_one(
+                    select(storyarcs).where(
+                        storyarcs.c.ComicID == comicid, storyarcs.c.Int_IssueNumber == issuedigits(issue)
+                    )
+                )
+            else:
+                chkissue = db.select_one(
+                    select(issues).where(issues.c.ComicID == comicid, issues.c.Int_IssueNumber == issuedigits(issue))
+                )
+                if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
+                    chkissue = db.select_one(
+                        select(annuals).where(
+                            annuals.c.ComicID == comicid,
+                            annuals.c.Int_IssueNumber == issuedigits(issue),
+                            annuals.c.Deleted != 1,
+                        )
+                    )
+
+            if chkissue is None:
+                logger.error("Invalid Issue_Number - please validate.")
+                return
+            else:
+                logger.info("Int Issue_number compare found. continuing...")
+                issueid = chkissue["IssueID"]
+        else:
+            issueid = chkissue["IssueID"]
+
+    logger.fdebug("issueid is now : " + str(issueid))
+    if arc:
+        issuenzb = db.select_one(
+            select(storyarcs).where(
+                storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid, storyarcs.c.StoryArc == arc
+            )
+        )
+    else:
+        issuenzb = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.IssueID == issueid))
+        if issuenzb is None:
+            logger.fdebug("not an issue, checking against annuals")
+            issuenzb = db.select_one(
+                select(annuals).where(
+                    annuals.c.ComicID == comicid, annuals.c.IssueID == issueid, annuals.c.Deleted != 1
+                )
+            )
+            if issuenzb is None:
+                logger.fdebug("Unable to rename - cannot locate issue id within db")
+                return
+            else:
+                annualize = True
+
+    if issuenzb is None:
+        logger.fdebug("Unable to rename - cannot locate issue id within db")
+        return
+
+    if arc:
+        issuenum = issuenzb["IssueNumber"]
+        issuedate = issuenzb["IssueDate"]
+        publisher = issuenzb["IssuePublisher"]
+        series = issuenzb["ComicName"]
+        seriesfilename = series
+        seriesyear = issuenzb["SeriesYear"]
+        arcdir = filesafe(issuenzb["StoryArc"])
+        if comicarr.CONFIG.REPLACE_SPACES:
+            arcdir = arcdir.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+        if comicarr.CONFIG.STORYARCDIR:
+            if comicarr.CONFIG.STORYARC_LOCATION is None:
+                storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "StoryArcs", arcdir)
+            else:
+                storyarcd = os.path.join(comicarr.CONFIG.STORYARC_LOCATION, arcdir)
+            logger.fdebug("Story Arc Directory set to : " + storyarcd)
+        else:
+            logger.fdebug("Story Arc Directory set to : " + comicarr.CONFIG.GRABBAG_DIR)
+            storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.GRABBAG_DIR)
+        comlocation = storyarcd
+        comversion = None
+    else:
+        issuenum = issuenzb["Issue_Number"]
+        issuedate = issuenzb["IssueDate"]
+        comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comicid))
+        publisher = comicnzb["ComicPublisher"]
+        series = comicnzb["ComicName"]
+        if any([comicnzb["AlternateFileName"] is None, comicnzb["AlternateFileName"] == "None"]) or all(
+            [comicnzb["AlternateFileName"] is not None, comicnzb["AlternateFileName"].strip() == ""]
+        ):
+            seriesfilename = series
+        else:
+            seriesfilename = comicnzb["AlternateFileName"]
+            logger.fdebug(
+                "Alternate File Naming has been enabled for this series. Will rename series title to : "
+                + seriesfilename
+            )
+        seriesyear = comicnzb["ComicYear"]
+        comlocation = comicnzb["ComicLocation"]
+        comversion = comicnzb["ComicVersion"]
+
+    unicodeissue = issuenum
+
+    if type(issuenum) == str:
+        vals = {"\xbd": ".5", "\xbc": ".25", "\xbe": ".75", "\u221e": "9999999999", "\xe2": "9999999999"}
+    else:
+        vals = {"\xbd": ".5", "\xbc": ".25", "\xbe": ".75", "\\u221e": "9999999999", "\xe2": "9999999999"}
+    x = [vals[key] for key in vals if key in issuenum]
+    if x:
+        issuenum = x[0]
+        logger.fdebug("issue number formatted: %s" % issuenum)
+
+    issue_except = "None"
+    valid_spaces = (".", "-")
+    for issexcept in comicarr.ISSUE_EXCEPTIONS:
+        if issexcept.lower() in issuenum.lower():
+            logger.fdebug("ALPHANUMERIC EXCEPTION : [" + issexcept + "]")
+            v_chk = [v for v in valid_spaces if v in issuenum]
+            if v_chk:
+                iss_space = v_chk[0]
+            else:
+                iss_space = ""
+            if issexcept == "NOW":
+                if "!" in issuenum:
+                    issuenum = re.sub(r"\!", "", issuenum)
+            issue_except = iss_space + issexcept
+            logger.fdebug("issue_except denoted as : %s" % issue_except)
+            if issuenum.lower() != issue_except.lower():
+                issuenum = re.sub("[^0-9]", "", issuenum)
+                if any([issuenum == "", issuenum is None]):
+                    issuenum = issue_except
+            break
+
+    if "." in issuenum:
+        iss_find = issuenum.find(".")
+        iss_b4dec = issuenum[:iss_find]
+        if iss_find == 0:
+            iss_b4dec = "0"
+        iss_decval = issuenum[iss_find + 1 :]
+        if iss_decval.endswith("."):
+            iss_decval = iss_decval[:-1]
+        if int(iss_decval) == 0:
+            iss = iss_b4dec
+            issueno = iss
+        else:
+            if len(iss_decval) == 1:
+                iss = iss_b4dec + "." + iss_decval
+            else:
+                iss = iss_b4dec + "." + iss_decval.rstrip("0")
+            issueno = iss_b4dec
+    else:
+        iss = issuenum
+        issueno = iss
+
+    if comicarr.CONFIG.ZERO_LEVEL is False:
+        zeroadd = ""
+    else:
+        if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL_N is None]):
+            zeroadd = ""
+        elif comicarr.CONFIG.ZERO_LEVEL_N == "0x":
+            zeroadd = "0"
+        elif comicarr.CONFIG.ZERO_LEVEL_N == "00x":
+            zeroadd = "00"
+
+    prettycomiss = None
+
+    if issueno.isalpha():
+        prettycomiss = str(issueno)
+    else:
+        try:
+            x = float(issuenum)
+            if x < 0:
+                prettycomiss = "-" + str(zeroadd) + str(issueno[1:])
+            elif x == 9999999999:
+                issuenum = "infinity"
+            elif x >= 0:
+                pass
+            else:
+                raise ValueError
+        except ValueError:
+            logger.warn("Unable to properly determine issue number [ %s]" % issueno)
+            return
+
+    if all([prettycomiss is None, len(str(issueno)) > 0]):
+        if int(issueno) < 10:
+            if "." in iss:
+                if int(iss_decval) > 0:
+                    issueno = str(iss)
+                    prettycomiss = str(zeroadd) + str(iss)
+                else:
+                    prettycomiss = str(zeroadd) + str(int(issueno))
+            else:
+                prettycomiss = str(zeroadd) + str(iss)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+        elif int(issueno) >= 10 and int(issueno) < 100:
+            if any(
+                [
+                    comicarr.CONFIG.ZERO_LEVEL_N == "none",
+                    comicarr.CONFIG.ZERO_LEVEL_N is None,
+                    comicarr.CONFIG.ZERO_LEVEL is False,
+                ]
+            ):
+                zeroadd = ""
+            else:
+                zeroadd = "0"
+            if "." in iss:
+                if int(iss_decval) > 0:
+                    issueno = str(iss)
+                    prettycomiss = str(zeroadd) + str(iss)
+                else:
+                    prettycomiss = str(zeroadd) + str(int(issueno))
+            else:
+                prettycomiss = str(zeroadd) + str(iss)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+        else:
+            if issuenum == "infinity":
+                prettycomiss = "infinity"
+            else:
+                if "." in iss:
+                    if int(iss_decval) > 0:
+                        issueno = str(iss)
+                prettycomiss = str(issueno)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+    elif len(str(issueno)) == 0:
+        prettycomiss = str(issueno)
+
+    if comicarr.CONFIG.UNICODE_ISSUENUMBER:
+        prettycomiss = unicodeissue
+
+    issueyear = issuedate[:4]
+    month = issuedate[5:7].replace("-", "").strip()
+    month_name = fullmonth(month)
+    if month_name is None:
+        month_name = "None"
+
+    if comversion is None:
+        comversion = "None"
+    if comversion == "None":
+       
