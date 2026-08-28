@@ -1,0 +1,54 @@
+#  Copyright (C) 2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+
+"""Weekly pull-list upstream outage fallback tests."""
+
+from unittest.mock import MagicMock, patch
+
+import comicarr
+from comicarr import weeklypull
+
+
+def test_pullit_uses_cached_week_when_upstream_fails(monkeypatch):
+    config = MagicMock()
+    config.ALT_PULL = 2
+    config.CACHE_DIR = "/tmp"
+    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(
+        weeklypull.helpers,
+        "weekly_info",
+        lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
+    )
+    monkeypatch.setattr(weeklypull, "_weekly_pull_has_data", lambda week, year: week == 33 and year == 2026)
+    monkeypatch.setattr(weeklypull.locg, "locg", lambda **kwargs: {"status": "failure"})
+    new_pullcheck = MagicMock()
+    monkeypatch.setattr(weeklypull, "new_pullcheck", new_pullcheck)
+    monkeypatch.setattr(weeklypull.time, "sleep", lambda *_args: None)
+
+    with patch.object(weeklypull.db, "select_one", return_value={"SHIPDATE": "20260827"}):
+        result = weeklypull.pullit()
+
+    assert result == {"status": "success"}
+    new_pullcheck.assert_called_once_with(33, 2026)
+
+
+def test_pullit_still_fails_without_cached_week(monkeypatch):
+    config = MagicMock()
+    config.ALT_PULL = 2
+    config.CACHE_DIR = "/tmp"
+    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(
+        weeklypull.helpers,
+        "weekly_info",
+        lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
+    )
+    monkeypatch.setattr(weeklypull, "_weekly_pull_has_data", lambda *_args: False)
+    monkeypatch.setattr(weeklypull.locg, "locg", lambda **kwargs: {"status": "failure"})
+    monkeypatch.setattr(weeklypull, "new_pullcheck", MagicMock())
+    monkeypatch.setattr(weeklypull.time, "sleep", lambda *_args: None)
+
+    with patch.object(weeklypull.db, "select_one", return_value={"SHIPDATE": "20260827"}):
+        result = weeklypull.pullit()
+
+    assert result == {"status": "failure"}
