@@ -32,6 +32,7 @@ from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
+from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
 from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessContext,
@@ -3430,8 +3431,8 @@ class PostProcessor(object):
                         OComicname = oneinfo["COMIC"]
                         OIssue = oneinfo["ISSUE"]
                         OPublisher = oneinfo["PUBLISHER"]
-                        OSeriesYear = oneoff["SHIPDATE"][:4]
-                        OSeriesVolume = oneoff["volume"]
+                        OSeriesYear = oneinfo["SHIPDATE"][:4]
+                        OSeriesVolume = oneinfo["volume"]
 
                     ppinfo.append(
                         {
@@ -4670,15 +4671,7 @@ class PostProcessor(object):
             issueno = iss
 
         # issue zero-suppression here
-        if comicarr.CONFIG.ZERO_LEVEL is False:
-            zeroadd = ""
-        else:
-            if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL is None]):
-                zeroadd = ""
-            elif comicarr.CONFIG.ZERO_LEVEL_N == "0x":
-                zeroadd = "0"
-            elif comicarr.CONFIG.ZERO_LEVEL_N == "00x":
-                zeroadd = "00"
+        zeroadd = zero_suppression_prefix(comicarr.CONFIG.ZERO_LEVEL, comicarr.CONFIG.ZERO_LEVEL_N)
 
         logger.fdebug("%s Zero Suppression set to : %s" % (module, comicarr.CONFIG.ZERO_LEVEL_N))
 

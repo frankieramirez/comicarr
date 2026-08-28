@@ -18,6 +18,7 @@ import datetime
 import os
 import re
 import time
+import traceback
 import zipfile
 
 import rarfile
@@ -1976,7 +1977,10 @@ def _run_owned_postprocess(item):
                 comicarr.APILOCK.release()
             except RuntimeError:
                 pass
-        logger.error("[DOWNLOADS-PP] Owned post-processing failed; item quarantined: %s" % type(e).__name__)
+        logger.error(
+            "[DOWNLOADS-PP] Owned post-processing failed; item quarantined: %s: %s\n%s"
+            % (type(e).__name__, e, traceback.format_exc())
+        )
         return "failed", None
     finally:
         controller.release_lease(lease.lease_id)

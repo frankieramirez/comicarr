@@ -350,6 +350,22 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
     return int_issnum
 
 
+def zero_suppression_prefix(zero_level, zero_level_n):
+    """Resolve the issue-number zero-padding prefix from config.
+
+    Total over every input: an unset or unrecognized ``zero_level_n`` means
+    no padding, never an error (issue #796 — ZERO_LEVEL enabled with
+    ZERO_LEVEL_N at its unset default raised UnboundLocalError downstream).
+    """
+    if not zero_level:
+        return ""
+    if zero_level_n == "0x":
+        return "0"
+    if zero_level_n == "00x":
+        return "00"
+    return ""
+
+
 def sizeof_fmt(num, suffix="B"):
     """Format byte size with binary suffix (e.g., KiB, MiB, GiB)."""
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
