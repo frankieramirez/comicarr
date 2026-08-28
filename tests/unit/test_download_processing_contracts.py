@@ -794,6 +794,90 @@ def test_worker_marks_poison_item_failed_and_continues_to_shutdown(monkeypatch):
     assert work.empty()
 
 
+def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None):
+    """Run one DDL item through the worker loop, then shut down.
+
+    Calls _ddl_downloader_loop directly rather than ddl_downloader: the public
+    wrapper swallows any exception and discards DDL_QUEUED as poison recovery,
+    which would mask whether the terminal branch released ownership itself.
+    """
+
+    class _FakeGC:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def downloadit(self, **kwargs):
+            return dict(ddzstat)
+
+        def parse_downloadresults(self, *args, **kwargs):
+            if on_parse is not None:
+                on_parse()
+
+    work = queue.Queue()
+    work.put(_complete_ddl_payload())
+    work.put("exit")
+
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False)
+    monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-1"})
+    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-1"})
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(POST_PROCESSING=False), raising=False)
+
+    statuses = []
+    monkeypatch.setattr(
+        service.db,
+        "upsert",
+        lambda table, values, controls: statuses.append((table, values, controls)),
+    )
+    monkeypatch.setattr(service, "reverse_the_pack_snatch", lambda *a, **k: None)
+    monkeypatch.setattr(service, "ddl_cleanup", lambda *a, **k: None)
+    monkeypatch.setattr(service.getcomics, "GC", _FakeGC)
+
+    from comicarr.app.downloads import handoff
+
+    def _fake_handoff(release_key, kind, side_effect, **kwargs):
+        return side_effect()
+
+    monkeypatch.setattr(handoff, "perform_handoff", _fake_handoff)
+
+    # Seeded so the terminal branch's link_type_failure.pop succeeds and the
+    # loop returns normally instead of unwinding into poison recovery.
+    service._ddl_downloader_loop(work, {"ddl-1": ["GC-Main"]}, {"value": None})
+    return statuses
+
+
+def test_worker_releases_queue_ownership_when_links_are_exhausted(monkeypatch):
+    """A terminal DDL failure must not leave the id owned in-process (#784)."""
+    statuses = _drive_ddl_worker(
+        monkeypatch,
+        {"success": False, "filename": None, "path": None, "links_exhausted": True},
+    )
+
+    assert statuses[-1][1]["status"] == "Failed"
+    assert "ddl-1" not in comicarr.DDL_QUEUED
+    assert "ddl-1" not in comicarr.DDL_STUCK_NOTIFIED
+
+
+def test_worker_releases_queue_ownership_before_retrying_remaining_links(monkeypatch):
+    """The retry re-queues the same id, so ownership must be released first (#784).
+
+    getcomics._queue_download_batch reuses item_id when a result has a single
+    link, so if DDL_QUEUED still held the id here _enqueue_ddl_queue_item would
+    dedupe the retry away and the item would sit in Queued forever.
+    """
+    owned_during_retry = {}
+
+    def _record():
+        owned_during_retry["value"] = "ddl-1" in comicarr.DDL_QUEUED
+
+    _drive_ddl_worker(
+        monkeypatch,
+        {"success": False, "filename": None, "path": None},
+        on_parse=_record,
+    )
+
+    assert owned_during_retry["value"] is False
+
+
 class _TrackingLock:
     def __init__(self):
         self._locked = False
