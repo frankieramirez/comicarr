@@ -794,7 +794,7 @@ def test_worker_marks_poison_item_failed_and_continues_to_shutdown(monkeypatch):
     assert work.empty()
 
 
-def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None):
+def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None, link_type_failure=None):
     """Run one DDL item through the worker loop, then shut down.
 
     Calls _ddl_downloader_loop directly rather than ddl_downloader: the public
@@ -839,9 +839,12 @@ def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None):
 
     monkeypatch.setattr(handoff, "perform_handoff", _fake_handoff)
 
-    # Seeded so the terminal branch's link_type_failure.pop succeeds and the
-    # loop returns normally instead of unwinding into poison recovery.
-    service._ddl_downloader_loop(work, {"ddl-1": ["GC-Main"]}, {"value": None})
+    # Seeded by default so the terminal branch's link_type_failure.pop finds a
+    # key and the loop returns normally instead of unwinding into poison
+    # recovery. Pass {} to exercise the first-attempt case.
+    if link_type_failure is None:
+        link_type_failure = {"ddl-1": ["GC-Main"]}
+    service._ddl_downloader_loop(work, link_type_failure, {"value": None})
     return statuses
 
 
@@ -850,6 +853,26 @@ def test_worker_releases_queue_ownership_when_links_are_exhausted(monkeypatch):
     statuses = _drive_ddl_worker(
         monkeypatch,
         {"success": False, "filename": None, "path": None, "links_exhausted": True},
+    )
+
+    assert statuses[-1][1]["status"] == "Failed"
+    assert "ddl-1" not in comicarr.DDL_QUEUED
+    assert "ddl-1" not in comicarr.DDL_STUCK_NOTIFIED
+
+
+def test_worker_handles_links_exhausted_on_the_first_attempt(monkeypatch):
+    """Links exhausted with no recorded link failure must not unwind the loop.
+
+    link_type_failure only gains a key once a retry has recorded one, so a
+    result that arrives already exhausted reaches the terminal branch with
+    nothing to pop. An unguarded pop raised KeyError here, which unwound into
+    ddl_downloader's catch-all and marked the item Failed as poison recovery,
+    skipping reverse_the_pack_snatch and ddl_cleanup for that item.
+    """
+    statuses = _drive_ddl_worker(
+        monkeypatch,
+        {"success": False, "filename": None, "path": None, "links_exhausted": True},
+        link_type_failure={},
     )
 
     assert statuses[-1][1]["status"] == "Failed"

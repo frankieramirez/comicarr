@@ -1731,7 +1731,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         reverse_the_pack_snatch(item["id"], item["comicid"])
                         comicarr.DDL_QUEUED.discard(item["id"])
                         comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
-                        link_type_failure.pop(item["id"])
+                        link_type_failure.pop(item["id"], None)
                         ddl_cleanup(item["id"])
                 else:
                     with db.get_engine().begin() as conn:
