@@ -758,4 +758,3997 @@ def search_init(
                             findit = search_the_matrix(scarios)
                             logger.info("findit: %s" % (findit,))
                             if findit["status"] is True:
-             
+                                logger.fdebug("findit = found!")
+                                break
+
+                if findit["status"] is True:
+                    # logger.fdebug("findit = found!")
+                    break
+
+                if all(
+                    [
+                        not provider_blocked,
+                        "".join(current_prov.keys()) not in checked_once,
+                    ]
+                ) and "".join(current_prov.keys()) in (
+                    "32P",
+                    "DDL(GetComics)",
+                    "DDL(External)",
+                    "Public Torrents",
+                    "experimental",
+                ):
+                    logger.info("check_once check.")
+                    checked_once.append("".join(current_prov.keys()))
+
+                if current_prov.get("newznab"):
+                    current_prov[newznab_host[0].rstrip()] = current_prov.pop("newznab")
+                elif current_prov.get("torznab"):
+                    current_prov[torznab_host[0].rstrip()] = current_prov.pop("torznab")
+                if manual is not True:
+                    if tmp_IssueNumber is not None:
+                        issuedisplay = tmp_IssueNumber
+                    else:
+                        if any([booktype == "One-Shot", booktype == "TPB", booktype == "HC", booktype == "GC"]):
+                            issuedisplay = None
+                        else:
+                            issuedisplay = StoreDate[5:]
+                            if "annual" in ComicName.lower():
+                                if re.findall(r"(?:19|20)\d{2}", ComicName):
+                                    issuedisplay = None
+
+                    if issuedisplay is None:
+                        logger.info(
+                            "Could not find %s (%s) using %s [%s]"
+                            % (ComicName, SeriesYear, list(current_prov.keys())[0], searchmode)
+                        )
+                    else:
+                        logger.info(
+                            "Could not find Issue %s of %s (%s) using %s [%s]"
+                            % (
+                                issuedisplay,
+                                ComicName,
+                                SeriesYear,
+                                list(current_prov.keys())[0],
+                                searchmode,
+                            )
+                        )
+                if findit["status"] is True:
+                    if current_prov.get("newznab"):
+                        current_prov[newznab_host[0].rstrip() + " (newznab)"] = current_prov.pop("newznab")
+                    elif current_prov.get("torznab"):
+                        current_prov[torznab_host[0].rstrip() + " (torznab)"] = current_prov.pop("torznab")
+                    srchloop = 4
+                    break
+                elif srchloop == 2 and (tmp_cmloopit - 1 >= 1) and "".join(current_prov.keys()) not in checked_once:
+                    # don't think this is needed as we do the check_time btwn searches now
+                    pass
+
+                if interactive:
+                    # One numbered query per provider; keep only the
+                    # bare-title pack pass that pack discovery needs (#744).
+                    # Alternate names still each get their query above:
+                    # they are distinct titles (aliases, manga chapter
+                    # forms), not padding retries, and dropping them would
+                    # hide results a manual review exists to surface.
+                    tmp_cmloopit = 0 if (pack_title_pass and tmp_cmloopit > 0) else -1
+                else:
+                    tmp_cmloopit -= 1
+
+            search_filer.report_provider_complete(progress_provider)
+            prov_count += 1
+            logger.info("attempting to set %s to not being the active provider." % (list(current_prov.keys())[0]))
+            if findit["lastrun"] != 0:
+                logger.info("setting last run to: %s" % (findit["lastrun"]))
+                last_run_check(
+                    write={
+                        "".join(current_prov.keys()): {
+                            "active": False,
+                            "lastrun": findit["lastrun"],
+                            "type": current_prov[list(current_prov.keys())[0]]["type"],
+                            "hits": current_prov[list(current_prov.keys())[0]]["hits"],
+                            "id": current_prov[list(current_prov.keys())[0]]["id"],
+                        }
+                    }
+                )
+                # current_prov[list(current_prov.keys())[0]]['lastrun'] = findit['lastrun']
+            current_prov[list(current_prov.keys())[0]]["active"] = False
+            logger.info("setting took. Current provider is: %s" % (current_prov,))
+
+        srchloop += 1
+
+    if manual is True:
+        logger.info("I have matched %s files: %s" % (len(comicarr.COMICINFO), comicarr.COMICINFO))
+        return comicarr.COMICINFO, "None"
+
+    if findit["status"] is True:
+        # check for snatched_havetotal being enabled here and adjust counts now.
+        # IssueID being the catch/check for one-offs as they won't exist on the
+        # watchlist and error out otherwise.
+        if comicarr.CONFIG.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
+            logger.fdebug("Adding this to the HAVE total for the series.")
+            helpers.incr_snatched(ComicID)
+        return findit, list(current_prov.keys())[0]
+    else:
+        logger.fdebug("findit: %s" % findit)
+        if manualsearch is None:
+            logger.info("Finished searching via : %s. Issue not found - status kept as Wanted." % searchmode)
+        else:
+            logger.fdebug("Could not find issue doing a manual search via : %s" % searchmode)
+        if current_prov.get("32P"):
+            if comicarr.CONFIG.MODE_32P == 0:
+                return findit, "None"
+            elif comicarr.CONFIG.MODE_32P == 1 and searchmode == "api":
+                return findit, "None"
+
+        # AI search expansion: generate alternate queries when all providers fail
+        if not _ai_expanded and ComicID is not None:
+            try:
+                from comicarr.app.ai.search_expansion import (
+                    expand_search_queries,
+                    persist_successful_expansion,
+                )
+
+                ai_alternates = expand_search_queries(
+                    comic_id=ComicID,
+                    series_name=ComicName,
+                    publisher=Publisher,
+                    year=SeriesYear,
+                )
+                if ai_alternates:
+                    logger.fdebug(
+                        "[AI-SEARCH] Retrying search with %d AI-generated alternates for %s"
+                        % (len(ai_alternates), ComicName)
+                    )
+                    # Append AI alternates to existing AlternateSearch
+                    ai_alt_str = "##".join(ai_alternates)
+                    if AlternateSearch and AlternateSearch != "None":
+                        expanded_alt = AlternateSearch + "##" + ai_alt_str
+                    else:
+                        expanded_alt = ai_alt_str
+
+                    ai_findit, ai_prov = search_init(
+                        ComicName,
+                        IssueNumber,
+                        ComicYear,
+                        SeriesYear,
+                        Publisher,
+                        IssueDate,
+                        StoreDate,
+                        IssueID,
+                        AlternateSearch=expanded_alt,
+                        UseFuzzy=UseFuzzy,
+                        ComicVersion=ComicVersion,
+                        SARC=SARC,
+                        IssueArcID=IssueArcID,
+                        smode=smode,
+                        rsschecker=rsschecker,
+                        ComicID=ComicID,
+                        manualsearch=manualsearch,
+                        filesafe=filesafe,
+                        allow_packs=allow_packs,
+                        oneoff=oneoff,
+                        manual=manual,
+                        torrentid_32p=torrentid_32p,
+                        digitaldate=digitaldate,
+                        booktype=booktype,
+                        ignore_booktype=ignore_booktype,
+                        _ai_expanded=True,
+                        content_type=content_type,
+                        chapter_number=chapter_number,
+                        volume_number=volume_number,
+                    )
+                    if ai_findit.get("status") is True:
+                        # Determine which alternate worked by checking the result
+                        for alt in ai_alternates:
+                            persist_successful_expansion(ComicID, alt)
+                            break
+                        return ai_findit, ai_prov
+            except Exception as e:
+                logger.error("[AI-SEARCH] Expansion fallback error: %s" % e)
+
+    return findit, "None"
+
+
+def _providers_without_ddl(provider_list):
+    """Copy a provider_order() result with comic DDL indexers removed."""
+    filtered = dict(provider_list)
+    filtered["prov_order"] = [name for name in provider_list.get("prov_order", []) if not str(name).startswith("DDL(")]
+    filtered["totalproviders"] = len(filtered["prov_order"])
+    return filtered
+
+
+def provider_order(initial_run=False):
+    from comicarr.app.search.providers import effective_provider_plan, runtime_provider_entry
+
+    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=helpers.block_provider_check)
+    tor_candidates = [
+        candidate for candidate in plan if candidate.kind in {"torznab", "torrent"} and not candidate.blocked
+    ]
+    nzb_candidates = [
+        candidate for candidate in plan if candidate.kind in {"newznab", "experimental"} and not candidate.blocked
+    ]
+    ddl_candidates = [candidate for candidate in plan if candidate.kind == "ddl" and not candidate.blocked]
+
+    torp = sum(1 for candidate in tor_candidates if candidate.kind == "torrent")
+    torznabs = sum(1 for candidate in tor_candidates if candidate.kind == "torznab")
+    nzbp = sum(1 for candidate in nzb_candidates if candidate.kind == "experimental")
+    newznabs = sum(1 for candidate in nzb_candidates if candidate.kind == "newznab")
+    ddls = len(ddl_candidates)
+
+    if initial_run:
+        logger.fdebug("nzbprovider(s): %s" % [candidate.execution_name for candidate in nzb_candidates])
+    torproviders = torp + torznabs
+    if initial_run:
+        logger.fdebug("There are %s torrent providers you have selected." % torproviders)
+    providercount = int(nzbp + newznabs)
+    if initial_run:
+        logger.fdebug("There are : %s nzb providers you have selected" % providercount)
+        if providercount > 0:
+            logger.fdebug("Usenet Retention : %s days" % comicarr.CONFIG.USENET_RETENTION)
+
+    if ddls > 0 and initial_run:
+        logger.fdebug("there are %s Direct Download providers that are currently enabled." % ddls)
+
+    totalproviders = providercount + torproviders + ddls
+
+    active_plan = [candidate for candidate in plan if not candidate.blocked]
+    prov_order = [candidate.execution_name for candidate in active_plan]
+    torznab_info = [
+        {"provider": candidate.execution_name, "info": runtime_provider_entry(candidate)}
+        for candidate in active_plan
+        if candidate.kind == "torznab"
+    ]
+    newznab_info = [
+        {"provider": candidate.execution_name, "info": runtime_provider_entry(candidate)}
+        for candidate in active_plan
+        if candidate.kind == "newznab"
+    ]
+    # if initial_run:
+    #    logger.fdebug('search provider order is %s' % prov_order)
+
+    return {
+        "prov_order": prov_order,
+        "torznab_info": torznab_info,
+        "newznab_info": newznab_info,
+        "totalproviders": totalproviders,
+    }
+
+
+def NZB_SEARCH(
+    ComicName,
+    IssueNumber,
+    ComicYear,
+    SeriesYear,
+    Publisher,
+    IssueDate,
+    StoreDate,
+    nzbprov,
+    prov_count,
+    IssDateFix,
+    IssueID,
+    UseFuzzy,
+    newznab_host=None,
+    ComicVersion=None,
+    SARC=None,
+    IssueArcID=None,
+    RSS=None,
+    ComicID=None,
+    issuetitle=None,
+    unaltered_ComicName=None,
+    allow_packs=None,
+    oneoff=False,
+    cmloopit=None,
+    manual=False,
+    torznab_host=None,
+    torrentid_32p=None,
+    digitaldate=None,
+    booktype=None,
+    chktpb=0,
+    ignore_booktype=False,
+    smode=None,
+):
+
+    # Pack eligibility only requires torrent search to be enabled; historically it
+    # was also gated behind ENABLE_32P, which blocked packs from every other
+    # torrent/Torznab provider (#632).
+    if _allow_packs_enabled(allow_packs) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
+        allow_packs = True
+    else:
+        allow_packs = False
+    newznab_local = False
+    untouched_name = None
+    provider_stat = nzbprov
+    # logger.fdebug('provider_stat_before: %s' % (provider_stat))
+    if type(nzbprov) != str:
+        nzbprov = list(nzbprov.keys())[0]
+        provider_stat = provider_stat.get(list(provider_stat.keys())[0])
+    # logger.info('nzbprov: %s' % (nzbprov))
+    # logger.fdebug('provider_stat_after: %s' % (provider_stat))
+    if nzbprov == "experimental":
+        apikey = "none"
+        verify = False
+    elif provider_stat["type"] == "torznab":
+        name_torznab = torznab_host[0].rstrip()
+        host_torznab = torznab_host[1].rstrip()
+        verify = bool(int(torznab_host[2]))
+        apikey = torznab_host[3].rstrip()
+        category_torznab = torznab_host[4]
+        if any([category_torznab is None, category_torznab == "None"]):
+            category_torznab = "8020"
+        if "#" in category_torznab:
+            category_torznab = category_torznab.replace("#", ",")
+        logger.fdebug("Using Torznab host of : %s" % name_torznab)
+    elif provider_stat["type"] == "newznab":
+        # updated to include Newznab Name now
+        name_newznab = newznab_host[0].rstrip()
+        host_newznab = newznab_host[1].rstrip()
+        untouched_name = name_newznab
+        if name_newznab[-7:] == "[local]":
+            name_newznab = name_newznab[:-7].strip()
+            newznab_local = True
+        elif name_newznab[-10:] == "[nzbhydra]":
+            name_newznab = name_newznab[:-10].strip()
+            newznab_local = False
+        apikey = newznab_host[3].rstrip()
+        verify = bool(int(newznab_host[2]))
+        if "#" in newznab_host[4].rstrip():
+            category_newznab = split_newznab_category_field(newznab_host[4])[1]
+            logger.fdebug("Non-default Newznab category set to : %s" % category_newznab)
+        else:
+            category_newznab = "7030"
+        logger.fdebug("Using Newznab host of : %s" % name_newznab)
+
+    if RSS == "yes":
+        if provider_stat["type"] == "newznab":
+            tmpprov = "%s (%s) [RSS]" % (name_newznab, provider_stat["type"])
+        elif provider_stat["type"] == "torznab":
+            tmpprov = "%s (%s) [RSS]" % (name_torznab, provider_stat["type"])
+        else:
+            tmpprov = "%s [RSS]" % nzbprov
+    else:
+        if provider_stat["type"] == "newznab":
+            tmpprov = "%s (%s)" % (name_newznab, provider_stat["type"])
+        elif provider_stat["type"] == "torznab":
+            tmpprov = "%s (%s)" % (name_torznab, provider_stat["type"])
+        else:
+            tmpprov = nzbprov
+    if cmloopit == 4:
+        issuedisplay = None
+        logger.info("Shhh be very quiet...I'm looking for %s (%s) using %s." % (ComicName, ComicYear, tmpprov))
+    elif IssueNumber is not None:
+        issuedisplay = IssueNumber
+    else:
+        issuedisplay = StoreDate[5:]
+
+    if "0-Day Comics Pack" in ComicName:
+        logger.info("Shhh be very quiet...I'm looking for %s using %s." % (ComicName, tmpprov))
+    elif cmloopit != 4:
+        logger.info(
+            "Shhh be very quiet...I'm looking for %s issue: %s (%s) using %s."
+            % (ComicName, issuedisplay, ComicYear, tmpprov)
+        )
+
+    comsearch = []
+    isssearch = []
+    comyear = str(ComicYear)
+    findcomic = ComicName
+
+    cm1 = re.sub(r"[\/\-]", " ", findcomic)
+    # remove 'and' & '&' from the search pattern entirely
+    # (broader results, will filter out later)
+    cm = re.sub("\\band\\b", "", cm1.lower())
+
+    # remove 'the' from the search pattern to accomodate naming differences
+    cm = re.sub("\\bthe\\b", "", cm.lower())
+
+    cm = re.sub(r"[\&\:\?\,]", "", str(cm))
+    cm = re.sub(r"\s+", " ", cm)
+    # replace whitespace in comic name with %20 for api search
+    cm = re.sub(" ", "%20", str(cm))
+    cm = re.sub("'", "%27", str(cm))
+
+    if IssueNumber is not None:
+        intIss = helpers.issuedigits(IssueNumber)
+        iss = IssueNumber
+        if "\xbd" in IssueNumber:
+            findcomiciss = "0.5"
+        elif "\xbc" in IssueNumber:
+            findcomiciss = "0.25"
+        elif "\xbe" in IssueNumber:
+            findcomiciss = "0.75"
+        elif "\u221e" in IssueNumber:
+            # issnum = utf-8 will encode the infinity symbol without any help
+            findcomiciss = "infinity"  # set 9999999999 for integer value of issue
+        else:
+            findcomiciss = iss
+
+        isssearch = str(findcomiciss)
+    else:
+        intIss = None
+        isssearch = None
+        findcomiciss = None
+
+    comsearch = cm
+    findcount = 1  # this could be a loop in the future possibly
+
+    findloop = 0
+    # foundcomic = []
+    foundc = {}
+    foundc["status"] = False
+    foundc["provider"] = nzbprov
+    foundc["lastrun"] = provider_stat["lastrun"]
+    done = False
+
+    is_info = {
+        "ComicName": ComicName,
+        "nzbprov": nzbprov,
+        "RSS": RSS,
+        "UseFuzzy": UseFuzzy,
+        "StoreDate": StoreDate,
+        "IssueDate": IssueDate,
+        "digitaldate": digitaldate,
+        "booktype": booktype,
+        "ignore_booktype": ignore_booktype,
+        "SeriesYear": SeriesYear,
+        "ComicVersion": ComicVersion,
+        "IssDateFix": IssDateFix,
+        "ComicYear": ComicYear,
+        "IssueID": IssueID,
+        "ComicID": ComicID,
+        "IssueNumber": IssueNumber,
+        "manual": manual,
+        "newznab_host": newznab_host,
+        "torznab_host": torznab_host,
+        "oneoff": oneoff,
+        "tmpprov": tmpprov,
+        "SARC": SARC,
+        "IssueArcID": IssueArcID,
+        "cmloopit": cmloopit,
+        "findcomiciss": findcomiciss,
+        "intIss": intIss,
+        "chktpb": chktpb,
+        "smode": smode,
+        "provider_stat": provider_stat,
+        "allow_packs": allow_packs,
+        "foundc": foundc,
+    }
+
+    # origcmloopit = cmloopit
+    # seperatealpha = "no"
+    # ---issue problem
+    # if issue is '011' instead of '11' in nzb search results, will not have same
+    # results. '011' will return different than '11', as will '009' and '09'.
+    while findloop < findcount:
+        logger.fdebug("findloop: %s / findcount: %s" % (findloop, findcount))
+        comsrc = comsearch
+        if any([nzbprov == "Public Torrents", "DDL" in nzbprov, nzbprov == "experimental"]):
+            # DDL iteration is handled in it's own module as is experimental.
+            findloop = 99
+
+        if done is True:  # and seperatealpha == "no":
+            logger.fdebug("we should break out now - sucessful search previous")
+            findloop = 99
+            break
+
+            # here we account for issue pattern variations
+        if IssueNumber is not None:
+            # if seperatealpha == "yes":
+            #     isssearch = str(c_number) + "%20" + str(c_alpha)
+            if cmloopit == 3:
+                comsearch = comsrc + "%2000" + str(isssearch)
+                issdig = "00"
+            elif cmloopit == 2:
+                comsearch = comsrc + "%200" + str(isssearch)
+                issdig = "0"
+            elif cmloopit == 1:
+                comsearch = comsrc + "%20" + str(isssearch)
+                issdig = ""
+                if chktpb == 1:
+                    # this will open end the search based on just the series title,
+                    # no issue number, & no volume. Putting it at the last search option
+                    # and ONLY for tpb items hopefully will help it not retrieve 1000's.
+                    comsearch = comsrc
+                    chktpb += 1
+            elif cmloopit == 0:
+                # bare-title pack pass: the numbered variants above cannot
+                # retrieve pack releases whose titles carry no single issue
+                # number ("v01-14", "(2021-2026)"). Only runs when the series
+                # allows packs — see pack_title_pass in search_init.
+                if not _bare_pack_pass_allowed(provider_stat):
+                    is_info["foundc"]["status"] = False
+                    done = True
+                    break
+                comsearch = comsrc
+                issdig = ""
+            else:
+                is_info["foundc"]["status"] = False
+                done = True
+                break
+            mod_isssearch = str(issdig) + str(isssearch)
+        else:
+            if cmloopit == 4:
+                if any([booktype == "TPB", booktype == "HC", booktype == "GN"]):
+                    comsearch = comsrc + "%20v" + str(isssearch)
+                mod_isssearch = ""
+            else:
+                comsearch = StoreDate
+                mod_isssearch = StoreDate
+
+        # is_info = {'ComicName': ComicName,
+        #           'nzbprov': nzbprov,
+        #           'RSS': RSS,
+        #           'UseFuzzy': UseFuzzy,
+        #           'StoreDate': StoreDate,
+        #           'IssueDate': IssueDate,
+        #           'digitaldate': digitaldate,
+        #           'booktype': booktype,
+        #           'ignore_booktype': ignore_booktype,
+        #           'SeriesYear': SeriesYear,
+        #           'ComicVersion': ComicVersion,
+        #           'IssDateFix': IssDateFix,
+        #           'ComicYear': ComicYear,
+        #           'IssueID': IssueID,
+        #           'ComicID': ComicID,
+        #           'IssueNumber': IssueNumber,
+        #           'manual': manual,
+        #           'newznab_host': newznab_host,
+        #           'torznab_host': torznab_host,
+        #           'oneoff': oneoff,
+        #           'tmpprov': tmpprov,
+        #           'SARC': SARC,
+        #           'IssueArcID': IssueArcID,
+        #           'cmloopit': cmloopit,
+        #           'findcomiciss': findcomiciss,
+        #           'intIss': intIss,
+        #           'chktpb': chktpb,
+        #           'provider_stat': provider_stat,
+        #           'foundc': foundc}
+
+        if "DDL" in nzbprov and RSS == "no":
+            re.sub("%20", " ", str(comsrc))
+            logger.fdebug("Sending request to %s site for : %s %s" % (nzbprov, findcomic, isssearch))
+            if nzbprov == "DDL(GetComics)":
+                if any([isssearch == "None", isssearch is None]):
+                    pass
+                else:
+                    pass
+                fline = {"comicname": findcomic, "issue": isssearch, "year": comyear}
+                b = getcomics.GC(query=fline, provider_stat=provider_stat)
+                verified_matches = b.search(is_info=is_info)
+            elif nzbprov == "DDL(External)":
+                b = exs.MegaNZ(query="%s" % ComicName, provider_stat=provider_stat)
+                verified_matches = b.ddl_search(is_info=is_info)
+            # logger.fdebug('bb returned from %s: %s' % (nzbprov, verified_matches))
+
+        elif RSS == "yes" and "DDL(External)" not in nzbprov:
+            if "DDL(GetComics)" in nzbprov:
+                # only GC has an available RSS Feed
+                logger.fdebug("Sending request to [%s] RSS for %s : %s" % (nzbprov, ComicName, mod_isssearch))
+                bb = rsscheck.ddl_dbsearch(ComicName, mod_isssearch, ComicID, nzbprov, oneoff)
+                if all([bb != "no results", bb is not None]):
+                    newddl = []
+                    for bdb in bb["entries"]:
+                        ddl_checkpack = rsscheck.ddlrss_pack_detect(bdb["title"], bdb["link"])
+                        # logger.fdebug('ddl_checkback: %s' % (ddl_checkpack,))
+                        if ddl_checkpack is not None:
+                            for dd in bb["entries"]:
+                                if dd["link"] == ddl_checkpack["link"]:
+                                    newddl.append(
+                                        {
+                                            "title": dd["title"],
+                                            "link": dd["link"],
+                                            "pubdate": dd["pubdate"],
+                                            "site": dd["site"],
+                                            "length": dd["length"],
+                                            "issues": ddl_checkpack["issues"],
+                                            "pack": ddl_checkpack["pack"],
+                                        }
+                                    )
+                                else:
+                                    newddl.append(dd)
+                    if len(newddl) > 0:
+                        bb["entries"] = newddl
+                        # logger.fdebug('final ddlcheckback: %s' % (bb,))
+            else:
+                logger.fdebug("Sending request to RSS for %s : %s (%s)" % (findcomic, mod_isssearch, ComicYear))
+                if untouched_name is not None:
+                    nzbprov_fix = untouched_name
+                elif nzbprov == "newznab":
+                    nzbprov_fix = name_newznab
+                elif nzbprov == "torznab":
+                    nzbprov_fix = name_torznab
+                else:
+                    nzbprov_fix = nzbprov
+                bb = rsscheck.nzbdbsearch(
+                    findcomic,
+                    mod_isssearch,
+                    ComicID,
+                    nzbprov_fix,
+                    ComicYear,
+                    ComicVersion,
+                    oneoff,
+                )
+            logger.info("bb: %s" % (bb,))
+            if any([bb is None, bb == "no results"]):
+                verified_matches = "no results"
+            else:
+                if len(bb["entries"]) > 0:
+                    sfs = search_filer.search_check()
+                    verified_matches = sfs.checker(bb["entries"], is_info)
+                else:
+                    verified_matches = "no results"
+
+        # this is the API calls
+        else:
+            if nzbprov == "":
+                verified_matches = "no results"
+            elif nzbprov != "experimental":
+                if provider_stat["type"] == "newznab":
+                    # let's make sure the host has a '/' at the end, if not add it.
+                    host_newznab_fix = host_newznab
+                    if not host_newznab_fix.endswith("api"):
+                        if not host_newznab_fix.endswith("/"):
+                            host_newznab_fix += "/"
+                        host_newznab_fix = urljoin(host_newznab_fix, "api")
+                    findurl = "%s?t=search&q=%s&o=xml&cat=%s" % (
+                        host_newznab_fix,
+                        comsearch,
+                        category_newznab,
+                    )
+                elif provider_stat["type"] == "torznab":
+                    if host_torznab[len(host_torznab) - 1 : len(host_torznab)] == "/":
+                        torznab_fix = host_torznab[:-1]
+                    else:
+                        torznab_fix = host_torznab
+                    findurl = str(torznab_fix) + "?t=search&q=" + str(comsearch)
+                    if category_torznab is not None:
+                        findurl += "&cat=" + str(category_torznab)
+                else:
+                    logger.warn(
+                        "You have a blank newznab entry within your configuration."
+                        "Remove it, save the config and restart comicarr to fix things."
+                        "Skipping this blank provider until fixed."
+                    )
+                    findurl = None
+                    verified_matches = "no results"
+
+                if findurl:
+                    # helper function to replace apikey here so we avoid logging it ;)
+                    findurl = findurl + "&apikey=" + str(apikey)
+                    logsearch = helpers.apiremove(str(findurl), "nzb")
+
+                    # IF USENET_RETENTION is set, honour it
+                    # For newznab sites, that means appending "&maxage=<whatever>"
+                    # on the URL
+                    if comicarr.CONFIG.USENET_RETENTION is not None and provider_stat["type"] != "torznab":
+                        findurl = findurl + "&maxage=" + str(comicarr.CONFIG.USENET_RETENTION)
+
+                    pause_the_search = check_the_search_delay(manual)
+
+                    # bypass for local newznabs
+                    # remove the protocol string (http/https)
+                    localbypass = False
+                    if provider_stat["type"] == "newznab":
+                        if host_newznab_fix.startswith("http"):
+                            hnc = host_newznab_fix.replace("http://", "")
+                        elif host_newznab_fix.startswith("https"):
+                            hnc = host_newznab_fix.replace("https://", "")
+                        else:
+                            hnc = host_newznab_fix
+
+                        if (
+                            any(
+                                [
+                                    hnc[:3] == "10.",
+                                    hnc[:4] == "172.",
+                                    hnc[:4] == "192.",
+                                    hnc.startswith("localhost"),
+                                    newznab_local is True,
+                                ]
+                            )
+                            and newznab_local is not False
+                        ):
+                            logger.fdebug("local domain bypass for %s is active." % name_newznab)
+                            localbypass = True
+
+                    # Add a user-agent
+                    headers = {"User-Agent": str(comicarr.USER_AGENT)}
+                    payload = None
+
+                    if findurl.startswith("https:") and verify is False:
+                        try:
+                            from requests.packages.urllib3 import disable_warnings
+
+                            disable_warnings()
+                        except Exception as e:
+                            logger.warn(
+                                "Unable to disable https warnings. Expect some spam ifusing https nzb providers." % e
+                            )
+
+                    elif findurl.startswith("http:") and verify is True:
+                        verify = False
+
+                    # logger.fdebug('[SSL: ' + str(verify) + '] Search URL: ' + findurl)
+                    logger.fdebug("[SSL: %s] Search URL: %s" % (verify, logsearch))
+
+                    # check search time here
+                    if localbypass is False:
+                        _honour_search_delay(nzbprov, pause_the_search, foundc["lastrun"])
+
+                    try:
+                        r = get_http_session().get(findurl, params=payload, verify=verify, headers=headers, timeout=30)
+                        r.raise_for_status()
+                    except requests.exceptions.Timeout as e:
+                        logger.warn(
+                            "[NZB-SEARCH] Timeout occured fetching data from %s: %s"
+                            % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
+                        )
+                        is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "timeout",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
+                        break
+                    except requests.exceptions.ConnectionError as e:
+                        logger.warn(
+                            "[NZB-SEARCH] Connection error trying to retrieve data from %s: %s"
+                            % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
+                        )
+                        if helpers.provider_unreachable(e):
+                            helpers.disable_provider(tmpprov, "Connection Refused.")
+                        is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "connection_error",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
+                        break
+                    except requests.exceptions.RequestException as e:
+                        logger.warn(
+                            "[NZB-SEARCH] General Error fetching data from %s: %s"
+                            % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
+                        )
+                        if helpers.provider_unreachable(e):
+                            helpers.disable_provider(tmpprov, "Connection Refused.")
+                            logger.warn("Aborting search due to Provider unavailability")
+                        else:
+                            logger.warn(
+                                "%s answered with an error - skipping this provider for this search, "
+                                "but leaving it enabled." % nzbprov
+                            )
+                        is_info["foundc"]["status"] = False
+                        search_filer.report_provider_failure(
+                            nzbprov,
+                            "request_error",
+                            redact_sensitive_text(e, secrets=(apikey,)),
+                        )
+                        break
+                    is_info["foundc"]["lastrun"] = time.time()
+                    logger.info(
+                        "setting lastrun for %s to %s"
+                        % (is_info["foundc"]["provider"], time.ctime(is_info["foundc"]["lastrun"]))
+                    )
+                    last_run_check(
+                        write={
+                            str(nzbprov): {
+                                "active": provider_stat["active"],
+                                "lastrun": is_info["foundc"]["lastrun"],
+                                "type": provider_stat["type"],
+                                "hits": provider_stat["hits"] + 1,
+                                "id": provider_stat["id"],
+                            }
+                        }
+                    )
+                    try:
+                        if str(r.status_code) != "200":
+                            logger.warn(
+                                "Unable to retrieve search results from %s"
+                                "[Status Code returned: %s]" % (tmpprov, r.status_code)
+                            )
+                            if any(
+                                [
+                                    str(r.status_code) == "503",
+                                    str(r.status_code) == "404",
+                                ]
+                            ):
+                                logger.warn(
+                                    "Unavailable indexer detected. Disabling for a short duration and will try again."
+                                )
+                                helpers.disable_provider(tmpprov, "Unavailable Indexer")
+                            data = False
+                        else:
+                            data = r.content
+                    except Exception as e:
+                        logger.warn("[ERROR] %s" % e)
+                        data = False
+
+                    if data:
+                        verified_matches = feedparser.parse(data)
+                    else:
+                        verified_matches = "no results"
+
+                    try:
+                        if verified_matches == "no results":
+                            logger.fdebug("No results for search query from %s" % tmpprov)
+                            break
+                        if verified_matches["feed"]["error"]:
+                            logger.error(
+                                "[ERROR CODE: %s] %s"
+                                % (
+                                    verified_matches["feed"]["error"]["code"],
+                                    verified_matches["feed"]["error"]["description"],
+                                )
+                            )
+                            if verified_matches["feed"]["error"]["code"] == "910":
+                                logger.warn("DAILY API limit reached. Disabling %s" % tmpprov)
+                                helpers.disable_provider(tmpprov, "API Limit reached")
+                                verified_matches = "no results"
+                                is_info["foundc"]["status"] = False
+                                done = True
+                            else:
+                                logger.warn("API Error. Check the error message and take action if required.")
+                                verified_matches = "no results"
+                                is_info["foundc"]["status"] = False
+                                done = True
+                            break
+                    except Exception:
+                        logger.fdebug("no errors on data retrieval...proceeding")
+                        entries = verified_matches["entries"]
+                        if cmloopit == 0 and not unfiltered_pass_active():
+                            # the bare-title pass can return the provider's whole
+                            # series listing; only pack-shaped titles are worth
+                            # the full per-entry evaluation (and its DB lookups).
+                            from comicarr.app.search.packs import pack_shaped
+
+                            kept = [entry for entry in entries if pack_shaped(entry.get("title"))]
+                            if len(kept) != len(entries):
+                                logger.fdebug(
+                                    "[PACK-PASS] %s of %s bare-title results are pack-shaped; dropping the rest"
+                                    % (len(kept), len(entries))
+                                )
+                            entries = kept
+                        sfs = search_filer.search_check()
+                        verified_matches = sfs.checker(entries, is_info)
+
+            elif nzbprov == "experimental":
+                logger.info("sending %s to experimental search" % findcomic)
+                bb = findcomicfeed.Startit(findcomic, isssearch, comyear, ComicVersion, IssDateFix, booktype)
+                if any([bb == "disable", bb == "no results"]):
+                    helpers.disable_provider("experimental", "unresponsive / down")
+                    verified_matches = "no results"
+                    is_info["foundc"]["status"] = False
+                    done = True
+                else:
+                    sfs = search_filer.search_check()
+                    verified_matches = sfs.checker(bb, is_info)
+                is_info["foundc"]["lastrun"] = time.time()
+                logger.fdebug(
+                    "setting lastrun for %s to %s"
+                    % (is_info["foundc"]["provider"], time.ctime(is_info["foundc"]["lastrun"]))
+                )
+                last_run_check(
+                    write={
+                        str(nzbprov): {
+                            "active": provider_stat["active"],
+                            "lastrun": is_info["foundc"]["lastrun"],
+                            "type": provider_stat["type"],
+                            "hits": provider_stat["hits"] + 1,
+                            "id": provider_stat["id"],
+                        }
+                    }
+                )
+
+        if verified_matches != "no results":
+            verification(verified_matches, is_info)
+
+        logger.fdebug("booktype:%s / chktpb: %s / findloop: %s" % (is_info["booktype"], is_info["chktpb"], findloop))
+        if (
+            any(
+                [
+                    is_info["booktype"] == "TPB",
+                    is_info["booktype"] == "GN",
+                    is_info["booktype"] == "HC",
+                ]
+            )
+            and is_info["chktpb"] == 1
+            and findloop + 1 > findcount
+        ):
+            pass  # findloop=-1
+        else:
+            findloop += 1
+
+    return is_info["foundc"]
+
+
+def verification(verified_matches, is_info):
+    # comicarr.COMICINFO = hold_the_matches = verified_matches
+    done = False
+    verified_index = 0
+    if verified_matches != "no results":
+        for verified in verified_matches:
+            # we need to make sure we index the correct match
+            # logger.fdebug('verified: %s' % (verified,))
+            if verified["downloadit"]:
+                try:
+                    if verified["chkit"]:
+                        helpers.checkthe_id(ComicID, verified["chkit"])
+                except Exception:
+                    pass
+                # generate nzbname
+                nzbname = nzbname_create(is_info["nzbprov"], info=verified_matches, title=verified["ComicTitle"])
+                if nzbname is None:
+                    logger.error(
+                        "[NZBPROVIDER = NONE] Encountered an error using given "
+                        "provider with requested information: %s. You have a blank "
+                        "entry most likely in your newznabs, fix it & restart Comicarr" % verified
+                    )
+                    verified_index += 1
+                    continue
+                # generate the send-to and actually send the nzb / torrent.
+                try:
+                    links = {"id": verified["entry"]["id"], "link": verified["entry"]["link"]}
+                except Exception:
+                    links = verified["entry"]["link"]
+                searchresult = searcher(
+                    verified["nzbprov"],
+                    nzbname,
+                    verified_matches,
+                    links,
+                    verified["IssueID"],
+                    verified["ComicID"],
+                    verified["tmpprov"],
+                    newznab=verified["newznab"],
+                    torznab=verified["torznab"],
+                    rss=is_info["RSS"],
+                    provider_stat=verified["provider_stat"],
+                )
+
+                if any(
+                    [
+                        searchresult == "downloadchk-fail",
+                        searchresult == "double-pp",
+                    ]
+                ):
+                    is_info["foundc"]["status"] = False
+                    verified_index += 1
+                    continue
+                elif any(
+                    [
+                        searchresult == "torrent-fail",
+                        searchresult == "nzbget-fail",
+                        searchresult == "sab-fail",
+                        searchresult == "blackhole-fail",
+                        searchresult == "ddl-fail",
+                    ]
+                ):
+                    is_info["foundc"]["status"] = False
+                    verified_index += 1
+                    return is_info
+
+                # nzbid, nzbname, sent_to
+                searchresult["nzbid"]
+                nzbname = searchresult["nzbname"]
+                sent_to = searchresult["sent_to"]
+                alt_nzbname = searchresult["alt_nzbname"]
+                if searchresult["SARC"] is not None:
+                    searchresult["SARC"]
+                is_info["foundc"]["info"] = searchresult
+                is_info["foundc"]["status"] = True
+                done = True
+                break
+
+            if done is True:
+                # cmloopit == 1 #let's make sure it STOPS searching after a
+                # sucessful match.
+                break
+    # cmloopit-=1
+    # if (
+    #     cmloopit < 1 and c_alpha is not None and seperatealpha == "no" and
+    #     foundc['status'] is False
+    #     ):
+    #     logger.info("Alphanumerics detected within IssueNumber. Seperating
+    #                 " from Issue # and re-trying.")
+    #     cmloopit = origcmloopit
+    #     seperatealpha = "yes"
+
+    # logger.fdebug(
+    #    'booktype:%s / chktpb: %s / findloop: %s' % (is_info['booktype'], is_info['chktpb'], is_info['findloop'])
+    # )
+    # if any(
+    #       [
+    #           is_info['booktype'] == 'TPB',
+    #           is_info['booktype'] == 'GN',
+    #           is_info['booktype'] == 'HC',
+    #       ]
+    #    ) and is_info['chktpb'] == 1 and findloop + 1 > findcount:
+    #    pass  # findloop=-1
+    # else:
+    #    findloop += 1
+
+    if is_info["foundc"]["status"] is True:
+        # foundcomic.append("yes")
+        # logger.fdebug('comicarr.COMICINFO: %s' % verified_matches)
+        # logger.fdebug('verified_index: %s' % verified_index)
+        # logger.fdebug('isinfo: %s' % is_info)
+        if verified_matches[verified_index]["pack"] is True:
+            try:
+                issinfo = verified_matches[verified_index]["pack_issuelist"]
+            except Exception:
+                issinfo = verified_matches["pack_issuelist"]
+            if issinfo is not None:
+                # we need to get EVERY issue ID within the pack and update the log to
+                # reflect that they're being downloaded via a pack.
+                try:
+                    logger.fdebug(
+                        "Found matching comic within pack...preparing to send to"
+                        " Updater with IssueIDs: %s and nzbname of %s" % (issueid_info, nzbname)
+                    )
+                except NameError:
+                    logger.fdebug("Did not find issueid_info")
+
+                # because packs need to have every issue that's not already Downloaded
+                # in a Snatched status, throw it to
+                # the updater here as well.
+                for isid in issinfo["issues"]:
+                    updater.nzblog(
+                        isid["issueid"],
+                        nzbname,
+                        is_info["ComicName"],
+                        SARC=is_info["SARC"],
+                        IssueArcID=is_info["IssueArcID"],
+                        id=verified_matches[verified_index]["nzbid"],
+                        prov=is_info["nzbprov"],
+                        oneoff=is_info["oneoff"],
+                    )
+                    updater.foundsearch(
+                        is_info["ComicID"],
+                        isid["issueid"],
+                        mode=is_info["smode"],
+                        provider=is_info["nzbprov"],
+                        hash=searchresult.get("t_hash"),
+                        nzbname=nzbname,
+                        journal_release_key=searchresult.get("journal_release_key"),
+                        journal_managed=searchresult.get("journal_managed", False),
+                    )
+                notify_snatch(
+                    sent_to,
+                    verified_matches[verified_index]["entry"]["series"],  # is_info['ComicName'],
+                    verified_matches[verified_index]["entry"]["year"],  # is_info['ComicYear'],
+                    verified_matches[verified_index]["pack_numbers"],
+                    verified_matches[verified_index]["nzbprov"],
+                    True,
+                )
+            else:
+                notify_snatch(
+                    sent_to,
+                    is_info["ComicName"],
+                    is_info["ComicYear"],
+                    None,
+                    is_info["nzbprov"],
+                    True,
+                )
+
+        else:
+            tmpprov = is_info["nzbprov"]
+            if alt_nzbname is None or alt_nzbname == "":
+                logger.fdebug(
+                    "Found matching comic...preparing to send to Updater with IssueID:"
+                    " %s and nzbname: %s" % (is_info["IssueID"], nzbname)
+                )
+                if "[RSS]" in tmpprov:
+                    tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
+                updater.nzblog(
+                    is_info["IssueID"],
+                    nzbname,
+                    is_info["ComicName"],
+                    SARC=is_info["SARC"],
+                    IssueArcID=is_info["IssueArcID"],
+                    id=verified_matches[verified_index]["nzbid"],
+                    prov=tmpprov,
+                    oneoff=is_info["oneoff"],
+                )
+            else:
+                logger.fdebug(
+                    "Found matching comic...preparing to send to Updater with IssueID:"
+                    " %s and nzbname: %s [%s]" % (is_info["IssueID"], nzbname, alt_nzbname)
+                )
+                if "[RSS]" in tmpprov:
+                    tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
+                updater.nzblog(
+                    is_info["IssueID"],
+                    nzbname,
+                    is_info["ComicName"],
+                    SARC=is_info["SARC"],
+                    IssueArcID=is_info["IssueArcID"],
+                    id=verified_matches[verified_index]["nzbid"],
+                    prov=tmpprov,
+                    alt_nzbname=alt_nzbname,
+                    oneoff=is_info["oneoff"],
+                )
+            updater.foundsearch(
+                is_info["ComicID"],
+                is_info["IssueID"],
+                mode=is_info["smode"],  #'series',
+                provider=tmpprov,
+                SARC=is_info["SARC"],
+                IssueArcID=is_info["IssueArcID"],
+                hash=searchresult.get("t_hash"),
+                nzbname=nzbname,
+                journal_release_key=searchresult.get("journal_release_key"),
+                journal_managed=searchresult.get("journal_managed", False),
+            )
+
+            # send out the notifications for the snatch.
+            if any([is_info["oneoff"] is True, is_info["IssueID"] is None]):
+                cyear = is_info["ComicYear"]
+            else:
+                cyear = verified_matches[verified_index]["comyear"]
+            notify_snatch(sent_to, is_info["ComicName"], cyear, is_info["IssueNumber"], tmpprov, False)
+
+        # prov_count == 0
+        # return is_info
+
+    # else:
+    #    foundcomic.append("no")
+    # if IssDateFix == "no":
+    #     logger.info('Could not find Issue ' + str(IssueNumber) + ' of '
+    #     + ComicName + '(' + str(comyear) + ') using ' + str(tmpprov) '
+    #     + '. Status kept as wanted.' )
+    #     break
+    return is_info  # foundc
+
+
+def _search_source_for_issue(issueid, entity_type=None):
+    """Resolve an explicit durable entity identity without table-order ambiguity."""
+
+    normalized_type = str(entity_type or "").strip().lower()
+    if normalized_type == "annual":
+        return (
+            db.select_one(
+                select(annuals).where(
+                    annuals.c.IssueID == issueid,
+                    or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+                )
+            ),
+            "want_ann",
+            False,
+        )
+    if normalized_type == "issue":
+        return db.select_one(select(issues).where(issues.c.IssueID == issueid)), "want", False
+
+    result = db.select_one(select(issues).where(issues.c.IssueID == issueid))
+    if result is not None:
+        return result, "want", False
+
+    result = db.select_one(
+        select(annuals).where(
+            annuals.c.IssueID == issueid,
+            or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+        )
+    )
+    if result is not None:
+        return result, "want_ann", False
+
+    result = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid))
+    if result is not None:
+        return result, "story_arc", True
+
+    return db.select_one(select(weekly).where(weekly.c.IssueID == issueid)), "pullwant", True
+
+
+def searchforissue(
+    issueid=None,
+    new=False,
+    rsschecker=None,
+    manual=False,
+    acquisition_run_id=None,
+    acquisition_trigger=None,
+    entity_type=None,
+):
+    """Queue or run searches while preserving an optional outer run identity.
+
+    The historical backlog scan owns candidate discovery.  Manual callers can
+    now supply one durable run ID so all accepted Wanted rows become visible as
+    a single operation without changing the per-issue worker contract.
+    """
+    if rsschecker == "yes":
+        while comicarr.SEARCHLOCK.locked():
+            # logger.info(
+            #     'A search is currently in progress....queueing this up again to try'
+            #     ' in a bit.'
+            # )
+            time.sleep(5)
+
+    if comicarr.SEARCHLOCK.locked():
+        logger.info("A search is currently in progress....queueing this up again to try in a bit.")
+        return {"status": "IN PROGRESS"}
+
+    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
+    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
+    if (
+        (
+            comicarr.CONFIG.ENABLE_DDL is True
+            and any(
+                [
+                    comicarr.CONFIG.ENABLE_GETCOMICS is True,
+                    comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
+                ]
+            )
+        )
+        or any(
+            [
+                comicarr.CONFIG.EXPERIMENTAL is True,
+            ]
+        )
+        or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
+        and any(
+            [
+                comicarr.USE_SABNZBD is True,
+                comicarr.USE_NZBGET is True,
+                comicarr.USE_BLACKHOLE is True,
+            ]
+        )
+    ) or (
+        all(
+            [
+                comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True,
+                comicarr.CONFIG.ENABLE_TORRENTS is True,
+            ]
+        )
+        and (
+            any([comicarr.CONFIG.ENABLE_PUBLIC is True, comicarr.CONFIG.ENABLE_32P is True])
+            or all([comicarr.CONFIG.ENABLE_TORZNAB is True, len(ets) > 0])
+        )
+    ):
+        if not issueid or rsschecker:
+            if rsschecker:
+                logger.info(
+                    "Initiating RSS Search Scan at the scheduled interval of %s minutes"
+                    % comicarr.CONFIG.RSS_CHECKINTERVAL
+                )
+                comicarr.SEARCHLOCK.acquire()
+            else:
+                logger.info("Initiating check to add Wanted items to Search Queue....")
+
+            stloop = 2  # 3 levels - one for issues, one for storyarcs, one  for annuals
+            results = []
+            search_skip = {}
+            queued_count = 0
+            error_count = 0
+
+            if comicarr.CONFIG.ANNUALS_ON:
+                stloop += 1
+            while stloop > 0:
+                if stloop == 1:
+                    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                        issues_1 = _wanted_candidate_rows(issues, ["Wanted", "Failed"])
+                    else:
+                        issues_1 = _wanted_candidate_rows(issues, ["Wanted"])
+                    for iss in issues_1:
+                        checkit = searchforissue_checker(
+                            iss["IssueID"],
+                            iss["ReleaseDate"],
+                            iss["IssueDate"],
+                            iss["DigitalDate"],
+                            {
+                                "ComicName": iss["ComicName"],
+                                "Issue_Number": iss["Issue_Number"],
+                                "ComicID": iss["ComicID"],
+                                "candidate": {
+                                    "LegacyStatus": iss["Status"],
+                                    "AcquisitionIntent": iss.get("AcquisitionIntent"),
+                                    "SeriesStatus": iss["SeriesStatus"],
+                                },
+                            },
+                        )
+                        if checkit["status"] is True:
+                            if not any(r["IssueID"] == iss["IssueID"] for r in results):
+                                results.append(
+                                    {
+                                        "ComicID": iss["ComicID"],
+                                        "IssueID": iss["IssueID"],
+                                        "Issue_Number": iss["Issue_Number"],
+                                        "IssueDate": iss["IssueDate"],
+                                        "StoreDate": iss["ReleaseDate"],
+                                        "DigitalDate": iss["DigitalDate"],
+                                        "SARC": None,
+                                        "StoryArcID": None,
+                                        "IssueArcID": None,
+                                        "mode": "want",
+                                        "DateAdded": iss["DateAdded"],
+                                        "ComicName": iss["ComicName"],
+                                    }
+                                )
+                        else:
+                            iss["Issue_Number"]
+                            schk = False
+                            for s in search_skip:
+                                if s == iss["ComicID"]:
+                                    search_skip[iss["ComicID"]].update(
+                                        {"issue": iss["Issue_Number"], "reason": checkit["reason"]}
+                                    )
+                                    schk = True
+                                    break
+                            if schk is False:
+                                search_skip[iss["ComicID"]] = {
+                                    "Issue_Number": [iss["Issue_Number"]],
+                                    "ComicName": iss["ComicName"],
+                                }
+
+                elif stloop == 2:
+                    if comicarr.CONFIG.SEARCH_STORYARCS is True or rsschecker:
+                        if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                            issues_2 = _wanted_candidate_rows(storyarcs, ["Wanted", "Failed"])
+                        else:
+                            issues_2 = _wanted_candidate_rows(storyarcs, ["Wanted"])
+                        cnt = 0
+                        for iss in issues_2:
+                            checkit = searchforissue_checker(
+                                iss["IssueID"],
+                                iss["ReleaseDate"],
+                                iss["IssueDate"],
+                                iss["DigitalDate"],
+                                {
+                                    "ComicName": iss["ComicName"],
+                                    "Issue_Number": iss["IssueNumber"],
+                                    "ComicID": iss["ComicID"],
+                                    "candidate": {
+                                        "LegacyStatus": iss["Status"],
+                                        "AcquisitionIntent": None,
+                                        "SeriesStatus": iss["SeriesStatus"],
+                                    },
+                                },
+                            )
+                            if checkit["status"] is True:
+                                if not any(r["IssueID"] == iss["IssueID"] for r in results):
+                                    results.append(
+                                        {
+                                            "ComicID": iss["ComicID"],
+                                            "IssueID": iss["IssueID"],
+                                            "Issue_Number": iss["IssueNumber"],
+                                            "IssueDate": iss["IssueDate"],
+                                            "StoreDate": iss["ReleaseDate"],
+                                            "DigitalDate": iss["DigitalDate"],
+                                            "SARC": iss["StoryArc"],
+                                            "StoryArcID": iss["StoryArcID"],
+                                            "IssueArcID": iss["IssueArcID"],
+                                            "mode": "story_arc",
+                                            "DateAdded": iss["DateAdded"],
+                                            "ComicName": iss["ComicName"],
+                                        }
+                                    )
+                                cnt += 1
+                            else:
+                                iss["IssueNumber"]
+                                schk = False
+                                for s in search_skip:
+                                    if s == iss["ComicID"]:
+                                        search_skip[iss["ComicID"]].update(
+                                            {"issue": iss["IssueNumber"], "reason": checkit["reason"]}
+                                        )
+                                        schk = True
+                                        break
+                                if schk is False:
+                                    search_skip[iss["ComicID"]] = {
+                                        "Issue_Number": [iss["IssueNumber"]],
+                                        "ComicName": iss["ComicName"],
+                                    }
+
+                        logger.info("Issues that belong to part of a Story Arc to be searched for : %s" % cnt)
+                elif stloop == 3:
+                    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                        issues_3 = _wanted_candidate_rows(
+                            annuals,
+                            ["Wanted", "Failed"],
+                            or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+                        )
+                    else:
+                        issues_3 = _wanted_candidate_rows(
+                            annuals,
+                            ["Wanted"],
+                            or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+                        )
+                    for iss in issues_3:
+                        checkit = searchforissue_checker(
+                            iss["IssueID"],
+                            iss["ReleaseDate"],
+                            iss["IssueDate"],
+                            iss["DigitalDate"],
+                            {
+                                "ComicName": iss["ComicName"],
+                                "Issue_Number": iss["Issue_Number"],
+                                "ComicID": iss["ComicID"],
+                                "candidate": {
+                                    "LegacyStatus": iss["Status"],
+                                    "AcquisitionIntent": iss.get("AcquisitionIntent"),
+                                    "SeriesStatus": iss["SeriesStatus"],
+                                },
+                            },
+                        )
+                        if checkit["status"] is True:
+                            if not any(r["IssueID"] == iss["IssueID"] for r in results):
+                                results.append(
+                                    {
+                                        "ComicID": iss["ComicID"],
+                                        "IssueID": iss["IssueID"],
+                                        "Issue_Number": iss["Issue_Number"],
+                                        "IssueDate": iss["IssueDate"],
+                                        "StoreDate": iss["ReleaseDate"],
+                                        "DigitalDate": iss["DigitalDate"],
+                                        "SARC": None,
+                                        "StoryArcID": None,
+                                        "IssueArcID": None,
+                                        "mode": "want_ann",
+                                        "DateAdded": iss["DateAdded"],
+                                        "ComicName": iss["ReleaseComicName"],
+                                    }
+                                )
+                        else:
+                            iss["Issue_Number"]
+                            schk = False
+                            for s in search_skip:
+                                if s == iss["ComicID"]:
+                                    search_skip[iss["ComicID"]].update(
+                                        {"issue": iss["Issue_Number"], "reason": checkit["reason"]}
+                                    )
+                                    schk = True
+                                    break
+                            if schk is False:
+                                search_skip[iss["ComicID"]] = {
+                                    "Issue_Number": [iss["Issue_Number"]],
+                                    "ComicName": iss["ComicName"],
+                                }
+
+                stloop -= 1
+
+            # to-do: re-order the results list so it's most recent to least recent.
+            rss_queue = []
+            if len(search_skip) > 0:
+                logger.info(
+                    "The following series have been skipped due to either being"
+                    " already in a Downloaded/Snatched status or having Invalid"
+                    " Date-data in the database: %s" % (search_skip)
+                )
+
+            for result in sorted(results, key=itemgetter("StoreDate"), reverse=True):
+                try:
+                    OneOff = False
+                    storyarc_watchlist = False
+                    comic = db.select_one(
+                        select(comics).where((comics.c.ComicID == result["ComicID"]) & (comics.c.ComicName != "None"))
+                    )
+                    if all([comic is None, result["mode"] == "story_arc"]):
+                        comic = db.select_one(
+                            select(storyarcs).where(
+                                (storyarcs.c.StoryArcID == result["StoryArcID"])
+                                & (storyarcs.c.IssueArcID == result["IssueArcID"])
+                            )
+                        )
+                        if comic is None:
+                            logger.fdebug(
+                                "%s has no associated comic information in the Arc."
+                                " Skipping searching for this series." % result["ComicID"]
+                            )
+                            continue
+                        else:
+                            OneOff = True
+                    elif comic is None:
+                        logger.fdebug(
+                            "%s has no associated comic information in the Arc."
+                            " Skipping searching for this series." % result["ComicID"]
+                        )
+                        continue
+                    else:
+                        storyarc_watchlist = True
+                    if result["StoreDate"] == "0000-00-00" or result["StoreDate"] is None:
+                        if (
+                            any(
+                                [
+                                    result["IssueDate"] is None,
+                                    result["IssueDate"] == "0000-00-00",
+                                ]
+                            )
+                            and result["DigitalDate"] == "0000-00-00"
+                        ):
+                            logger.fdebug(
+                                "ComicID: %s has invalid Date data. Skipping searching"
+                                " for this series." % result["ComicID"]
+                            )
+                            continue
+
+                    foundNZB = "none"
+                    AllowPacks = False
+                    if result["mode"] == "want_ann" or "annual" in result["ComicName"]:
+                        comicname = result["ComicName"]
+                    else:
+                        comicname = comic["ComicName"]
+                    if all([result["mode"] == "story_arc", storyarc_watchlist is False]):
+                        Comicname_filesafe = helpers.filesafe(comicname)
+                        SeriesYear = comic["SeriesYear"]
+                        Publisher = comic["Publisher"]
+                        AlternateSearch = None
+                        UseFuzzy = None
+                        ComicVersion = comic["Volume"]
+                        TorrentID_32p = None
+                        booktype = comic["Type"]
+                        ignore_booktype = False
+                    else:
+                        Comicname_filesafe = comic["ComicName_Filesafe"]
+                        SeriesYear = comic["ComicYear"]
+                        Publisher = comic["ComicPublisher"]
+                        AlternateSearch = comic["AlternateSearch"]
+                        UseFuzzy = comic["UseFuzzy"]
+                        ComicVersion = comic["ComicVersion"]
+                        TorrentID_32p = comic["TorrentID_32P"]
+                        booktype = comic["Type"]
+                        if comic["Corrected_Type"] is not None and comic["Type"] != comic["Corrected_Type"]:
+                            booktype = comic["Corrected_Type"]
+                        ignore_booktype = bool(comic["IgnoreType"])
+                        if any([comic["AllowPacks"] == 1, comic["AllowPacks"] == "1"]):
+                            AllowPacks = True
+
+                    IssueDate = result["IssueDate"]
+                    StoreDate = result["StoreDate"]
+                    DigitalDate = result["DigitalDate"]
+
+                    if result["IssueDate"] is None:
+                        ComicYear = SeriesYear
+                    else:
+                        ComicYear = str(result["IssueDate"])[:4]
+
+                    if result["DateAdded"] is None:
+                        DA = datetime.datetime.today()
+                        DateAdded = DA.strftime("%Y-%m-%d")
+                        if result["mode"] == "want":
+                            table = "issues"
+                        elif result["mode"] == "want_ann":
+                            table = "annuals"
+                        elif result["mode"] == "story_arc":
+                            table = "storyarcs"
+                        else:
+                            table = None
+                            # not writing to the table here will mean the Tier won't
+                            # get changed
+                            logger.warn(
+                                "[SEARCH-ERROR] Error while trying to write DateAdded"
+                                " value to non-existant table due to given search mode"
+                                " of %s" % result["mode"]
+                            )
+                        if table is not None:
+                            logger.fdebug(
+                                "%s #%s did not have a DateAdded recorded, setting it"
+                                " : %s"
+                                % (
+                                    comicname,
+                                    result["Issue_Number"],
+                                    DateAdded,
+                                )
+                            )
+                            db.upsert(
+                                table,
+                                {"DateAdded": DateAdded},
+                                {"IssueID": result["IssueID"]},
+                            )
+
+                    else:
+                        DateAdded = result["DateAdded"]
+
+                    # Automatic scans retain their tier guard. An explicit
+                    # operator-run backlog scan is intentionally broader: its
+                    # durable run provides the audit trail and it must not
+                    # silently leave older Wanted obligations untouched.
+                    if rsschecker is None and (
+                        DateAdded >= comicarr.SEARCH_TIER_DATE or acquisition_run_id is not None
+                    ):
+                        logger.fdebug(
+                            "[TIER1] Adding: %s #%s [ComicID:%s / IssueiD: %s][ %s >= %s]"
+                            % (
+                                comicname,
+                                result["Issue_Number"],
+                                result["ComicID"],
+                                result["IssueID"],
+                                DateAdded,
+                                comicarr.SEARCH_TIER_DATE,
+                            )
+                        )
+                        from comicarr.app.search.commands import enqueue_search_command
+
+                        enqueue_search_command(
+                            {
+                                "comicname": comicname,
+                                "seriesyear": SeriesYear,
+                                "issuenumber": result["Issue_Number"],
+                                "issueid": result["IssueID"],
+                                "comicid": result["ComicID"],
+                                "booktype": booktype,
+                                "entity_type": "annual" if result.get("mode") == "want_ann" else "issue",
+                            },
+                            trigger=acquisition_trigger or "wanted_scan",
+                            run_id=acquisition_run_id,
+                            scope_type="wanted_backlog" if acquisition_run_id else None,
+                            scope_id="all" if acquisition_run_id else None,
+                        )
+                        queued_count += 1
+                        continue
+                    elif rsschecker:
+                        if not [
+                            x for x in rss_queue if result["IssueID"] == x[8]
+                        ]:  # comic['ComicName'] == x[0]]: #result['ComicID'] == x[15]]: #co$
+                            # remove - or : from the series titles and replace with an sqlite wildcard operator.
+                            sqlquery_name = re.sub(r"[\:\-]", "%", comic["ComicName"]).strip()
+                            rss_queue.append(
+                                (
+                                    comic["ComicName"],
+                                    sqlquery_name,
+                                    result["Issue_Number"],
+                                    ComicYear,
+                                    SeriesYear,
+                                    Publisher,
+                                    IssueDate,
+                                    StoreDate,
+                                    result["IssueID"],
+                                    AlternateSearch,
+                                    UseFuzzy,
+                                    ComicVersion,
+                                    result["SARC"],
+                                    result["IssueArcID"],
+                                    result["mode"],
+                                    rsschecker,
+                                    result["ComicID"],
+                                    Comicname_filesafe,
+                                    AllowPacks,
+                                    OneOff,
+                                    TorrentID_32p,
+                                    DigitalDate,
+                                    booktype,
+                                    ignore_booktype,
+                                )
+                            )
+                    else:
+                        logger.fdebug(
+                            "[TIER2] %s #%s [%s < %s]"
+                            % (comicname, result["Issue_Number"], DateAdded, comicarr.SEARCH_TIER_DATE)
+                        )
+                        continue
+                    # - removed below - if uncommented will ignore the Tier searches
+                    # else:
+                    #    smode = result['mode']
+                    #    foundNZB, prov = search_init(
+                    #        comicname,
+                    #        result['Issue_Number'],
+                    #        str(ComicYear),
+                    #        SeriesYear,
+                    #        Publisher,
+                    #        IssueDate,
+                    #        StoreDate,
+                    #        result['IssueID'],
+                    #        AlternateSearch,
+                    #        UseFuzzy,
+                    #        ComicVersion,
+                    #        SARC=result['SARC'],
+                    #        IssueArcID=result['IssueArcID'],
+                    #        smode=smode,
+                    #        rsschecker=rsschecker,
+                    #        ComicID=result['ComicID'],
+                    #        filesafe=Comicname_filesafe,
+                    #        allow_packs=AllowPacks,
+                    #        oneoff=OneOff,
+                    #        torrentid_32p=TorrentID_32p,
+                    #        digitaldate=DigitalDate,
+                    #        booktype=booktype,
+                    #        ignore_booktype=ignore_booktype,
+                    #    )
+                    #    if foundNZB['status'] is True:
+                    #        updater.foundsearch(
+                    #            result['ComicID'],
+                    #            result['IssueID'],
+                    #            mode=smode,
+                    #            provider=prov,
+                    #            SARC=result['SARC'],
+                    #            IssueArcID=result['IssueArcID'],
+                    #            hash=foundNZB['info']['t_hash'],
+                    #        )
+
+                except Exception as err:
+                    error_count += 1
+                    exc_type, exc_value, exc_tb = sys.exc_info()
+                    filename, line_num, func_name, err_text = traceback.extract_tb(exc_tb)[-1]
+                    tracebackline = traceback.format_exc()
+
+                    except_line = {
+                        "exc_type": exc_type,
+                        "exc_value": exc_value,
+                        "exc_tb": exc_tb,
+                        "filename": filename,
+                        "line_num": line_num,
+                        "func_name": func_name,
+                        "err": str(err),
+                        "err_text": err_text,
+                        "traceback": tracebackline,
+                        "comicname": comicname,
+                        "issuenumber": result["Issue_Number"],
+                        "seriesyear": SeriesYear,
+                        "issueid": result["IssueID"],
+                        "comicid": result["ComicID"],
+                        "smode": smode,
+                        "booktype": booktype,
+                    }
+
+                    helpers.log_that_exception(except_line)
+
+                    # log it regardless..
+                    logger.exception(tracebackline)
+                    continue
+
+            if rsschecker:
+                provider_list = provider_order()
+                if all([comicarr.CONFIG.ENABLE_TORRENTS is True, comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True]) or (
+                    any(
+                        [
+                            comicarr.CONFIG.EXPERIMENTAL is True,
+                            comicarr.CONFIG.ENABLE_GETCOMICS is True,
+                            comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
+                        ]
+                    )
+                    or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
+                    and any(
+                        [
+                            comicarr.USE_SABNZBD is True,
+                            comicarr.USE_NZBGET is True,
+                            comicarr.USE_BLACKHOLE is True,
+                        ]
+                    )
+                    or all([comicarr.CONFIG.TORZNAB is True, len(ens) > 0])
+                    and any([comicarr.CONFIG.ENABLE_TORRENTS is True, comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True])
+                ):
+                    results = comicarr.rsscheck.nzbdbsearch(None, None, rsslist=rss_queue, provider_list=provider_list)
+                for x in results["entries"]:
+                    # need to do this to make sure we care across the expected data format
+                    rs = {}
+                    rs["entries"] = [
+                        {
+                            "title": x["title"],
+                            "link": x["link"],
+                            "pubdate": x["pubdate"],
+                            "site": x["site"],
+                            "length": x["length"],
+                        }
+                    ]
+
+                    logger.info(_rss_result_log_summary(x))
+                    try:
+                        foundc = {}
+                        foundc["status"] = False
+                        foundc["provider"] = x["site"]
+
+                        xr = x["info"]
+                        # set these here so that it can log exceptions properly
+                        comicname = xr["ComicName"]
+                        issue_number = xr["Issue_Number"]
+                        seriesyear = xr["SeriesYear"]
+                        comicid = xr["ComicID"]
+                        issueid = xr["IssueID"]
+                        booktype = xr["booktype"]
+                        searchmode = xr["searchmode"]
+
+                        current_prov = last_run_check(check=True, provider=x["site"])
+                        logger.info("current_prov: %s" % (current_prov,))
+                        if len(current_prov) > 0:
+                            nzbprov = list(current_prov.keys())[0]
+                            provider_stat = current_prov.get(list(current_prov.keys())[0])
+                        else:
+                            nzbprov = x["site"]
+                        foundc["lastrun"] = provider_stat["lastrun"]
+                        logger.info("nzbprov: %s" % nzbprov)
+                        logger.info("provider_stat: %s" % (provider_stat,))
+
+                        newznab_info = None
+                        torznab_info = None
+                        if provider_stat["type"] == "newznab":
+                            if provider_list["newznab_info"]:
+                                pni = provider_list["newznab_info"]
+                                for pl in pni:
+                                    if pl["info"][0] == nzbprov:
+                                        logger.info("newznab match: %s" % nzbprov)
+                                        newznab_info = pl["info"]
+                                        break
+
+                        elif provider_stat["type"] == "torznab":
+                            if provider_list["torznab_info"]:
+                                pni = provider_list["torznab_info"]
+                                for pl in pni:
+                                    if pl["info"][0] == nzbprov:
+                                        logger.info("torznab match: %s" % nzbprov)
+                                        torznab_info = pl["info"]
+                                        break
+
+                        # fix for issue dates between Nov-Dec/(Jan-Feb-Mar)
+                        IssDateFix = "no"
+                        if xr["IssueDate"] is not None:
+                            IssDt = xr["IssueDate"][5:7]
+                            if any([IssDt == "12", IssDt == "11", IssDt == "01", IssDt == "02", IssDt == "03"]):
+                                IssDateFix = IssDt
+
+                        else:
+                            if xr["StoreDate"] is not None:
+                                StDt = xr["StoreDate"][5:7]
+                                if any(
+                                    [StDt == "10", StDt == "12", StDt == "11", StDt == "01", StDt == "02", StDt == "03"]
+                                ):
+                                    IssDateFix = StDt
+
+                        chktpb = 0
+                        if any([booktype == "TPB", booktype == "HC", booktype == "GN"]):
+                            chktpb = 1
+
+                        logger.info("provider order: %s" % provider_list["prov_order"])
+
+                        intIss = helpers.issuedigits(xr["Issue_Number"])
+
+                        findcomiciss, c_number = get_findcomiciss(xr["Issue_Number"])
+
+                        if "0-Day" in comicname:
+                            cmloopit = 1
+                        else:
+                            cmloopit = None
+                            if any([booktype == "One-Shot", "annual" in comicname.lower()]):
+                                cmloopit = 4
+                                if "annual" in comicname.lower():
+                                    if xr["Issue_Number"] is not None:
+                                        if helpers.issuedigits(xr["Issue_Number"]) != 1000:
+                                            cmloopit = None
+                            if cmloopit is None:
+                                if len(c_number) == 1:
+                                    cmloopit = 3
+                                elif len(c_number) == 2:
+                                    cmloopit = 2
+                                else:
+                                    cmloopit = 1
+
+                        is_info = {
+                            "ComicName": xr["ComicName"],
+                            "nzbprov": nzbprov,
+                            "RSS": xr["RSS"],
+                            "UseFuzzy": xr["UseFuzzy"],
+                            "StoreDate": xr["StoreDate"],
+                            "IssueDate": xr["IssueDate"],
+                            "digitaldate": xr["DigitalDate"],
+                            "booktype": xr["booktype"],
+                            "ignore_booktype": xr["ignore_booktype"],
+                            "SeriesYear": xr["SeriesYear"],
+                            "ComicVersion": xr["ComicVersion"],
+                            "IssDateFix": IssDateFix,
+                            "ComicYear": xr["ComicYear"],
+                            "IssueID": xr["IssueID"],
+                            "ComicID": xr["ComicID"],
+                            "IssueNumber": xr["Issue_Number"],
+                            "manual": False,  # not a manual search.
+                            "newznab_host": newznab_info,
+                            "torznab_host": torznab_info,
+                            "oneoff": xr["OneOff"],
+                            "tmpprov": nzbprov,
+                            "SARC": xr["SARC"],
+                            "IssueArcID": xr["IssueArcID"],
+                            "cmloopit": cmloopit,
+                            "findcomiciss": findcomiciss,
+                            "intIss": intIss,
+                            "chktpb": chktpb,
+                            "smode": xr["searchmode"],
+                            "provider_stat": provider_stat,
+                            "allow_packs": (
+                                xr["AllowPacks"] in (1, "1", True) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH
+                            ),
+                            "foundc": foundc,
+                        }
+
+                        ##if not any(x['site'] in olist for olist in provider_list['prov_order']) or helpers.block_provider_check(x['site']):
+                        ##    continue
+                        # torznab_info = None
+                        # newznab_info = None
+                        # nzbprov = x['site']
+                        # for xx in provider_list['prov_order']:
+                        #    if x['site'] in xx:
+                        #        if provider_list['torznab_info'] is not None:
+                        #            for tn in provider_list['torznab_info']:
+
+                        #                if x['site'].lower() == tn['provider'].lower():
+                        #                    nzbprov = 'torznab'
+                        #                    torznab_info = tn['info']
+                        #                    break
+                        #        if provider_list['newznab_info'] is not None and torznab_info is None:
+                        #            for nn in provider_list['newznab_info']:
+                        #                logger.fdebug('[site:%s] nn: %s' % (x['site'], nn))
+                        #                if x['site'].lower() == nn['info'][0].lower():
+                        #                    nzbprov = 'newznab'
+                        #                    newznab_info = nn['info']
+                        #                    logger.fdebug('site match hit on: %s' % x['site'])
+                        #                    break
+                        #    if any([torznab_info is not None, newznab_info is not None]):
+                        #        break
+
+                        # might need to put.queue this...
+                        logger.info(
+                            "looking for : %s %s (%s) [oneoff: %s][ignore_booktype: %s]"
+                            % (
+                                xr["ComicName"],
+                                xr["Issue_Number"],
+                                xr["StoreDate"],
+                                xr["OneOff"],
+                                xr["ignore_booktype"],
+                            )
+                        )
+                        rs = {}
+
+                        # if it's DDL - we need to parse out things
+                        # if nzbprov == 'DDL(GetComics)':
+                        #    ddlset = []
+                        #    for xx in getcomics.search_results['entries']:
+                        #        bb = next((item for item in ddlset if item['link'] == xx['link']), None)
+                        #        try:
+                        #            if 'Weekly' not in xr['ComicName'] and 'Weekly' in xx['title']:
+                        #                continue
+                        #            elif bb is None:
+                        #                ddlset.append(xx)
+                        #        except Exception as e:
+                        #            ddlset.append(xx)
+                        #        else:
+                        #            continue
+                        #    rs['entries'] = ddlset
+                        # else:
+                        # need to do this to make sure we care across the expected data format
+                        entries = [
+                            {
+                                "title": x["title"],
+                                "link": x["link"],
+                                "pubdate": x["pubdate"],
+                                "site": x["site"],
+                                "length": x["length"],
+                                "pack": x["pack"],
+                                "issues": x["issues"],
+                            }
+                        ]
+
+                        sfs = search_filer.search_check()
+                        verified_matches = sfs.checker(entries, is_info)
+                        logger.info("verified_matches_returned: %s" % (verified_matches,))
+                        if len(verified_matches) > 0:
+                            response = verification(verified_matches, is_info)
+                            logger.info("response: %s" % (response,))
+                            # foundNZB = imsearch(bb={'entries': [{'title': x['title'], 'link': x['link'], 'pubdate': x['pubdate'], 'site': x['site'], 'length': x['length']}]}, nzbprov=nzbprov, newznab_host=newznab_info, torznab_host=torznab_info, ComicName=xr['ComicName'], Issue_Number=xr['Issue_Number'], ComicYear=xr['ComicYear'], SeriesYear=xr['SeriesYear'], Publisher=xr['Publisher'], IssueDate=xr['IssueDate'], StoreDate=xr['StoreDate'], IssueID=xr['IssueID'], AlternateSearch=xr['AlternateSearch'], ComicVersion=xr['ComicVersion'], UseFuzzy=xr['UseFuzzy'], SARC=xr['SARC'], IssDateFix=IssDateFix, IssueArcID=xr['IssueArcID'], searchmode=xr['searchmode'], RSS=xr['RSS'], ComicID=xr['ComicID'], filesafe=xr['ComicName_Filesafe'], allow_packs=xr['AllowPacks'], oneoff=xr['OneOff'], torrentid_32p=xr['TorrentID_32P'], digitaldate=xr['DigitalDate'], booktype=xr['booktype'], manual=False, ignore_booktype=xr['ignore_booktype'])
+                            # logger.info('foundnzb result: %s' % (foundNZB,))
+
+                    except Exception as err:
+                        exc_type, exc_value, exc_tb = sys.exc_info()
+                        filename, line_num, func_name, err_text = traceback.extract_tb(exc_tb)[-1]
+                        tracebackline = traceback.format_exc()
+
+                        except_line = {
+                            "exc_value": exc_value,
+                            "exc_tb": exc_tb,
+                            "filename": filename,
+                            "line_num": line_num,
+                            "func_name": func_name,
+                            "err": str(err),
+                            "err_text": err_text,
+                            "traceback": tracebackline,
+                            "comicname": comicname,
+                            "issuenumber": issue_number,
+                            "seriesyear": seriesyear,
+                            "issueid": issueid,
+                            "comicid": comicid,
+                            "mode": searchmode,
+                            "booktype": booktype,
+                        }
+
+                        helpers.log_that_exception(except_line)
+
+                        # log it regardless..
+                        logger.exception(tracebackline)
+                        continue
+
+                logger.info("Completed RSS Search scan")
+                if comicarr.SEARCHLOCK.locked():
+                    comicarr.SEARCHLOCK.release()
+            else:
+                logger.info("Completed Queueing API Search scan")
+                if comicarr.SEARCHLOCK.locked():
+                    comicarr.SEARCHLOCK.release()
+                return {
+                    "status": "QUEUED",
+                    "queued_count": queued_count,
+                    "error_count": error_count,
+                    "run_id": acquisition_run_id,
+                }
+        else:
+            try:
+                comicarr.SEARCHLOCK.acquire()
+                result, smode, oneoff = _search_source_for_issue(issueid, entity_type=entity_type)
+                if result is None:
+                    logger.fdebug("Unable to locate IssueID - you probably should delete/refresh the series.")
+                    comicarr.SEARCHLOCK.release()
+                    return
+
+                # if it's not manually initiated, make sure it's not already downloaded/snatched.
+                if not manual:
+                    if smode == "story_arc":
+                        issnumb = result["IssueNumber"]
+                    else:
+                        issnumb = result["Issue_Number"]
+                    checkit = searchforissue_checker(
+                        result["IssueID"],
+                        result["ReleaseDate"],
+                        result["IssueDate"],
+                        result["DigitalDate"],
+                        {
+                            "ComicName": result["ComicName"],
+                            "Issue_Number": issnumb,
+                            "ComicID": result["ComicID"],
+                            "entity_type": "annual" if smode == "want_ann" else "issue",
+                        },
+                    )
+                    if checkit["status"] is False:
+                        logger.fdebug(
+                            "Issue is already in a Downloaded / Snatched status. If this is"
+                            " still wanted, perform a Manual search or mark issue as Skipped"
+                            " or Wanted."
+                        )
+                        # an explicit outcome so queued bulk-search items that a
+                        # pack already covered terminalise as blocked, not failed.
+                        return {"status": "BLOCKED", "reason": "already downloaded or snatched"}
+
+                allow_packs = False
+                ComicID = result["ComicID"]
+                content_type = "comic"
+                if smode == "story_arc":
+                    ComicName = result["ComicName"]
+                    Comicname_filesafe = helpers.filesafe(ComicName)
+                    SeriesYear = result["SeriesYear"]
+                    IssueNumber = result["IssueNumber"]
+                    Publisher = result["Publisher"]
+                    AlternateSearch = None
+                    UseFuzzy = None
+                    ComicVersion = result["Volume"]
+                    SARC = result["StoryArc"]
+                    IssueArcID = issueid
+                    actissueid = result["IssueID"]  # None
+                    IssueDate = result["IssueDate"]
+                    StoreDate = result["ReleaseDate"]
+                    DigitalDate = result["DigitalDate"]
+                    TorrentID_32p = None
+                    booktype = result["Type"]
+                    ignore_booktype = False
+                elif smode == "pullwant":
+                    ComicName = result["COMIC"]
+                    Comicname_filesafe = helpers.filesafe(ComicName)
+                    SeriesYear = result["seriesyear"]
+                    IssueNumber = result["ISSUE"]
+                    Publisher = result["PUBLISHER"]
+                    AlternateSearch = None
+                    UseFuzzy = None
+                    ComicVersion = result["volume"]
+                    SARC = None
+                    IssueArcID = None
+                    actissueid = issueid
+                    TorrentID_32p = None
+                    IssueDate = result["SHIPDATE"]
+                    StoreDate = IssueDate
+                    DigitalDate = "0000-00-00"
+                    booktype = result["format"]
+                    ignore_booktype = False
+                else:
+                    comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+                    content_type = "manga" if series_kind.is_manga(comic) else "comic"
+                    if smode == "want_ann":
+                        ComicName = result["ReleaseComicName"]
+                        Comicname_filesafe = None
+                        AlternateSearch = None
+                    else:
+                        ComicName = comic["ComicName"]
+                        Comicname_filesafe = comic["ComicName_Filesafe"]
+                        AlternateSearch = comic["AlternateSearch"]
+                    SeriesYear = comic["ComicYear"]
+                    IssueNumber = result["Issue_Number"]
+                    Publisher = comic["ComicPublisher"]
+                    UseFuzzy = comic["UseFuzzy"]
+                    ComicVersion = comic["ComicVersion"]
+                    IssueDate = result["IssueDate"]
+                    StoreDate = result["ReleaseDate"]
+                    DigitalDate = result["DigitalDate"]
+                    SARC = None
+                    IssueArcID = None
+                    actissueid = issueid
+                    TorrentID_32p = comic["TorrentID_32P"]
+                    booktype = comic["Type"]
+                    if comic["Corrected_Type"] is not None and comic["Type"] != comic["Corrected_Type"]:
+                        booktype = comic["Corrected_Type"]
+                    ignore_booktype = bool(comic["IgnoreType"])
+                    if any([comic["AllowPacks"] == 1, comic["AllowPacks"] == "1"]):
+                        allow_packs = True
+
+                if all([IssueDate == "0000-00-00", StoreDate == "0000-00-00"]):
+                    IssueYear = SeriesYear
+                else:
+                    if StoreDate == "0000-00-00":
+                        if IssueDate != "0000-00-00":
+                            IssueYear = str(IssueDate)[:4]
+                        else:
+                            logger.fdebug(
+                                "No valid date found for %s issue %s - defaulting to series year."
+                                "You may want to edit the date to correct this." % (ComicName, IssueNumber)
+                            )
+                            IssueYear = SeriesYear
+                    else:
+                        IssueYear = str(StoreDate)[:4]
+
+                foundNZB, prov = search_init(
+                    ComicName,
+                    IssueNumber,
+                    str(IssueYear),
+                    SeriesYear,
+                    Publisher,
+                    IssueDate,
+                    StoreDate,
+                    actissueid,
+                    AlternateSearch,
+                    UseFuzzy,
+                    ComicVersion,
+                    SARC=SARC,
+                    IssueArcID=IssueArcID,
+                    smode=smode,
+                    rsschecker=rsschecker,
+                    ComicID=ComicID,
+                    filesafe=Comicname_filesafe,
+                    allow_packs=allow_packs,
+                    oneoff=oneoff,
+                    manual=manual,
+                    torrentid_32p=TorrentID_32p,
+                    digitaldate=DigitalDate,
+                    booktype=booktype,
+                    ignore_booktype=ignore_booktype,
+                    content_type=content_type,
+                )
+                if manual is True:
+                    comicarr.SEARCHLOCK.release()
+                    return foundNZB
+                if foundNZB["status"] is True:
+                    comicarr.SEARCHLOCK.release()
+                    logger.fdebug("I found %s #%s" % (ComicName, IssueNumber))
+                    # updater.foundsearch(
+                    #    ComicID,
+                    #    actissueid,
+                    #    mode=smode,
+                    #    provider=prov,
+                    #    SARC=SARC,
+                    #    IssueArcID=IssueArcID,
+                    #    hash=foundNZB['info']['t_hash'],
+                    # )
+                return foundNZB
+
+            except Exception as err:
+                exc_type, exc_value, exc_tb = sys.exc_info()
+                filename, line_num, func_name, err_text = traceback.extract_tb(exc_tb)[-1]
+                tracebackline = traceback.format_exc()
+
+                except_line = {
+                    "exc_type": exc_type,
+                    "exc_value": exc_value,
+                    "exc_tb": exc_tb,
+                    "filename": filename,
+                    "line_num": line_num,
+                    "func_name": func_name,
+                    "err": str(err),
+                    "err_text": err_text,
+                    "traceback": tracebackline,
+                    "comicname": result["ComicName"],
+                    "issuenumber": result["Issue_Number"],
+                    #'seriesyear': SeriesYear,
+                    "issueid": result["IssueID"],
+                    "comicid": result["ComicID"],
+                    "smode": smode,
+                    "booktype": booktype,
+                }
+
+                helpers.log_that_exception(except_line)
+
+                # log it regardless..
+                logger.exception(tracebackline)
+
+            finally:
+                comicarr.SEARCHLOCK.release()
+    else:
+        if rsschecker:
+            logger.warn("There are no search providers enabled atm - not performing an RSS check for obvious reasons")
+        else:
+            logger.warn("There are no search providers enabled atm - not performing an Force Check for obvious reasons")
+    return
+
+
+def searchIssueIDList(issuelist):
+    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
+    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
+    if (
+        (
+            comicarr.CONFIG.ENABLE_DDL is True
+            and any([comicarr.CONFIG.ENABLE_GETCOMICS is True, comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True])
+        )
+        or any(
+            [
+                comicarr.CONFIG.EXPERIMENTAL is True,
+            ]
+        )
+        or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
+        and any(
+            [
+                comicarr.USE_SABNZBD is True,
+                comicarr.USE_NZBGET is True,
+                comicarr.USE_BLACKHOLE is True,
+            ]
+        )
+    ) or (
+        all(
+            [
+                comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True,
+                comicarr.CONFIG.ENABLE_TORRENTS is True,
+            ]
+        )
+        and (
+            any([comicarr.CONFIG.ENABLE_PUBLIC is True, comicarr.CONFIG.ENABLE_32P is True])
+            or all([comicarr.CONFIG.ENABLE_TORZNAB is True, len(ets) > 0])
+        )
+    ):
+        for issueid in issuelist:
+            comicname = None
+            entity_type = "issue"
+            issue = db.select_one(select(issues).where(issues.c.IssueID == issueid))
+            if issue is None:
+                annual_issue = db.select_one(
+                    select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
+                )
+                if annual_issue is not None:
+                    issue = annual_issue
+                    entity_type = "annual"
+                else:
+                    issue = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid))
+                    if issue is not None:
+                        comicname = issue["ComicName"]
+                        seriesyear = issue["SeriesYear"]
+                        booktype = issue["Type"]
+                        issuenumber = issue["IssueNumber"]
+                    else:
+                        logger.warn(
+                            "Unable to determine IssueID - perhaps you need to"
+                            " delete/refresh series? Skipping this entry: %s" % issueid
+                        )
+                        continue
+
+            if any([issue["Status"] == "Downloaded", issue["Status"] == "Snatched"]):
+                logger.fdebug(
+                    "Issue is already in a Downloaded / Snatched status. If this is"
+                    " still wanted, perform a Manual search or mark issue as Skipped"
+                    " or Wanted."
+                )
+                continue
+
+            if comicname is None:
+                comic = db.select_one(select(comics).where(comics.c.ComicID == issue["ComicID"]))
+                comicname = comic["ComicName"]
+                seriesyear = comic["ComicYear"]
+                booktype = comic["Type"]
+                issuenumber = issue["Issue_Number"]
+
+                if comic["Corrected_Type"] is not None and comic["Type"] != comic["Corrected_Type"]:
+                    booktype = comic["Corrected_Type"]
+
+            from comicarr.app.search.commands import enqueue_search_command
+
+            enqueue_search_command(
+                {
+                    "comicname": comicname,
+                    "seriesyear": seriesyear,
+                    "issuenumber": issuenumber,
+                    "issueid": issue["IssueID"],  # issueid,
+                    "comicid": issue["ComicID"],
+                    "booktype": booktype,
+                    "entity_type": entity_type,
+                },
+                trigger="issue_list",
+            )
+
+        logger.info("Completed queuing of search request.")
+    else:
+        logger.warn(
+            "There are no search providers enabled atm - not performing the requested search for obvious reasons"
+        )
+
+
+def nzbname_create(provider, title=None, info=None):
+    """
+    The nzbname here is used when post-processing.
+    It searches nzblog which contains the nzbname to pull out the IssueID and start the
+    post-processing. It is also used to keep the hashinfo for the nzbname in case it
+    fails downloading, and then it will get put into the failed db for future exclusions
+    """
+    nzbname = None
+
+    if comicarr.USE_BLACKHOLE and all([provider != "32P", provider != "WWT", provider != "DEM"]):
+        if os.path.exists(comicarr.CONFIG.BLACKHOLE_DIR):
+            # load in the required info to generate the nzb names when required
+            # (blackhole only)
+            ComicName = info[0]["ComicName"]
+            IssueNumber = info[0]["IssueNumber"]
+            comyear = info[0]["comyear"]
+            # pretty this biatch up.
+            BComicName = re.sub(r"[\:\,\/\?\']", "", str(ComicName))
+            Bl_ComicName = re.sub(r"[\&]", "and", str(BComicName))
+            if IssueNumber is not None:
+                if "\xbd" in IssueNumber:
+                    str_IssueNumber = "0.5"
+                elif "\xbc" in IssueNumber:
+                    str_IssueNumber = "0.25"
+                elif "\xbe" in IssueNumber:
+                    str_IssueNumber = "0.75"
+                elif "\u221e" in IssueNumber:
+                    str_IssueNumber = "infinity"
+                else:
+                    str_IssueNumber = IssueNumber
+                nzbline = "%s.%s.(%s)"
+            else:
+                str_IssueNumber = ""
+                nzbline = "%s%s(%s)"
+            nzbname = nzbline % (
+                re.sub(" ", ".", str(Bl_ComicName)),
+                str_IssueNumber,
+                comyear,
+            )
+
+            logger.fdebug("nzb name to be used for post-processing is : %s" % nzbname)
+
+    elif any([provider == "32P", provider == "WWT", provider == "DEM", "DDL" in provider]):
+        # filesafe the name cause people are idiots when they post sometimes.
+        nzbname = re.sub(r"\s{2,}", " ", safe_remote_filename(title)).strip()
+        # let's change all space to decimals for simplicity
+        nzbname = re.sub(" ", ".", nzbname)
+        # gotta replace & or escape it
+        nzbname = re.sub(r"\&amp;|(amp;)|amp;|\&", "and", nzbname)
+        nzbname = re.sub(r"[\,\:\?\']", "", nzbname)
+        if nzbname.lower().endswith(".torrent"):
+            nzbname = re.sub(".torrent", "", nzbname)
+
+    else:
+        # let's change all space to decimals for simplicity
+        logger.fdebug("[SEARCHER] entry[title]: %s" % title)
+        # gotta replace & or escape it
+        nzbname = re.sub(r"\&amp;|(amp;)|amp;|\&", "and", title)
+        nzbname = re.sub(r"[\,\:\?\'\+]", "", nzbname)
+        nzbname = re.sub(r"[\(\)]", " ", nzbname)
+        logger.fdebug("[SEARCHER] nzbname (remove chars): %s" % nzbname)
+        nzbname = re.sub(".cbr", "", nzbname).strip()
+        nzbname = re.sub(".cbz", "", nzbname).strip()
+        nzbname = re.sub(r"[\.\_]", " ", nzbname).strip()
+        nzbname = re.sub(r"\s+", " ", nzbname)  # make sure we remove the extra spaces.
+        logger.fdebug("[SEARCHER] nzbname : %s" % nzbname)
+        nzbname = re.sub(r"\s", ".", nzbname)
+        # remove the [1/9] parts or whatever kinda crap (usually in experimental)
+        pattern = re.compile(r"\W\d{1,3}\/\d{1,3}\W")
+        match = pattern.search(nzbname)
+        if match:
+            nzbname = re.sub(match.group(), "", nzbname).strip()
+        logger.fdebug("[SEARCHER] end nzbname: %s" % nzbname)
+
+    if nzbname is None:
+        return None
+    else:
+        try:
+            nzbname = safe_remote_filename(nzbname)
+        except ValueError as e:
+            logger.warn("[SEARCHER] Refusing unsafe remote artifact name: %s" % e)
+            return None
+        logger.fdebug("nzbname used for post-processing: %s" % nzbname)
+        return nzbname
+
+
+def _nzb_cache_path(cache_dir, nzbname):
+    """Return the cache path as a legacy-compatible string for client APIs."""
+    return str(resolve_remote_artifact_path(cache_dir, nzbname))
+
+
+def _configured_torrent_handoff_route():
+    if comicarr.USE_UTORRENT:
+        return "utorrent"
+    if comicarr.USE_RTORRENT:
+        return "rtorrent"
+    if comicarr.USE_TRANSMISSION:
+        return "transmission"
+    if comicarr.USE_DELUGE:
+        return "deluge"
+    if comicarr.USE_QBITTORRENT:
+        return "qbittorrent"
+    if comicarr.USE_WATCHDIR:
+        return "watchdir"
+    return "unknown"
+
+
+def searcher(
+    nzbprov,
+    nzbname,
+    comicinfo,
+    link,
+    IssueID,
+    ComicID,
+    tmpprov,
+    directsend=None,
+    newznab=None,
+    torznab=None,
+    rss=None,
+    provider_stat=None,
+):
+    alt_nzbname = None
+    # load in the details of the issue from the tuple.
+    ComicName = comicinfo[0]["ComicName"]
+    IssueNumber = comicinfo[0]["IssueNumber"]
+    comyear = comicinfo[0]["comyear"]
+    oneoff = comicinfo[0]["oneoff"]
+    nzbid = comicinfo[0]["nzbid"]
+    if type(link) != str:
+        link = link["link"]
+    try:
+        SARC = comicinfo[0]["SARC"]
+    except Exception:
+        SARC = None
+    try:
+        IssueArcID = comicinfo[0]["IssueArcID"]
+    except Exception:
+        IssueArcID = None
+
+    journal_issueid = IssueID if IssueID is not None else IssueArcID
+    from comicarr.app.downloads import journal as pipeline_journal
+
+    journal_payload = {
+        "issueid": journal_issueid,
+        "comicid": ComicID,
+        "provider": tmpprov,
+        "nzbname": nzbname,
+        "comicname": ComicName,
+        "issuenumber": IssueNumber,
+    }
+    journal_release_key = pipeline_journal.release_key(
+        journal_issueid,
+        tmpprov,
+        nzbname=nzbname,
+        discriminant=nzbid or nzbname or journal_payload,
+    )
+    journal_managed = False
+
+    # setup the priorities.
+    if comicarr.CONFIG.SAB_PRIORITY:
+        if comicarr.CONFIG.SAB_PRIORITY == "Default":
+            sabpriority = "-100"
+        elif comicarr.CONFIG.SAB_PRIORITY == "Low":
+            sabpriority = "-1"
+        elif comicarr.CONFIG.SAB_PRIORITY == "Normal":
+            sabpriority = "0"
+        elif comicarr.CONFIG.SAB_PRIORITY == "High":
+            sabpriority = "1"
+        elif comicarr.CONFIG.SAB_PRIORITY == "Paused":
+            sabpriority = "-2"
+    else:
+        # if sab priority isn't selected, default to Normal (0)
+        sabpriority = "0"
+
+    logger.info(
+        "[nzbprov:%s] provider_stat:%s"
+        % (
+            nzbprov,
+            provider_stat,
+        )
+    )
+
+    logger.fdebug("issues match!")
+    if "Public Torrents" in tmpprov and any([nzbprov == "WWT", nzbprov == "DEM"]):
+        tmpprov = re.sub("Public Torrents", nzbprov, tmpprov)
+
+    if comicinfo[0]["pack"] is True:
+        if "0-Day Comics Pack" not in comicinfo[0]["ComicName"]:
+            logger.info(
+                "Found %s (%s) issue: %s using %s within a pack containing issues %s"
+                % (
+                    ComicName,
+                    comyear,
+                    IssueNumber,
+                    tmpprov,
+                    comicinfo[0]["pack_numbers"],
+                )
+            )
+        else:
+            logger.info("Found %s using %s for %s" % (ComicName, tmpprov, comicinfo[0]["IssueDate"]))
+    else:
+        if any([oneoff is True, IssueID is None]):
+            # one-off information
+            logger.fdebug("ComicName: %s" % ComicName)
+            logger.fdebug("Issue: %s" % IssueNumber)
+            logger.fdebug("Year: %s" % comyear)
+            logger.fdebug("IssueDate: %s" % comicinfo[0]["IssueDate"])
+        if IssueNumber is None:
+            logger.info("Found %s (%s) using %s" % (ComicName, comyear, tmpprov))
+        else:
+            logger.info("Found %s (%s) #%s using %s" % (ComicName, comyear, IssueNumber, tmpprov))
+
+    logger.fdebug("link given by: %s" % nzbprov)
+
+    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
+        logger.info("nzbid: %s" % nzbid)
+        logger.info("IssueID: %s" % IssueID)
+        logger.info("oneoff: %s" % oneoff)
+        if all([nzbid is not None and nzbid != "", IssueID is not None, oneoff is False]):
+            # --- this causes any possible snatch to get marked as a Failed download
+            # when doing a one-off search...
+            # try:
+            #    # only nzb providers will have a filen, try it and pass exception
+            #    if IssueID is None:
+            #        logger.fdebug(
+            #            'One-off mode was initiated - Failed Download'
+            #            ' handling for : ' + ComicName + ' #' + str(IssueNumber)
+            #        )
+            #        comicinfo = {"ComicName": ComicName,
+            #                     "IssueNumber": IssueNumber}
+            #        return FailedMark(ComicID=ComicID, IssueID=IssueID, id=nzbid,
+            #                          nzbname=nzbname, prov=nzbprov,
+            #                          oneoffinfo=comicinfo)
+            # except:
+            #    pass
+            call_the_fail = failed.FailedProcessor(
+                nzb_name=nzbname,
+                id=nzbid,
+                issueid=IssueID,
+                comicid=ComicID,
+                prov=tmpprov,
+            )
+            check_the_fail = call_the_fail.failed_check()
+            if check_the_fail == "Failed":
+                logger.fdebug("[FAILED_DOWNLOAD_CHECKER] [%s] Marked as a bad download : %s" % (tmpprov, nzbid))
+                return "downloadchk-fail"
+            elif check_the_fail == "Good":
+                logger.fdebug(
+                    "[FAILED_DOWNLOAD_CHECKER] This is not in the failed downloads"
+                    " list. Will continue with the download."
+                )
+        else:
+            logger.fdebug(
+                "[FAILED_DOWNLOAD_CHECKER] Failed download checking is not available"
+                " for one-off downloads atm. Fixed soon!"
+            )
+
+    if link and all(
+        [
+            provider_stat["type"] != "torznab",
+            "DDL" not in nzbprov,
+        ]
+    ):
+        # generate nzbid here.
+        logger.info("nzbprov: %s" % nzbprov)
+        logger.info("provider_stat: %s" % (provider_stat,))
+        nzo_info = {}
+        filen = None
+        nzbhydra = False
+        payload = None
+        headers = {"User-Agent": str(comicarr.USER_AGENT)}
+        # link doesn't have the apikey - add it and use ?t=get for newznab based.
+        if provider_stat["type"] == "newznab":
+            # need to basename the link so it just has the id/hash.
+            # rss doesn't store apikey, have to put it back.
+            if provider_stat["type"] == "newznab":
+                host_newznab = newznab[1].rstrip()
+                if host_newznab[len(host_newznab) - 1 : len(host_newznab)] != "/":
+                    host_newznab_fix = str(host_newznab) + "/"
+                else:
+                    host_newznab_fix = host_newznab
+
+                # account for nzbmegasearch & nzbhydra
+                if "searchresultid" in link:
+                    logger.fdebug("NZBHydra V1 url detected. Adjusting...")
+                    nzbhydra = True
+                else:
+                    apikey = newznab[3].rstrip()
+                    if rss == "yes":
+                        uid = newznab[4].rstrip()
+                        payload = {"r": str(apikey)}
+                        if uid is not None:
+                            payload["i"] = uid
+                    verify = bool(newznab[2])
+
+            if nzbhydra is True:
+                down_url = link
+                verify = False
+            elif "https://cdn." in link:
+                down_url = host_newznab_fix + "api"
+                logger.fdebug("Re-routing incorrect RSS URL response for NZBGeek to correct API")
+                payload = {"t": "get", "id": str(nzbid), "apikey": str(apikey)}
+            else:
+                down_url = link
+
+        else:
+            # experimental - direct link.
+            down_url = link
+            headers = None
+            verify = False
+
+        if payload is None:
+            tmp_line = down_url
+            tmp_url = down_url
+            tmp_url_st = tmp_url.find("apikey=")
+            if tmp_url_st == -1:
+                tmp_url_st = tmp_url.find("r=")
+                tmp_line = tmp_url[: tmp_url_st + 2]
+            else:
+                tmp_line = tmp_url[: tmp_url_st + 7]
+            tmp_line += "xYOUDONTNEEDTOKNOWTHISx"
+            tmp_url_en = tmp_url.find("&", tmp_url_st)
+            if tmp_url_en == -1:
+                tmp_url_en = len(tmp_url)
+            tmp_line += tmp_url[tmp_url_en:]
+            # tmp_url = helpers.apiremove(down_url.copy(), '&')
+            logger.fdebug("[PAYLOAD-NONE] Download URL: %s [VerifySSL: %s]" % (tmp_line, verify))
+        else:
+            tmppay = payload.copy()
+            tmppay["apikey"] = "YOUDONTNEEDTOKNOWTHIS"
+            logger.fdebug(
+                "[PAYLOAD] Download URL: %s?%s [VerifySSL: %s]" % (down_url, urllib.parse.urlencode(tmppay), verify)
+            )
+
+        if down_url.startswith("https") and verify is False:
+            try:
+                from requests.packages.urllib3 import disable_warnings
+
+                disable_warnings()
+            except Exception:
+                logger.warn("Unable to disable https warnings. Expect some spam if using https nzb providers.")
+
+        try:
+            r = get_http_session().get(down_url, params=payload, verify=verify, headers=headers, timeout=30)
+
+        except requests.exceptions.Timeout:
+            logger.warn("Timeout fetching data from %s" % tmpprov)
+            return "sab-fail"
+        except Exception as e:
+            logger.warn("Error fetching data from %s: %s" % (tmpprov, e))
+            return "sab-fail"
+
+        logger.fdebug("Status code returned: %s" % r.status_code)
+        try:
+            nzo_info["filename"] = r.headers["x-dnzb-name"]
+            filen = r.headers["x-dnzb-name"]
+        except KeyError:
+            filen = None
+        try:
+            nzo_info["propername"] = r.headers["x-dnzb-propername"]
+        except KeyError:
+            pass
+        try:
+            nzo_info["failure"] = r.headers["x-dnzb-failure"]
+        except KeyError:
+            pass
+        try:
+            nzo_info["details"] = r.headers["x-dnzb-details"]
+        except KeyError:
+            pass
+
+        if filen is None:
+            try:
+                filen = (
+                    r.headers["content-disposition"][r.headers["content-disposition"].index("filename=") + 9 :]
+                    .strip(";")
+                    .strip('"')
+                )
+                if "filename*=UTF-8" in filen:
+                    filen = filen[: filen.find("filename*=UTF-8")].strip()
+                if filen.endswith('";'):
+                    filen = re.sub(r"\"\;", "", filen).strip()
+                logger.fdebug("filename within nzb: %s" % filen)
+            except Exception:
+                pass
+
+        if filen is None:
+            if payload is None:
+                logger.error(
+                    "[PAYLOAD:NONE] Unable to download nzb from link: %s [%s]"
+                    % (redact_sensitive_text(down_url), redact_sensitive_text(link))
+                )
+            else:
+                errorlink = down_url + "?" + urllib.parse.urlencode(payload)
+                logger.error(
+                    "[PAYLOAD:PRESENT] Unable to download nzb from link: %s [%s]"
+                    % (redact_sensitive_text(errorlink), redact_sensitive_text(link))
+                )
+            return "sab-fail"
+        else:
+            # convert to a generic type of format to help with post-processing.
+            filen = re.sub(r"\&", "and", filen)
+            filen = re.sub(r"[\,\:\?\']", "", filen)
+            filen = re.sub(r"[\(\)]", " ", filen)
+            filen = re.sub(r"[\s\s+]", "", filen)  # make sure we remove the extra spaces.
+            logger.fdebug("[FILENAME] filename (remove chars): %s" % filen)
+            filen = re.sub(".cbr", "", filen).strip()
+            filen = re.sub(".cbz", "", filen).strip()
+            logger.fdebug("[FILENAME] nzbname : %s" % filen)
+            # filen = re.sub('\s', '.', filen)
+            logger.fdebug("[FILENAME] end nzbname: %s" % filen)
+
+            if re.sub(".nzb", "", filen.lower()).strip() != re.sub(".nzb", "", nzbname.lower()).strip():
+                alt_nzbname = re.sub(".nzb", "", filen).strip()
+                alt_nzbname = re.sub(r"[\s+]", " ", alt_nzbname)
+                alt_nzbname = re.sub(r"[\s\_]", ".", alt_nzbname)
+                logger.info(
+                    "filen: %s -- nzbname: %s are not identical."
+                    " Storing extra value as : %s" % (filen, nzbname, alt_nzbname)
+                )
+
+            # make sure the cache directory exists - if not, create it
+            # (used for storing nzbs).
+            if os.path.exists(comicarr.CONFIG.CACHE_DIR):
+                if comicarr.CONFIG.ENFORCE_PERMS:
+                    logger.fdebug(
+                        "Cache Directory successfully found at : %s."
+                        " Ensuring proper permissions." % comicarr.CONFIG.CACHE_DIR
+                    )
+                    # enforce the permissions here to ensure the lower portion writes
+                    # successfully
+                    filechecker.setperms(comicarr.CONFIG.CACHE_DIR, True)
+                else:
+                    logger.fdebug("Cache Directory successfully found at : %s" % comicarr.CONFIG.CACHE_DIR)
+            else:
+                # let's make the dir.
+                logger.fdebug(
+                    "Could not locate Cache Directory, attempting to create at : %s" % comicarr.CONFIG.CACHE_DIR
+                )
+                try:
+                    filechecker.validateAndCreateDirectory(comicarr.CONFIG.CACHE_DIR, True)
+                    logger.info(
+                        "Temporary NZB Download Directory successfully created at: %s" % comicarr.CONFIG.CACHE_DIR
+                    )
+                except OSError:
+                    raise
+
+            # save the nzb grabbed, so we can bypass all the 'send-url' crap.
+            if not nzbname.endswith(".nzb"):
+                nzbname = nzbname + ".nzb"
+            nzbpath = _nzb_cache_path(comicarr.CONFIG.CACHE_DIR, nzbname)
+            write_chunks_atomically(nzbpath, r.iter_content(chunk_size=1024))
+
+    # blackhole
+    sent_to = None
+    t_hash = None
+    if comicarr.CONFIG.ENABLE_DDL is True and "DDL" in nzbprov:
+        # Each durable DDL command owns its own reservation in ddl_downloader;
+        # updater must not create a second generic issue/provider row.
+        journal_release_key = None
+        journal_managed = True
+        if all([IssueID is None, IssueArcID is not None]):
+            tmp_issueid = IssueArcID
+        else:
+            tmp_issueid = IssueID
+
+        # we need to pass in if it's a pack and what issues are present therein
+        pack_info = {
+            "pack": comicinfo[0]["pack"],
+            "pack_numbers": comicinfo[0]["pack_numbers"],
+            "pack_issuelist": comicinfo[0]["pack_issuelist"],
+        }
+
+        if nzbprov == "DDL(GetComics)":
+            # GC requires an extra step - do it now.
+            ggc = getcomics.GC(issueid=tmp_issueid, comicid=ComicID)
+            ggc.loadsite(nzbid, link)
+            ddl_it = ggc.parse_downloadresults(nzbid, link, comicinfo, pack_info)
+            tnzbprov = nzbprov
+            if ddl_it.get("success") is True and not ddl_it.get("partial") and not ddl_it.get("failed_ids"):
+                logger.info(
+                    "[%s] Successfully snatched %s from DDL site. It is currently being queued"
+                    " to download in position %s" % (tnzbprov, nzbname, comicarr.DDL_QUEUE.qsize())
+                )
+            else:
+                if ddl_it.get("partial") or ddl_it.get("failed_ids"):
+                    logger.warn(
+                        "[%s] Incomplete DDL handoff for %s (queued=%s failed=%s); not treating as full snatch success"
+                        % (
+                            tnzbprov,
+                            nzbname,
+                            ddl_it.get("queued_ids") or [],
+                            ddl_it.get("failed_ids") or [],
+                        )
+                    )
+                else:
+                    logger.info("[%s] Failed to retrieve %s from the DDL site." % (tnzbprov, nzbname))
+                return "ddl-fail"
+        else:
+            cinfo = {
+                "id": nzbid,
+                "series": comicinfo[0]["ComicName"],
+                "year": comicinfo[0]["comyear"],
+                "size": comicinfo[0]["size"],
+                "issues": comicinfo[0]["IssueNumber"],
+                "issueid": comicinfo[0]["IssueID"],
+                "comicid": comicinfo[0]["ComicID"],
+                "filename": comicinfo[0]["nzbtitle"],
+                "oneoff": comicinfo[0]["oneoff"],
+                "link": link,
+                "site": nzbprov,
+            }
+
+            meganz = exs.MegaNZ(provider_stat=provider_stat)
+            ddl_it = meganz.queue_the_download(cinfo, comicinfo, pack_info)
+            tnzbprov = "DDL(External)"
+
+            if ddl_it["success"] is True:
+                logger.info(
+                    "[%s] Successfully snatched %s from DDL site. It is currently being queued"
+                    " to download in position %s" % (tnzbprov, nzbname, comicarr.DDL_QUEUE.qsize())
+                )
+            else:
+                logger.info("[%s] Failed to retrieve %s from the DDL site." % (tnzbprov, nzbname))
+                return "ddl-fail"
+
+        sent_to = "is downloading it directly via %s" % tnzbprov
+
+    elif comicarr.USE_BLACKHOLE and all(
+        [nzbprov != "32P", nzbprov != "WWT", nzbprov != "DEM", provider_stat["type"] != "torznab"]
+    ):
+        logger.fdebug("Using blackhole directory at : %s" % comicarr.CONFIG.BLACKHOLE_DIR)
+        if os.path.exists(comicarr.CONFIG.BLACKHOLE_DIR):
+            # copy the nzb from nzbpath to blackhole dir.
+            try:
+
+                def _blackhole_sender():
+                    shutil.move(nzbpath, os.path.join(comicarr.CONFIG.BLACKHOLE_DIR, nzbname))
+                    return {"status": True}
+
+                handoff.perform_handoff(
+                    journal_release_key,
+                    "blackhole",
+                    _blackhole_sender,
+                    payload=journal_payload,
+                    issueid=journal_issueid,
+                    provider=tmpprov,
+                    nzbname=nzbname,
+                )
+                journal_managed = True
+            except (OSError, IOError, handoff.HandoffError):
+                logger.warn(
+                    "Failed to move nzb into blackhole directory - check blackhole directory and/or permissions."
+                )
+                return "blackhole-fail"
+            logger.fdebug("Filename saved to your blackhole as : %s" % nzbname)
+            logger.info(
+                "Successfully sent .nzb to your Blackhole directory : %s"
+                % (os.path.join(comicarr.CONFIG.BLACKHOLE_DIR, nzbname))
+            )
+            sent_to = "has sent it to your Blackhole Directory"
+
+            if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+                if comicinfo[0]["pack"] is False:
+                    pnumbers = None
+                    plist = None
+                else:
+                    pnumbers = "|".join(comicinfo[0]["pack_numbers"])
+                    plist = "|".join(comicinfo[0]["pack_issuelist"])
+                snatch_vars = {
+                    "nzbinfo": {
+                        "link": link,
+                        "id": nzbid,
+                        "nzbname": nzbname,
+                        "nzbpath": nzbpath,
+                        "blackhole": comicarr.CONFIG.BLACKHOLE_DIR,
+                    },
+                    "comicinfo": {
+                        "comicname": ComicName,
+                        "volume": comicinfo[0]["ComicVolume"],
+                        "comicid": ComicID,
+                        "issueid": IssueID,
+                        "issuearcid": IssueArcID,
+                        "issuenumber": IssueNumber,
+                        "issuedate": comicinfo[0]["IssueDate"],
+                        "seriesyear": comyear,
+                    },
+                    "pack": comicinfo[0]["pack"],
+                    "pack_numbers": pnumbers,
+                    "pack_issuelist": plist,
+                    "provider": nzbprov,
+                    "method": "nzb",
+                    "clientmode": "blackhole",
+                }
+
+                snatchitup = helpers.script_env("on-snatch", snatch_vars)
+                if snatchitup is True:
+                    logger.info("Successfully submitted on-grab script as requested.")
+                else:
+                    logger.info("Could not Successfully submit on-grab script as requested. Please check logs...")
+    # end blackhole
+
+    # torrents (32P & DEM)
+    elif any([nzbprov == "32P", nzbprov == "WWT", nzbprov == "DEM", provider_stat["type"] == "torznab"]):
+        logger.fdebug("ComicName: %s" % ComicName)
+        logger.fdebug("link: %s" % link)
+        logger.fdebug("Torrent Provider: %s" % nzbprov)
+
+        # nzbid = hash for usage with public torrents
+        torrent_route = _configured_torrent_handoff_route()
+        try:
+            rcheck, _route_acceptance = handoff.perform_handoff(
+                journal_release_key,
+                torrent_route,
+                lambda: rsscheck.torsend2client(ComicName, IssueNumber, comyear, link, nzbprov, nzbid),
+                payload=journal_payload,
+                issueid=journal_issueid,
+                provider=tmpprov,
+                nzbname=nzbname,
+            )
+            journal_managed = True
+        except Exception as e:
+            logger.error("Torrent handoff could not be durably completed: %s" % type(e).__name__)
+            return "torrent-fail"
+        if rcheck == "fail":
+            if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
+                logger.error(
+                    "Unable to send torrent to client. Assuming incomplete link -"
+                    " sending to Failed Handler and continuing search."
+                )
+                if any([oneoff is True, IssueID is None]):
+                    logger.fdebug(
+                        "One-off mode was initiated - Failed Download handling for : %s #%s" % (ComicName, IssueNumber)
+                    )
+                    comicinfo = {"ComicName": ComicName, "IssueNumber": IssueNumber}
+                else:
+                    comicinfo_temp = {
+                        "ComicName": comicinfo[0]["ComicName"],
+                        "modcomicname": comicinfo[0]["modcomicname"],
+                        "IssueNumber": comicinfo[0]["IssueNumber"],
+                        "comyear": comicinfo[0]["comyear"],
+                    }
+                    comicinfo = comicinfo_temp
+                return FailedMark(
+                    ComicID=ComicID,
+                    IssueID=IssueID,
+                    id=nzbid,
+                    nzbname=nzbname,
+                    prov=nzbprov,
+                    oneoffinfo=comicinfo,
+                    journal_release_key=journal_release_key,
+                )
+            else:
+                logger.error(
+                    "Unable to send torrent - check logs and settings (this would be"
+                    " marked as a BAD torrent if Failed Handling was enabled)"
+                )
+                return "torrent-fail"
+        else:
+            """
+            Start the auto-snatch segway here (if rcheck isn't False, it contains the
+            info of the torrent). Since this is torrentspecific snatch, the vars will
+            be different than nzb snatches.
+            torrent_info{'folder','name','total_filesize','label','hash',
+                         'files','time_started'}
+            """
+            t_hash = rcheck["hash"]
+            rcheck.update({"torrent_filename": nzbname})
+
+            # P0-1 single-derivation invariant: the SNATCHED_QUEUE torrent
+            # item MUST carry `provider` (and the search-time nzbname for
+            # parity/payload), otherwise worker_main's `downloaded` release_key
+            # would be derived with provider=None and DIVERGE from the
+            # snatch-seam key (issueid|normalized-provider), orphaning the
+            # snatched journal row. nzbprov here is the same raw provider label
+            # foundsearch is given for this snatch.
+            # Any client the monitor can poll is eligible. Restricting this to
+            # rTorrent and Deluge meant a qBittorrent, Transmission or uTorrent
+            # snatch never reached the queue at all, so it sat in Snatched
+            # forever regardless of what the monitor could see.
+            monitorable = torrent_monitor.configured_route() is not None
+            # Widening `monitorable` moves qBittorrent, Transmission and
+            # uTorrent out of the else-branch below, which is where the
+            # on-snatch hook lives. Those users must not silently lose the
+            # hook, so it keeps its original gate: suppressed only for the
+            # rTorrent/Deluge queueing path, whose worker already performs the
+            # same pack lookup the hook does.
+            legacy_queue_route = any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE])
+            queued_for_monitoring = comicarr.CONFIG.AUTO_SNATCH or comicarr.CONFIG.LOCAL_TORRENT_PP
+            if monitorable and comicarr.CONFIG.AUTO_SNATCH:
+                comicarr.SNATCHED_QUEUE.put(
+                    {
+                        "issueid": IssueID,
+                        "comicid": ComicID,
+                        "hash": rcheck["hash"],
+                        "provider": nzbprov,
+                        "nzbname": nzbname,
+                        "journal_release_key": journal_release_key,
+                    }
+                )
+            elif monitorable and comicarr.CONFIG.LOCAL_TORRENT_PP:
+                comicarr.SNATCHED_QUEUE.put(
+                    {
+                        "issueid": IssueID,
+                        "comicid": ComicID,
+                        "hash": rcheck["hash"],
+                        "provider": nzbprov,
+                        "nzbname": nzbname,
+                        "journal_release_key": journal_release_key,
+                    }
+                )
+            if not (legacy_queue_route and queued_for_monitoring):
+                if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+                    try:
+                        if comicinfo[0]["pack"] is False:
+                            pnumbers = None
+                            plist = None
+                        else:
+                            if "0-Day Comics Pack" in ComicName:
+                                helpers.lookupthebitches(
+                                    rcheck["files"],
+                                    rcheck["folder"],
+                                    nzbname,
+                                    nzbid,
+                                    nzbprov,
+                                    t_hash,
+                                    comicinfo[0]["IssueDate"],
+                                    journal_release_key=journal_release_key,
+                                    journal_managed=True,
+                                )
+                                pnumbers = None
+                                plist = None
+                            else:
+                                pnumbers = "|".join(comicinfo[0]["pack_numbers"])
+                                plist = "|".join(comicinfo[0]["pack_issuelist"])
+                        snatch_vars = {
+                            "comicinfo": {
+                                "comicname": ComicName,
+                                "volume": comicinfo[0]["ComicVolume"],
+                                "issuenumber": IssueNumber,
+                                "issuedate": comicinfo[0]["IssueDate"],
+                                "seriesyear": comyear,
+                                "comicid": ComicID,
+                                "issueid": IssueID,
+                                "issuearcid": IssueArcID,
+                            },
+                            "pack": comicinfo[0]["pack"],
+                            "pack_numbers": pnumbers,
+                            "pack_issuelist": plist,
+                            "provider": nzbprov,
+                            "method": "torrent",
+                            "clientmode": rcheck["clientmode"],
+                            "torrentinfo": rcheck,
+                        }
+
+                        snatchitup = helpers.script_env("on-snatch", snatch_vars)
+                        if snatchitup is True:
+                            logger.info("Successfully submitted on-grab script as requested.")
+                        else:
+                            logger.info(
+                                "Could not Successfully submit on-grab script as requested. Please check logs..."
+                            )
+                    except Exception as e:
+                        logger.warn("error: %s" % e)
+
+        if comicarr.USE_WATCHDIR is True:
+            if comicarr.CONFIG.TORRENT_LOCAL is True:
+                sent_to = "has sent it to your local Watch folder"
+            else:
+                sent_to = "has sent it to your seedbox Watch folder"
+        elif comicarr.USE_UTORRENT is True:
+            sent_to = "has sent it to your uTorrent client"
+        elif comicarr.USE_RTORRENT is True:
+            sent_to = "has sent it to your rTorrent client"
+        elif comicarr.USE_TRANSMISSION is True:
+            sent_to = "has sent it to your Transmission client"
+        elif comicarr.USE_DELUGE is True:
+            sent_to = "has sent it to your Deluge client"
+        elif comicarr.USE_QBITTORRENT is True:
+            sent_to = "has sent it to your qBittorrent client"
+    # end torrents
+
+    else:
+        # SABnzbd / NZBGet
+
+        # nzb.get
+        if comicarr.USE_NZBGET:
+            ss = nzbget.NZBGet()
+            try:
+                send_to_nzbget, _route_acceptance = handoff.perform_handoff(
+                    journal_release_key,
+                    "nzbget",
+                    lambda: ss.sender(nzbpath),
+                    payload=journal_payload,
+                    issueid=journal_issueid,
+                    provider=tmpprov,
+                    nzbname=nzbname,
+                )
+                journal_managed = True
+            except Exception as e:
+                logger.error("NZBGet handoff could not be durably completed: %s" % type(e).__name__)
+                return "nzbget-fail"
+            if comicarr.CONFIG.NZBGET_CLIENT_POST_PROCESSING is True:
+                if send_to_nzbget["status"] is True:
+                    send_to_nzbget["comicid"] = ComicID
+                    if IssueID is not None:
+                        send_to_nzbget["issueid"] = IssueID
+                    else:
+                        send_to_nzbget["issueid"] = "S" + IssueArcID
+                    send_to_nzbget["apicall"] = True
+                    send_to_nzbget["download_info"] = {"provider": nzbprov, "id": nzbid}
+                    send_to_nzbget["journal_release_key"] = journal_release_key
+                    send_to_nzbget["clientmode"] = "nzbget"
+                    comicarr.NZB_QUEUE.put(send_to_nzbget)
+                elif send_to_nzbget["status"] == "double-pp":
+                    return send_to_nzbget["status"]
+                else:
+                    logger.warn("Unable to send nzb file to NZBGet. There was an unknown parameter error")
+                    return "nzbget-fail"
+
+            if send_to_nzbget["status"] is True:
+                logger.info("Successfully sent nzb to NZBGet!")
+            else:
+                logger.info("Unable to send nzb to NZBGet - check your configs.")
+                return "nzbget-fail"
+            sent_to = "has sent it to your NZBGet"
+
+        # end nzb.get
+
+        elif comicarr.USE_SABNZBD:
+            # Content upload, not a callback. mode=addfile multipart-POSTs the
+            # .nzb already cached at nzbpath, which makes SAB structurally
+            # identical to NZBGet's XML-RPC append: the handoff completes inside
+            # one request and is verifiable from SAB's own response, with
+            # nothing for SAB to fetch back out of Comicarr.
+            # See docs/adr/0002-handoff-no-callback.md (#552 / #564).
+            sab_params = {
+                "apikey": comicarr.CONFIG.SAB_APIKEY,
+                "mode": "addfile",
+                "nzbname": nzbname,
+                "output": "json",
+            }
+
+            # determine SAB priority
+            if comicarr.CONFIG.SAB_PRIORITY:
+                # setup the priorities.
+                if comicarr.CONFIG.SAB_PRIORITY == "Default":
+                    sabpriority = "-100"
+                elif comicarr.CONFIG.SAB_PRIORITY == "Low":
+                    sabpriority = "-1"
+                elif comicarr.CONFIG.SAB_PRIORITY == "Normal":
+                    sabpriority = "0"
+                elif comicarr.CONFIG.SAB_PRIORITY == "High":
+                    sabpriority = "1"
+                elif comicarr.CONFIG.SAB_PRIORITY == "Paused":
+                    sabpriority = "-2"
+            else:
+                # if sab priority isn't selected, default to Normal (0)
+                sabpriority = "0"
+
+            sab_params["priority"] = sabpriority
+
+            # if category is blank, let's adjust
+            if comicarr.CONFIG.SAB_CATEGORY:
+                sab_params["cat"] = comicarr.CONFIG.SAB_CATEGORY
+
+            ss = sabnzbd.SABnzbd(sab_params)
+            try:
+                sendtosab, _route_acceptance = handoff.perform_handoff(
+                    journal_release_key,
+                    "sabnzbd",
+                    lambda: ss.sender(nzbpath),
+                    payload=journal_payload,
+                    issueid=journal_issueid,
+                    provider=tmpprov,
+                    nzbname=nzbname,
+                )
+                journal_managed = True
+            except Exception as e:
+                logger.error("SABnzbd handoff could not be durably completed: %s" % type(e).__name__)
+                return "sab-fail"
+            if all(
+                [
+                    sendtosab["status"] is True,
+                    comicarr.CONFIG.SAB_CLIENT_POST_PROCESSING is True,
+                ]
+            ):
+                sendtosab["comicid"] = ComicID
+                if IssueID is not None:
+                    sendtosab["issueid"] = IssueID
+                else:
+                    sendtosab["issueid"] = "S" + IssueArcID
+                sendtosab["apicall"] = True
+                sendtosab["download_info"] = {"provider": nzbprov, "id": nzbid}
+                sendtosab["journal_release_key"] = journal_release_key
+                sendtosab["clientmode"] = "sabnzbd"
+                logger.info("SABnzbd accepted download id=%s" % sendtosab.get("nzo_id"))
+                comicarr.NZB_QUEUE.put(sendtosab)
+            elif sendtosab["status"] == "double-pp":
+                return sendtosab["status"]
+            elif sendtosab["status"] is False:
+                return "sab-fail"
+
+            sent_to = "has sent it to your SABnzbd+"
+            logger.info("Successfully sent nzb file to SABnzbd")
+
+        if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+            if comicarr.USE_NZBGET:
+                clientmode = "nzbget"
+                client_id = "%s" % send_to_nzbget["NZBID"]
+            elif comicarr.USE_SABNZBD:
+                clientmode = "sabnzbd"
+                client_id = sendtosab["nzo_id"]
+
+            if comicinfo[0]["pack"] is False:
+                pnumbers = None
+                plist = None
+            else:
+                pnumbers = "|".join(comicinfo[0]["pack_numbers"])
+                plist = "|".join(comicinfo[0]["pack_issuelist"])
+            snatch_vars = {
+                "nzbinfo": {
+                    "link": link,
+                    "id": nzbid,
+                    "client_id": client_id,
+                    "nzbname": nzbname,
+                    "nzbpath": nzbpath,
+                },
+                "comicinfo": {
+                    "comicname": comicinfo[0]["ComicName"].encode("utf-8"),
+                    "volume": comicinfo[0]["ComicVolume"],
+                    "comicid": ComicID,
+                    "issueid": IssueID,
+                    "issuearcid": IssueArcID,
+                    "issuenumber": IssueNumber,
+                    "issuedate": comicinfo[0]["IssueDate"],
+                    "seriesyear": comyear,
+                },
+                "pack": comicinfo[0]["pack"],
+                "pack_numbers": pnumbers,
+                "pack_issuelist": plist,
+                "provider": nzbprov,
+                "method": "nzb",
+                "clientmode": clientmode,
+            }
+
+            snatchitup = helpers.script_env("on-snatch", snatch_vars)
+            if snatchitup is True:
+                logger.info("Successfully submitted on-grab script as requested.")
+            else:
+                logger.info("Could not Successfully submit on-grab script as requested. Please check logs...")
+
+    # nzbid, nzbname, sent_to
+    nzbname = re.sub(".nzb", "", nzbname).strip()
+
+    return_val = {}
+    return_val = {
+        "nzbid": nzbid,
+        "nzbname": nzbname,
+        "sent_to": sent_to,
+        "SARC": SARC,
+        "alt_nzbname": alt_nzbname,
+        "t_hash": t_hash,
+        "journal_release_key": journal_release_key,
+        "journal_managed": journal_managed,
+    }
+
+    # if it's a directsend link (ie. via a retry).
+    if directsend is None:
+        return return_val
+    else:
+        if "Public Torrents" in tmpprov and any([nzbprov == "WWT", nzbprov == "DEM"]):
+            tmpprov = re.sub("Public Torrents", nzbprov, tmpprov)
+        # update the db on the snatch.
+        if alt_nzbname is None or alt_nzbname == "":
+            logger.fdebug(
+                "Found matching comic...preparing to send to Updater with IssueID %s"
+                " and nzbname of %s [Oneoff:%s]" % (IssueID, nzbname, oneoff)
+            )
+            if "[RSS]" in tmpprov:
+                tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
+            updater.nzblog(
+                IssueID,
+                nzbname,
+                ComicName,
+                SARC=SARC,
+                IssueArcID=IssueArcID,
+                id=nzbid,
+                prov=tmpprov,
+                oneoff=oneoff,
+            )
+        else:
+            logger.fdebug(
+                "Found matching comic...preparing to send to Updater with IssueID %s"
+                " and nzbname of %s [ALTNZBNAME:%s][OneOff:%s]" % (IssueID, nzbname, alt_nzbname, oneoff)
+            )
+            if "[RSS]" in tmpprov:
+                tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
+            updater.nzblog(
+                IssueID,
+                nzbname,
+                ComicName,
+                SARC=SARC,
+                IssueArcID=IssueArcID,
+                id=nzbid,
+                prov=tmpprov,
+                alt_nzbname=alt_nzbname,
+                oneoff=oneoff,
+            )
+        # send out notifications for on snatch after the updater incase notification
+        # fails (it would bugger up the updater/pp scripts)
+        notify_snatch(sent_to, ComicName, comyear, IssueNumber, tmpprov, False)
+        return return_val
+
+
+def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
+    # pack = {"pack": True, "issues": '#1 - 60', "years": "(1997-2002"}
+    # logger.fdebug('sent_to: %s' % sent_to)
+    # logger.fdebug('pack: %s' % pack)
+    # logger.fdebug('Issue: %s' % IssueNumber)
+    # logger.fdebug('nzbprov: %s' % nzbprov)
+    # logger.fdebug('comyear: %s' % comyear)
+    # logger.fdebug('comicname: %s' % comicname)
+
+    if pack is False:
+        snline = "Issue snatched!"
+        if IssueNumber is not None:
+            snatched_name = "%s (%s) #%s" % (comicname, comyear, IssueNumber)
+        else:
+            snatched_name = "%s (%s)" % (comicname, comyear)
+    else:
+        snline = "Pack snatched!"
+        snatched_name = "%s %s (%s)" % (comicname, IssueNumber, comyear)
+
+    # logger.fdebug('snatched_name: %s' % snatched_name)
+
+    nzbprov = re.sub(r"\(newznab\)", "", nzbprov).strip()
+    nzbprov = re.sub(r"\(torznab\)", "", nzbprov).strip()
+
+    if comicarr.CONFIG.PROWL_ENABLED and comicarr.CONFIG.PROWL_ONSNATCH:
+        logger.info("Sending Prowl notification")
+        prowl = notifiers.PROWL()
+        prowl.notify(snatched_name, "Download started using %s" % sent_to)
+    if comicarr.CONFIG.PUSHOVER_ENABLED and comicarr.CONFIG.PUSHOVER_ONSNATCH:
+        logger.info("Sending Pushover notification")
+        pushover = notifiers.PUSHOVER()
+        pushover.notify(snline, snatched_nzb=snatched_name, prov=nzbprov, sent_to=sent_to)
+    if comicarr.CONFIG.BOXCAR_ENABLED and comicarr.CONFIG.BOXCAR_ONSNATCH:
+        logger.info("Sending Boxcar notification")
+        boxcar = notifiers.BOXCAR()
+        boxcar.notify(snatched_nzb=snatched_name, sent_to=sent_to, snline=snline)
+    if comicarr.CONFIG.PUSHBULLET_ENABLED and comicarr.CONFIG.PUSHBULLET_ONSNATCH:
+        logger.info("Sending Pushbullet notification")
+        pushbullet = notifiers.PUSHBULLET()
+        pushbullet.notify(
+            snline=snline,
+            snatched=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+            method="POST",
+        )
+    if comicarr.CONFIG.TELEGRAM_ENABLED and comicarr.CONFIG.TELEGRAM_ONSNATCH:
+        logger.info("Sending Telegram notification")
+        telegram = notifiers.TELEGRAM()
+        telegram.notify("%s - %s - Comicarr %s" % (snline, snatched_name, sent_to))
+    if comicarr.CONFIG.SLACK_ENABLED and comicarr.CONFIG.SLACK_ONSNATCH:
+        logger.info("Sending Slack notification")
+        slack = notifiers.SLACK()
+        slack.notify(
+            "Snatched",
+            snline,
+            snatched_nzb=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+        )
+    if comicarr.CONFIG.DISCORD_ENABLED and comicarr.CONFIG.DISCORD_ONSNATCH:
+        logger.info("Sending Discord notification")
+        discord = notifiers.DISCORD()
+        discord.notify(
+            "Snatched",
+            snline,
+            snatched_nzb=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+        )
+    if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONGRAB:
+        logger.info("Sending email notification")
+        email = notifiers.EMAIL()
+        email.notify(
+            snline + " - " + snatched_name,
+            "Comicarr notification - Snatch",
+            module="[SEARCH]",
+        )
+    if comicarr.CONFIG.GOTIFY_ENABLED and comicarr.CONFIG.GOTIFY_ONSNATCH:
+        logger.info("Sending Gotify notification")
+        gotify = notifiers.GOTIFY()
+        gotify.notify(
+            "Snatched",
+            snline,
+            snatched_nzb=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+        )
+    if comicarr.CONFIG.MATRIX_ENABLED and comicarr.CONFIG.MATRIX_ONSNATCH:
+        logger.info("Sending Matrix notification")
+        matrix = notifiers.MATRIX()
+        matrix.notify(
+            "Snatched",
+            snline,
+            snatched_nzb=snatched_name,
+            sent_to=sent_to,
+            prov=nzbprov,
+        )
+
+    return
+
+
+def FailedMark(IssueID, ComicID, id, nzbname, prov, oneoffinfo=None, journal_release_key=None):
+    # Used to pass a failed attempt at sending a download to a client, to the failed
+    # handler, and then back again to continue searching.
+
+    from comicarr import failed
+
+    FailProcess = failed.FailedProcessor(
+        issueid=IssueID,
+        comicid=ComicID,
+        id=id,
+        nzb_name=nzbname,
+        prov=prov,
+        oneoffinfo=oneoffinfo,
+        journal_release_key=journal_release_key,
+    )
+    FailProcess.markFailed()
+
+    if prov == "32P" or prov == "Public Torrents":
+        return "torrent-fail"
+    else:
+        return "downloadchk-fail"
+
+
+def IssueTitleCheck(
+    issuetitle,
+    watchcomic_split,
+    splitit,
+    splitst,
+    issue_firstword,
+    hyphensplit,
+    orignzb=None,
+):
+    vals = []
+    isstitle_chk = False
+
+    logger.fdebug("incorrect comic lengths...not a match")
+
+    issuetitle = re.sub(r"[\-\:\,\?\.]", " ", str(issuetitle))
+    issuetitle_words = issuetitle.split(None)
+    # issue title comparison here:
+    logger.fdebug("there are %s words in the issue title of : %s" % (len(issuetitle_words), issuetitle))
+    # we minus 1 the splitst since the issue # is included in there.
+    if (splitst - 1) > len(watchcomic_split):
+        logger.fdebug("splitit:" + str(splitit))
+        logger.fdebug("splitst:" + str(splitst))
+        logger.fdebug("len-watchcomic:" + str(len(watchcomic_split)))
+        possibleissue_num = splitit[len(watchcomic_split)]  # [splitst]
+        logger.fdebug("possible issue number of : %s" % possibleissue_num)
+        extra_words = splitst - len(watchcomic_split)
+        logger.fdebug("there are %s left over after we remove the series title." % extra_words)
+        wordcount = 1
+        # remove the series title here so we just have the 'hopefully' issue title
+        for word in splitit:
+            # logger.info('word: ' + str(word))
+            if wordcount > len(watchcomic_split):
+                # logger.info('wordcount: ' + str(wordcount))
+                # logger.info('watchcomic_split: ' + str(len(watchcomic_split)))
+                if wordcount - len(watchcomic_split) == 1:
+                    search_issue_title = word
+                    possibleissue_num = word
+                else:
+                    search_issue_title += " " + word
+            wordcount += 1
+
+        decit = search_issue_title.split(None)
+        if decit[0].isdigit() and decit[1].isdigit():
+            logger.fdebug("possible decimal - referencing position from original title.")
+            chkme = orignzb.find(decit[0])
+            chkend = orignzb.find(decit[1], chkme + len(decit[0]))
+            chkspot = orignzb[chkme : chkend + 1]
+            print(chkme, chkend)
+            print(chkspot)
+            # we add +1 to decit totals in order to account for the '.' that's
+            # missing and we assume is there.
+            if len(chkspot) == (len(decit[0]) + len(decit[1]) + 1):
+                logger.fdebug("lengths match for possible decimal issue.")
+                if "." in chkspot:
+                    logger.fdebug("decimal located within : %s" % chkspot)
+                    possibleissue_num = chkspot
+                    splitst = splitst - 1  # remove the second numeric it's a decimal & would add extra char
+
+        logger.fdebug("search_issue_title is : %s" % search_issue_title)
+        logger.fdebug("possible issue number of : %s" % possibleissue_num)
+
+        if hyphensplit is not None and "of" not in search_issue_title:
+            logger.fdebug("hypen split detected.")
+            try:
+                issue_start = search_issue_title.find(issue_firstword)
+                logger.fdebug("located first word of : %s at position : %s" % (issue_firstword, issue_start))
+                search_issue_title = search_issue_title[issue_start:]
+                logger.fdebug("corrected search_issue_title is now : %s" % search_issue_title)
+            except TypeError:
+                logger.fdebug("invalid parsing detection. Ignoring this result.")
+                return vals.append(
+                    {
+                        "splitit": splitit,
+                        "splitst": splitst,
+                        "isstitle_chk": isstitle_chk,
+                        "status": "continue",
+                    }
+                )
+        # now we have the nzb issue title (if it exists), let's break it down further.
+        sit_split = search_issue_title.split(None)
+        watch_split_count = len(issuetitle_words)
+        isstitle_removal = []
+        isstitle_match = 0  # counter to tally % match
+        misword = 0  # counter to tally words that probably don't need to be an 'exact' match.
+        for wsplit in issuetitle_words:
+            of_chk = False
+            if wsplit.lower() == "part" or wsplit.lower() == "of":
+                if wsplit.lower() == "of":
+                    of_chk = True
+                logger.fdebug("not worrying about this word : %s" % wsplit)
+                misword += 1
+                continue
+            if wsplit.isdigit() and of_chk is True:
+                logger.fdebug("of %s detected. Ignoring for matching." % wsplit)
+                of_chk = False
+                continue
+
+            for sit in sit_split:
+                logger.fdebug("looking at : %s -TO- %s" % (sit.lower(), wsplit.lower()))
+                if sit.lower() == "part":
+                    logger.fdebug("not worrying about this word : %s" % sit)
+                    misword += 1
+                    isstitle_removal.append(sit)
+                    break
+                elif sit.lower() == wsplit.lower():
+                    logger.fdebug("word match: %s" % sit)
+                    isstitle_match += 1
+                    isstitle_removal.append(sit)
+                    break
+                else:
+                    try:
+                        if int(sit) == int(wsplit):
+                            logger.fdebug("found matching numeric: %s" % wsplit)
+                            isstitle_match += 1
+                            isstitle_removal.append(sit)
+                            break
+                    except Exception:
+                        pass
+
+        logger.fdebug("isstitle_match count : %s" % isstitle_match)
+        if isstitle_match > 0:
+            iss_calc = ((isstitle_match + misword) / watch_split_count) * 100
+            logger.fdebug("iss_calc: %s %s with %s unaccounted for words" % (iss_calc, "%", misword))
+        else:
+            iss_calc = 0
+            logger.fdebug("0 words matched on issue title.")
+        if iss_calc >= 80:
+            # comicarr.ISSUE_TITLEMATCH
+            # user-defined percentage to match against for issue name comparisons.
+            logger.fdebug(">80% match on issue name. If this were implemented, this would be considered a match.")
+            logger.fdebug("we should remove %s words : %s" % (len(isstitle_removal), isstitle_removal))
+            logger.fdebug("Removing issue title from nzb filename to improve matching algorithims")
+            splitst = splitst - len(isstitle_removal)
+            isstitle_chk = True
+            vals.append(
+                {
+                    "splitit": splitit,
+                    "splitst": splitst,
+                    "isstitle_chk": isstitle_chk,
+                    "possibleissue_num": possibleissue_num,
+                    "isstitle_removal": isstitle_removal,
+                    "status": "ok",
+                }
+            )
+            return vals
+    return
+
+
+def generate_id(nzbprov, link, comicname):
+    # logger.fdebug('[type:%s][%s] generate_id - link: %s' % (type(nzbprov), nzbprov, link))
+    if type(nzbprov) != str:
+        # provider_stat is being passed in - use the type field to get the basics.
+        nzbprov = nzbprov["type"]
+        logger.fdebug("nzbprov setting to : %s" % nzbprov)
+    if nzbprov == "experimental":
+        # id is located after the /download/ portion
+        url_parts = urlparse(link)
+        path_parts = url_parts[2].rpartition("/")
+        nzbtempid = path_parts[0].rpartition("/")
+        nzblen = len(nzbtempid)
+        nzbid = nzbtempid[nzblen - 1]
+    elif nzbprov == "32P":
+        # 32P just has the torrent id stored.
+        nzbid = link
+    elif any([nzbprov == "WWT", nzbprov == "DEM"]):
+        if "http" not in link and any([nzbprov == "WWT", nzbprov == "DEM"]):
+            nzbid = link
+        else:
+            # for users that already have the cache in place.
+            url_parts = urlparse(link)
+            path_parts = url_parts[2].rpartition("/")
+            nzbtempid = path_parts[2]
+            nzbid = re.sub(".torrent", "", nzbtempid).rstrip()
+    elif "newznab" in nzbprov:
+        # if in format of http://newznab/getnzb/<id>.nzb&i=1&r=apikey
+        tmpid = urlparse(link)[4]  # param 4 is the query string from the url.
+        if "searchresultid" in tmpid:
+            nzbid = os.path.splitext(link)[0].rsplit("searchresultid=", 1)[1]
+        elif tmpid == "" or tmpid is None:
+            nzbid = os.path.splitext(link)[0].rsplit("/", 1)[1]
+        else:
+            nzbinfo = urllib.parse.parse_qs(link)
+            nzbid = nzbinfo.get("id", None)
+            if nzbid is not None:
+                nzbid = "".join(nzbid)
+        if nzbid is None:
+            # if apikey is passed in as a parameter and the id is in the path
+            findend = tmpid.find("&")
+            if findend == -1:
+                findend = len(tmpid)
+                nzbid = tmpid[findend + 1 :].strip()
+            else:
+                findend = tmpid.find("apikey=", findend)
+                nzbid = tmpid[findend + 1 :].strip()
+            if "&id" not in tmpid or nzbid == "":
+                tmpid = urlparse(link)[2]
+                nzbid = tmpid.rsplit("/", 1)[1]
+    elif nzbprov == "torznab":
+        idtmp = urlparse(link)[4]
+        if idtmp == "":
+            idtmp = pathlib.PurePosixPath(unquote(urlparse(link).path))
+            for im in idtmp.parts:
+                if all(
+                    [
+                        comicname.lower() not in im.lower(),
+                        im != "/",
+                        ".cbz" not in im.lower(),
+                        ".cbr" not in im.lower(),
+                    ]
+                ):
+                    nzbid = im
+                    break
+        else:
+            idpos = idtmp.find("&")
+            nzbid = re.sub("id=", "", idtmp[:idpos]).strip()
+    return nzbid
+
+
+def check_time(last_run):
+    rd = datetime.datetime.utcfromtimestamp(last_run)
+    rd_now = datetime.datetime.utcfromtimestamp(time.time())
+    diff = abs(rd_now - rd).total_seconds()
+    return diff
+
+
+def get_current_prov(providers):
+    for k, v in providers.items():
+        if v["active"] is True:
+            return {k: providers[k]}
+
+    return False
+
+
+def last_run_check(write=None, check=None, provider=None):
+    if check is True:
+        checkout = db.select_all(select(provider_searches))
+        chk = {}
+        if checkout:
+            if provider is not None:
+                if provider == "Experimental":
+                    provider = "experimental"
+                for ck in checkout:
+                    if provider == ck["provider"]:
+                        chk[ck["provider"]] = {
+                            "type": ck["type"],
+                            "lastrun": ck["lastrun"],
+                            "active": ck["active"],
+                            "hits": ck["hits"],
+                            "id": ck["id"],
+                        }
+                        break
+            else:
+                for ck in checkout:
+                    ck_prov = ck["provider"]
+                    if ck_prov == "Experimental":
+                        ck_prov = "experimental"
+                    chk[ck_prov] = {
+                        "type": ck["type"],
+                        "lastrun": ck["lastrun"],
+                        "active": ck["active"],
+                        "hits": ck["hits"],
+                        "id": ck["id"],
+                    }
+        return chk
+    else:
+        # logger.fdebug('write: %s' % (write,))
+        writekey = list(write.keys())[0]
+        if writekey == "Experimental":
+            writekey = "experimental"
+        writevals = write[writekey]
+        vals = {
+            "active": writevals["active"],
+            "lastrun": writevals["lastrun"],
+            "type": writevals["type"],
+            "hits": writevals["hits"],
+        }
+        ctrls = {"provider": writekey, "id": writevals["id"]}
+        # logger.fdebug('writing: keys - %s: vals - %s' % (ctrls, vals))
+        db.upsert("provider_searches", vals, ctrls)
+
+
+def check_the_search_delay(manual=False):
+    # set a delay between searches here. Default is for 30 seconds...
+    # changing this to lower could result in a ban from your nzb source
+    # due to hammering.
+    if comicarr.CONFIG.SEARCH_DELAY == "None" or comicarr.CONFIG.SEARCH_DELAY is None or manual:
+        pause_the_search = 30  # in seconds
+    elif str(comicarr.CONFIG.SEARCH_DELAY).isdigit() and manual is False:
+        pause_the_search = int(comicarr.CONFIG.SEARCH_DELAY) * 60
+    else:
+        logger.warn("Check Search Delay - invalid numerical given. Force-setting to 30 seconds.")
+        pause_the_search = 30
+    return pause_the_search
+
+
+def _honour_search_delay(nzbprov, pause_the_search, lastrun):
+    """Sleep out the remainder of a provider's backoff window.
+
+    Interactive review never blocks on the window (#768): the operator is
+    waiting on the session, and a provider that objects to the pace answers
+    with an error that surfaces as a provider failure instead.
+    """
+
+    if lastrun == 0:
+        return
+    diff = check_time(lastrun)
+    if diff >= pause_the_search:
+        logger.fdebug(
+            "[PROVIDER-SEARCH-DELAY][%s] Last search took place %s seconds ago. We're clear..." % (nzbprov, int(diff))
+        )
+        return
+    if search_filer.interactive_collection_active():
+        logger.fdebug(
+            "[PROVIDER-SEARCH-DELAY][%s] Interactive search - skipping the remaining %s second backoff."
+            % (nzbprov, (pause_the_search - int(diff)))
+        )
+        return
+    logger.warn(
+        "[PROVIDER-SEARCH-DELAY][%s] Waiting %s seconds before we search again..."
+        % (nzbprov, (pause_the_search - int(diff)))
+    )
+    time.sleep(pause_the_search - int(diff))
+
+
+def search_the_matrix(scarios):
+    return NZB_SEARCH(
+        scarios["ComicName"],
+        scarios["tmp_IssueNumber"],
+        scarios["ComicYear"],
+        scarios["SeriesYear"],
+        scarios["Publisher"],
+        scarios["IssueDate"],
+        scarios["StoreDate"],
+        scarios["current_prov"],
+        scarios["send_prov_count"],
+        scarios["IssDateFix"],
+        scarios["IssueID"],
+        scarios["UseFuzzy"],
+        scarios["newznab_host"],
+        ComicVersion=scarios["ComicVersion"],
+        SARC=scarios["SARC"],
+        IssueArcID=scarios["IssueArcID"],
+        RSS=scarios["RSS"],
+        ComicID=scarios["ComicID"],
+        issuetitle=scarios["issuetitle"],
+        unaltered_ComicName=scarios["unaltered_ComicName"],
+        oneoff=scarios["oneoff"],
+        cmloopit=scarios["cmloopit"],
+        manual=scarios["manual"],
+        torznab_host=scarios["torznab_host"],
+        digitaldate=scarios["digitaldate"],
+        booktype=scarios["booktype"],
+        chktpb=scarios["chktpb"],
+        ignore_booktype=scarios["ignore_booktype"],
+        smode=scarios["smode"],
+        allow_packs=scarios.get("allow_packs"),
+    )
+
+
+def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
+    if filesafe:
+        if filesafe != ComicName and smode != "want_ann":
+            logger.info(
+                "[SEARCH] Special Characters exist within Series Title. Enabling search-safe Name : %s" % filesafe
+            )
+            if AlternateSearch is None or AlternateSearch == "None":
+                AlternateSearch = filesafe
+            else:
+                AlternateSearch += "##" + filesafe
+
+    if smode == "want_ann":
+        logger.info("Annual/Special issue search detected. Appending to issue #")
+        # anything for smode other than None indicates an annual.
+        # if all(['annual' not in ComicName.lower(), 'special' not in ComicName.lower()]):
+        #    ComicName = '%s Annual' % ComicName
+
+        # if '2021 annual' in ComicName.lower():
+        #    if any([AlternateSearch is None, AlternateSearch == 'None']):
+        #        AlternateSearch = ''
+        #    AlternateSearch += '%s Annual' % re.sub('2021 annual', '', ComicName, flags=re.I).strip()
+        #    logger.info('Setting alternate search to %s because people are gonna people.' % AlternateSearch)
+
+        if all(
+            [
+                AlternateSearch is not None,
+                AlternateSearch != "None",
+                "special" not in ComicName.lower(),
+            ]
+        ):
+            AlternateSearch += "##%s Annual" % AlternateSearch
+        elif all(
+            [
+                AlternateSearch is None,
+                AlternateSearch == "None",
+                "special" not in ComicName.lower(),
+            ]
+        ):
+            AlternateSearch = "%s Annual" % AlternateSearch
+
+    searchlist = []
+    Altname = None
+    ignore_previous = False
+    logger.info("AlternateSearch: %s" % AlternateSearch)
+    if AlternateSearch is not None and AlternateSearch != "None":
+        altpriority = AlternateSearch.find("!!")
+        logger.info("altpriority: %s" % altpriority)
+        if altpriority != -1:
+            altsplit = AlternateSearch.find("##", altpriority)
+            logger.info("altsplit: %s" % altsplit)
+            if altsplit == -1:
+                Altname = AlternateSearch[altpriority + 2 :]
+            else:
+                Altname = AlternateSearch[altpriority + 2 : altsplit]
+            logger.info("Altname: %s" % Altname)
+            if helpers.filesafe(Altname).lower() == helpers.filesafe(ComicName).lower():
+                logger.info("Alternate search pattern is an exact match to previous query. Not recreating")
+                ignore_previous = True
+            else:
+                logger.info(
+                    "Alternate Search Priority enabled. Using %s before %s during queries" % (Altname, ComicName)
+                )
+                searchlist.append({"ComicName": Altname, "unaltered_ComicName": Altname})
+
+    if ignore_previous is False:
+        searchlist.append({"ComicName": ComicName, "unaltered_ComicName": ComicName})
+
+    if AlternateSearch is not None and AlternateSearch != "None":
+        # chkthealt = list(filter(None, re.split("[[\#\#]|[\!\!]]+", AlternateSearch)))
+        chkthealt = list(filter(None, re.split(r"[\!\!]+|[\#\#]+", AlternateSearch)))
+        for AS_Alternate in chkthealt:
+            if helpers.filesafe(AS_Alternate).lower() == helpers.filesafe(ComicName).lower():
+                logger.info("Alternate search pattern is an exact match to previous query. Not recreating")
+                continue
+            if Altname != AS_Alternate:
+                logger.info("Alternate Search pattern detected...re-adjusting to : %s" % AS_Alternate)
+                searchlist.append({"ComicName": AS_Alternate, "unaltered_ComicName": AS_Alternate})
+
+    logger.info("searchlist: %s" % (searchlist,))
+    return searchlist
+
+
+def searchforissue_checker(issueid, storedate, issuedate, digitaldate, info):
+    # status issue check - check status to see if it's Downloaded / Snatched
+    # already due to concurrent searches possibly.
+    if issueid is not None:
+        from comicarr.app.search.commands import evaluate_search_candidate
+        from comicarr.app.series import queries as series_queries
+
+        candidate = info.get("candidate") or series_queries.get_search_candidate_state(
+            issueid,
+            entity_type=info.get("entity_type"),
+        )
+        if candidate is not None:
+            return evaluate_search_candidate(
+                candidate,
+                release_date=storedate,
+                digital_date=digitaldate,
+                issue_date=issuedate,
+            )
+
+        isscheck = helpers.issue_status(issueid)
+        # isscheck will return True if already Downloaded / Snatched,
+        # False if it's still in a Wanted status.
+        if isscheck is True:
+            # logger.fdebug(
+            #   '[CID:%s] %s %s is already in a Downloaded / Snatched status.'
+            #   % (info['ComicID'], info['ComicName'], info['Issue_Number'])
+            # )
+            return {"status": False, "reason": "already downloaded/snatched"}
+
+        if storedate == "0000-00-00" or storedate is None:
+            if (
+                any(
+                    [
+                        issuedate is None,
+                        issuedate == "0000-00-00",
+                    ]
+                )
+                and digitaldate == "0000-00-00"
+            ):
+                # logger.fdebug(
+                #    '[CID:%s] %s has invalid Date-data for issue #%s.'
+                #    ' Skipping searching for this issue.'
+                #    % (info['ComicID'], info['ComicName'], info['Issue_Number'])
+                # )
+                return {"status": False, "reason": "invalid date-data"}
+        return {"status": True, "reason": None}
+    else:
+        return {"status": False, "reason": "invalid issueid"}
+
+
+def _build_manga_search_terms(series_name, chapter_num, volume_num):
+    """Build manga-specific search query variations.
+
+    Volume targets search ``vNN`` only. Chapter targets search ``cNNN`` /
+    ``chapter NNN`` only. Never both — the blended frontier already chose
+    which kind to look for.
+    """
+    from comicarr.app.manga.acquisition import search_terms_for_target
+
+    if volume_num not in (None, "") and chapter_num in (None, ""):
+        return search_terms_for_target(series_name, {"kind": "volume", "number": volume_num})
+    return search_terms_for_target(series_name, {"kind": "chapter", "number": chapter_num})
+
+
+def get_findcomiciss(IssueNumber):
+    findcomiciss = IssueNumber
+    if "\xbd" in IssueNumber:
+        findcomiciss = "0.5"
+    elif "\xbc" in IssueNumber:
+        findcomiciss = "0.25"
+    elif "\xbe" in IssueNumber:
+        findcomiciss = "0.75"
+    elif "\u221e" in IssueNumber:
+        # issnum = utf-8 will encode the infinity symbol without any help
+        findcomiciss = "infinity"  # set 9999999999 for integer value of issue
+
+    # determine the amount of loops here
+    fcs = 0
+    c_number = None
+    dsp_c_alpha = None
+    c_num_a4 = None
+    while fcs < len(findcomiciss):
+        # take first occurance of alpha in string and carry it through
+        if findcomiciss[fcs].isalpha():
+            findcomiciss[fcs:].rstrip()
+            c_number = findcomiciss[:fcs].rstrip()
+            break
+        elif "." in findcomiciss[fcs]:
+            c_number = findcomiciss[:fcs].rstrip()
+            c_num_a4 = findcomiciss[fcs + 1 :].rstrip()
+            # if decimal seperates numeric from alpha (ie - 7.INH), don't give
+            # calpha a value or else will seperate with a space further down.
+            # Assign it to dsp_c_alpha so that it can be displayed for debugging.
+            if not c_num_a4.isdigit():
+                dsp_c_alpha = c_num_a4
+            else:
+                c_number = str(c_number) + "." + str(c_num_a4)
+            break
+        fcs += 1
+    logger.fdebug("calpha/cnumber: %s / %s" % (dsp_c_alpha, c_number))
+
+    if c_number is None:
+        c_number = findcomiciss  # if it's None = no special alphas or decimals
+
+    if "." in c_number:
+        decst = c_number.find(".")
+        c_number = c_number[:decst].rstrip()
+
+    return findcomiciss, c_number
