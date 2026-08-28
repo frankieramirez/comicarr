@@ -836,4 +836,717 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     if comversion is None:
         comversion = "None"
     if comversion == "None":
-       
+        chunk_f_f = re.sub(r"\$VolumeN", "", comicarr.CONFIG.FILE_FORMAT)
+        chunk_f = re.compile(r"\s+")
+        chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+    else:
+        chunk_file_format = comicarr.CONFIG.FILE_FORMAT
+
+    if annualize is None:
+        chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+        chunk_f = re.compile(r"\s+")
+        chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+    else:
+        if comicarr.CONFIG.ANNUALS_ON:
+            if "annual" in series.lower():
+                if "$Annual" not in chunk_file_format:
+                    pass
+                else:
+                    chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+                    chunk_f = re.compile(r"\s+")
+                    chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+            else:
+                if "$Annual" not in chunk_file_format:
+                    prettycomiss = "Annual %s" % prettycomiss
+        else:
+            if "annual" in series.lower():
+                if "$Annual" not in chunk_file_format:
+                    pass
+                else:
+                    chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+                    chunk_f = re.compile(r"\s+")
+                    chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+            else:
+                if "$Annual" not in chunk_file_format:
+                    prettycomiss = "Annual %s" % prettycomiss
+
+    seriesfilename = seriesfilename
+    filebad = [":", ",", "/", "?", "!", "'", '"', r"\*"]
+    for dbd in filebad:
+        if dbd in seriesfilename:
+            if any([dbd == "/", dbd == "*"]):
+                repthechar = "-"
+            else:
+                repthechar = ""
+            seriesfilename = seriesfilename.replace(dbd, repthechar)
+
+    publisher = re.sub("!", "", publisher)
+
+    file_values = {
+        "$Series": seriesfilename,
+        "$Issue": prettycomiss,
+        "$Year": issueyear,
+        "$series": series.lower(),
+        "$Publisher": publisher,
+        "$publisher": publisher.lower(),
+        "$VolumeY": "V" + str(seriesyear),
+        "$VolumeN": comversion,
+        "$monthname": month_name,
+        "$month": month,
+        "$Annual": "Annual",
+    }
+
+    extensions = (".cbr", ".cbz", ".cb7")
+    if ofilename.lower().endswith(extensions):
+        path, ext = os.path.splitext(ofilename)
+
+    if comicarr.CONFIG.FILE_FORMAT == "":
+        if ofilename.lower().endswith(extensions):
+            nfilename = ofilename[:-4]
+        else:
+            nfilename = ofilename
+    else:
+        nfilename = replace_all(chunk_file_format, file_values)
+        if comicarr.CONFIG.REPLACE_SPACES:
+            nfilename = nfilename.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+
+    nfilename = re.sub(r"[\,\:]", "", nfilename) + ext.lower()
+
+    if comicarr.CONFIG.LOWERCASE_FILENAMES:
+        nfilename = nfilename.lower()
+        dst = os.path.join(comlocation, nfilename)
+    else:
+        dst = os.path.join(comlocation, nfilename)
+
+    rename_this = {"destination_dir": dst, "nfilename": nfilename, "issueid": issueid, "comicid": comicid}
+    return rename_this
+
+
+def renamefile_readingorder(readorder):
+    logger.fdebug("readingorder#: " + str(readorder))
+    if int(readorder) < 10:
+        readord = "00" + str(readorder)
+    elif int(readorder) >= 10 and int(readorder) <= 99:
+        readord = "0" + str(readorder)
+    else:
+        readord = str(readorder)
+    return readord
+
+
+def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, rtnval=None):
+    from sqlalchemy import select
+
+    logger.info("[DUPECHECK] Duplicate check for " + filename)
+    try:
+        filesz = os.path.getsize(filename)
+    except OSError:
+        logger.warn("[DUPECHECK] File cannot be located in location specified.")
+        return {"action": None}
+
+    if IssueID:
+        dupchk = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
+    if dupchk is None:
+        dupchk = db.select_one(select(annuals).where(annuals.c.IssueID == IssueID, annuals.c.Deleted != 1))
+        if dupchk is None:
+            logger.info("[DUPECHECK] Unable to find corresponding Issue within the DB.")
+            return {"action": None}
+
+    series = db.select_one(select(comics).where(comics.c.ComicID == dupchk["ComicID"]))
+
+    if dupchk["Status"] == "Downloaded" or dupchk["Status"] == "Archived":
+        try:
+            dupsize = dupchk["ComicSize"]
+        except Exception:
+            rtnval = {"action": "write"}
+
+        if dupsize is None:
+            havechk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+            if havechk:
+                if havechk["Have"] > havechk["Total"]:
+                    cid = [ComicID]
+                    comicarr.updater.dbUpdate(ComicIDList=cid, calledfrom="dupechk")
+                    return duplicate_filecheck(filename, ComicID, IssueID, StoryArcID)
+                else:
+                    if rtnval is not None:
+                        return rtnval
+                    else:
+                        rtnval = {"action": "dont_dupe"}
+                        comicarr.updater.forceRescan(ComicID)
+                        chk1 = duplicate_filecheck(filename, ComicID, IssueID, StoryArcID, rtnval)
+                        rtnval = chk1
+            else:
+                rtnval = {"action": "dupe_file", "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"])}
+        else:
+            fixed = False
+            fixed_file = re.findall(r"[(]f\d{1}[)]", filename.lower())
+            fixed_db_file = re.findall(r"[(]f\d{1}[)]", dupchk["Location"].lower())
+            if all([fixed_file, not fixed_db_file]):
+                fixed = True
+                rtnval = {"action": "dupe_src", "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"])}
+            elif all([fixed_db_file, not fixed_file]):
+                fixed = True
+                rtnval = {"action": "dupe_file", "to_dupe": filename}
+            elif int(dupsize) == 0:
+                if dupchk["Status"] == "Archived":
+                    rtnval = {"action": "dupe_file", "to_dupe": filename}
+                    return rtnval
+
+            tmp_dupeconstraint = comicarr.CONFIG.DUPECONSTRAINT
+            if not fixed and (comicarr.CONFIG.DUPECONSTRAINT == "filesize" or tmp_dupeconstraint == "filesize"):
+                if filesz <= int(dupsize) and int(dupsize) != 0:
+                    rtnval = {"action": "dupe_file", "to_dupe": filename}
+                else:
+                    rtnval = {
+                        "action": "dupe_src",
+                        "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"]),
+                    }
+    else:
+        rtnval = {"action": "write"}
+    return rtnval
+
+
+def _pack_row_matches(row, int_iss, iss_item, kind):
+    """Decide whether one issues-table row belongs to a pack range entry.
+
+    A volume pack (e.g. ``v01-14``) covers rows by their ``VolumeNumber``
+    — including manga chapter rows that belong to a covered volume — but
+    must never claim a chapter numbered like a volume (a chapter 7 with
+    an unknown volume is not volume 7). Rows without volume metadata
+    (TPB/GN-tracked series) fall back to the plain issue-number match.
+    Issue/chapter packs symmetrically never claim volume rows.
+    """
+    volume = row.get("VolumeNumber")
+    chapter = row.get("ChapterNumber")
+    if kind == "volume":
+        if volume not in (None, ""):
+            try:
+                return int(float(volume)) == int(iss_item)
+            except (TypeError, ValueError):
+                return False
+        if chapter not in (None, ""):
+            return False
+    elif volume not in (None, "") and chapter in (None, ""):
+        return False
+    return row["Int_IssueNumber"] == int_iss
+
+
+def _register_pack_claims(write_valids, valid):
+    if valid:
+        for wv in write_valids:
+            comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+
+
+def _row_released_after(row, cutoff_year):
+    """True when the row's first usable date is later than cutoff_year.
+
+    A pack whose title span ends in ``cutoff_year`` cannot contain anything
+    published after it. Rows with no parseable date (or the 0000-00-00
+    sentinel) are not excluded — the pack keeps the benefit of the doubt.
+    """
+    for field in ("ReleaseDate", "IssueDate", "DigitalDate"):
+        value = str(row.get(field) or "")
+        if len(value) >= 4 and value[:4].isdigit() and int(value[:4]) > 0:
+            return int(value[:4]) > cutoff_year
+    return False
+
+
+def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue", span_end=None):
+    from sqlalchemy import select
+
+    from comicarr.helpers import issuedigits
+
+    issuelist = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
+
+    if kind == "series":
+        # A numberless complete-series pack ("Solo Leveling (2021-2026)")
+        # carries no range to expand: it claims every row of the series
+        # that is not already Downloaded, volume and chapter rows alike —
+        # except rows published after the pack's own year span, which the
+        # pack cannot contain (span_end from parse_series_pack_title).
+        try:
+            cutoff = int(span_end)
+        except (TypeError, ValueError):
+            cutoff = None
+        Int_IssueNumber = issuedigits(IssueNumber)
+        issueinfo = []
+        write_valids = []
+        valid = False
+        for xb in issuelist:
+            if xb["Status"] == "Downloaded":
+                continue
+            if cutoff is not None and _row_released_after(xb, cutoff):
+                continue
+            if Int_IssueNumber == xb["Int_IssueNumber"]:
+                valid = True
+            issueinfo.append(
+                {
+                    "issueid": xb["IssueID"],
+                    "int_iss": xb["Int_IssueNumber"],
+                    "issuenumber": xb["Issue_Number"],
+                }
+            )
+            write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
+        _register_pack_claims(write_valids, valid)
+        return {
+            "issues": issueinfo,
+            "issue_range": [x["issuenumber"] for x in issueinfo],
+            "valid": valid,
+        }
+
+    if "Annual" not in pack:
+        if "," not in pack:
+            packlist = pack.split(" ")
+            pack = re.sub("#", "", pack).strip()
+        else:
+            packlist = [x.strip() for x in pack.split(",")]
+        plist = []
+        pack_issues = []
+        for pl in packlist:
+            pl = re.sub("#", "", pl).strip()
+            if "-" in pl:
+                le_range = list(range(int(pack[: pack.find("-")]), int(pack[pack.find("-") + 1 :]) + 1))
+                for x in le_range:
+                    if not [y for y in plist if y == x]:
+                        plist.append(int(x))
+            else:
+                if not [x for x in plist if x == int(pl)]:
+                    plist.append(int(pl))
+
+        for pi in plist:
+            if type(pi) == list:
+                for x in pi:
+                    pack_issues.append(x)
+            else:
+                pack_issues.append(pi)
+        pack_issues.sort()
+    else:
+        tmp_pack = re.sub("[annual/annuals/+]", "", pack.lower()).strip()
+        pack_issues_numbers = re.findall(r"\d+", tmp_pack)
+        pack_issues = list(range(int(pack_issues_numbers[0]), int(pack_issues_numbers[1]) + 1))
+
+    iss = {}
+    issueinfo = []
+    write_valids = []
+
+    Int_IssueNumber = issuedigits(IssueNumber)
+    valid = False
+    ignores = []
+    for iss_item in pack_issues:
+        int_iss = issuedigits(str(iss_item))
+        for xb in issuelist:
+            if xb["Status"] != "Downloaded":
+                if _pack_row_matches(xb, int_iss, iss_item, kind):
+                    if Int_IssueNumber == xb["Int_IssueNumber"]:
+                        valid = True
+                    issueinfo.append({"issueid": xb["IssueID"], "int_iss": int_iss, "issuenumber": xb["Issue_Number"]})
+                    write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
+                    if kind != "volume":
+                        # one row per issue number, but a covered volume can
+                        # hold many chapter rows - keep collecting those.
+                        break
+            else:
+                ignores.append(iss_item)
+
+    _register_pack_claims(write_valids, valid)
+
+    iss["issues"] = issueinfo
+
+    if len(iss["issues"]) == len(pack_issues):
+        logger.fdebug(
+            "Complete issue count of %s issues are available within this pack for %s" % (len(pack_issues), ComicName)
+        )
+
+    iss["issue_range"] = pack_issues
+    iss["valid"] = valid
+    return iss
+
+
+def reverse_the_pack_snatch(pack_id, comicid):
+    logger.info(
+        "[REVERSE UNO] Reversal of issues marked as Snatched via pack download reversing due to invalid link retrieval.."
+    )
+    reverselist = [issueid for issueid, packid in comicarr.PACK_ISSUEIDS_DONT_QUEUE.items() if pack_id == packid]
+    for x in reverselist:
+        db.upsert("issues", {"Status": "Skipped"}, {"IssueID": x})
+    if reverselist:
+        logger.info("[REVERSE UNO] Reversal completed for %s issues" % len(reverselist))
+        try:
+            from comicarr.app.activity.producers import emit_grab_cancelled_series
+
+            emit_grab_cancelled_series(comicid, count=len(reverselist))
+        except Exception as e:
+            logger.fdebug("[ACTIVITY] grab.cancelled @series emit skipped: %s" % e)
+
+
+def _finalize_ddl_download(item, ddzstat, release_key):
+    """Validate and durably hand a completed DDL artifact to PP.
+
+    Called by handoff.perform_handoff while its maintenance lease is still
+    active, so the file validation, downloaded transition and PP enqueue form
+    one owned side-effect window. It never re-runs the external download.
+    """
+    from comicarr.app.downloads import journal
+    from comicarr.helpers import check_file_condition
+
+    if ddzstat.get("success") and ddzstat.get("filename") is not None:
+        filecondition = check_file_condition(ddzstat.get("path"))
+        if not filecondition.get("status"):
+            ddzstat["success"] = False
+            ddzstat["link_type_failure"] = item.get("link_type")
+
+    if not ddzstat.get("success"):
+        fail_payload = {
+            "issueid": item.get("issueid"),
+            "comicid": item.get("comicid"),
+            "provider": "DDL",
+            "ddl_id": item.get("id"),
+            "filename": item.get("filename"),
+            "ddl": True,
+        }
+        record(
+            Failure(
+                release_key=release_key,
+                reason="ddl_download_or_artifact_validation_failed",
+                payload=fail_payload,
+                issue_id=item.get("issueid"),
+                provider="DDL",
+                downloader_type="ddl",
+                nzb_name=item.get("filename"),
+                release_id=item.get("id"),
+                comic_id=item.get("comicid"),
+            )
+        )
+        return False
+
+    nzb_name = ddzstat.get("filename") or os.path.basename(ddzstat["path"])
+    payload = {
+        "issueid": item.get("issueid"),
+        "comicid": item.get("comicid"),
+        "provider": "DDL",
+        "ddl_id": item.get("id"),
+        "id": item.get("id"),
+        "series": item.get("series"),
+        "filename": item.get("filename"),
+        "ddl": True,
+        "nzb_folder": ddzstat["path"],
+        "nzb_name": nzb_name,
+        "download_info": {"provider": "DDL", "id": item.get("id")},
+    }
+    completed = {"status": "Completed", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
+    try:
+        with db.get_engine().begin() as conn:
+            db.upsert_conn(conn, "ddl_info", completed, {"ID": item["id"]})
+            won = journal.record_transition(
+                release_key,
+                journal.DOWNLOADED,
+                payload=payload,
+                conn=conn,
+                issueid=item.get("issueid"),
+                provider="DDL",
+                downloader_type="ddl",
+                nzbname=item.get("filename"),
+            )
+            if not won:
+                current = journal.read_one(release_key)
+                if not current or current.get("stage") != journal.DOWNLOADED:
+                    raise RuntimeError("DDL downloaded transition did not advance the accepted obligation")
+    except Exception as e:
+        # The artifact is already on disk. Preserve that fact and force an
+        # operator decision; never amplify this into another external fetch.
+        try:
+            db.upsert("ddl_info", completed, {"ID": item["id"]})
+            record(
+                ManualReview(
+                    release_key=release_key,
+                    reason="ddl_artifact_state_persistence_error:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=item.get("issueid"),
+                    provider="DDL",
+                    downloader_type="ddl",
+                    nzb_name=item.get("filename"),
+                )
+            )
+        except Exception as quarantine_error:
+            # Never let a failed quarantine write replace the persistence error
+            # the operator actually needs to see; that one is re-raised below.
+            logger.error(
+                "[DOWNLOADS-DDL] unable to persist quarantine for id=%s: %s"
+                % (item.get("id"), type(quarantine_error).__name__)
+            )
+        raise
+
+    if comicarr.CONFIG.POST_PROCESSING is True:
+        comicarr.PP_QUEUE.put(
+            {
+                "nzb_name": nzb_name,
+                "nzb_folder": ddzstat["path"],
+                "failed": False,
+                "issueid": item.get("issueid"),
+                "comicid": item.get("comicid"),
+                "apicall": True,
+                "ddl": True,
+                "download_info": {"provider": "DDL", "id": item.get("id")},
+                "journal_release_key": release_key,
+            }
+        )
+    else:
+        journal.mark_done(
+            release_key,
+            payload=payload,
+            issueid=item.get("issueid"),
+            provider="DDL",
+            downloader_type="ddl",
+            nzbname=item.get("filename"),
+        )
+    return True
+
+
+def ddl_downloader(queue):
+    """Run the DDL worker without allowing one poison item to stop it."""
+    active_item = {"value": None}
+    link_type_failure = {}
+    while True:
+        try:
+            return _ddl_downloader_loop(queue, link_type_failure, active_item)
+        except Exception as e:
+            item = active_item["value"]
+            item_id = None
+            if isinstance(item, dict):
+                item_id = item.get("id") or item.get("ID")
+            logger.error(
+                "[DOWNLOADS-DDL] DDL worker rejected item%s; continuing with the next command: %s"
+                % ((" id=%s" % item_id) if item_id else "", e)
+            )
+            if item_id:
+                try:
+                    db.upsert(
+                        "ddl_info",
+                        {
+                            "status": "Failed",
+                            "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        },
+                        {"ID": item_id},
+                    )
+                except Exception as status_error:
+                    logger.error("[DOWNLOADS-DDL] Unable to mark failed DDL item %s: %s" % (item_id, status_error))
+                # Close any open journal obligation for this id so recovery does
+                # not re-enqueue a poison command that just failed hard.
+                try:
+                    from comicarr.app.downloads import journal
+
+                    issueid = item.get("issueid") if isinstance(item, dict) else None
+                    filename = item.get("filename") if isinstance(item, dict) else None
+                    rkey = journal.release_key(
+                        issueid,
+                        "DDL",
+                        nzbname=filename,
+                        hash=None,
+                        discriminant=item_id,
+                    )
+                    existing = journal.read_one(rkey)
+                    if existing and not journal.is_terminal(existing.get("stage")):
+                        # fail_reason is token-only; exception text is not
+                        # concatenated (#430 A5). Sanitised detail rides the
+                        # payload for diagnostics / narrative reason_detail.
+                        from comicarr.app.common.redaction import redact_sensitive_text
+
+                        fail_detail = redact_sensitive_text(str(e))[:1000]
+                        journal_payload = dict(item) if isinstance(item, dict) else {}
+                        journal_payload["fail_detail"] = fail_detail
+                        record(
+                            Failure(
+                                release_key=rkey,
+                                reason="ddl-worker-rejected",
+                                payload=journal_payload,
+                                issue_id=issueid,
+                                provider="DDL",
+                                downloader_type="ddl",
+                                nzb_name=filename,
+                                release_id=item_id,
+                            )
+                        )
+                except Exception as journal_error:
+                    logger.error(
+                        "[DOWNLOADS-DDL] Unable to close journal for rejected DDL item %s: %s"
+                        % (item_id, journal_error)
+                    )
+                comicarr.DDL_QUEUED.discard(item_id)
+                comicarr.DDL_STUCK_NOTIFIED.discard(item_id)
+                link_type_failure.pop(item_id, None)
+                ddl_cleanup(item_id)
+            active_item["value"] = None
+
+
+def _ddl_downloader_loop(queue, link_type_failure, active_item):
+    from sqlalchemy import delete
+
+    from comicarr.helpers import check_file_condition
+
+    while True:
+        if comicarr.DDL_LOCK.locked():
+            time.sleep(5)
+        elif not comicarr.DDL_LOCK.locked() and queue.qsize() >= 1:
+            item = queue.get(True)
+            if item == "exit":
+                logger.info("Cleaning up workers for shutdown")
+                break
+            active_item["value"] = item
+            command = DDLCommand.from_mapping(item)
+            canonical_item = command.to_queue_item()
+            for internal_key in ("_journal_retry", "link_type_failure", "ddl", "journal_release_key"):
+                if internal_key in item:
+                    canonical_item[internal_key] = item[internal_key]
+            item = canonical_item
+            active_item["value"] = item
+            if item["id"] not in comicarr.DDL_QUEUED:
+                comicarr.DDL_QUEUED.add(item["id"])
+            try:
+                link_type_failure[item["id"]].append(item["link_type_failure"])
+            except Exception:
+                pass
+
+            logger.info("Now loading request from DDL queue: %s" % item["series"])
+            ctrlval = {"ID": item["id"]}
+            val = {"status": "Downloading", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
+
+            # Persist the durable command state first. The journal reservation
+            # is acquired below, inside the maintenance lease, immediately
+            # before the external download/file-write side effect.
+            from comicarr.app.acquisition.maintenance import MaintenanceBlocked
+            from comicarr.app.downloads import handoff, journal
+
+            ddl_issueid = item.get("issueid")
+            ddl_payload = {key: value for key, value in item.items() if not key.startswith("_")}
+            ddl_payload.update({"provider": "DDL", "ddl": True})
+            ddl_rkey = item.get("journal_release_key") or journal.release_key(
+                ddl_issueid,
+                "DDL",
+                nzbname=item.get("filename"),
+                hash=None,
+                discriminant=item["id"],
+            )
+            try:
+                db.upsert("ddl_info", val, {"ID": item["id"]})
+            except Exception as e:
+                logger.error(
+                    "[DOWNLOADS-DDL] could not persist Downloading state for id=%s; external side effect NOT started: %s"
+                    % (item.get("id"), type(e).__name__)
+                )
+                comicarr.DDL_QUEUED.discard(item["id"])
+                continue
+
+            ddl_result = {}
+            ddl_finalization = {"complete": False}
+
+            def _run_ddl_side_effect(item=item, ddl_result=ddl_result):
+                if item["site"] == "DDL(GetComics)":
+                    try:
+                        remote_filesize = item["remote_filesize"]
+                    except Exception:
+                        try:
+                            from comicarr.helpers import human2bytes
+
+                            remote_filesize = human2bytes(re.sub("/s", "", item["size"][:-1]).strip())
+                        except Exception:
+                            remote_filesize = 0
+
+                    if item["link_type"] in {"GC-Main", "GC-Mirror"}:
+                        ddz = getcomics.GC()
+                        result = ddz.downloadit(
+                            id=item["id"],
+                            link=item["link"],
+                            mainlink=item["mainlink"],
+                            resume=item["resume"],
+                            issueid=item["issueid"],
+                            remote_filesize=remote_filesize,
+                            link_type=item["link_type"],
+                        )
+                    elif item["link_type"] == "GC-Mega":
+                        result = mega.MegaNZ().ddl_download(
+                            item["link"], None, item["id"], item["issueid"], item["link_type"]
+                        )
+                    elif item["link_type"] == "GC-Media":
+                        result = mediafire.MediaFire().ddl_download(item["link"], item["id"], item["issueid"])
+                    else:
+                        result = pixeldrain.PixelDrain().ddl_download(item["link"], item["id"], item["issueid"])
+                else:
+                    result = mega.MegaNZ().ddl_download(
+                        item["link"], item["filename"], item["id"], item["issueid"], item["link_type"]
+                    )
+                ddl_result["value"] = result
+                return {"status": bool(result.get("success")), "ddl_id": item["id"]}
+
+            def _finalize_ddl_handoff(
+                _response,
+                _acceptance,
+                item=item,
+                ddl_result=ddl_result,
+                ddl_rkey=ddl_rkey,
+                ddl_finalization=ddl_finalization,
+            ):
+                ddl_finalization["complete"] = _finalize_ddl_download(item, ddl_result["value"], ddl_rkey)
+
+            try:
+                handoff.perform_handoff(
+                    ddl_rkey,
+                    "ddl",
+                    _run_ddl_side_effect,
+                    payload=ddl_payload,
+                    owner="ddl-worker",
+                    issueid=ddl_issueid,
+                    provider="DDL",
+                    nzbname=item.get("filename"),
+                    finalizer=_finalize_ddl_handoff,
+                    resume_accepted=bool(item.get("journal_release_key")),
+                )
+            except MaintenanceBlocked:
+                db.upsert(
+                    "ddl_info",
+                    {"status": "Queued", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
+                    {"ID": item["id"]},
+                )
+                comicarr.DDL_QUEUED.discard(item["id"])
+                logger.info("[DOWNLOADS-DDL] Maintenance fence retained id=%s as durable Queued work." % item["id"])
+                continue
+            except Exception as e:
+                logger.error(
+                    "[DOWNLOADS-DDL] external outcome for id=%s requires review; not re-downloading: %s"
+                    % (item.get("id"), type(e).__name__)
+                )
+                try:
+                    current = journal.read_one(ddl_rkey)
+                    if current and current.get("stage") == journal.MANUAL_REVIEW:
+                        status = "Manual Review"
+                    elif (ddl_result.get("value") or {}).get("success"):
+                        status = "Completed"
+                    elif current and journal.stage_rank(current.get("stage")) >= journal.stage_rank(journal.DOWNLOADED):
+                        status = "Completed"
+                    else:
+                        status = "Failed"
+                    db.upsert(
+                        "ddl_info",
+                        {"status": status, "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
+                        {"ID": item["id"]},
+                    )
+                except Exception as status_error:
+                    logger.error(
+                        "[DOWNLOADS-DDL] unable to reconcile durable status for id=%s: %s"
+                        % (item.get("id"), type(status_error).__name__)
+                    )
+                comicarr.DDL_QUEUED.discard(item["id"])
+                continue
+            ddzstat = ddl_result["value"]
+
+            if ddl_finalization["complete"]:
+                comicarr.DDL_QUEUED.discard(item["id"])
+                comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                link_type_failure.pop(item["id"], None)
+                ddl_cleanup(item["id"])
+                active_item["value"] = None
+                continue
+
+            if ddzstat["success"] and ddzstat["filename"] is not None:
+                filecondition = check_file_condition(ddzstat["path"])
+                if not filecondition["status"]:
+                    ddzstat["success"] = False
+                    ddzstat["link_type_failure
