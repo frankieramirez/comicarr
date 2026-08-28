@@ -208,7 +208,6 @@ function DatePresetsSelect({
   );
 }
 
-// REMINDER: We can add min max date range validation https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local#setting_maximum_and_minimum_dates_and_times
 function CustomDateRange({
   selected,
   onSelect,

@@ -97,8 +97,6 @@ export default function HealthBand() {
     );
   }
 
-  // A failed read is `unknown`, not healthy: `healthBandView` renders degraded
-  // for a null payload rather than letting a missing answer read as a good one.
   const view = healthBandView({
     health: health.isError ? null : (health.data ?? null),
     searchIntervalMinutes:

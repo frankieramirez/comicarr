@@ -26,9 +26,6 @@ export function inFlightView({
     return { text: "nothing in flight", busy: false };
   }
 
-  // Bounded by the total because the API defines it as a subset of it: a
-  // payload claiming more recovered than in flight contradicts itself, and the
-  // subset bound is the only reading of it that keeps the total true.
   const recovered = Math.min(recoveryPending, inFlight);
 
   return {

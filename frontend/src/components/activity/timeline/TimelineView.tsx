@@ -78,7 +78,6 @@ function Headline({ story }: { story: Story }) {
     return <span>{text}</span>;
   }
 
-  // Inline entity link: replace the first occurrence of the subject label.
   const idx = text.indexOf(label);
   if (idx < 0) {
     return (
@@ -193,7 +192,6 @@ export function TimelineView({
 
   const isInitialLoading =
     (timeline.isLoading || band.isLoading) && !timeline.data && !band.data;
-  // Keep last-good data on poll/refetch failure; only hard-error on first load.
   const hardError =
     !timeline.data && !band.data ? (timeline.error ?? band.error) : null;
 
@@ -224,7 +222,6 @@ export function TimelineView({
     );
   }
 
-  // Empty state replaces toolbar on first run (no events, no band).
   if (nodes.length === 0 && bandGroups.length === 0) {
     return (
       <>
@@ -239,9 +236,6 @@ export function TimelineView({
   }
 
   return (
-    // The page column is viewport-bounded, so the band and the filters stay
-    // put and only the feed scrolls — the pager below it stays reachable
-    // without scrolling to the end of the timeline.
     <div className="flex h-full min-h-0 flex-col">
       <AttentionBand
         groups={bandGroups}
@@ -403,8 +397,6 @@ export function TimelineView({
                   setPage((p) => p + 1);
                   return;
                 }
-                // Story window is exhausted for this event pack — pull more
-                // events; grouping re-runs and the operator can page again.
                 if (hasMoreEvents) {
                   void timeline.fetchNextPage();
                 }

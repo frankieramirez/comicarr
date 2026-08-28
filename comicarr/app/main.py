@@ -38,24 +38,10 @@ from comicarr.app.core.runtime import (
     set_runtime_field,
 )
 
-# Bounded worker-drain timeout for the authoritative lifespan shutdown drain.
-# The legacy ad-hoc value was pool.join(5) which is almost certainly too short
-# for a multi-file post-processing run. 30s is a conservative default; the
-# exact value is TUNABLE against the measured worst-case PP duration on the
-# NAS deployment. Regardless of this value, the terminal non-blocking
-# hard-kill backstop in comicarr.shutdown() guarantees the process exits.
 SHUTDOWN_DRAIN_TIMEOUT = 30.0
 
-# Scheduler jobs can own the same database and queues as workers. Give an
-# in-flight job a bounded grace period, then preserve live resources for the
-# terminal process exit rather than dispose underneath it. Worker drains use
-# the same preservation policy after their post-join liveness checks.
 SCHEDULER_DRAIN_TIMEOUT = 30.0
 
-# All pipeline worker pools. The bounded join below is RELOCATED here from
-# queue_schedule()'s shutdown branch so the FastAPI lifespan is the single
-# authoritative drain. MASS_ADD and MASS_REFRESH are on-demand but still own
-# database work and must not outlive engine disposal.
 _WORKER_POOLS = tuple(POOL_CONTEXT_FIELDS)
 
 
@@ -87,10 +73,6 @@ def _drain_worker_pools(timeout, ctx=None):
     import comicarr
     from comicarr import logger
 
-    # Shared monotonic deadline so the TOTAL drain is bounded by ``timeout``,
-    # not ``timeout * len(_WORKER_POOLS)``. Each pool gets only the time
-    # remaining until the deadline; once exhausted, remaining pools are left
-    # for the terminal hard-kill backstop.
     deadline = time.monotonic() + timeout
     live_owners = []
     registry = getattr(ctx, "background_workers", None) if ctx is not None else None
@@ -103,8 +85,6 @@ def _drain_worker_pools(timeout, ctx=None):
     for pool_attr in _WORKER_POOLS:
         pool = getattr(ctx, POOL_CONTEXT_FIELDS[pool_attr], None) if ctx is not None else None
         if pool is None:
-            # Pre-factory legacy tests and the remaining bootstrap bridge use
-            # the same pool objects through these aliases.
             pool = getattr(comicarr, pool_attr, None)
         if pool is None:
             continue
@@ -135,9 +115,6 @@ def _drain_worker_pools(timeout, ctx=None):
         else:
             logger.fdebug("[SHUTDOWN] Drained worker pool %s" % pool_attr)
 
-    # Pipeline pools are admitted producers of finite child work. Close the
-    # registry only after those producers stop, then atomically snapshot and
-    # drain every child they handed off while joining.
     registered_workers = registry.close() if registry is not None else ()
     for worker in registered_workers:
         owner = "background:%s" % worker.name
@@ -208,8 +185,6 @@ async def lifespan(app: FastAPI):
     executor = ThreadPoolExecutor(max_workers=20)
     loop.set_default_executor(executor)
 
-    # Worker bootstrap creates the only process runtime. Lifespan attaches it
-    # to FastAPI; rebuilding a context here would fork queue/lock/set state.
     ctx = get_runtime()
 
     event_bus = ctx.event_bus or EventBus()
@@ -218,9 +193,6 @@ async def lifespan(app: FastAPI):
 
     app.state.ctx = ctx
 
-    # Re-read the durable acquisition fence in the serving process. This never
-    # prevents FastAPI startup: authenticated diagnostics need to explain a
-    # fail-closed schema or interrupted repair while workers remain stopped.
     try:
         from comicarr.app.acquisition.maintenance import refresh_runtime_state
 
@@ -247,36 +219,10 @@ async def lifespan(app: FastAPI):
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown starting...")
 
-    # ---- Single authoritative ordered drain (U7) -------------------------
-    # The FastAPI lifespan is now the ONE place the clean shutdown drain
-    # happens. The legacy second path (Comicarr.py -> shutdown() -> halt() ->
-    # queue_schedule drain) is reduced to signalling + the terminal branch.
-    # Order is load-bearing:
-    #   1. scheduler.shutdown(wait=True) OFF the loop — quiesce scheduled work
-    #   2. close EventBus, then q.put('exit') for all queues — stop intake
-    #   3. bounded pool.join OFF the loop, on a DEDICATED executor
-    #      (== final journal flush: workers write the journal synchronously
-    #       via the façade, so "drain workers fully" IS the flush guarantee)
-    #   4. recheck every pool's post-join liveness
-    #   5. ai/cv close + engine.dispose()  — ONLY after all owners stop
-    #   6. executor / drain-executor shutdown — AFTER the drain
-    #   7. default SIGNAL only if unset (never clobber restart/update/maint)
-
-    # The scheduler can have a running job that writes durable state or hands
-    # work to a queue. APScheduler's wait=False leaves that job running, which
-    # would let it outlive engine disposal. Reuse one dedicated executor so
-    # waiting for it never blocks the FastAPI event loop.
     drain_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="shutdown-drain")
 
-    # 1. Stop accepting new scheduled pipeline work and wait for the work that
-    # was already running to finish before queues or resources are retired. A
-    # bounded wait preserves the terminal hard-kill liveness path for a hung
-    # third-party call; in that case resource disposal is deliberately skipped.
     scheduler_result = await _drain_scheduler(loop, drain_executor, ctx.scheduler)
 
-    # 2. Reject events from any worker that survives long enough to observe
-    # shutdown. The EventBus close gate is synchronized with publisher
-    # snapshots, so no event can be enqueued after this returns.
     if ctx.event_bus:
         try:
             ctx.event_bus.close()
@@ -285,17 +231,12 @@ async def lifespan(app: FastAPI):
 
     worker_result = DrainResult()
     if scheduler_result.all_stopped:
-        # 3. Signal every worker queue to stop intake. Workers finish their
-        #    current item, then exit on the sentinel.
         for q in [
             ctx.snatched_queue,
             ctx.nzb_queue,
             ctx.pp_queue,
             ctx.search_queue,
             ctx.ddl_queue,
-            # MASS_ADD reads ADD_LIST as its shutdown sentinel. ISSUE_WATCH_LIST
-            # carries real issue IDs, so it is drained rather than poisoned with a
-            # value that could be treated as an issue during an in-flight loop.
             ctx.add_list,
             ctx.refresh_queue,
         ]:
@@ -304,9 +245,6 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
 
-        # 3. Bounded worker drain — relocated here from queue_schedule's
-        #    shutdown branch. pool.join(timeout) BLOCKS, so it runs off the
-        #    event loop on a DEDICATED single-thread executor.
         try:
             worker_result = await loop.run_in_executor(
                 drain_executor,
@@ -322,9 +260,6 @@ async def lifespan(app: FastAPI):
 
     live_owners = scheduler_result.live_owners + worker_result.live_owners
     if live_owners:
-        # One preservation branch covers scheduler timeouts, worker timeouts,
-        # and uncertain liveness. Clients, the engine, and the runtime context
-        # remain usable until Comicarr.py reaches its terminal process exit.
         logger.error(
             "[SHUTDOWN] Preserving runtime resources for terminal process exit; live owners: %s"
             % ", ".join(live_owners)
@@ -332,7 +267,6 @@ async def lifespan(app: FastAPI):
         _shutdown_executors(drain_executor, executor)
         return
 
-    # 4. Close async/sync external clients (workers are drained now).
     if ctx.ai_async_client:
         try:
             await ctx.ai_async_client.close()
@@ -354,8 +288,6 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
-    # 5. Dispose the DB engine — strictly AFTER the bounded drain so the
-    #    drained workers' synchronous journal writes have all landed.
     try:
         from comicarr import db
 
@@ -366,14 +298,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[SHUTDOWN] Error disposing database: %s" % e)
 
-    # 6. Tear down executors — AFTER the drain (the drain used a dedicated
-    #    executor, never `executor`, so this order is safe).
     _shutdown_executors(drain_executor, executor)
 
-    # 7. Default the signal ONLY if nothing else set it. Guarding with
-    #    `if not comicarr.SIGNAL:` preserves restart/update/maintenance
-    #    intent (documented prior regression: an unconditional write here
-    #    made restart indistinguishable from shutdown).
     signal = comicarr.SIGNAL or ctx.signal or "shutdown"
     set_runtime_field(ctx, "signal", signal)
     set_runtime_field(ctx, "disposed", True, project_legacy=False)
@@ -434,8 +360,6 @@ def create_app():
                     response = await super().get_response(path, scope)
                 except HTTPException as ex:
                     if ex.status_code == 404:
-                        # SPA fallback: serve index.html so React Router
-                        # handles client-side routes like /settings, /login
                         response = await super().get_response("index.html", scope)
                         response.headers["Cache-Control"] = "no-cache"
                         return response

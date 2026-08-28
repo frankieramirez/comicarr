@@ -32,7 +32,6 @@ def create_ai_clients(config):
         logger.fdebug("[AI-CLIENT] AI not configured — missing base_url, api_key, or model")
         return (None, None)
 
-    # Validate URL scheme
     try:
         parsed = urlparse(base_url)
     except Exception as e:
@@ -43,7 +42,6 @@ def create_ai_clients(config):
         logger.error("[AI-CLIENT] AI_BASE_URL must use http or https, got: %s" % parsed.scheme)
         return (None, None)
 
-    # Require https for non-localhost
     hostname = parsed.hostname or ""
     is_local = (
         hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("192.168.") or hostname.startswith("10.")
@@ -52,7 +50,6 @@ def create_ai_clients(config):
         logger.error("[AI-CLIENT] AI_BASE_URL requires https for non-local hosts: %s" % base_url)
         return (None, None)
 
-    # Check for failed Fernet decryption
     if api_key.startswith("gAAAAA"):
         logger.error("[AI-CLIENT] AI_API_KEY appears to be an undecrypted Fernet token — skipping")
         return (None, None)

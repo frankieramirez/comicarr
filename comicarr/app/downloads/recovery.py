@@ -43,20 +43,8 @@ from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 from comicarr.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
 
-# Small inter-enqueue pause so the replay burst does not contend the SQLite
-# single-writer against the concurrent PP workers and exhaust the journal's
-# 5-retry cap (modelled on the throttling in job_management/ddl_health_check).
 _ENQUEUE_THROTTLE_SECONDS = 0.05
 
-# Startup availability cap: finalize_post_processing re-drives a
-# `post_processing`-stage row by running a FULL process.Process INLINE and
-# synchronously, inside replay_pipeline() which runs BEFORE uvicorn binds. A
-# large backlog of post_processing rows would each run a full PP serially
-# before the web server is reachable (unbounded by count). Cap the number of
-# inline post_processing re-drives per replay pass; the remainder are SKIPPED
-# this pass and resume next startup (the design is idempotent/re-runnable, so
-# this is safe and only defers, never drops). `moved`/done/still/gone paths
-# are cheap and NOT capped.
 _MAX_INLINE_PP_REDRIVE_PER_PASS = 5
 
 
@@ -114,11 +102,6 @@ def _reconcile_legacy_ddl_downloading():
     return reviewed
 
 
-# ---------------------------------------------------------------------------
-# Anchor reconstruction (corrected — see Key Technical Decisions)
-# ---------------------------------------------------------------------------
-
-
 def _has_advanced_sibling(issueid, provider):
     """True iff, for this (IssueID, Provider), a `Downloaded` or
     `Post-Processed` sibling `snatched` row exists. The snatched table keys on
@@ -138,9 +121,6 @@ def _has_advanced_sibling(issueid, provider):
         )
     except Exception as e:
         logger.warn("[RECOVERY] advanced-sibling lookup failed for %s/%s: %s" % (issueid, provider, e))
-        # On a lookup failure, be conservative: assume advanced so we do NOT
-        # mass-re-drive (a missed reconstruction is recoverable next start; a
-        # spurious re-drive of a completed item is not).
         return True
     return rec is not None
 
@@ -193,25 +173,6 @@ def _reconstruct_anchors():
             if issueid is None or provider is None:
                 continue
 
-            # The durable name lives in nzblog.NZBName keyed by
-            # (IssueID, PROVIDER) — NOT snatched.FolderName (a column that is
-            # never written, so the prior derivation here always passed None
-            # and produced a phantom key). Read the real name from nzblog so a
-            # reconstructed STILL item can be re-driven with a usable nzbname,
-            # and so a one-off discriminant has something durable to anchor on.
-            # Story-arc scoping (fix #2 completion): the reference
-            # postprocessor.py ~3201-3213 only matches the
-            # IssueID == "S"+IssueArcID nzblog row inside the story-arc
-            # branch (paired with a SARC constraint), NEVER for a plain
-            # issue. Determine arc-ness from the durable `storyarcs` table
-            # (the snatched row has no mode/SARC column) and only widen to
-            # the "S"+id form for a real story-arc obligation. For a plain
-            # issue, match the plain id ONLY — so a plain issue whose id
-            # numerically equals an unrelated arc's IssueArcID under the
-            # SAME PROVIDER cannot pick the arc's "S"+id NZBName. When
-            # arc-ness is unanswerable, fall back minimally-safely: prefer
-            # the exact plain row and only consult "S"+id if no plain row
-            # exists.
             is_arc = _is_story_arc_obligation(issueid)
             nzbrow = None
             try:
@@ -237,8 +198,6 @@ def _reconstruct_anchors():
                         )
                     )
                 else:
-                    # Unknown: prefer the exact plain row; only fall back to
-                    # the "S"+id form when no plain row exists.
                     nzbrow = db.select_one(
                         select(nzblog).where(
                             and_(
@@ -260,13 +219,6 @@ def _reconstruct_anchors():
                 logger.warn("[RECOVERY] nzblog lookup failed for %s/%s: %s" % (issueid, provider, e))
             durable_nzbname = nzbrow.get("NZBName") if nzbrow else srow.get("FolderName")
 
-            # release_key is byte-identical with the snatch/downloaded seams:
-            # for non-one-offs it is issueid|normalize(provider) (the name is
-            # NOT part of the key — see journal.release_key's single-derivation
-            # docstring), so it reproduces exactly from the durable
-            # snatched.IssueID/Provider here. For synthetic-HIGHCOUNT one-offs
-            # the journal row is authoritative (plan); the discriminant is
-            # best-effort from durable nzblog/snatched data.
             rkey = journal.release_key(
                 issueid,
                 provider,
@@ -275,7 +227,6 @@ def _reconstruct_anchors():
                 discriminant=srow.get("Hash") or durable_nzbname or dict(srow),
             )
 
-            # Already journaled? Then there is no residual window for it.
             if journal.read_one(rkey) is not None:
                 continue
 
@@ -287,16 +238,6 @@ def _reconstruct_anchors():
                 continue
 
             oneoff = journal.is_synthetic_oneoff(issueid)
-            # ANCHOR-RECONSTRUCTION (conservative): a lookup error from
-            # recovery_classify._nzblog_present returns None, and `not None` is
-            # True — identical to this site's prior `return False` semantics:
-            # on an unanswerable nzblog test for a non-one-off we do NOT
-            # reconstruct (a missed reconstruction is recoverable next start;
-            # a spurious re-drive of a completed item is not).
-            # Thread the same story-arc signal so the presence gate scopes
-            # the "S"+id arm exactly as the NZBName lookup above (fix #2
-            # completion): a plain issue's gate never reads an unrelated
-            # arc's "S"+id row as present.
             if not oneoff and not recovery_classify._nzblog_present(issueid, provider, story_arc=is_arc):
                 logger.fdebug(
                     "[RECOVERY] anchor skip %s/%s — nzblog absent (PP completed; "
@@ -310,19 +251,6 @@ def _reconstruct_anchors():
                     "authoritative; reconstructing as in-flight." % (issueid, provider)
                 )
 
-            # Preserve the downloader IDENTITY when synthesizing the anchor.
-            # updater.foundsearch writes a `snatched` row for a DDL snatch too
-            # (search.py ~1712, provider="DDL(GetComics)"/"DDL(External)",
-            # Hash=None), so a lost-journal DDL snatch surfaces here. The prior
-            # unconditional `nzb` hardcode + DDL-marker-less payload routed it
-            # through the NZB probe / NZB_QUEUE instead of _probe_ddl /
-            # DDL_QUEUE, breaking DDL restart recovery. Derive: torrent if a
-            # Hash is present, else ddl if the durable provider is a DDL
-            # provider (substring — the snatched.Provider column carries the
-            # raw "DDL(GetComics)"/"DDL(External)" name, not the normalized
-            # "DDL"), else nzb. For DDL, also stamp the markers
-            # _resolve_downloader / _resume_item_from_row key off so the
-            # reconstructed row classifies and resumes onto DDL_QUEUE.
             is_ddl = "DDL" in str(provider or "").upper()
             if srow.get("Hash"):
                 downloader_type = "torrent"
@@ -341,10 +269,6 @@ def _reconstruct_anchors():
                 "issuenumber": srow.get("Issue_Number"),
             }
             if is_ddl:
-                # _resume_item_from_row keys off payload["ddl"] /
-                # download_info.provider == "DDL"; _probe_ddl falls back to
-                # ddl_info.issueid (durably upserted by getcomics.py before
-                # DDL_QUEUE.put, so it survives the lost-journal window).
                 payload["ddl"] = True
                 payload["download_info"] = {"provider": "DDL"}
             journal.record_transition(
@@ -363,18 +287,12 @@ def _reconstruct_anchors():
                 "(IssueID=%s provider=%s) from durable snatched/nzblog." % (rkey, issueid, provider)
             )
         except Exception as e:
-            # A single bad anchor must never abort reconstruction.
             logger.error("[RECOVERY] anchor reconstruction error for %s: %s" % (srow, e))
             continue
 
     if reconstructed:
         logger.info("[RECOVERY] anchor reconstruction rebuilt %d row(s)." % reconstructed)
     return reconstructed
-
-
-# ---------------------------------------------------------------------------
-# #742 — reopen rows the pre-#736 code falsely terminalized
-# ---------------------------------------------------------------------------
 
 
 def _reclassify_false_terminal_imports():
@@ -413,17 +331,11 @@ def _reclassify_false_terminal_imports():
                     "reopened for re-evaluation this pass (#742)." % rkey
                 )
         except Exception as e:
-            # A single bad row must never abort the backfill scan.
             logger.error("[RECOVERY] #742 backfill error for %s — SKIPPED: %s" % (rkey, type(e).__name__))
             continue
     if reopened:
         logger.info("[RECOVERY] #742 backfill reopened %d falsely-terminal row(s)." % reopened)
     return reopened
-
-
-# ---------------------------------------------------------------------------
-# Payload reconstruction for re-enqueue
-# ---------------------------------------------------------------------------
 
 
 def _merge_completion_evidence(payload, details):
@@ -476,10 +388,6 @@ def _resume_item_from_row(row, payload):
     payload = payload or {}
     downloader = (row.get("downloader_type") or "").lower()
 
-    # P2-5(a): a `still` DDL row must re-enqueue onto DDL_QUEUE — NOT fall
-    # through to the NZB_QUEUE branch (cdh/nzb_monitor cannot historycheck a
-    # DDL item; it would strand with no owner). Detect DDL via the journal
-    # downloader_type, the payload `ddl:true` flag, or a DDL provider.
     di = payload.get("download_info") or {}
     is_ddl = (
         downloader == "ddl"
@@ -495,8 +403,6 @@ def _resume_item_from_row(row, payload):
                 command["journal_release_key"] = row.get("release_key")
             return "ddl", command
         except DDLCommandError:
-            # Prefer the durable ddl_info row when the journal payload predates
-            # the canonical command contract (or is incomplete).
             pass
         if ddl_id:
             try:
@@ -512,10 +418,6 @@ def _resume_item_from_row(row, payload):
                 pass
             except Exception as e:
                 logger.fdebug("[RECOVERY] Unable to rebuild DDL command %s from ddl_info: %s" % (ddl_id, e))
-        # Older journal rows predate the canonical command payload. Keep
-        # their best-effort shape so startup replay remains backwards
-        # compatible; the worker now rejects it deterministically if it
-        # cannot actually be run.
         return "ddl", {
             "id": ddl_id,
             "issueid": payload.get("issueid") or row.get("issueid"),
@@ -538,8 +440,6 @@ def _resume_item_from_row(row, payload):
             "journal_release_key": row.get("release_key"),
             "clientmode": downloader,
         }
-    # SAB / NZBGet: rebuild the sender monitor shape with CURRENT protected
-    # credentials in memory. No queue/auth material is persisted in payload.
     route = str(payload.get("route") or downloader or "").lower()
     item = {
         "issueid": payload.get("issueid") or row.get("issueid"),
@@ -568,11 +468,6 @@ def _resume_item_from_row(row, payload):
     return "nzb", item
 
 
-# ---------------------------------------------------------------------------
-# Finalizer — the two-marker decision (moved vs post_processing) ONLY
-# ---------------------------------------------------------------------------
-
-
 def finalize_post_processing(row, payload=None):
     """Resolve a row already inside post-processing using the `moved` marker
     as the SOLE discriminator — NO file probe anywhere on this path (a probe
@@ -594,41 +489,16 @@ def finalize_post_processing(row, payload=None):
     """
     rkey = row.get("release_key")
     stage = row.get("stage")
-    # payload is parsed ONCE per replay row by the caller and threaded in;
-    # default None ⇒ parse internally so existing direct callers/tests work.
     if payload is None:
         payload = journal.load_payload(row.get("payload_json"))
 
     if stage == journal.MOVED:
         issueid = row.get("issueid")
         provider = row.get("provider")
-        # One begin() block: nzblog-delete co-commits with the journal
-        # post_processed marker (conn-mode record_transition participates in
-        # this txn and rolls back with it), so nzblog is never deleted while
-        # the journal still says `moved`. Status=Post-Processed stays on its
-        # existing separate-transaction foundsearch path; the journal marker
-        # is the durable completion fact replay guarantees.
-        # Story-arc scoping (fix #2 completion). The reference
-        # postprocessor.py ~3201-3213 only deletes the IssueID=="S"+IssueArcID
-        # nzblog row inside the story-arc branch (and additionally constrains
-        # it by SARC). Mirror that: only delete the "S"+id form for a real
-        # story-arc obligation; a plain issue deletes the plain id ONLY, so a
-        # plain finalize cannot over-delete an unrelated arc's "S"+id row
-        # under the SAME PROVIDER. The arc signal is the durable
-        # payload["mode"] updater.foundsearch stamps on the snatch journal
-        # row. When mode is absent/unparseable (unknown), the minimally-safe
-        # fallback applies: still allow the "S"+id form BUT additionally
-        # constrain the delete by the matched NZBName (the SARC analogue
-        # available here) so a cross-obligation over-delete is impossible.
         story_arc = None
         if isinstance(payload, dict) and "mode" in payload:
             story_arc = payload.get("mode") == "story_arc"
         if story_arc is None:
-            # Payload carried no `mode` — fall back to the durable
-            # `storyarcs` discriminator (same signal _reconstruct_anchors
-            # uses): for a story-arc obligation row.issueid IS the
-            # IssueArcID, so a matching storyarcs row proves arc-ness; a
-            # plain issue has no such row.
             story_arc = _is_story_arc_obligation(issueid)
         nzbname = (payload or {}).get("nzbname") if isinstance(payload, dict) else None
         with db.get_engine().begin() as conn:
@@ -640,12 +510,6 @@ def finalize_post_processing(row, payload=None):
                     nzblog.c.IssueID == "S" + str(issueid),
                 )
             else:
-                # Unknown arc-ness: keep the "S"+id form reachable (so a real
-                # story-arc row is not orphaned) but pin the delete to the
-                # matched NZBName so it can never consume an unrelated
-                # obligation's row. If no durable NZBName is available, fall
-                # back to the plain id ONLY (conservative — an orphaned arc
-                # nzblog row is recoverable; an over-delete is not).
                 if nzbname:
                     id_pred = and_(
                         or_(
@@ -750,16 +614,8 @@ def finalize_post_processing(row, payload=None):
             return "post_processing-manual-review"
         return "post_processing-redrive"
 
-    # Caller only routes `moved`/`post_processing` here; anything else is a
-    # programming error in the caller — log and no-op (never raise into the
-    # per-row loop's flow on a misroute).
     logger.warn("[RECOVERY] finalize_post_processing called for %s with non-PP stage=%s — ignored." % (rkey, stage))
     return "ignored"
-
-
-# ---------------------------------------------------------------------------
-# Per-row resolution
-# ---------------------------------------------------------------------------
 
 
 def _resolve_row(snapshot_row, probes=None, pp_cap=None):
@@ -774,7 +630,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
     (cheap DB-facts only) and all other paths are NOT capped."""
     rkey = snapshot_row.get("release_key")
 
-    # --- snapshot-then-RECHECK: re-read current stage before acting --------
     current = journal.read_one(rkey)
     if current is None:
         logger.fdebug("[RECOVERY] %s vanished from journal between snapshot and act — skip." % rkey)
@@ -793,16 +648,8 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "skip-advanced"
 
     row = current
-    # Parse payload_json ONCE per row, thread it everywhere below (classify,
-    # the probes via classify, and the item-builders) instead of re-parsing
-    # it 3-6x. None ⇒ no payload (callees treat as {}).
     payload = journal.load_payload(row.get("payload_json"))
 
-    # A reservation proves only that an external handoff was about to happen;
-    # it carries no accepted client correlation id. Restart cannot distinguish
-    # "sender never ran" from "sender accepted but persistence failed", so
-    # automatic resubmission would duplicate work. Quarantine for an explicit
-    # operator decision before any done-signal or downloader probe.
     if cur_stage == journal.RESERVED:
         record(
             ManualReview(
@@ -816,10 +663,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         )
         return "reserved-manual-review"
 
-    # --- two-marker finalizer (moved / post_processing) -------------------
-    # moved -> cheap DB-facts only (NOT capped). post_processing -> a FULL
-    # inline process.Process; capped per pass so a large backlog cannot delay
-    # the web server bind unboundedly (idempotent ⇒ deferral is safe).
     if cur_stage == journal.MOVED:
         return finalize_post_processing(row, payload=payload)
     if cur_stage == journal.POST_PROCESSING:
@@ -834,9 +677,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
             pp_cap["count"] = pp_cap.get("count", 0) + 1
         return finalize_post_processing(row, payload=payload)
 
-    # Once a validated artifact command is durable, the downloader's state is
-    # irrelevant and may have been pruned. Hand directly to PP without a
-    # second probe or a second external download.
     if cur_stage == journal.DOWNLOADED:
         item = _pp_item_from_row(row, payload)
         from comicarr.app.downloads.service import _configured_postprocess_roots
@@ -859,14 +699,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         logger.info("[RECOVERY] %s has a durable downloaded artifact; enqueued directly for PP." % rkey)
         return "downloaded-pp-enqueued"
 
-    # --- authoritative done-check (history-eviction safe) -----------------
-    # #734: a done-signal (Status/nzblog) proves only that the DOWNLOAD
-    # finished. mark_done advances to `post_processed` — which activity
-    # renders as "import / succeeded" — so it additionally requires library
-    # placement evidence (Location / Downloaded status written by a real
-    # import). Without it, fall through to classification so the import can
-    # be re-driven (probe may still resolve the completed folder) instead of
-    # silently stranding the files in the download directory.
     done_without_placement = False
     if recovery_classify.has_done_signal(row):
         if recovery_classify.has_library_placement(row, payload=payload):
@@ -885,9 +717,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
             "can be re-driven." % rkey
         )
 
-    # --- per-downloader classification (U5) -------------------------------
-    # classify_details keeps historycheck location/name/failed. classify()
-    # remains the string-verdict wrapper used by existing tests.
     details = recovery_classify.classify_details(row, probes=probes, payload=payload)
     verdict = details.get("verdict")
 
@@ -897,13 +726,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
 
     if verdict == recovery_classify.UNKNOWN:
         if done_without_placement:
-            # The downloader says it is done with this item but the library
-            # never received it, and no probe can resolve where the files
-            # landed (a reconstructed payload has no client id). Leaving it
-            # UNKNOWN would re-loop every start with no owner; quarantine so
-            # the operator sees needs_attention (files remain in the download
-            # directory, importable via manual PP) instead of a false
-            # import/succeeded (#734).
             record(
                 ManualReview(
                     release_key=rkey,
@@ -928,19 +750,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         return "unknown-unchanged"
 
     if verdict == recovery_classify.COMPLETE:
-        # Advance to `downloaded` BEFORE the PP enqueue. classify() can return
-        # COMPLETE while this journal row is still `snatched` (the row was
-        # rebuilt by anchor reconstruction, or the original downloaded-stage
-        # write was the one lost). The U4 PP consumer only claims a
-        # `downloaded -> post_processing` row, so enqueuing a still-`snatched`
-        # row would make it lose the claim and silently drop. The monotonic
-        # guard makes this a safe no-op when the row is already >= downloaded;
-        # it only advances a still-`snatched` recovered row so the U4 claim
-        # works. release_key (rkey) is authoritative and is what the PP item
-        # carries as journal_release_key (the U3/U4/U6 propagated-key
-        # contract — never re-derived).
-        # SAB/NZBGet snatch payloads omit nzb_folder; merge the folder the
-        # probe just resolved so PP does not fail with "nzb_folder is required".
         payload = _merge_completion_evidence(payload, details)
         journal.record_transition(
             rkey,
@@ -968,9 +777,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
                 "SNATCHED_QUEUE so the live torrent monitor resumes." % rkey
             )
         elif kind == "ddl":
-            # A direct DDL sender has no durable client identity or monitor
-            # protocol. After a crash, a live link proves only that the old
-            # side effect may still exist; re-sending would duplicate it.
             ddl_id = item.get("id")
             record(
                 ManualReview(
@@ -1004,11 +810,6 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
     return "unknown-unchanged"
 
 
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
-
-
 def replay_pipeline(probes=None):
     """Idempotent, re-runnable startup recovery replay. Invoked from
     Comicarr.py AFTER comicarr.start() returns (INIT_LOCK released) and AFTER
@@ -1037,10 +838,6 @@ def replay_pipeline(probes=None):
 
     logger.info("[RECOVERY] Startup recovery replay starting (post-start, lock-free).")
 
-    # #745: converge pre-fix `(newznab)`/`(torznab)`-labelled release_keys onto
-    # the current normalize_provider derivation BEFORE anchor reconstruction —
-    # reconstruction re-derives keys from snatched.Provider and would otherwise
-    # miss (and duplicate) every pre-fix row. Idempotent; safe every boot.
     try:
         summary["key_migration"] = journal.migrate_release_key_provider_format()
     except Exception as e:
@@ -1051,8 +848,6 @@ def replay_pipeline(probes=None):
     except Exception as e:
         logger.error("[RECOVERY] legacy DDL reconciliation failed; continuing: %s" % type(e).__name__)
 
-    # #541: re-want / blocklist issues stranded by excluded fail_reasons written
-    # before clause-2 reconciliation existed. Idempotent; safe every boot.
     try:
         from comicarr.app.attention._reconciliation import reconcile_existing_excluded_rows
 
@@ -1060,22 +855,16 @@ def replay_pipeline(probes=None):
     except Exception as e:
         logger.error("[RECOVERY] band actionability one-shot failed; continuing: %s" % type(e).__name__)
 
-    # #742: reopen rows the pre-#736 code falsely terminalized to
-    # `post_processed` off a bare done-signal (library shows no placement).
-    # BEFORE the read_open() snapshot so the reopened rows are re-evaluated
-    # in THIS pass. Idempotent; safe every boot.
     try:
         summary["reopened_false_terminal"] = _reclassify_false_terminal_imports()
     except Exception as e:
         logger.error("[RECOVERY] #742 false-terminal backfill failed; continuing: %s" % type(e).__name__)
 
-    # 1. Anchor reconstruction FIRST (U2 residual window).
     try:
         summary["reconstructed"] = _reconstruct_anchors()
     except Exception as e:
         logger.error("[RECOVERY] anchor reconstruction phase failed: %s — continuing with open rows." % e)
 
-    # 2. Snapshot the open obligations.
     try:
         snapshot = journal.read_open()
     except Exception as e:
@@ -1089,13 +878,8 @@ def replay_pipeline(probes=None):
     summary["open"] = len(snapshot)
     logger.info("[RECOVERY] %d open obligation(s) to resolve." % len(snapshot))
 
-    # Per-pass cap on INLINE post_processing re-drives (each is a full
-    # synchronous process.Process before the web server binds). Mutable so
-    # _resolve_row can increment it across rows.
     pp_cap = {"count": 0}
 
-    # 3. Per-row recheck-then-act. A failing row is logged LOUDLY and SKIPPED
-    #    (resumable next start) — NEVER aborts the loop.
     for snapshot_row in snapshot:
         rkey = snapshot_row.get("release_key")
         try:
@@ -1108,9 +892,6 @@ def replay_pipeline(probes=None):
             summary["actions"]["error"] = summary["actions"].get("error", 0) + 1
             continue
         summary["actions"][action] = summary["actions"].get(action, 0) + 1
-        # Throttle the enqueue burst so replay does not contend the SQLite
-        # single-writer against concurrent PP workers and exhaust the
-        # journal's 5-retry cap (modelled on job_management/ddl_health_check).
         if action in (
             "complete-pp-enqueued",
             "downloaded-pp-enqueued",

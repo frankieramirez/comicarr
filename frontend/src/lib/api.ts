@@ -89,7 +89,6 @@ export class ApiError extends Error {
     const defaultMessage =
       HTTP_ERROR_MESSAGES[status] ||
       `An unexpected error occurred (${status}). Please try again.`;
-    // Prefer server-provided detail when present so settings/setup toasts are specific.
     const userMessage =
       originalMessage && originalMessage.trim()
         ? originalMessage
@@ -100,7 +99,6 @@ export class ApiError extends Error {
     this.status = status;
     this.userMessage = userMessage;
     this.body = body ? sanitizeApiErrorBody(body) : undefined;
-    // 5xx errors and timeouts are typically retryable
     this.isRetryable = status >= 500 || status === 408 || status === 429;
   }
 }
@@ -113,11 +111,9 @@ export function getErrorMessage(error: unknown): string {
     return error.userMessage;
   }
   if (error instanceof Error) {
-    // Check for network errors
     if (error.message.includes("fetch") || error.message.includes("network")) {
       return "Unable to connect to the server. Please check your internet connection.";
     }
-    // Check for HTTP error pattern
     const httpMatch = error.message.match(/HTTP error! status: (\d+)/);
     if (httpMatch) {
       const status = parseInt(httpMatch[1], 10);
@@ -141,7 +137,6 @@ export function isRetryableError(error: unknown): boolean {
       const status = parseInt(httpMatch[1], 10);
       return status >= 500 || status === 408 || status === 429;
     }
-    // Network errors are typically retryable
     if (error.message.includes("fetch") || error.message.includes("network")) {
       return true;
     }
@@ -205,8 +200,6 @@ export async function logout(): Promise<LogoutResponse> {
       credentials: "include",
     });
 
-    // An expired or already-revoked server session is also a successful local
-    // logout. The stale HttpOnly cookie is unusable and will expire naturally.
     if (response.status === 401) {
       return { success: true };
     }
@@ -382,8 +375,6 @@ export async function apiRequest<T = unknown>(
     if (mocked !== undefined) {
       return mocked as T;
     }
-    // Fall through for unmocked endpoints — in mock mode the backend may
-    // not be running, so most writes will 502. That's fine for browsing.
   }
 
   const url = new URL(path, window.location.origin);
@@ -432,8 +423,8 @@ export async function apiRequest<T = unknown>(
         ) {
           detail = errorPayload.message;
         }
-      } catch {
-        // Non-JSON error bodies fall back to status-based messages.
+      } catch (ignored) {
+        void ignored;
       }
       throw new ApiError(response.status, detail, body);
     }

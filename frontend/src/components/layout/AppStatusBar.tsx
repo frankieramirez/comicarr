@@ -70,7 +70,6 @@ export default function AppStatusBar() {
 
   const liveText = useStatusLiveRegion(snapshot);
 
-  // Loading shell: same layout, provisional values until queries settle.
   if (!ready) {
     return (
       <StatusShell liveText="">
@@ -90,8 +89,6 @@ export default function AppStatusBar() {
     );
   }
 
-  // Activity endpoint failed but library/api may still be up — show partial
-  // line. A prolonged live-channel loss is the better explanation, so it wins.
   if (
     activityFailed &&
     live !== "lost" &&
@@ -197,7 +194,6 @@ function SegmentView({
   }
 
   if (segment.role === "library") {
-    // segment.text is "library: N series" — split for styling
     const value = segment.text.replace(/^library:\s*/, "");
     return (
       <span title="Active series in your library">
@@ -231,7 +227,6 @@ function SegmentView({
     );
   }
 
-  // activity | idle
   const title =
     segment.text === "unreachable"
       ? "Server unreachable — open Activity"

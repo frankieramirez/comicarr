@@ -135,7 +135,6 @@ def humanize_time(amount, units="seconds"):
         result = []
 
         unit = [a[1] for a in NAMES].index(units)
-        # Convert to seconds
         amount = amount * INTERVALS[unit]
 
         for i in range(len(NAMES) - 1, -1, -1):
@@ -193,7 +192,6 @@ def weekly_info(
     Takes config values as parameters to stay free of global state.
     The wrapper in helpers.py passes in the comicarr globals.
     """
-    # find the current week and save it as a reference point.
     todaydate = datetime.datetime.today()
     if todaydate.year == 2025:
         current_weeknumber = todaydate.isocalendar()[1]
@@ -210,11 +208,9 @@ def weekly_info(
         weeknumber = int(week)
         year = int(year)
     else:
-        # find the given week number for the current day
         weeknumber = current_weeknumber
         year = int(todaydate.strftime("%Y"))
 
-    # monkey patch for 2018/2019 - week 52/week 0
     if all([weeknumber == 52, c_weeknumber == 51, c_weekyear == 2018]):
         weeknumber = 0
         year = 2019
@@ -222,7 +218,6 @@ def weekly_info(
         weeknumber = 51
         year = 2018
 
-    # monkey patch for 2019/2020 - week 52/week 0
     if all([weeknumber == 52, c_weeknumber == 51, c_weekyear == 2019]) or all([weeknumber == "52", year == "2019"]):
         weeknumber = 0
         year = 2020
@@ -230,17 +225,14 @@ def weekly_info(
         weeknumber = 51
         year = 2019
 
-    # monkey patch for 2020/2021 - week 52/week 0
     if all([int(weeknumber) == 0, int(year) == 2021]) or all([int(weeknumber) == 52, int(year) == 2020]):
         weeknumber = 52
         year = 2020
 
-    # monkey patch for 2021/2022 - week 52/week 0
     if all([int(weeknumber) == 0, int(year) == 2022]) or all([int(weeknumber) == 52, int(year) == 2021]):
         weeknumber = 52
         year = 2021
 
-    # monkey patch for 2024/2025 - week 52/week 0
     if all([weeknumber == 52, c_weeknumber == 51, c_weekyear == 2024]) or all([weeknumber == "52", year == "2024"]):
         weeknumber = 1
         year = 2025
@@ -260,15 +252,12 @@ def weekly_info(
     endweek = startweek + timedelta(days=6)
 
     if all([weeknumber == 1, year == 2021]):
-        # make sure the arrow going back will hit the correct week in the previous year.
         prev_week = 52
         prev_year = 2020
     elif all([weeknumber == 0, year == 2022]):
-        # make sure the arrow going back will hit the correct week in the previous year.
         prev_week = 52
         prev_year = 2021
     elif all([weeknumber == 0, year == 2025]):
-        # make sure the arrow going back will hit the correct week in the previous year.
         prev_week = 51
         prev_year = 2024
     else:
@@ -283,13 +272,10 @@ def weekly_info(
     if next_week > 52:
         next_year = int(year) + 1
         if all([weeknumber == 52, year == 2020]):
-            # make sure the next arrow will hit the correct week in the following year.
             next_week = "1"
         elif all([weeknumber == 52, year == 2021]):
-            # make sure the next arrow will hit the correct week in the following year.
             next_week = "1"
         elif all([weeknumber == 51, year == 2024]):
-            # make sure the next arrow will hit the correct week in the following year.
             next_week = "1"
         else:
             next_week = datetime.date(int(next_year), 1, 1).strftime("%U")

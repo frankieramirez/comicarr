@@ -33,8 +33,6 @@ class _FutureWorker:
         except FutureTimeoutError:
             pass
         except Exception:
-            # The submitted wrapper logs the original exception. Shutdown only
-            # needs the post-wait liveness state.
             pass
 
 

@@ -32,11 +32,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [needsMigration, setNeedsMigration] = useState(false);
 
-  // Check session on mount (JWT cookie-based — no sessionStorage needed)
   useEffect(() => {
     const verifySession = async () => {
       try {
-        // Check if first-run setup is needed
         const setupResult = await checkSetup({ initialLoad: true });
         if (setupResult.needs_setup) {
           setNeedsSetup(true);
@@ -48,7 +46,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (result.authenticated && result.username) {
           setUser({ username: result.username });
 
-          // Check if first-run migration is needed
           try {
             const diag = await apiRequest<StartupDiagnostics>(
               "GET",
@@ -57,8 +54,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (diag.db_empty && !diag.migration_dismissed) {
               setNeedsMigration(true);
             }
-          } catch {
-            // Non-critical — skip migration check
+          } catch (ignored) {
+            void ignored;
           }
         }
       } catch (error) {
@@ -112,7 +109,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const dismissMigration = () => {
     setNeedsMigration(false);
-    // Persist dismissal to backend config
     apiRequest("PUT", "/api/config", { MIGRATION_DISMISSED: "true" }).catch(
       (err) => {
         console.warn("Failed to persist migration dismissal:", err);

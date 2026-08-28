@@ -29,11 +29,6 @@ from comicarr import db, logger
 from comicarr.helpers import ignored_publisher_check
 from comicarr.tables import weekly
 
-# Cloudflare fronts the pull-list host and answers for it whenever the origin
-# is unhealthy, so these arrive as ordinary responses rather than as request
-# exceptions. They say the upstream is unwell, not that the request was wrong,
-# and are transient — callers may honor the accompanying Retry-After hint to
-# retry sooner than the next scheduled run.
 CLOUDFLARE_ORIGIN_ERRORS = {
     "520": "returned an unknown error",
     "521": "is down",
@@ -79,17 +74,14 @@ def locg(pulldate=None, weeknumber=None, year=None):
         if pulldate is None or pulldate == "00000000":
             weeknumber = todaydate.strftime("%U")
         elif "-" in pulldate:
-            # find the week number
             weektmp = datetime.date(*(int(s) for s in pulldate.split("-")))
             weeknumber = weektmp.strftime("%U")
-            # we need to now make sure we default to the correct week
             weeknumber_new = todaydate.strftime("%U")
             if weeknumber_new > weeknumber:
                 weeknumber = weeknumber_new
 
     else:
         if str(weeknumber).isdigit() and int(weeknumber) <= 52:
-            # already requesting week #
             weeknumber = weeknumber
         else:
             logger.warn("Invalid date requested. Aborting pull-list retrieval/update at this time.")
@@ -150,7 +142,6 @@ def locg(pulldate=None, weeknumber=None, year=None):
         pull = []
 
         for x in data:
-            # ignore specific publishers on a global scale here.
             if ignored_publisher_check(x["publisher"]):
                 continue
 
@@ -174,14 +165,10 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
             x["shipdate"]
 
-        # Ensure the weekly table exists (created via tables.py metadata)
         from comicarr.tables import metadata as table_metadata
 
         table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)
 
-        # clear out the upcoming table here so they show the new values properly.
-        # if pulldate == '00000000':
-        # 2021-07-03 -> we should always clear out the table to ensure we don't have old data mixed with fresh.
         if len(pull) == 0:
             logger.warn(
                 "[PULL-LIST] Weekly pull for week %s, %s has no data. This is probably a back-end related error of some kind."
@@ -208,8 +195,6 @@ def locg(pulldate=None, weeknumber=None, year=None):
                 comicid = x["comicid"]
             if x["issueid"] is not None:
                 issueid = x["issueid"]
-            # if x['alias'] is not None:
-            #    comicname = x['alias']
 
             cl_d = comicarr.filechecker.FileChecker()
             cl_dyninfo = cl_d.dynamic_replace(comicname)
@@ -234,7 +219,6 @@ def locg(pulldate=None, weeknumber=None, year=None):
             db.upsert("weekly", newValueDict, controlValueDict)
 
         logger.info("[PULL-LIST] Successfully populated pull-list into Comicarr for week %s of %s" % (weeknumber, year))
-        # set the last poll date/time here so that we don't start overwriting stuff too much...
         pull_refresh = todaydate.strftime("%Y-%m-%d %H:%M:%S")
         comicarr.CONFIG.writeconfig(values={"pull_refresh": pull_refresh})
 

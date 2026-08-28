@@ -133,7 +133,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
             elif "ai" in issnum.lower() and issnum[:1].isdigit():
                 int_issnum = (int(issnum[:-2]) * 1000) + ord("a") + ord("i")
             elif "inh" in issnum.lower():
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec == -1:
                     int_issnum = (int(issnum[:-3]) * 1000) + ord("i") + ord("n") + ord("h")
                 else:
@@ -141,13 +141,13 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
             elif "now" in issnum.lower():
                 if "!" in issnum:
                     issnum = re.sub(r"\!", "", issnum)
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec == -1:
                     int_issnum = (int(issnum[:-3]) * 1000) + ord("n") + ord("o") + ord("w")
                 else:
                     int_issnum = (int(issnum[:-4]) * 1000) + ord("n") + ord("o") + ord("w")
             elif "bey" in issnum.lower():
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec == -1:
                     int_issnum = (int(issnum[:-3]) * 1000) + ord("b") + ord("e") + ord("y")
                 else:
@@ -165,17 +165,17 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                 else:
                     int_issnum = (int(issnum[:-3]) * 1000) + ord("l") + ord("r")
             elif "hu" in issnum.lower():
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec == -1:
                     int_issnum = (int(issnum[:-2]) * 1000) + ord("h") + ord("u")
                 else:
                     int_issnum = (int(issnum[:-3]) * 1000) + ord("h") + ord("u")
             elif "black" in issnum.lower():
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec != -1:
                     issnum = "%s %s" % (issnum[:remdec], issnum[remdec + 1 :])
             elif "deaths" in issnum.lower():
-                remdec = issnum.find(".")  # find the decimal position.
+                remdec = issnum.find(".")
                 if remdec == -1:
                     int_issnum = (
                         (int(issnum[:-6]) * 1000) + ord("d") + ord("e") + ord("a") + ord("t") + ord("h") + ord("s")
@@ -224,7 +224,6 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                 else:
                     decisval = decis
                     issaftdec = str(decisval)
-                # if there's a trailing decimal (ie. 1.50.) and it's either intentional or not, blow it away.
                 if issaftdec[-1:] == ".":
                     issaftdec = issaftdec[:-1]
                 try:
@@ -235,7 +234,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                         if any(ext == issaftdec.upper() for ext in issue_exceptions):
                             inu = 0
                             while inu < len(issaftdec):
-                                ordtot += ord(issaftdec[inu].lower())  # lower-case the letters for simplicty
+                                ordtot += ord(issaftdec[inu].lower())
                                 inu += 1
                             int_issnum = (int(issb4dec) * 1000) + ordtot
                     except Exception as e:
@@ -250,7 +249,6 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
             else:
                 try:
                     x = float(issnum)
-                    # validity check
                     if x < 0:
                         int_issnum = (int(x) * 1000) - 1
                     elif bool(x):
@@ -259,7 +257,6 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                     else:
                         raise ValueError
                 except ValueError:
-                    # this will account for any alpha in a issue#, so long as it doesn't have decimals.
                     x = 0
                     tstord = None
                     issno = None
@@ -267,7 +264,6 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                     if issnum.lower() != "preview":
                         while x < len(issnum):
                             if issnum[x].isalpha():
-                                # take first occurance of alpha in string and carry it through
                                 tstord = issnum[x:].rstrip()
                                 tstord = re.sub(r"[\-\,\.\+]", "", tstord).rstrip()
                                 issno = issnum[:x].rstrip()
@@ -289,7 +285,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                             int_issnum = ord(tstord.lower())
                         else:
                             while a < len(tstord):
-                                ordtot += ord(tstord[a].lower())  # lower-case the letters for simplicty
+                                ordtot += ord(tstord[a].lower())
                                 a += 1
                             int_issnum = (int(issno) * 1000) + ordtot
                     elif invchk == "true":
@@ -306,7 +302,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                             inu = 0
                             ordtot = 0
                             while inu < len(issnum):
-                                ordtot += ord(issnum[inu].lower())  # lower-case the letters for simplicty
+                                ordtot += ord(issnum[inu].lower())
                                 inu += 1
                             int_issnum = ordtot
                         else:
@@ -340,7 +336,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
                             inu = 0
                             ordtot = 0
                             while inu < len(issnum):
-                                ordtot += ord(issnum[inu].lower())  # lower-case the letters for simplicty
+                                ordtot += ord(issnum[inu].lower())
                                 inu += 1
                             int_issnum = ordtot
                         else:

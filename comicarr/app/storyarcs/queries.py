@@ -129,14 +129,12 @@ def delete_arc(arc_id, arc_name=None, delete_type=None):
     if delete_type and arc_name:
         db.raw_execute("DELETE from storyarcs WHERE StoryArc=?", [arc_name])
 
-    # Clean nzblog entries (arc issue IDs start with S + ArcID)
     stid = "S" + str(arc_id) + r"\_%"
     db.raw_execute("DELETE from nzblog WHERE IssueID LIKE ? ESCAPE '\\'", [stid])
 
 
 def want_all_issues(arc_id):
     """Mark all eligible arc issues as Wanted. Returns (queued, skipped) counts."""
-    # Count already-wanted (skipped)
     skipped_rows = db.raw_select_all(
         "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
         "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched') AND Status = 'Wanted'",
@@ -144,14 +142,12 @@ def want_all_issues(arc_id):
     )
     skipped = skipped_rows[0]["count"] if skipped_rows else 0
 
-    # Update eligible to Wanted
     db.raw_execute(
         "UPDATE storyarcs SET Status='Wanted' WHERE StoryArcID=? AND Manual != 'deleted' "
         "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched', 'Wanted')",
         [arc_id],
     )
 
-    # Count total wanted after update
     queued_rows = db.raw_select_all(
         "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status = 'Wanted'",
         [arc_id],
@@ -160,11 +156,6 @@ def want_all_issues(arc_id):
     queued = total_wanted - skipped
 
     return queued, skipped
-
-
-# ---------------------------------------------------------------------------
-# Reading list queries
-# ---------------------------------------------------------------------------
 
 
 def get_readlist():
@@ -189,11 +180,6 @@ def remove_all_read():
     db.raw_execute("DELETE from readlist WHERE Status='Read'")
 
 
-# ---------------------------------------------------------------------------
-# Upcoming / weekly queries
-# ---------------------------------------------------------------------------
-
-
 def get_upcoming(week, year, include_downloaded=False):
     """Get upcoming issues for a given week/year from weekly + comics tables."""
     if include_downloaded:
@@ -201,7 +187,6 @@ def get_upcoming(week, year, include_downloaded=False):
     else:
         status_list = ["Wanted"]
 
-    # SQLite-compatible zero-padded week number (replaces MySQL's right(concat(...)))
     padded_weeknumber = func.substr(literal("0").op("||")(t_weekly.c.weeknumber), -2, 2)
 
     stmt = (

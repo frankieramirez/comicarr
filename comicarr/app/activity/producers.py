@@ -25,13 +25,6 @@ from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.db import get_engine
 from comicarr.tables import annuals, comics, issues
 
-# ---------------------------------------------------------------------------
-# pipeline_journal stage → (activity, status)
-# reserved / moved are internal (no narrative row).
-# failed: download vs import depends on prior stage rank (#426 finding 1).
-# ---------------------------------------------------------------------------
-
-# Stages that always map to a single cell (not failed).
 _STAGE_CELLS = {
     "snatched": ("grab", "succeeded"),
     "downloaded": ("download", "succeeded"),
@@ -40,8 +33,7 @@ _STAGE_CELLS = {
     "manual_review": ("import", "needs_attention"),
 }
 
-# Rank threshold: at/after post_processing the failure is an import failure.
-_IMPORT_FAIL_MIN_RANK = 30  # POST_PROCESSING
+_IMPORT_FAIL_MIN_RANK = 30
 
 
 def _issue_subject(issueid, conn=None):
@@ -167,13 +159,11 @@ def emit_for_journal_stage(
         else:
             cell = ("grab", "cancelled")
     if cell is None:
-        # reserved / moved / unknown — internal only
         return None
 
     activity, status = cell
     subject = _issue_subject(issueid, conn=conn)
     if subject is None:
-        # Synthetic / one-off / unresolved — still narrate if we have an id.
         if issueid in (None, ""):
             logger.fdebug("[ACTIVITY] skip journal emit stage=%s release_key=%s: no issueid" % (stage, release_key))
             return None
@@ -223,7 +213,6 @@ def emit_run_completion(run):
     completion = str(run.get("completion_state") or "")
     if completion in ("pending", "running", ""):
         return None
-    # Only narrate search runs (refresh runs use series refresh.* cells).
     if str(run.get("command_kind") or "").strip().lower() != "search":
         return None
 
@@ -240,7 +229,6 @@ def emit_run_completion(run):
         "failed": failed + blocked,
     }
 
-    # Empty scan that never accepted items vs fruitless provider sweep.
     if accepted == 0:
         reason_code = "nothing_to_search"
         subject_label = "wanted issues"
@@ -254,7 +242,6 @@ def emit_run_completion(run):
     scope_type = run.get("scope_type")
     scope_id = run.get("scope_id")
     if scope_type and scope_id:
-        # Keep scope on the run subject for series-scoped timeline filters.
         pass
     else:
         scope_type = None
@@ -357,7 +344,6 @@ def emit_tag_activity(
     if subject is None:
         if comicid in (None, "") and issueid in (None, ""):
             return None
-        # Fall back to series subject when the issue row is missing.
         if issueid not in (None, ""):
             return record_activity(
                 "tag",
@@ -380,7 +366,6 @@ def emit_tag_activity(
         )
 
     subject_type, subject_id, subject_label, parent_series_id = subject
-    # tag is legal only @ issue|series (not annual) — map annual → issue cell.
     if subject_type == "annual":
         subject_type = "issue"
     return record_activity(
@@ -430,7 +415,6 @@ def emit_grab_cancelled_series(comicid, *, reason_code="pack_reversed", count=No
     )
 
 
-# Re-export publish for shared-conn call sites that co-commit then publish.
 __all__ = [
     "emit_arc_activity",
     "emit_for_journal_stage",

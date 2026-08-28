@@ -91,9 +91,6 @@ export default function ImportPage() {
   const { data: appConfig } = useConfig();
   const { addToast } = useToast();
 
-  // The row handlers are hoisted function declarations: the columns need them
-  // here, but their bodies close over `clearSelection`, which the hook below
-  // returns — they only run on click, after both exist.
   const columns = useImportColumns({
     onMatchClick: handleMatchClick,
     onIgnoreClick: handleGroupIgnore,
@@ -104,8 +101,6 @@ export default function ImportPage() {
       deleteImportMutation.isPending,
   });
 
-  // The server page is an input to the fetch that produced `imports`, so the
-  // hook holds no page state (#360); `pagination` is omitted deliberately.
   const { table, selectedRows, clearSelection } = useTableState({
     data: imports,
     columns,

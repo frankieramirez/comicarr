@@ -29,8 +29,6 @@ def check_stale_pidfile(pidfile, *, platform_name=None, proc_root="/proc"):
     try:
         value = Path(pidfile).read_text(encoding="utf-8").strip()
     except OSError:
-        # An unreadable file may belong to a live instance started by another
-        # user. Failing closed avoids deleting its PID-file lock.
         return False
 
     if not value.isdigit():
@@ -43,8 +41,6 @@ def check_stale_pidfile(pidfile, *, platform_name=None, proc_root="/proc"):
     try:
         cmdline = cmdline_path.read_text(encoding="utf-8", errors="replace").replace("\0", " ")
     except OSError:
-        # A live process can transiently deny or fail the inspection.  Only a
-        # missing cmdline path is proof that this PID is no longer valid.
         return False
 
     return "python" not in cmdline.lower()

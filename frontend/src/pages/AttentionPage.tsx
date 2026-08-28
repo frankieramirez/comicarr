@@ -105,10 +105,6 @@ export default function AttentionPage() {
     });
   }, [groups, stage, age, query]);
 
-  // Selection is keyed on release_key, not group_key. A group checkbox is
-  // shorthand for "all of its members" — which keeps a mixed-stage group
-  // workable, since its rows can be picked individually even though the group
-  // as a whole admits no single action.
   const selectedMembers = useMemo(() => {
     const rows: SelectedMember[] = [];
     for (const group of filtered) {
@@ -124,8 +120,6 @@ export default function AttentionPage() {
     selectedMembers.map(({ group }) => group.group_key),
   ).size;
 
-  // Every issue the current filters admit — what "select all" means here, so
-  // narrowing the filters first narrows what the checkbox grabs.
   const filteredKeys = useMemo(
     () =>
       filtered.flatMap((group) =>
@@ -182,8 +176,6 @@ export default function AttentionPage() {
   };
 
   const confirmStopWanting = (releaseKeys: string[], seriesLabel?: string) => {
-    // Single-row stop-wanting shares the consequence sentence; two or more
-    // always confirms first (#525).
     if (releaseKeys.length < 2) {
       void runAction("stop_wanting", releaseKeys);
       return;
@@ -317,7 +309,6 @@ export default function AttentionPage() {
               type="checkbox"
               checked={allSelected}
               ref={(node) => {
-                // Partial selection must not read as "none picked".
                 if (node)
                   node.indeterminate = selectedIssues > 0 && !allSelected;
               }}
@@ -496,12 +487,6 @@ function GroupPanel({
   const allPicked = pickedCount === memberKeys.length && pickedCount > 0;
   const mixedStages = group.available_actions.length === 0;
 
-  // Arriving from a band card expands that group. `useState(focused)` would
-  // only read the prop once, so a second card click — same mounted list, new
-  // `?group=` — would land on a collapsed panel. An override that starts unset
-  // lets focus drive until the operator says otherwise. A mixed group opens by
-  // default: picking rows is the only way to act on it, so hiding them behind
-  // a click would make it look like a dead end.
   const [override, setOverride] = useState<boolean | null>(null);
   const expanded = override ?? (focused || mixedStages);
   const accent = stageAccent(group.stage);
@@ -522,7 +507,6 @@ function GroupPanel({
           className="mt-1"
           checked={allPicked}
           ref={(node) => {
-            // Some rows picked, not all — the box must not read as "none".
             if (node) node.indeterminate = pickedCount > 0 && !allPicked;
           }}
           onChange={() => onSelect(memberKeys, !allPicked)}

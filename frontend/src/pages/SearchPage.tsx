@@ -146,8 +146,6 @@ export default function SearchPage() {
     const params: Record<string, string> = Object.fromEntries(searchParams);
     params.page = newPage.toString();
     setSearchParams(params);
-    // The results list is its own scroll container now (the page fills the
-    // viewport), so the window never scrolled here in the first place.
     resultsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 

@@ -104,7 +104,6 @@ class CDH_MAP(object):
                     self.subdir = True
 
         else:
-            # query nzbget for categories and if path is different
             self.send_nzbget()
             cat_dir = self.cat["dir"]
             cat_name = self.cat["name"]

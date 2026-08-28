@@ -78,11 +78,9 @@ class metadata_Series(object):
                             metainfo = json.load(j_file)
                             logger.fdebug("metainfo_loaded: %s" % (metainfo,))
                         try:
-                            # series.json version 1.0.1
                             description_load = metainfo["metadata"]["description_text"]
                         except Exception:
                             try:
-                                # series.json version 1.0
                                 description_load = metainfo["metadata"][0]["description_text"]
                             except Exception:
                                 description_load = metainfo["metadata"][0]["description"]
@@ -103,7 +101,6 @@ class metadata_Series(object):
                 if comic["NewPublish"] is True:
                     seriesStatus = "Continuing"
                 else:
-                    # do this just incase and as an extra measure of accuracy hopefully.
                     if recentchk < 55:
                         seriesStatus = "Continuing"
                     else:

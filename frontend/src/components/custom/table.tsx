@@ -14,7 +14,6 @@ function Table({
   return (
     <div
       className={cn("w-full overflow-auto", containerClassName)}
-      // REMINDER: we are not scrolling the table, but the container
       {...{ onScroll }}
     >
       <table

@@ -27,7 +27,6 @@ from comicarr._vendor.mega import Mega
 
 class MegaNZ(object):
     def __init__(self, query=None):
-        # if query is None, it's downloading not searching.
         self.query = query
         self.dl_location = os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega")
         self.wrote_tmp = False
@@ -46,14 +45,11 @@ class MegaNZ(object):
         mega = Mega()
         try:
             m = mega.login()
-            # ddl -mega from gc filename isn't known until AFTER file begins downloading
-            # try to get it using the pulic_url_info endpoint
             pui = m.get_public_url_info(link)
             if pui:
                 filesize = pui["size"]
                 filename = pui["name"]
 
-                # write the filename to the db for tracking purposes...
                 logger.info("[get-public-url-info resolved] Writing to db: %s [%s]" % (filename, filesize))
                 db.upsert(
                     "ddl_info",
@@ -66,7 +62,6 @@ class MegaNZ(object):
                 )
 
             if filename is None:
-                # so null filename now, and it'll be assigned in self.testing
                 filename = m.download_url(link, self.dl_location, progress_hook=self.testing)
             else:
                 filename = m.download_url(link, self.dl_location, filename, self.testing)
@@ -76,10 +71,9 @@ class MegaNZ(object):
                 logger.warn("Content has been removed - we should move on to the next one at this point.")
             return {"success": False, "filename": filename, "path": None, "link_type_failure": site}
         else:
-            og_filepath = os.path.join(self.dl_location, filename)  # just default
+            og_filepath = os.path.join(self.dl_location, filename)
             if filename is not None:
                 og_filepath = filename
-                # filepath = filename.parent.absolute()
                 file, ext = os.path.splitext(os.path.basename(filename))
                 filename = "%s[__%s__]%s" % (file, issueid, ext)
                 filepath = og_filepath.with_name(filename)
@@ -102,20 +96,13 @@ class MegaNZ(object):
         mth = (data["current"] / data["total"]) * 100
 
         if data["tmp_filename"] is not None and self.wrote_tmp is False:
-            # write the filename to the db for tracking purposes...
             logger.info("writing to db: %s [%s][%s]" % (data["name"], data["total"], data["tmp_filename"]))
             db.upsert(
                 "ddl_info",
-                {
-                    "tmp_filename": str(data["tmp_filename"])
-                },  # tmp_filename should be all that's needed to be updated at this point...
-                # {'filename': str(data['name']), 'tmp_filename': str(data['tmp_filename']), 'remote_filesize': str(data['total'])},
+                {"tmp_filename": str(data["tmp_filename"])},
                 {"ID": self.id},
             )
             self.wrote_tmp = True
-
-        # logger.info('%s%s' % (mth, '%'))
-        # logger.info('data: %s' % (data,))
 
         if mth >= 100.0:
             logger.info("status: %s" % (data["status"]))

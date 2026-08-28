@@ -129,8 +129,6 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
     }
   };
 
-  // A save on this page changes what the level context says, and the config
-  // query is what tells us the save landed.
   const savedLevel = config.log_level;
   useEffect(() => {
     refetch();
@@ -300,8 +298,6 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
           {text ||
             (parsed.length === 0
               ? // An install that has just upgraded has little or no history —
-                // logging was effectively off before #614. Naming the level in
-                // force turns an empty box into an instruction.
                 `Nothing in comicarr.log yet.${
                   effectiveName
                     ? ` Comicarr is logging at ${data?.level.effective} (${effectiveName}) — raise the level above to capture more.`

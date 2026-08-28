@@ -28,16 +28,9 @@ import comicarr
 from comicarr import db, helpers, logger
 from comicarr.tables import annuals, comics, failed, issues, nzblog
 
-# Producer-contract fail_reason tokens (#430 A6 / #482). Token-only — never
-# concatenate exception text. Band membership is stage + R9 status only; these
-# codes feed narrative reason_code alignment and machine diagnostics.
 FAIL_REASON_RESEARCHING = "download_failed_researching"
 FAIL_REASON_NO_AUTO_HANDLING = "download_failed_no_auto_handling"
 
-# R9 resolution stamp: auto re-search enqueued (or operator retry). Keeps the
-# failed journal row off the needs-attention band without rewriting stage.
-# Keep the literal here so failed.py stays free of journal import at module load;
-# journal.STATUS_RETRIED is the shared name for band/query code.
 STATUS_RETRIED = "retried"
 
 
@@ -96,8 +89,6 @@ def terminalize_failed_download(
         logger.warn("[FAILED-DOWNLOAD] terminalize skipped: empty fail_reason for release_key=%s" % release_key)
         return False
 
-    # Keep this import lazy: failed.py is imported by legacy post-processing
-    # code while the modern application modules are still loading.
     from comicarr.app.attention import Failure, record
 
     outcome = record(
@@ -145,7 +136,6 @@ class FailedProcessor(object):
         """
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
-        # if nzb_folder: self.nzb_folder = nzb_folder
 
         self.log = ""
 
@@ -170,7 +160,7 @@ class FailedProcessor(object):
         self.valreturn = []
         self.journal_release_key = journal_release_key
 
-    def _log(self, message, level=logger):  # .message):
+    def _log(self, message, level=logger):
         """
         A wrapper for the internal logger which also keeps track of messages and saves them to a string
 
@@ -185,12 +175,7 @@ class FailedProcessor(object):
         if self.nzb_name and self.nzb_folder:
             self._log("Failed download has been detected: " + self.nzb_name + " in " + self.nzb_folder)
 
-            # since this has already been passed through the search module, which holds the IssueID in the nzblog,
-            # let's find the matching nzbname and pass it the IssueID in order to mark it as Failed and then return
-            # to the search module and continue trucking along.
-
             nzbname = self.nzb_name
-            # remove extensions from nzb_name if they somehow got through (Experimental most likely)
             extensions = (".cbr", ".cbz")
 
             if nzbname.lower().endswith(extensions):
@@ -198,7 +183,6 @@ class FailedProcessor(object):
                 self._log("Removed extension from nzb: " + ext)
                 nzbname = re.sub(str(ext), "", str(nzbname))
 
-            # replace spaces
             nzbname = re.sub(" ", ".", str(nzbname))
             nzbname = re.sub("[\\,\\:\\?'\\(\\)]", "", str(nzbname))
             nzbname = re.sub(r"[\&]", "and", str(nzbname))
@@ -214,7 +198,6 @@ class FailedProcessor(object):
             if nzbiss is None:
                 self._log("Failure - could not initially locate nzbfile in my database to rename.")
                 logger.fdebug(module + " Failure - could not locate nzbfile initially")
-                # if failed on spaces, change it all to decimals and try again.
                 nzbname = re.sub("_", ".", str(nzbname))
                 self._log("trying again with this nzbname: " + str(nzbname))
                 logger.fdebug(module + " Trying to locate nzbfile again with nzbname of : " + str(nzbname))
@@ -235,7 +218,6 @@ class FailedProcessor(object):
                 issueid = nzbiss["IssueID"]
                 logger.fdebug(module + " Issueid: " + str(issueid))
                 nzbiss["SARC"]
-                # use issueid to get publisher, series, year, issue number
 
         else:
             issueid = self.issueid
@@ -258,11 +240,9 @@ class FailedProcessor(object):
             )
 
         if self.prov is None:
-            # find the provider.
             self.prov = nzbiss["PROVIDER"]
         logger.info(module + " Provider: " + self.prov)
 
-        # grab the id.
         if self.id is None:
             self.id = nzbiss["ID"]
         logger.info(module + " ID: " + self.id)
@@ -293,8 +273,6 @@ class FailedProcessor(object):
                 sandwich = int(issuenzb["IssueID"])
         else:
             logger.info(module + " issuenzb not found.")
-            # if it's non-numeric, it contains a 'G' at the beginning indicating it's a multi-volume
-            # using GCD data. Set sandwich to 1 so it will bypass and continue post-processing.
             if "S" in issueid:
                 sandwich = issueid
             elif "G" in issueid or "-" in issueid:
@@ -302,7 +280,6 @@ class FailedProcessor(object):
         try:
             if helpers.is_number(sandwich):
                 if sandwich < 900000:
-                    # if sandwich is less than 900000 it's a normal watchlist download. Bypass.
                     pass
             else:
                 logger.info("Failed download handling for story-arcs and one-off's are not supported yet. Be patient!")
@@ -356,12 +333,8 @@ class FailedProcessor(object):
         logger.info(module + " Successfully marked as Failed.")
         self._log("Successfully marked as Failed.")
 
-        # Complete the journal ledger at this seam (#457 / #482). Prefer the
-        # propagated claim key; fall back under existing release_key rules.
         self.issueid = issueid
         if comicarr.CONFIG.FAILED_AUTO:
-            # Terminal failure + R9 status=retried in one write: auto re-search is
-            # enqueued (mode=retry) so the row must stay off the attention band.
             self._terminalize_journal(
                 FAIL_REASON_RESEARCHING,
                 status=STATUS_RETRIED,
@@ -369,8 +342,6 @@ class FailedProcessor(object):
                 nzbname=nzbname,
             )
             logger.info(module + " Sending back to search to see if we can find something that will not fail.")
-            # Narrative download.failed is emitted from Attention recording when
-            # the terminalize won (#484); reason_code = FAIL_REASON_RESEARCHING.
             self._log("Sending back to search to see if we can find something better that will not fail.")
             self.valreturn.append(
                 {
@@ -386,15 +357,12 @@ class FailedProcessor(object):
 
             return self.queue.put(self.valreturn)
         else:
-            # No further system work — leave R9 status null so the band sees it.
             self._terminalize_journal(
                 FAIL_REASON_NO_AUTO_HANDLING,
                 status=None,
                 issueid=issueid,
                 nzbname=nzbname,
             )
-            # Narrative download.failed is emitted from Attention recording when
-            # the terminalize won (#484); reason_code = FAIL_REASON_NO_AUTO_HANDLING.
             logger.info(
                 module + " Stopping search here as automatic handling of failed downloads is not enabled *hint*"
             )
@@ -403,19 +371,10 @@ class FailedProcessor(object):
             return self.queue.put(self.valreturn)
 
     def failed_check(self):
-        # issueid = self.issueid
-        # comicid = self.comicid
 
-        # ID = ID passed by search upon a match upon preparing to send it to client to download.
-        #     ID is provider dependent, so the same file should be different for every provider.
         module = "[FAILED_DOWNLOAD_CHECKER]"
 
-        # Querying on NZBName alone will result in all downloads regardless of provider.
-        # This will make sure that the files being downloaded are different regardless of provider.
-        # Perhaps later improvement might be to break it down by provider so that Comicarr will attempt to
-        # download same issues on different providers (albeit it shouldn't matter, if it's broke it's broke).
         logger.info("prov  : " + str(self.prov) + "[" + str(self.id) + "]")
-        # if this is from nzbhydra, we need to rejig the id line so that the searchid is removed since it's always unique to the search.
         if "indexerguid" in self.id:
             st = self.id.find("searchid:")
             end = self.id.find(",", st)
@@ -494,8 +453,6 @@ class FailedProcessor(object):
         )
 
     def markFailed(self):
-        # use this to forcibly mark a single issue as being Failed (ie. if a search result is sent to a client, but the result
-        # ends up passing in a 404 or something that makes it so that the download can't be initiated).
         module = "[FAILED-DOWNLOAD]"
 
         logger.info(module + " Marking as a Failed Download.")
@@ -544,8 +501,6 @@ class FailedProcessor(object):
         }
         db.upsert("failed", Vals, ctrlVal)
 
-        # Terminalize when key is resolvable. No FAILED_AUTO enqueue here —
-        # leave R9 status null so unresolved failures stay on the band.
         self._terminalize_journal(FAIL_REASON_NO_AUTO_HANDLING, status=None)
 
         logger.info(module + " Successfully marked as Failed.")

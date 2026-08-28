@@ -35,22 +35,17 @@ import comicarr
 from comicarr import logger, series_kind
 from comicarr.helpers import listLibrary
 
-# MangaDex API base URL
 MANGADEX_API_BASE = "https://api.mangadex.org"
 
-# In-memory cache for manga images and metadata to avoid repeated API calls
-_IMAGE_CACHE = {}  # {manga_id: cover_url}
-_MANGA_CACHE = {}  # {manga_id: manga_details}
-_CHAPTER_CACHE = {}  # {manga_id: chapters_list}
+_IMAGE_CACHE = {}
+_MANGA_CACHE = {}
+_CHAPTER_CACHE = {}
 
-# Cache TTL in seconds
-CACHE_TTL = 3600  # 1 hour
+CACHE_TTL = 3600
 
-# Rate limiter state
 _last_request_time = 0
-_rate_limit_interval = 0.2  # 5 requests per second
+_rate_limit_interval = 0.2
 
-# Content rating mapping
 CONTENT_RATING_MAP = {"safe": "safe", "suggestive": "suggestive", "erotica": "erotica", "pornographic": "pornographic"}
 
 
@@ -223,7 +218,6 @@ def _get_localized_string(localized_dict, preferred_languages=None):
         if lang in localized_dict:
             return localized_dict[lang]
 
-    # Fall back to first available
     if localized_dict:
         return next(iter(localized_dict.values()))
 
@@ -250,14 +244,11 @@ def search_manga(name, limit=None, offset=None, sort=None):
         logger.warn("[MANGADEX] MangaDex integration is not enabled")
         return {"results": [], "pagination": {"total": 0, "limit": limit or 50, "offset": offset or 0, "returned": 0}}
 
-    # Get library for "haveit" status
     comicLibrary = listLibrary()
 
-    # Set pagination defaults
     page_limit = min(limit, 100) if limit else 50
     page_offset = offset if offset else 0
 
-    # Build API parameters
     params = {
         "title": name,
         "limit": page_limit,
@@ -267,9 +258,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
         "order[relevance]": "desc",
     }
 
-    # Apply sort if provided
     if sort:
-        # Clear default sort
         params.pop("order[relevance]", None)
         sort_mapping = {
             "relevance": {"order[relevance]": "desc"},
@@ -304,10 +293,8 @@ def search_manga(name, limit=None, offset=None, sort=None):
             manga_id = manga.get("id")
             attributes = manga.get("attributes", {})
 
-            # Extract title (prefer English, fall back to other languages)
             title = _get_localized_string(attributes.get("title", {}))
             if not title:
-                # Try altTitles
                 alt_titles = attributes.get("altTitles", [])
                 for alt in alt_titles:
                     title = _get_localized_string(alt)
@@ -316,30 +303,24 @@ def search_manga(name, limit=None, offset=None, sort=None):
             if not title:
                 title = "Unknown"
 
-            # Extract other metadata
             year = attributes.get("year") or "0000"
-            status = attributes.get("status", "unknown")  # ongoing, completed, hiatus, cancelled
+            status = attributes.get("status", "unknown")
             content_rating = attributes.get("contentRating", "safe")
             description = _get_localized_string(attributes.get("description", {})) or "No description available"
 
-            # Get cover URL
             cover_url = _extract_cover_url(manga)
 
-            # Get alt titles (all languages: romaji, Japanese, synonyms, etc.)
             alt_titles = []
             for alt in attributes.get("altTitles", []):
                 for lang_val in alt.values():
                     if lang_val and lang_val != title:
                         alt_titles.append(lang_val)
 
-            # Get author/artist
             author = _extract_author(manga)
 
-            # Extract external links (MAL ID, etc.)
             links = attributes.get("links", {})
             mal_id = str(links.get("mal")) if links.get("mal") else None
 
-            # Check if we already have this manga, by MangaDex id then MAL id
             haveit = "No"
             mangadex_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
             mal_key = series_kind.add_prefix(mal_id, series_kind.SeriesProvider.MYANIMELIST)
@@ -347,13 +328,11 @@ def search_manga(name, limit=None, offset=None, sort=None):
                 haveit = comicLibrary[mangadex_id]
             elif mal_key and mal_key in comicLibrary:
                 haveit = comicLibrary[mal_key]
-            # Also check by name and year
             elif title and year:
                 name_key = "name:" + title.lower().strip() + ":" + str(year).strip()
                 if name_key in comicLibrary:
                     haveit = comicLibrary[name_key]
 
-            # Build year range
             yearRange = [str(year)]
             if str(year).isdigit():
                 current_year = datetime.now().year
@@ -365,13 +344,13 @@ def search_manga(name, limit=None, offset=None, sort=None):
                 {
                     "name": title,
                     "comicyear": str(year) if year else "0000",
-                    "comicid": mangadex_id,  # Use md- prefix for MangaDex IDs
-                    "cv_comicid": None,  # No ComicVine ID
+                    "comicid": mangadex_id,
+                    "cv_comicid": None,
                     "url": f"https://mangadex.org/title/{manga_id}",
-                    "issues": "0",  # Will be populated separately if needed
+                    "issues": "0",
                     "comicimage": cover_url,
                     "comicthumb": cover_url,
-                    "publisher": author,  # Use author as publisher equivalent
+                    "publisher": author,
                     "description": description[:500] if description else None,
                     "deck": None,
                     "type": "Manga",
@@ -385,7 +364,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
                     "content_rating": content_rating,
                     "content_type": "manga",
                     "alt_titles": alt_titles,
-                    "reading_direction": "rtl",  # Right-to-left for manga
+                    "reading_direction": "rtl",
                     "metadata_source": "mangadex",
                     "external_id": manga_id,
                     "mal_id": mal_id,
@@ -425,7 +404,6 @@ def get_manga_details(manga_id):
     """
     manga_id = series_kind.strip_prefix(manga_id)
 
-    # Check cache first
     cache_key = manga_id
     if cache_key in _MANGA_CACHE:
         cache_entry = _MANGA_CACHE[cache_key]
@@ -446,7 +424,6 @@ def get_manga_details(manga_id):
     manga = data.get("data", {})
     attributes = manga.get("attributes", {})
 
-    # Extract all relevant metadata
     title = _get_localized_string(attributes.get("title", {}))
     alt_titles = []
     for alt in attributes.get("altTitles", []):
@@ -456,14 +433,12 @@ def get_manga_details(manga_id):
 
     description = _get_localized_string(attributes.get("description", {}))
 
-    # Extract tags/genres
     tags = []
     for tag in attributes.get("tags", []):
         tag_name = _get_localized_string(tag.get("attributes", {}).get("name", {}))
         if tag_name:
             tags.append(tag_name)
 
-    # Extract external links (MAL, AniList, etc.)
     links = attributes.get("links", {})
 
     details = {
@@ -492,7 +467,6 @@ def get_manga_details(manga_id):
         "links": links,
     }
 
-    # Cache the result
     _MANGA_CACHE[cache_key] = {"data": details, "timestamp": time.time()}
 
     return details
@@ -557,7 +531,6 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
             )
             continue
 
-        # Prefer an authoritative external-ID match over all title scoring.
         for manga in data.get("data", []):
             links = manga.get("attributes", {}).get("links", {})
             if str(links.get("mal", "")) == mal_id_str:
@@ -565,8 +538,6 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
                 logger.info("[MANGADEX] Found MAL %s -> MangaDex %s (via links.mal)" % (mal_id_str, manga_uuid))
                 return manga_uuid
 
-        # Retain the best fuzzy candidate, but wait until every title has had
-        # a chance to produce an exact MAL link match before returning it.
         for manga in data.get("data", []):
             attributes = manga.get("attributes", {})
             candidate_titles = [_get_localized_string(attributes.get("title", {}))]
@@ -616,7 +587,7 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     params = {
         "manga": manga_id,
         "translatedLanguage[]": languages,
-        "limit": min(limit, 100),  # MangaDex chapter endpoint max is 100
+        "limit": min(limit, 100),
         "offset": offset,
         "order[chapter]": "asc",
         "includes[]": ["scanlation_group"],
@@ -636,7 +607,6 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
         chapter_id = chapter.get("id")
         attributes = chapter.get("attributes", {})
 
-        # Get scanlation group name
         group_name = None
         for rel in chapter.get("relationships", []):
             if rel.get("type") == "scanlation_group":
@@ -659,7 +629,6 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
                 "updated_at": attributes.get("updatedAt"),
                 "scanlation_group": group_name,
                 "external_url": attributes.get("externalUrl"),
-                # Map to Comicarr's issue structure
                 "issue_number": chapter_num,
                 "issue_name": attributes.get("title") or f"Chapter {chapter_num}",
                 "release_date": attributes.get("publishAt", "")[:10] if attributes.get("publishAt") else None,
@@ -742,14 +711,12 @@ def get_total_chapter_count(manga_id):
 
     logger.info("[MANGADEX] Fetching language-unfiltered aggregate for manga: %s" % manga_id)
 
-    # Intentionally NO translatedLanguage[] param — we want ALL chapters
     data = _make_request("/manga/%s/aggregate" % manga_id, params={})
 
     if not data or data.get("result") != "ok":
         logger.error("[MANGADEX] Failed to fetch unfiltered aggregate for manga %s" % manga_id)
         return 0
 
-    # Count unique chapter numbers across all volumes
     chapter_numbers = set()
     for volume_data in _aggregate_values(data.get("volumes")):
         if not isinstance(volume_data, dict):
@@ -783,7 +750,6 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     """
     manga_id = series_kind.strip_prefix(manga_id)
 
-    # Check cache first
     cache_key = f"{manga_id}:{','.join(languages or _get_languages())}:{include_unavailable}"
     if cache_key in _CHAPTER_CACHE:
         cache_entry = _CHAPTER_CACHE[cache_key]
@@ -791,10 +757,9 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
             logger.fdebug("[MANGADEX] Cache hit for chapters of manga %s" % manga_id)
             return cache_entry["data"]
 
-    # First, get available chapters with full metadata (filtered by language)
     available_chapters = []
     offset = 0
-    limit = 100  # MangaDex chapter endpoint max is 100
+    limit = 100
 
     while True:
         result = get_manga_chapters(manga_id, languages=languages, limit=limit, offset=offset)
@@ -809,7 +774,6 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
         offset += limit
 
-    # Create a map of available chapters by chapter number
     available_map = {}
     for ch in available_chapters:
         ch_num = ch.get("chapter")
@@ -818,9 +782,7 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
     all_chapters = list(available_chapters)
 
-    # If requested, add unavailable chapters based on manga's lastChapter metadata
     if include_unavailable:
-        # Get manga details to find total chapter count
         manga_details = get_manga_details(manga_id)
         last_chapter_str = manga_details.get("last_chapter")
 
@@ -829,14 +791,11 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
                 last_chapter = int(float(last_chapter_str))
                 logger.info("[MANGADEX] Manga has %d total chapters (lastChapter from metadata)" % last_chapter)
 
-                # Generate placeholder entries for all chapters from 1 to lastChapter
                 for ch_num in range(1, last_chapter + 1):
                     ch_num_str = str(ch_num)
-                    # Skip if we already have this chapter
                     if ch_num_str in available_map:
                         continue
 
-                    # Create a placeholder entry for unavailable chapter
                     all_chapters.append(
                         {
                             "id": f"unavailable-{manga_id}-{ch_num}",
@@ -850,13 +809,12 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
                             "updated_at": None,
                             "scanlation_group": None,
                             "external_url": None,
-                            "unavailable": True,  # Flag to indicate no upload available
+                            "unavailable": True,
                         }
                     )
             except (ValueError, TypeError) as e:
                 logger.warning('[MANGADEX] Could not parse lastChapter "%s": %s' % (last_chapter_str, e))
 
-    # Sort chapters by chapter number
     def sort_key(ch):
         ch_num = ch.get("chapter")
         if ch_num is None:
@@ -868,7 +826,6 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
     all_chapters.sort(key=sort_key)
 
-    # Cache the result
     _CHAPTER_CACHE[cache_key] = {"data": all_chapters, "timestamp": time.time()}
 
     logger.info(
@@ -890,11 +847,9 @@ def get_cover_image(manga_id):
     """
     manga_id = series_kind.strip_prefix(manga_id)
 
-    # Check cache first
     if manga_id in _IMAGE_CACHE:
         return _IMAGE_CACHE[manga_id]
 
-    # Get manga details which includes cover
     details = get_manga_details(manga_id)
     if details:
         cover_url = details.get("cover_url")

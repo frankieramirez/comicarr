@@ -150,8 +150,6 @@ function routeBlocker(
   for (const [reason, phrase] of ROUTE_REASONS) {
     if (reasons.has(reason)) return { reason, phrase };
   }
-  // A maintenance fence puts its own reason in `reason`; the gate signal names
-  // it, so the route signal stays silent rather than repeating it verbatim.
   return null;
 }
 
@@ -170,9 +168,6 @@ function routeSignal(health: AcquisitionHealthResponse): HealthSignal {
     return {
       key: "route",
       tone: "healthy",
-      // "ready", not "reachable": the payload reports configured readiness, and
-      // claiming reachability it has not probed is the false-confidence §6.1
-      // rules out.
       text:
         names.length > 0
           ? `${names.join(" + ")} ready`
@@ -202,8 +197,6 @@ function indexerSignal(health: AcquisitionHealthResponse): HealthSignal {
     for (const provider of route.providers ?? []) {
       const name = String(provider.name ?? "").trim();
       if (!name) continue;
-      // Blocked on any route is blocked: a provider shared by two routes is
-      // still one unreachable indexer, not half of one.
       byName.set(
         name,
         (byName.get(name) ?? false) || Boolean(provider.blocked),
@@ -240,8 +233,6 @@ function indexerSignal(health: AcquisitionHealthResponse): HealthSignal {
 function workerSignal(health: AcquisitionHealthResponse): HealthSignal {
   const workers = Object.entries(health.workers ?? {});
 
-  // No heartbeats at all, or the projection itself failed. Either way the band
-  // cannot claim the workers are up.
   if (
     workers.length === 0 ||
     (workers.length === 1 && workers[0][0] === "unavailable")
@@ -388,8 +379,6 @@ export function healthBandView({
   return {
     tone: worstTone([
       ...signals.map((signal) => signal.tone),
-      // A stale last-successful-search degrades the whole band even when every
-      // component reports itself fine. That combination *is* the silent failure.
       lastSearch.stale ? "degraded" : "healthy",
     ]),
     unknown: false,

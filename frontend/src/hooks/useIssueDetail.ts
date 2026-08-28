@@ -47,7 +47,6 @@ export function useIssueDetail(
         );
         return { issue, series: detail.comic ?? null };
       } catch {
-        // Series name is optional context; issue payload is still usable.
         return { issue, series: null };
       }
     },

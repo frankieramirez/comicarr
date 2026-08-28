@@ -55,7 +55,6 @@ export function SupportBundleSection() {
   }, []);
 
   const focusTrigger = () => {
-    // Defer so dialog unmount completes first.
     window.setTimeout(() => triggerRef.current?.focus(), 0);
   };
 
@@ -76,7 +75,6 @@ export function SupportBundleSection() {
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) {
       if (phase === "creating") {
-        // Visible cancellation while in flight.
         closeDialog(true);
         return;
       }
@@ -142,7 +140,6 @@ export function SupportBundleSection() {
     abortRef.current = controller;
     const result = await downloadSupportBundle(controller.signal);
     if (controller.signal.aborted) {
-      // closeDialog already handled announcement.
       return;
     }
     abortRef.current = null;

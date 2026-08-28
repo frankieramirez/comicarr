@@ -290,8 +290,6 @@ function MyReleasesView() {
     });
 
   const columns = useUpcomingColumns((issue) => void startIssueReview(issue));
-  // Unpaginated: the whole week renders at once, so `pagination` is omitted
-  // and the hook holds no page state (#360).
   const { table, selectedIds, clearSelection } = useTableState({
     data: issues,
     columns,

@@ -72,7 +72,6 @@ def _extract_pattern_json(text):
     lines = text.strip().split("\n", 1)
     first_line = lines[0].strip()
 
-    # Try to parse the first line as JSON
     try:
         data = json.loads(first_line)
         if isinstance(data, dict) and "pattern_id" in data:
@@ -81,7 +80,6 @@ def _extract_pattern_json(text):
     except (json.JSONDecodeError, ValueError):
         pass
 
-    # Try to find JSON embedded in the first few lines
     for i, line in enumerate(text.strip().split("\n")[:5]):
         line = line.strip()
         if line.startswith("{") and "pattern_id" in line:
@@ -117,8 +115,6 @@ def _is_vision_unsupported_error(error):
         "text-only",
         "not allowed",
     )
-    # Account, auth, and quota failures can name images too, and a false match
-    # here compensates the turn away — deleting the user's message and uploads.
     unrelated_terms = (
         "api key",
         "authentication",
@@ -156,19 +152,16 @@ async def stream_chat_response(messages, ctx, current_turn_images=None):
         yield {"type": "done"}
         return
 
-    # Check circuit breaker
     if circuit_breaker and not circuit_breaker.allow_request():
         yield {"type": "error", "content": "AI service is temporarily unavailable. Please try again later."}
         yield {"type": "done"}
         return
 
-    # Check rate limiter
     if rate_limiter and not rate_limiter.can_request():
         yield {"type": "error", "content": "Rate limit reached. Please try again in a moment."}
         yield {"type": "done"}
         return
 
-    # Sanitize user messages
     sanitized_messages = []
     last_user_index = max((i for i, message in enumerate(messages) if message.get("role") == "user"), default=-1)
     for index, msg in enumerate(messages):
@@ -184,7 +177,6 @@ async def stream_chat_response(messages, ctx, current_turn_images=None):
             content = parts
         sanitized_messages.append({"role": role, "content": content})
 
-    # Build the full message list with system prompt
     full_messages = [
         {"role": "system", "content": _build_system_prompt()},
     ] + sanitized_messages
@@ -210,27 +202,21 @@ async def stream_chat_response(messages, ctx, current_turn_images=None):
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-        # Record success with circuit breaker
         if circuit_breaker:
             circuit_breaker.record_success()
 
-        # Record with rate limiter
         if rate_limiter:
             total_tokens = prompt_tokens + completion_tokens
             rate_limiter.record_request(total_tokens)
 
-        # Internal event consumed by the persistent chat service. Routers must
-        # not forward provider accounting details to browser clients.
         yield {
             "type": "usage",
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
         }
 
-        # Extract pattern selection from response
         pattern_data, text_content = _extract_pattern_json(raw_content)
 
-        # Execute query pattern if selected
         if pattern_data:
             pattern_id = pattern_data.get("pattern_id", "")
             parameters = pattern_data.get("parameters", {})
@@ -248,14 +234,11 @@ async def stream_chat_response(messages, ctx, current_turn_images=None):
                         "retryable": True,
                     }
 
-        # Yield the conversational text
         if text_content:
             yield {"type": "text", "content": text_content}
         elif not pattern_data:
-            # No pattern and no text — yield the raw response
             yield {"type": "text", "content": raw_content}
 
-        # Log activity
         ai_service.log_activity(
             feature_type="chat",
             action="Library chat query",

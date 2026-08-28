@@ -352,14 +352,8 @@ class search_check(object):
         detected_pack = None
 
         alt_match = False
-        # logger.fdebug('entry: %s' % (entry,))
 
         logger.fdebug("checking search result: %s" % entry["title"])
-        # some nzbsites feel that comics don't deserve a nice regex to strip
-        # the crap from the header, the end result is that we're dealing with
-        # the actual raw header which causes incorrect matches below. This is a
-        # temporary cut from the experimental search option (findcomicfeed) as
-        # it does this part well usually.
         except_list = [
             "releases",
             "gold line",
@@ -383,7 +377,6 @@ class search_check(object):
                         if ComicName.lower().startswith("for"):
                             pass
                         else:
-                            # this is the crap we ignore. Continue
                             continue
                         logger.fdebug(
                             "Detected crap within header. Ignoring this portion"
@@ -409,15 +402,10 @@ class search_check(object):
 
         comsize_m = 0
         if nzbprov != "dognzb":
-            # rss for experimental doesn't have the size constraints embedded.
-            # So we do it here.
             if RSS == "yes":
                 comsize_b = entry["length"]
             else:
-                # Experimental already has size constraints done.
                 if nzbprov == "experimental":
-                    # we only want the size from the rss as
-                    # the search/api has it already.
                     comsize_b = entry["length"]
                 else:
                     try:
@@ -431,24 +419,19 @@ class search_check(object):
                                 else:
                                     comsize_b = helpers.human2bytes(entry["size"])
                         elif entry["site"] == "DDL(External)":
-                            comsize_b = "0"  # External links ! filesize
+                            comsize_b = "0"
                     except Exception:
                         tmpsz = entry.enclosures[0]
                         comsize_b = tmpsz["length"]
 
             logger.fdebug("comsize_b: %s" % comsize_b)
-            # file restriction limitation here
-            # Experimental (has it embeded in search and rss checks)
 
             if comsize_b is None or comsize_b == "0":
                 logger.fdebug("Size of file cannot be retrieved. Ignoring size-comparison and continuing.")
-                # comsize_b = 0
             else:
                 if entry["title"][:17] != "0-Day Comics Pack":
                     comsize_m = helpers.human_size(comsize_b)
                     logger.fdebug("size given as: %s" % comsize_m)
-                    # ----size constraints.
-                    # if it's not within size constaints - dump it now.
                     if comicarr.CONFIG.USE_MINSIZE:
                         conv_minsize = helpers.human2bytes(comicarr.CONFIG.MINSIZE + "M")
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
@@ -468,10 +451,6 @@ class search_check(object):
                 logger.fdebug("Cover(s) only detected. Ignoring result.")
                 _reject("rejected.cover_only")
 
-        # ---- date constaints.
-        # if the posting date is prior to the publication date,
-        # dump it and save the time.
-        # logger.fdebug('entry: %s' % entry)
         if nzbprov == "experimental":
             pubdate = entry["pubdate"]
         else:
@@ -489,8 +468,6 @@ class search_check(object):
             postdate_int = None
             issuedate_int = None
         else:
-            # use store date instead of publication date for comparisons since
-            # publication date is usually +2 months
             if StoreDate is None or StoreDate == "0000-00-00":
                 if IssueDate is None or IssueDate == "0000-00-00":
                     logger.fdebug(
@@ -512,7 +489,6 @@ class search_check(object):
                 postdate_int = pubdate
                 logger.fdebug("[%s] postdate_int (%s): %s" % (nzbprov, type(postdate_int), postdate_int))
             if any([postdate_int is None, type(postdate_int) != int]) or not RSS == "no":
-                # convert it to a tuple
                 dateconv = email.utils.parsedate_tz(pubdate)
 
                 try:
@@ -520,8 +496,6 @@ class search_check(object):
                 except TypeError as e:
                     logger.warn("Unable to convert timestamp from : %s [%s]" % ((dateconv,), e))
                 try:
-                    # convert it to a numeric time, then subtract the
-                    # timezone difference (+/- GMT)
                     if dateconv[-1] is not None:
                         postdate_int = time.mktime(dateconv[: len(dateconv) - 1]) - dateconv[-1]
                     else:
@@ -545,21 +519,16 @@ class search_check(object):
                 else:
                     usedate = stdate
                 logger.fdebug("usedate: %s" % usedate)
-                # convert it to a Thu, 06 Feb 2014 00:00:00 format
                 issue_converted = datetime.datetime.strptime(usedate.rstrip(), "%Y-%m-%d")
                 issue_convert = issue_converted + datetime.timedelta(days=-1)
-                # to get past different locale's os-dependent dates, let's
-                # convert it to a generic datetime format
                 try:
                     stamp = time.mktime(issue_convert.timetuple())
                     issconv = format_date_time(stamp)
                 except OverflowError as e:
                     logger.fdebug("Error converting the timestamp into a generic format: %s" % e)
                     issconv = issue_convert.strftime("%a, %d %b %Y %H:%M:%S")
-                # convert it to a tuple
                 econv = email.utils.parsedate_tz(issconv)
                 econv2 = datetime.datetime(*econv[:6])
-                # convert it to a numeric and drop the GMT/Timezone
                 try:
                     usedate_int = time.mktime(econv[: len(econv) - 1])
                 except OverflowError:
@@ -587,11 +556,6 @@ class search_check(object):
                 i += 1
 
             try:
-                # try new method to get around issues populating in a diff
-                # timezone thereby putting them in a different day.
-                # logger.info('digitaldate: %s' % digitaldate)
-                # logger.info('dateconv2: %s' % dateconv2.date())
-                # logger.info('digconv2: %s' % digconv2.date())
                 if digitaldate != "0000-00-00" and dateconv2.date() >= digconv2.date():
                     logger.fdebug("%s is after DIGITAL store date of %s" % (pubdate, digitaldate))
                 elif dateconv2.date() < issconv2.date():
@@ -606,8 +570,6 @@ class search_check(object):
             except _EntryRejected:
                 raise
             except Exception:
-                # if the above fails, drop down to the integer compare method
-                # as a failsafe.
                 if digitaldate is not None and all([digitaldate != "0000-00-00", postdate_int >= digitaldate_int]):
                     logger.fdebug("%s is after DIGITAL store date of %s" % (pubdate, digitaldate))
                 elif postdate_int < issuedate_int:
@@ -619,7 +581,6 @@ class search_check(object):
                     _reject("rejected.before_reference_date")
                 else:
                     logger.fdebug("[INT] %s is after store date of %s" % (pubdate, stdate))
-        # -- end size constaints.
         if "(digital first)" in ComicTitle.lower():
             dig_moving = re.sub(r"\(digital first\)", "", ComicTitle.lower()).strip()
             dig_moving = re.sub(r"[\s+]", " ", dig_moving)
@@ -634,7 +595,6 @@ class search_check(object):
         if "mixed format" in cleantitle.lower():
             cleantitle = re.sub("mixed format", "", cleantitle).strip()
             logger.fdebug("removed extra information after issue # that is not necessary: %s" % cleantitle)
-        # only send it to parser if it's not a DDL + pack (already parsed)
         if pack is True and "DDL" in entry["site"]:
             logger.fdebug("parsing pack...")
             ffc = filechecker.FileChecker()
@@ -659,7 +619,6 @@ class search_check(object):
                 "parse_status": "success",
             }
 
-        # send it to the parser here.
         else:
             if pack is not True and allow_packs and "DDL" not in nzbprov:
                 from comicarr.app.manga.acquisition import booktype_bypasses_format_gates as _manga_bypass
@@ -667,18 +626,10 @@ class search_check(object):
 
                 detected_pack = parse_pack_title(ComicTitle)
                 if detected_pack is not None and detected_pack["kind"] == "volume":
-                    # a v01-14 release holds volumes; matching it against an
-                    # issue-tracked series would mark the wrong issues.
                     volume_ok = booktype in ("TPB", "HC", "GN", "TPB/GN/HC/One-Shot") or _manga_bypass(booktype)
                     if not volume_ok:
                         detected_pack = None
                 if detected_pack is None and _manga_bypass(booktype):
-                    # A numberless "(2021-2026)" title carries no range, so a
-                    # false positive claims the entire series at once. For
-                    # print comics that bracketed span usually states when the
-                    # *series* ran, not what the release holds, so restrict
-                    # the detector to manga, where it is the known
-                    # complete-series idiom (#744).
                     detected_pack = parse_series_pack_title(ComicTitle)
             if detected_pack is not None:
                 logger.fdebug(
@@ -688,7 +639,6 @@ class search_check(object):
                 pack = True
                 entry["pack"] = True
                 entry["issues"] = detected_pack["issues"]
-                # the pack snatch/notify path reads these off the entry.
                 entry["series"] = detected_pack["series"]
                 entry["year"] = detected_pack["year"]
                 if "filename" not in entry:
@@ -753,13 +703,6 @@ class search_check(object):
                     logger.fdebug("%s was not a match to %s (%s)" % (cleantitle, ComicName, SeriesYear))
                     _reject("rejected.series_mismatch")
                 elif filecomic["process_status"] == "alt_match":
-                    # if it's an alternate series match, we'll retain each value
-                    # until the search has compeletely run, compiling matches.
-                    # If at any point it's a standard match (ie. non-alternate
-                    # series) that will be accepted as the one match and
-                    # ignore the alts. Once all the search options have been
-                    # exhausted and no matches aside from alternate series then
-                    # we go get the best result from that list
                     logger.fdebug(
                         "%s was a match due to alternate matching.  Continuing"
                         " to search, but retaining this result just in case." % ComicTitle
@@ -775,7 +718,6 @@ class search_check(object):
             logger.fdebug("Unable to parse name properly: %s. Ignoring this result" % parsed_comic)
             _reject("rejected.unparseable_title")
 
-        # adjust for covers only by removing them entirely...
         vers4year = "no"
         vers4vol = "no"
         versionfound = "no"
@@ -791,11 +733,11 @@ class search_check(object):
 
         if parsed_comic["series_volume"] is not None:
             versionfound = "yes"
-            if len(parsed_comic["series_volume"][1:]) == 4 and (parsed_comic["series_volume"][1:].isdigit()):  # v2013
+            if len(parsed_comic["series_volume"][1:]) == 4 and (parsed_comic["series_volume"][1:].isdigit()):
                 logger.fdebug("[Vxxxx] Version detected as %s" % (parsed_comic["series_volume"]))
                 vers4year = "yes"
                 fndcomicversion = parsed_comic["series_volume"]
-            elif len(parsed_comic["series_volume"][1:]) == 1 and (parsed_comic["series_volume"][1:].isdigit()):  # v2
+            elif len(parsed_comic["series_volume"][1:]) == 1 and (parsed_comic["series_volume"][1:].isdigit()):
                 logger.fdebug("[Vx] Version detected as %s" % parsed_comic["series_volume"])
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]
@@ -804,7 +746,6 @@ class search_check(object):
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]
             elif parsed_comic["series_volume"].isdigit() and len(parsed_comic["series_volume"]) <= 4:
-                # this stuff is necessary for 32P volume manipulation
                 if len(parsed_comic["series_volume"]) == 4:
                     vers4year = "yes"
                     fndcomicversion = parsed_comic["series_volume"]
@@ -818,7 +759,6 @@ class search_check(object):
                     logger.fdebug("error - unknown length for : %s" % parsed_comic["series_volume"])
 
         yearmatch = False
-        # logger.fdebug('UseFuzzy: %s / ComVersChk: %s / IssDateFix: %s' % (UseFuzzy, ComVersChk, IssDateFix))
         if vers4vol != "no" or vers4year != "no":
             logger.fdebug(
                 "Series Year not provided but Series Volume detected of %s. Bypassing Year Match." % fndcomicversion
@@ -853,7 +793,6 @@ class search_check(object):
                     logger.fdebug("%s - not right - years do not match" % comyear)
                     yearmatch = False
                     if UseFuzzy == "2":
-                        # Fuzzy the year +1 and -1
                         ComUp = int(ComicYear) + 1
                         ComDwn = int(ComicYear) - 1
                         if str(ComUp) in parsed_comic["issue_year"] or str(ComDwn) in parsed_comic["issue_year"]:
@@ -863,8 +802,6 @@ class search_check(object):
                             yearmatch = True
                         else:
                             logger.fdebug("%s Fuzzy logicd the Year and year still did not match." % comyear)
-                    # let's do this here and save a few extra loops ;)
-                    # fix for issue dates between Nov-Dec/Jan
                     if IssDateFix != "no" and UseFuzzy != "2":
                         if IssDateFix == "01" or IssDateFix == "02" or IssDateFix == "03":
                             ComicYearFix = int(ComicYear) - 1
@@ -910,26 +847,21 @@ class search_check(object):
             logger.fdebug("vers4vol: %s" % vers4vol)
 
             if vers4year != "no" or vers4vol != "no":
-                # if the volume is None, assume it's a V1 to increase % hits
                 if ComVersChk == 0:
                     D_ComicVersion = 1
                 else:
                     D_ComicVersion = ComVersChk
 
-            # if this is a one-off, SeriesYear will be None and cause errors.
             S_ComicVersion = 0
             if all([SeriesYear is not None, annualize is False]):
                 S_ComicVersion = str(SeriesYear)
 
             if fndcomicversion:
                 F_ComicVersion = re.sub("[^0-9]", "", fndcomicversion)
-                # if found volume is a vol.0, up it to vol.1 (since there is no V0)
                 if F_ComicVersion == "0":
                     if annualize is True:
                         F_ComicVersion = parsed_comic["issue_year"]
                     else:
-                        # need to convert dates to just be yyyy-mm-dd and do comparison,
-                        # time operator in the below calc
                         F_ComicVersion = "1"
             else:
                 F_ComicVersion = "1"
@@ -939,8 +871,6 @@ class search_check(object):
             logger.fdebug("SCVersion: %s" % S_ComicVersion)
             logger.fdebug("ComicYear: %s" % ComicYear)
 
-            # here's the catch, sometimes annuals get posted as the Pub Year
-            # instead of the Series they belong to (V2012 vs V2013)
             if all(
                 [
                     annualize is True,
@@ -1010,7 +940,6 @@ class search_check(object):
         if pack is True and any(["DDL" in nzbprov, detected_pack is not None]):
             logger.fdebug("[PACK-QUEUE] %s Pack detected for %s." % (nzbprov, entry["filename"]))
 
-            # find the pack range.
             pack_issuelist = None
             issueid_info = None
             try:
@@ -1037,7 +966,6 @@ class search_check(object):
             except Exception as e:
                 logger.error("Unable to identify pack range for %s. Error returned: %s" % (entry["title"], e))
                 _reject("error.pack_lookup_exception", cause=e)
-            # pack support.
             nowrite = False
             if "DDL" in nzbprov:
                 if "GetComics" in nzbprov and RSS == "yes":
@@ -1133,7 +1061,6 @@ class search_check(object):
                     else:
                         if annualize is True:
                             if parsed_comic["issue_number"] is None:
-                                # if issue_number is None, assume it's #1 of the annual
                                 intIss = 1000
                             elif len(re.sub("[^0-9]", "", parsed_comic["issue_number"]).strip()) == 4:
                                 intIss = 1000
@@ -1151,13 +1078,10 @@ class search_check(object):
                 else:
                     comintIss = 11111111111
 
-                # do this so that we don't touch the actual value but just
-                # use it for comparisons
                 if filecomic["justthedigits"] is None:
                     pc_in = None
                 else:
                     pc_in = helpers.issuedigits(filecomic["justthedigits"])
-                # issue comparison now as well
                 if (
                     all([intIss is not None, comintIss is not None])
                     and int(intIss) == int(comintIss)
@@ -1257,7 +1181,6 @@ class search_check(object):
                                 nowrite = True
                                 break
 
-                    # modify the name for annualization to be displayed properly
                     if annualize is True:
                         modcomicname = "%s Annual" % ComicName
                     else:
@@ -1323,9 +1246,7 @@ class search_check(object):
                         )
                     _reject("blocked.duplicate")
                 else:
-                    # log2file = log2file + "issues don't match.." + "\n"
                     downloadit = False
-                    # foundc['status'] = False
         if alt_match:
             _reject("rejected.alternate_series")
         _reject("rejected.issue_mismatch")
@@ -1348,15 +1269,12 @@ class search_check(object):
                     hold_the_matches.append(maybe_value)
             collector["evaluations"](evaluations)
         else:
-            # Preserve the legacy entry-by-entry order: accepted matches update
-            # COMICINFO before the next entry's duplicate check runs.
             for entry in entries:
                 maybe_value = self._process_entry(entry, is_info)
                 if maybe_value is not None:
                     comicarr.COMICINFO.append(maybe_value)
                     hold_the_matches.append(maybe_value)
 
-        # logger.fdebug('returning hold_the_matches: %s' % (hold_the_matches,))
         return hold_the_matches
 
     def check_for_first_result(self, entries, is_info, prefer_pack=False):
@@ -1370,15 +1288,9 @@ class search_check(object):
         candidate = None
         for entry in entries:
             maybe_value = self._process_entry(entry, is_info)
-            # logger.fdebug('maybe_value: %s' % maybe_value)
             if maybe_value is not None:
-                # If we have a value which matches our pack/not-pack
-                # preference, return it: otherwise, store it for return if we
-                # don't find a better candidate
                 is_pack = maybe_value["pack"]
                 if (prefer_pack and is_pack) or (not prefer_pack and not is_pack):
-                    # (This reduces to prefer_pack == is_pack, but that's harder to grok)
                     return maybe_value
                 candidate = maybe_value
-        # logger.fdebug('candidate: %s' % candidate)
         return candidate

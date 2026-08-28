@@ -36,16 +36,12 @@ import re
 
 VALID_EXTENSIONS = {".cbr", ".cbz", ".cb7", ".pdf"}
 
-# Pre-compiled patterns, ordered from most specific to least specific.
-# Each pattern is a tuple of (compiled_regex, field_mapping) where
-# field_mapping is a dict mapping group names to result keys.
 
-# Pattern 1: [Group] Title - c001 (v01) [quality]
 _PAT_GROUP_FULL = re.compile(
     r"^\[(?P<group>[^\]]+)\]\s*"
     r"(?P<series>.+?)\s*"
     r"-\s*c(?P<chapter>\d+(?:\.\d+)?)"
-    r"(?:\s*-\s*c?\d+(?:\.\d+)?)?"  # optional range end (ignored)
+    r"(?:\s*-\s*c?\d+(?:\.\d+)?)?"
     r"(?:\s*\(v(?P<volume>\d+)\))?"
     r"(?:\s*\[(?P<quality>[^\]]+)\])?"
     r"\s*$",
@@ -53,7 +49,6 @@ _PAT_GROUP_FULL = re.compile(
 )
 
 
-# Pattern 3: Title Vol.01 Ch.001  or  Title Vol 01 Ch 001
 _PAT_VOL_CH_ABBR = re.compile(
     r"^(?P<series>.+?)\s+"
     r"[Vv]ol\.?\s*(?P<volume>\d+)\s+"
@@ -61,7 +56,6 @@ _PAT_VOL_CH_ABBR = re.compile(
     r"\s*$",
 )
 
-# Pattern 4: Title v01 c001
 _PAT_V_C = re.compile(
     r"^(?P<series>.+?)\s+"
     r"[Vv](?P<volume>\d+)\s+"
@@ -69,14 +63,12 @@ _PAT_V_C = re.compile(
     r"\s*$",
 )
 
-# Pattern 5: Title - Chapter 001
 _PAT_CHAPTER_LABEL = re.compile(
     r"^(?P<series>.+?)\s*"
     r"-\s*[Cc]hapter\s+(?P<chapter>\d+(?:\.\d+)?)"
     r"\s*$",
 )
 
-# Pattern 6: Title c001-003  (chapter with optional range, no group brackets)
 _PAT_CHAPTER_PREFIX = re.compile(
     r"^(?P<series>.+?)\s+"
     r"[Cc](?P<chapter>\d+(?:\.\d+)?)"
@@ -84,22 +76,18 @@ _PAT_CHAPTER_PREFIX = re.compile(
     r"\s*$",
 )
 
-# Pattern 7: Title v01  (volume only, e.g. "Bleach v1")
 _PAT_VOLUME_ONLY = re.compile(
     r"^(?P<series>.+?)\s+"
     r"[Vv](?P<volume>\d+)"
     r"\s*$",
 )
 
-# Pattern 8: Title 001  (bare number = chapter, e.g. "Chainsaw Man 165")
 _PAT_BARE_NUMBER = re.compile(
     r"^(?P<series>.+?)\s+"
     r"(?P<chapter>\d+(?:\.\d+)?)"
     r"\s*$",
 )
 
-# Folder-context patterns. These infer the chapter from filenames that omit the
-# series title because the parent folder carries it.
 _PAT_CHAPTER_ONLY_LABEL = re.compile(
     r"^(?:[Cc]h(?:apter)?\.?)\s*(?P<chapter>\d+(?:\.\d+)?)"
     r"\s*$",
@@ -110,7 +98,6 @@ _PAT_CHAPTER_ONLY_NUMBER = re.compile(
     r"\s*$",
 )
 
-# Ordered list — first match wins.
 _PATTERNS = [
     _PAT_GROUP_FULL,
     _PAT_VOL_CH_ABBR,
@@ -148,10 +135,8 @@ def parse_manga_filename(
         ``quality`` (str or None).  Returns ``None`` when the filename
         cannot be parsed or has an invalid extension.
     """
-    # Strip directory components if present.
     basename = os.path.basename(filename)
 
-    # Split extension and validate.
     stem, ext = os.path.splitext(basename)
     if ext.lower() not in VALID_EXTENSIONS:
         return None
@@ -193,7 +178,6 @@ def parse_manga_filename(
                 "quality": None,
             }
 
-    # No pattern matched — unparseable.
     return None
 
 
@@ -263,7 +247,6 @@ def _build_result(match):
     if quality:
         quality = quality.strip() or None
 
-    # If we got neither a chapter nor a volume, it's not useful.
     if chapter is None and volume is None:
         return None
 
@@ -282,7 +265,6 @@ def _to_chapter_number(raw):
         return None
     try:
         value = float(raw)
-        # Return int-like floats as float to keep the contract consistent.
         return value
     except (ValueError, TypeError):
         return None

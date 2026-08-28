@@ -36,7 +36,6 @@ from comicarr import db, logger, updater
 from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.tables import comics
 
-# Scan status globals (for UI polling)
 COMIC_SCAN_STATUS = None
 COMIC_SCAN_PROGRESS = {
     "total_files": 0,
@@ -48,7 +47,6 @@ COMIC_SCAN_PROGRESS = {
     "errors": [],
 }
 
-# Scan results held for user selection
 COMIC_SCAN_RESULTS = None
 COMIC_SCAN_ID = None
 
@@ -106,17 +104,14 @@ def comicScan(scan_dir=None):
     }
 
     try:
-        # Step 1: Walk directory and group files by series folder
         series_map = _collect_series_files(comic_dir)
 
         COMIC_SCAN_PROGRESS["series_found"] = len(series_map)
         results["series_found"] = len(series_map)
         logger.info("[COMIC-SCAN] Found %d series directories" % len(series_map))
 
-        # Load existing library series for de-duplication
         existing_series = _load_existing_series()
 
-        # Step 2: For each series, try to match against ComicVine
         for series_name, files in series_map.items():
             COMIC_SCAN_PROGRESS["current_series"] = series_name
 
@@ -143,7 +138,6 @@ def comicScan(scan_dir=None):
 
             COMIC_SCAN_PROGRESS["processed_files"] += len(files)
 
-        # Store results for user selection
         COMIC_SCAN_ID = str(int(time.time()))
         COMIC_SCAN_RESULTS = results["scan_results"]
 
@@ -179,13 +173,10 @@ def _collect_series_files(comic_dir):
 
             filepath = os.path.join(root, filename)
 
-            # Use the immediate parent directory as the series name
             rel_path = os.path.relpath(root, comic_dir)
             if rel_path == ".":
-                # Files directly in comic_dir — guess series from filename
                 series_name = _guess_series_from_filename(filename)
             else:
-                # Use top-level directory name as series name
                 series_name = rel_path.split(os.sep)[0]
 
             if not series_name:
@@ -206,9 +197,7 @@ def _guess_series_from_filename(filename):
     name = os.path.splitext(filename)[0]
     if not name or name.startswith("."):
         return None
-    # Remove trailing numbers (likely issue numbers)
     name = re.sub(r"\s+(#?\d+[\.\d]*)$", "", name).strip()
-    # Remove trailing parenthetical year
     name = re.sub(r"\s*\(\d{4}\)\s*$", "", name).strip()
     return name if name else None
 
@@ -303,7 +292,6 @@ def _match_series(series_name, files, existing_series):
         "match": None,
     }
 
-    # Check if series already exists in library
     existing = _find_existing_series(series_name, existing_series)
     if existing:
         _reconcile_existing_series(existing, files)
@@ -313,7 +301,6 @@ def _match_series(series_name, files, existing_series):
         logger.info("[COMIC-SCAN] Reconciled existing series '%s'" % series_name)
         return result
 
-    # Search ComicVine
     logger.info("[COMIC-SCAN] Searching ComicVine for: %s" % series_name)
     try:
         search_results = mb.findComic(
@@ -327,7 +314,6 @@ def _match_series(series_name, files, existing_series):
         result["error"] = "ComicVine search failed: %s" % str(e)
         return result
 
-    # Handle various return types from mb.findComic
     if not search_results:
         logger.info("[COMIC-SCAN] No match found for: %s" % series_name)
         return result
@@ -344,7 +330,6 @@ def _match_series(series_name, files, existing_series):
         logger.info("[COMIC-SCAN] No match found for: %s" % series_name)
         return result
 
-    # Find best match using fuzzy name matching
     best_match, best_score = find_best_match(series_name, comic_list)
 
     if not best_match or best_score < 0.5:
@@ -402,7 +387,6 @@ def import_selected_series(selected_ids, scan_id):
     if not COMIC_SCAN_RESULTS:
         return {"success": False, "error": "No scan results available"}
 
-    # Whitelist: only allow IDs that appeared in the scan results
     allowed_ids = {r["match"]["comicid"] for r in COMIC_SCAN_RESULTS if r.get("matched") and r.get("match")}
 
     imported = 0
@@ -421,7 +405,6 @@ def import_selected_series(selected_ids, scan_id):
             logger.error("[COMIC-SCAN] Failed to import %s: %s" % (comic_id, e))
             errors.append({"comicid": comic_id, "error": str(e)})
 
-    # Only clear results if all imports succeeded
     if not errors:
         COMIC_SCAN_RESULTS = None
         COMIC_SCAN_ID = None

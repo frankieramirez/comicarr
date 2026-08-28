@@ -20,9 +20,6 @@ import { useTableState } from "@/components/data-table/useTableState";
 import { useDebounce } from "@/hooks/use-debounce";
 
 export default function WantedPage() {
-  // Search is an input to the server fetch (same model as Activity #377):
-  // page-local filtering would only see the current offset window and would
-  // leave pagination totals describing the unfiltered queue (#408).
   const { limit, offset, nextPage, prevPage, resetPage } = useServerPage(50);
   const [searchQuery, setSearchQueryState] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 400);
@@ -49,8 +46,6 @@ export default function WantedPage() {
   const { addToast } = useToast();
 
   const columns = useWantedColumns();
-  // The server page is an input to the fetch that produced `issues`, so the
-  // hook holds no page state (#360); `pagination` is omitted deliberately.
   const { table, selectedIds, clearSelection } = useTableState({
     data: issues,
     columns,

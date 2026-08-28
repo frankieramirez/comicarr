@@ -50,13 +50,11 @@ def generate_suggestions(weekly_data=None, collection_patterns=None):
         logger.fdebug("[AI-PULLLIST] Rate limit reached, skipping suggestions")
         return []
 
-    # Check for fresh cached suggestions
     cached = _get_cached_suggestions()
     if cached is not None:
         logger.fdebug("[AI-PULLLIST] Returning %d cached suggestions" % len(cached))
         return cached
 
-    # Gather data if not provided
     if collection_patterns is None:
         collection_patterns = get_collection_patterns()
 
@@ -67,7 +65,6 @@ def generate_suggestions(weekly_data=None, collection_patterns=None):
         logger.fdebug("[AI-PULLLIST] No weekly releases to analyze")
         return []
 
-    # Build the prompt
     system_prompt = (
         "You are a comic book recommendation assistant. Based on the user's collection "
         "patterns and this week's new releases, suggest comics they might enjoy but are "
@@ -111,7 +108,6 @@ def generate_suggestions(weekly_data=None, collection_patterns=None):
                 }
             )
 
-        # Cache the suggestions
         _cache_suggestions(suggestions)
 
         ai_service.log_activity(
@@ -159,7 +155,6 @@ def get_collection_patterns():
     }
 
     try:
-        # Get publisher distribution
         publisher_rows = ai_queries.get_active_publisher_counts()
         if publisher_rows:
             patterns["publishers"] = [
@@ -167,13 +162,10 @@ def get_collection_patterns():
             ]
             patterns["top_publishers"] = [r["ComicPublisher"] for r in publisher_rows[:5] if r.get("ComicPublisher")]
 
-        # Get series count
         patterns["series_count"] = ai_queries.get_active_series_count()
 
-        # Get monitored series names (for context)
         patterns["monitored_series"] = ai_queries.get_active_series_names()
 
-        # Get average completion rate
         average_completion = ai_queries.get_active_completion_rate()
         if average_completion is not None:
             patterns["avg_completion"] = round(average_completion, 1)

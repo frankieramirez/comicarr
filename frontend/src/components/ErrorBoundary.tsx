@@ -26,12 +26,10 @@ class ErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(_error: Error): Partial<ErrorBoundaryState> {
-    // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error details to console
     console.error("Error Boundary caught an error:", error, errorInfo);
     this.setState({
       error: error,
@@ -40,7 +38,6 @@ class ErrorBoundary extends React.Component<
   }
 
   handleReload = () => {
-    // Reload the page to recover from the error
     window.location.reload();
   };
 

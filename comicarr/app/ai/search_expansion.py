@@ -44,13 +44,11 @@ def expand_search_queries(comic_id, series_name, publisher=None, year=None):
         logger.fdebug("[AI-SEARCH] Rate limit reached, skipping expansion for %s" % comic_id)
         return []
 
-    # Check if we already expanded this series (capped at 5 AI entries)
     existing_ai_expansions = _get_ai_expansions(comic_id)
     if len(existing_ai_expansions) >= 5:
         logger.fdebug("[AI-SEARCH] Series %s already has 5 AI expansions, skipping" % comic_id)
         return []
 
-    # Get current AlternateSearch values
     current_alternates = _get_alternate_search(comic_id)
 
     sanitized_name = sanitize_input(series_name, max_length=200)
@@ -83,7 +81,6 @@ def expand_search_queries(comic_id, series_name, publisher=None, year=None):
         latency_ms = int((time.time() - start_time) * 1000)
         ctx.ai_circuit_breaker.record_success()
 
-        # Deduplicate against existing alternates
         new_alternates = []
         existing_lower = {a.lower() for a in current_alternates}
         existing_lower.add(series_name.lower())
@@ -128,13 +125,11 @@ def expand_search_queries(comic_id, series_name, publisher=None, year=None):
 
 def persist_successful_expansion(comic_id, successful_alternate):
     """Persist a successful search expansion to AlternateSearch and ai_cache."""
-    # Add to AlternateSearch field
     current = _get_alternate_search(comic_id)
     if successful_alternate.lower() not in {a.lower() for a in current}:
         new_value = "##".join(current + [successful_alternate]) if current else successful_alternate
         ai_queries.update_alternate_search(comic_id, new_value)
 
-    # Track in ai_cache for counting AI expansions
     existing = _get_ai_expansions(comic_id)
     existing.append(successful_alternate)
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")

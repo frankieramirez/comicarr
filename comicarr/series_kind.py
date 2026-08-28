@@ -45,8 +45,6 @@ class SeriesProvider(str, Enum):
     MYANIMELIST = "myanimelist"
 
 
-#: Providers whose Series are manga. ComicVine-issued ids may *also* be manga
-#: (see :func:`is_manga`) — membership here is about the id, not the content.
 MANGA_PROVIDERS = frozenset({SeriesProvider.MANGADEX, SeriesProvider.MYANIMELIST})
 
 _PROVIDER_PREFIXES: dict[SeriesProvider, str] = {

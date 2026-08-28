@@ -33,9 +33,7 @@ class tehMain:
 
     def run(self, forcerss=None):
         with rss_lock:
-            # logger.info('[RSS-FEEDS] RSS Feed Check was last run at : ' + str(comicarr.SCHED_RSS_LAST))
             firstrun = "no"
-            # check the last run of rss to make sure it's not hammering.
             if (
                 comicarr.SCHED_RSS_LAST is None
                 or comicarr.SCHED_RSS_LAST == ""
@@ -48,7 +46,6 @@ class tehMain:
             else:
                 tstamp = float(comicarr.SCHED_RSS_LAST)
                 duration_diff = abs(helpers.utctimestamp() - tstamp) / 60
-            # logger.fdebug('[RSS-FEEDS] Duration diff: %s' % duration_diff)
             if firstrun == "no" and duration_diff < int(comicarr.CONFIG.RSS_CHECKINTERVAL):
                 logger.fdebug(
                     "[RSS-FEEDS] RSS Check has taken place less than the threshold - not initiating at this time."
@@ -57,14 +54,12 @@ class tehMain:
 
             helpers.job_management(write=True, job="RSS Feeds", current_run=helpers.utctimestamp(), status="Running")
             comicarr.RSS_STATUS = "Running"
-            # logger.fdebug('[RSS-FEEDS] Updated RSS Run time to : ' + str(comicarr.SCHED_RSS_LAST))
 
-            # function for looping through nzbs/torrent feeds
             if comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
                 logger.info("[RSS-FEEDS] Initiating Torrent RSS Check.")
                 if comicarr.CONFIG.ENABLE_PUBLIC:
                     logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on Demonoid / WorldWideTorrents.")
-                    rsscheck.torrents(pickfeed="Public")  # TPSE = DEM RSS Check + WWT RSS Check
+                    rsscheck.torrents(pickfeed="Public")
                 if comicarr.CONFIG.ENABLE_32P is True:
                     logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on 32P.")
                     if comicarr.CONFIG.MODE_32P is False:
@@ -126,7 +121,6 @@ class tehMain:
                                 else:
                                     rsscheck.torrents(pickfeed="1", feedinfo=comicarr.KEYS_32P)
                                     x = 0
-                                    # assign personal feeds for 32p > +8
                                     for fi in feeds:
                                         x += 1
                                         pfeed_32p = str(7 + x)

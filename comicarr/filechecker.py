@@ -30,7 +30,6 @@ import comicarr
 from comicarr import helpers, logger
 
 if "windows" not in platform.system().lower():
-    # since these aren't available in windows, we import them now...
     from grp import getgrnam
     from pwd import getpwnam
 
@@ -48,58 +47,46 @@ class FileChecker(object):
         file=None,
         pp_mode=False,
     ):
-        # dir = full path to the series Comic Location (manual pp will just be psssing the already parsed filename)
         if dir:
             self.dir = dir
         else:
             self.dir = None
 
         if watchcomic:
-            # watchcomic = unicode name of series that is being searched against
             self.og_watchcomic = watchcomic
-            self.watchcomic = re.sub(r"\?", "", watchcomic).strip()  # strip the ? seperate since it affects the regex.
-            # replace variations of unicode dashes with a normal - because this world is f'd up enough to have something like that.
+            self.watchcomic = re.sub(r"\?", "", watchcomic).strip()
             self.watchcomic = re.sub(r"[\u2014|\u2013|\u2e3a|\u2e3b]", " - ", self.watchcomic).strip()
-            self.watchcomic = re.sub(
-                r"\u2019", " ' ", self.watchcomic
-            ).strip()  # replace the \u2019 with a normal ' because again, people are dumb.
+            self.watchcomic = re.sub(r"\u2019", " ' ", self.watchcomic).strip()
             if type(self.watchcomic) != str:
                 self.watchcomic = unicodedata.normalize("NFKD", self.watchcomic).encode("ASCII", "ignore")
         else:
             self.watchcomic = None
 
         if Publisher:
-            # publisher = publisher of watchcomic
             self.publisher = Publisher
         else:
             self.publisher = None
 
-        # alternatesearch = list of alternate search names
         if AlternateSearch:
             self.AlternateSearch = AlternateSearch
         else:
             self.AlternateSearch = None
 
-        # manual = true / false if it's a manual post-processing run
         if manual:
             self.manual = manual
         else:
             self.manual = None
 
-        # sarc = true / false if it's being run against an existing story-arc
         if sarc:
             self.sarc = sarc
         else:
             self.sarc = None
 
-        # justparse = true/false when manually post-processing, will quickly parse the filename to find
-        # the series name in order to query the sql instead of cycling through each series in the watchlist.
         if justparse:
             self.justparse = True
         else:
             self.justparse = False
 
-        # file = parse just one filename (used primarily during import/scan)
         if file:
             self.file = file
             self.justparse = True
@@ -134,7 +121,6 @@ class FileChecker(object):
         self.dynamic_replacements = ["and", "the"]
         self.rippers = ["-empire", "-empire-hd", "minutemen-", "-dcp", "Glorith-HD"]
 
-        # pre-generate the AS_Alternates now
         AS_Alternates = self.altcheck()
         self.AS_Alt = AS_Alternates["AS_Alt"]
         self.AS_Tuple = AS_Alternates["AS_Tuple"]
@@ -194,14 +180,10 @@ class FileChecker(object):
                                     "sub": runresults["sub"],
                                     "comicfilename": runresults["comicfilename"],
                                     "comiclocation": runresults["comiclocation"],
-                                    "series_name": runresults[
-                                        "series_name"
-                                    ],  # helpers.conversion(runresults['series_name']),
+                                    "series_name": runresults["series_name"],
                                     "series_name_decoded": runresults["series_name_decoded"],
                                     "issueid": runresults["issueid"],
-                                    "alt_series": runresults[
-                                        "alt_series"
-                                    ],  # helpers.conversion(runresults['alt_series']),
+                                    "alt_series": runresults["alt_series"],
                                     "alt_issue": runresults["alt_issue"],
                                     "dynamic_name": runresults["dynamic_name"],
                                     "series_volume": runresults["series_volume"],
@@ -219,9 +201,7 @@ class FileChecker(object):
                                     "ComicFilename": runresults["comicfilename"],
                                     "ComicLocation": runresults["comiclocation"],
                                     "ComicSize": files["comicsize"],
-                                    "ComicName": runresults[
-                                        "series_name"
-                                    ],  # helpers.conversion(runresults['series_name']),
+                                    "ComicName": runresults["series_name"],
                                     "SeriesVolume": runresults["series_volume"],
                                     "IssueYear": runresults["issue_year"],
                                     "JusttheDigits": runresults["justthedigits"],
@@ -233,18 +213,15 @@ class FileChecker(object):
                             )
                         comiccnt += 1
                     else:
-                        # failure
                         self.failed_files.append(
                             {
                                 "parse_status": "failure",
                                 "sub": runresults["sub"],
                                 "comicfilename": runresults["comicfilename"],
                                 "comiclocation": runresults["comiclocation"],
-                                "series_name": runresults[
-                                    "series_name"
-                                ],  # helpers.conversion(runresults['series_name']),
+                                "series_name": runresults["series_name"],
                                 "series_volume": runresults["series_volume"],
-                                "alt_series": runresults["alt_series"],  # helpers.conversion(runresults['alt_series']),
+                                "alt_series": runresults["alt_series"],
                                 "alt_issue": runresults["alt_issue"],
                                 "issue_year": runresults["issue_year"],
                                 "issue_number": runresults["issue_number"],
@@ -274,12 +251,9 @@ class FileChecker(object):
             path_list = None
         else:
             logger.fdebug("[CORRECTION] Sub-directory found. Altering path configuration.")
-            # basepath the sub if it exists to get the parent folder.
             logger.fdebug("[SUB-PATH] Checking Folder Name for more information.")
-            # sub = re.sub(origpath, '', path).strip()})
             logger.fdebug("[SUB-PATH] Original Path : %s" % path)
             logger.fdebug("[SUB-PATH] Sub-directory : %s" % subpath)
-            # subpath = helpers.conversion(subpath)
             if "windows" in comicarr.OS_DETECT.lower():
                 if path in subpath:
                     ab = len(path)
@@ -289,11 +263,9 @@ class FileChecker(object):
 
             path_list = os.path.normpath(tmppath)
             if "/" == path_list[0] or "\\" == path_list[0]:
-                # need to remove any leading slashes so the os join can properly join the components
                 path_list = path_list[1:]
             logger.fdebug("[SUB-PATH] subpath set to : %s" % path_list)
 
-        # parse out the extension for type
         comic_ext = (".cbr", ".cbz", ".cb7", ".pdf")
         comic_ext = tuple(x for x in comic_ext if x not in comicarr.CONFIG.IGNORE_SEARCH_WORDS)
         if os.path.splitext(filename)[1].endswith(comic_ext):
@@ -301,15 +273,11 @@ class FileChecker(object):
         else:
             filetype = "unknown"
 
-        # find the issue number first.
-        # split the file and then get all the relevant numbers that could possibly be an issue number.
-        # remove the extension.
         modfilename = re.sub(filetype, "", filename).strip()
         reading_order = None
 
-        # if it's a story-arc, make sure to remove any leading reading order #'s
         if self.sarc and comicarr.CONFIG.READ2FILENAME:
-            removest = modfilename.find("-")  # the - gets removed above so we test for the first blank space...
+            removest = modfilename.find("-")
             logger.fdebug(
                 "[SARC] Checking filename for Reading Order sequence - candidate: %s" % modfilename[:removest]
             )
@@ -318,25 +286,18 @@ class FileChecker(object):
                 modfilename = modfilename[removest + 1 :]
                 logger.fdebug("[SARC] Validated and removed Reading Order sequence. Filename is now: %s" % modfilename)
 
-        # make sure all the brackets are properly spaced apart
         if modfilename.find(r"\s") == -1:
-            # if no spaces exist, assume decimals being used as spacers (ie. nzb name)
             modspacer = "."
         else:
             modspacer = " "
         m = re.findall("[^()]+", modfilename)
         cnt = 1
-        # 2019-12-24----fixed to accomodate naming convention like Amazing Mary Jane (2019) 002.cbr, and to account for brackets properly
         try:
             while cnt < len(m):
-                # logger.fdebug('[m=%s] modfilename.find: %s' % (m[cnt], modfilename[modfilename.find('('+m[cnt]+')')+len(m[cnt])+2]))
-                # logger.fdebug('mod_1: %s' % modfilename.find('('+m[cnt]+')'))
                 if (
                     modfilename[modfilename.find("(" + m[cnt] + ")") - 1] != modspacer
                     and modfilename.find("(" + m[cnt] + ")") != -1
                 ):
-                    # logger.fdebug('before_space: %s' % modfilename[modfilename.find('('+m[cnt]+')')-1])
-                    # logger.fdebug('after_space: %s' % modfilename[modfilename.find('('+m[cnt]+')')+len(m[cnt])+2])
                     modfilename = "%s%s%s" % (
                         modfilename[: modfilename.find("(" + m[cnt] + ")")],
                         modspacer,
@@ -344,23 +305,16 @@ class FileChecker(object):
                     )
                 cnt += 1
         except Exception:
-            # logger.warn('[ERROR] %s' % e)
             pass
-        # ---end 2019-12-24
 
-        # grab the scanner tags here.
         scangroup = None
         rippers = [x for x in self.rippers if x.lower() in modfilename.lower()]
         if rippers:
-            # it's always possible that this could grab something else since tags aren't unique. Try and figure it out.
             if len(rippers) > 0:
                 m = re.findall("[^()]+", modfilename)
-                # --2019-11-30  needed for Glorith naming conventions when it's an nzb name with all formatting removed.
                 if len(m) == 1:
                     spf30 = re.compile(r"[^.]+", re.UNICODE)
-                    # logger.fdebug('spf30: %s' % spf30)
                     split_file30 = spf30.findall(modfilename)
-                    # logger.fdebug('split_file30: %s' % split_file30)
                     if len(split_file30) > 3 and "Glorith-HD" in modfilename:
                         scangroup = "Glorith-HD"
                         sp_pos = 0
@@ -371,7 +325,6 @@ class FileChecker(object):
                                 modfilename = re.sub(x, x[:-1], modfilename, count=1)
                                 break
                             sp_pos += 1
-                # -- end 2019-11-30
                 cnt = 1
                 for rp in rippers:
                     while cnt < len(m):
@@ -396,42 +349,26 @@ class FileChecker(object):
                 modfilename = "%s %s".strip() % (modfilename[:x], modfilename[y + 3 :])
                 logger.fdebug("issueid %s removed successfully: %s" % (issueid, modfilename))
 
-        # here we take a snapshot of the current modfilename, the intent is that we will remove characters that match
-        # as we discover them - namely volume, issue #, years, etc
-        # the remaining strings should be the series title and/or issue title if present (has to be detected properly)
-
-        # Manga-specific chapter/volume detection patterns
-        # Common manga naming formats:
-        # [Group] Title - c001 (v01).cbz
-        # Title Chapter 001.cbz
-        # Title Vol.01 Ch.001.cbz
-        # Title - Vol. 01 Ch. 001.cbz
-        # Title v01 c001.cbz
         manga_chapter = None
         manga_volume = None
 
-        # Pattern: c001, c1, ch001, ch.001, chapter001, chapter 001
         manga_chapter_match = re.search(r"(?:ch(?:apter)?\.?\s*|c)(\d+(?:\.\d+)?)", modfilename, re.IGNORECASE)
         if manga_chapter_match:
             manga_chapter = manga_chapter_match.group(1)
             logger.fdebug("[MANGA] Chapter detected: %s" % manga_chapter)
 
-        # Pattern: v01, vol01, vol.01, volume01, volume 01
         manga_volume_match = re.search(r"(?:v(?:ol(?:ume)?)?\.?\s*)(\d+)", modfilename, re.IGNORECASE)
         if manga_volume_match:
             manga_volume = manga_volume_match.group(1)
             logger.fdebug("[MANGA] Volume detected: %s" % manga_volume)
 
-        # Detect scanlation group pattern: [Group Name]
         scanlation_group_match = re.search(r"^\s*\[([^\]]+)\]", modfilename)
         if scanlation_group_match:
             if scangroup is None:
                 scangroup = scanlation_group_match.group(1)
                 logger.fdebug("[MANGA] Scanlation group detected: %s" % scangroup)
-            # Remove the group tag from modfilename for cleaner series name extraction
             modfilename = re.sub(r"^\s*\[[^\]]+\]\s*", "", modfilename).strip()
 
-        # try and remove /remember unicode character strings here (multiline ones get seperated/removed in below regex)
         pat = re.compile("[\x00-\x7f]{3,}", re.UNICODE)
         replack = pat.sub("XCV", modfilename)
         wrds = replack.split("XCV")
@@ -446,9 +383,7 @@ class FileChecker(object):
 
         sf3 = re.compile(r"[^,\s_]+", re.UNICODE)
         split_file3 = sf3.findall(modfilename)
-        # --2019-11-30
         if len(split_file3) == 1 or all([len(split_file3) == 2, scangroup == "Glorith-HD"]):
-            # --end 2019-11-30
             logger.fdebug(
                 "Improperly formatted filename - there is no seperation using appropriate characters between wording."
             )
@@ -459,32 +394,20 @@ class FileChecker(object):
         ret_sf2 = " ".join(split_file3)
 
         sf = re.findall(r"""\( [^\)]* \) |\[ [^\]]* \] |\[ [^\#]* \]|\S+""", ret_sf2, re.VERBOSE)
-        # sf = re.findall('''\( [^\)]* \) |\[ [^\]]* \] |\S+''', ret_sf2, re.VERBOSE)
 
         ret_sf1 = " ".join(sf)
 
-        # here we should account for some characters that get stripped out due to the regex's
-        # namely, unique characters - known so far: +, &, @
-        # c11 = '\+'
-        # f11 = '\&'
-        # g11 = '\''
         ret_sf1 = re.sub(r"\+", "c11", ret_sf1).strip()
         ret_sf1 = re.sub(r"\&", "f11", ret_sf1).strip()
         ret_sf1 = re.sub("'", "g11", ret_sf1).strip()
         ret_sf1 = re.sub(r"\@", "h11", ret_sf1).strip()
 
-        # split_file = re.findall('(?imu)\([\w\s-]+\)|[-+]?\d*\.\d+|\d+[\s]COVERS+|\d{4}-\d{2}-\d{2}|\d+[(th|nd|rd|st)]+|[\(^\)+]|\d+|[\w-]+|#?\d\.\d+|#[\.-]\w+|#[\d*\.\d+|\w+\d+]+|#(?<![\w\d])XCV(?![\w\d])+|#[\w+]|\)', ret_sf1, re.UNICODE)
-
-        # updated to keep words within square brackets together.
         split_file = re.findall(
             r"(?imu)\([\w\s-]+\)|[-+]?\d*\.\d+|\d+[\s]COVERS+|\d+[(\s|\-)]PAGE+|\d{4}-\d{2}-\d{2}|\d+[(th|nd|rd|st)]+|[\(^\)+]|\[.*?\]|\d+|[\w-]+|#?\d\.\d+|#[\.-]\w+|#[\d*\.\d+|\w+\d+]+|#(?<![\w\d])XCV(?![\w\d])+|#[\w+]|\)",
             ret_sf1,
             re.UNICODE,
         )
 
-        # 10-20-2018 ---START -- attempt to detect '01 (of 7.3)'
-        # 10-20-2018          -- attempt to detect '36p ctc' as one element
-        # 4-7-2020 -- remove '####px' as it's useless and will muck up the parser.
         spf = []
         mini = False
         wrdcnt = 0
@@ -518,12 +441,10 @@ class FileChecker(object):
                         logger.debug("THIS SHOULD BE : %s%s" % (spf[wrdcnt - 1], x))
                         newline = "%s%s" % (spf[wrdcnt - 1], x)
                         spf[wrdcnt - 1] = newline
-                        # wrdcnt =-1
                     elif spf[wrdcnt - 1][-1] == "p" and spf[wrdcnt - 1][:-1].isdigit() and x == "ctc":
                         logger.fdebug("THIS SHOULD BE : %s%s" % (spf[wrdcnt - 1], x))
                         newline = "%s%s" % (spf[wrdcnt - 1], x)
                         spf[wrdcnt - 1] = newline
-                        # wrdcnt =-1
                 except Exception:
                     spf.append(x)
             else:
@@ -533,7 +454,6 @@ class FileChecker(object):
         if len(spf) > 0:
             split_file = spf
             logger.fdebug("NEWLY SPLIT REORGD: %s" % split_file)
-        # 10-20-2018 ---END
 
         if len(split_file) == 1:
             logger.fdebug(
@@ -556,7 +476,6 @@ class FileChecker(object):
         lastmod_position = 0
         booktype = "issue"
 
-        # Set booktype to manga if manga chapter pattern was detected
         if manga_chapter is not None:
             booktype = "manga"
             logger.fdebug("[MANGA] Detected manga chapter format, booktype set to manga")
@@ -570,14 +489,11 @@ class FileChecker(object):
         ignore_mod_position = -1
         if year_check:
             ignore_mod_position = self.char_file_position(modfilename, year_check[0], modfilename.index(year_check[0]))
-            # logger.fdebug('[%s] year_check: %s' % (ignore_mod_position,year_check,))
 
         for sf in split_file:
             current_pos += 1
-            # the series title will always be first and be AT LEAST one word.
             if split_file.index(sf) >= 0 and not volumeprior:
                 dtcheck = re.sub(r"[\(\)\,]", "", sf).strip()
-                # if there's more than one date, assume the right-most date is the actual issue date.
                 if (
                     any(["19" in dtcheck, "20" in dtcheck])
                     and not any([dtcheck.lower().startswith("v19"), dtcheck.lower().startswith("v20")])
@@ -600,7 +516,6 @@ class FileChecker(object):
                             }
                         )
 
-            # this handles the exceptions list in the match for alpha-numerics
             if re.sub("g11", "'", sf.lower()) == "director's":
                 try:
                     tmp_test = split_file.index(sf) + 1
@@ -652,8 +567,6 @@ class FileChecker(object):
                             }
                         )
                 else:
-                    # if the issue number & alpha character(s) don't have a space seperating them (ie. 15A)
-                    # test_exception is the alpha-numeric
                     logger.fdebug("Possible alpha numeric issue (or non-numeric only). Testing my theory.")
                     test_sf = re.sub(test_exception.lower(), "", sf.lower()).strip()
                     logger.fdebug(
@@ -682,7 +595,6 @@ class FileChecker(object):
                             )
 
             if sf == "XCV":
-                #  new 2016-09-19 \ attempt to check for XCV which replaces any unicode above
                 for x in list(wrds):
                     if x != "":
                         tmpissue_number = re.sub("XCV", x, split_file[split_file.index(sf)])
@@ -712,17 +624,13 @@ class FileChecker(object):
                     found = True
 
             if count:
-                #                count = count.lstrip("0")
                 logger.fdebug("Mini-Series Count detected. Maximum issue # set to : %s" % count.lstrip("0"))
-                # if the count was  detected, then it's in a '(of 4)' or whatever pattern
-                # 95% of the time the digit immediately preceding the '(of 4)' is the actual issue #
                 logger.fdebug("Issue Number SHOULD BE: %s" % lastissue_label)
                 validcountchk = True
 
             match2 = re.search(r"(\d+[\s])covers", sf, re.IGNORECASE)
             if match2:
                 re.sub("[^0-9]", "", match2.group()).strip()
-                # logger.fdebug('%s covers detected within filename' % num_covers)
                 continue
 
             if all(
@@ -733,12 +641,11 @@ class FileChecker(object):
                     sf != "p",
                 ]
             ):
-                # find it in the original file to see if there's a decimal between.
                 findst = lastissue_mod_position + 1
                 if findst >= len(modfilename):
                     findst = len(modfilename) - 1
 
-                if modfilename[findst] != "." or modfilename[findst] != "#":  # findst != '.' and findst != '#':
+                if modfilename[findst] != "." or modfilename[findst] != "#":
                     if sf.isdigit():
                         seper_num = False
                         for x in datecheck:
@@ -747,11 +654,6 @@ class FileChecker(object):
                         if seper_num is False:
                             logger.fdebug("2 seperate numbers detected. Assuming 2nd number is the actual issue")
 
-                        # possible_issuenumbers.append({'number':       sf,
-                        #                              'position':     split_file.index(sf, lastissue_position), #modfilename.find(sf)})
-                        #                              'mod_position': self.char_file_position(modfilename, sf, lastmod_position),
-                        #                              'validcountchk': validcountchk})
-                        # used to see if the issue is an alpha-numeric (ie. 18.NOW, 50-X, etc)
                         lastissue_position = split_file.index(sf, lastissue_position)
                         lastissue_label = sf
                         lastissue_mod_position = file_length
@@ -759,21 +661,14 @@ class FileChecker(object):
                         pass
                 else:
                     bb = len(lastissue_label) + findst
-                    # find current sf
-                    # logger.fdebug('bb: ' + str(bb) + '[' + modfilename[findst:bb] + ']')
                     cf = modfilename.find(sf, file_length)
-                    # logger.fdebug('cf: ' + str(cf) + '[' + modfilename[cf:cf+len(sf)] + ']')
-                    # logger.fdebug('diff: ' + str(bb) + '[' + modfilename[bb] + ']')
                     if modfilename[bb] == ".":
-                        # logger.fdebug('decimal detected.')
                         logger.fdebug(
                             "[DECiMAL-DETECTION] Issue being stored for validation as : %s"
                             % modfilename[findst : cf + len(sf)]
                         )
                         for x in possible_issuenumbers:
                             possible_issuenumbers = []
-                            # logger.fdebug('compare: ' + str(x['position']) + ' .. ' + str(lastissue_position))
-                            # logger.fdebug('compare: ' + str(x['position']) + ' .. ' + str(split_file.index(sf, lastissue_position)))
                             if int(x["position"]) != int(lastissue_position) and int(x["position"]) != split_file.index(
                                 sf, lastissue_position
                             ):
@@ -800,7 +695,6 @@ class FileChecker(object):
                     else:
                         if ("#" in sf or sf.isdigit()) or validcountchk:
                             if validcountchk:
-                                # if it's not a decimal but the digits are back-to-back, then it's something else.
                                 possible_issuenumbers.append(
                                     {
                                         "number": lastissue_label,
@@ -811,14 +705,12 @@ class FileChecker(object):
                                 )
 
                                 validcountchk = False
-                            # used to see if the issue is an alpha-numeric (ie. 18.NOW, 50-X, etc)
                             lastissue_position = split_file.index(sf, lastissue_position)
                             lastissue_label = sf
                             lastissue_mod_position = file_length
 
             elif "#" in sf:
                 logger.fdebug("Issue number found: %s" % sf)
-                # pound sign will almost always indicate an issue #, so just assume it's as such.
                 locateiss_st = modfilename.find("#")
                 locateiss_end = modfilename.find(" ", locateiss_st)
                 if locateiss_end == -1:
@@ -832,18 +724,16 @@ class FileChecker(object):
                 possible_issuenumbers.append(
                     {
                         "number": modfilename[locateiss_st:locateiss_end],
-                        "position": split_file.index(sf),  # locateiss_st})
+                        "position": split_file.index(sf),
                         "mod_position": self.char_file_position(modfilename, sf, lastmod_position),
                         "validcountchk": validcountchk,
                     }
                 )
 
-                # used to see if the issue is an alpha-numeric (ie. 18.NOW, 50-X, etc)
                 lastissue_position = split_file.index(sf, lastissue_position)
                 lastissue_label = sf
                 lastissue_mod_position = file_length
 
-            # now we try to find the series title &/or volume lablel.
             if any(
                 [
                     sf.lower().startswith("v"),
@@ -867,20 +757,12 @@ class FileChecker(object):
                         volume = re.sub("[^0-9]", "", sf)
                     if volumeprior:
                         try:
-                            volume_found["position"] = split_file.index(
-                                volumeprior_label, current_pos - 1
-                            )  # if this passes, then we're ok, otherwise will try exception
+                            volume_found["position"] = split_file.index(volumeprior_label, current_pos - 1)
                             logger.fdebug("volume_found: %s" % volume_found["position"])
-                            # remove volume numeric from split_file
                             split_file.pop(volume_found["position"])
                             split_file.pop(split_file.index(sf, current_pos - 1))
-                            # join the previous label to the volume numeric
-                            # volume = str(volumeprior_label) + str(volume)
-                            # insert the combined info back
                             split_file.insert(volume_found["position"], volumeprior_label + volume)
                             split_file.insert(volume_found["position"] + 1, "")
-                            # volume_found['position'] = split_file.index(sf, current_pos)
-                            # logger.fdebug('NEWSPLITFILE: %s' % split_file)
                         except:
                             volumeprior = False
                             sep_volume = False
@@ -894,7 +776,6 @@ class FileChecker(object):
                     )
                     volumeprior = False
                 elif all(["vol" in sf.lower(), len(sf) == 3]) or all(["vol." in sf.lower(), len(sf) == 4]):
-                    # if there's a space between the vol and # - adjust.
                     volumeprior = True
                     sep_volume = True
                     logger.fdebug(
@@ -923,36 +804,31 @@ class FileChecker(object):
                     sep_volume = False
                     continue
             else:
-                # reset the sep_volume indicator here in case a false Volume detected above
                 sep_volume = False
-                # check here for numeric or negative number
                 if sf.isdigit() and split_file.index(sf, current_pos) == 0:
                     continue
                 if sf.isdigit():
                     possible_issuenumbers.append(
                         {
                             "number": sf,
-                            "position": split_file.index(sf, current_pos),  # modfilename.find(sf)})
+                            "position": split_file.index(sf, current_pos),
                             "mod_position": self.char_file_position(modfilename, sf, lastmod_position),
                             "validcountchk": validcountchk,
                         }
                     )
 
-                    # used to see if the issue is an alpha-numeric (ie. 18.NOW, 50-X, etc)
                     lastissue_position = split_file.index(sf, current_pos)
                     lastissue_label = sf
                     lastissue_mod_position = file_length
-                    # logger.fdebug('possible issue found: %s' % sf)
                 else:
                     try:
                         x = float(sf)
-                        # validity check
                         if x < 0:
                             logger.fdebug("I have encountered a negative issue #: %s" % sf)
                             possible_issuenumbers.append(
                                 {
                                     "number": sf,
-                                    "position": split_file.index(sf, lastissue_position),  # modfilename.find(sf)})
+                                    "position": split_file.index(sf, lastissue_position),
                                     "mod_position": self.char_file_position(modfilename, sf, lastmod_position),
                                     "validcountchk": validcountchk,
                                 }
@@ -970,7 +846,7 @@ class FileChecker(object):
                                 possible_issuenumbers.append(
                                     {
                                         "number": sf,
-                                        "position": split_file.index(sf, lastissue_position),  # modfilename.find(sf)})
+                                        "position": split_file.index(sf, lastissue_position),
                                         "mod_position": self.char_file_position(modfilename, sf, lastmod_position),
                                         "validcountchk": validcountchk,
                                     }
@@ -982,7 +858,6 @@ class FileChecker(object):
                         else:
                             raise ValueError
                     except ValueError as e:
-                        # 10-20-2018 - to detect issue numbers such as #000.0000½
                         if (
                             lastissue_label is not None
                             and lastissue_position == int(split_file.index(sf)) - 1
@@ -1049,9 +924,7 @@ class FileChecker(object):
                                     possible_issuenumbers.append(
                                         {
                                             "number": "1",
-                                            "position": split_file.index(
-                                                sf, lastissue_position
-                                            ),  # modfilename.find(sf)})
+                                            "position": split_file.index(sf, lastissue_position),
                                             "mod_position": self.char_file_position(modfilename, sf, lastmod_position),
                                             "validcountchk": validcountchk,
                                         }
@@ -1071,8 +944,7 @@ class FileChecker(object):
                         sep_volume = False
                         pass
 
-            # keep track of where in the original modfilename the positions are in order to check against it for decimal places, etc.
-            file_length += len(sf) + 1  # 1 for space
+            file_length += len(sf) + 1
             if file_length > len(modfilename):
                 file_length = len(modfilename)
 
@@ -1090,7 +962,6 @@ class FileChecker(object):
                 ab = str(a)
                 sctd = self.checkthedate(str(dt.datetime.now().year))
                 logger.fdebug("sctd: %s" % sctd)
-                # + 1 sctd so that we can allow for issue dates that cross over into the following year when it's nearer to the end of said year.
                 if int(ab) > int(sctd) + 1:
                     logger.fdebug("year is in the future, ignoring and assuming part of series title.")
                     yearposition = None
@@ -1136,33 +1007,20 @@ class FileChecker(object):
                             yearmodposition = x["yearmodposition"]
 
             if yearposition is not None and highest_series_pos > yearposition:
-                highest_series_pos = yearposition  # dc['position']: highest_series_pos = dc['position']
+                highest_series_pos = yearposition
         else:
             issue_year = None
             yearposition = None
             yearmodposition = None
             logger.fdebug("No year present within title - ignoring as a variable.")
 
-        # if ignore_mod_position != -1:
-        #    logger.info('possible_issuenumbers: %s' % (possible_issuenumbers,))
-        #    p_cnt = 0
-        #    for pp in possible_issuenumbers:
-        #        logger.info('pp: %s' % (pp,))
-        #        if ignore_mod_position == pp['mod_position']:
-        #            pppp = possible_issuenumbers.pop(p_cnt)
-        #            logger.info('IGNORE POSITION TRIGGERED for : %s' % (pppp,))
-        #            break
-        #        p_cnt +=1
-
         logger.fdebug("highest_series_position: %s" % highest_series_pos)
-        # ---2019-11-30 account for scanner Glorith-HD stupid naming conventions
         if len(possible_issuenumbers) == 0 and scangroup == "Glorith-HD":
             logger.fdebug("Abnormal formatting detected. Time to fix this shiet, yo.")
             if any([yearposition == 0, yearposition is None]):
                 logger.fdebug("Too stupid of a format. Nope. Not gonna happen - just reinvent the wheel you fooker.")
             else:
                 issposs = yearposition + 1
-                # logger.fdebug('split_file: %s' % split_file[issposs])
                 if "(" and ")" in split_file[issposs]:
                     new_issuenumber = split_file[issposs]
                 possible_issuenumbers.append(
@@ -1173,7 +1031,6 @@ class FileChecker(object):
                         "validcountchk": False,
                     }
                 )
-        # ---end 2019-11-30
         issue_number = None
         dash_numbers = []
         issue_number_position = len(split_file)
@@ -1200,11 +1057,9 @@ class FileChecker(object):
                         )
                         if pis["position"] != yearposition:
                             issue_number = pis["number"]
-                            # logger.info('Issue set to: ' + str(issue_number))
                             issue_number_position = pis["position"]
                             if highest_series_pos > pis["position"]:
                                 highest_series_pos = pis["position"]
-                        # break
                     elif pis["validcountchk"]:
                         issue_number = pis["number"]
                         issue_number_position = pis["position"]
@@ -1230,24 +1085,20 @@ class FileChecker(object):
                                     }
                                 )
                                 continue
-                            # 2019-10-05 fix - if decimal-spaced filename has a series title with a hyphen will include issue # as part of series title
                             elif yearposition == pis["position"]:
                                 logger.fdebug(
                                     "Already validated year, ignoring as possible issue number: %s" % pis["number"]
                                 )
                                 continue
-                            # end 2019-10-05
                     elif yearposition == pis["position"]:
                         logger.fdebug("Already validated year, ignoring as possible issue number: %s" % pis["number"])
                         continue
                     if p == 1:
                         issue_number = pis["number"]
                         issue_number_position = pis["position"]
-                        logger.fdebug("issue number :%s" % issue_number)  # (pis)
+                        logger.fdebug("issue number :%s" % issue_number)
                         if highest_series_pos > pis["position"] and issue2year is False:
                             highest_series_pos = pis["position"]
-                    # else:
-                    # logger.fdebug('numeric probably belongs to series title: ' + str(pis))
                     p += 1
             else:
                 issue_number = possible_issuenumbers[0]["number"]
@@ -1259,7 +1110,6 @@ class FileChecker(object):
             issue_number = re.sub("#", "", issue_number).strip()
         else:
             if len(dash_numbers) > 0 and finddash != -1:
-                # there are numbers after a dash, which was incorrectly accounted for.
                 fin_num_position = finddash
                 fin_num = None
                 for dn in dash_numbers:
@@ -1274,7 +1124,6 @@ class FileChecker(object):
                     if highest_series_pos > fin_pos:
                         highest_series_pos = fin_pos
 
-        # --- this is new - 2016-09-18 /account for unicode in issue number when issue number is not deteted above
         logger.fdebug("issue_position: %s" % issue_number_position)
         if all([issue_number_position == highest_series_pos, "XCV" in split_file, issue_number is None]):
             for x in list(wrds):
@@ -1320,12 +1169,9 @@ class FileChecker(object):
                 ]
             ):
                 logger.fdebug("Extra item(s) are present between the volume label and the issue number. Checking..")
-                split_file.insert(
-                    int(issue_number_position), split_file.pop(volume_found["position"])
-                )  # highest_series_pos-1, split_file.pop(volume_found['position']))
+                split_file.insert(int(issue_number_position), split_file.pop(volume_found["position"]))
                 logger.fdebug("new split: %s" % split_file)
                 highest_series_pos = volume_found["position"] - 1
-                # 2019-10-02 -  account for volume BEFORE issue number
                 if issue_number_position > highest_series_pos:
                     issue_number_position -= 1
             else:
@@ -1342,8 +1188,6 @@ class FileChecker(object):
             if "2000ad" not in "".join(split_file).lower():
                 issue_volume = "v1"
 
-        # at this point it should be in a SERIES ISSUE VOLUME YEAR kind of format
-        # if the position of the issue number is greater than the highest series position, make it the highest series position.
         if issue_number_position != len(split_file) and issue_number_position > highest_series_pos:
             if not volume_found:
                 highest_series_pos = issue_number_position
@@ -1358,12 +1202,7 @@ class FileChecker(object):
                         highest_series_pos = issue_number_position
                     else:
                         highest_series_pos = issue_number_position - 1
-                        # if volume_found['position'] < issue_number_position:
-                        #    highest_series_pos = issue_number_position - 1
-                        # else:
-                        #    highest_series_pos = issue_number_position
 
-        # make sure if we have multiple years detected, that the right one gets picked for the actual year vs. series title
         if len(possible_years) > 1:
             for x in sorted(possible_years, key=operator.itemgetter("yearposition"), reverse=False):
                 if x["yearposition"] <= highest_series_pos:
@@ -1382,7 +1221,6 @@ class FileChecker(object):
             except:
                 pass
 
-        # logger.fdebug('highest_series_pos is : ' + str(highest_series_pos)
         splitvalue = None
         alt_series = None
         alt_issue = None
@@ -1402,10 +1240,6 @@ class FileChecker(object):
             pass
         else:
             if tmpval >= 2:
-                # logger.fdebug('There are %s extra words between the issue # and the year position. Deciphering if issue title or part of series title.' % tmpval)
-                # logger.fdebug('split_file[issue_number_position]: [%s] -->  %s' % (issue_number_position, split_file[issue_number_position]))
-                # logger.fdebug('split_file[yearposition]: [%s] --> %s' % (yearposition, split_file[yearposition]))
-                # 2024-01-07 - new for one-shot where no issue number in filename, but year is present in title
                 if split_file[issue_number_position] == re.sub(r"[\)\(]", "", split_file[yearposition]).strip():
                     logger.fdebug(
                         "issue number is the same as year - assuming issue number is actually part of the title and this is a one-shot-type of book"
@@ -1424,25 +1258,18 @@ class FileChecker(object):
                     else:
                         splitv = split_file[issue_number_position:yearposition]
                     splitvalue = " ".join(splitv)
-                # end 2024-01-07
             else:
-                # store alternate naming of title just in case
                 if "-" not in split_file[0]:
                     c_pos = 1
-                    # logger.info('split_file: %s' % split_file)
                     while True:
                         try:
                             fdash = split_file.index("-", c_pos)
                         except:
-                            # logger.info('dash not located/finished searching for dashes.')
                             break
                         else:
-                            # logger.info('hyphen located at position: ' + str(fdash))
                             c_pos = 2
-                            # c_pos = fdash +1
                             break
                     if c_pos > 1:
-                        # logger.info('Issue_number_position: %s / fdash: %s' % (issue_number_position, fdash))
                         try:
                             if volume_found["position"] < issue_number_position:
                                 alt_issue = " ".join(split_file[fdash + 1 : volume_found["position"]])
@@ -1458,24 +1285,10 @@ class FileChecker(object):
                         alt_series = " ".join(split_file[:fdash])
                         logger.fdebug("ALT-SERIES NAME [ISSUE TITLE]: %s [%s]" % (alt_series, alt_issue))
 
-        # logger.info('highest_series_position: ' + str(highest_series_pos))
-        # logger.info('issue_number_position: ' + str(issue_number_position))
-        # logger.info('volume_found: ' + str(volume_found))
-
-        # 2017-10-21
         if highest_series_pos > issue_number_position and not onefortheleader:
             highest_series_pos = issue_number_position
-            # if volume_found['position'] >= issue_number_position:
-            #    highest_series_pos = issue_number_position
-            # else:
-            #    print 'nuhuh'
-        # ---
         logger.fdebug("sf_highest_series_pos: %s" % split_file[:highest_series_pos])
 
-        # here we should account for some characters that get stripped out due to the regex's
-        # namely, unique characters - known so far: +
-        # c1 = '+'
-        # series_name = ' '.join(split_file[:highest_series_pos])
         if yearposition != 0:
             if yearposition is not None and yearposition < highest_series_pos:
                 if yearposition + 1 == highest_series_pos:
@@ -1489,9 +1302,7 @@ class FileChecker(object):
                 if re.sub(r"[\.\s]", "", split_file[yearposition + 1]).strip().lower() == "ad" or all(
                     [split_file[yearposition + 1].lower() == "a" and split_file[yearposition + 2].lower() == "d"]
                 ):
-                    series_name = " ".join(
-                        split_file[yearposition:highest_series_pos]
-                    )  # logger.info('BOOOOYYYYAHHHHH')
+                    series_name = " ".join(split_file[yearposition:highest_series_pos])
                     issue_year = None
                 else:
                     series_name = " ".join(split_file[:highest_series_pos])
@@ -1541,9 +1352,7 @@ class FileChecker(object):
                     alt_series = re.sub("tpb", "", alt_series, flags=re.I).strip()
             logger.fdebug("Alternate series / issue title: %s [%s]" % (alt_series, alt_issue))
 
-        # if the filename is unicoded, it won't match due to the unicode translation. Keep the unicode as well as the decoded.
         series_name_decoded = unicodedata.normalize("NFKD", series_name)
-        # check for annual in title(s) here.
         if not self.justparse and all(
             [
                 comicarr.CONFIG.ANNUALS_ON,
@@ -1611,7 +1420,6 @@ class FileChecker(object):
                     )
 
                 if not bythepass:
-                    # AI fallback — attempt LLM-based parsing before giving up
                     try:
                         from comicarr.app.ai.parsing import ai_parse_filename
 
@@ -1642,7 +1450,7 @@ class FileChecker(object):
                         "alt_issue": alt_issue,
                         "dynamic_name": dreplace,
                         "issue_number": issue_number,
-                        "justthedigits": issue_number,  # redundant but it's needed atm
+                        "justthedigits": issue_number,
                         "series_volume": issue_volume,
                         "issue_year": issue_year,
                         "annual_comicid": None,
@@ -1652,7 +1460,6 @@ class FileChecker(object):
                     }
 
         if self.justparse:
-            # For manga, use chapter as issue number if not already detected
             final_issue_number = issue_number
             if manga_chapter is not None and (issue_number is None or booktype == "manga"):
                 final_issue_number = manga_chapter
@@ -1679,7 +1486,6 @@ class FileChecker(object):
                 "manga_volume": manga_volume,
             }
 
-        # For manga, use chapter as issue number if not already detected
         final_issue_number = issue_number
         if manga_chapter is not None and (issue_number is None or booktype == "manga"):
             final_issue_number = manga_chapter
@@ -1711,9 +1517,6 @@ class FileChecker(object):
         series_name = series_info["series_name"]
         alt_series = series_info["alt_series"]
         filename = series_info["comicfilename"]
-        # compare here - match comparison against u_watchcomic.
-        # logger.fdebug('Series_Name: ' + series_name + ' --- WatchComic: ' + self.watchcomic)
-        # check for dynamic handles here.
         mod_dynamicinfo = self.dynamic_replace(series_name)
         mod_seriesname = mod_dynamicinfo["mod_seriesname"]
         mod_watchcomic = mod_dynamicinfo["mod_watchcomic"]
@@ -1724,13 +1527,11 @@ class FileChecker(object):
             mod_altseriesname = mod_dynamicalt["mod_seriesname"]
             mod_alt_decoded = self.dynamic_replace(alt_series)
             mod_altseriesname_decoded = mod_alt_decoded["mod_seriesname"]
-        # logger.fdebug('mod_altseriesname: %s' % mod_altseriesname)
         mod_series_decoded = self.dynamic_replace(series_info["series_name_decoded"])
         mod_seriesname_decoded = mod_series_decoded["mod_seriesname"]
         mod_watch_decoded = self.dynamic_replace(self.og_watchcomic)
         mod_watchname_decoded = mod_watch_decoded["mod_watchcomic"]
 
-        # remove the spaces...
         nspace_seriesname = re.sub(" ", "", mod_seriesname)
         nspace_watchcomic = re.sub(" ", "", mod_watchcomic)
         nspace_altseriesname = None
@@ -1746,8 +1547,6 @@ class FileChecker(object):
             pass
         justthedigits = series_info["issue_number"]
 
-        # logger.fdebug('nspace_watchcomic: %s' % nspace_watchcomic)
-        # logger.fdebug('series_name: %s' % series_name)
         annualisation = False
         n_name = "annual"
         if comicarr.CONFIG.ANNUALS_ON:
@@ -1795,12 +1594,6 @@ class FileChecker(object):
                 seriesalt = True
                 qmatch_chk = "alt_match"
 
-        # logger.info('seriesalt: %s' % seriesalt)
-        # logger.info('nspace_seriesname: %s' % nspace_seriesname)
-        # logger.info('nspace_watchcomic: %s' % nspace_watchcomic)
-        # logger.info('nspace_serisname_decoded: %s' % nspace_seriesname_decoded)
-        # logger.info('nspace_watchname_decoded: %s' % nspace_watchname_decoded)
-        # logger.info('self.AS_Alt: %s' % self.AS_Alt)
         if (
             any(
                 [
@@ -1826,16 +1619,12 @@ class FileChecker(object):
             if qmatch_chk is None:
                 qmatch_chk = "match"
         if qmatch_chk is not None:
-            # logger.fdebug('[%s][MATCH: %s][seriesALT: %s] %s' % (qmatch_chk, seriesalt, series_info['series_name'], filename))
             enable_annual = False
             annual_comicid = None
             if any(
                 re.sub(r"[\|\s]", "", x.lower()).strip() == re.sub(r"[\|\s]", "", nspace_seriesname.lower()).strip()
                 for x in self.AS_Alt
             ):
-                # if the alternate search name is almost identical, it won't match up because it will hit the 'normal' first.
-                # not important for series' matches, but for annuals, etc it is very important.
-                # loop through the Alternates picking out the ones that match and then do an overall loop.
                 loopchk = [
                     x
                     for x in self.AS_Alt
@@ -1848,9 +1637,7 @@ class FileChecker(object):
 
                 else:
                     loopchk = []
-                    # logger.info('loopchk: ' + str(loopchk))
 
-                # if the names match up, and enable annuals isn't turned on - keep it all together.
                 if (
                     re.sub(r"\|", "", nspace_watchcomic.lower()).strip()
                     == re.sub(r"\|", "", nspace_seriesname.lower()).strip()
@@ -1893,7 +1680,7 @@ class FileChecker(object):
                 "process_status": qmatch_chk,
                 "sub": series_info["sub"],
                 "volume": series_info["series_volume"],
-                "match_type": None,  # match_type - will eventually pass if it wasa folder vs. filename match,
+                "match_type": None,
                 "comicfilename": filename,
                 "comiclocation": series_info["comiclocation"],
                 "series_name": series_info["series_name"],
@@ -1909,7 +1696,6 @@ class FileChecker(object):
             }
 
         else:
-            # logger.fdebug('[NO MATCH] ' + filename + ' [WATCHLIST:' + self.watchcomic + ']')
             return {
                 "process_status": "fail",
                 "comicfilename": filename,
@@ -1975,7 +1761,6 @@ class FileChecker(object):
                 else:
                     direc = dirname
                     if ".AppleDouble" in direc:
-                        # Ignoring MAC OS Finder directory of cached files (/.AppleDouble/<name of file(s)>)
                         continue
 
                 if fname.startswith("._"):
@@ -1985,7 +1770,6 @@ class FileChecker(object):
                     tcrc = helpers.crc(os.path.join(dirname, fname))
                     crcchk = [x for x in pp_crclist if tcrc == x["crc"]]
                     if crcchk:
-                        # logger.fdebug('[FILECHECKEER] Already post-processed this item %s - Ignoring' % fname)
                         continue
 
                 filename = fname
@@ -2000,12 +1784,11 @@ class FileChecker(object):
                         comicsize = os.path.getsize(os.path.join(dir, direc, fname))
 
                     if comicsize == 0:
-                        # 0-byte size file encountered - ignore it as it's a placeholder most likely
                         continue
 
                     filelist.append(
                         {
-                            "directory": direc,  # subdirectory if it exists
+                            "directory": direc,
                             "filename": filename,
                             "comicsize": comicsize,
                         }
@@ -2020,19 +1803,15 @@ class FileChecker(object):
 
         if self.watchcomic:
             watchdynamic_handlers_match = [x for x in self.dynamic_handlers if x.lower() in self.watchcomic.lower()]
-            # logger.fdebug('watch dynamic handlers recognized : ' + str(watchdynamic_handlers_match))
             watchdynamic_replacements_match = [
                 x for x in self.dynamic_replacements if x.lower() in self.watchcomic.lower()
             ]
-            # logger.fdebug('watch dynamic replacements recognized : ' + str(watchdynamic_replacements_match))
             mod_watchcomic = re.sub(r"[\s\s+\_\.]", "%$", self.watchcomic)
             mod_watchcomic = re.sub(r"[\#]", "", mod_watchcomic)
             mod_find = []
             wdrm_find = []
             if any([watchdynamic_handlers_match, watchdynamic_replacements_match]):
                 for wdhm in watchdynamic_handlers_match:
-                    # check the watchcomic
-                    # first get the position.
                     mod_find.extend([m.start() for m in re.finditer("\\" + wdhm, mod_watchcomic)])
                     if len(mod_find) > 0:
                         for mf in mod_find:
@@ -2053,16 +1832,13 @@ class FileChecker(object):
         series_name = re.sub(r"[\u2014|\u2013|\u2e3a|\u2e3b]", " - ", series_name)
         series_name = re.sub("\u2019", " ' ", series_name)
         seriesdynamic_handlers_match = [x for x in self.dynamic_handlers if x.lower() in series_name.lower()]
-        # logger.fdebug('series dynamic handlers recognized : ' + str(seriesdynamic_handlers_match))
         seriesdynamic_replacements_match = [x for x in self.dynamic_replacements if x.lower() in series_name.lower()]
-        # logger.fdebug('series dynamic replacements recognized : ' + str(seriesdynamic_replacements_match))
         mod_seriesname = re.sub(r"[\s\s+\_\.]", "%$", series_name)
         mod_seriesname = re.sub(r"[\#]", "", mod_seriesname)
         ser_find = []
         sdrm_find = []
         if any([seriesdynamic_handlers_match, seriesdynamic_replacements_match]):
             for sdhm in seriesdynamic_handlers_match:
-                # check the series_name
                 ser_find.extend([m.start() for m in re.finditer("\\" + sdhm, mod_seriesname)])
                 if len(ser_find) > 0:
                     for sf in ser_find:
@@ -2094,13 +1870,11 @@ class FileChecker(object):
         return {"mod_watchcomic": mod_watchcomic, "mod_seriesname": mod_seriesname}
 
     def altcheck(self):
-        # iniitate the alternate list here so we can add in the different alternate search names (if present)
         AS_Alt = []
 
         AS_Tuple = []
         if self.AlternateSearch is not None and self.AlternateSearch != "None":
             chkthealt = self.AlternateSearch.split("##")
-            # logger.info('[' + str(len(chkthealt)) + '] chkthealt: ' + str(chkthealt))
             i = 0
             while i <= len(chkthealt):
                 try:
@@ -2110,8 +1884,6 @@ class FileChecker(object):
                 AS_tupled = False
                 AS_Alternate = re.sub("##", "", calt)
                 if "!!" in AS_Alternate:
-                    # if it's !! present, it's the comicid associated with the series as an added annual.
-                    # extract the !!, store it and then remove it so things will continue.
                     as_start = AS_Alternate.find("!!")
                     as_end = AS_Alternate.find("##", as_start)
                     if as_end == -1:
@@ -2127,22 +1899,12 @@ class FileChecker(object):
                 AS_Alt.append(altsearchcomic)
                 i += 1
         else:
-            # create random characters so it will never match.
             altsearchcomic = "127372873872871091383 abdkhjhskjhkjdhakajhf"
             AS_Alt.append(altsearchcomic)
 
         return {"AS_Alt": AS_Alt, "AS_Tuple": AS_Tuple}
 
     def checkthedate(self, txt, fulldate=False, cnt=0):
-        #    txt='''\
-        #    Jan 19, 1990
-        #    January 19, 1990
-        #    Jan 19,1990
-        #    01/19/1990
-        #    01/19/90
-        #    1990
-        #    Jan 1990
-        #    January1990'''
 
         fmts = (
             "%Y",
@@ -2208,18 +1970,14 @@ class FileChecker(object):
                             break
                         except ValueError:
                             pass
-        # check that all the cases are handled
         success = {t[0] for t in parsed}
         for e in txt.splitlines():
             if e not in success:
-                pass  # print e
+                pass
 
         dateline = None
 
-        # logger.info('parsed: %s' % parsed)
-
         for t in parsed:
-            # logger.fdebug('"{:20}" => "{:20}" => {}'.format(*t))
             if fulldate is False and cnt != -1:
                 dateline = t[2].year
             else:
@@ -2255,12 +2013,10 @@ def calculate_match_confidence(parsed_info, comic_info):
 
     score = 0
 
-    # Normalize strings for comparison
     def normalize(s):
         if s is None:
             return ""
         s = str(s).lower().strip()
-        # Remove common punctuation and normalize spaces
         s = re.sub(r"[^\w\s]", "", s)
         s = re.sub(r"\s+", " ", s)
         return s
@@ -2268,13 +2024,11 @@ def calculate_match_confidence(parsed_info, comic_info):
     parsed_name = normalize(parsed_info.get("series_name") or parsed_info.get("ComicName"))
     comic_name = normalize(comic_info.get("ComicName"))
 
-    # 1. Series Name Match (40 pts) - using sequence matcher for fuzzy matching
     if parsed_name and comic_name:
         ratio = difflib.SequenceMatcher(None, parsed_name, comic_name).ratio()
         name_score = int(ratio * 40)
         score += name_score
 
-    # 2. Year Match (15 pts)
     parsed_year = parsed_info.get("issue_year") or parsed_info.get("ComicYear")
     comic_year = comic_info.get("ComicYear")
 
@@ -2292,7 +2046,6 @@ def calculate_match_confidence(parsed_info, comic_info):
         except (ValueError, TypeError):
             pass
 
-    # 3. Volume Match (15 pts)
     parsed_volume = parsed_info.get("series_volume") or parsed_info.get("Volume")
     comic_volume = comic_info.get("Volume") or comic_info.get("ComicVersion")
 
@@ -2302,25 +2055,20 @@ def calculate_match_confidence(parsed_info, comic_info):
         if pv == cv:
             score += 15
         elif pv and cv:
-            # Partial match
             try:
                 if int(pv) == int(cv):
                     score += 15
             except ValueError:
                 pass
     elif not parsed_volume and not comic_volume:
-        # Both have no volume, considered a match
         score += 10
 
-    # 4. Issue Number (15 pts)
     parsed_issue = parsed_info.get("issue_number") or parsed_info.get("IssueNumber")
     if parsed_issue and parsed_issue != "None" and parsed_issue != "":
         score += 15
     elif parsed_issue is None or parsed_issue == "None" or parsed_issue == "":
-        # Partial credit for at least having file parsed
         score += 5
 
-    # 5. Metadata (10 pts) - Check if CBZ has ComicInfo.xml
     comic_location = parsed_info.get("comiclocation") or parsed_info.get("ComicLocation")
     comic_filename = parsed_info.get("comicfilename") or parsed_info.get("ComicFilename")
 
@@ -2336,7 +2084,6 @@ def calculate_match_confidence(parsed_info, comic_info):
             except Exception:
                 pass
 
-    # 6. Path Hints (5 pts) - series name appears in folder path
     if comic_location and comic_name:
         path_lower = normalize(comic_location)
         if comic_name in path_lower:
@@ -2366,7 +2113,7 @@ def validateAndCreateDirectory(dir, create=False, module=None, dmode=None):
                         "%s Creating %s directory (%s) : %s" % (module, dirmode, comicarr.CONFIG.CHMOD_DIR, dir)
                     )
                     try:
-                        os.umask(0)  # this is probably redudant, but it doesn't hurt to clear the umask here.
+                        os.umask(0)
                         if comicarr.CONFIG.ENFORCE_PERMS:
                             permission = int(comicarr.CONFIG.CHMOD_DIR, 8)
                             os.makedirs(dir.rstrip(), permission)
@@ -2401,7 +2148,7 @@ def setperms(path, dir=False):
 
     if "windows" not in comicarr.OS_DETECT.lower():
         try:
-            os.umask(0)  # this is probably redudant, but it doesn't hurt to clear the umask here.
+            os.umask(0)
             if comicarr.CONFIG.CHGROUP:
                 if (
                     comicarr.CONFIG.CHOWNER is None

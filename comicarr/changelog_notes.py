@@ -31,10 +31,8 @@ import threading
 
 from packaging.version import InvalidVersion, Version
 
-# Process-memory cache of the release body returned by the last successful
-# update check. Not a second network path — only what checkGithub already got.
 _CACHE_LOCK = threading.Lock()
-_CACHED_RELEASE_BODY = None  # {"version": str, "body": str} | None
+_CACHED_RELEASE_BODY = None
 
 _HEX_PREFIX = re.compile(r"^\s*[0-9a-f]{7,}:\s*", re.IGNORECASE)
 _BUCKET_H3 = re.compile(
@@ -42,9 +40,7 @@ _BUCKET_H3 = re.compile(
     r"Performance Improvements)\s*$",
     re.IGNORECASE,
 )
-# Changesets: ``## 0.20.12``
 _CHANGESETS_HEADING = re.compile(r"^##\s+(\d+\.\d+\.\d+)\s*$")
-# Legacy semantic-release: ``## [0.18.1](url) (2026-06-09)``
 _LEGACY_HEADING = re.compile(r"^##\s+\[(\d+\.\d+\.\d+)\]\([^)]*\)(?:\s+\(([^)]+)\))?")
 _MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _LEGACY_COMMIT_TAIL = re.compile(r"\s*\(\s*[0-9a-f]{7,40}\s*\)\s*$", re.IGNORECASE)
@@ -165,15 +161,12 @@ def parse_changelog_text(text):
 
         if bullet_buf is not None:
             if line.strip() == "" or _CONTINUATION.match(line):
-                # Preserve blank paragraph breaks; strip indent on body lines.
                 if line.strip() == "":
                     bullet_buf.append("")
                 else:
                     bullet_buf.append(_transform_bullet_line(line.strip()))
                 continue
             flush_bullet()
-
-        # Unattributed prose (Keep a Changelog mid-file, etc.) — drop.
 
     flush_bullet()
     for section in sections:
@@ -196,8 +189,6 @@ def parse_release_body(body, version):
     if not version:
         return None
 
-    # If the body already has a version H2, parse as a mini-changelog.
-    # Match line-by-line: ^/$ on the full string are not MULTILINE.
     has_heading = any(_CHANGESETS_HEADING.match(line) or _LEGACY_HEADING.match(line) for line in text.split("\n"))
     if has_heading:
         sections = parse_changelog_text(text)
@@ -206,7 +197,6 @@ def parse_release_body(body, version):
                 return section
         return None
 
-    # Body is bare section content (what prepare-github-release ships).
     wrapped = "## %s\n\n%s\n" % (version, text)
     sections = parse_changelog_text(wrapped)
     if not sections or not sections[0]["bullets"]:
@@ -263,7 +253,6 @@ def get_release_notes(ctx, after, through):
     ranged = sections_in_range(local_sections, after=after, through=through)
     known = {s["version"] for s in ranged}
 
-    # Supplement from update-check cache for versions not shipped in this image.
     cached = get_cached_release_body()
     if cached:
         cached_version = cached.get("version")

@@ -48,10 +48,6 @@ _REQUIRED_LEGACY_COLUMNS = {
     "annuals": {"IssueID", "Issue_Number"},
     "mylar_info": {"DatabaseVersion"},
 }
-# Tables first introduced by a post-baseline revision. When a database is
-# stamped at an earlier known revision these must not be treated as required
-# by that revision — otherwise upgrade to head is blocked before the revision
-# that creates them can run (see #409: pre-chat 0002 installs).
 _REVISION_INTRODUCED_TABLES = {
     "0003_library_chat": frozenset(
         {
@@ -203,8 +199,6 @@ def _validate_versioned_database(engine: Engine) -> None:
     if resolved is None or resolved.revision != revision:
         raise MigrationStateError("Alembic version table contains an unknown Comicarr revision: %s" % revision)
 
-    # Require the complete schema for *this* revision, not the migration head.
-    # Tables introduced by later revisions are optional until those upgrades run.
     error = _legacy_fingerprint_error(
         engine,
         require_control_row=False,
@@ -370,9 +364,6 @@ def apply_legacy_schema_compatibility(connection: Connection) -> None:
     if migrate_readinglist:
         _migrate_readinglist_to_storyarcs(connection)
 
-    # Legacy atomic-upsert tables need either a unique constraint or a SQLite
-    # partial index. The existing helper performs its documented backup before
-    # deterministic de-duplication and raises if enforcement cannot be proven.
     import comicarr
 
     comicarr._migrate_unique_constraints(connection)
@@ -475,8 +466,6 @@ def upgrade_database(engine: Engine | None = None) -> str | None:
         if state is DatabaseState.LEGACY:
             command.stamp(config, "0001_baseline")
         command.upgrade(config, "head")
-    # Alembic owns mutation; the acquisition component now only validates its
-    # operational ledger and projects the fail-closed worker gate.
     from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 
     acquisition_status = ensure_acquisition_schema(engine)

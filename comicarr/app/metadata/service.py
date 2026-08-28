@@ -107,7 +107,6 @@ def get_issue_info(ctx, issue_id):
     if results and len(results) == 1:
         return results[0]
 
-    # Series detail links annual rows with the same /library/.../issue/... path.
     annual_stmt = select(t_annuals).where(
         t_annuals.c.IssueID == issue_id,
         t_annuals.c.Deleted != 1,
@@ -118,7 +117,6 @@ def get_issue_info(ctx, issue_id):
     return None
 
 
-# ComicIDs: CV volume ids (digits / 4050-N), MangaDex (md-*), MAL (mal-*), etc.
 _SAFE_COMIC_ID_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
 
 
@@ -163,7 +161,6 @@ def get_artwork(ctx, comic_id):
         except Exception as e:
             logger.fdebug("[METADATA-artwork] Cached image unreadable for %s: %s" % (comic_id, e))
 
-    # Try fetching from DB URLs (allowlisted hosts only)
     from sqlalchemy import select
 
     from comicarr import db
@@ -187,7 +184,6 @@ def get_artwork(ctx, comic_id):
         try:
             img = Image.open(BytesIO(img_data))
             if img.get_format_mimetype():
-                # Re-check containment before write
                 if not is_path_within_allowed_dirs(image_path, [cache_dir]):
                     logger.error("[METADATA-artwork] Refusing write outside CACHE_DIR for %s" % comic_id)
                     return None
@@ -228,11 +224,6 @@ def group_metatag(ctx, comic_id):
     except Exception as e:
         logger.error("[METADATA] Group metatag error: %s" % e)
         return {"success": False, "error": str(e)}
-
-
-# ---------------------------------------------------------------------------
-# Metatag implementation (extracted from webserve.WebInterface)
-# ---------------------------------------------------------------------------
 
 
 def _do_manual_metatag(issueid, comicid=None, group=False):
@@ -451,7 +442,6 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                     except OSError:
                         pass
 
-    # Always narrate per-issue tag outcomes (group batch rollups deleted; #430 §3.2).
     if fail is False:
         if group is False:
             updater.forceRescan(comicid)
@@ -493,7 +483,6 @@ def _thread_bulk_meta(comicinfo, issueinfo):
         "[SERIES-METATAGGER][%s (%s)] Finished (re)tagging of metadata for selected issues."
         % (comicinfo["ComicName"], comicinfo["ComicYear"])
     )
-    # Batch rollup deleted (#430 §3.2 / #484): per-issue tag.* rows already emit.
     logger.info(
         "[SERIES-METATAGGER] bulk complete for %s (%s) — %s issues"
         % (comicinfo["ComicName"], comicinfo["ComicYear"], len(issueinfo))
@@ -586,7 +575,6 @@ def _thread_group_meta(comicinfo, issueinfo):
         "[SERIES-METATAGGER][%s (%s)] Finished complete series (re)tagging of metadata."
         % (comicinfo["ComicName"], comicinfo["ComicYear"])
     )
-    # Batch rollup deleted (#430 §3.2 / #484): per-issue tag.* rows already emit.
 
 
 def _do_group_metatag(ComicID, threaded=False, registry=None):
@@ -655,9 +643,6 @@ def _do_group_metatag(ComicID, threaded=False, registry=None):
     else:
         _thread_group_meta(comicinfo, issueinfo)
         return json.dumps({"status": "success"})
-
-
-# --- Extracted from helpers.py ---
 
 
 def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):

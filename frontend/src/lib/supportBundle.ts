@@ -25,8 +25,6 @@ const SAFETY_DETAIL =
 
 function contentDispositionMatches(header: string | null): boolean {
   if (!header) return false;
-  // attachment; filename="comicarr-support-bundle-v1.zip"
-  // also accept filename*=UTF-8''...
   const lower = header.toLowerCase();
   if (!lower.includes("attachment")) return false;
   return (

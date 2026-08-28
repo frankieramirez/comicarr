@@ -14,8 +14,6 @@ export function useChatThreads() {
     queryFn: ({ pageParam }) => getChatThreads(pageParam || undefined),
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.next_cursor || undefined,
-    // The sidebar mounts this on every route, so without a window the list is
-    // refetched on each navigation and refocus. Writes invalidate it explicitly.
     staleTime: 30_000,
   });
 }

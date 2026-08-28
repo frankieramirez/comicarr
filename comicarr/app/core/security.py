@@ -102,8 +102,6 @@ def _replace_jwt_key(secure_dir, key):
             temp_file.flush()
             os.fsync(temp_file.fileno())
 
-        # This is the commit point. Keep it last so callers can safely update
-        # the in-memory authority whenever this function returns.
         os.replace(temp_path, key_path)
         temp_path = None
     finally:
@@ -264,18 +262,13 @@ def generate_ephemeral_key():
 def apiremove(apistring, apitype):
     if apitype == "nzb":
         value_regex = re.compile("(?<=apikey=)(?P<value>.*?)(?=$)")
-        # match = value_regex.search(apistring)
         apiremoved = value_regex.sub("xUDONTNEEDTOKNOWTHISx", apistring)
     else:
-        # type = $ to denote end of string
-        # type = & to denote up until next api variable
         value_regex1 = re.compile("(?<=%26i=1%26r=)(?P<value>.*?)(?=" + str(apitype) + ")")
-        # match = value_regex.search(apistring)
         apiremoved1 = value_regex1.sub("xUDONTNEEDTOKNOWTHISx", apistring)
         value_regex = re.compile("(?<=apikey=)(?P<value>.*?)(?=" + str(apitype) + ")")
         apiremoved = value_regex.sub("xUDONTNEEDTOKNOWTHISx", apiremoved1)
 
-    # need to remove the urlencoded-portions as well in future
     return apiremoved
 
 
@@ -297,16 +290,14 @@ def create_https_certificates(ssl_cert, ssl_key):
     from certgen import TYPE_RSA, createCertificate, createCertRequest, createKeyPair, serial
     from OpenSSL import crypto
 
-    # Create the CA Certificate
     cakey = createKeyPair(TYPE_RSA, 2048)
     careq = createCertRequest(cakey, CN="Certificate Authority")
-    cacert = createCertificate(careq, (careq, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))  # ten years
+    cacert = createCertificate(careq, (careq, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))
 
     pkey = createKeyPair(TYPE_RSA, 2048)
     req = createCertRequest(pkey, CN="Comicarr")
-    cert = createCertificate(req, (cacert, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))  # ten years
+    cert = createCertificate(req, (cacert, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))
 
-    # Save the key and certificate to disk
     try:
         with open(ssl_key, "w") as fp:
             fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))

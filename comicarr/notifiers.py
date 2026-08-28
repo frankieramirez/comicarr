@@ -36,8 +36,6 @@ import requests
 import comicarr
 from comicarr import logger
 
-# Notification handlers (originally based on Headphones)
-
 
 class PROWL:
     keys = []
@@ -90,8 +88,6 @@ class PROWL:
         self.notify("ZOMG Lazors Pewpewpew!", "Test Message")
 
 
-# 2013-04-01 Added Pushover.net notifications, based on copy of Prowl class above.
-# No extra care has been put into API friendliness at the moment (read: https://pushover.net/api#friendly)
 class PUSHOVER:
     def __init__(self, test_apikey=None, test_userkey=None, test_device=None):
         if all([test_apikey is None, test_userkey is None, test_device is None]):
@@ -123,7 +119,6 @@ class PUSHOVER:
         self.priority = comicarr.CONFIG.PUSHOVER_PRIORITY
 
         self._session = requests.Session()
-        # self._session.headers = doesn't need to be defined, requests figures it out based on parameters
 
     def notify(self, event, message=None, snatched_nzb=None, prov=None, sent_to=None, module=None, imageFile=None):
         if self.apikey is None:
@@ -148,7 +143,6 @@ class PUSHOVER:
 
         files = None
         if imageFile:
-            # Add image.
             files = {"attachment": ("image.jpeg", base64.b64decode(imageFile), "image/jpeg")}
 
         if all([self.device is not None, self.device != "None"]):
@@ -192,7 +186,6 @@ class PUSHOVER:
 
 
 class BOXCAR:
-    # new BoxCar2 API
     def __init__(self):
 
         self.url = "https://new.boxcar.io/api/notifications"
@@ -223,10 +216,8 @@ class BOXCAR:
             return True
 
         except urllib.error.URLError as e:
-            # if we get an error back that doesn't have an error code then who knows what's really happening
             if not hasattr(e, "code"):
                 logger.error(module + "Boxcar2 notification failed. %s" % e)
-            # If you receive an HTTP status code of 400, it is because you failed to send the proper parameters
             elif e.code == 400:
                 logger.info(module + " Wrong data sent to boxcar")
                 logger.info(module + " data:" + data)
@@ -253,7 +244,6 @@ class BOXCAR:
             logger.fdebug(module + " Notification for Boxcar not enabled, skipping this notification.")
             return False
 
-        # if no username was given then use the one from the config
         if snatched_nzb:
             title = snline
             message = "Comicarr has snatched: " + snatched_nzb + " and " + sent_to
@@ -338,7 +328,6 @@ def _parse_telegram_target(userid):
     if ":" not in raw:
         return raw, None
     chat_id, topic_id = raw.rsplit(":", 1)
-    # isdigit() accepts non-decimal Unicode digits that int() rejects, so gate on ASCII.
     if topic_id.isascii() and topic_id.isdigit():
         return chat_id, int(topic_id)
     return raw, None
@@ -366,7 +355,6 @@ class TELEGRAM:
         files = None
 
         if imageFile:
-            # Construct message
             try:
                 files = {"photo": base64.b64decode(imageFile)}
                 payload = self._payload(chat_id=self.userid, caption=message)
@@ -374,7 +362,6 @@ class TELEGRAM:
             except Exception as e:
                 logger.info("Telegram notify failed to decode image: " + str(e))
 
-        # Send message to user using Telegram's Bot API
         try:
             if files is None:
                 response = requests.post(self.TELEGRAM_API % (self.token, sendMethod), json=payload, verify=True)
@@ -387,7 +374,6 @@ class TELEGRAM:
             logger.info("Telegram notify failed: " + str(e))
             sent_successfully = False
 
-        # Error logging
         if sent_successfully:
             if not response.status_code == 200:
                 logger.info(

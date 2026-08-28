@@ -28,18 +28,11 @@ class RuntimeNotInitializedError(RuntimeError):
     """Raised when code attempts to use runtime state outside its lifecycle."""
 
 
-# The factory lock makes normal startup single-shot even if a future bootstrap
-# path races with a server/lifespan integration test. The singleton is private;
-# consumers use get_runtime(), FastAPI's get_context(), or an explicit ctx.
 _runtime_lock = threading.Lock()
 _runtime = None
 _UNSET = object()
 
 
-# ``AppContext`` fields that still need a temporary legacy projection. Mutable
-# entries in this map always point to the exact same object. Scalar projections
-# are written through set_runtime_field under ctx.runtime_lock so migrated code
-# has one writer while old engines are drained.
 _CONTEXT_TO_LEGACY = {
     "prog_dir": "PROG_DIR",
     "data_dir": "DATA_DIR",
@@ -133,9 +126,6 @@ _CONTEXT_TO_LEGACY = {
 }
 
 
-# Keep the legacy worker names and their canonical context fields in one
-# ordered mapping. Startup stores these identities here and lifespan drains
-# them in this same order.
 POOL_CONTEXT_FIELDS = {
     "SNPOOL": "sn_pool",
     "NZBPOOL": "nzb_pool",

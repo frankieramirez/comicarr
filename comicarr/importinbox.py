@@ -34,7 +34,6 @@ from comicarr import db, logger, manga_parser
 from comicarr.scanutil import COMIC_EXTENSIONS, name_similarity, normalize_title
 from comicarr.tables import comics
 
-# Scan status globals (for UI polling)
 INBOX_SCAN_STATUS = None
 INBOX_SCAN_PROGRESS = {
     "total_files": 0,
@@ -47,7 +46,6 @@ INBOX_SCAN_PROGRESS = {
 
 _SCAN_LOCK = threading.Lock()
 
-# Auto-import threshold (matches comicsync/mangasync ConfidenceBadge green)
 AUTO_IMPORT_CONFIDENCE = 80
 
 
@@ -98,7 +96,6 @@ def inboxScan():
     }
 
     try:
-        # Step 1: Walk import directory and group files by parent folder
         file_groups = _collect_file_groups(import_dir)
 
         total_files = sum(len(group_info["files"]) for group_info in file_groups.values())
@@ -109,10 +106,8 @@ def inboxScan():
         if not file_groups:
             logger.info("[IMPORT-INBOX] No comic files found in import directory")
         else:
-            # Step 2: Load series list from library once
             series_list = _load_library_series()
 
-            # Step 3: Match each group against library series using ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {}
                 for group_key, group_info in file_groups.items():
@@ -170,12 +165,10 @@ def _collect_file_groups(import_dir):
             rel_path = os.path.relpath(root, import_dir)
 
             if rel_path == ".":
-                # Files directly in import_dir — each is its own group
                 parsed = manga_parser.parse_manga_filename(filename)
                 group_name = parsed["series_name"] if parsed else os.path.splitext(filename)[0]
                 group_key = "file:%s" % _filepath_to_impid(filepath)
             else:
-                # Use top-level directory name as group
                 group_name = rel_path.split(os.sep)[0]
                 folder_path = os.path.join(import_dir, group_name)
                 group_key = "folder:%s" % _filepath_to_impid(folder_path)
@@ -248,11 +241,6 @@ def _match_group(group_key, group_info, series_list):
     confidence = int(best_score * 100)
 
     if best_match and confidence >= AUTO_IMPORT_CONFIDENCE:
-        # Auto-import: persist pending rows, then finalize through the same
-        # move/rescan seam used for manual matches (#783). Files whose row is
-        # already Imported are skipped first: finalized files can survive in
-        # the inbox (archive-in-place, copy placement), and resetting their
-        # rows to pending would re-import them on every scheduled scan.
         pending_files = _files_pending_import(files)
         skipped = len(files) - len(pending_files)
         if skipped:
@@ -270,7 +258,6 @@ def _match_group(group_key, group_info, series_list):
         else:
             result["queued_for_review"] += len(pending_files)
     else:
-        # Queue for manual review
         suggested_id = best_match["ComicID"] if best_match else None
         suggested_name = best_match.get("ComicName", "") if best_match else None
         logger.info(

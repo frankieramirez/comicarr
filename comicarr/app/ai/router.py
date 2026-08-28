@@ -42,7 +42,6 @@ async def ai_test(request: Request, ctx: AppContext = Depends(get_context)):
     api_key = body.get("api_key", "")
     model = body.get("model", "")
 
-    # Fall back to saved API key if user didn't provide a new one
     if not api_key and ctx.config:
         api_key = getattr(ctx.config, "AI_API_KEY", "") or ""
 
@@ -85,7 +84,6 @@ async def chat_stream(request: Request, ctx: AppContext = Depends(get_context)):
             content={"error": "messages array is required"},
         )
 
-    # Validate message structure
     for msg in messages:
         if not isinstance(msg, dict):
             return JSONResponse(
@@ -103,7 +101,6 @@ async def chat_stream(request: Request, ctx: AppContext = Depends(get_context)):
                 content={"error": "Message content must not be empty"},
             )
 
-    # Cap conversation length to prevent abuse
     if len(messages) > 20:
         messages = messages[-20:]
 
@@ -217,8 +214,6 @@ async def chat_turn_stream(
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "Invalid Content-Length header"})
     try:
-        # Starlette caps each part at 1 MB by default, which would reject a valid
-        # chat image long before save_uploads can report the real 10 MB limit.
         form = await request.form(
             max_files=chat_images.MAX_IMAGES,
             max_fields=3,

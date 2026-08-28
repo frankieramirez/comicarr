@@ -27,11 +27,8 @@ WORKER_PREFIX = "Worker: "
 ROUTE_PREFIX = "Acquisition Route: "
 _ROUTES = ROUTES
 
-# Last-resort reason when no route reported anything usable.
 NO_VIABLE_ROUTE = "no_viable_acquisition_route"
 
-# Blockers ordered from nearest-to-ready to furthest, so the reason surfaced to
-# operators names the smallest remaining gap.
 _ROUTE_REASON_RANK = {
     reason: rank
     for rank, reason in enumerate(
@@ -148,8 +145,6 @@ def _downstream_readiness(config, route):
     }
     client, key, needs_path = clients.get(downloader, ("disabled", None, False))
     configured = getattr(config, key, None) if key else None
-    # Every client with a monitor probe: uTorrent, rTorrent, Transmission,
-    # Deluge, qBittorrent. Watchfolder (0) has no identity to poll.
     restart_safe = downloader in {1, 2, 3, 4, 5}
     client_ready = True if needs_path else bool(configured)
     path_keys = {
@@ -299,9 +294,6 @@ def build_route_readiness(
         else:
             reason = "ready"
         attempts = [timestamp for row in route_stats if (timestamp := _timestamp(row.get("lastrun"))) is not None]
-        # A completed provider attempt is an operational route success even
-        # when it returns zero matches. Acquisition matching is reported
-        # separately by the run ledger's no_match/succeeded counters.
         latest_attempt = max(attempts) if attempts else None
         last_failure = _timestamp(history.get("last_failure_timestamp"))
         last_success = _timestamp(history.get("last_success_timestamp"))

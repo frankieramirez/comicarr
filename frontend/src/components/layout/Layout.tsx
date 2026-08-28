@@ -38,12 +38,6 @@ export default function Layout({ children }: LayoutProps) {
   const mock = isMockEnabled();
 
   return (
-    // The shell is exactly one viewport tall and never scrolls itself: the
-    // status bar stays put and each page owns its own scroll region, so a
-    // table's pagination footer can sit on the bottom edge of the viewport
-    // without fixed/absolute positioning. Full-bleed pages must therefore be
-    // `h-full flex flex-col` with a `flex-1 min-h-0 overflow-auto` body —
-    // anything they render outside that body is clipped, not scrolled.
     <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
       {/* No height of its own: as a flex item it stretches to the shell's

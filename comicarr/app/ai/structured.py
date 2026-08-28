@@ -46,13 +46,11 @@ def request_structured(client, model, system_prompt, user_prompt, schema_class, 
 
     raw = response.choices[0].message.content
 
-    # Try direct parse first
     try:
         return schema_class.model_validate_json(raw)
     except Exception:
         pass
 
-    # Fallback: extract from markdown fences
     match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
     if match:
         try:
@@ -60,7 +58,6 @@ def request_structured(client, model, system_prompt, user_prompt, schema_class, 
         except Exception:
             pass
 
-    # Final attempt: try parsing as dict and validating
     try:
         data = json.loads(raw)
         return schema_class.model_validate(data)

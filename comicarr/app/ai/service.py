@@ -54,7 +54,6 @@ def log_activity(
     except Exception as e:
         logger.error("[AI-SERVICE] Failed to log activity: %s" % e)
 
-    # Publish SSE event for real-time frontend updates
     try:
         ctx = get_ai_runtime()
         event_bus = ctx.event_bus if ctx is not None else None
@@ -112,8 +111,6 @@ def get_ai_status():
     daily_limit = getattr(config, "AI_DAILY_TOKEN_LIMIT", 100000) if config else 100000
     rpm_limit = getattr(config, "AI_RPM_LIMIT", 20) if config else 20
 
-    # The chat workspace labels itself with the answering model and the size of the
-    # library it can read, so both travel with the status the UI already polls.
     model = getattr(config, "AI_MODEL", None) if config else None
     library_series = 0
     try:

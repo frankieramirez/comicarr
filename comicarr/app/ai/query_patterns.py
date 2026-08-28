@@ -90,13 +90,10 @@ QUERY_PATTERNS = {
     },
 }
 
-# Allowed ORDER BY directions — whitelist to prevent injection
 _ALLOWED_ORDERS = {"ASC", "DESC"}
 
-# Allowed issue statuses — whitelist for the issues_by_status pattern
 _ALLOWED_STATUSES = {"Wanted", "Downloaded", "Snatched", "Skipped", "Archived"}
 
-# Maximum result limit to prevent resource exhaustion
 _MAX_LIMIT = 100
 
 
@@ -134,7 +131,6 @@ def _validate_string(value):
     if not value:
         return ""
     s = str(value)
-    # Remove characters that could break SQL even in parameterized queries
     s = re.sub(r"[;'\"\\\x00]", "", s)
     return s.strip()
 
@@ -142,7 +138,6 @@ def _validate_string(value):
 def _validate_status(value):
     """Validate an issue status against a whitelist."""
     s = str(value).strip()
-    # Try case-insensitive match
     for allowed in _ALLOWED_STATUSES:
         if s.lower() == allowed.lower():
             return allowed
@@ -163,12 +158,10 @@ def execute_pattern(pattern_id, params):
     param_names = pattern["params"]
     defaults = pattern.get("defaults", {})
 
-    # Merge defaults with provided params
     merged = dict(defaults)
     if params:
         merged.update(params)
 
-    # Build the query arguments list based on the pattern
     query_args = []
     final_sql = sql_template
 
@@ -176,7 +169,6 @@ def execute_pattern(pattern_id, params):
         raw_value = merged.get(name, defaults.get(name))
 
         if name == "order":
-            # ORDER BY direction is injected via string formatting (whitelisted)
             validated = _validate_order(raw_value)
             final_sql = final_sql % validated
             continue
@@ -187,7 +179,6 @@ def execute_pattern(pattern_id, params):
         elif name == "status":
             query_args.append(_validate_status(raw_value))
         elif name in ("name", "publisher", "series_name"):
-            # Wrap with % for LIKE queries
             clean = _validate_string(raw_value)
             if clean and not clean.startswith("%"):
                 clean = "%" + clean

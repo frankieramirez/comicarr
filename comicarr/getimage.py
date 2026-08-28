@@ -74,10 +74,6 @@ def page_count(archive):
 
 
 def scale_image(img, iformat, new_width, algorithm=Image.LANCZOS):
-    # img = PIL image object
-    # iformat = 'jpeg', 'png', or 'webp'
-    # new_width = width in pixels
-    # algorithm = scaling algorithm used
     scale = new_width / float(img.size[0])
     new_height = int(scale * img.size[1])
     if img.mode in ("RGBA", "P"):
@@ -93,10 +89,6 @@ def scale_image(img, iformat, new_width, algorithm=Image.LANCZOS):
 
 
 def extract_image(location, single=False, imquality=None, comicname=None):
-    # location = full path to the cbr/cbz (filename included in path)
-    # single = should be set to True so that a single file can have the coverfile
-    #        extracted and have the cover location returned to the calling function
-    # imquality = the calling function ('notif' for notifications will initiate a resize image before saving the cover)
     if PIL_Found is False:
         return
     cover = "notfound"
@@ -139,16 +131,12 @@ def extract_image(location, single=False, imquality=None, comicname=None):
                 ):
                     continue
                 if all([infile.filename.lower().endswith(pic_extensions), int(tmp_infile) < int(low_infile)]):
-                    # logger.info('cntr: %s / infolist: %s' % (cntr, len(location_in.infolist())) )
-                    # get the length of the filename, compare it to others. scanner ones are always different named than the other 98% of the files.
                     if lenfile >= newlen:
                         newlen = lenfile
                         newlencnt += 1
                     newlist.append({"length": lenfile, "filename": infile.filename, "tmp_infile": tmp_infile})
 
-                    # logger.info('newlen: %s / newlencnt: %s' % (newlen, newlencnt))
                     if newlencnt > 0 and lenfile >= newlen:
-                        # logger.info('setting it to : %s' % infile.filename)
                         low_infile = tmp_infile
                         low_infile_name = infile.filename
                 elif (
@@ -171,7 +159,6 @@ def extract_image(location, single=False, imquality=None, comicname=None):
                             if alt in infile.filename.lower():
                                 cb_filename = infile.filename
                                 cover = "found"
-                                # logger.fdebug('[%s] cover found:%s' % (alt, infile.filename))
                                 break
                 elif all(
                     [
@@ -188,15 +175,12 @@ def extract_image(location, single=False, imquality=None, comicname=None):
                     "Invalid naming sequence for jpgs discovered. Attempting to find the lowest sequence and will use as cover (it might not work). Currently : %s"
                     % (low_infile_name)
                 )
-                # based on newlist - if issue doesn't end in 0 & 1, take the lowest numeric of the most common length of filenames within the rar
                 if not any([low_infile.endswith("0"), low_infile.endswith("1")]):
                     from collections import Counter
 
                     cnt = Counter([t["length"] for t in newlist])
-                    # logger.info('cnt: %s' % (cnt,)) #cnt: Counter({15: 23, 20: 1})
                     tmpst = 999999999
                     cntkey = max(cnt.items(), key=itemgetter(1))[0]
-                    # logger.info('cntkey: %s' % cntkey)
                     for x in newlist:
                         if x["length"] == cntkey and int(x["tmp_infile"]) < tmpst:
                             tmpst = int(x["tmp_infile"])
@@ -256,8 +240,6 @@ def retrieve_image(url):
 
 
 def load_image(filename, resize=600):
-    # logger.info('filename: %s' % filename)
-    # used to load an image from file for display using the getimage method (w/out extracting) ie. series detail cover page
     with open(filename, "rb") as i:
         imagefile = i.read()
     try:
@@ -280,7 +262,6 @@ def load_image(filename, resize=600):
                 try:
                     img = Image.open(BytesIO(imagefile))
                 except Exception:
-                    # maybe force-load here a random image of donkeys in a field or somethin
                     return
             else:
                 return

@@ -32,10 +32,6 @@ from comicarr.app.core.workers import start_background_thread
 from comicarr.app.series import queries as series_queries
 from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, weekly
 
-# ---------------------------------------------------------------------------
-# Series CRUD
-# ---------------------------------------------------------------------------
-
 _LIBRARY_ROOT_CONFIG_KEYS = (
     "DESTINATION_DIR",
     "MANGA_DESTINATION_DIR",
@@ -45,9 +41,6 @@ _LIBRARY_ROOT_CONFIG_KEYS = (
     "NEWCOM_DIR",
 )
 
-# Reserve a scanner before its background thread gets CPU time. The scanners
-# also own process-wide locks while they run; these short-lived locks close the
-# gap between accepting an API request and the worker acquiring that lock.
 _COMIC_SCAN_START_LOCK = threading.Lock()
 _MANGA_SCAN_START_LOCK = threading.Lock()
 
@@ -91,9 +84,6 @@ def _display_state(projection, *, eligibility_reason=None):
     if projection.intent in _DISPLAY_BY_INTENT:
         return _DISPLAY_BY_INTENT[projection.intent]
     if projection.fulfillment is Fulfillment.MISSING:
-        # A future policy row is deferred rather than an actionable missing
-        # item. Preserve the compact legacy label while surfacing the explicit
-        # eligibility reason alongside it in the canonical projection.
         if eligibility_reason == "future":
             return "Skipped"
         return "Missing"
@@ -114,8 +104,6 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
         fulfillment = Fulfillment.DOWNLOADED
         evidence = "verified_location"
     elif fulfillment is Fulfillment.DOWNLOADED:
-        # Legacy Downloaded plus a stale/missing path is not a safely owned
-        # issue. Keep it visible for repair instead of excluding it forever.
         fulfillment = Fulfillment.UNKNOWN
         evidence = "unverified_downloaded"
     elif legacy_status is not None and str(legacy_status).strip():
@@ -249,9 +237,6 @@ def _configured_library_roots(config):
     roots = []
     for key in _LIBRARY_ROOT_CONFIG_KEYS:
         root = getattr(config, key, None)
-        # Config path fields are defined as strings. Ignoring other dynamic
-        # attribute values ensures only explicitly configured roots authorize
-        # deletion.
         if not isinstance(root, str):
             continue
         root = root.strip()
@@ -340,7 +325,6 @@ def get_comic_detail(ctx, comic_id):
 
 def add_comic(ctx, comic_id):
     """Add a comic to the watchlist (background thread via importer)."""
-    # Strip CV prefix if present
     if comic_id.startswith("4050-"):
         comic_id = re.sub("4050-", "", comic_id).strip()
 
@@ -358,7 +342,6 @@ def add_comic(ctx, comic_id):
 
 def delete_comic(ctx, comic_id, delete_directory=False):
     """Delete a comic series with optional directory deletion."""
-    # Strip CV prefix if present
     if comic_id.startswith("4050-"):
         comic_id = re.sub("4050-", "", comic_id).strip()
 
@@ -381,9 +364,6 @@ def delete_comic(ctx, comic_id, delete_directory=False):
                     "error": "Unable to safely delete the directory for ComicID: %s" % comic_id,
                 }
 
-            # Remove the requested path before its database rows. This
-            # preserves a recoverable watchlist entry when filesystem removal
-            # fails; the database helper owns a separate atomic transaction.
             if os.path.lexists(comic_location):
                 action = _remove_comic_location(comic_location)
                 if action == "skipped":
@@ -436,7 +416,6 @@ def update_search_settings(
 
     values = {}
     if allow_packs is not None:
-        # Text column read as == 1 / == "1" by search.py — store "1"/"0".
         values["AllowPacks"] = "1" if allow_packs else "0"
     if ignore_type is not None:
         values["IgnoreType"] = 1 if ignore_type else 0
@@ -523,7 +502,6 @@ def refresh_comic(ctx, comic_id):
     """Refresh comic metadata in the background."""
     from comicarr import importer
 
-    # Support comma-separated list of IDs
     id_list = [cid.strip() for cid in comic_id.split(",") if cid.strip()]
 
     watch = []
@@ -563,11 +541,6 @@ def refresh_comic(ctx, comic_id):
         return {"success": False, "error": "Unable to refresh: %s" % str(e)}
 
     return {"success": True, "message": "Refresh submitted for %s" % comic_id}
-
-
-# ---------------------------------------------------------------------------
-# Issue management
-# ---------------------------------------------------------------------------
 
 
 def queue_issue(ctx, issue_id, audit_identity):
@@ -822,9 +795,6 @@ def search_all_missing(
     if not preview.get("success"):
         return preview
 
-    # A committed preview has already crossed the only mutation boundary.
-    # Let its owner retrieve the same run even if the current route becomes
-    # unavailable or the original selection is now Wanted/in-flight.
     if stored_preview["state"] == "accepted":
         try:
             result = confirm_preview(
@@ -954,7 +924,6 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
     from the latest search run item for that IssueID (or ``null`` when never
     searched). Membership filtering is unchanged.
     """
-    # Issues
     if limit is not None:
         paginated = series_queries.get_wanted_issues(limit=limit, offset=offset, search=search)
         result = {
@@ -971,23 +940,16 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
             "issues": _attach_wanted_acquisition_annotations(series_queries.get_wanted_issues(search=search)),
         }
 
-    # Story arcs
     if include_story_arcs:
         upcoming_storyarcs = getattr(ctx.config, "UPCOMING_STORYARCS", False) if ctx.config else False
         if upcoming_storyarcs:
             result["story_arcs"] = _attach_wanted_acquisition_annotations(series_queries.get_wanted_storyarc_issues())
 
-    # Annuals
     annuals_on = getattr(ctx.config, "ANNUALS_ON", False) if ctx.config else False
     if annuals_on:
         result["annuals"] = _attach_wanted_acquisition_annotations(series_queries.get_wanted_annuals())
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# Import management
-# ---------------------------------------------------------------------------
 
 
 def get_import_pending(ctx, limit=50, offset=0, include_ignored=False):
@@ -1131,14 +1093,10 @@ def comic_scan_confirm(ctx, selected_ids, scan_id):
     return comicsync.import_selected_series(selected_ids, scan_id)
 
 
-# --- Extracted from helpers.py ---
-
-
 def ComicSort(comicorder=None, sequence=None, imported=None):
     from sqlalchemy import select
 
     if sequence:
-        # if it's on startup, load the sql into a tuple for use to avoid record-locking
         i = 0
         comicsort = db.select_all(select(comics).order_by(comics.c.ComicSortName))
         comicorderlist = []
@@ -1192,8 +1150,6 @@ def ComicSort(comicorder=None, sequence=None, imported=None):
                 comicarr.COMICSORT["LastOrderID"] = 99999
             return
     else:
-        # for new series adds, we already know the comicid, so we set the sortorder to an abnormally high #
-        # we DO NOT write to the db to avoid record-locking.
         sortedapp = []
         if comicorder["LastOrderNo"] == "999":
             lastorderval = int(comicorder["LastOrderNo"]) + 1
@@ -1225,7 +1181,7 @@ def updateComicLocation():
                 u_comicnm = dl["ComicName"]
                 comicname_folder = filesafe(u_comicnm)
 
-                publisher = re.sub("!", "", dl["ComicPublisher"])  # thanks Boom!
+                publisher = re.sub("!", "", dl["ComicPublisher"])
                 year = dl["ComicYear"]
 
                 if dl["Corrected_Type"] is not None:
@@ -1380,7 +1336,6 @@ def havetotals(refreshit=None):
 
     from comicarr.helpers import today
 
-    # Return cached result if fresh (< 30s) and not a single-comic refresh
     now = time.monotonic()
     if _havetotals_cache is not None and (now - _havetotals_cache_time) < 30 and not refreshit:
         return _havetotals_cache
@@ -1656,7 +1611,6 @@ def listLibrary(comicid=None):
                 library[name_key] = {"comicid": row["ComicID"], "status": row["Status"]}
         except Exception:
             pass
-        # Cross-index by MAL and MangaDex IDs for cross-provider haveit detection
         try:
             mal_id = row.get("MalID")
             if mal_id:
@@ -1841,10 +1795,10 @@ def latestdate_fix():
             if latestdate[8:] == "":
                 if len(latestdate) <= 7:
                     finddash = latestdate.find("-")
-                    if finddash != 4:  # format of mm-yyyy
+                    if finddash != 4:
                         lat_month = latestdate[:finddash]
                         lat_year = latestdate[finddash + 1 :]
-                    else:  # format of yyyy-mm
+                    else:
                         lat_month = latestdate[finddash + 1 :]
                         lat_year = latestdate[:finddash]
 

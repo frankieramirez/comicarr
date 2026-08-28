@@ -39,9 +39,6 @@ export function DataTable<TData extends RowData>({
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  // Sticky per-cell rather than on <thead>: the page scrolls
-                  // the table body now, and an opaque background is needed so
-                  // rows do not show through the header as they pass under it.
                   className="sticky top-0 z-10 bg-background px-5 py-2 font-mono text-[10px] font-normal text-muted-foreground/70 uppercase tracking-wider"
                   style={
                     header.column.getSize() !== 150

@@ -88,11 +88,7 @@ class FileHandlers(object):
             self.arcid = None
 
     def folder_create(self, booktype=None, update_loc=None, secondary=None, imprint=None):
-        # dictionary needs to passed called comic with
-        #  {'ComicPublisher', 'Corrected_Type, 'Type', 'ComicYear', 'ComicName', 'ComicVersion'}
-        # or pass in comicid value from __init__
 
-        # setup default location here
         if update_loc is not None:
             comic_location = update_loc["temppath"]
             enforce_format = update_loc["tempff"]
@@ -106,7 +102,7 @@ class FileHandlers(object):
         if folder_format is None:
             folder_format = "$Series ($Year)"
 
-        publisher = re.sub("!", "", self.comic["ComicPublisher"])  # thanks Boom!
+        publisher = re.sub("!", "", self.comic["ComicPublisher"])
         publisher = helpers.filesafe(publisher)
 
         if comicarr.OS_DETECT == "Windows":
@@ -121,7 +117,6 @@ class FileHandlers(object):
                 publisher = publisher[:-1]
 
         u_comicnm = self.comic["ComicName"]
-        # let's remove the non-standard characters here that will break filenaming / searching.
         comicname_filesafe = helpers.filesafe(u_comicnm)
         comicdir = comicname_filesafe
 
@@ -168,7 +163,6 @@ class FileHandlers(object):
             if comicVol is None:
                 comicVol = "None"
 
-        # if comversion is None, remove it so it doesn't populate with 'None'
         if comicVol == "None":
             chunk_f_f = re.sub(r"\$VolumeN", "", chunk_folder_format)
             chunk_f = re.compile(r"\s+")
@@ -197,10 +191,6 @@ class FileHandlers(object):
 
         chunk_folder_format = re.sub(r"\s+", " ", chunk_folder_format)
 
-        # if the path contains // in linux it will incorrectly parse things out.
-        # logger.fdebug('newPath: %s' % re.sub('//', '/', chunk_folder_format).strip())
-
-        # do work to generate folder path
         values = {
             "$Series": series,
             "$Publisher": publisher,
@@ -214,7 +204,6 @@ class FileHandlers(object):
         }
 
         if update_loc is not None:
-            # set the paths here with the seperator removed allowing for cross-platform altering.
             ccdir = pathlib.PurePath(comic_location)
             ddir = pathlib.PurePath(comicarr.CONFIG.DESTINATION_DIR)
             dlc = pathlib.PurePath(self.comic["ComicLocation"])
@@ -228,7 +217,7 @@ class FileHandlers(object):
                         continue
                     else:
                         bb.append(dlc.parts[i])
-                        i += 1  # print('d.parts: %s' % ccdir.parts[i])
+                        i += 1
                 except IndexError:
                     bb.append(dlc.parts[i])
                     i += 1
@@ -236,9 +225,6 @@ class FileHandlers(object):
             try:
                 com_base = pathlib.PurePath(dlc).relative_to(ddir)
             except ValueError:
-                # if the original path is not located in the same path as the ComicLocation (destination_dir).
-                # this can happen when manually altered to a new path, or thru various changes to the ComicLocation path over time.
-                # ie. ValueError: '/mnt/Comics/Death of Wolverine The Logan Legacy-(2014)' does not start with '/mnt/mediavg/Comics/Comics-2'
                 dir_fix = []
                 dir_parts = pathlib.PurePath(dlc).parts
                 for dp in dir_parts:
@@ -269,10 +255,6 @@ class FileHandlers(object):
                         newpath = os.path.join(spath, dir_parts[t])
                         t += 1
                     com_base = newpath
-                    # path_convert = False
-            # print('com_base: %s' % com_base)
-            # detect comiclocation path based on OS so that the path seperators are correct
-            # have to figure out how to determine OS of original location...
             if comicarr.OS_DETECT == "Windows":
                 p_path = pathlib.PureWindowsPath(ccdir)
             else:
@@ -280,7 +262,6 @@ class FileHandlers(object):
             if enforce_format is True:
                 first = helpers.replace_all(chunk_folder_format, values)
                 if comicarr.CONFIG.REPLACE_SPACES:
-                    # comicarr.CONFIG.REPLACE_CHAR ...determines what to replace spaces with underscore or dot
                     first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
                 comlocation = str(p_path.joinpath(first))
             else:
@@ -306,41 +287,17 @@ class FileHandlers(object):
             bb2 = bb[0]
             bb.pop(0)
             bb_tuple = pathlib.PurePath(os.path.sep.join(bb))
-            # logger.fdebug('bb_tuple: %s' % bb_tuple)
             if comicarr.OS_DETECT == "Windows":
                 p_path = pathlib.PureWindowsPath(pathlib.PurePath(bb2).joinpath(bb_tuple))
             else:
                 p_path = pathlib.PurePosixPath(pathlib.PurePath(bb2).joinpath(bb_tuple))
 
-            # logger.fdebug('p_path: %s' % p_path)
-
             first = helpers.replace_all(chunk_folder_format, values)
-            # logger.fdebug('first-1: %s' % first)
 
             if comicarr.CONFIG.REPLACE_SPACES:
                 first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
-            # logger.fdebug('first-2: %s' % first)
             comlocation = str(p_path.joinpath(first))
             com_parentdir = str(p_path.joinpath(first).parent)
-            # logger.fdebug('comlocation: %s' % comlocation)
-
-            # try:
-            #    if folder_format == '':
-            #        #comlocation = pathlib.PurePath(comiclocation).joinpath(comicdir, '(%s)') % comic['SeriesYear']
-            #        comlocation = os.path.join(comic_location, comicdir, " (" + comic['SeriesYear'] + ")")
-            #    else:
-            # except TypeError as e:
-            #    if comic_location is None:
-            #        logger.error('[ERROR] %s' % e)
-            #        logger.error('No Comic Location specified. This NEEDS to be set before anything can be added successfully.')
-            #        return
-            #    else:
-            #        logger.error('[ERROR] %s' % e)
-            #        return
-            # except Exception as e:
-            #    logger.error('[ERROR] %s' % e)
-            #    logger.error('Cannot determine Comic Location path properly. Check your Comic Location and Folder Format for any errors.')
-            #    return
 
             if comlocation == "":
                 logger.error("There is no Comic Location Path specified - please specify one in Config/Web Interface.")
@@ -349,7 +306,6 @@ class FileHandlers(object):
             return {"comlocation": comlocation, "subpath": bb_tuple, "com_parentdir": com_parentdir}
 
     def series_folder_collision_detection(self, comlocation, comicid, booktype, comicyear, volume):
-        # Use ilike for portable case-insensitive LIKE matching
         stmt = select(comics).where(
             comics.c.ComicLocation.ilike("%" + comlocation + "%") & (comics.c.ComicID != comicid)
         )
@@ -377,7 +333,6 @@ class FileHandlers(object):
                     elif "$Volume" not in tmp_ff:
                         logger.fdebug("[SERIES_FOLDER_COLLISION_DETECTION] Trying to rename using Volume declaration.")
                         volume_choice = "$VolumeY"
-                        # use volume instead of ck['ComicVersion'] since volume has already had changes applied in other module
                         if volumeyear is False:
                             if volume is None:
                                 volume_choice = "$VolumeY"
@@ -414,10 +369,8 @@ class FileHandlers(object):
         logger.fdebug("tryit_response: %s" % (tryit,))
         return tryit
 
-    def rename_file(
-        self, ofilename, issue=None, annualize=None, arc=False, file_format=None
-    ):  # comicname, issue, comicyear=None, issueid=None)
-        comicid = self.comicid  # it's coming in unicoded...
+    def rename_file(self, ofilename, issue=None, annualize=None, arc=False, file_format=None):
+        comicid = self.comicid
         issueid = self.issueid
 
         if file_format is None:
@@ -432,7 +385,6 @@ class FileHandlers(object):
         if issueid is None:
             logger.fdebug("annualize is " + str(annualize))
             if arc:
-                # this has to be adjusted to be able to include story arc issues that span multiple arcs
                 chkissue = db.select_one(
                     select(storyarcs).where((storyarcs.c.ComicID == comicid) & (storyarcs.c.IssueNumber == issue))
                 )
@@ -446,7 +398,6 @@ class FileHandlers(object):
                     )
 
             if chkissue is None:
-                # rechk chkissue against int value of issue #
                 if arc:
                     chkissue = db.select_one(
                         select(storyarcs).where(
@@ -475,7 +426,6 @@ class FileHandlers(object):
             else:
                 issueid = chkissue["IssueID"]
 
-        # use issueid to get publisher, series, year, issue number
         logger.fdebug("issueid is now : " + str(issueid))
         if arc:
             issueinfo = db.select_one(
@@ -502,13 +452,12 @@ class FileHandlers(object):
             logger.fdebug("Unable to rename - cannot locate issue id within db")
             return
 
-        # remap the variables to a common factor.
         if arc:
             issuenum = issueinfo["IssueNumber"]
             issuedate = issueinfo["IssueDate"]
             publisher = issueinfo["IssuePublisher"]
             series = issueinfo["ComicName"]
-            seriesfilename = series  # Alternate FileNaming is not available with story arcs.
+            seriesfilename = series
             seriesyear = issueinfo["SeriesYear"]
             arcdir = helpers.filesafe(issueinfo["StoryArc"])
             if comicarr.CONFIG.REPLACE_SPACES:
@@ -524,7 +473,7 @@ class FileHandlers(object):
                 storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.GRABBAG_DIR)
 
             comlocation = storyarcd
-            comversion = None  # need to populate this.
+            comversion = None
 
         else:
             issuenum = issueinfo["Issue_Number"]
@@ -554,8 +503,6 @@ class FileHandlers(object):
             issuenum = x[0]
             logger.fdebug("issue number formatted: %s" % issuenum)
 
-        # comicid = issueinfo['ComicID']
-        # issueno = str(issuenum).split('.')[0]
         issue_except = "None"
         valid_spaces = (".", "-")
         for issexcept in comicarr.ISSUE_EXCEPTIONS:
@@ -568,12 +515,9 @@ class FileHandlers(object):
                 else:
                     logger.fdebug("character space not denoted.")
                     iss_space = ""
-                #                    if issexcept == 'INH':
-                #                       issue_except = '.INH'
                 if issexcept == "NOW":
                     if "!" in issuenum:
                         issuenum = re.sub(r"\!", "", issuenum)
-                #                       issue_except = '.NOW'
 
                 issue_except = iss_space + issexcept
                 logger.fdebug("issue_except denoted as : %s" % issue_except)
@@ -583,18 +527,6 @@ class FileHandlers(object):
                         issuenum = issue_except
                 break
 
-        #            if 'au' in issuenum.lower() and issuenum[:1].isdigit():
-        #                issue_except = ' AU'
-        #            elif 'ai' in issuenum.lower() and issuenum[:1].isdigit():
-        #                issuenum = re.sub("[^0-9]", "", issuenum)
-        #                issue_except = ' AI'
-        #            elif 'inh' in issuenum.lower() and issuenum[:1].isdigit():
-        #                issuenum = re.sub("[^0-9]", "", issuenum)
-        #                issue_except = '.INH'
-        #            elif 'now' in issuenum.lower() and issuenum[:1].isdigit():
-        #                if '!' in issuenum: issuenum = re.sub('\!', '', issuenum)
-        #                issuenum = re.sub("[^0-9]", "", issuenum)
-        #                issue_except = '.NOW'
         if "." in issuenum:
             iss_find = issuenum.find(".")
             iss_b4dec = issuenum[:iss_find]
@@ -618,7 +550,6 @@ class FileHandlers(object):
         else:
             iss = issuenum
             issueno = iss
-        # issue zero-suppression here
         if comicarr.CONFIG.ZERO_LEVEL is False:
             zeroadd = ""
         else:
@@ -638,7 +569,6 @@ class FileHandlers(object):
         else:
             try:
                 x = float(issuenum)
-                # validity check
                 if x < 0:
                     logger.info("I've encountered a negative issue #: %s. Trying to accomodate." % issueno)
                     prettycomiss = "-" + str(zeroadd) + str(issueno[1:])
@@ -657,9 +587,6 @@ class FileHandlers(object):
                 return
 
         if all([prettycomiss is None, len(str(issueno)) > 0]):
-            # if int(issueno) < 0:
-            #    self._log("issue detected is a negative")
-            #    prettycomiss = '-' + str(zeroadd) + str(abs(issueno))
             if int(issueno) < 10:
                 logger.fdebug("issue detected less than 10")
                 if "." in iss:
@@ -761,7 +688,6 @@ class FileHandlers(object):
         if any([comversion is None, booktype != "Print"]):
             comversion = "None"
 
-        # if comversion is None, remove it so it doesn't populate with 'None'
         if comversion == "None":
             chunk_f_f = re.sub(r"\$VolumeN", "", chunk_file_format)
             chunk_f = re.compile(r"\s+")
@@ -780,16 +706,12 @@ class FileHandlers(object):
             logger.fdebug("chunk_file_format is: " + str(chunk_file_format))
             if comicarr.CONFIG.ANNUALS_ON:
                 if "annual" in series.lower():
-                    if "$Annual" not in chunk_file_format:  # and 'annual' not in ofilename.lower():
-                        # if it's an annual, but $annual isn't specified in file_format, we need to
-                        # force it in there, by default in the format of $Annual $Issue
-                        # prettycomiss = "Annual " + str(prettycomiss)
+                    if "$Annual" not in chunk_file_format:
                         logger.fdebug(
                             "[%s][ANNUALS-ON][ANNUAL IN SERIES][NO ANNUAL FORMAT] prettycomiss: %s"
                             % (series, prettycomiss)
                         )
                     else:
-                        # because it exists within title, strip it then use formatting tag for placement of wording.
                         chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
                         chunk_f = re.compile(r"\s+")
                         chunk_file_format = chunk_f.sub(" ", chunk_f_f)
@@ -798,9 +720,7 @@ class FileHandlers(object):
                             % (series, prettycomiss)
                         )
                 else:
-                    if "$Annual" not in chunk_file_format:  # and 'annual' not in ofilename.lower():
-                        # if it's an annual, but $annual isn't specified in file_format, we need to
-                        # force it in there, by default in the format of $Annual $Issue
+                    if "$Annual" not in chunk_file_format:
                         prettycomiss = "Annual %s" % prettycomiss
                         logger.fdebug(
                             "[%s][ANNUALS-ON][ANNUAL NOT IN SERIES][NO ANNUAL FORMAT] prettycomiss: %s"
@@ -813,19 +733,13 @@ class FileHandlers(object):
                         )
 
             else:
-                # if annuals aren't enabled, then annuals are being tracked as independent series.
-                # annualize will be true since it's an annual in the seriesname.
                 if "annual" in series.lower():
-                    if "$Annual" not in chunk_file_format:  # and 'annual' not in ofilename.lower():
-                        # if it's an annual, but $annual isn't specified in file_format, we need to
-                        # force it in there, by default in the format of $Annual $Issue
-                        # prettycomiss = "Annual " + str(prettycomiss)
+                    if "$Annual" not in chunk_file_format:
                         logger.fdebug(
                             "[%s][ANNUALS-OFF][ANNUAL IN SERIES][NO ANNUAL FORMAT] prettycomiss: %s"
                             % (series, prettycomiss)
                         )
                     else:
-                        # because it exists within title, strip it then use formatting tag for placement of wording.
                         chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
                         chunk_f = re.compile(r"\s+")
                         chunk_file_format = chunk_f.sub(" ", chunk_f_f)
@@ -834,9 +748,7 @@ class FileHandlers(object):
                             % (series, prettycomiss)
                         )
                 else:
-                    if "$Annual" not in chunk_file_format:  # and 'annual' not in ofilename.lower():
-                        # if it's an annual, but $annual isn't specified in file_format, we need to
-                        # force it in there, by default in the format of $Annual $Issue
+                    if "$Annual" not in chunk_file_format:
                         prettycomiss = "Annual %s" % prettycomiss
                         logger.fdebug(
                             "[%s][ANNUALS-OFF][ANNUAL NOT IN SERIES][NO ANNUAL FORMAT] prettycomiss: %s"
@@ -850,7 +762,7 @@ class FileHandlers(object):
 
                 logger.fdebug("Annual detected within series title of " + series + ". Not auto-correcting issue #")
 
-        seriesfilename = seriesfilename  # .encode('ascii', 'ignore').strip()
+        seriesfilename = seriesfilename
         filebad = [
             ":",
             ",",
@@ -860,7 +772,7 @@ class FileHandlers(object):
             "'",
             '"',
             r"\*",
-        ]  # in u_comicname or '/' in u_comicname or ',' in u_comicname or '?' in u_comicname:
+        ]
         for dbd in filebad:
             if dbd in seriesfilename:
                 if any([dbd == "/", dbd == "*"]):
@@ -894,7 +806,6 @@ class FileHandlers(object):
 
         if file_format == "":
             logger.fdebug("Rename Files is not enabled - keeping original filename.")
-            # check if extension is in nzb_name - will screw up otherwise
             if ofilename.lower().endswith(extensions):
                 nfilename = ofilename[:-4]
             else:
@@ -903,7 +814,6 @@ class FileHandlers(object):
             chunk_file_format = re.sub("[()|[]]", "", chunk_file_format).strip()
             nfilename = helpers.replace_all(chunk_file_format, file_values)
             if comicarr.CONFIG.REPLACE_SPACES:
-                # comicarr.CONFIG.REPLACE_CHAR ...determines what to replace spaces with underscore or dot
                 nfilename = nfilename.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
 
         nfilename = re.sub(r"[\,\:]", "", nfilename) + ext.lower()
@@ -948,11 +858,10 @@ class FileHandlers(object):
 
         logger.info("check_folder_cache: %s" % (comicarr.CHECK_FOLDER_CACHE))
         if comicarr.CHECK_FOLDER_CACHE is not None:
-            rd = comicarr.CHECK_FOLDER_CACHE  # datetime.datetime.utcfromtimestamp(comicarr.CHECK_FOLDER_CACHE)
-            rd_mins = rd + datetime.timedelta(seconds=600)  # 10 minute cache retention
+            rd = comicarr.CHECK_FOLDER_CACHE
+            rd_mins = rd + datetime.timedelta(seconds=600)
             rd_now = datetime.datetime.utcfromtimestamp(time.time())
             if calendar.timegm(rd_mins.utctimetuple()) > calendar.timegm(rd_now.utctimetuple()):
-                # if < 10 minutes since last check, use cached listing
                 logger.info("using cached folder listing since < 10 minutes since last file check.")
                 filelist = comicarr.FOLDER_CACHE
 
@@ -988,7 +897,6 @@ class FileHandlers(object):
                 self.issue["IssueName"]
                 self.issue["Status"]
             else:
-                # weekly - (one/off)
                 comicname = self.weekly["COMIC"]
                 booktype = self.weekly["format"]
                 corrected_type = None
@@ -1018,7 +926,6 @@ class FileHandlers(object):
 
             logger.info("watchmatch: %s" % (watchmatch,))
 
-            # this is all for a really general type of match - if passed, the post-processing checks will do the real brunt work
             if watchmatch["process_status"] == "fail":
                 continue
 
@@ -1053,22 +960,5 @@ class FileHandlers(object):
                     filepath = os.path.join(watchmatch["comiclocation"], watchmatch["sub"])
                     filename = watchmatch["comicfilename"]
                 break
-
-        # if local_status is True:
-        # try:
-        #    copied_folder = os.path.join(comicarr.CONFIG.CACHE_DIR, 'tmp_filer')
-        #    if os.path.exists(copied_folder):
-        #        shutil.rmtree(copied_folder)
-        #    os.mkdir(copied_folder)
-        #    logger.info('created temp directory: %s' % copied_folder)
-        #    shutil.copy(os.path.join(filepath, filename), copied_folder)
-
-        # except Exception as e:
-        #    logger.error('[%s] error: %s' % (e, filepath))
-        #    filepath = None
-        #    local_status = False
-        # else:
-        # filepath = os.path.join(copied_folder, filename)
-        # logger.info('Successfully copied file : %s' % filepath)
 
         return {"status": local_status, "filename": filename, "filepath": filepath}

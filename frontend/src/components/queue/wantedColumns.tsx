@@ -111,8 +111,6 @@ export function useWantedColumns() {
         columnHelper.display({
           id: "acquisition",
           header: "Status",
-          // Membership is always Wanted on this page; Status shows the live-
-          // sticky acquisition annotation from the latest search run item (#490).
           cell: ({ row }) => {
             const label = formatWantedAcquisitionAnnotation(
               row.original.acquisition,

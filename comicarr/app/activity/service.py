@@ -17,7 +17,6 @@ from comicarr.app.attention import PREVIEW_CAP, Scope, read
 from comicarr.app.attention._serialization import serialize_view
 from comicarr.app.downloads import journal
 
-# Deprecated local alias for the canonical Attention preview cap.
 ATTENTION_PREVIEW_CAP = PREVIEW_CAP
 
 

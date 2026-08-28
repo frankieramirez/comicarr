@@ -31,8 +31,8 @@ class ComicVineRateLimiter:
         Args:
             calls_per_second (float): Maximum calls per second (default 0.5 = 1 call per 2 seconds)
         """
-        self.rate = calls_per_second  # Tokens added per second
-        self.tokens = 1.0  # Start with 1 token available
+        self.rate = calls_per_second
+        self.tokens = 1.0
         self.last_update = time.time()
         self.lock = threading.Lock()
 
@@ -49,16 +49,13 @@ class ComicVineRateLimiter:
             now = time.time()
             elapsed = now - self.last_update
 
-            # Add tokens based on elapsed time, up to maximum of 1.0
             self.tokens = min(1.0, self.tokens + elapsed * self.rate)
             self.last_update = now
 
             if self.tokens >= 1.0:
-                # Token available, proceed immediately
                 self.tokens -= 1.0
-                return  # No wait needed
+                return
             else:
-                # Need to wait for token to accumulate
                 wait_time = (1.0 - self.tokens) / self.rate
                 self.tokens = 0
                 time.sleep(wait_time)

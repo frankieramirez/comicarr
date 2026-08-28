@@ -67,7 +67,6 @@ function isTerminal(event: TimelineEvent): boolean {
     return RUN_TERMINALS.has(cellOf(event));
   }
   if (ISSUE_TERMINALS.has(cellOf(event))) return true;
-  // Non-normal severity that is not an advance always closes (#428 trouble rule).
   return severityOf(String(event.status)) === "action_required";
 }
 
@@ -83,7 +82,6 @@ export function buildFeed(events: TimelineEvent[]): FeedNode[] {
   const ascending = [...events].sort((a, b) => {
     if (a.created_at < b.created_at) return -1;
     if (a.created_at > b.created_at) return 1;
-    // Stable tie-break: lower event_id first when both are numeric-ish.
     return String(a.event_id).localeCompare(String(b.event_id), undefined, {
       numeric: true,
     });
@@ -122,12 +120,10 @@ export function buildFeed(events: TimelineEvent[]): FeedNode[] {
       continue;
     }
 
-    // Not an advance and no open story: plain row (group of one).
     story.closer = event;
     nodes.push(story);
   }
 
-  // Newest stories first; position is opening created_at (never re-sorted by closer).
   return nodes.sort((a, b) => {
     if (a.opened_at < b.opened_at) return 1;
     if (a.opened_at > b.opened_at) return -1;

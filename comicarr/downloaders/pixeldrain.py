@@ -52,7 +52,7 @@ class PixelDrain(object):
 
         t = self.session.get(self.url, verify=True, headers=self.headers, stream=True, timeout=(30, 30))
 
-        file_id = os.path.basename(urllib.parse.unquote(t.url))  # .decode('utf-8'))
+        file_id = os.path.basename(urllib.parse.unquote(t.url))
         logger.fdebug(t.url)
         logger.fdebug(t)
         logger.fdebug("[PixelDrain] file_id: %s" % file_id)
@@ -80,7 +80,6 @@ class PixelDrain(object):
                     "can_dl": info["can_download"],
                 }
         else:
-            # should return null here - unobtainable link.
             file_info = None
             file_error = "not found"
 
@@ -88,7 +87,6 @@ class PixelDrain(object):
             logger.warn("[PIXELDRAIN] Unable to retrieve remote link - %s" % file_error)
             return {"success": False, "filename": None, "path": None, "link_type_failure": "GC-Pixel"}
 
-        # write the filename to the db for tracking purposes...
         logger.info("[PixelDrain] Writing to db: %s [%s]" % (file_info["filename"], file_info["filesize"]))
         db.upsert(
             "ddl_info",
@@ -114,7 +112,7 @@ class PixelDrain(object):
 
         db.upsert(
             "ddl_info",
-            {"tmp_filename": filename},  # tmp_filename should be all that's needed to be updated at this point...
+            {"tmp_filename": filename},
             {"ID": self.id},
         )
 

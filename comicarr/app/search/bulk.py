@@ -103,9 +103,6 @@ def selection_from_detail(detail):
                 "entity_type": entity_type,
                 "entity_id": str(entity_id),
                 "issue_number": row.get("number") or row.get("issueNumber") or row.get("Issue_Number"),
-                # The source snapshot is deliberately narrow and no secrets
-                # are accepted here. It supplies the CAS predicate that closes
-                # the gap between re-preview and durable confirmation.
                 "source": {
                     "status": row.get("legacyStatus"),
                     "intent": row.get("rawAcquisitionIntent"),
@@ -183,10 +180,6 @@ def _authorize_preview(row, *, actor, session_id, token, supplied_fingerprint, n
         raise SearchMissingConfirmationError("invalid bulk search preview token")
     if not hmac.compare_digest(str(supplied_fingerprint or ""), row["fingerprint"]):
         raise SearchMissingConfirmationError("bulk search preview fingerprint does not match")
-    # Confirmation is an idempotent operation. Once a preview has committed a
-    # durable run, a browser/network retry must be able to retrieve that run
-    # even after the short preview TTL. Expiry only governs the unconsumed
-    # permission to create a new mutation.
     if row["state"] != "accepted" and now > _now(datetime.datetime.fromisoformat(row["expires_at"])):
         raise SearchMissingConfirmationError("bulk search preview expired")
 

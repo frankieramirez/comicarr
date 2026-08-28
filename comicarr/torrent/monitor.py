@@ -33,9 +33,6 @@ import comicarr
 from comicarr import logger
 from comicarr.torrent.contracts import normalize_connection_result
 
-# Normalised keys every probe result carries when `found` is True. Clients that
-# cannot supply a field leave it None rather than omitting it, so callers can
-# read it unconditionally.
 _TORRENT_FIELDS = (
     "hash",
     "name",
@@ -65,14 +62,10 @@ def _found(torrent_hash, **fields):
     result = {"reachable": True, "found": True, "hash": torrent_hash}
     for key in _TORRENT_FIELDS:
         result.setdefault(key, fields.get(key))
-    # `hash` is itself a _TORRENT_FIELDS key and several adapters return their
-    # own copy of it, so the caller-supplied hash stays authoritative.
     result["hash"] = torrent_hash
     return result
 
 
-# TORRENT_DOWNLOADER value -> route. Mirrors the client map in
-# comicarr/app/search/health.py; 0 (watch folder) yields no identity to poll.
 _DOWNLOADER_ROUTES = {
     1: "utorrent",
     2: "rtorrent",
@@ -112,7 +105,6 @@ def configured_route():
         return "transmission"
     if comicarr.USE_UTORRENT:
         return "utorrent"
-    # Watch-folder handoff produces no client-side identity to poll.
     return None
 
 
@@ -152,11 +144,6 @@ def _probe_deluge(torrent_hash):
     if isinstance(conn, dict) and conn.get("status") is False:
         return unreachable(conn.get("error", "deluge did not connect"))
 
-    # deluge.get_torrent() catches every exception from core.get_torrent_status
-    # and returns False, so a daemon that dies after connect() succeeded is
-    # indistinguishable from a genuine miss. Ask the daemon whether it is still
-    # there before calling the torrent absent -- recovery treats absent as proof
-    # the download is gone and would mark a live torrent failed.
     info = client.get_torrent(torrent_hash)
     if not info:
         try:
@@ -172,7 +159,6 @@ def _probe_deluge(torrent_hash):
         name=info.get("name"),
         folder=folder,
         completed=bool(info.get("is_finished")),
-        # Deluge reports paths relative to save_path; callers want absolute.
         files=[_join(folder, path) for path in files],
         label=info.get("label"),
         total_filesize=info.get("total_size"),
@@ -197,8 +183,6 @@ def _probe_qbittorrent(torrent_hash):
     if isinstance(conn, dict) and conn.get("status") is False:
         return unreachable(conn.get("error", "qbittorrent did not connect"))
 
-    # get_torrent() hits /torrents/properties, which carries neither the name
-    # nor the progress. /torrents/info filtered by hash carries both.
     try:
         listing = client.conn.torrents(hashes=torrent_hash.lower())
     except Exception as e:
@@ -216,7 +200,6 @@ def _probe_qbittorrent(torrent_hash):
             if f.get("name")
         ]
     except Exception:
-        # The torrent is present; only the file list is unavailable.
         files = []
 
     return _found(
@@ -248,7 +231,6 @@ def _probe_transmission(torrent_hash):
     if isinstance(conn, dict) and conn.get("status") is False:
         return unreachable(conn.get("error", "transmission did not connect"))
 
-    # Two calls: find_torrent returns the vendor object, get_torrent maps it.
     torrent = client.find_torrent(torrent_hash)
     if not torrent:
         return absent(torrent_hash)
@@ -298,7 +280,6 @@ def _probe_utorrent(torrent_hash):
     info = client.get_torrent(torrent)
     if not info:
         return absent(torrent_hash)
-    # uTorrent reports no size, ratio or timing fields; they stay None.
     return _found(torrent_hash, **{k: info.get(k) for k in _TORRENT_FIELDS if k in info})
 
 
@@ -310,7 +291,6 @@ _PROBES = {
     "utorrent": _probe_utorrent,
 }
 
-# Clients exposing start/stop, used by the local post-processing copy path.
 PAUSABLE_ROUTES = frozenset({"deluge", "transmission", "utorrent"})
 
 
@@ -351,8 +331,6 @@ def _pause_credentials(route):
             comicarr.CONFIG.UTORRENT_USERNAME,
             comicarr.CONFIG.UTORRENT_PASSWORD,
         )
-    # A route added to PAUSABLE_ROUTES without wiring it here must fail loudly
-    # rather than quietly borrowing another client's credentials.
     return None
 
 

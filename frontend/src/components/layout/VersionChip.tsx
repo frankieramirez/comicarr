@@ -24,8 +24,6 @@ export default function VersionChip() {
   const behind = isUpdateBehind(status, data);
   const localLabel = formatAppVersion(false);
   const latest = data?.latest_version ?? null;
-  // Notes range: (local package, remote] — local CHANGELOG cannot list
-  // uninstalled versions; API may fill the remote from the update-check cache.
   const notesQuery = useReleaseNotes(APP_VERSION, latest, open && behind);
   const { copy, isCopied } = useCopyToClipboard();
 
@@ -54,7 +52,6 @@ export default function VersionChip() {
           behind
             ? "border-primary/50 text-foreground pr-3.5 hover:bg-primary/5"
             : "border-sidebar-border text-muted-foreground",
-          // Non-behind pill is not interactive.
           !behind && "pointer-events-none",
         )}
         aria-label={ariaLabel}
@@ -170,7 +167,6 @@ function NotesBody({
     );
   }
 
-  // Popover length: first section fully, cap total bullets across sections.
   const MAX_BULLETS = 6;
   let remaining = MAX_BULLETS;
   const shown: { version: string; bullets: string[] }[] = [];

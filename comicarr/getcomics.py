@@ -46,13 +46,10 @@ from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 
 class GC(object):
     def cookie_receipt(self, main_url=None):
-        # self.session_path = self.session_path if self.session_path is not None else os.path.join(comicarr.CONFIG.SECURE_DIR, ".gc_cookies.dat")
 
-        # if main_url is not None, it's being passed via the test on the config page.
         flare_test = False
         if main_url is None:
             if comicarr.CONFIG.ENABLE_FLARESOLVERR:
-                # (ie. http://192.168.2.2:8191/v1 )
                 main_url = comicarr.CONFIG.FLARESOLVERR_URL
             else:
                 main_url = comicarr.GC_URL
@@ -63,7 +60,6 @@ class GC(object):
         if not os.path.exists(self.session_path):
             if any([comicarr.CONFIG.ENABLE_FLARESOLVERR, flare_test is True]):
                 logger.fdebug("[GC_Cookie_Creator] GetComics Session cookie does not exist. Attempting to create.")
-                # get the coookies here for use down-below
                 get_cookies = self.session.post(
                     main_url,
                     json={"url": comicarr.GC_URL, "cmd": "request.get"},
@@ -85,31 +81,7 @@ class GC(object):
                             self.session.cookies.set(name=c["name"], value=c["value"])
                         test_success = True
             else:
-                # if flaresolverr isn't used and the cookies file doesn't already exist
-                #  - no need to store cookies since they're empty normally.
-                #  - if GC starts to send it with the headers, then we can enable this
                 pass
-                # get_cookies = self.session.get(
-                #              main_url,
-                #              verify=True,
-                #              headers=self.headers,
-                #              timeout=30,
-                #              )
-                # if get_cookies.status_code == 200:
-                #    try:
-                #        gc_cookie = get_cookies.cookies.get_dict()
-                #        with open(self.session_path, 'w') as f:
-                #            json.dump(gc_cookie, f)
-                #    except Exception as e:
-                #        logger.warn('[GC_Cookie_Saver] Unable to save cookie to file - will try to recreate later. Error: %s' % e)
-                #        if os.path.isfile(self.session_path):
-                #            os.remove(self.session_path)
-                #    else:
-                #        if gc_cookie is not None:
-                #            logger.fdebug('[GC_Cookie_Saver] Successfully saved cookie to file.')
-                #            for c in gc_cookie:
-                #               self.session.cookies.set(name=c['name'], value=c['value'])
-                #        test_success = True
 
         else:
             logger.fdebug("[GC_Cookie_Loader] GetComics Session cookie found. Attempting to load...")
@@ -119,7 +91,6 @@ class GC(object):
                     for c in gc_load:
                         self.session.cookies.set(name=c["name"], value=c["value"])
             except Exception:
-                # logger.warn('[GC_Cookie_Loader] Unable to load cookie from file - will recreate. Error: %s' % e)
                 if os.path.isfile(self.session_path):
                     os.remove(self.session_path)
             else:
@@ -151,7 +122,7 @@ class GC(object):
 
         self.url = comicarr.GC_URL
 
-        self.query = query  # {'comicname', 'issue', year'}
+        self.query = query
 
         self.comicid = comicid
 
@@ -188,8 +159,6 @@ class GC(object):
                     logger.debug("setting no issue number query to be first due to no issue number")
 
             if comicarr.CONFIG.PACK_PRIORITY:
-                # t_sf = self.search_format.pop(len(self.search_format)-1) #pop the last search query ('%s %s')
-                # add it in 1st so that packs will get searched for (hopefully first)
                 self.search_format.insert(0, "%s %s" % (self.query["comicname"], self.query["year"]))
 
             for sf in self.search_format:
@@ -205,7 +174,6 @@ class GC(object):
                         sf_issue = None
                     if sf.count("%s") == 3:
                         if sf == self.search_format[1]:
-                            # don't modify the specific query that is around quotation marks.
                             if any([r"/" in self.query["comicname"], r":" in self.query["comicname"]]):
                                 self.query["comicname"] = re.sub(r"[/|:]", " ", self.query["comicname"])
                                 self.query["comicname"] = re.sub(r"\s+", " ", self.query["comicname"])
@@ -216,7 +184,6 @@ class GC(object):
                         else:
                             queryline = sf % (self.query["comicname"], sf_issue, self.query["year"])
                     else:
-                        # logger.fdebug('[%s] self.search_format: %s' % (len(self.search_format), sf))
                         if len(self.search_format) == 5 and sf == self.search_format[4]:
                             splits = sf.split(" ")
                             splits.pop(1)
@@ -224,7 +191,6 @@ class GC(object):
                         else:
                             sf_count = len([m.start() for m in re.finditer("(?=%s)", sf)])
                             if sf_count == 0:
-                                # this is the injected search format above that's already replaced values
                                 queryline = sf
                             elif sf_count == 2:
                                 queryline = sf % (self.query["comicname"], sf_issue)
@@ -261,8 +227,6 @@ class GC(object):
             if "Unable to identify Cloudflare IUAM" in str(err):
                 helpers.disable_provider("DDL", "Unable to identify Cloudflare IUAM Javascript on website")
 
-            # since we're capturing exceptions here, searches from the search module
-            # won't get capture. So we need to do this so they get tracked.
             exc_type, exc_value, exc_tb = sys.exc_info()
             filename, line_num, func_name, err_text = traceback.extract_tb(exc_tb)[-1]
             tracebackline = traceback.format_exc()
@@ -291,10 +255,8 @@ class GC(object):
             return "no results"
         else:
             if comicarr.CONFIG.PACK_PRIORITY is True:
-                # logger.fdebug('[PACK_PRIORITY:True] %s' % (sorted(verified_matches, key=itemgetter('pack'), reverse=True)))
                 return sorted(verified_matches, key=itemgetter("pack"), reverse=True)
             else:
-                # logger.fdebug('[PACK_PRIORITY:False] %s' % (sorted(verified_matches, key=itemgetter('pack'), reverse=False)))
                 return sorted(verified_matches, key=itemgetter("pack"), reverse=False)
 
     def loadsite(self, id, link):
@@ -303,12 +265,11 @@ class GC(object):
         logger.fdebug("now loading info from local html to resolve via url: %s" % link)
 
         self.cookie_receipt()
-        # logger.fdebug('session cookies: %s' % (self.session.cookies,))
         t = self.session.get(link, verify=True, headers=self.headers, stream=True, timeout=(30, 30))
 
         with open(title + ".html", "wb") as f:
             for chunk in t.iter_content(chunk_size=1024):
-                if chunk:  # filter out keep-alive new chunks
+                if chunk:
                     f.write(chunk)
                     f.flush()
 
@@ -317,9 +278,7 @@ class GC(object):
         seen_urls = set()
         while next_url is not None:
             pause_the_search = comicarr.CONFIG.DDL_QUERY_DELAY
-            diff = comicarr.search.check_time(
-                self.provider_stat["lastrun"]
-            )  # only limit the search queries - the other calls should be direct and not as intensive
+            diff = comicarr.search.check_time(self.provider_stat["lastrun"])
             if diff < pause_the_search:
                 logger.warn(
                     "[PROVIDER-SEARCH-DELAY][DDL] Waiting %s seconds before we fetch a search page again..."
@@ -336,7 +295,6 @@ class GC(object):
                 next_url + "/", params={"s": queryline}, verify=True, headers=self.headers, timeout=(30, 30)
             )
 
-            # Either comms problems with the page, dead link, or a cloudflare issue
             if gc_page.status_code != 200:
                 logger.warn(
                     f"Search request not returned by GetComics (Code:{gc_page.status_code}).  This may be a CloudFlare block."
@@ -360,21 +318,13 @@ class GC(object):
             self.provider_stat["lastrun"] = write_time
             page_results, next_url = self.parse_search_result(page_html, gc_page.status_code)
 
-            # logger.fdebug('page_results: %s' % page_results)
             for result in page_results:
                 if "Weekly" not in self.query.get("comicname", "") and "Weekly" in result.get("title", ""):
                     continue
                 if result["link"] in seen_urls:
                     continue
                 seen_urls.add(result["link"])
-                # if not comicarr.CONFIG.PACK_PRIORITY:
-                #    possible_choices.append(result)
-                # else:
                 yield result
-
-            # if not comicarr.CONFIG.PACK_PRIORITY and possible_choices:
-            #    logger.info('[pack-last choices] possible choices to check before page-loading next page..: %s' % possible_choices)
-            #    yield possible_choices
 
     def parse_search_result(self, page_html, status_code):
         resultlist = []
@@ -382,7 +332,6 @@ class GC(object):
 
         articles = soup.findAll("article")
         page_list = soup.find("ul", {"class": "page-numbers"})
-        # A single-page result has "NO MORE ARTICLES" instead of numbers
         page_no = total_pages = "1"
         if page_list is not None:
             page_numbers = page_list.find_all("li")
@@ -432,9 +381,6 @@ class GC(object):
             option_find = f.find("p", {"style": needle_style})
             i = 0
             if option_find is None:
-                # Some search results have the "option_find" HTML as escaped
-                # text instead of actual HTML: try to salvage a option_find in
-                # that case
                 excerpt = f.find("p", class_="post-excerpt")
                 if excerpt is not None and needle_style in excerpt.text:
                     option_find = BeautifulSoup(excerpt.text, "html.parser").find("p", {"style": needle_style})
@@ -552,7 +498,6 @@ class GC(object):
         beeswax = soup.findAll("p", {"style": "text-align: center;"})
         logger.info("[DDL-GATHERER-OF-LINKAGE] Now compiling release information & available links...")
         while True:
-            # logger.fdebug('count_bees: %s' % count_bees)
             try:
                 f = beeswax[count_bees]
                 option_find = beeswax[count_bees]
@@ -562,13 +507,11 @@ class GC(object):
                     valid_links[multiple_links].update({"links": gather_links})
                 break
 
-            # logger.fdebug('linkage: %s' % linkage)
             if not linkage:
                 linkage_test = f.text.strip()
                 if "support and donation" in linkage_test:
                     if looped_thru_once is False:
                         valid_links[multiple_links].update({"links": gather_links})
-                    # logger.fdebug('detected end of links - breaking out here...')
                     break
 
                 if looped_thru_once and all(
@@ -578,13 +521,11 @@ class GC(object):
                         "Size" in linkage_test,
                     ]
                 ):
-                    # logger.fdebug('detected headers of title - ignoring this portion...')
                     while True:
                         prev_option = option_find
                         option_find = option_find.findNext(text=True)
                         if i == 0 and series is None:
                             series = option_find
-                            # logger.fdebug('series: %s' % series)
                             if "upscaled" in series.lower():
                                 valid_links["HD-Upscaled"] = {
                                     "series": re.sub("(hd-upscaled)", "", series, re.IGNORECASE).strip()
@@ -601,10 +542,8 @@ class GC(object):
                                 }
                                 multiple_links = "HD-Digital"
                             else:
-                                # if no distinction btwn HD/SD and it's just one section...
                                 valid_links["normal"] = {"series": series}
                                 multiple_links = "normal"
-                            # logger.fdebug('valid_links : %s' % (valid_links))
                         elif "Year" in option_find:
                             year = option_find.findNext(text=True)
                             year = re.sub(r"\|", "", year).strip()
@@ -616,10 +555,9 @@ class GC(object):
                                 ]
                             ):
                                 valid_links[multiple_links].update({"year": year})
-                                # logger.fdebug('valid_links [%s] : %s' % (multiple_links, valid_links))
                         else:
                             if "Size" in prev_option:
-                                size = option_find  # .findNext(text=True)
+                                size = option_find
                                 possible_more = f.next_sibling
                                 if any(
                                     [
@@ -629,7 +567,6 @@ class GC(object):
                                     ]
                                 ):
                                     valid_links[multiple_links].update({"size": size})
-                                    # logger.fdebug('valid_links [%s] : %s' % (multiple_links, valid_links))
 
                                 looped_thru_once = False
                                 break
@@ -637,10 +574,7 @@ class GC(object):
 
             else:
                 lk = f.find("a")
-                # logger.fdebug('lk: %s' % lk)
-                # logger.fdebug('looped_thru_once: %s / lk[title]: %s' % (looped_thru_once, lk['title']))
                 if looped_thru_once is False and lk["title"] == "Read Online":
-                    # logger.fdebug('read online section discovered...bypassing and ignoring...')
                     valid_links[multiple_links].update({"links": gather_links})
                     looped_thru_once = True
                     gather_links = []
@@ -676,10 +610,8 @@ class GC(object):
                                     "pack": pack,
                                 }
                             )
-                            # logger.fdebug('gather_links so far: %s' % gather_links)
             count_bees += 1
 
-        # logger.fdebug('final valid_links: %s' % (valid_links))
         tmp_links = []
         tmp_sites = []
         site_position = {}
@@ -689,7 +621,6 @@ class GC(object):
         for k, y in valid_links.items():
             for a in y["links"]:
                 if k != "normal":
-                    # if it's HD-Upscaled / SD-Digital it needs to be handled differently than a straight DL link
                     if any([a["site"].lower() == "download now", a["site"].lower() == "mirror download"]):
                         d_site = "%s:%s" % (k, a["site"].lower())
                         tmp_a = a
@@ -741,7 +672,6 @@ class GC(object):
                         logger.fdebug("%s -- %s" % (d_site, a["series"]))
                         cntr += 1
 
-        # logger.fdebug('tmp_links: %s' % (tmp_links))
         logger.fdebug("tmp_sites: %s" % (tmp_sites))
         logger.fdebug("site_position: %s" % (site_position))
         link_types = ("HD-Upscaled", "SD-Digital", "HD-Digital")
@@ -763,7 +693,7 @@ class GC(object):
                 force_title = False
                 site_lp = ddlp
                 logger.fdebug("priority ddl enabled - checking %s" % site_lp)
-                if site_check:  # any([('HD-Upscaled', 'SD-Digital', 'HD-Digital') in tmp_sites]):
+                if site_check:
                     if comicarr.CONFIG.DDL_PREFER_UPSCALED:
                         if not link_matched and site_lp == "mega":
                             sub_site_chk = [y for y in tmp_sites if "mega" in y]
@@ -891,7 +821,6 @@ class GC(object):
                     if link_matched:
                         link = kk
                         series = link["series"]
-                        # logger.fdebug('link: %s' % link)
                 else:
                     if not link_matched and site_lp == "mega":
                         sub_site_chk = [y for y in tmp_sites if "mega" in y]
@@ -965,7 +894,6 @@ class GC(object):
                         continue
 
                     site = linkline.findNext(text=True)
-                    # logger.fdebug('servertype: %s' % (site))
 
                     if tmp:
                         if any(
@@ -979,7 +907,6 @@ class GC(object):
                             volume = x.findNext(text=True)
                             if "\u2013" in volume:
                                 volume = re.sub(r"\u2013", "-", volume)
-                            # volume label contains series, issue(s), year(s), and size
                             series_st = volume.find("(")
                             issues_st = volume.find("#")
                             series = volume[:series_st]
@@ -990,7 +917,6 @@ class GC(object):
                                 issues = volume[issues_st + 1 : series_st].strip()
                                 ver_check = self.pack_check(issues, packinfo)
                                 if ver_check is False:
-                                    # logger.fdebug('ver_check is False - ignoring')
                                     continue
 
                             if issues is None and any([booktype == "Print", booktype is None, booktype == "Digital"]):
@@ -1000,7 +926,6 @@ class GC(object):
                             size_end = volume.find(")", year_end + 1)
                             size = re.sub(r"[\(\)]", "", volume[year_end + 1 : size_end]).strip()
                             linked = linkline["href"]
-                            # site = linkline.findNext(text=True)
                             if site == "Main Server":
                                 links.append(
                                     {
@@ -1167,7 +1092,6 @@ class GC(object):
         }
 
     def downloadit(self, id, link, mainlink, resume=None, issueid=None, remote_filesize=0, link_type=None):
-        # logger.fdebug('[%s] %s -- mainlink: %s' % (id, link, mainlink))
         if "sh.st" in link:
             logger.fdebug(
                 "[Paywall-link detected] This is not a valid link, this should be requeued to search to gather all available links"
@@ -1250,7 +1174,6 @@ class GC(object):
                             remote_filesize = 0
                             return {"success": False, "filename": filename, "path": None, "link_type": link_type}
 
-                # write the filename to the db for tracking purposes...
                 db.upsert(
                     "ddl_info",
                     {"filename": filename, "remote_filesize": remote_filesize},
@@ -1336,15 +1259,12 @@ class GC(object):
 
         filename = series = title
 
-        # logger.fdebug('pack: %s' % pack)
         tpb = False
         gc_booktype = None
-        # see if it's a pack type
 
         volume_issues = None
         len(title)
 
-        # find the year
         year_check = re.search(r"(\d{4}-\d{4})", title, flags=re.I)
         if not year_check:
             year_check = re.findall(r"(\d{4})", title, flags=re.I)
@@ -1356,47 +1276,35 @@ class GC(object):
                             logger.fdebug("year: %s" % year)
                             break
             else:
-                # logger.fdebug('no year found within name...')
                 year = None
         else:
             year = year_check.group()
-            # logger.fdebug('year range: %s' % year)
 
         if year is not None:
             title = re.sub(year, "", title).strip()
             title = re.sub(r"\(\)", "", title).strip()
 
         issfind_st = title.find("#")
-        # logger.fdebug('issfind_st: %s' % issfind_st)
         if issfind_st != -1:
             issfind_en = title.find("-", issfind_st)
         else:
-            # if it's -1, odds are it's a range, so need to work back
             issfind_en = title.find("-")
-            # logger.fdebug('issfind_en: %s' % issfind_en)
-            # logger.fdebug('issfind_en-2: %s' % issfind_en -2)
             if title[issfind_en - 2].isdigit():
                 issfind_st = issfind_en - 2
-                # logger.fdebug('issfind_st: %s' % issfind_st)
-            # logger.fdebug('rfind: %s' % title.lower().rfind('vol'))
             if title.lower().rfind("vol") != -1:
-                # logger.fdebug('yes')
                 vol_find = title.lower().rfind("vol")
                 logger.fdebug("vol_find: %s" % vol_find)
-                if vol_find + 2 == issfind_st:  # vol 1 - 5
+                if vol_find + 2 == issfind_st:
                     issfind_st = vol_find + 3
-                if vol_find + 3 == issfind_st:  # vol. 1 - 5
+                if vol_find + 3 == issfind_st:
                     issfind_st = vol_find + 4
 
-        # logger.fdebug('issfind_en: %s' % issfind_en)
         if issfind_en != -1:
             if all([title[issfind_en + 1] == " ", title[issfind_en + 2].isdigit()]):
                 iss_en = title.find(" ", issfind_en + 2)
-                # logger.info('iss_en: %s [%s]' % (iss_en, title[iss_en +2]))
                 if iss_en == -1:
                     iss_en = len(title)
                 if iss_en != -1:
-                    # logger.info('issfind_st: %s' % issfind_st)
                     issues = title[issfind_st:iss_en]
                     if title.lower().rfind("vol") == issfind_st - 5 or title.lower().rfind("vol") == issfind_st - 4:
                         series = "%s %s" % (title[: title.lower().rfind("vol")].strip(), title[iss_en:].strip())
@@ -1413,7 +1321,6 @@ class GC(object):
                         else:
                             gc_booktype = "TPB/GN/HC/One-Shot"
                         tpb = True
-                    # else:
                     t1 = title.lower().rfind("volume")
                     vcheck = "volume"
                     if t1 == -1:
@@ -1423,10 +1330,7 @@ class GC(object):
                             t1 = title.lower().rfind("vol")
                             vcheck = "vol"
                     if t1 != -1:
-                        # logger.fdebug('vcheck: %s' % (len(vcheck)))
-                        # logger.fdebug('title.find: %s' % title.lower().find(' ', t1))
                         vv = title.lower().find(" ", title.lower().find(" ", t1) + 1)
-                        # logger.fdebug('vv: %s' % vv)
                         if tpb:
                             volume_label = title[t1 : t1 + len(vcheck)].strip()
                         else:
@@ -1441,14 +1345,8 @@ class GC(object):
                     issues = title[issfind_st + 1 : iss_en]
                     pack = True
 
-        # to handle packs that are denoted without a # sign being present.
-        # if there's a dash, check to see if both sides of the dash are numeric.
         logger.fdebug("pack: [%s] %s" % (type(pack), pack))
         if not pack and title.find("-") != -1:
-            # logger.fdebug('title: %s' % title)
-            # logger.fdebug('title[issfind_en+1]: %s' % title[issfind_en +1])
-            # logger.fdebug('title[issfind_en+2]: %s' % title[issfind_en +2])
-            # logger.fdebug('title[issfind_en-1]: %s' % title[issfind_en -1])
             if all(
                 [
                     title[issfind_en + 1] == " ",
@@ -1479,37 +1377,17 @@ class GC(object):
                     if title[set_sp:space_beforedash].strip().isdigit():
                         issues = title[set_sp:iss_end].strip()
                         pack = True
-        # if it's a pack - remove the issue-range and the possible issue years
-        # (cause it most likely will span) and pass thru as separate items
         if series is None:
             series = title
         if pack is True or pack is False:
-            # f_iss = series.find('#')
-            # if f_iss != -1:
-            #    series = '%s%s'.strip() % (title[:f_iss-1], title[f_iss+1:])
-            # series = re.sub(issues, '', series).strip()
-            # kill any brackets in the issue line here.
-            # issgggggggues = re.sub(r'[\(\)\[\]]', '', issues).strip()
-            # if series.endswith('#'):
-            #    series = series[:-1].strip()
-            # title += ' #1'  # we add this dummy value back in so the parser won't choke as we have the issue range stored already
-
-            # if year is not None:
-            #    title += ' (%s)' % year
             logger.fdebug("pack_check: %s/ title: %s" % (pack, title))
             if pack is False:
                 f_iss = title.find("#")
-                # logger.fdebug('f_iss: %s' % f_iss)
                 if f_iss != -1:
                     series = "%s".strip() % (title[: f_iss - 1])
-                    # logger.fdebug('changed_title: %s' % series)
-            # logger.fdebug('title: %s' % title)
             issues = r"%s" % issues
             title = re.sub(issues, "", title).strip()
-            # kill any brackets in the issue line here.
-            # logger.fdebug('issues-before: %s' % issues)
             issues = re.sub(r"[\(\)\[\]]", "", issues).strip()
-            # logger.fdebug('issues-after: %s' % issues)
             if series.endswith("#"):
                 series = series[:-1].strip()
 
@@ -1522,27 +1400,21 @@ class GC(object):
             pr = [x for x in self.pack_receipts if x in title]
             nott = title
             for x in pr:
-                # logger.fdebug('removing %s from %s' % (x, title))
                 try:
                     if x == "TPB":
                         if gc_booktype is None:
                             gc_booktype = "TPB"
                         tpb = True
-                    # may have to put HC/GN/One_shot in here as well...
                     if "Annual" in x:
                         annuals = True
                     if " &" in x and title.rfind(x) <= len(title) + 3:
                         x = title[title.rfind(x) :]
                     nt = nott.replace(x, "").strip()
-                    # logger.fdebug('[%s] new nott: %s' % (x, nott))
                 except Exception:
-                    # logger.warn('error: %s' % e)
                     pass
                 else:
                     nott = nt
 
-            # logger.fdebug('title: %s' % title)
-            # logger.fdebug('final nott: %s' % nott)
             if nott != title:
                 series = re.sub(r"\s+", " ", nott).strip()
                 series = re.sub(r"[\(\)\[\]]", "", series).strip()
@@ -1558,9 +1430,6 @@ class GC(object):
                     title = "%s #%s (%s)" % (title, self.query["issue"], self.query["year"])
             else:
                 title = series = filename
-                # if all([year is not None, year not in title]):
-                #    title += ' (%s)' % year
-            # logger.fdebug('final title: %s' % (title))
 
             if volume_label:
                 series = re.sub(volume_label, "", series, flags=re.I).strip()
@@ -1621,9 +1490,7 @@ class GC(object):
         return False
 
     def issue_list(self, pack):
-        # packlist = [x.strip() for x in pack.split(',)]
         packlist = pack.replace("+", " ").replace(",", " ").split()
-        # logger.fdebug(packlist)
         plist = []
         pack_issues = []
         for pl in packlist:
@@ -1644,11 +1511,3 @@ class GC(object):
 
         pack_issues.sort()
         logger.fdebug("pack_issues: %s" % pack_issues)
-
-
-# if __name__ == '__main__':
-#    ab = GC(sys.argv[1]) #'justice league aquaman') #sys.argv[0])
-#    #c = ab.search()
-#    b = ab.loadsite('test', sys.argv[2])
-#    c = ab.parse_downloadresults('test', '60MB')
-#    #c = ab.issue_list(sys.argv[2])

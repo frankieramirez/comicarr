@@ -101,7 +101,6 @@ class ThreadSafeLock:
         try:
             self._lock.release()
         except RuntimeError:
-            # Lock was not held - this is fine for backwards compatibility
             pass
 
     def locked(self):
@@ -119,15 +118,11 @@ class ThreadSafeLock:
         return False
 
 
-# these are the globals that are runtime-based (ie. not config-valued at all)
-# they are referenced in other modules just as comicarr.VARIABLE (instead of comicarr.CONFIG.VARIABLE)
 MINIMUM_PY_VERSION = "3.8.1"
 PROG_DIR = None
 DATA_DIR = None
 FULL_PATH = None
 MAINTENANCE = False
-# Acquisition-specific fail-closed state. Unlike legacy MAINTENANCE this
-# leaves the authenticated web/diagnostics process available.
 ACQUISITION_SCHEMA_READY = False
 ACQUISITION_SCHEMA_VERSION = 0
 ACQUISITION_SCHEMA_ERROR = "acquisition schema has not been verified"
@@ -142,7 +137,6 @@ SIGNAL = None
 SYS_ENCODING = None
 OS_DETECT = platform.system()
 USER_AGENT = None
-# VERBOSE = False
 DAEMON = False
 PIDFILE = None
 CREATEPID = False
@@ -321,7 +315,6 @@ UPDATE_VALUE = {}
 REQS = {}
 GC_URL = "https://getcomics.org"
 IMPRINT_MAPPING = {
-    # ComicVine: imprint.json
     "Homage Comics": "Homage",
     "Max Comics": "MAX",
     "Mailbu": "Malibu Comics",
@@ -496,14 +489,10 @@ def initialize(config_file):
         if _INITIALIZED:
             return False
 
-        # Initialize the database
         logger.info("Checking to see if the database has all tables....")
         try:
             dbcheck()
         except Exception as e:
-            # Keep the authenticated web diagnostics surface available, but
-            # leave the default fail-closed acquisition gate in place so no
-            # worker can start after an incomplete schema migration.
             diagnostic_error = _redact_diagnostic_error(e)
             comicarr.ACQUISITION_SCHEMA_READY = False
             comicarr.ACQUISITION_SCHEMA_ERROR = diagnostic_error
@@ -511,7 +500,6 @@ def initialize(config_file):
             comicarr.ACQUISITION_BLOCK_REASON = "schema_migration_failed"
             logger.error("[SCHEMA-MIGRATION] Worker startup blocked after migration failure: %s" % diagnostic_error)
         else:
-            # Check if database is empty and set startup flags
             try:
                 with sql_db() as conn:
                     row = conn.execute(text("SELECT COUNT(*) FROM comics")).first()
@@ -529,16 +517,11 @@ def initialize(config_file):
             if comicarr.MAINTENANCE is False:
                 cc.provider_sequence()
 
-            # quick check here to see if a previous db update failed.
             chk = maintenance.Maintenance(mode="db update")
             chk.check_failed_update()
 
-            # check to see if any db updates are required / new.
             chk.db_update_check()
 
-        # Keep the web process available for authenticated diagnostics even
-        # when only the acquisition schema/gate is unhealthy. Background
-        # acquisition startup remains fail-closed until this projection clears.
         try:
             from comicarr.app.acquisition.maintenance import refresh_runtime_state
 
@@ -548,21 +531,12 @@ def initialize(config_file):
             comicarr.ACQUISITION_BLOCK_REASON = "maintenance_gate_unavailable"
             logger.error("[ACQUISITION] Maintenance gate unavailable; workers remain blocked: %s" % e)
 
-        # set the flag here whether to start it up in maintenance mode or not.
-        # usually it will be based on if a field is present in the db or not.
         if comicarr.MAINTENANCE_UPDATE:
             comicarr.MAINTENANCE = True
 
         if MAINTENANCE is False:
             comicarr.config.ddl_creations()
 
-            # Host self-discovery (socket probe to 8.8.8.8 for the local IP, STUN
-            # for the external one) existed solely to build the callback URL the
-            # SAB handoff handed out. That handoff now uploads the NZB directly,
-            # so no download client is ever told where Comicarr lives and there
-            # is nothing left to discover. See docs/adr/0002-handoff-no-callback.md.
-
-            # verbatim back the logger being used since it's now started.
             if LOGTYPE == "clog":
                 logprog = "Concurrent Rotational Log Handler"
             else:
@@ -577,7 +551,6 @@ def initialize(config_file):
                     "[Windows Users] If you are experiencing log file locking and want this auto-enabled, you need to install Python Extensions for Windows ( http://sourceforge.net/projects/pywin32/ )"
                 )
 
-            # check for syno_fix here
             if CONFIG.SYNO_FIX:
                 parsepath = os.path.join(DATA_DIR, "bs4", "builder", "_lxml.py")
                 if os.path.isfile(parsepath):
@@ -620,7 +593,6 @@ def initialize(config_file):
 
         CV_HEADERS = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}
 
-        # Initialize ComicVine API session with connection pooling
         def initialize_cv_session():
             """Initialize ComicVine API session with connection pooling"""
             global CV_SESSION, CV_RATE_LIMITER, CV_CACHE
@@ -634,18 +606,15 @@ def initialize(config_file):
                 CV_SESSION.mount("http://", adapter)
                 logger.info("ComicVine API session initialized with connection pooling")
 
-            # Initialize rate limiter
             if CV_RATE_LIMITER is None:
                 from comicarr import rate_limiter
 
-                # Default to 1 call per 2 seconds (0.5 calls/sec)
                 cvapi_rate = (
                     comicarr.CONFIG.CVAPI_RATE if comicarr.CONFIG.CVAPI_RATE and comicarr.CONFIG.CVAPI_RATE >= 2 else 2
                 )
                 CV_RATE_LIMITER = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0 / cvapi_rate)
                 logger.info("ComicVine rate limiter initialized with %s second interval" % cvapi_rate)
 
-            # Initialize ComicVine cache
             if CV_CACHE is None:
                 from comicarr import cv_cache
 
@@ -655,7 +624,6 @@ def initialize(config_file):
 
         initialize_cv_session()
 
-        # Initialize Metron API session if configured
         def initialize_metron_session():
             """Initialize Metron API session using mokkari"""
             global METRON_API
@@ -678,30 +646,22 @@ def initialize(config_file):
 
         initialize_metron_session()
 
-        # set the current week for the pull-list
         todaydate = datetime.datetime.today()
         CURRENT_WEEKNUMBER = todaydate.strftime("%U")
         CURRENT_YEAR = todaydate.strftime("%Y")
 
         if SEARCH_TIER_DATE is None:
-            # tier the wanted listed so anything older than SEARCH_TIER_CUTOFF (default 14 days)
-            # won't trigger the API during searches.
-            # utc_date = datetime.datetime.utcnow()
             STD = todaydate - timedelta(days=comicarr.CONFIG.SEARCH_TIER_CUTOFF)
             SEARCH_TIER_DATE = STD.strftime("%Y-%m-%d")
             logger.fdebug("SEARCH_TIER_DATE set to : %s" % SEARCH_TIER_DATE)
 
-        # set the default URL for ComicVine API here.
         CVURL = "https://comicvine.gamespot.com/api/"
 
-        # set default URL for Public trackers (just in case it changes more frequently)
         WWTURL = "https://worldwidetorrents.to/"
         DEMURL = "https://www.demonoid.pw/"
 
-        # set the default URL for nzbindex
         EXPURL = "https://nzbindex.nl/"
 
-        # load in the imprint json here.
         try:
             pub_path = os.path.join(comicarr.CONFIG.CACHE_DIR, "imprints.json")
             update_imprints = True
@@ -721,7 +681,6 @@ def initialize(config_file):
                 logger.info("[IMPRINT_LOADS] No data for publisher imprints locally. Retrieving up-to-date listing")
 
             if update_imprints is True:
-                # TODO: Host on Comicarr domain
                 req_pub = requests.get("https://mylar3.github.io/publisher_imprints/imprints.json", verify=True)
                 try:
                     json_pub = req_pub.json()
@@ -752,16 +711,11 @@ def initialize(config_file):
         if CONFIG.LOCMOVE:
             helpers.updateComicLocation()
 
-        # startup check(s) here so that the config values are already loaded against.
         if all([comicarr.USE_SABNZBD is True, comicarr.CONFIG.SAB_HOST is not None]):
             s_to_the_ab = sabnzbd.SABnzbd(params=None)
             s_to_the_ab.sab_versioncheck()
             logger.info("[SAB-VERSION-CHECK] SABnzbd version detected as: %s" % comicarr.CONFIG.SAB_VERSION)
 
-        # make sure the intLatestIssue field is populated with values...
-        # ??helpers.latestissue_update()
-
-        # Store the original umask
         UMASK = os.umask(0)
         os.umask(UMASK)
 
@@ -781,13 +735,11 @@ def daemonize():
     sys.stdout.flush()
     sys.stderr.flush()
 
-    # Do first fork
     try:
         pid = os.fork()
         if pid == 0:
             pass
         else:
-            # Exit the parent process
             logger.debug("Forking once...")
             os._exit(0)
     except OSError as e:
@@ -795,16 +747,14 @@ def daemonize():
 
     os.setsid()
 
-    # Make sure I can read my own files and shut out others
-    prev = os.umask(0)  # @UndefinedVariable - only available in UNIX
+    prev = os.umask(0)
     os.umask(prev and int("077", 8))
 
-    # Do second fork
     try:
         pid = os.fork()
         if pid > 0:
             logger.debug("Forking twice...")
-            os._exit(0)  # Exit second parent process
+            os._exit(0)
     except OSError as e:
         sys.exit("2nd fork failed: %s [%d]" % (e.strerror, e.errno))
 
@@ -923,10 +873,6 @@ def resume_acquisition_runtime(config=None):
             schedule("ddl_queue")
             queues_started.append("ddl_queue")
 
-        # The broad scheduler-status writer is still a documented legacy
-        # compatibility consumer. Keep its live scalar decisions here until
-        # that coherent system-service wave migrates; queues/pools/scheduler
-        # themselves already use the shared canonical identities above.
         scheduler_statuses = {
             "dbupdater": UPDATER_STATUS,
             "search": SEARCH_STATUS,
@@ -990,7 +936,6 @@ def start(ctx):
 
     with INIT_LOCK:
         if _INITIALIZED:
-            # scheduler jobs - add them all in a paused state initially
             UPDATER_SCHEDULER = _add_recurring_job(
                 func=updater.watchlist_updater,
                 id="dbupdater",
@@ -1072,9 +1017,6 @@ def start(ctx):
             )
             MANGA_SYNC_SCHEDULER.pause()
 
-            # Shared daily prune for the five unbounded operational ledgers
-            # (#480). Independent of SEARCH_INTERVAL / DB Updater / narrative
-            # retention; not paused — runs on the daily cadence from start.
             from comicarr.app.acquisition.retention import run_ledger_retention
 
             _add_recurring_job(
@@ -1084,21 +1026,16 @@ def start(ctx):
                 trigger=IntervalTrigger(days=1, timezone="UTC"),
             )
 
-            # Narrative activity_events age retention (ADR §10 / #489). Always
-            # on: age-only purge, no config key, independent of acquisition gate.
             from comicarr.app.activity import retention as activity_retention
 
             _add_recurring_job(
                 func=activity_retention.run,
-                # id must be a string constant (scheduler config AST test).
                 id="activity_retention",
                 name=activity_retention.JOB_NAME,
                 next_run_time=datetime.datetime.utcnow(),
                 trigger=IntervalTrigger(hours=24, minutes=0, timezone="UTC"),
             )
 
-            # Short-lived Interactive search state gets an independent bounded
-            # sweep, in addition to opportunistic cleanup on session creation.
             from comicarr.app.search import interactive_sessions
 
             _add_recurring_job(
@@ -1109,11 +1046,6 @@ def start(ctx):
                 trigger=IntervalTrigger(hours=24, minutes=0, timezone="UTC"),
             )
 
-            # A schema failure, persistent repair fence, or explicit operator
-            # override suppresses every producer/consumer that can claim or
-            # hand off acquisition work. The scheduler itself still starts so
-            # authenticated job diagnostics remain available; the harmless
-            # version job may continue.
             try:
                 from comicarr.app.acquisition.maintenance import refresh_runtime_state
 
@@ -1155,10 +1087,7 @@ def start(ctx):
                 set_runtime_field(ctx, "started", True)
                 return
 
-            # load up the previous runs from the job sql table so we know stuff...
             monitors = helpers.job_management(startup=True)
-
-            # logger.fdebug('monitors: %s' % (monitors,))
 
             SCHED_WEEKLY_LAST = monitors["weekly"]["last"]
             SCHED_SEARCH_LAST = monitors["search"]["last"]
@@ -1168,11 +1097,7 @@ def start(ctx):
             SCHED_RSS_LAST = monitors["rss"]["last"]
             SCHED_MANGA_SYNC_LAST = monitors.get("manga_sync", {}).get("last")
 
-            # Start our scheduled background tasks
             if UPDATER_STATUS != "Paused":
-                # we want to run the db updater on every startup regardless of last run
-                # this will ensure we get better coverage, and if nothing has updated it
-                # will just return to the normal dbupdater_interval duration.
                 if SCHED_UPDATER_LAST is not None:
                     updater_timestamp = float(SCHED_UPDATER_LAST)
                     logger.fdebug(
@@ -1206,10 +1131,8 @@ def start(ctx):
                     CONFIG.DBUPDATE_INTERVAL,
                 )
 
-            # let's do a run at the Wanted issues here (on startup) if enabled.
             if SEARCH_STATUS != "Paused":
                 if CONFIG.NZB_STARTUP_SEARCH:
-                    # now + 2 minute startup delay
                     SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                 else:
                     if SCHED_SEARCH_LAST is not None:
@@ -1238,7 +1161,6 @@ def start(ctx):
                         )
                         SEARCH_SCHEDULER.modify(next_run_time=search_diff)
 
-            # thread queue control..
             queue_schedule("search_queue", "start", ctx=ctx)
 
             if all(
@@ -1280,10 +1202,8 @@ def start(ctx):
             else:
                 weektimer = 24
 
-            # weekly pull list gets messed up if it's not populated first, so let's populate it then set the scheduler.
             logger.info("[WEEKLY] Checking for existance of Weekly Comic listing...")
 
-            # now the scheduler (check every 24 hours)
             weekly_interval = weektimer * 60 * 60
             try:
                 if SCHED_WEEKLY_LAST:
@@ -1316,7 +1236,6 @@ def start(ctx):
                     )
                     WEEKLY_SCHEDULER.modify(next_run_time=weekly_diff)
 
-            # initiate startup rss feeds for torrents/nzbs here...
             if RSS_STATUS != "Paused":
                 logger.info("[RSS-FEEDS] Initiating startup-RSS feed checks.")
                 if SCHED_RSS_LAST is not None:
@@ -1340,7 +1259,6 @@ def start(ctx):
                     )
                     RSS_SCHEDULER.modify(next_run_time=rss_diff)
 
-            # Run Import Inbox scanner on schedule if IMPORT_DIR is configured
             if IMPORTINBOX_STATUS != "Paused":
                 if CONFIG.IMPORT_DIR is not None:
                     if CONFIG.IMPORT_SCAN_INTERVAL > 0:
@@ -1362,7 +1280,6 @@ def start(ctx):
             if VERSION_STATUS != "Paused":
                 VERSION_SCHEDULER.resume()
 
-            ##run checkFolder every X minutes (basically Manual Run Post-Processing)
             if MONITOR_STATUS != "Paused":
                 if CONFIG.CHECK_FOLDER is not None:
                     if CONFIG.DOWNLOAD_SCAN_INTERVAL > 0:
@@ -1389,7 +1306,6 @@ def start(ctx):
 
             try:
                 SCHED.start()
-                # update the job db here
                 logger.info("Background Schedulers successfully started...")
                 helpers.job_management(write=True)
             except Exception as e:
@@ -1447,12 +1363,6 @@ def queue_schedule(queuetype, mode, ctx=None):
             comicarr_queue.put("exit")
             pool.join(5)
         except AssertionError as e:
-            # The legacy `except AssertionError: os._exit(0)` landmine was
-            # REMOVED in U7: under the collapsed shutdown path it would
-            # short-circuit past the lifespan drain + engine.dispose() +
-            # the terminal os.execv (degrading a restart to a plain stop).
-            # The single authoritative bounded drain now lives in the
-            # FastAPI lifespan; this branch only logs.
             logger.warn("[%s] AssertionError joining pool: %s" % (thread_name, e))
 
     if mode == "start":
@@ -1586,7 +1496,7 @@ def _ensure_columns(engine, table_name, required_columns):
     try:
         existing = {c["name"] for c in inspector.get_columns(table_name)}
     except Exception:
-        return  # Table doesn't exist yet (will be created by metadata.create_all)
+        return
 
     for col_name, col_type in required_columns:
         if col_name not in existing:
@@ -1623,11 +1533,6 @@ def _redact_diagnostic_error(error):
     return message[:1000]
 
 
-# Explicit allowlist of legacy tables that need migration-time UNIQUE enforcement.
-# Key columns are derived from tables.UPSERT_KEYS so constraint targets stay aligned
-# with atomic upserts. Tables that already ship with enforcement (comics, rssdb,
-# ref32p, ddl_info, exceptions_log, tmp_searches, notifs, provider_searches,
-# mylar_info, ...) are intentionally excluded.
 _UPSERT_UNIQUE_CONSTRAINT_NAMES = {
     "issues": "uq_issues_issueid",
     "annuals": "uq_annuals_issueid",
@@ -1643,7 +1548,6 @@ _UPSERT_UNIQUE_CONSTRAINT_NAMES = {
     "weekly": "uq_weekly_comicid_issueid",
 }
 
-# Fixed-name pre-dedup snapshot; excluded from auto_backup_db timestamp rotation.
 _PRE_UNIQUE_MIGRATION_BACKUP = "comicarr.db.pre-unique-migration.bak"
 
 
@@ -1770,8 +1674,6 @@ def _row_identity_column(dialect):
     return None
 
 
-# Library tables where MAX(rowid) can discard an older complete copy in favor of
-# a newer refresh stub. Prefer Location / completion Status over pure LWW.
 _LIBRARY_QUALITY_DEDUP_TABLES = frozenset({"issues", "annuals", "readlist", "storyarcs"})
 
 
@@ -1798,7 +1700,6 @@ def _library_quality_order_sql(quote, column_names, row_identity):
         order_parts.append(f"CASE WHEN {loc} IS NOT NULL AND {loc} != '' THEN 1 ELSE 0 END DESC")
     if "status" in columns:
         order_parts.append(f"{_status_rank_sql(quote('Status'))} DESC")
-    # Final tie-breaker: highest physical row id (legacy LWW).
     order_parts.append(f"{row_identity} DESC")
     return ", ".join(order_parts)
 
@@ -1838,7 +1739,6 @@ def _dedup_delete_sql(
 
     partition = ", ".join(quoted_keys)
     order_by = _library_quality_order_sql(quote, column_names, row_identity)
-    # Delete every non-winner (rn > 1) among valid-key rows.
     return (
         f"DELETE FROM {quoted_table} WHERE {row_identity} IN ("
         f"SELECT {row_identity} FROM ("
@@ -1909,7 +1809,6 @@ def _backup_sqlite_unique_migration(engine, backup_func=None, connection=None):
     if source_path is None:
         return
 
-    # Prefer the live DB directory over DATA_DIR when they differ (e.g. custom DB path).
     backup_dir = os.path.join(os.path.dirname(source_path), "backups", "migrations")
     pin_path = os.path.join(backup_dir, _PRE_UNIQUE_MIGRATION_BACKUP)
     abs_source = os.path.abspath(source_path)
@@ -1947,8 +1846,6 @@ def _backup_sqlite_unique_migration(engine, backup_func=None, connection=None):
         logger.error("[UNIQUE-MIGRATION] %s", message)
         raise RuntimeError(message)
 
-    # Pin the first successful pre-dedup snapshot under a fixed name so later
-    # timestamped rotation cannot remove the migration restore point.
     if not os.path.isfile(pin_path):
         timestamped = sorted(
             path
@@ -2053,9 +1950,6 @@ def _migrate_unique_constraints(engine_or_connection, backup_func=None):
     bind = connection or engine
     dialect = bind.dialect.name
 
-    # Tables that already have enforcement (comics, rssdb, ref32p, ddl_info,
-    # exceptions_log, tmp_searches, notifs, provider_searches, mylar_info) are
-    # intentionally outside _UPSERT_UNIQUE_CONSTRAINTS.
     pending_constraints = _pending_unique_constraints(bind)
     if not pending_constraints:
         return
@@ -2068,7 +1962,6 @@ def _migrate_unique_constraints(engine_or_connection, backup_func=None):
             if _has_unique_enforcement(bind, table_name, key_cols):
                 continue
         except SQLAlchemyError as e:
-            # Recheck failure must not skip the table — only confirmed enforcement skips work.
             logger.warn(
                 "[UNIQUE-MIGRATION] Could not recheck UNIQUE enforcement for %s; proceeding with migration: %s",
                 table_name,
@@ -2239,15 +2132,6 @@ def shutdown(restart=False, update=False, maintenance=False):
         try:
             os.execv(sys.executable, popen_list)
         except Exception as e:
-            # os.execv normally replaces the process image and never
-            # returns. If it fails we MUST still terminate (a failed
-            # restart must not hang) — fall through to the terminal
-            # hard-kill below.
             logger.error("[SHUTDOWN] os.execv failed: %s — hard-exiting" % e)
 
-    # Single unconditional, NON-BLOCKING terminal hard-kill. This is the
-    # sole process exit (the lifespan already ran the bounded ordered
-    # drain + engine.dispose(); the queue_schedule AssertionError->os._exit
-    # landmine was removed in U7). os._exit() does not flush/join anything,
-    # so a worker permanently wedged in native code cannot hang termination.
     os._exit(0)

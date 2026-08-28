@@ -43,8 +43,6 @@ config = configparser.ConfigParser()
 _CONFIG_TRANSACTION_LOCK = threading.RLock()
 _CONFIG_TEMP_PREFIX = ".comicarr-config-"
 _CONFIG_TEMP_SUFFIX = ".tmp"
-# The provider tuple codec is owned by the Search provider module; config.py
-# only calls it at the INI load/store choke points.
 _PROVIDER_EXTRA_FIELDS = provider_config.PROVIDER_EXTRA_FIELDS
 _PROVIDER_CREDENTIAL_INDEX = provider_config.PROVIDER_CREDENTIAL_INDEX
 _canonical_provider_boolean = provider_config.canonical_provider_boolean
@@ -81,32 +79,18 @@ def decrypt_provider_credential(value, secure_dir):
     return result["password"], token, token is None
 
 
-# Derived from the registry -- comicarr/app/config/registry.py is the single
-# definition of every key. Kept as a name and a 3-tuple shape because
-# check_setting, _define and migration.py all index these positionally.
 _CONFIG_DEFINITIONS = as_legacy_definitions()
 
 _BAD_DEFINITIONS = OrderedDict(
     {
-        # for those items that were in wrong sections previously, or sections that are no longer present...
-        # using this method, old values are able to be transfered to the new config items properly.
-        # keyname, section, oldkeyname
-        # ie. 'TEST_VALUE': ('TEST', 'TESTVALUE')
         "SAB_CLIENT_POST_PROCESSING": ("SABnbzd", None),
         "ENABLE_PUBLIC": ("Torrents", "ENABLE_TPSE"),
         "PUBLIC_VERIFY": ("Torrents", "TPSE_VERIFY"),
         "IGNORED_PUBLISHERS": ("CV", "BLACKLISTED_PUBLISHERS"),
-        # NZBsu and DOGnzb entries were removed here. They remapped onto keys
-        # Comicarr does not define, and migrate_mylar3_config reads this dict
-        # independently of _CONFIG_DEFINITIONS -- so migrating a Mylar3 config
-        # that used either provider handed writeconfig an undefined key,
-        # process_kwargs raised KeyError, and every setting was discarded.
         "SAB_DIRECT_UNPACK": ("SABnzbd", "SAB_TO_MYLAR"),
     }
 )
 
-# section/key only — no live values. Used by encrypt_items and carepackage redaction.
-# HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet.
 ENCRYPTED_CONFIG_ITEMS = OrderedDict(
     {
         "SAB_PASSWORD": ("SABnzbd", "sab_password"),
@@ -146,14 +130,6 @@ ENCRYPTED_CONFIG_ITEMS = OrderedDict(
     }
 )
 
-# Lower bound, in minutes, for the intervals that are handed to an
-# IntervalTrigger and whose job is then resumed regardless of the value. A
-# non-positive one builds a negative-length interval whose next fire time is
-# always in the past, so the job re-fires back to back forever.
-#
-# DOWNLOAD_SCAN_INTERVAL and IMPORT_SCAN_INTERVAL are deliberately absent: for
-# those, 0 is the documented way to disable the job, and comicarr.start() keeps
-# them paused rather than scheduling them.
 SCHEDULER_INTERVAL_MINIMUMS = {
     "SEARCH_INTERVAL": (360, "Search interval too low. Resetting to 6 hour minimum"),
     "RSS_CHECKINTERVAL": (20, "Minimum RSS Interval Check delay set for 20 minutes to avoid hammering."),
@@ -183,7 +159,6 @@ def clamp_scheduler_intervals(cfg):
 
 class Config(object):
     def __init__(self, config_file):
-        # initalize the config...
         self._config_file = config_file
         self.WRITE_THE_CONFIG = False
         self._provider_credential_tokens = {}
@@ -191,13 +166,11 @@ class Config(object):
     def config_vals(self, update=False):
         if update is False:
             if os.path.isfile(self._config_file):
-                self.config = config.read_file(codecs.open(self._config_file, "r", "utf8"))  # read(self._config_file)
-                # check for empty config / new config
+                self.config = config.read_file(codecs.open(self._config_file, "r", "utf8"))
                 count = sum(1 for line in open(self._config_file))
             else:
                 count = 0
 
-            # this is the current version at this particular point in time.
             self.newconfig = 18
 
             OLDCONFIG_VERSION = 0
@@ -205,7 +178,6 @@ class Config(object):
                 CONFIG_VERSION = 0
                 MINIMALINI = False
             else:
-                # get the config version first, since we need to know.
                 try:
                     CONFIG_VERSION = config.getint("General", "config_version")
                     OLDCONFIG_VERSION = CONFIG_VERSION
@@ -275,13 +247,11 @@ class Config(object):
                 setattr(self, k, value)
 
                 try:
-                    # make sure interpolation isn't being used, so we can just escape the % character
                     if v[0] == str:
                         value = value.replace("%", "%%")
                 except Exception:
                     pass
 
-                # just to ensure defaults are properly set...
                 if any([value is None, value == "None"]):
                     value = v[0](v[2])
 
@@ -319,11 +289,9 @@ class Config(object):
                     elif k == "MINIMAL_INI":
                         config.set(v[1], k.lower(), str(self.MINIMAL_INI))
 
-        # this section retains values of variables that are no longer being saved to the ini
-        # in case they are needed prior to wiping out things
         self.OLD_VALUES = {}
         for b, bv in _BAD_DEFINITIONS.items():
-            if len(bv) == 4:  # removal of option...
+            if len(bv) == 4:
                 if bv[1] not in self.OLD_VALUES:
                     try:
                         if bv[2] == bool:
@@ -348,20 +316,9 @@ class Config(object):
                 try:
                     os.makedirs(self.LOG_DIR)
                 except OSError:
-                    # Dropping LOG_DIR is the actual recovery, so it must happen
-                    # whatever the verbosity — the old code did it only when the
-                    # console was live, leaving an uncreatable path behind.
                     self.LOG_DIR = None
                     print("Unable to create the log directory. Logging to screen only.")
 
-            # Start the logger. The level comes from the first source that
-            # explicitly supplies one -- startup argument, then
-            # COMICARR_LOG_LEVEL, then the config file. See
-            # comicarr/app/config/log_level.py and
-            # docs/architecture/logging-levels.md.
-            # Capture the argument before the line below overwrites the global
-            # with the resolved level: the Settings page has to be able to name
-            # a `--log-level` flag as the reason its dial keeps losing.
             record_startup_argument(comicarr.LOG_LEVEL)
             resolution = resolve_startup_log_level(
                 argument_level=comicarr.LOG_LEVEL,
@@ -371,11 +328,9 @@ class Config(object):
                 print(notice)
             log_level = resolution.level
             if self.LOG_LEVEL is None:
-                self.LOG_LEVEL = 1  # default it to INFO level (1) if not set.
+                self.LOG_LEVEL = 1
 
-            comicarr.LOG_LEVEL = (
-                log_level  # set this to the calculated log_leve value so that logs display fine in the GUI
-            )
+            comicarr.LOG_LEVEL = log_level
             logger.initLogger(
                 console=True,
                 log_dir=self.LOG_DIR,
@@ -384,8 +339,6 @@ class Config(object):
                 loglevel=log_level,
             )
 
-        # Validate the live provider authority before backup maintenance is
-        # allowed to encrypt historical plaintext with that same authority.
         self.EXTRA_NEWZNABS, self.EXTRA_TORZNABS = self.get_extras()
         provider_migration_needed = self._load_provider_extra_credentials()
         self._validate_loaded_provider_extras()
@@ -395,7 +348,6 @@ class Config(object):
 
         if any([self.CONFIG_VERSION == 0, self.CONFIG_VERSION < self.newconfig]):
             if not self.BACKUP_LOCATION:
-                # this is needed here since the configuration hasn't run to check the location value yet.
                 self.BACKUP_LOCATION = os.path.join(comicarr.DATA_DIR, "backup")
 
             backupinfo = {
@@ -408,18 +360,8 @@ class Config(object):
 
             if self.CONFIG_VERSION < 14:
                 print("Attempting to update configuration..")
-                # 8-torznab multiple entries merged into extra_torznabs value
-                # 9-remote rtorrent ssl option
-                # 10-encryption of all keys/passwords.
-                # 11-provider ids
-                # 12-ddl seperation into multiple providers, new keys, update tables
-                # 13-remove dognzb and nzbsu as independent options (throw them under newznabs if present)
                 self.config_update()
             if self.CONFIG_VERSION < 16:
-                # Issue #470: default release checks on for existing installs that
-                # still carry the old False default. Only rewrite False → True;
-                # an operator who opts out after this bump keeps CHECK_GITHUB off
-                # because CONFIG_VERSION is then 16.
                 if self.CHECK_GITHUB is False:
                     self.CHECK_GITHUB = True
                     if not config.has_section("Git"):
@@ -430,18 +372,11 @@ class Config(object):
                         "Comicarr contacts GitHub every 6 hours for release checks; "
                         "set check_github = False under [Git] in config.ini to opt out."
                     )
-                # Retire AUTO_UPDATE and CHECK_GITHUB_ON_STARTUP from the ini.
                 if config.has_option("General", "auto_update"):
                     config.remove_option("General", "auto_update")
                 if config.has_option("Git", "check_github_on_startup"):
                     config.remove_option("Git", "check_github_on_startup")
             if self.CONFIG_VERSION < 17:
-                # host_return told the SAB handoff which address to hand the
-                # download client so it could fetch the NZB back out of
-                # Comicarr. That handoff now uploads the NZB directly, so the
-                # setting has no consumer — scrub it rather than leaving a key
-                # in config.ini that silently does nothing.
-                # See docs/adr/0002-handoff-no-callback.md (#552 / #564).
                 if config.has_option("Interface", "host_return"):
                     config.remove_option("Interface", "host_return")
                     logger.info(
@@ -449,8 +384,6 @@ class Config(object):
                         "nzb directly and no download client is given a Comicarr address."
                     )
             if self.CONFIG_VERSION < 18:
-                # Folder-scan diagnostics now follow the single LOG_LEVEL dial;
-                # remove the retired, hidden verbosity switch from old configs.
                 if config.has_option("General", "folder_scan_log_verbose"):
                     config.remove_option("General", "folder_scan_log_verbose")
                     logger.info(
@@ -476,7 +409,6 @@ class Config(object):
             raise OSError("Unable to persist encrypted provider credentials")
 
         if startup is False:
-            # need to do provider sequence AFTER db check
             self.provider_sequence()
         self.configure(startup=startup)
         if self.WRITE_THE_CONFIG is True or startup is True:
@@ -538,8 +470,6 @@ class Config(object):
             return
 
         canonical_name = str(legacy["name"]).strip().casefold()
-        # Provider names must be unique across BOTH extras lists — validation
-        # shares one namespace for newznabs and torznabs.
         existing_names = {
             str(entry[0] or entry[1]).strip().casefold()
             for entries in (self.EXTRA_NEWZNABS, self.EXTRA_TORZNABS)
@@ -553,8 +483,6 @@ class Config(object):
             )
             return
 
-        # Skip ids held by the built-in providers (experimental/DDL) or
-        # _validate_loaded_provider_extras will reject the migrated entry.
         reserved_ids = self._reserved_provider_ids()
         candidate_id = comicarr.PROVIDER_START_ID + 1
         while candidate_id in reserved_ids:
@@ -564,9 +492,6 @@ class Config(object):
             (
                 legacy["name"],
                 legacy["host"],
-                # Canonical "1"/"0", not the raw bool: serialised it would
-                # reach the next startup as "True", and the search path reads
-                # this field as bool(int(field)).
                 _canonical_provider_boolean(self.TORZNAB_VERIFY),
                 legacy["apikey"],
                 legacy["category"],
@@ -620,7 +545,6 @@ class Config(object):
             config.remove_option("Torznab", "torznab_verify")
             logger.info("Successfully removed outdated config entries.")
         if self.newconfig < 9:
-            # rejig rtorrent settings due to change.
             try:
                 if all([self.RTORRENT_SSL is True, not self.RTORRENT_HOST.startswith("http")]):
                     self.RTORRENT_HOST = "https://" + self.RTORRENT_HOST
@@ -630,48 +554,19 @@ class Config(object):
             config.remove_option("Rtorrent", "rtorrent_ssl")
             logger.info("Successfully removed oudated config entries.")
         if self.newconfig < 10:
-            # encrypt all passwords / apikeys / usernames in ini file.
-            # leave non-ini items (ie. memory) as un-encrypted items.
             try:
                 if self.ENCRYPT_PASSWORDS is True:
                     self.encrypt_items(mode="encrypt", updateconfig=True)
             except Exception as e:
                 logger.error("Error: %s" % e)
             logger.info("Successfully updated config to version 10 ( password / apikey - .ini encryption )")
-        # if self.CONFIG_VERSION < 11:
-        # add ID to all providers as a way to better identify them
-        # tmp_newznabs = self.EXTRA_NEWZNABS
-        # n_cnt = 0
-        # a_list = []
-        # if len(tmp_newznabs) > 0:
-        #    for i in tmp_newznabs:
-        #        tmp_i = list(i)
-        #        tmp_i.append(n_cnt)
-        #        a_list.append(tuple(tmp_i))
-        #        n_cnt +=1
-        # setattr(self, 'EXTRA_NEWZNABS', a_list)
-        # tmp_torznabs = self.EXTRA_TORZNABS
-        # b_cnt = 0
-        # b_list = []
-        # if len(tmp_torznabs) > 0:
-        #    for i in tmp_torznabs:
-        #        tmp_i = list(i)
-        #        tmp_i.append(b_cnt)
-        #        b_list.append(tuple(tmp_i))
-        #        b_cnt +=1
-        # setattr(self, 'EXTRA_TORZNABS', b_list)
 
         if self.newconfig < 12:
-            # change enable_ddl to be a true/false for multiple ddl providers
-            # set enable_getcomics to True by default if that's the case.
             if self.ENABLE_DDL is True:
                 self.ENABLE_GETCOMICS = True
                 config.set("DDL", "enable_getcomics", self.ENABLE_GETCOMICS)
-            # tables will be updated by checking the OLDCONFIG_VERSION in __init__
             logger.info("Successfully updated config to version 12 ( multiple DDL provider option )")
         if self.newconfig < 15:
-            # remove nzbsu and dognzb as individual options
-            # if data exists already, add them as newznab options (if not already there or via Prowlarr)
             try:
                 for chk_e in [self.OLD_VALUES["nzbsu_apikey"], self.OLD_VALUES["dognzb_apikey"]]:
                     if chk_e is not None:
@@ -705,7 +600,6 @@ class Config(object):
                             if nz_stat["status"] is True:
                                 ben[3] = nz_stat["password"]
 
-                        # prowlarr's url does not contain the actual url, hope the name contains it...
                         if "nzb.su" in ben[1].lower() or (
                             any(["nzb.su" in n_name.lower(), "nzbsu" in re.sub(r"\s", "", n_name).lower()])
                             and "prowlarr" in n_name.lower()
@@ -758,7 +652,6 @@ class Config(object):
             except Exception:
                 pass
 
-            # loop thru nzbsus and dogs entries and only keep one (in order of priority): Enabled, Prowlarr, newznab
             keep_it = None
             kcnt = 0
             for ggg in [nzbsus, dogs]:
@@ -816,7 +709,6 @@ class Config(object):
                     with db.get_engine().begin() as conn:
                         conn.execute(stmt)
             except Exception:
-                # if the table doesn't exist yet, it'll get created after the config loads on new installs.
                 pass
 
         logger.info("Configuration upgraded to version %s" % self.newconfig)
@@ -863,16 +755,9 @@ class Config(object):
                         config.remove_option("General", inikey)
 
                     else:
-                        # print 'no key found in ini - setting to default value of %s' % definition_type(default)
-                        # myval = {'value': definition_type(default)}
                         pass
             else:
                 myval = {"value": definition_type(default)}
-        # if all([myval['value'] is not None, myval['value'] != '', myval['value'] != 'None']):
-        # if default != myval['value']:
-        #    print '%s : %s' % (keyname, myval['value'])
-        # else:
-        #    print 'NEW CONFIGURATION SETTING %s : %s' % (keyname, myval['value'])
         return myval["value"]
 
     def check_config(self, definition_type, section, inikey, default):
@@ -1206,7 +1091,6 @@ class Config(object):
                 except:
                     value = default
 
-                # just to ensure defaults are properly set...
                 if any([value is None, value == "None"]):
                     value = definition_type(default)
 
@@ -1217,7 +1101,6 @@ class Config(object):
                         nv = definition_type(value)
                     setattr(self, key, nv)
 
-                    # print('writing config value...[%s][%s] key: %s / ini_key: %s / value: %s [%s]' % (definition_type, section, key, ini_key, value, default))
                     if (
                         all([self.MINIMAL_INI is True, definition_type(value) != definition_type(default)])
                         or self.MINIMAL_INI is False
@@ -1278,10 +1161,6 @@ class Config(object):
                 provider_values = {key: value for key, value in values.items() if key in _PROVIDER_EXTRA_FIELDS}
                 scalar_values = {key: value for key, value in values.items() if key not in _PROVIDER_EXTRA_FIELDS}
                 if provider_values:
-                    # Provider values are fully normalized and published by
-                    # _writeconfig. Scalar values can share this durable write,
-                    # but the broad legacy configure pass adds no provider state
-                    # and cannot be rolled back safely.
                     configure = False
                 if scalar_values:
                     self.process_kwargs(scalar_values)
@@ -1293,16 +1172,8 @@ class Config(object):
                 if persisted is False:
                     raise OSError("config write failed")
                 if configure:
-                    # configure() still owns legacy filesystem and queue side effects.
-                    # Running it after the durable write prevents those effects on write
-                    # failure; config state can be rolled back if configure itself fails,
-                    # but already-completed external effects are not reversible here.
                     self.configure(update=True, startup=False)
                 return True
-            # BaseException is deliberate: rollback must run even for
-            # interpreter-exiting exceptions (a torn config.ini is worse than a
-            # cancelled save); the isinstance re-raise below preserves their
-            # propagation once state is restored.
             except BaseException as e:
                 comicarr.PROVIDER_START_ID = provider_start_id
                 durable_write_happened = self._durable_write_changed(config_path, file_existed, file_contents)
@@ -1352,7 +1223,6 @@ class Config(object):
                 return current_contents != file_contents
             return config_path.exists()
         except Exception:
-            # If we cannot inspect disk state, assume a durable write may have landed.
             return True
 
     def _encrypt_config_for_write(self):
@@ -1574,7 +1444,6 @@ class Config(object):
                 config.add_section("Providers")
             config.set("Providers", "PROVIDER_ORDER", serialized_order)
 
-        ###this should be moved elsewhere...
         if type(self.IGNORED_PUBLISHERS) != list:
             if self.IGNORED_PUBLISHERS is None:
                 bp = "None"
@@ -1586,10 +1455,8 @@ class Config(object):
             config.set("CV", "ignored_publishers", bp)
         else:
             config.set("CV", "ignored_publishers", ", ".join(self.IGNORED_PUBLISHERS))
-        ###
         config.set("General", "dynamic_update", str(self.DYNAMIC_UPDATE))
 
-        # Atomic write: restrict the temporary file before making it visible.
         target_mode = 0o600
         try:
             target_mode = stat.S_IMODE(config_path.stat().st_mode)
@@ -1633,7 +1500,6 @@ class Config(object):
             return False
 
     def encrypt_items(self, mode="encrypt", updateconfig=False):
-        # HTTP_PASSWORD excluded — it uses bcrypt (one-way hash), not Fernet
         encryption_list = OrderedDict()
         for attr_name, (section, ini_key) in ENCRYPTED_CONFIG_ITEMS.items():
             encryption_list[attr_name] = (section, ini_key, getattr(self, attr_name, None))
@@ -1645,9 +1511,6 @@ class Config(object):
             if current_value is None:
                 continue
 
-            # configure() rewrites GIT_TOKEN to (token, "x-oauth-basic") for requests
-            # Basic auth before encrypt_items() may run. Encrypt/decrypt the string
-            # token only; never call str methods on the auth tuple.
             if isinstance(current_value, (tuple, list)) and current_value:
                 current_value = current_value[0]
             if not isinstance(current_value, str):
@@ -1656,7 +1519,6 @@ class Config(object):
                 )
                 continue
 
-            # Skip values already encrypted with Fernet
             if current_value.startswith("gAAAAA"):
                 if mode == "decrypt":
                     hp = encrypted.Encryptor(current_value, secure_dir=self.SECURE_DIR)
@@ -1667,7 +1529,6 @@ class Config(object):
                             config.set(section, ini_key, decrypted["password"])
                 continue
 
-            # Legacy base64 encrypted values
             if current_value.startswith("^~$z$"):
                 if mode == "decrypt":
                     hp = encrypted.Encryptor(current_value, secure_dir=self.SECURE_DIR)
@@ -1682,7 +1543,6 @@ class Config(object):
                             % ini_key
                         )
                 else:
-                    # Re-encrypt legacy base64 → Fernet
                     hp = encrypted.Encryptor(current_value, secure_dir=self.SECURE_DIR)
                     decrypted = hp.decrypt_it()
                     if decrypted["status"]:
@@ -1693,7 +1553,6 @@ class Config(object):
                             new_encrypted += 1
                 continue
 
-            # Plaintext — encrypt with Fernet
             if mode == "encrypt":
                 hp = encrypted.Encryptor(current_value, secure_dir=self.SECURE_DIR)
                 encrypted_password = hp.encrypt_it()
@@ -1741,17 +1600,14 @@ class Config(object):
         if all([self.CLEAR_PROVIDER_TABLE is True, startup is True]):
             comicarr.MAINTENANCE = True
 
-        # force alt_pull = 2 on restarts regardless of settings
         if self.ALT_PULL != 2:
             self.ALT_PULL = 2
             config.set("Weekly", "alt_pull", str(self.ALT_PULL))
 
-        # force off public torrents usage as currently broken.
         self.ENABLE_PUBLIC = False
 
         if self.GIT_TOKEN:
             self._normalize_git_token_auth()
-            # logger.info('git_token set to %s' % (self.GIT_TOKEN,))
 
         try:
             if not any(
@@ -1785,19 +1641,9 @@ class Config(object):
             try:
                 os.makedirs(self.LOG_DIR)
             except OSError:
-                # Same recovery as the startup path above, and it has to happen
-                # here too: this block runs after read() already nulled LOG_DIR,
-                # and the reset a few lines up put the uncreatable path back.
-                # Leaving it set makes the message a lie and, worse, makes the
-                # next configure_log_level() raise FileNotFoundError when the
-                # rotating file handler tries to open a file under it.
                 self.LOG_DIR = None
                 logger.warn("[CONFIG] Unable to create the log directory. Logging to screen only.")
 
-        # if not update:
-        #     logger.fdebug('[Cache Check] Cache directory currently set to : ' + self.CACHE_DIR)
-
-        # Put the cache dir in the data dir for now
         if not self.CACHE_DIR:
             self.CACHE_DIR = os.path.join(str(comicarr.DATA_DIR), "cache")
             if not update:
@@ -1816,13 +1662,10 @@ class Config(object):
 
         self._ensure_secure_directory()
 
-        # Encrypt plaintext credentials now that SECURE_DIR is available
         if self.ENCRYPT_PASSWORDS is True:
             self.encrypt_items(mode="encrypt")
 
-        # Migrate login password to bcrypt on startup (handles all three states)
         if self.HTTP_PASSWORD and not (self.HTTP_PASSWORD.startswith("$2b$") or self.HTTP_PASSWORD.startswith("$2a$")):
-            # Backup config before credential migration
             backup_path = os.path.join(self.SECURE_DIR, "config.ini.pre-security-migration.bak")
             if not os.path.exists(backup_path):
                 try:
@@ -1840,7 +1683,6 @@ class Config(object):
                 self.WRITE_THE_CONFIG = True
                 logger.info("[SECURITY] Login password migrated to bcrypt")
 
-        # Startup security permission checks
         if startup and not update:
             try:
                 config_mode = os.stat(self._config_file).st_mode
@@ -1920,7 +1762,6 @@ class Config(object):
                     "[STORYARC LOCATION] Storyarc Base directory location set to: %s" % (self.STORYARC_LOCATION)
                 )
 
-        # make sure the cookies.dat file is not in cache
         for f in glob.glob(os.path.join(self.CACHE_DIR, ".32p_cookies.dat")):
             try:
                 if os.path.isfile(f):
@@ -2003,17 +1844,13 @@ class Config(object):
         if self.ARC_FOLDERFORMAT is None:
             self.ARC_FOLDERFORMAT = "$arc ($spanyears)"
 
-        ## Sanity checking
         if any([self.COMICVINE_API is None, self.COMICVINE_API == "None", self.COMICVINE_API == ""]):
             logger.error(
                 "No User Comicvine API key specified. I will not work very well due to api limits - http://api.comicvine.com/ and get your own free key."
             )
             self.COMICVINE_API = None
-        # Check if Comicvine API key starts with None, thus making it invalid
         elif self.COMICVINE_API[:4] == "None":
-            # Notify user of what's going on
             logger.warn("Comicvine API key starts with a None, working around for now, please fix")
-            # Set the actual API key, so comicarr does not appear broken from the start
             self.COMICVINE_API = self.COMICVINE_API[4:]
 
         clamp_scheduler_intervals(self)
@@ -2028,7 +1865,6 @@ class Config(object):
             comicarr.RSS_STATUS = "Paused"
 
         if self.DUPECONSTRAINT is None:
-            # default dupecontraint to filesize
             self.DUPECONSTRAINT = "filesize"
             config.set("Duplicates", "dupeconstraint", "filesize")
 
@@ -2050,7 +1886,6 @@ class Config(object):
             self.FILE_OPTS = "move"
 
         if any([self.FILE_OPTS == "hardlink", self.FILE_OPTS == "softlink"]):
-            # we can't have metatagging enabled with hard/soft linking. Forcibly disable it here just in case it's set on load.
             self.ENABLE_META = False
 
         if all([self.IGNORED_PUBLISHERS is not None, self.IGNORED_PUBLISHERS != ""]):
@@ -2059,7 +1894,6 @@ class Config(object):
                 self.ignored_PUBLISHERS = self.IGNORED_PUBLISHERS.split(", ")
 
         if all([self.AUTHENTICATION == 0, self.HTTP_USERNAME is not None, self.HTTP_PASSWORD is not None]):
-            # set it to the default login prompt if nothing selected.
             self.AUTHENTICATION = 1
         elif all([self.HTTP_USERNAME is None, self.HTTP_PASSWORD is None]):
             self.AUTHENTICATION = 0
@@ -2113,7 +1947,6 @@ class Config(object):
 
         logger.info("[PROBLEM_DATES] Problem dates loaded: %s" % (self.PROBLEM_DATES,))
 
-        # default opds endpoint check
         if any([self.OPDS_ENDPOINT is None, len(self.OPDS_ENDPOINT) == 0]):
             self.OPDS_ENDPOINT = "opds"
         else:
@@ -2123,22 +1956,18 @@ class Config(object):
                 self.OPDS_ENDPOINT = self.OPDS_ENDPOINT[:-1]
             config.set("OPDS", "opds_endpoint", self.OPDS_ENDPOINT.strip())
 
-        # comictagger - force to use included version if option is enabled.
         from comicarr._vendor.comictaggerlib import ctversion
 
         logger.info("[COMICTAGGER] Version detected: %s" % ctversion.version)
-        # if any([self.ENABLE_META, self.CBR2CBZ_ONLY]):
         comicarr.CMTAGGER_PATH = comicarr.PROG_DIR
 
         if not ([self.CT_NOTES_FORMAT == "CVDB", self.CT_NOTES_FORMAT == "Issue ID"]):
             self.CT_NOTES_FORMAT = "Issue ID"
             config.set("Metatagging", "ct_notes_format", self.CT_NOTES_FORMAT)
 
-        # we need to make sure the default folder setting for the comictagger settings exists so things don't error out
         if self.CT_SETTINGSPATH is None:
             chkpass = False
 
-            # windows won't be able to create in ~, so force it to DATA_DIR
             if comicarr.OS_DETECT == "Windows":
                 ct_path = comicarr.DATA_DIR
                 chkpass = True
@@ -2155,7 +1984,7 @@ class Config(object):
                         )
                         ct_path = comicarr.DATA_DIR
                         chkpass = True
-                    elif e.errno == 17:  # file_already_exists
+                    elif e.errno == 17:
                         chkpass = True
                 except exception:
                     logger.error(
@@ -2182,7 +2011,6 @@ class Config(object):
             else:
                 logger.fdebug("Successfully created ComicTagger Settings location.")
 
-        # make sure the user_agent is running a current version and write it to the .ComicTagger file for use with CT
         if "42.0.2311.135" in self.CV_USER_AGENT:
             self.CV_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
@@ -2203,7 +2031,6 @@ class Config(object):
                 tmp_agent = ct_config.get("comicvine", "cv_user_agent")
 
             if tmp_agent != self.CV_USER_AGENT:
-                # update
                 try:
                     with codecs.open(ct_settingsfile, "r", "utf8") as ct_read:
                         ct_lines = ct_read.readlines()
@@ -2230,7 +2057,6 @@ class Config(object):
             else:
                 logger.info("[CV_USER_AGENT] Agent already identical in comictagger session.")
 
-        # make sure queues are running here...
         if startup is False:
             if self.POST_PROCESSING is True and (
                 all([self.NZB_DOWNLOADER == 0, self.SAB_CLIENT_POST_PROCESSING is True])
@@ -2269,7 +2095,6 @@ class Config(object):
                     logger.warn("[DDL PRIORITY ORDER] Unable to load DDL priority order from setting to default")
                     self.DDL_PRIORITY_ORDER = ["mega", "mediafire", "pixeldrain", "main"]
 
-            # validate entries
             ddl_pros = ["mega", "mediafire", "pixeldrain", "main"]
             for dpo in self.DDL_PRIORITY_ORDER:
                 if dpo.lower() not in ddl_pros:
@@ -2277,7 +2102,7 @@ class Config(object):
                     self.DDL_PRIORITY_ORDER.pop(self.DDL_PRIORITY_ORDER.index(dpo))
 
         else:
-            self.DDL_PRIORITY_ORDER = ["mega", "mediafire", "pixeldrain", "main"]  # default order
+            self.DDL_PRIORITY_ORDER = ["mega", "mediafire", "pixeldrain", "main"]
             config.set("DDL", "ddl_priority_order", json.dumps(self.DDL_PRIORITY_ORDER))
 
         logger.info(
@@ -2404,16 +2229,6 @@ class Config(object):
                 ex = extra_torznabs
 
             for x in ex:
-                # Field 5 is passed through exactly as stored. It used to be
-                # rewritten here -- '#' to ',', then the leading ',' back to
-                # '#' -- which left the runtime value in a shape none of its
-                # readers expected: `search.py` tests for '#' to decide whether
-                # a category was configured at all, so a stored `1#7030`
-                # arrived as `1,7030`, failed that test, and every Newznab
-                # search silently fell back to the built-in 7030. Only a value
-                # that already began with '#' survived the round trip. One
-                # storage contract now, read the same way by search.py,
-                # rsscheck.py, and the providers API.
                 x_cat = x[4]
                 try:
                     if cnt == 0:
@@ -2429,7 +2244,6 @@ class Config(object):
                         x_torzcat.append((x[0], x[1], x[2], x[3], x_cat, x[5]))
             cnt += 1
 
-        # had to loop thru entire set above in order to get the highest id to start at
         xx_newzcat = []
         xx_torzcat = []
         cnt = 0
@@ -2452,8 +2266,6 @@ class Config(object):
                     else:
                         xx_torzcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], comicarr.PROVIDER_START_ID))
             cnt += 1
-        # logger.fdebug('xx_newzcat: %s' % (xx_newzcat,))
-        # logger.fdebug('xx_torzcat: %s' % (xx_torzcat,))
         return xx_newzcat, xx_torzcat
 
     def get_extra_torznabs(self):
@@ -2471,7 +2283,6 @@ class Config(object):
             except Exception:
                 x_torcat.append((x[0], x[1], x[2], x[3], x_cat, x[5]))
 
-        # had to loop thru entire set above in order to get the highest id to start at
         xx_torcat = []
         for xn in x_torcat:
             try:
@@ -2503,9 +2314,6 @@ class Config(object):
             if self.ENABLE_32P:
                 PR.append("32p")
                 PR_NUM += 1
-            # if self.ENABLE_PUBLIC:
-            #    PR.append('public torrents')
-            #    PR_NUM +=1
         if self.EXPERIMENTAL:
             PR.append("Experimental")
             PR_NUM += 1
@@ -2521,7 +2329,7 @@ class Config(object):
         PPR = ["Experimental", "DDL(GetComics)", "DDL(External)"]
         if self.NEWZNAB:
             for ens in extra_newznabs:
-                if str(ens[5]) == "1":  # if newznabs are enabled
+                if str(ens[5]) == "1":
                     if ens[0] == "":
                         en_name = ens[1]
                     else:
@@ -2534,7 +2342,7 @@ class Config(object):
 
         if self.ENABLE_TORZNAB and self.ENABLE_TORRENT_SEARCH:
             for ets in extra_torznabs:
-                if str(ets[5]) == "1":  # if torznabs are enabled
+                if str(ets[5]) == "1":
                     if ets[0] == "":
                         et_name = ets[1]
                     else:
@@ -2558,17 +2366,13 @@ class Config(object):
 
             logger.fdebug("Original provider_order sequence: %s" % self.PROVIDER_ORDER)
 
-            # if provider order exists already, load it and then append to end any NEW entries.
             logger.fdebug("Provider sequence already pre-exists. Re-loading and adding/remove any new entries")
             TMPPR_NUM = 0
             PROV_ORDER = []
-            # load original sequence
             for PRO in PRO_ORDER:
                 PROV_ORDER.append({"order_seq": PRO[0], "provider": str(PRO[1])})
                 TMPPR_NUM += 1
 
-            # calculate original sequence to current sequence for discrepancies
-            # print('TMPPR_NUM: %s --- PR_NUM: %s' % (TMPPR_NUM, PR_NUM))
             if PR_NUM != TMPPR_NUM:
                 logger.fdebug("existing Order count does not match New Order count")
                 if PR_NUM > TMPPR_NUM:
@@ -2581,17 +2385,14 @@ class Config(object):
 
             NEW_PROV_ORDER = []
             i = len(PR) - 1
-            # this should loop over ALL possible entries
             while i >= 0:
                 found = False
                 for d in PPR:
-                    # logger.fdebug('checking entry %s against %s' % (PR[i], d) #d['provider'])
                     if d == PR[i]:
                         x = [p["order_seq"] for p in PROV_ORDER if p["provider"].lower() == PR[i].lower()]
                         if x:
                             ord = x[0]
                         else:
-                            # if x isn't found, the provider was not in the OG list. So we add it to the end.
                             ord = len(PR)
                         found = {"provider": PR[i], "order": ord}
                         break
@@ -2609,7 +2410,6 @@ class Config(object):
                     )
                 i -= 1
 
-            # now we reorder based on priority of orig_seq, but use a new_order seq
             xa = 0
             NPROV = []
             for x in sorted(NEW_PROV_ORDER, key=itemgetter("orig_seq"), reverse=False):
@@ -2619,15 +2419,12 @@ class Config(object):
             PROVIDER_ORDER = NPROV
 
         else:
-            # priority provider sequence in order#, ProviderName
             logger.fdebug("creating provider sequence order now...")
             TMPPR_NUM = 0
             PROV_ORDER = []
             while TMPPR_NUM < PR_NUM:
                 PROV_ORDER.append(str(TMPPR_NUM))
                 PROV_ORDER.append(PR[TMPPR_NUM])
-                # {"order_seq":  TMPPR_NUM,
-                # "provider":   str(PR[TMPPR_NUM])})
                 TMPPR_NUM += 1
             PROVIDER_ORDER = PROV_ORDER
 
@@ -2726,7 +2523,6 @@ class Config(object):
                     )
                 except ValueError:
                     if provider.lower() in {"32p", "public torrents"}:
-                        # Legacy torrent providers do not use provider_searches.
                         continue
                     raise
                 current = existing.get(canonical.lower())
@@ -2787,7 +2583,6 @@ def ddl_creations():
             comicarr.CONFIG.DDL_LOCATION = comicarr.CONFIG.CACHE_DIR
 
     if comicarr.CONFIG.ENABLE_DDL:
-        # make sure directory for mega downloads is created...
         mega_ddl_path = os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega")
         html_cache_path = os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache")
         mdp_create = filechecker.validateAndCreateDirectory(mega_ddl_path, create=True, dmode="ddl-mega location")

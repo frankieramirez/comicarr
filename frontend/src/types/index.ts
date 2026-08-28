@@ -2,7 +2,6 @@
  * Central export for all type definitions
  */
 
-// API types
 export type {
   ApiResponse,
   PaginationMeta,
@@ -12,7 +11,6 @@ export type {
   SessionResponse,
 } from "./api";
 
-// Entity types
 export type {
   SeriesStatus,
   IssueStatus,
@@ -66,7 +64,6 @@ export type {
   ArcSearchResult,
 } from "./entities";
 
-// Auth types
 export type {
   User,
   AuthContextValue,
@@ -74,10 +71,8 @@ export type {
   AuthState,
 } from "./auth";
 
-// Event types
 export type { ComicAddedDetail, ComicAddedEvent } from "./events";
 
-// Config types
 export type {
   Config,
   NewznabProvider,
@@ -88,7 +83,6 @@ export type {
   ConfigUpdate,
 } from "./config";
 
-// Component types
 export type {
   StatusBadgeProps,
   ButtonVariant,

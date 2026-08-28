@@ -168,9 +168,6 @@ function AddButton({
       ) as {
         comicid?: string;
       };
-      // Metron search ids are resolved to their ComicVine id server-side; the
-      // add response carries the id the comic-added event will name, so track
-      // that one for the settle/navigate handshake.
       if (response?.comicid) {
         comicIdRef.current = response.comicid;
       }

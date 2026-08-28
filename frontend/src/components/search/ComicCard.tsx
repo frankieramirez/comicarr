@@ -12,7 +12,6 @@ interface ComicCardProps {
 }
 
 export default function ComicCard({ comic }: ComicCardProps) {
-  // Initialize isAdded based on whether comic is already in library
   const [isAdded, setIsAdded] = useState(comic.in_library ?? false);
   const [isProcessing, setIsProcessing] = useState(false);
   const addComicMutation = useAddComic();
@@ -20,7 +19,6 @@ export default function ComicCard({ comic }: ComicCardProps) {
   const navigate = useNavigate();
   const comicIdRef = useRef<string | null>(null);
 
-  // Listen for SSE events when a comic is being added
   useEffect(() => {
     if (!isProcessing || !comicIdRef.current) return;
 
@@ -28,10 +26,8 @@ export default function ComicCard({ comic }: ComicCardProps) {
       try {
         const data: ComicAddedDetail = JSON.parse(event.detail);
 
-        // Check if this event is for our comic
         if (data.comicid === comicIdRef.current) {
           if (data.status === "success") {
-            // Navigate to series detail page
             navigate(`/library/${comicIdRef.current}`);
             setIsProcessing(false);
             comicIdRef.current = null;
@@ -52,7 +48,6 @@ export default function ComicCard({ comic }: ComicCardProps) {
       }
     };
 
-    // Listen for custom event useServerEvents derives from `activity`
     window.addEventListener("comic-added", handleAddById as EventListener);
 
     return () => {
@@ -70,9 +65,6 @@ export default function ComicCard({ comic }: ComicCardProps) {
       const response = (await addComicMutation.mutateAsync(
         comic.comicid ?? comic.id,
       )) as { comicid?: string };
-      // Metron search ids are resolved to their ComicVine id server-side; the
-      // add response carries the resolved id, and the comic-added event (and
-      // the library route we navigate to) use that id, not the one we sent.
       if (response?.comicid) {
         comicIdRef.current = response.comicid;
       }

@@ -72,7 +72,6 @@ class CVCache:
                         expires_at INTEGER
                     )
                 """)
-                # Create index on expires_at for efficient cleanup
                 cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_expires_at
                     ON cv_metadata_cache(expires_at)
@@ -127,10 +126,8 @@ class CVCache:
                     current_time = int(time.time())
 
                     if current_time < expires_at:
-                        # Cache hit, not expired
                         return response_data
                     else:
-                        # Expired, delete it
                         cursor.execute("DELETE FROM cv_metadata_cache WHERE cache_key = ?", (cache_key,))
                         conn.commit()
                         return None
@@ -224,15 +221,12 @@ class CVCache:
             try:
                 cursor = conn.cursor()
 
-                # Total entries
                 cursor.execute("SELECT COUNT(*) FROM cv_metadata_cache")
                 total = cursor.fetchone()[0]
 
-                # Expired entries
                 cursor.execute("SELECT COUNT(*) FROM cv_metadata_cache WHERE expires_at < ?", (current_time,))
                 expired = cursor.fetchone()[0]
 
-                # Database size
                 cursor.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
                 db_size = cursor.fetchone()[0]
 

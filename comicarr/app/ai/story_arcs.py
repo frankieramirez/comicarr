@@ -136,16 +136,13 @@ def enrich_with_providers(issues):
             continue
 
         try:
-            # Search the comics table for a matching series
             results = ai_queries.find_series_candidates(series_name)
 
             if results:
-                # Take the best match (first result)
                 comic_id = results[0].get("ComicID")
                 issue["comic_id"] = comic_id
                 issue["verified"] = True
 
-                # Try to find the specific issue
                 if comic_id and issue_number:
                     issue_result = ai_queries.find_issue_by_comic_and_number(comic_id, issue_number)
                     if issue_result:
@@ -173,7 +170,6 @@ def map_to_library(issues):
             continue
 
         try:
-            # Check the issues table for this specific issue
             if issue_id:
                 result = ai_queries.get_issue_status_by_id(issue_id)
             elif issue_number:

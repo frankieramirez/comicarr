@@ -148,9 +148,6 @@ def _candidate_reconstruction(evaluation, public):
     provider_stat = legacy.get("provider_stat") if isinstance(legacy, dict) else None
     provider_stat = provider_stat if isinstance(provider_stat, dict) else {}
     entry = legacy.get("entry") if isinstance(legacy, dict) else None
-    # The pre-match provider identity is stable across accepted and overridden
-    # evaluations. A generated legacy nzbid may instead derive from a link and
-    # change merely because the same rejection was explicitly overridden.
     raw_identity = hint.get("provider_item_id")
     if raw_identity in (None, ""):
         raw_identity = _entry_value(entry, "id")
@@ -180,8 +177,6 @@ def _candidate_reconstruction(evaluation, public):
         "pack": bool(candidate.get("pack")),
     }
     if hint.get("search_mode") == "unfiltered":
-        # An unfiltered-mode candidate must be revalidated under the same
-        # bare-title pass, so the mode is part of the safe reconstruction.
         reconstruction["search_mode"] = "unfiltered"
     satisfies = getattr(evaluation, "satisfies", None) or public.get("satisfies")
     if isinstance(satisfies, list) and satisfies and isinstance(satisfies[0], Mapping):
@@ -190,8 +185,6 @@ def _candidate_reconstruction(evaluation, public):
         if anchor_type in {"issue", "annual", "story_arc_issue"} and anchor_id:
             reconstruction["anchor_entity_type"] = anchor_type
             reconstruction["anchor_entity_id"] = anchor_id[:255]
-    # The digest is useful when an unsafe identity must be re-found under the
-    # current provider config; it is not reversible and grants no access.
     return reconstruction
 
 
@@ -300,9 +293,6 @@ def create_session(
         "expires_at": expires_at,
     }
 
-    # Comicarr runs one application process by default. The lock closes the
-    # absent-row race inside that process; the unique slot remains the durable
-    # backstop if deployment topology changes.
     with _CREATE_LOCK:
         purge_expired_sessions(engine, now=created)
         with engine.begin() as conn:
@@ -451,9 +441,6 @@ def complete_search_session(
             records.append(record)
             total_bytes += record_bytes
         if len(records) < len(evaluations):
-            # The candidate/byte bounds are deliberate, but hitting them must
-            # never read as "that was everything" (#767). Prepended so the
-            # failure-list bound cannot drop the notice itself.
             provider_failures = [
                 {
                     "provider": "Search",

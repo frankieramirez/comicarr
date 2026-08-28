@@ -30,10 +30,8 @@ from comicarr.app.ai.sanitize import sanitize_input, spotlight_wrap
 from comicarr.app.ai.schemas import MetadataEnrichment
 from comicarr.app.ai.structured import request_structured
 
-# Only enrich these fields (per plan's hallucination risk mitigation).
 ENRICHABLE_FIELDS = ["Genre", "AgeRating"]
 
-# ComicInfo.xml context fields used to build the AI prompt.
 CONTEXT_FIELDS = ["Title", "Series", "Number", "Publisher", "Year", "Writer", "Penciller"]
 
 
@@ -54,12 +52,10 @@ def enrich_metadata(cbz_path, issue_id):
     if ctx.ai_rate_limiter is None or not ctx.ai_rate_limiter.can_request():
         return 0
 
-    # Read ComicInfo.xml from CBZ
     comic_info = _read_comicinfo(cbz_path)
     if comic_info is None:
         return 0
 
-    # Identify blank enrichable fields
     blank_fields = []
     for field in ENRICHABLE_FIELDS:
         value = comic_info.get(field, "")
@@ -69,7 +65,6 @@ def enrich_metadata(cbz_path, issue_id):
     if not blank_fields:
         return 0
 
-    # Build context from non-blank fields
     context_fields = {}
     for key in CONTEXT_FIELDS:
         val = comic_info.get(key, "")
@@ -105,7 +100,6 @@ def enrich_metadata(cbz_path, issue_id):
         latency_ms = int((time.time() - start_time) * 1000)
         ctx.ai_circuit_breaker.record_success()
 
-        # Filter: only accept values for fields that were actually blank
         enriched = {}
         for field_name, value in result.fields.items():
             if field_name in blank_fields and value and value.strip():
@@ -114,10 +108,8 @@ def enrich_metadata(cbz_path, issue_id):
         if not enriched:
             return 0
 
-        # Write enriched values to ComicInfo.xml in CBZ
         _write_comicinfo(cbz_path, enriched)
 
-        # Store in ai_metadata_history for revert
         _store_history(issue_id, enriched)
 
         ai_service.log_activity(
@@ -178,13 +170,11 @@ def _read_comicinfo(cbz_path):
 def _write_comicinfo(cbz_path, enriched_fields):
     """Write enriched values into ComicInfo.xml inside the CBZ."""
     try:
-        # Read existing ComicInfo.xml
         with zipfile.ZipFile(cbz_path, "r") as zf:
             xml_data = zf.read("ComicInfo.xml")
 
         root = ET.fromstring(xml_data)
 
-        # Update blank fields with enriched values
         for field_name, value in enriched_fields.items():
             elem = root.find(field_name)
             if elem is not None:
@@ -195,7 +185,6 @@ def _write_comicinfo(cbz_path, enriched_fields):
 
         updated_xml = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
-        # Rewrite CBZ with updated ComicInfo.xml
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".cbz")
         os.close(tmp_fd)
 
@@ -239,14 +228,11 @@ def _store_history(issue_id, enriched_fields):
 
 def revert_field(issue_id, field_name, cbz_path):
     """Revert an AI-enriched field back to blank."""
-    # Validate issue exists
     if not ai_queries.issue_exists(issue_id):
         raise ValueError("Issue %s not found" % issue_id)
 
-    # Remove enriched value from CBZ (set field to empty)
     _write_comicinfo(cbz_path, {field_name: ""})
 
-    # Delete history entry
     ai_queries.delete_metadata_history("issue", issue_id, field_name, "enrichment")
 
     logger.fdebug("[AI-ENRICH] Reverted %s for issue %s" % (field_name, issue_id))

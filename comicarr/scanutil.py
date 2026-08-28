@@ -31,11 +31,8 @@ COMIC_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
 def normalize_title(name):
     """Normalize a title for comparison: lowercase, strip punctuation and common particles."""
     name = name.lower().strip()
-    # Remove common subtitle separators and everything after
     name = re.split(r"\s*[:\-\u2013\u2014~]\s*", name)[0]
-    # Remove punctuation
     name = re.sub(r"[^\w\s]", "", name)
-    # Collapse whitespace
     name = re.sub(r"\s+", " ", name).strip()
     return name
 
@@ -55,15 +52,12 @@ def name_similarity(name1, name2):
     if n1 == n2:
         return 1.0
 
-    # Character-level sequence similarity
     seq_score = SequenceMatcher(None, n1, n2).ratio()
 
-    # Word-level Jaccard similarity (handles reordering)
     s1 = set(n1.split())
     s2 = set(n2.split())
     jaccard = len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0
 
-    # Containment check: if one name fully contains the other
     containment = 0.0
     if n1 in n2 or n2 in n1:
         containment = min(len(n1), len(n2)) / max(len(n1), len(n2))

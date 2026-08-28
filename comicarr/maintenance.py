@@ -85,8 +85,6 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         if src_conn:
             src_conn.close()
 
-    # Rotate only timestamped comicarr.db.YYYYMMDD_HHMMSS.bak files. Fixed-name
-    # pins (e.g. comicarr.db.pre-unique-migration.bak) are never pruned here.
     timestamped_backup = re.compile(r"^comicarr\.db\.\d{8}_\d{6}\.bak$")
     existing = sorted(
         path
@@ -158,28 +156,14 @@ class Maintenance(object):
             self.db_version = tmp_version[0]
         self.sql_close_db()
 
-        # self.sql_attach()
-        # for vchk in self.db.execute('SELECT version, status from update_db'):
-        #    if vchk[1] == 'complete':
-        #        self.db_version = vchk[0]
-        #    elif vchk[1] == 'incomplete':
-        #        self.db_version = tmp_version
-        #    tmp_version = vchk[0]
-        # self.sql_close()
-
         if display:
             logger.fdebug("[DB_VERSION_CHECK] Database version is v%s" % (self.db_version))
 
     def db_update_check(self):
-        # this is meant to hold all the updates that are required to be run against the dB at any given time.
-        # if a dbupdate is required of any kind, it will be initiated and controlled from via direct code.
 
         self.db_version_check()
 
         if self.db_version < 1:
-            # -- rssdb table - ComicName and Issue_Number added.
-            # Values are generated based on existing data
-
             self.sql_attach_db()
             try:
                 self.db_cursor.execute("SELECT Issue_Number from rssdb")
@@ -213,7 +197,7 @@ class Maintenance(object):
                             else:
                                 upper = ck[0]
                             if lower + 1 == upper:
-                                resume.append(lower)  # + 1)
+                                resume.append(lower)
 
                             lower = upper
                             chk_cnt += 1
@@ -335,9 +319,7 @@ class Maintenance(object):
 
     def clear_provider_table(self):
         self.sql_attach_db()
-        # drop it
         self.db_cursor.execute("DROP TABLE provider_searches")
-        # bring it back hot
         self.db_cursor.execute(
             "CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)"
         )
@@ -377,7 +359,6 @@ class Maintenance(object):
         self.sql_close()
 
     def importIT(self):
-        # set startup...
         if len(self.comiclist) > 0:
             self.sql_attach()
             query = "DELETE FROM maintenance"
@@ -473,11 +454,6 @@ class Maintenance(object):
     def db_update_status(self, statusinfo):
         self.sql_attach()
 
-        # if statusinfo['status'] == 'incomplete':
-        #    query = "DELETE from update_db where status='incomplete'"
-        #    self.db.execute(query)
-        #    query = "INSERT INTO update_db(version, status, total, current, last_run, mode) VALUES (?,?,?,?,?,?)"
-        # else:
         query = "INSERT OR REPLACE INTO update_db(mode, version, status, total, current, last_run) VALUES(?,?,?,?,?,?)"
 
         try:
@@ -556,24 +532,19 @@ class Maintenance(object):
                 cf_val = "config.ini-v%s.backup.???" % config_version
                 source_file = comicarr.CONFIG_FILE
             try:
-                # start naming backup files as comicarr.db.backup.xxx or config.ini-vXX.backup.xxx
                 if os.path.exists(cback_path):
                     for f in sorted(glob.glob(os.path.join(root_path, cf_val)), reverse=True):
                         backup_num = f[-3:]
                         if backup_num.isdigit():
                             if backup_retention > int(backup_num):
                                 bpath = cback_path + ".{:03d}".format(int(backup_num) + 1)
-                                # logger.fdebug('[Rolling_Versioning %s-%s] copying %s to %s' % (int(backup_num), int(backup_num)+1, f, bpath))
                                 shutil.copy2(f, bpath)
 
-                    # logger.fdebug('[Rolling_Versioning %s-%s] copying %s to %s' % (int(backup_num), '0', cback_path, cback_path + '.000'))
                     shutil.copy2(cback_path, cback_path + ".000")
 
-                    # logger.fdebug('[Rolling_Versioning %s-%s] copying %s to %s' % ('original', '.backup', source_file, cback_path))
                     shutil.copy2(source_file, cback_path)
                     db_backed = cback_path
                 else:
-                    # logger.fdebug('Backing up existing %s as %s' % (cf, cback_path))
                     shutil.copy2(source_file, cback_path)
                     db_backed = cback_path
             except Exception as e:
@@ -594,11 +565,9 @@ class Maintenance(object):
 
     def update_db(self):
 
-        # comicarr.MAINTENANCE_UPDATE will indicate what's being updated in the db
         if comicarr.MAINTENANCE_UPDATE:
             self.db_version_check(display=False)
 
-            # backup comicarr.db here
             self.backup_files(dbs=True)
 
             for dmode in comicarr.MAINTENANCE_UPDATE:
@@ -610,7 +579,6 @@ class Maintenance(object):
                             % dmode["resume"]
                         )
 
-                # force set logging to warning level only so the progress indicator can be displayed in console
                 prev_log_level = comicarr.LOG_LEVEL
                 self.toggle_logging(level=0)
 
@@ -638,7 +606,6 @@ class Maintenance(object):
                     try:
                         if dmode["resume"] > 0 and xlist is not None:
                             logger.info("resume set at : %s" % (xlist[dmode["resume"]],))
-                            # xlist[dmode['resume']:]
                             comicarr.MAINTENANCE_DB_COUNT = dmode["resume"]
                     except Exception as e:
                         print(
@@ -655,7 +622,6 @@ class Maintenance(object):
                         for x in self.progressBar(
                             xlist, prefix="Progress", suffix="Complete", length=50, resume=dmode["resume"]
                         ):
-                            # signal capture here since we can't do it as per normal
                             if any([comicarr.SIGNAL == "shutdown", comicarr.SIGNAL == "restart"]):
                                 try:
                                     self.db_cursor.executemany(
@@ -675,7 +641,6 @@ class Maintenance(object):
                                     }
                                     self.db_update_status(send_it)
 
-                                # toggle back the logging level to what it was originally.
                                 self.toggle_logging(level=prev_log_level)
 
                                 if comicarr.SIGNAL == "shutdown":
@@ -721,14 +686,12 @@ class Maintenance(object):
                                     resultlist.append((issuenumber, seriesname.strip(), x[0]))
 
                                 if len(resultlist) > 500:
-                                    # write it out every 5000 records.
                                     try:
                                         logger.fdebug("resultlist: %s" % (resultlist,))
                                         self.db_cursor.executemany(
                                             "UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist)
                                         )
                                         self.sql_close_db()
-                                        # update the update_db so if it has to resume it doesn't from the beginning or wrong point ( last 5000th write ).
                                         send_it = {
                                             "mode": dmode["mode"],
                                             "version": self.db_version,
@@ -772,7 +735,6 @@ class Maintenance(object):
                                 self.db_update_status(send_it)
 
                             if delete_rows:
-                                # only do this on completion, or else the rowids will be different and it will mess up a rerun
                                 try:
                                     self.sql_attach_db()
                                     print(
@@ -794,7 +756,6 @@ class Maintenance(object):
 
                             self.sql_close_db()
 
-                            # toggle back the logging level to what it was originally.
                             self.toggle_logging(level=prev_log_level)
                             logger.info(
                                 "[MAINTENANCE-MODE][DB-CONVERSION] Updating dB complete! (%s / %s)"
@@ -826,18 +787,14 @@ class Maintenance(object):
         """
         total = len(iterable)
 
-        # Progress Bar Printing Function
         def printProgressBar(iteration):
             percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
             filledLength = int(length * iteration // total)
             bar = fill * filledLength + "-" * (length - filledLength)
             print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
 
-        # Initial Call
         printProgressBar(0)
-        # Update Progress Bar
         for i, item in enumerate(iterable):
             yield item
             printProgressBar(resume + i + 1)
-        # Print New Line on Complete
         print()

@@ -29,11 +29,6 @@ from comicarr.app.series import service as series_service
 router = APIRouter(prefix="/api", tags=["series"])
 
 
-# ---------------------------------------------------------------------------
-# Series CRUD
-# ---------------------------------------------------------------------------
-
-
 @router.get("/series", dependencies=[Depends(require_session)])
 def list_series(
     limit: int = Query(None),
@@ -159,10 +154,6 @@ def resume_series(comic_id: str, ctx: AppContext = Depends(get_context)):
     return series_service.resume_comic(ctx, comic_id)
 
 
-# ---------------------------------------------------------------------------
-# Bulk series operations
-# ---------------------------------------------------------------------------
-
 MAX_BULK_IDS = 100
 
 
@@ -281,7 +272,6 @@ async def search_all_missing(
     if not isinstance(body, dict):
         body = {}
     confirm = bool(body.get("confirm"))
-    # Off the event loop: durable-run queue handoff is DB-bound (#733).
     result = await asyncio.to_thread(
         series_service.search_all_missing,
         ctx,
@@ -295,11 +285,6 @@ async def search_all_missing(
     if result.get("success") is False:
         return JSONResponse(status_code=int(result.get("status_code") or 400), content=result)
     return result
-
-
-# ---------------------------------------------------------------------------
-# Issue management
-# ---------------------------------------------------------------------------
 
 
 @router.put("/series/issues/{issue_id}/queue")
@@ -348,7 +333,6 @@ async def search_one_wanted_issue(
         body = await request.json()
     except Exception:
         body = {}
-    # Off the event loop: durable-run queue handoff is DB-bound (#733).
     result = await asyncio.to_thread(
         series_service.search_wanted_issue,
         issue_id,
@@ -382,11 +366,6 @@ def get_wanted(
         include_story_arcs=story_arcs,
         search=q,
     )
-
-
-# ---------------------------------------------------------------------------
-# Import management
-# ---------------------------------------------------------------------------
 
 
 @router.get("/import", dependencies=[Depends(require_session)])
@@ -626,11 +605,6 @@ def comic_scan_confirm(
         status = 409 if result.get("stale") else 400
         return JSONResponse(status_code=status, content={"detail": result.get("error")})
     return result
-
-
-# ---------------------------------------------------------------------------
-# REST-compat endpoints (migrated from legacy /rest mount)
-# ---------------------------------------------------------------------------
 
 
 @router.get("/watchlist", dependencies=[Depends(require_api_key("full"))])

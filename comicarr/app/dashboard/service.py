@@ -25,9 +25,6 @@ from comicarr.app.storyarcs import service as storyarcs_service
 
 RECENT_ACTIVITY_DAYS = 30
 
-# Every panel's preview is bounded here rather than in the client. A panel that
-# renders fewer rows than it counts is claiming a number it is not showing, so
-# a count and the list under it always share one bound.
 RECENT_ACTIVITY_PREVIEW_LIMIT = 5
 UPCOMING_PREVIEW_LIMIT = 6
 

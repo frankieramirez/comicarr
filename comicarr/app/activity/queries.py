@@ -28,8 +28,6 @@ from comicarr.app.core.database import paginated_query
 from comicarr.app.downloads.journal import OPEN_STAGES, load_payload
 from comicarr.tables import acquisition_run_items, activity_events, pipeline_journal
 
-# Pagination pages *events* (not pre-grouped stories). Story grouping of 25 is
-# a UI concern; the client may request more events than stories to fill a page.
 TIMELINE_LIMIT_MIN = 1
 TIMELINE_LIMIT_MAX = 100
 TIMELINE_LIMIT_DEFAULT = 50
@@ -83,7 +81,6 @@ def _timeline_scope_condition(scope_type, scope_id):
             activity_events.c.subject_type == scope_type,
             activity_events.c.subject_id == scope_id,
         )
-    # series rollup: parent_series_id + series subject + series-scoped run events
     return or_(
         activity_events.c.parent_series_id == scope_id,
         and_(

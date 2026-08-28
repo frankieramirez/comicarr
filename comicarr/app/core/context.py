@@ -55,27 +55,21 @@ from comicarr.app.core.workers import BackgroundWorkerRegistry
 
 @dataclass
 class AppContext:
-    # Immutable after init — paths and config
     prog_dir: str = ""
     data_dir: str = ""
     db_file: str = ""
-    config: object = None  # comicarr.config.Config instance
+    config: object = None
     jwt_secure_dir: str = None
 
-    # Scheduler
-    scheduler: object = None  # BackgroundScheduler
+    scheduler: object = None
 
-    # Thread-safe locks. ``runtime_lock`` serializes context/legacy projection
-    # writes; the acquired queue and domain locks retain their legacy locking
-    # semantics and identities.
     runtime_lock: object = field(default_factory=threading.RLock)
     init_lock: threading.Lock = field(default_factory=threading.Lock)
-    search_lock: object = None  # ThreadSafeLock
-    api_lock: object = None  # ThreadSafeLock
-    ddl_lock: object = None  # ThreadSafeLock
-    acquisition_resume_lock: object = None  # threading.Lock
+    search_lock: object = None
+    api_lock: object = None
+    ddl_lock: object = None
+    acquisition_resume_lock: object = None
 
-    # Work queues (inter-thread communication)
     snatched_queue: queue.Queue = field(default_factory=queue.Queue)
     nzb_queue: queue.Queue = field(default_factory=queue.Queue)
     pp_queue: queue.Queue = field(default_factory=queue.Queue)
@@ -86,8 +80,6 @@ class AppContext:
     issue_watch_list: queue.Queue = field(default_factory=queue.Queue)
     refresh_queue: queue.Queue = field(default_factory=queue.Queue)
 
-    # Worker references. These stay compatibility-projected while the legacy
-    # worker bootstrap is being strangled; the objects themselves are shared.
     sn_pool: object = None
     nzb_pool: object = None
     search_pool: object = None
@@ -97,24 +89,20 @@ class AppContext:
     mass_refresh_pool: object = None
     background_workers: object = field(default_factory=BackgroundWorkerRegistry)
 
-    # SSE
-    event_bus: object = None  # EventBus instance
+    event_bus: object = None
 
-    # Provider clients
-    cv_session: object = None  # requests.Session
+    cv_session: object = None
     cv_rate_limiter: object = None
     cv_cache: object = None
     metron_api: object = None
-    fernet: object = None  # Fernet instance
+    fernet: object = None
 
-    # AI integration
-    ai_client: object = None  # OpenAI sync client
-    ai_async_client: object = None  # AsyncOpenAI async client
-    ai_circuit_breaker: object = None  # CircuitBreaker instance
-    ai_rate_limiter: object = None  # AIRateLimiter instance
+    ai_client: object = None
+    ai_async_client: object = None
+    ai_circuit_breaker: object = None
+    ai_rate_limiter: object = None
 
-    # In-memory state (migrated from globals)
-    comic_sort: object = None  # COMICSORT
+    comic_sort: object = None
     publisher_imprints: dict = field(default_factory=dict)
     provider_blocklist: list = field(default_factory=list)
     ddl_queued: set = field(default_factory=set)
@@ -123,7 +111,6 @@ class AppContext:
     folder_cache: object = None
     check_folder_cache: object = None
 
-    # Scheduler status (read by frontend)
     monitor_status: str = "Waiting"
     search_status: str = "Waiting"
     rss_status: str = "Waiting"
@@ -134,7 +121,6 @@ class AppContext:
     importinbox_status: str = "Waiting"
     weekly_manual_next_run: object = None
 
-    # Import progress tracking
     import_status: str = None
     import_files: int = 0
     import_totalfiles: int = 0
@@ -144,21 +130,16 @@ class AppContext:
     import_lock: bool = False
     import_button: bool = False
 
-    # Mutable auth state (ephemeral, NOT on config)
     sse_key: str = None
     setup_token: str = None
 
-    # JWT signing authority. The secure directory is immutable after init;
-    # the active key is rotated under ``runtime_lock``.
     jwt_secret_key: bytes = None
     jwt_generation: int = 0
 
-    # Backend status
     backend_status_ws: str = "up"
     backend_status_cv: str = "up"
     provider_status: dict = field(default_factory=dict)
 
-    # Version info
     current_version: str = None
     current_version_name: str = None
     current_release_name: str = None
@@ -168,14 +149,11 @@ class AppContext:
     install_type: str = None
     current_branch: str = None
 
-    # Misc runtime state
     signal: str = None
     started: bool = False
     start_up: bool = True
     update_value: dict = field(default_factory=dict)
 
-    # Database/acquisition runtime projection. Durable maintenance state is
-    # owned by the database fence; these fields expose its latest safe view.
     db_empty: bool = False
     acquisition_schema_ready: bool = False
     acquisition_schema_version: int = 0
@@ -183,7 +161,6 @@ class AppContext:
     acquisition_workers_blocked: bool = True
     acquisition_block_reason: str = "schema_unavailable"
 
-    # Migration status is request-visible and projected for legacy callers.
     migration_in_progress: bool = False
     migration_status: str = "idle"
     migration_current_table: str = ""
@@ -192,8 +169,6 @@ class AppContext:
     migration_error: str = None
     migration_reconciliation: object = None
 
-    # Lifecycle terminal state. Accessors reject a disposed context rather
-    # than allowing a request/background callback to touch closed resources.
     disposed: bool = False
 
 

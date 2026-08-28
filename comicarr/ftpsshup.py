@@ -7,7 +7,7 @@ import comicarr
 from comicarr import logger
 
 
-def putfile(localpath, file):  # localpath=full path to .torrent (including filename), file=filename of torrent
+def putfile(localpath, file):
 
     try:
         import paramiko
@@ -19,7 +19,7 @@ def putfile(localpath, file):  # localpath=full path to .torrent (including file
         return "fail"
 
     host = comicarr.CONFIG.SEEDBOX_HOST
-    port = int(comicarr.CONFIG.SEEDBOX_PORT)  # this is usually 22
+    port = int(comicarr.CONFIG.SEEDBOX_PORT)
     transport = paramiko.Transport((host, port))
 
     logger.fdebug("Sending file: " + str(file))
@@ -33,9 +33,7 @@ def putfile(localpath, file):  # localpath=full path to .torrent (including file
 
     if file[-7:] != "torrent":
         file += ".torrent"
-    rempath = os.path.join(
-        comicarr.CONFIG.SEEDBOX_WATCHDIR, file
-    )  # this will default to the OS running comicarr for slashes.
+    rempath = os.path.join(comicarr.CONFIG.SEEDBOX_WATCHDIR, file)
     logger.fdebug("remote path set to " + str(rempath))
     logger.fdebug("local path set to " + str(localpath))
 
@@ -57,12 +55,10 @@ def putfile(localpath, file):  # localpath=full path to .torrent (including file
             logger.fdebug("Forcibly closing connection and attempting to reconnect")
             sftp.close()
             transport.close()
-            # reload the transport here cause it locked up previously.
             transport = paramiko.Transport((host, port))
             transport.connect(username=username, password=password)
             sftp = paramiko.SFTPClient.from_transport(transport)
             logger.fdebug("sucessfully reconnected via sftp - attempting to resend.")
-            # return "fail"
 
     sftp.close()
     transport.close()
@@ -116,27 +112,20 @@ def sendtohome(sftp, remotepath, filelist, transport):
         tempfile = files["filename"]
         issid = files["issueid"]
         logger.fdebug("Checking filename for problematic characters: " + tempfile)
-        # we need to make the required directory(ies)/subdirectories before the get will work.
         if "\xb4" in files["filename"]:
-            # right quotation
             logger.fdebug("detected abnormal character in filename")
             filename = tempfile.replace("0xb4", "'")
         if "\xbd" in files["filename"]:
-            # 1/2 character
             filename = tempfile.replace("0xbd", "half")
         if "\uff1a" in files["filename"]:
-            # some unknown character
             filename = tempfile.replace("\0ff1a", "-")
 
-        # now we encode the structure to ascii so we can write directories/filenames without error.
         filename = tempfile.encode("ascii", "ignore")
 
         remdir = remotepath
 
         if comicarr.CONFIG.MAINTAINSERIESFOLDER == 1:
-            # Get folder path of issue
             comicdir = os.path.split(files["filepath"])[0]
-            # Isolate comic folder name
             comicdir = os.path.split(comicdir)[1]
             logger.info("Checking for Comic Folder: " + comicdir)
             chkdir = os.path.join(remdir, comicdir)
@@ -147,7 +136,6 @@ def sendtohome(sftp, remotepath, filelist, transport):
                 try:
                     sftp.mkdir(chkdir)
                 except:
-                    # Fallback to default behavior
                     logger.info("Could not create Comic Folder, adding to device root")
                 else:
                     remdir = chkdir
@@ -173,7 +161,7 @@ def sendtohome(sftp, remotepath, filelist, transport):
 
             while not sendcheck:
                 try:
-                    sftp.put(localsend, remotesend)  # , callback=printTotals)
+                    sftp.put(localsend, remotesend)
                     sendcheck = True
                 except Exception as e:
                     logger.info(
@@ -184,7 +172,6 @@ def sendtohome(sftp, remotepath, filelist, transport):
                     logger.info("Forcibly closing connection and attempting to reconnect")
                     sftp.close()
                     transport.close()
-                    # reload the transport here cause it locked up previously.
                     transport = paramiko.Transport((host, port))
                     transport.connect(username=comicarr.CONFIG.TAB_USER, password=comicarr.CONFIG.TAB_PASS)
                     sftp = paramiko.SFTPClient.from_transport(transport)
@@ -217,7 +204,6 @@ def sendtohome(sftp, remotepath, filelist, transport):
                         logger.info("Forcibly closing connection and attempting to reconnect")
                         sftp.close()
                         transport.close()
-                        # reload the transport here cause it locked up previously.
                         transport = paramiko.Transport((host, port))
                         transport.connect(username=comicarr.CONFIG.TAB_USER, password=comicarr.CONFIG.TAB_PASS)
                         sftp = paramiko.SFTPClient.from_transport(transport)
@@ -240,11 +226,3 @@ def sendtohome(sftp, remotepath, filelist, transport):
     transport.close()
     logger.fdebug("Upload of readlist complete.")
     return successlist
-
-
-# def printTotals(transferred, toBeTransferred):
-#    percent = transferred / toBeTransferred
-#    logger.info("Transferred: " + str(transferred) + " Out of " + str(toBeTransferred))
-
-# if __name__ == '__main__':
-#    putfile(sys.argv[1])

@@ -192,7 +192,6 @@ export default function GridShader() {
         ctx.stroke();
       }
 
-      // Soft accent bloom directly under cursor
       if (glowing) {
         const grad = ctx.createRadialGradient(mx, my, 0, mx, my, GLOW_RADIUS);
         const a = 0.1 * smooth.glow;

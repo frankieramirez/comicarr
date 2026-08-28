@@ -32,21 +32,16 @@ from comicarr import helpers, logger
 def get_cache_ttl_for_rtype(rtype):
     """Get cache TTL based on request type"""
     if rtype in ["comic", "comicyears", "import", "image", "firstissue", "imprints_first"]:
-        # Comic metadata - cache longer
         return comicarr.CONFIG.CV_CACHE_TTL_METADATA
     elif rtype == "storyarc":
-        # Story arc info
         return comicarr.CONFIG.CV_CACHE_TTL_ARC
     elif rtype in ["issue", "single_issue", "db_updater"]:
-        # Issue searches - cache for medium duration
         return comicarr.CONFIG.CV_CACHE_TTL_SEARCH
     else:
-        # Default to search TTL
         return comicarr.CONFIG.CV_CACHE_TTL_SEARCH
 
 
 def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlist=None, dateinfo=None):
-    # import easy to use xml parser called minidom:
     import json
     from xml.dom.minidom import parseString
 
@@ -98,7 +93,6 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + str(offset)
         )
     elif any([rtype == "image", rtype == "firstissue", rtype == "imprints_first"]):
-        # this is used ONLY for CV_ONLY
         if issueid:
             PULLURL = (
                 comicarr.CVURL
@@ -149,7 +143,6 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + str(offset)
         )
     elif rtype == "single_issue":
-        # this is used for retrieving single issue metadata for use when displaying metadata information for a selected issue.
         PULLURL = comicarr.CVURL + "issue/4000-" + str(issueid) + "?api_key=" + str(comicapi) + "&format=json"
     elif rtype == "db_updater":
         PULLURL = (
@@ -163,9 +156,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + "&field_list=date_last_updated,id,volume,issue_number&sort=date_last_updated:asc&offset="
             + str(offset)
         )
-    # logger.info('CV.PULLURL: ' + PULLURL)
 
-    # Check cache first if enabled
     if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE:
         cached_response = comicarr.CV_CACHE.get(PULLURL)
         if cached_response:
@@ -177,10 +168,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
                     return parseString(cached_response)
             except Exception as e:
                 logger.warn("[CACHE] Error parsing cached response: %s" % e)
-                # Fall through to fetch from API
 
-    # new CV API restriction - one api request / second.
-    # Use intelligent rate limiter instead of fixed sleep (only on cache miss)
     comicarr.CV_RATE_LIMITER.acquire()
 
     try:
@@ -194,23 +182,17 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             return False
 
     comicarr.BACKENDSTATUS_CV = "up"
-    # logger.fdebug('cv status code : ' + str(r.status_code))
-    # logger.fdebug('rtype: %s' % rtype)
 
-    # Cache the response if enabled (before parsing)
     if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE and r.status_code == 200:
         ttl = get_cache_ttl_for_rtype(rtype)
         if any([rtype == "single_issue", rtype == "db_updater"]):
-            # For JSON responses, cache the text content
             comicarr.CV_CACHE.set(PULLURL, r.text.encode("utf-8"), ttl)
         else:
-            # For XML responses, cache the raw content
             comicarr.CV_CACHE.set(PULLURL, r.content, ttl)
 
     try:
         if any([rtype == "single_issue", rtype == "db_updater"]):
             dom = r.json()
-            # logger.info('cv_data returned: %s' % dom)
         else:
             dom = parseString(r.content)
     except ExpatError:
@@ -241,11 +223,8 @@ def getComic(
         ndic = []
         issuechoice = []
         firstdate = "2099-00-00"
-        # let's find out how many results we get from the query...
         if comicid is None:
-            # if comicid is None, it's coming from the story arc search results.
             id = arcid
-            # since the arclist holds the issueids, and the pertinent reading order - we need to strip out the reading order so this works.
             aclist = ""
             if arclist.startswith("M"):
                 islist = arclist[1:]
@@ -271,18 +250,14 @@ def getComic(
                 "Querying & compiling from %s - %s out of %s results" % (countResults, countResults + 100, totalResults)
             )
             if countResults > 0:
-                # new api - have to change to page # instead of offset count
                 offsetcount = countResults
                 searched = pulldetails(id, "issue", None, offsetcount, islist)
             if not searched:
-                # if it's a CV timeout/error, just return what we have thus far and hopefully
-                # the next run will be able to catch things up
                 break
             issuechoice, tmpdate = GetIssuesInfo(id, searched, arcid)
             if tmpdate < firstdate:
                 firstdate = tmpdate
             ndic = ndic + issuechoice
-            # search results are limited to 100 and by pagination now...let's account for this.
             countResults = countResults + 100
 
         issue["issuechoice"] = ndic
@@ -299,22 +274,14 @@ def getComic(
         dom = pulldetails(arc, "storyarc", None, 1)
         return GetComicInfo(issueid, dom)
     elif rtype == "comicyears":
-        # used by the story arc searcher when adding a given arc to poll each ComicID in order to populate the Series Year & volume (hopefully).
-        # this grabs each issue based on issueid, and then subsets the comicid for each to be used later.
-        # set the offset to 0, since we're doing a filter.
         dom = pulldetails(arcid, "comicyears", offset=0, comicidlist=comicidlist)
         return GetSeriesYears(dom)
     elif rtype == "import":
-        # used by the importer when doing a scan with metatagging enabled. If metatagging comes back true, then there's an IssueID present
-        # within the tagging (with CT). This compiles all of the IssueID's during a scan (in 100's), and returns the corresponding CV data
-        # related to the given IssueID's - namely ComicID, Name, Volume (more at some point, but those are the important ones).
         id_count = 0
         import_list = []
         logger.fdebug("comicidlist:" + str(comicidlist))
 
         while id_count < len(comicidlist):
-            # break it up by 100 per api hit
-            # do the first 100 regardless
             in_cnt = 0
             if id_count + 100 <= len(comicidlist):
                 endcnt = id_count + 100
@@ -347,14 +314,11 @@ def getComic(
         dtchk1 = datetime.datetime.strptime(dateinfo, "%Y-%m-%d %H:%M:%S")
         dtnow = datetime.datetime.now(tz=datetime.timezone.utc)
         dtnow = dtnow.strftime("%Y-%m-%d %H:%M:%S")
-        # stupid convert it back to a datetime after we localized the UTC timestamp
         dtnow = datetime.datetime.strptime(dtnow, "%Y-%m-%d %H:%M:%S")
         dateline_range = []
         for x in comicarr.CONFIG.PROBLEM_DATES:
             bline = datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
-            # check if problem date is greater than the start range
             if bline > dtchk1:
-                # check if problem date is lower than the end range
                 if bline < dtnow:
                     dateline_range.append(
                         {
@@ -376,7 +340,6 @@ def getComic(
                     )
 
         if not dateline_range:
-            # we store dates in UTC - CV API returns dates in UTC-7 (Pacific time zone)
             p_zone = pytz.timezone("US/Pacific")
             dtchk1 = datetime.datetime.strptime(dateinfo, "%Y-%m-%d %H:%M:%S")
             p_aware = pytz.utc.localize(dtchk1)
@@ -407,9 +370,7 @@ def getComic(
 
             overallResults = totalResults
             if totalResults > 1500:
-                # force set this here and we'll stagger the remainder over the next hr + depending on size.
                 totalResults = 1500
-                # if it's the 1st of 2 loops, we need to break out after the 1st loop if it's > 1500 results
                 innerbreak = True
 
             countResults = 0
@@ -419,7 +380,6 @@ def getComic(
                     % (countResults, countResults + 100, totalResults)
                 )
                 if countResults > 0:
-                    # new api - have to change to page # instead of offset count
                     offsetcount = countResults
                     resultlist = pulldetails(None, "db_updater", offset=offsetcount, dateinfo=dateline)
                     if resultlist is False:
@@ -430,7 +390,6 @@ def getComic(
                         break
                 resultlist = db_updates(resultlist)
                 theResults = theResults + resultlist
-                # search results are limited to 100 and by pagination now...let's account for this.
                 countResults = countResults + 100
 
             if innerbreak is True:
@@ -441,15 +400,12 @@ def getComic(
 
 def GetComicInfo(comicid, dom, safechk=None, series=False):
     if safechk is None:
-        # safetycheck when checking comicvine. If it times out, increment the chk on retry attempts up until 5 tries then abort.
         safechk = 1
     elif safechk > 4:
         logger.error(
             "Unable to add / refresh the series due to inablity to retrieve data from ComicVine. You might want to try abit later and/or make sure ComicVine is up."
         )
         return
-    # comicvine isn't as up-to-date with issue counts..
-    # so this can get really buggered, really fast.
     try:
         tracks = dom.getElementsByTagName("issue")
     except (AttributeError, IndexError) as e:
@@ -465,26 +421,18 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
     trackcnt = len(tracks)
     logger.fdebug("number of issues I counted: " + str(trackcnt))
     logger.fdebug("number of issues CV says it has: " + str(cntit))
-    # if the two don't match, use trackcnt as count_of_issues might be not upto-date for some reason
     if int(trackcnt) != int(cntit):
         cntit = trackcnt
         vari = "yes"
     else:
         vari = "no"
     logger.fdebug("vari is set to: " + str(vari))
-    # if str(trackcnt) != str(int(cntit)+2):
-    #    cntit = int(cntit) + 1
     comic = {}
     cntit = int(cntit)
-    # retrieve the first xml tag (<tag>data</tag>)
-    # that the parser finds with name tagName:
-    # to return the parent name of the <name> node : dom.getElementsByTagName('name')[0].parentNode.nodeName
-    # where [0] denotes the number of the name field(s)
-    # where nodeName denotes the parentNode : ComicName = results, publisher = publisher, issues = issue
     try:
         names = len(dom.getElementsByTagName("name"))
         n = 0
-        comic["ComicPublisher"] = "Unknown"  # set this to a default value here so that it will carry through properly
+        comic["ComicPublisher"] = "Unknown"
         while n < names:
             if dom.getElementsByTagName("name")[n].parentNode.nodeName == "results":
                 try:
@@ -518,28 +466,23 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
     except (AttributeError, IndexError):
         comic["ComicYear"] = "0000"
 
-    # safety check, cause you known, dufus'...
     if any([comic["ComicYear"][-1:] == "-", comic["ComicYear"][-1:] == "?"]):
         comic["ComicYear"] = comic["ComicYear"][:-1]
 
     comic["ComicPublisher"]
 
-    # the description field actually holds the Volume# - so let's grab it
     desc_soup = None
     try:
         descchunk = dom.getElementsByTagName("description")[0].firstChild.wholeText
         desc_soup = Soup(descchunk, "html.parser")
         desclinks = desc_soup.findAll("a")
         comic_desc = drophtml(descchunk)
-    #    desdeck +=1
     except (AttributeError, IndexError):
         comic_desc = "None"
 
-    # sometimes the deck has volume labels
     try:
         deckchunk = dom.getElementsByTagName("deck")[0].firstChild.wholeText
         comic_deck = deckchunk
-    #    desdeck +=1
     except (AttributeError, IndexError):
         comic_deck = "None"
 
@@ -557,7 +500,6 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
     try:
         comic["ComicURL"] = dom.getElementsByTagName("site_detail_url")[trackcnt].firstChild.wholeText
     except (AttributeError, IndexError):
-        # this should never be an exception. If it is, it's probably due to CV timing out - so let's sleep for abit then retry.
         logger.warn(
             "Unable to retrieve URL for volume. This is usually due to a timeout to CV, or going over the API. Retrying again in 10s."
         )
@@ -570,20 +512,15 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         comic["Aliases"] = re.sub("\n", "##", comic["Aliases"]).strip()
         if comic["Aliases"][-2:] == "##":
             comic["Aliases"] = comic["Aliases"][:-2]
-        # logger.fdebug('Aliases: ' + str(aliases))
     except (AttributeError, IndexError):
         comic["Aliases"] = "None"
 
     if all(
         [comic_desc != "None", "trade paperback" in comic_desc[:30].lower(), "collecting" in comic_desc[:40].lower()]
     ):
-        # ie. Trade paperback collecting Marvel Team-Up #9-11, 48-51, 72, 110 & 145.
-        # logger.info('comic_desc: %s' % comic_desc)
-        # logger.info('desclinks: %s' % desclinks)
         issue_list = []
         micdrop = []
         if desc_soup is not None:
-            # if it's point form bullets, ignore it cause it's not the current volume stuff.
             test_it = desc_soup.find("ul")
             if test_it:
                 for x in test_it.findAll("li"):
@@ -627,7 +564,6 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
                                         issuerun = issuerun[: srchline + len(x)]
                                         break
                                 except Exception:
-                                    # logger.warn('[ERROR] %s' % e)
                                     continue
                 else:
                     iss_start = fc_name.find("#")
@@ -635,7 +571,6 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
                     fc_name = fc_name[:iss_start].strip()
 
                 if issuerun.strip().endswith(".") or issuerun.strip().endswith(","):
-                    # logger.fdebug('Changed issuerun from %s to %s' % (issuerun, issuerun[:-1]))
                     issuerun = issuerun.strip()[:-1]
                 if issuerun.endswith(" and "):
                     issuerun = issuerun[:-4].strip()
@@ -643,8 +578,6 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
                     issuerun = issuerun[:-3].strip()
             else:
                 continue
-                #    except:
-                #        pass
             issue_list.append({"series": fc_name, "comicid": fc_cid, "issueid": fc_isid, "issues": issuerun})
 
         logger.info("Collected issues in volume: %s" % issue_list)
@@ -683,7 +616,6 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
     except (AttributeError, IndexError):
         comic["ComicThumbURL"] = "None"
 
-    # logger.info('comic: %s' % comic)
     return comic
 
 
@@ -698,7 +630,7 @@ def GetIssuesInfo(comicid, dom, arcid=None):
             logger.fdebug(
                 "CV's count is wrong, I counted different...going with my count for physicals" + str(len(subtracks))
             )
-            cntiss = len(subtracks)  # assume count of issues is wrong, go with ACTUAL physical api count
+            cntiss = len(subtracks)
         cntiss = int(cntiss)
         n = cntiss - 1
     else:
@@ -767,10 +699,8 @@ def GetIssuesInfo(comicid, dom, arcid=None):
             else:
                 tempissue["DigitalDate"] = "0000-00-00"
                 if all(["digital" in digital_desc.lower()[-90:], "print" in digital_desc.lower()[-90:]]):
-                    # get the digital date of issue here...
                     mff = comicarr.filechecker.FileChecker()
                     vlddate = mff.checkthedate(digital_desc[-90:], fulldate=True)
-                    # logger.fdebug('vlddate: %s' % vlddate)
                     if vlddate:
                         tempissue["DigitalDate"] = vlddate
             try:
@@ -827,13 +757,10 @@ def GetIssuesInfo(comicid, dom, arcid=None):
                 firstdate = tempissue["CoverDate"]
         n -= 1
 
-    # logger.fdebug('issue_info: %s' % issuech)
-    # issue['firstdate'] = firstdate
     return issuech, firstdate
 
 
 def Getissue(issueid, dom, rtype):
-    # if the Series Year doesn't exist, get the first issue and take the date from that
     if any([rtype == "firstissue", rtype == "imprints_first"]):
         try:
             first_year = dom.getElementsByTagName("cover_date")[0].firstChild.wholeText
@@ -874,13 +801,10 @@ def Getissue(issueid, dom, rtype):
 
 
 def GetSeriesYears(dom):
-    # used by the 'add a story arc' option to individually populate the Series Year for each series within the given arc.
-    # series year is required for alot of functionality.
     series = dom.getElementsByTagName("volume")
     tempseries = {}
     serieslist = []
     for dm in series:
-        # we need to know # of issues in a given series to force the type if required based on number of issues published to date.
         number_issues = dm.getElementsByTagName("count_of_issues")[0].firstChild.wholeText
         try:
             totids = len(dm.getElementsByTagName("id"))
@@ -922,12 +846,10 @@ def GetSeriesYears(dom):
             )
             tempseries["SeriesYear"] = "0000"
 
-        # cause you know, dufus'...
         if tempseries["SeriesYear"][-1:] == "-":
             tempseries["SeriesYear"] = tempseries["SeriesYear"][:-1]
 
         desdeck = 0
-        # the description field actually holds the Volume# - so let's grab it
         desc_soup = None
         try:
             descchunk = dm.getElementsByTagName("description")[0].firstChild.wholeText
@@ -938,7 +860,6 @@ def GetSeriesYears(dom):
         except (AttributeError, IndexError):
             comic_desc = "None"
 
-        # sometimes the deck has volume labels
         try:
             deckchunk = dm.getElementsByTagName("deck")[0].firstChild.wholeText
             comic_deck = deckchunk
@@ -946,20 +867,16 @@ def GetSeriesYears(dom):
         except (AttributeError, IndexError):
             comic_deck = "None"
 
-        # comic['ComicDescription'] = comic_desc
-
         try:
             tempseries["Aliases"] = dm.getElementsByTagName("aliases")[0].firstChild.wholeText
             tempseries["Aliases"] = re.sub("\n", "##", tempseries["Aliases"]).strip()
             if tempseries["Aliases"][-2:] == "##":
                 tempseries["Aliases"] = tempseries["Aliases"][:-2]
-            # logger.fdebug('Aliases: ' + str(aliases))
         except (AttributeError, IndexError):
             tempseries["Aliases"] = "None"
 
-        tempseries["Volume"] = "None"  # noversion'
+        tempseries["Volume"] = "None"
 
-        # figure out if it's a print / digital edition.
         tempseries["Type"] = "None"
         if comic_deck != "None":
             if any(
@@ -1045,13 +962,9 @@ def GetSeriesYears(dom):
                 "collecting" in comic_desc[:40].lower(),
             ]
         ):
-            # ie. Trade paperback collecting Marvel Team-Up #9-11, 48-51, 72, 110 & 145.
-            # logger.info('comic_desc: %s' % comic_desc)
-            # logger.info('desclinks: %s' % desclinks)
             issue_list = []
             micdrop = []
             if desc_soup is not None:
-                # if it's point form bullets, ignore it cause it's not the current volume stuff.
                 test_it = desc_soup.find("ul")
                 if test_it:
                     for x in test_it.findAll("li"):
@@ -1101,7 +1014,6 @@ def GetSeriesYears(dom):
                         fc_name = fc_name[:iss_start].strip()
 
                     if issuerun.endswith(".") or issuerun.endswith(","):
-                        # logger.fdebug('Changed issuerun from %s to %s' % (issuerun, issuerun[:-1]))
                         issuerun = issuerun[:-1]
                     if issuerun.endswith(" and "):
                         issuerun = issuerun[:-4].strip()
@@ -1109,8 +1021,6 @@ def GetSeriesYears(dom):
                         issuerun = issuerun[:-3].strip()
                 else:
                     continue
-                    #    except:
-                    #        pass
                 issue_list.append({"series": fc_name, "comicid": fc_cid, "issueid": fc_isid, "issues": issuerun})
 
             logger.info("Collected issues in volume: %s" % issue_list)
@@ -1124,10 +1034,8 @@ def GetSeriesYears(dom):
                 if comic_desc == "None":
                     comicDes = comic_deck[:30]
                 else:
-                    # extract the first 60 characters
                     comicDes = comic_desc[:60].replace("New 52", "")
             elif desdeck == 2:
-                # extract the characters from the deck
                 comicDes = comic_deck[:30].replace("New 52", "")
             else:
                 break
@@ -1136,7 +1044,6 @@ def GetSeriesYears(dom):
             looped_once = False
             while i < 2:
                 if "volume" in comicDes.lower():
-                    # found volume - let's grab it.
                     v_find = comicDes.lower().find("volume")
 
                     if all(
@@ -1146,21 +1053,18 @@ def GetSeriesYears(dom):
                         cd_find = comic_desc.lower().find("annual issue from") + 17
                         comicDes = comic_desc[cd_find : cd_find + 30]
                         if "volume" in comicDes.lower():
-                            v_find = comicDes.lower().find("volume")  # _desc[cd_find:cd_find+45].lower().find('volume')
+                            v_find = comicDes.lower().find("volume")
                             if i == 1:
                                 i = 0
                             looped_once = True
                             volume_found = None
 
-                    # arbitrarily grab the next 10 chars (6 for volume + 1 for space + 3 for the actual vol #)
-                    # increased to 10 to allow for text numbering (+5 max)
-                    # sometimes it's volume 5 and ocassionally it's fifth volume.
                     if i == 0:
-                        vfind = comicDes[v_find : v_find + 15]  # if it's volume 5 format
+                        vfind = comicDes[v_find : v_find + 15]
                         basenums = basenum_mapping(ordinal=False)
                         logger.fdebug("volume X format - %s: %s" % (i, vfind))
                     else:
-                        vfind = comicDes[:v_find]  # if it's fifth volume format
+                        vfind = comicDes[:v_find]
                         basenums = basenum_mapping(ordinal=True)
                         logger.fdebug("X volume format - %s: %s" % (i, vfind))
                     for nums in basenums:
@@ -1169,19 +1073,15 @@ def GetSeriesYears(dom):
                             vfind = re.sub(nums, sconv, vfind.lower())
                             break
 
-                    # now we attempt to find the character position after the word 'volume'
                     if i == 0:
                         volthis = vfind.lower().find("volume")
-                        volthis = (
-                            volthis + 6
-                        )  # add on the actual word to the position so that we can grab the subsequent digit
-                        vfind = vfind[volthis : volthis + 4]  # grab the next 4 characters ;)
+                        volthis = volthis + 6
+                        vfind = vfind[volthis : volthis + 4]
                     elif i == 1:
                         volthis = vfind.lower().find("volume")
-                        vfind = vfind[volthis - 4 : volthis]  # grab the next 4 characters ;)
+                        vfind = vfind[volthis - 4 : volthis]
 
                     if "(" in vfind:
-                        # bracket detected in versioning'
                         vfindit = re.findall("[^()]+", vfind)
                         vfind = vfindit[0]
                     vf = re.findall("[^<>]+", vfind)
@@ -1189,7 +1089,6 @@ def GetSeriesYears(dom):
                         ledigit = re.sub("[^0-9]", "", vf[0])
                         if ledigit != "" and volume_found is None:
                             volume_found = ledigit
-                            # tempseries['Volume'] = ledigit
                             logger.fdebug(
                                 "Volume information found! Adding to series record : volume %s" % volume_found
                             )
@@ -1251,7 +1150,7 @@ def singleIssue(results):
         issue_info["deck"] = data["deck"]
         issue_info["description"] = drophtml(data["description"])
         issue_info["issueid"] = data["id"]
-        issue_info["image"] = data["image"]["medium_url"]  # / ['screen_url'] / ['screen_large_url'] / ['original_url']
+        issue_info["image"] = data["image"]["medium_url"]
         issue_info["issue_number"] = data["issue_number"]
         try:
             if "Issue #" in issue_info["issue_number"]:
@@ -1261,7 +1160,6 @@ def singleIssue(results):
         for x in data["person_credits"]:
             issuecredits.append({"role": x["role"], "name": x["name"]})
         issue_info["credits"] = issuecredits
-        # logger.fdebug('issue_info: %s' % issue_info)
         return issue_info
 
 
@@ -1323,9 +1221,6 @@ def GetImportList(results):
 
 
 def db_updates(results, rtype="issueid"):
-    # type is either 'issueid' or 'comicid'
-    # issueid = update based on changes to issues (new issues, updates, etc)
-    # comicid = update based on changes to comicid
     dataset = []
     data = results["results"]
     for x in sorted(data, key=itemgetter("date_last_updated"), reverse=False):
@@ -1359,14 +1254,12 @@ def drophtml(html):
         soup = Soup(html, "html.parser")
 
         text_parts = soup.findAll(text=True)
-        # print ''.join(text_parts)
         return "".join(text_parts)
     else:
         return ""
 
 
 def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, description, deck, annual_check=False):
-    # this is used to quick_load the imprint, volume and booktype of a specific issue (ie. searchresults editing a result)
     comic = {}
 
     comic["ComicYear"] = comicyear
@@ -1379,7 +1272,6 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
     publisherImprint = None
 
     if series is True:
-        # this is a really crappy way to do it - it works, but meh.
         try:
             for k, v in comicarr.PUBLISHER_IMPRINTS.items():
                 if k == "publishers":
@@ -1429,7 +1321,6 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
                                                     if quick_chk:
                                                         cdate = None
                                                         sdate = None
-                                                        # quick_chk['store_date'], quick_chk['cover_date']
                                                         if (
                                                             quick_chk["cover_date"]
                                                             and quick_chk["cover_date"] != "0000"
@@ -1480,7 +1371,6 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
                                         chkyear = False
 
                                     elif f == "imprints" and h is not None:
-                                        # if we get here, it's an imprint of an imprint
                                         for i in h:
                                             if i["name"].lower() == comic["ComicPublisher"].lower():
                                                 logger.info("imprint matched: %s ---> %s" % (i["name"], h))
@@ -1533,7 +1423,6 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
     comic["PublisherImprint"] = publisherImprint
 
     desdeck = 0
-    # the description field actually holds the Volume# - so let's grab it
     try:
         if annual_check is False:
             comic_desc = drophtml(description)
@@ -1543,7 +1432,6 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
     except (AttributeError, TypeError):
         comic_desc = "None"
 
-    # sometimes the deck has volume labels
     try:
         comic_deck = deck.strip()
         desdeck += 1
@@ -1552,9 +1440,8 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
 
     comic["ComicDescription"] = comic_desc
 
-    comic["ComicVersion"] = "None"  # noversion'
+    comic["ComicVersion"] = "None"
 
-    # figure out if it's a print / digital edition.
     comic["Type"] = "Print"
     if comic_deck != "None":
         if any(
@@ -1641,10 +1528,8 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
             if comic_desc == "None":
                 comicDes = comic_deck[:30]
             else:
-                # extract the first 60 characters
                 comicDes = comic_desc[:60].replace("New 52", "")
         elif desdeck == 2:
-            # extract the characters from the deck
             comicDes = comic_deck[:30].replace("New 52", "")
         else:
             break
@@ -1653,17 +1538,10 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
         while i < 2:
             incorrect_volume = None
             if "volume" in comicDes.lower():
-                # found volume - let's grab it.
                 v_find = comicDes.lower().find("volume")
-                # arbitrarily grab the next 10 chars (6 for volume + 1 for space + 3 for the actual vol #)
-                # increased to 10 to allow for text numbering (+5 max)
-                # sometimes it's volume 5 and ocassionally it's fifth volume.
                 if "collected" in comicDes.lower():
                     cde = re.sub(r"[\s\-]", "", comicDes).strip().lower()
                     if "oneshot" in cde[: cde.find("collected")] and cde.find("volume") > cde.find("collected"):
-                        # we set the incorrect_volume here so that when it returns to update the db we can
-                        # check to see if it matches the existing volume and if so replace it with any new
-                        # values since the incorrect volume is incorrect.
                         incorrect_volume = comicDes[v_find : v_find + 15]
                 cbd = comicDes.find(" ", v_find + 7)
                 if comicDes.find(" ", v_find + 7) == -1:
@@ -1672,11 +1550,11 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
                     comic["ComicVersion"] = re.sub("[^0-9]", "", comicDes[v_find + 7 : cbd]).strip()
                     break
                 elif i == 0:
-                    vfind = comicDes[v_find : v_find + 15]  # if it's volume 5 format
+                    vfind = comicDes[v_find : v_find + 15]
                     basenums = basenum_mapping(ordinal=False)
                     logger.fdebug("volume X format - %s: %s" % (i, vfind))
                 else:
-                    vfind = comicDes[:v_find]  # if it's fifth volume format
+                    vfind = comicDes[:v_find]
                     basenums = basenum_mapping(ordinal=True)
                     logger.fdebug("X volume format - %s: %s" % (i, vfind))
                 og_vfind = vfind
@@ -1686,26 +1564,21 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
                         vfind = re.sub(nums, sconv, vfind.lower())
                         break
 
-                # now we attempt to find the character position after the word 'volume'
                 if i == 0:
                     volthis = vfind.lower().find("volume")
-                    volthis = (
-                        volthis + 6
-                    )  # add on the actual word to the position so that we can grab the subsequent digit
-                    vfind = vfind[volthis : volthis + 4]  # grab the next 4 characters ;)
+                    volthis = volthis + 6
+                    vfind = vfind[volthis : volthis + 4]
                 elif i == 1:
                     volthis = vfind.lower().find("volume")
-                    vfind = vfind[volthis - 4 : volthis]  # grab the next 4 characters ;)
+                    vfind = vfind[volthis - 4 : volthis]
 
                 if "(" in vfind:
-                    # bracket detected in versioning'
                     vfindit = re.findall("[^()]+", vfind)
                     vfind = vfindit[0]
                 vf = re.findall("[^<>]+", vfind)
                 try:
                     ledigit = re.sub("[^0-9]", "", vf[0])
                     if ledigit != "":
-                        # logger.info('incorrect_volume: %s / vfind: %s' % (incorrect_volume, og_vfind))
                         if all([incorrect_volume is not None, incorrect_volume == og_vfind]):
                             logger.fdebug(
                                 "previous incorrect volume possible. Assigning incorrect value as: %s" % ledigit
@@ -1812,7 +1685,6 @@ def check_that_biatch(comicid, oldinfo, newinfo):
             failures += 1
 
     if failures > 2:
-        # if > 50% failure (> 2/4 mismatches) assume removed...
         logger.warn(
             "[%s] Detected CV removing existing data for series [%s (%s)] and replacing it with [%s (%s)]."
             "This is a failure for this series and will be paused until fixed manually"

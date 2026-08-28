@@ -23,9 +23,6 @@ from comicarr.tables import acquisition_run_items, acquisition_runs
 
 MAX_PAYLOAD_BYTES = 16 * 1024
 
-# How many times crash recovery may re-drive one non-terminal item before it is
-# quarantined instead. Three restarts is generous for a genuinely interrupted
-# obligation and decisive for a stuck one (#555).
 MAX_RECOVERY_ATTEMPTS = 3
 PAYLOAD_FIELDS = {
     "search": frozenset(
@@ -281,11 +278,6 @@ class RunLedger:
                 )
             )
         if result.rowcount != 1:
-            # Queue.put can hand the item to a very fast worker before the
-            # producer writes its accepted handoff marker. The terminal
-            # worker result is stronger evidence than that marker, so leave
-            # it untouched instead of turning a successful handoff into an
-            # API error.
             current = self.get_item(run_id, entity_type, entity_id)
             if current is not None and ItemOutcome(current["state"]).terminal:
                 return current
@@ -405,7 +397,6 @@ class RunLedger:
         self.reconcile(run_id)
         updated = self.get_item(run_id, entity_type, entity_id)
         if updated is not None:
-            # Transient call-site contract — not persisted (#430 A4).
             updated["replay"] = bool(replay)
         return updated
 
@@ -618,8 +609,6 @@ class RunLedger:
                 )
             )
         run = self.get_run(run_id)
-        # Narrate completion once when the run first becomes terminal (#484).
-        # In-flight progress stays derived (no search.started @ run here).
         new_completion = str(run.get("completion_state") or "") if run else ""
         was_open = previous_completion in ("", "pending", "running")
         is_closed = new_completion not in ("", "pending", "running")

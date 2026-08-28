@@ -30,13 +30,11 @@ function MigrationWizardInner({ onDismiss }: MigrationWizardProps) {
   const startMigration = useStartMigration();
   const progress = useMigrationProgress(startMigration.isSuccess);
 
-  // Derive current view from backend state
   const isMigrating =
     progress.data?.status === "migrating" ||
     progress.data?.status === "complete" ||
     progress.data?.status === "error";
 
-  // Warn before closing during active migration
   useEffect(() => {
     if (progress.data?.status === "migrating") {
       const handler = (e: BeforeUnloadEvent) => {
@@ -72,8 +70,6 @@ function MigrationWizardInner({ onDismiss }: MigrationWizardProps) {
     />
   );
 }
-
-// --- Setup View ---
 
 interface SetupViewProps {
   path: string;
@@ -232,8 +228,6 @@ function SetupView({
   );
 }
 
-// --- Progress View ---
-
 interface ProgressViewProps {
   progress: MigrationProgressResponse;
 }
@@ -334,8 +328,6 @@ function ProgressView({ progress }: ProgressViewProps) {
   );
 }
 
-// --- Stat Card ---
-
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col gap-0.5 rounded-md border bg-background p-3.5">
@@ -346,8 +338,6 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
-
-// --- Exported Wrapper ---
 
 export function MigrationWizard(props: MigrationWizardProps) {
   return (

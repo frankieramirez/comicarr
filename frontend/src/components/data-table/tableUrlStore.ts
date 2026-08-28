@@ -92,10 +92,6 @@ export function useTableUrlStore(
 ): TableStore {
   const [params, setParams] = useQueryStates(tableUrlParams, options);
 
-  // Load-bearing, and it looks like a pointless indirection: memoising the
-  // store *object* on `[params]` is observably equivalent right up until it
-  // hands TanStack a fresh `sorting` array identity every render, which is
-  // #292's render loop returning. Key the memo on the primitive slices.
   const sortId = params.sort?.id;
   const sortDesc = params.sort?.desc;
   const sorting = useMemo<SortingState>(

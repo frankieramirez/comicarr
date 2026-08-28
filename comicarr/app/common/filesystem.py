@@ -58,7 +58,6 @@ def checkFolder(folderpath=None, check_folder=None, postprocessor=None, queue_cl
 
     log = logging.getLogger("comicarr")
     q = queue_module.Queue()
-    # monitor a selected folder for 'snatched' files that haven't been processed
     if folderpath is None:
         log.info("Checking folder " + check_folder + " for newly snatched downloads")
         path = check_folder

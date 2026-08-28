@@ -167,10 +167,6 @@ class Readinglist(object):
         return
 
     def syncreading(self):
-        # 3 status' exist for the readlist.
-        # Added (Not Read) - Issue is added to the readlist and is awaiting to be 'sent' to your reading client.
-        # Read - Issue has been read
-        # Not Read - Issue has been downloaded to your reading client after the syncfiles has taken place.
         module = "[READLIST-TRANSFER]"
         rl_list = []
         sendlist = []
@@ -247,11 +243,9 @@ class Readinglist(object):
 
             logger.info(module + " " + str(len(sendlist)) + " issues will be sent to your reading device.")
 
-            # test if IP is up.
             import shlex
             import subprocess
 
-            # fhost = comicarr.CONFIG.TAB_HOST.find(':')
             host = comicarr.CONFIG.TAB_HOST[: comicarr.CONFIG.TAB_HOST.find(":")]
 
             if "windows" not in comicarr.OS_DETECT.lower():

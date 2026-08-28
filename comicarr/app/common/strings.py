@@ -18,7 +18,6 @@ import platform
 import re
 import unicodedata
 
-# Latin character transliteration map (from couch potato)
 _LATIN_XLATE = {
     0xC0: "A",
     0xC1: "A",
@@ -169,7 +168,6 @@ def replace_all(text, dic):
 def cleanTitle(title):
     """Normalize title replacing dots/dashes/slashes with spaces and title-case."""
     title = re.sub(r"[\.\-\/\_]", " ", title).lower()
-    # Strip out extra whitespace
     title = " ".join(title.split())
     title = title.title()
     return title

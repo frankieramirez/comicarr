@@ -39,19 +39,19 @@ DISPLACED_SUFFIX = ".comicarr-displaced"
 class Purpose(Enum):
     """Why a file is being placed. Selects the config key and the mechanics."""
 
-    SERIES = auto()  # FILE_OPTS,   plain mechanics
-    IMPORT = auto()  # FILE_OPTS,   plain mechanics
-    ONE_OFF = auto()  # ARC_FILEOPS, plain mechanics
-    ARC = auto()  # ARC_FILEOPS, preserve source + reverse link direction
+    SERIES = auto()
+    IMPORT = auto()
+    ONE_OFF = auto()
+    ARC = auto()
 
 
 class OnExisting(Enum):
     """What to do when the destination is already occupied."""
 
-    UNGUARDED = auto()  # no check; the mode's native behaviour decides
-    DISPLACE = auto()  # rename aside, place, then delete-or-restore
-    SKIP = auto()  # any file at the destination means no placement at all
-    REFUSE = auto()  # atomic no-clobber: the publish itself refuses
+    UNGUARDED = auto()
+    DISPLACE = auto()
+    SKIP = auto()
+    REFUSE = auto()
 
 
 class Outcome(Enum):
@@ -115,8 +115,6 @@ def place(source, destination, purpose, *, on_existing, multiple=False, config=N
     softlink_type = _resolve_softlink_type(config, purpose)
 
     if on_existing is OnExisting.SKIP:
-        # isfile, not lexists -- matches storyarcs' guard exactly, so a dangling
-        # symlink at the destination is still replaced.
         if os.path.isfile(destination):
             return _already_placed(destination, purpose, on_existing, mode)
 
@@ -157,9 +155,6 @@ def _already_placed(destination, purpose, on_existing, mode) -> PlacementResult:
 def _resolve_mode(config, purpose, multiple):
     """Read the operative mode from config. Called once per `place()`, never cached."""
     if purpose in (Purpose.ONE_OFF, Purpose.ARC):
-        # `multiple` is a genuine bool at the one call site that passes it
-        # (postprocessor assigns literal True/False), so the identity check the
-        # legacy helper used is sound and is preserved.
         if multiple is True:
             return "copy"
         return config.ARC_FILEOPS
@@ -180,19 +175,9 @@ def _fail(message, *, purpose, mode, source, destination, cause=None):
     raise error
 
 
-# ---------------------------------------------------------------------------
-# Mechanics
-#
-# Two families. `_apply` reproduces the legacy `file_ops` behaviour exactly,
-# including its fallbacks, and serves UNGUARDED / DISPLACE / SKIP. `_publish`
-# is the atomic no-clobber family and serves REFUSE alone.
-# ---------------------------------------------------------------------------
-
-
 def _apply(path, dst, *, purpose, mode, arc, softlink_type):
     """The legacy mechanics, preserved. Returns (effective_mode, source_survived, source_is_symlink)."""
     if mode == "copy" or (arc and mode in ("copy", "move")):
-        # An arc must keep the series file, so `move` degrades to a copy.
         try:
             shutil.copy(path, dst)
         except Exception as e:
@@ -258,10 +243,6 @@ def _apply_hardlink(path, dst, *, purpose, mode):
 def _apply_softlink(path, dst, *, purpose, mode, arc, softlink_type):
     try:
         if not arc:
-            # Non-arc: the file itself moves to the destination and the source
-            # path is replaced by a symlink pointing at it. The source path
-            # survives, but as a link -- which is why `source_is_symlink` is not
-            # derivable from the mode alone.
             shutil.move(path, dst)
             if os.path.lexists(path):
                 os.remove(path)
@@ -275,7 +256,6 @@ def _apply_softlink(path, dst, *, purpose, mode, arc, softlink_type):
                     % (os.path.relpath(dst, os.path.dirname(path)), path)
                 )
         else:
-            # Arc: the series file stays put and the arc directory gets the link.
             if softlink_type == "absolute":
                 os.symlink(path, dst)
                 log.debug("Successfully created softlink [" + path + " --> " + dst + "]")
@@ -294,7 +274,6 @@ def _apply_softlink(path, dst, *, purpose, mode, arc, softlink_type):
                 shutil.copy(path, dst)
                 log.debug("Successfully copied file [" + path + " --> " + dst + "]")
             else:
-                # The move already happened, so the copy restores the source.
                 shutil.copy(dst, path)
                 log.debug("Successfully copied file [" + dst + " --> " + path + "]")
         except Exception as copy_error:
@@ -309,14 +288,7 @@ def _apply_softlink(path, dst, *, purpose, mode, arc, softlink_type):
             )
         return "copy", True, False
 
-    # The source path exists either way; only its nature differs. Arc leaves the
-    # real file untouched, non-arc leaves a symlink standing where it used to be.
     return "softlink", True, not arc
-
-
-# ---------------------------------------------------------------------------
-# Policies
-# ---------------------------------------------------------------------------
 
 
 def _place_displacing(source, destination, purpose, on_existing, *, mode, arc, softlink_type):
@@ -330,9 +302,6 @@ def _place_displacing(source, destination, purpose, on_existing, *, mode, arc, s
     displaced = None
     if os.path.lexists(destination):
         try:
-            # Same inode (hardlinked) or same target (softlinked) means an
-            # earlier pass already placed this file; re-linking it would only
-            # fail, and the source must survive either way.
             if os.path.samefile(source, destination):
                 return _already_placed(destination, purpose, on_existing, mode)
         except OSError:
@@ -340,9 +309,6 @@ def _place_displacing(source, destination, purpose, on_existing, *, mode, arc, s
 
         displaced = destination + DISPLACED_SUFFIX
         if os.path.lexists(displaced):
-            # An orphan from a crash between displace and restore. Clobbering it
-            # loses a stale backup; refusing would strand this file permanently
-            # after a single crash, which is the worse failure.
             log.warning("Replacing an orphaned displaced file: %s" % displaced)
         try:
             os.replace(destination, displaced)
@@ -366,8 +332,6 @@ def _place_displacing(source, destination, purpose, on_existing, *, mode, arc, s
                 os.replace(displaced, destination)
                 log.info("Restored the previous %s after a failed placement" % destination)
             except OSError as restore_error:
-                # The original is still on disk under its marker name, which is
-                # strictly better than gone.
                 log.error("Failed to restore the previous %s: %s" % (destination, restore_error))
         raise
 
@@ -426,18 +390,11 @@ def _place_refusing(source, destination, purpose, on_existing, *, mode):
                     destination=destination,
                     cause=e,
                 )
-            # EXDEV is the dominant topology, not the exception -- two Docker
-            # volumes off one NAS volume are always cross-device. Degrade to the
-            # atomic copy publish, which preserves the source exactly as a
-            # hardlink would, so rollback is unaffected.
             log.warning("[%s] Cannot hardlink across filesystems - dropping down to copy mode." % e)
             _publish_copy(source, destination, purpose=purpose, mode=mode)
             effective = "copy"
 
     elif mode == "softlink":
-        # Deliberately not the non-arc move-then-link-back shape: an import must
-        # not consume the operator's inbox file and leave a link in its place.
-        # os.symlink is already atomically no-clobber.
         try:
             os.symlink(source, destination)
             effective = "softlink"

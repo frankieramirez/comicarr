@@ -195,11 +195,6 @@ def _build_move_plan(rows: Sequence[dict], series_id: str, series_name: str, tar
                 phase="preflight",
             )
         if os.path.exists(destination_path):
-            # Fails the whole batch before a single file moves. The atomic
-            # publish can only refuse the file it is standing on, by which
-            # point earlier files are placed and need rolling back. This also
-            # catches what no single publish can see: two planned files
-            # resolving to one destination, checked just above.
             raise _fail("Import destination already exists: %s" % destination_path, phase="preflight")
         destination_paths.add(normalized_destination)
         move_plan.append((row["ComicLocation"], destination_path))
@@ -223,9 +218,6 @@ def _rollback_moves(placed, series_id: str, *, reconcile: bool) -> list[str]:
             continue
         try:
             if result.source_survived:
-                # copy / hardlink / softlink: the source never left, so undoing
-                # the placement means removing the destination. Moving it back
-                # would be wrong -- under hardlink both paths name one inode.
                 os.unlink(destination_path)
                 logger.fdebug(
                     "[IMPORT-MATCH] Removed placed import file %s; %s never left" % (destination_path, source_path)
@@ -254,12 +246,6 @@ def _move_and_rescan(move_plan, series_id: str, config):
     placed = []
     for source_path, destination_path in move_plan:
         logger.fdebug("[IMPORT-MATCH] Placing %s at %s" % (source_path, destination_path))
-        # Not the correctness boundary -- OnExisting.REFUSE is, because its
-        # publish refuses atomically. This check exists for the better error
-        # message and to roll back before writing anything. Do not remove it
-        # believing the publish covers it, and do not weaken the publish to a
-        # plain exists() check believing this covers it. They defend different
-        # things: this one names the file, the publish closes the race.
         if os.path.exists(destination_path):
             rollback_errors = _rollback_moves(placed, series_id, reconcile=False)
             message = "Import destination now exists: %s" % destination_path

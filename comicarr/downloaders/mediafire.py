@@ -55,14 +55,11 @@ class MediaFire(object):
             t = self.session.get(url, verify=True, headers=self.headers, stream=True, timeout=(30, 30))
 
             if "Content-Disposition" in t.headers:
-                # This is the file
                 break
 
-            # Need to redirect with confiramtion
             url = self.extractDownloadLink(t.text)
 
             if url is None:
-                # link no longer valid
                 return {"success": False, "filename": None, "path": None, "link_type_failure": "GC-Media"}
 
         content_disposition = Message()
@@ -94,7 +91,6 @@ class MediaFire(object):
         logger.fdebug("From: %s" % url_origin)
         logger.fdebug("To: %s" % os.path.join(self.dl_location, filename))
 
-        ## write the filename to the db for tracking purposes...
         logger.fdebug("[Writing to db: %s" % (filename))
         db.upsert(
             "ddl_info",
@@ -115,9 +111,7 @@ class MediaFire(object):
 
         db.upsert(
             "ddl_info",
-            {
-                "tmp_filename": fileinfo["filename"]
-            },  # tmp_filename should be all that's needed to be updated at this point...
+            {"tmp_filename": fileinfo["filename"]},
             {"ID": id},
         )
 

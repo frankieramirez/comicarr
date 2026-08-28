@@ -7,8 +7,6 @@ import shutil
 import subprocess
 import sys
 import zipfile
-
-# import pathlib
 from glob import glob
 
 import comicarr
@@ -31,8 +29,6 @@ class carePackage(object):
         self.lastrelpath = os.path.join(comicarr.PROG_DIR, ".LASTRELEASE")
         self.keylist = []
         self.pass_thru_vals = None
-        # Fernet-encrypted secrets stay in sync via ENCRYPTED_CONFIG_ITEMS.
-        # extras: sensitive values not Fernet-encrypted (usernames, bcrypt password, etc.)
         base = set(config_module.ENCRYPTED_CONFIG_ITEMS.values())
         extras = {
             ("Interface", "http_password"),
@@ -93,7 +89,6 @@ class carePackage(object):
         vers_vals = versioncheck.versionload(cli_values=self.pass_thru_vals, carepackage_call=True)
         self.filename = os.path.join(self.log_dir, "ComicarrRunningEnvironment.txt")
         logger.info("vers_vals: %s" % (vers_vals,))
-        # set the stage for the filename
         if not vers_vals:
             vers_vals = {
                 "current_branch": comicarr.CONFIG.GIT_BRANCH,
@@ -194,7 +189,6 @@ class carePackage(object):
             if self.log_dir is None:
                 self.log_dir = os.path.join(comicarr.DATA_DIR, "logs")
 
-            # we need to dummy these up if this is via CLI
             git_tmp = tmpconfig["Git"]
             git_user = git_tmp["git_user"]
             git_branch = git_tmp["git_branch"]
@@ -328,17 +322,13 @@ class carePackage(object):
                 pass
 
             for file in glob(os.path.join(self.log_dir, "comicarr.log*")):
-                # files.append(pathlib.Path(pathlib.PurePath(comicarr.CONFIG.LOG_DIR).joinpath(os.path.basename(file)))) #os.path.join(comicarr.CONFIG.LOG_DIR, os.path.basename(file)))
                 files.append(os.path.join(self.log_dir, os.path.basename(file)))
 
             if len(files) > 0:
                 for fname in files:
                     logger.fdebug("analyzing %s" % fname)
                     cnt = 0
-                    # remove the apikeys first.
                     filename = os.path.join(caredir, os.path.basename(fname))
-                    # Close/flush the redacted file before zip.write so the archive
-                    # sees the full content (open buffers are not on disk yet).
                     with open(filename, "w") as output:
                         with open(fname, "r") as f:
                             line = f.readline()
@@ -356,7 +346,6 @@ class carePackage(object):
                     try:
                         zip.write(filename, os.path.basename(fname), zipfile.ZIP_DEFLATED)
                     except RuntimeError:
-                        # if zlib isn't available, will throw RuntimeError, then just use default compression
                         zip.write(filename, os.path.basename(fname))
                     except Exception as e:
                         logger.warn(e)

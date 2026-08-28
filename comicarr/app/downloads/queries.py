@@ -23,10 +23,6 @@ from comicarr.tables import ddl_info as t_ddl_info
 from comicarr.tables import issues as t_issues
 from comicarr.tables import snatched as t_snatched
 
-# ---------------------------------------------------------------------------
-# Snatched history
-# ---------------------------------------------------------------------------
-
 
 def _apply_activity_filters(stmt, status_column, search=None, status=None, search_columns=()):
     if search:
@@ -84,10 +80,6 @@ def clear_history(status_type=None):
     else:
         db.raw_execute("DELETE from snatched")
 
-
-# ---------------------------------------------------------------------------
-# DDL queue
-# ---------------------------------------------------------------------------
 
 ACTIVE_DDL_STATUSES = ("Queued", "Downloading", "Failed")
 
@@ -191,11 +183,6 @@ def claim_failed_ddl_retry(item_id):
     return result.rowcount == 1
 
 
-# ---------------------------------------------------------------------------
-# Issue file lookup (for file download endpoint)
-# ---------------------------------------------------------------------------
-
-
 def get_issue_file_info(issue_id):
     """Look up the file location for an issue by joining comics and issues.
 
@@ -211,7 +198,6 @@ def get_issue_file_info(issue_id):
     if result:
         return result
 
-    # Fall back to annuals
     stmt = (
         select(t_comics.c.ComicLocation, t_annuals)
         .select_from(t_comics.join(t_annuals, t_comics.c.ComicID == t_annuals.c.ComicID))

@@ -43,13 +43,6 @@ from comicarr import db, logger
 from comicarr.app.common.dates import now
 from comicarr.tables import pipeline_journal
 
-# ---------------------------------------------------------------------------
-# Legal stage lattice
-# ---------------------------------------------------------------------------
-# stage is totally ordered. `failed` is terminal but ordered AFTER
-# post_processed so that a post-terminal write (failed -> anything, or
-# anything -> a regressing stage) is rejected by the monotonic guard.
-
 RESERVED = "reserved"
 SNATCHED = "snatched"
 DOWNLOADED = "downloaded"
@@ -69,63 +62,25 @@ STAGE_RANK = {
     POST_PROCESSED: 50,
     MANUAL_REVIEW: 55,
     FAILED: 60,
-    # Above every open stage so an operator cancel wins over a late monitor
-    # write; a later RESERVED/SNATCHED still supersedes it.
     CANCELLED: 65,
 }
 
-# Stages considered terminal: no further forward transition is legal.
 TERMINAL_STAGES = (POST_PROCESSED, MANUAL_REVIEW, FAILED, CANCELLED)
 
-# Open stages: rows replay must consider as still-in-flight obligations.
 OPEN_STAGES = (RESERVED, SNATCHED, DOWNLOADED, POST_PROCESSING, MOVED)
 
-# Terminal stages eligible for low-level resolution stamps. Attention applies
-# its own admission policy before exposing either stage to an operator.
 BAND_STAGES = (FAILED, MANUAL_REVIEW)
 
-# R9 resolution stamps — written by operator actions (and FAILED_AUTO retry)
-# without rewriting stage / stage_rank. Rows with these statuses leave the band;
-# ledger retention may age them out with other eligible terminals (#480).
 STATUS_RETRIED = "retried"
 STATUS_IGNORED = "ignored"
 STATUS_IMPORTED = "imported"
 RESOLVED_STATUSES = (STATUS_RETRIED, STATUS_IGNORED, STATUS_IMPORTED)
 
-# Fresh re-snatch stages that may supersede a supersedable terminal row under
-# the same release_key (same issue|provider). DDL handoff writes RESERVED
-# first; NZB/torrent snatch (updater.foundsearch) writes SNATCHED directly.
 _RESNATCH_STAGES = (RESERVED, SNATCHED)
 
-# Terminal stages a re-snatch may supersede. `failed` is always supersedable:
-# the attempt is closed and nothing is outstanding at the download client.
-#
-# `manual_review` is supersedable ONLY once an operator has resolved it (#562).
-# The asymmetry is deliberate. An unresolved manual_review row is an OPEN
-# obligation — it means "the client may already have this, go look" — and it is
-# on the needs-attention band precisely so a human does. Letting an automatic
-# re-snatch reset it would both hide the row and re-deliver a release the client
-# may already hold; on routes like watchdir, where every acceptance is manual
-# review by construction, every sweep would deliver another copy. Once the
-# operator has acted (retry / search again / import — the R9 stamp that takes
-# the row off the band), the obligation is discharged and the next grab must be
-# able to proceed. Before #562 it could not: the row stayed terminal, so the
-# operator's own retry wedged at reservation for that issue+provider forever.
-#
-# This widens the *stage gate* only. The reset is still reachable exclusively
-# from a fresh RESERVED/SNATCHED write, so it does not become an operator exit —
-# the boundary docs/architecture/activity-center.md draws is intact.
 _SUPERSEDABLE_TERMINALS = (FAILED, MANUAL_REVIEW, CANCELLED)
 
-# Synthetic one-off IssueIDs are an unpersisted CONFIG.HIGHCOUNT counter that
-# starts at 900000 (see comicarr/updater.py:1214-1220). Such an IssueID is not
-# reproducible across a restart, so it must NOT be part of the release_key.
 HIGHCOUNT_FLOOR = 900000
-
-
-# ---------------------------------------------------------------------------
-# Terminal predicate
-# ---------------------------------------------------------------------------
 
 
 def is_terminal(stage):
@@ -136,11 +91,6 @@ def is_terminal(stage):
 def stage_rank(stage):
     """Return the integer rank for a stage, or None if the stage is unknown."""
     return STAGE_RANK.get(stage)
-
-
-# ---------------------------------------------------------------------------
-# release_key — the SOLE derivation. Consumed by U2/U4/U6.
-# ---------------------------------------------------------------------------
 
 
 def is_synthetic_oneoff(issueid):
@@ -170,8 +120,6 @@ def normalize_provider(provider):
         return ""
     p = str(provider)
     p = re.sub(r"\[RSS\]", "", p, flags=re.IGNORECASE)
-    # `+` so a provider literally NAMED "Foo (newznab)" converges with its own
-    # tmpprov form "Foo (newznab) (newznab)" instead of drifting by one label.
     p = re.sub(r"(\s*\((?:newznab|torznab)\))+\s*$", "", p, flags=re.IGNORECASE)
     p = re.sub(r"\s+", " ", p).strip()
     return p.lower()
@@ -219,10 +167,6 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
             )
         return "oneoff|%s|%s|%s" % (prov, rel, disc)
 
-    # DDL commands are independently durable obligations: two provider
-    # results for the same issue may both be queued and must never collapse
-    # onto one journal row. Their durable command id is available before the
-    # side effect, unlike downloader-generated NZB/torrent ids.
     if "ddl" in prov and discriminant:
         return "%s|%s|ddl:%s" % (issueid, prov, _coerce_discriminant(discriminant))
     return "%s|%s" % (issueid, prov)
@@ -261,14 +205,6 @@ def derive_release_key(item):
     return release_key(issueid, provider, nzbname=nzbname, hash=h, discriminant=discriminant)
 
 
-# ---------------------------------------------------------------------------
-# Internal: sanitize, merge and serialize payload
-# ---------------------------------------------------------------------------
-
-# The journal is a reconstruction contract, not a request/response archive.
-# Keep this allowlist intentionally small: anything that can grant access or
-# replay a provider request belongs in the downloader's own protected config,
-# never in the operational database.
 _PAYLOAD_KEYS = frozenset(
     {
         "issueid",
@@ -298,8 +234,6 @@ _PAYLOAD_KEYS = frozenset(
         "oneoff",
         "journal_release_key",
         "download_info",
-        # Sanitised diagnostic text for fail_reason detail / narrative
-        # reason_detail (#430 A5). Never a credential; redacted at write sites.
         "fail_detail",
     }
 )
@@ -365,9 +299,6 @@ def sanitize_payload(payload):
                 clean[key] = nested
             continue
         clean[key] = _bounded_scalar(value)
-    # Bound the complete encoded object as well as each scalar. Keep keys in
-    # insertion order and stop before the cap; reconstruction-critical callers
-    # put identity first and later transitions merge additional fields.
     bounded = {}
     for key, value in clean.items():
         candidate = {**bounded, key: value}
@@ -430,11 +361,6 @@ def load_payload(payload_json):
     except (TypeError, ValueError) as e:
         logger.warn("[JOURNAL] payload_json could not be decoded: %s" % e)
         return None
-
-
-# ---------------------------------------------------------------------------
-# record_transition — monotonic conditional advance-only write
-# ---------------------------------------------------------------------------
 
 
 def _now():
@@ -519,9 +445,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
     Returns True iff this call advanced (won) the row. Atomicity vs concurrent
     writers comes from the caller running this inside a single transaction.
     """
-    # 1. Conditional advance: only succeeds if the existing row is strictly
-    #    behind the new rank. This is the monotonic guard AND (for the
-    #    downloaded -> post_processing case) the U4 atomic claim.
     existing_row = conn.execute(select(pipeline_journal).where(pipeline_journal.c.release_key == key)).fetchone()
     existing_payload = (
         sanitize_payload(load_payload(existing_row._mapping.get("payload_json"))) if existing_row is not None else None
@@ -530,9 +453,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
         existing_row is not None and _is_supersedable_terminal(existing_row._mapping) and stage in _RESNATCH_STAGES
     )
     if new_attempt:
-        # A new attempt must not inherit the previous client's acceptance id,
-        # route or hash. Retain only stable release identity/context; otherwise
-        # a legitimate new nzo_id/NZBID conflicts and is quarantined.
         existing_payload = {
             key_name: value
             for key_name, value in (existing_payload or {}).items()
@@ -564,9 +484,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
                 break
     payload_json = _dump_payload(merged_payload) if merged_payload is not None else None
 
-    # Immutable identity disagreement means we cannot prove which external
-    # obligation the row represents. Quarantine it atomically and require an
-    # operator decision; never guess and never blind-replay it.
     if conflict and existing_row is not None:
         reason = "immutable_payload_conflict:%s" % conflict
         quarantined = conn.execute(
@@ -583,27 +500,9 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             )
         )
         if quarantined.rowcount:
-            # Clause 2 (#541): re-want + log loudly. This transition cannot
-            # call Attention.record recursively, so it invokes Attention's
-            # private post-transition reconciliation hook.
             from comicarr.app.attention._reconciliation import reconcile_excluded
 
             mapping = existing_row._mapping
-            # `strict=True` so a reconciliation failure is loud, but caught so
-            # it cannot veto the quarantine. `conn` here is the CALLER's
-            # transaction (post-processing), and postprocess_pipeline re-raises
-            # when `conn is not None` — letting this propagate would roll back
-            # the quarantine UPDATE above and leave the row non-terminal, i.e.
-            # blind-replayable, which is exactly what this block exists to
-            # prevent. The asymmetry with `attention.record()`'s owned
-            # transaction (all-or-nothing, lock-retried) is deliberate: there
-            # the exclusion and its reconciliation are the same durable fact,
-            # whereas here the quarantine is the safety property and has no
-            # catch-up mechanism, while the reconciliation obligation does —
-            # `recovery.reconcile_existing_excluded_rows()` re-scans unresolved
-            # failed/manual_review rows every boot and re-discharges them
-            # idempotently, and a MANUAL_REVIEW row carrying
-            # `immutable_payload_conflict:*` is inside that scan set.
             try:
                 reconcile_excluded(
                     reason,
@@ -620,10 +519,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             logger.error("[JOURNAL] quarantined release_key=%s: %s" % (key, reason))
         return False
 
-    # Same-stage calls are not a new side-effect claim, but may safely fill in
-    # reconstruction fields learned after submission (notably client ids).
-    # Persist the enrichment while preserving the False/"lost claim" return
-    # contract used by postprocess_main.
     if existing_row is not None and int(existing_row._mapping["stage_rank"]) == new_rank:
         if existing_row._mapping.get("stage") in TERMINAL_STAGES:
             return False
@@ -657,8 +552,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
     if result.rowcount:
         return True
 
-    # 2. The UPDATE matched nothing: either the row is absent (first write) or
-    #    it exists but is already at/ahead of new_rank (regression / terminal).
     existing = conn.execute(
         select(pipeline_journal.c.stage, pipeline_journal.c.stage_rank).where(pipeline_journal.c.release_key == key)
     ).fetchone()
@@ -676,18 +569,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             conn.execute(pipeline_journal.insert().values(**ins_values))
             return True
         except IntegrityError:
-            # CONCURRENT FIRST-WRITER RACE (P1-2): SQLite begin() is DEFERRED,
-            # so two threads for the same ABSENT release_key can both observe
-            # UPDATE(0 rows) -> SELECT(None) and both attempt the INSERT; the
-            # loser's INSERT violates uq_pipeline_journal_release_key. This is
-            # NOT a fatal error — the row now exists (the other writer won the
-            # insert). Re-run the conditional monotonic advance against the
-            # now-present row and return rowcount>0: the loser correctly
-            # returns False ("did not win" — the winner's stage equals ours so
-            # stage_rank is NOT strictly less), or True if it legitimately
-            # advances a row another writer already moved further behind. This
-            # restores the CAS contract: exactly one of two concurrent
-            # first-writers for the same absent key returns True.
             retry = conn.execute(
                 update(pipeline_journal)
                 .where(pipeline_journal.c.release_key == key)
@@ -697,11 +578,6 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             )
             if retry.rowcount:
                 return True
-            # The now-present row may be a supersedable terminal row (a
-            # concurrent writer inserted-then-terminalised it): the monotonic
-            # re-run matched 0, so this is the absent-of-monotonic-match branch
-            # for that case — apply the same gated re-snatch reset here so the
-            # P1-2 race path composes with the terminal->snatched rule.
             if _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
                 return True
             logger.fdebug(
@@ -711,16 +587,9 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             )
             return False
 
-    # Row exists and is at/ahead of new_rank. The ONE legal exception to the
-    # monotonic no-op: a fresh RESERVED/SNATCHED write against a supersedable
-    # terminal row is a RE-SNATCH that supersedes the closed attempt. The
-    # status half of "supersedable" is enforced by the helper's own gated
-    # UPDATE, so this stage check only avoids a pointless statement.
     if existing[0] in _SUPERSEDABLE_TERMINALS and _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
         return True
 
-    # Row exists and is at/ahead of new_rank — a regressing or post-terminal
-    # write. Logged no-op (NOT last-writer-wins).
     logger.fdebug(
         "[JOURNAL] no-op: release_key=%s requested stage=%s (rank=%d) but row "
         "is already at stage=%s (rank=%s) — monotonic guard rejected regression."
@@ -827,14 +696,11 @@ def record_transition(release_key, stage, payload=None, conn=None, _activity_sin
     payload = sanitize_payload(payload)
     when = _now()
 
-    # Caller-supplied connection: participate in the caller's transaction.
     if conn is not None:
         prior_rank, prior_issueid, prior_provider = _prior_context(conn, release_key)
         won = _apply_transition(conn, release_key, stage, new_rank, fields, payload, when)
         if won:
             logger.fdebug("[JOURNAL] advanced release_key=%s -> stage=%s (caller txn)" % (release_key, stage))
-            # Co-commit narrative; SSE publish is left to the transaction owner
-            # (or the next query-backed refetch — best-effort contract).
             activity_payload = _emit_activity_for_won_transition(
                 stage,
                 release_key,
@@ -849,7 +715,6 @@ def record_transition(release_key, stage, payload=None, conn=None, _activity_sin
                 _activity_sink.append(activity_payload)
         return won
 
-    # Own transaction with bounded retry-then-raise (mirrors db.upsert).
     attempt = 0
     while attempt < 5:
         try:
@@ -858,8 +723,6 @@ def record_transition(release_key, stage, payload=None, conn=None, _activity_sin
                 prior_rank, prior_issueid, prior_provider = _prior_context(own_conn, release_key)
                 won = _apply_transition(own_conn, release_key, stage, new_rank, fields, payload, when)
                 if won:
-                    # Co-commit activity inside the same transaction so the
-                    # narrative row is durable with the stage advance.
                     activity_payload = _emit_activity_for_won_transition(
                         stage,
                         release_key,
@@ -894,7 +757,6 @@ def record_transition(release_key, stage, payload=None, conn=None, _activity_sin
                     "[JOURNAL] Database error during transition (release_key=%s stage=%s): %s" % (release_key, stage, e)
                 )
                 raise
-    # Retry cap exhausted — surface, never silently swallow (data-loss guard).
     logger.error(
         "[JOURNAL] transition write FAILED after 5 retries (release_key=%s "
         "stage=%s) — surfacing." % (release_key, stage)
@@ -904,11 +766,6 @@ def record_transition(release_key, stage, payload=None, conn=None, _activity_sin
         None,
         None,
     )
-
-
-# ---------------------------------------------------------------------------
-# Helpers built on the monotonic facade
-# ---------------------------------------------------------------------------
 
 
 def mark_failed(release_key, fail_reason, payload=None, conn=None, _activity_sink=None, **fields):
@@ -1072,8 +929,6 @@ def reopen_false_terminal(release_key):
         )
         won = bool(result.rowcount)
     if won:
-        # Mechanism-level trace only; the recovery scan owns the operator-
-        # facing narration for the reopen.
         logger.fdebug("[JOURNAL] demoted release_key=%s post_processed -> snatched (#742 backfill)." % release_key)
     return won
 

@@ -66,8 +66,6 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
   segments.push({ role: "api", text: apiText(s) });
   segments.push({ role: "separator", text: "·" });
 
-  // Counts sourced from a server we cannot reach are stale, whichever channel
-  // proved it — a prolonged SSE loss says so sooner than the 30s health poll.
   if (s.live === "lost" || (s.api === "offline" && s.librarySeries === null)) {
     segments.push({
       role: "activity",
@@ -98,9 +96,6 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
       segments.push({ role: "separator", text: "·" });
       segments.push({
         role: "attention",
-        // The count is *groups* — distinct problems, not journal rows — and it
-        // lands on the triage route rather than the timeline, because the only
-        // reason to click it is to work through them.
         text: `⚠ ${s.attention} need attention`,
         href: "/activity/attention",
       });
@@ -127,7 +122,6 @@ export function liveAnnouncement(
     if (next.attention > 0) return `${next.attention} need attention`;
     return "";
   }
-  // Reachability outranks every count: stale numbers are not worth announcing.
   if (prev.live !== next.live) {
     if (next.live === "lost") return "Server unreachable";
     if (prev.live === "lost") return "Reconnected";

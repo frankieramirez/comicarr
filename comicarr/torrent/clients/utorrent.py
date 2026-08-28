@@ -3,8 +3,6 @@ import os
 from comicarr._vendor.utorrent.client import UTorrentClient
 from comicarr.torrent.contracts import connection_failure
 
-# Only compatible with uTorrent 3.0+
-
 
 class TorrentClient(object):
     def __init__(self):

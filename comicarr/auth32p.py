@@ -68,9 +68,8 @@ class info32p(object):
         if any([comicarr.CONFIG.MODE_32P is True, self.test is True]):
             lses = self.LoginSession(self.username_32p, self.password_32p)
             loginses = lses.login()
-            # logger.fdebug('lses return: %s' % loginses)
             if not loginses:
-                self.status = False  # return "disable"
+                self.status = False
                 comicarr.INKDROPS_32P = None
                 if not self.test:
                     logger.error(
@@ -113,7 +112,6 @@ class info32p(object):
                             self.error = "site is down"
                         else:
                             self.error = cv.drophtml(loginses["error"]["message"])
-                        # self.error = loginses.error
                     else:
                         if self.error:
                             self.status = False
@@ -167,17 +165,12 @@ class info32p(object):
     def rssfeed(self):
         feedinfo = []
 
-        # if we've authenticated already via lses, we have the uid,authkey, passkeys.
-        # if using legacy mode, we've already parsed the info into Comicarr.KEYS32P
         try:
             if comicarr.CONFIG.MODE_32P is True:
-                # if authmode is enabled, attempt to signon and retrieve any custom notification feeds.
-                # post to the login form
                 r = self.session.post(self.url, verify=comicarr.CONFIG.VERIFY_32P, allow_redirects=True)
                 soup = BeautifulSoup(r.content, "html.parser")
                 soup.prettify()
 
-                # logger.info('[32P] Successfully authenticated.')
                 all_script2 = soup.find_all("link", {"rel": "alternate"})
 
                 authfound = False
@@ -186,7 +179,6 @@ class info32p(object):
                 for al in all_script2:
                     alurl = al["href"]
                     if all(["auth=" in alurl, "torrents_notify" in alurl]) and not authfound:
-                        # first we make sure we get the correct auth and store it.
                         f1 = alurl.find("auth=")
                         f2 = alurl.find("&", f1 + 1)
                         self.auth = alurl[f1 + 5 : f2]
@@ -207,7 +199,6 @@ class info32p(object):
                             "%s [NOTIFICATION: %s] Notification ID: %s" % (self.module, notifyname, notifynumber)
                         )
 
-                        # generate the rss-url here
                         feedinfo.append(
                             {
                                 "feed": notifynumber + "_" + str(self.passkey),
@@ -224,16 +215,6 @@ class info32p(object):
                 "Unable to retrieve information from 32Pages - either it is not responding/is down or something else is happening that is stopping me."
             )
             return {"status": False, "status_msg": e}
-
-        # set the keys here that will be used to download.
-        # try:
-        #    comicarr.CONFIG.PASSKEY_32P = str(self.passkey)
-        #    comicarr.AUTHKEY_32P = str(self.authkey)  # probably not needed here.
-        #    comicarr.KEYS_32P = {}
-        #    comicarr.KEYS_32P = {"user": str(self.uid),
-        #                      "auth": auth,
-        #                      "passkey": str(self.passkey),
-        #                      "authkey": str(self.authkey)}
 
         except NameError as e:
             logger.warn(
@@ -252,16 +233,13 @@ class info32p(object):
             return {"status": self.status, "status_msg": self.status_msg, "results": "no results", "error": self.error}
 
         chk_id = None
-        # logger.info('searchterm: %s' % self.searchterm)
-        # self.searchterm is a tuple containing series name, issue number, volume and publisher.
         series_search = self.searchterm["series"]
         issue_search = self.searchterm["issue"]
         volume_search = self.searchterm["volume"]
 
         if series_search.startswith("0-Day Comics Pack"):
-            # issue = '21' = WED, #volume='2' = 2nd month
-            torrentid = 22247  # 2018
-            publisher_search = None  #'2'  #2nd month
+            torrentid = 22247
+            publisher_search = None
             comic_id = None
         elif all([self.searchterm["torrentid_32p"] is not None, self.searchterm["torrentid_32p"] != "None"]):
             torrentid = self.searchterm["torrentid_32p"]
@@ -277,14 +255,11 @@ class info32p(object):
             spl = [x for x in self.publisher_list if x in publisher_search]
             for x in spl:
                 publisher_search = re.sub(x, "", publisher_search).strip()
-            # logger.info('publisher search set to : %s' % publisher_search)
 
-            # lookup the ComicID in the 32p sqlite3 table to pull the series_id to use.
             if comic_id:
                 chk_id = helpers.checkthe_id(comic_id)
 
             if any([chk_id is None, comicarr.CONFIG.DEEP_SEARCH_32P is True]):
-                # generate the dynamic name of the series here so we can match it up
                 as_d = filechecker.FileChecker()
                 as_dinfo = as_d.dynamic_replace(series_search)
                 mod_series = re.sub(r"\|", "", as_dinfo["mod_seriesname"]).strip()
@@ -303,7 +278,7 @@ class info32p(object):
                 logger.fdebug("config.search_32p: %s" % comicarr.CONFIG.SEARCH_32P)
                 if comicarr.CONFIG.SEARCH_32P is False:
                     url = "https://walksoftly.itsaninja.party/serieslist.php"
-                    params = {"series": re.sub(r"\|", "", mod_series.lower()).strip()}  # series_search}
+                    params = {"series": re.sub(r"\|", "", mod_series.lower()).strip()}
                     logger.fdebug("search query: %s" % re.sub(r"\|", "", mod_series.lower()).strip())
                     try:
                         t = requests.get(
@@ -355,11 +330,6 @@ class info32p(object):
                             "error": self.error,
                         }
 
-        #        with cfscrape.create_scraper(delay=15) as s:
-        #            s.headers = self.headers
-        #            cj = LWPCookieJar(os.path.join(comicarr.CONFIG.SECURE_DIR, ".32p_cookies.dat"))
-        #            cj.load()
-        #            s.cookies = cj
         data = []
         pdata = []
 
@@ -368,9 +338,9 @@ class info32p(object):
         else:
             if any([not chk_id, comicarr.CONFIG.DEEP_SEARCH_32P is True]):
                 if comicarr.CONFIG.SEARCH_32P is True:
-                    url = "https://32pag.es/torrents.php"  # ?action=serieslist&filter=' + series_search #&filter=F
+                    url = "https://32pag.es/torrents.php"
                     params = {"action": "serieslist", "filter": series_search}
-                    time.sleep(1)  # just to make sure we don't hammer, 1s pause.
+                    time.sleep(1)
                     t = self.session.get(url, params=params, verify=True, allow_redirects=True)
                     soup = BeautifulSoup(t.content, "html.parser")
                     results = soup.find_all("a", {"class": "object-qtip"}, {"data-type": "torrentgroup"})
@@ -426,7 +396,6 @@ class info32p(object):
                 self.searchterm["torrentid_32p"] != "None",
             ]
         ) and any([len(data) == 1, len(pdata) == 1]):
-            # update the 32p_reference so we avoid doing a url lookup next time
             helpers.checkthe_id(comic_id, dataset)
         else:
             if all(
@@ -446,16 +415,11 @@ class info32p(object):
         resultlist = {}
 
         for x in dataset:
-            # for 0-day packs, issue=week#, volume=month, id=0-day year pack (ie.issue=21&volume=2 for feb.21st)
             payload = {
                 "action": "groupsearch",
-                "id": x["id"],  # searchid,
+                "id": x["id"],
                 "issue": issue_search,
             }
-            # in order to match up against 0-day stuff, volume has to be none at this point
-            # when doing other searches tho, this should be allowed to go through
-            # if all([volume_search != 'None', volume_search is not None]):
-            #    payload.update({'volume': re.sub('v', '', volume_search).strip()})
             if series_search.startswith("0-Day Comics Pack"):
                 payload.update({"volume": volume_search})
 
@@ -464,7 +428,7 @@ class info32p(object):
 
             logger.fdebug("payload: %s" % payload)
             url = "https://32pag.es/ajax.php"
-            time.sleep(1)  # just to make sure we don't hammer, 1s pause.
+            time.sleep(1)
             try:
                 d = self.session.get(url, params=payload, verify=True, allow_redirects=True)
             except Exception as e:
@@ -542,7 +506,7 @@ class info32p(object):
 
         with open(filepath, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
-                if chunk:  # filter out keep-alive new chunks
+                if chunk:
                     f.write(chunk)
                     f.flush()
 
@@ -846,8 +810,3 @@ class info32p(object):
                 "authkey": self.authkey,
                 "passkey": self.passkey,
             }
-
-
-# if __name__ == '__main__':
-#   ab = DoIt()
-#    c = ab.loadit()

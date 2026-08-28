@@ -30,9 +30,9 @@ def is_rarfile(f):
     spanned = binascii.hexlify(byte[10])
     main = binascii.hexlify(byte[11])
 
-    if spanned == "01" and main == "01":  # main rar archive in a set of archives
+    if spanned == "01" and main == "01":
         return True
-    elif spanned == "00" and main == "00":  # single rar
+    elif spanned == "00" and main == "00":
         return True
 
     return False

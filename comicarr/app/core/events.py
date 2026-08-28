@@ -22,7 +22,6 @@ from dataclasses import dataclass
 
 from comicarr import logger
 
-# Rate-limit overflow diagnostics so bursts do not flood logs.
 _OVERFLOW_LOG_INTERVAL_SEC = 5.0
 _last_overflow_log = 0.0
 _overflow_log_lock = threading.Lock()
@@ -119,7 +118,7 @@ class EventBus:
                 try:
                     self._loop.call_soon_threadsafe(self._enqueue_latest, q, event)
                 except RuntimeError:
-                    pass  # Event loop closed during shutdown
+                    pass
         return True
 
     @property

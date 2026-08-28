@@ -48,5 +48,3 @@ class CurrentSearcher:
             write=True, job="Auto-Search", last_run_completed=helpers.utctimestamp(), status="Waiting"
         )
         comicarr.SEARCH_STATUS = "Waiting"
-        # comicarr.SEARCH_STATUS = 'Waiting'
-        # comicarr.SCHED_SEARCH_LAST = helpers.now()

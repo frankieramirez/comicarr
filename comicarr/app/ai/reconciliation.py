@@ -27,7 +27,6 @@ from comicarr.app.ai.sanitize import spotlight_wrap
 from comicarr.app.ai.schemas import ReconciliationChoice
 from comicarr.app.ai.structured import request_structured
 
-# Fields eligible for AI reconciliation between ComicInfo.xml and CV.
 RECONCILABLE_FIELDS = [
     "Title",
     "Summary",
@@ -54,7 +53,6 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
     if pre_cmtag_info is None or post_cmtag_info is None:
         return 0
 
-    # Build conflict map: fields where both sources are non-empty and differ
     conflicts = {}
     for field in RECONCILABLE_FIELDS:
         pre_val = (pre_cmtag_info.get(field) or "").strip()
@@ -70,7 +68,6 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
         % (len(conflicts), issue_id, ", ".join(conflicts.keys()))
     )
 
-    # Check AI availability — if not available, CV wins by default
     ctx = get_ai_runtime()
     if ctx is None or ctx.ai_client is None or ctx.config is None:
         logger.fdebug("[AI-RECONCILE] AI not configured — CV values win by default")
@@ -82,7 +79,6 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
         logger.fdebug("[AI-RECONCILE] Rate limiter at cap — CV values win by default")
         return 0
 
-    # Build prompt
     system_prompt = (
         "For each field, select the most accurate value from the given options. "
         "Do not synthesize new values — pick from the provided options only. "
@@ -111,28 +107,23 @@ def reconcile_metadata(cbz_path, issue_id, pre_cmtag_info, post_cmtag_info):
         latency_ms = int((time.time() - start_time) * 1000)
         ctx.ai_circuit_breaker.record_success()
 
-        # Validate: each selected value MUST match one of the input values
         resolved = {}
         for field, sources in conflicts.items():
             chosen = result.choices.get(field)
             if chosen is None:
-                # AI didn't return this field — CV wins
                 continue
             chosen = chosen.strip()
             if chosen == sources["comicinfo"] or chosen == sources["cv"]:
                 resolved[field] = chosen
             else:
-                # AI synthesised a new value — reject it, CV wins
                 logger.fdebug("[AI-RECONCILE] Rejected synthesised value for %s — CV wins" % field)
                 resolved[field] = sources["cv"]
 
         if not resolved:
             return 0
 
-        # Write AI-selected values to CBZ
         _write_comicinfo(cbz_path, resolved)
 
-        # Store per-provider originals in ai_metadata_history
         _store_reconciliation_history(issue_id, conflicts, resolved)
 
         ai_service.log_activity(
@@ -176,7 +167,6 @@ def _store_reconciliation_history(issue_id, conflicts, resolved):
         ai_value = resolved.get(field)
         if ai_value is None:
             continue
-        # Row for comicinfo provider value
         ai_queries.insert_metadata_history(
             {
                 "entity_type": "issue",
@@ -189,7 +179,6 @@ def _store_reconciliation_history(issue_id, conflicts, resolved):
                 "created_at": now,
             }
         )
-        # Row for cv provider value
         ai_queries.insert_metadata_history(
             {
                 "entity_type": "issue",

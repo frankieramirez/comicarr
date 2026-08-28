@@ -14,12 +14,8 @@ from typing import Any, Literal, Mapping, Sequence
 
 AttentionAction = Literal["retry", "search_again", "import", "stop_wanting"]
 
-# Hard cap on one bulk resolution request (#525). Fixed in code, not
-# configurable: a knob that raises the 1am fan-out undoes the safety it exists
-# for. Every caller imports this rather than restating the number.
 BATCH_CAP = 25
 
-# Members rendered inline for a group before the operator expands it.
 PREVIEW_CAP = 5
 
 
@@ -100,8 +96,6 @@ ResolutionProblem = Literal[
     "import_failed",
 ]
 
-# One home for the problem-to-HTTP mapping. Both the canonical route and the
-# deprecated downloads adapters read it; a second copy is a silent drift.
 PROBLEM_STATUS: Mapping[ResolutionProblem, int] = {
     "row_not_found": 404,
     "not_in_attention": 409,
@@ -127,9 +121,6 @@ class ResolutionItem:
     message: str | None = None
     issue_id: str | None = None
     run_id: str | None = None
-    # Tri-state: ``None`` when no stamp was ever attempted (the command stopped
-    # before touching the row), ``False`` when the row was acted on but stayed
-    # unstamped, ``True`` when the resolution stamp landed.
     stamp_written: bool | None = None
 
 

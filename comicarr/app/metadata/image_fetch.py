@@ -18,10 +18,6 @@ from urllib.parse import urlparse
 import requests
 
 from comicarr import logger
-
-# Hosts allowed for server-side cover/image fetches (SSRF protection).
-# Re-exported from core.image_hosts, which the CSP img-src directive is also
-# derived from — there is no second copy to keep in sync.
 from comicarr.app.core.image_hosts import ALLOWED_IMAGE_DOMAINS
 
 ALLOWED_IMAGE_CONTENT_TYPES = {
@@ -32,7 +28,7 @@ ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/avif",
 }
 
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MiB
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
 _CHUNK_SIZE = 64 * 1024
 
 
@@ -89,7 +85,6 @@ def fetch_allowed_image(url):
         return None
 
     try:
-        # raise_for_status only fails 4xx/5xx; with allow_redirects=False, 3xx must not succeed
         if resp.status_code != 200:
             logger.error("[METADATA-artwork] Unexpected HTTP %s for image %s" % (resp.status_code, url))
             return None

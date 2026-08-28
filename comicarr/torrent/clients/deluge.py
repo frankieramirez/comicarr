@@ -24,7 +24,6 @@ class TorrentClient(object):
         if not password:
             return {"status": False, "error": "No password specified"}
 
-        # Get port from the config and fail closed on malformed input.
         try:
             host, portnr = host.rsplit(":", 1)
             if not host or not portnr or not portnr.isdigit():
@@ -35,7 +34,6 @@ class TorrentClient(object):
         except (AttributeError, ValueError):
             return connection_failure("invalid host; expected host:port")
 
-        # logger.info('Connecting to ' + host + ':' + portnr + ' Username: ' + username + ' Password: ' + password )
         try:
             self.client = DelugeRPCClient(host, int(portnr), username, password)
         except Exception as e:
@@ -128,16 +126,13 @@ class TorrentClient(object):
 
             if not filepath.startswith("magnet"):
                 torrentcontent = open(filepath, "rb").read()
-                hash = str.lower(self.get_the_hash(filepath))  # Deluge expects a lower case hash
+                hash = str.lower(self.get_the_hash(filepath))
 
                 logger.debug('Torrent Hash (load_torrent): "' + hash + '"')
                 logger.debug("FileName (load_torrent): " + str(os.path.basename(filepath)))
 
-                # Check if torrent already added
                 if self.find_torrent(str.lower(hash)):
                     logger.info("load_torrent: Torrent already exists!")
-                    # should set something here to denote that it's already loaded, and then the failed download checker not run so it doesn't download
-                    # multiple copies of the same issues that's already downloaded
                 else:
                     logger.info("Torrent not added yet, trying to add it now!")
                     try:
@@ -157,13 +152,11 @@ class TorrentClient(object):
                     logger.debug("Torrent not added")
                     return False
 
-            # If label enabled put label on torrent in Deluge
             if torrent_id and comicarr.CONFIG.DELUGE_LABEL:
                 logger.info("Setting label to " + comicarr.CONFIG.DELUGE_LABEL)
                 try:
                     self.client.call("label.set_torrent", torrent_id, comicarr.CONFIG.DELUGE_LABEL)
                 except Exception:
-                    # if label isn't set, let's try and create one.
                     try:
                         self.client.call("label.add", comicarr.CONFIG.DELUGE_LABEL)
                         self.client.call("label.set_torrent", torrent_id, comicarr.CONFIG.DELUGE_LABEL)
@@ -216,7 +209,6 @@ class TorrentClient(object):
 
         from comicarr._vendor import bencode
 
-        # Open torrent file
         torrent_file = open(filepath, "rb")
         metainfo = bencode.decode(torrent_file.read())
         info = metainfo["info"]

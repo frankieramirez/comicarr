@@ -12,15 +12,12 @@ class TorrentClient(object):
         self.conn = None
 
     def getVerifySsl(self, verify, ca_bundle):
-        # Ensure verification has been enabled
         if not verify:
             return False
 
-        # Use ca bundle if defined
         if ca_bundle is not None and os.path.exists(ca_bundle):
             return ca_bundle
 
-        # Use default ssl verification
         return True
 
     def connect(self, host, username, password, auth, verify, rpc_url, ca_bundle, test=False):
@@ -38,13 +35,11 @@ class TorrentClient(object):
                 url = "http://" + url
             ssl = False
 
-        # add on the slash ..
         if not url.endswith("/"):
             url += "/"
 
         url = helpers.cleanHost(host, protocol=True, ssl=ssl)
 
-        # Automatically add '+https' to 'httprpc' protocol if SSL is enabled
         if ssl is True and url.startswith("httprpc://"):
             url = url.replace("httprpc://", "httprpc+https://")
         if ssl is False and not url.startswith("http://"):
@@ -52,7 +47,6 @@ class TorrentClient(object):
 
         parsed = urlparse(url)
 
-        # rpc_url is only used on http/https scgi pass-through
         if parsed.scheme in ["http", "https"] and rpc_url is not None:
             url += rpc_url
 
@@ -60,14 +54,12 @@ class TorrentClient(object):
 
         if username and password:
             try:
-                # logger.debug('SECURE: username and password')
                 if parsed.scheme == "https":
                     url.replace("https://", "https://%s:%s@" % (username, password))
                 elif parsed.scheme == "http":
                     url.replace("http://", "http://%s:%s@" % (username, password))
                 else:
                     pass
-                # logger.fdebug('NEWURL: %s' % newurl.replace(password, '[REDACTED]'))
                 authinfo = (auth, username, password)
                 self.conn = RTorrent(url, authinfo, verify_server=True, verify_ssl=self.getVerifySsl(verify, ca_bundle))
             except Exception as err:
@@ -77,7 +69,6 @@ class TorrentClient(object):
                 )
                 return {"status": False, "error": err}
         else:
-            # logger.fdebug('NO username %s / NO password %s' % (username, password))
             try:
                 authinfo = (auth, username, password)
                 self.conn = RTorrent(url, authinfo, verify_server=True, verify_ssl=self.getVerifySsl(verify, ca_bundle))
@@ -130,9 +121,7 @@ class TorrentClient(object):
         if filepath.startswith("magnet"):
             logger.fdebug("torrent magnet link set to : " + filepath)
             torrent_hash = re.findall(r"urn:btih:([\w]{32,40})", filepath)[0].upper()
-            # Send request to rTorrent
             try:
-                # cannot verify_load magnet as it might take a very very long time for it to retrieve metadata
                 torrent = self.conn.load_magnet(filepath, torrent_hash, verify_load=True)
                 if not torrent:
                     logger.error("Unable to find the torrent, did it fail to load?")
@@ -153,14 +142,6 @@ class TorrentClient(object):
                 logger.error("Failed to send torrent to rTorrent: %s", err)
                 return False
 
-        # we can cherrypick the torrents here if required and if it's a pack (0day instance)
-        # torrent.get_files() will return list of files in torrent
-        # f.set_priority(0,1,2)
-        # for f in torrent.get_files():
-        #    logger.info('torrent_get_files: %s' % f)
-        #    f.set_priority(0)  #set them to not download just to see if this works...
-        # torrent.updated_priorities()
-
         if comicarr.CONFIG.RTORRENT_LABEL is not None:
             torrent.set_custom(1, comicarr.CONFIG.RTORRENT_LABEL)
             logger.fdebug("Setting label for torrent to : " + comicarr.CONFIG.RTORRENT_LABEL)
@@ -171,7 +152,6 @@ class TorrentClient(object):
 
         logger.info("Successfully loaded torrent.")
 
-        # note that if set_directory is enabled, the torrent has to be started AFTER it's loaded or else it will give chunk errors and not seed
         if start:
             logger.info("[" + str(start) + "] Now starting torrent.")
             torrent.start()

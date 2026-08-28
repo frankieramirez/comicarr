@@ -20,7 +20,6 @@ export default function LibraryScanResults({
   isConfirming,
   type,
 }: LibraryScanResultsProps) {
-  // Pre-select all matched series
   const matchedResults = results.filter(
     (r) => r.matched && r.match?.comicid && !r.already_in_library,
   );

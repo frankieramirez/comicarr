@@ -27,7 +27,6 @@ import comicarr
 from comicarr import helpers, logger
 from comicarr._vendor import bencode
 
-# from comicarr._vendor.unrar2 import RarFile
 from .torrent.clients import rtorrent as TorClient
 
 
@@ -92,17 +91,14 @@ class RTorrent(object):
             logger.fdebug("Downloaded: %s" % helpers.human_size(torrent_info["download_total"]))
             logger.fdebug("Uploaded: %s" % helpers.human_size(torrent_info["upload_total"]))
             logger.fdebug("Ratio: %s" % torrent_info["ratio"])
-            # logger.info('Time Started: %s' % torrent_info['time_started'])
             logger.fdebug("Seeding Time: %s" % helpers.humanize_time(int(time.time()) - torrent_info["time_started"]))
 
             if torrent_info["label"]:
                 logger.fdebug("Torrent Label: %s" % torrent_info["label"])
 
-        # logger.info(torrent_info)
         return torrent_info
 
     def get_the_hash(self, filepath):
-        # Open torrent file
         torrent_file = open(filepath, "rb")
         metainfo = bencode.decode(torrent_file.read())
         info = metainfo["info"]

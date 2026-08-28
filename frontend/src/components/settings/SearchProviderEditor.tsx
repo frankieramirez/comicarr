@@ -106,10 +106,6 @@ function blankProvider(kind: SearchProviderKind): EditableProvider {
     name: "",
     host: "",
     verify: true,
-    // 7030 is Books/Comics in the standard Newznab category numbering.
-    // The old 5030 default was a TV category — harmless while categories
-    // were being discarded before reaching the search, and wrong now that
-    // they are not. Torznab indexers that speak the same numbering use it too.
     categories: "7030",
     enabled: true,
     api_key_set: false,

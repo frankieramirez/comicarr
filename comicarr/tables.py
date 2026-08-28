@@ -43,14 +43,8 @@ from sqlalchemy import (
 
 metadata = MetaData()
 
-# MySQL cannot index TEXT values without a prefix length. Keep the unbounded
-# storage used by SQLite/PostgreSQL while compiling schema keys to a bounded
-# VARCHAR on MySQL so uniqueness and index semantics remain portable.
 MYSQL_KEY_TEXT = Text().with_variant(String(255), "mysql")
 
-# ---------------------------------------------------------------------------
-# comics
-# ---------------------------------------------------------------------------
 comics = Table(
     "comics",
     metadata,
@@ -97,7 +91,7 @@ comics = Table(
     Column("Corrected_Type", Text),
     Column("TorrentID_32P", Text),
     Column("LatestIssueID", Text),
-    Column("Collects", Text),  # was CLOB
+    Column("Collects", Text),
     Column("IgnoreType", Integer),
     Column("AgeRating", Text),
     Column("FilesUpdated", Text),
@@ -105,8 +99,6 @@ comics = Table(
     Column("dirlocked", Integer),
     Column("cv_removed", Integer),
     Column("not_updated_db", Text),
-    # MySQL does not permit defaults on TEXT columns; these bounded enum-like
-    # values need portable server defaults for the baseline migration.
     Column("ContentType", String(16), server_default="comic"),
     Column("ReadingDirection", String(16), server_default="ltr"),
     Column("BareNumberMode", String(16), server_default="auto"),
@@ -117,9 +109,6 @@ comics = Table(
     Column("MalID", Text),
 )
 
-# ---------------------------------------------------------------------------
-# issues
-# ---------------------------------------------------------------------------
 issues = Table(
     "issues",
     metadata,
@@ -129,8 +118,6 @@ issues = Table(
     Column("Issue_Number", Text),
     Column("DateAdded", Text),
     Column("Status", MYSQL_KEY_TEXT),
-    # Nullable by design. A NULL value means no auditable explicit intent is
-    # known; compatibility reads derive policy intent without mutating rows.
     Column("AcquisitionIntent", String(16)),
     Column("Type", Text),
     Column("ComicID", MYSQL_KEY_TEXT),
@@ -152,9 +139,6 @@ issues = Table(
     UniqueConstraint("IssueID", name="uq_issues_issueid"),
 )
 
-# ---------------------------------------------------------------------------
-# annuals
-# ---------------------------------------------------------------------------
 annuals = Table(
     "annuals",
     metadata,
@@ -180,9 +164,6 @@ annuals = Table(
     UniqueConstraint("IssueID", name="uq_annuals_issueid"),
 )
 
-# ---------------------------------------------------------------------------
-# snatched
-# ---------------------------------------------------------------------------
 snatched = Table(
     "snatched",
     metadata,
@@ -200,9 +181,6 @@ snatched = Table(
     UniqueConstraint("IssueID", "Status", "Provider", name="uq_snatched_issue_status_provider"),
 )
 
-# ---------------------------------------------------------------------------
-# storyarcs
-# ---------------------------------------------------------------------------
 storyarcs = Table(
     "storyarcs",
     metadata,
@@ -239,9 +217,6 @@ storyarcs = Table(
     UniqueConstraint("IssueArcID", name="uq_storyarcs_issuearcid"),
 )
 
-# ---------------------------------------------------------------------------
-# upcoming
-# ---------------------------------------------------------------------------
 upcoming = Table(
     "upcoming",
     metadata,
@@ -255,9 +230,6 @@ upcoming = Table(
     UniqueConstraint("ComicID", "IssueNumber", name="uq_upcoming_comicid_issuenum"),
 )
 
-# ---------------------------------------------------------------------------
-# nzblog
-# ---------------------------------------------------------------------------
 nzblog = Table(
     "nzblog",
     metadata,
@@ -271,9 +243,6 @@ nzblog = Table(
     UniqueConstraint("IssueID", "PROVIDER", name="uq_nzblog_issueid_provider"),
 )
 
-# ---------------------------------------------------------------------------
-# weekly
-# ---------------------------------------------------------------------------
 weekly = Table(
     "weekly",
     metadata,
@@ -297,9 +266,6 @@ weekly = Table(
     UniqueConstraint("ComicID", "IssueID", name="uq_weekly_comicid_issueid"),
 )
 
-# ---------------------------------------------------------------------------
-# importresults
-# ---------------------------------------------------------------------------
 importresults = Table(
     "importresults",
     metadata,
@@ -329,9 +295,6 @@ importresults = Table(
     UniqueConstraint("impID", name="uq_importresults_impid"),
 )
 
-# ---------------------------------------------------------------------------
-# readlist
-# ---------------------------------------------------------------------------
 readlist = Table(
     "readlist",
     metadata,
@@ -349,9 +312,6 @@ readlist = Table(
     UniqueConstraint("IssueID", name="uq_readlist_issueid"),
 )
 
-# ---------------------------------------------------------------------------
-# failed
-# ---------------------------------------------------------------------------
 failed = Table(
     "failed",
     metadata,
@@ -367,9 +327,6 @@ failed = Table(
     UniqueConstraint("ID", "Provider", "NZBName", name="uq_failed_id_provider_nzbname"),
 )
 
-# ---------------------------------------------------------------------------
-# rssdb
-# ---------------------------------------------------------------------------
 rssdb = Table(
     "rssdb",
     metadata,
@@ -382,9 +339,6 @@ rssdb = Table(
     Column("ComicName", Text),
 )
 
-# ---------------------------------------------------------------------------
-# futureupcoming
-# ---------------------------------------------------------------------------
 futureupcoming = Table(
     "futureupcoming",
     metadata,
@@ -400,9 +354,6 @@ futureupcoming = Table(
     Column("year", Text),
 )
 
-# ---------------------------------------------------------------------------
-# searchresults
-# ---------------------------------------------------------------------------
 searchresults = Table(
     "searchresults",
     metadata,
@@ -423,9 +374,6 @@ searchresults = Table(
     Column("sresults", Text),
 )
 
-# ---------------------------------------------------------------------------
-# ref32p
-# ---------------------------------------------------------------------------
 ref32p = Table(
     "ref32p",
     metadata,
@@ -435,9 +383,6 @@ ref32p = Table(
     Column("Updated", Text),
 )
 
-# ---------------------------------------------------------------------------
-# oneoffhistory
-# ---------------------------------------------------------------------------
 oneoffhistory = Table(
     "oneoffhistory",
     metadata,
@@ -451,9 +396,6 @@ oneoffhistory = Table(
     UniqueConstraint("ComicID", "IssueID", name="uq_oneoffhistory_comicid_issueid"),
 )
 
-# ---------------------------------------------------------------------------
-# jobhistory
-# ---------------------------------------------------------------------------
 jobhistory = Table(
     "jobhistory",
     metadata,
@@ -473,9 +415,6 @@ jobhistory = Table(
     UniqueConstraint("JobName", name="uq_jobhistory_jobname"),
 )
 
-# ---------------------------------------------------------------------------
-# manualresults
-# ---------------------------------------------------------------------------
 manualresults = Table(
     "manualresults",
     metadata,
@@ -503,9 +442,6 @@ manualresults = Table(
     Column("issuearcid", Text),
 )
 
-# ---------------------------------------------------------------------------
-# ddl_info
-# ---------------------------------------------------------------------------
 ddl_info = Table(
     "ddl_info",
     metadata,
@@ -533,9 +469,6 @@ ddl_info = Table(
     Column("packinfo", Text),
 )
 
-# ---------------------------------------------------------------------------
-# exceptions_log
-# ---------------------------------------------------------------------------
 exceptions_log = Table(
     "exceptions_log",
     metadata,
@@ -555,9 +488,6 @@ exceptions_log = Table(
     Column("traceback", Text),
 )
 
-# ---------------------------------------------------------------------------
-# tmp_searches
-# ---------------------------------------------------------------------------
 tmp_searches = Table(
     "tmp_searches",
     metadata,
@@ -582,9 +512,6 @@ tmp_searches = Table(
     Column("thumbimage", Text),
 )
 
-# ---------------------------------------------------------------------------
-# notifs
-# ---------------------------------------------------------------------------
 notifs = Table(
     "notifs",
     metadata,
@@ -599,9 +526,6 @@ notifs = Table(
     Column("message", Text),
 )
 
-# ---------------------------------------------------------------------------
-# provider_searches
-# ---------------------------------------------------------------------------
 provider_searches = Table(
     "provider_searches",
     metadata,
@@ -613,68 +537,53 @@ provider_searches = Table(
     Column("hits", Integer, server_default="0"),
 )
 
-# ---------------------------------------------------------------------------
-# mylar_info
-# ---------------------------------------------------------------------------
 mylar_info = Table(
     "mylar_info",
     metadata,
     Column("DatabaseVersion", Integer, primary_key=True),
 )
 
-# ---------------------------------------------------------------------------
-# ai_activity_log
-# ---------------------------------------------------------------------------
 ai_activity_log = Table(
     "ai_activity_log",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("timestamp", MYSQL_KEY_TEXT),
-    Column("feature_type", Text),  # parsing|search|enrichment|reconciliation|insights|chat|arc|pulllist
+    Column("feature_type", Text),
     Column("action_description", Text),
     Column("model", Text),
     Column("prompt_tokens", Integer),
     Column("completion_tokens", Integer),
     Column("latency_ms", Integer),
-    Column("success", Text),  # true|false
+    Column("success", Text),
     Column("error_message", Text),
-    Column("entity_type", Text),  # comic|issue|storyarc
+    Column("entity_type", Text),
     Column("entity_id", MYSQL_KEY_TEXT),
 )
 
-# ---------------------------------------------------------------------------
-# ai_metadata_history
-# ---------------------------------------------------------------------------
 ai_metadata_history = Table(
     "ai_metadata_history",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("entity_type", MYSQL_KEY_TEXT),  # issue|comic
+    Column("entity_type", MYSQL_KEY_TEXT),
     Column("entity_id", MYSQL_KEY_TEXT),
     Column("field_name", Text),
     Column("original_value", Text),
     Column("ai_value", Text),
-    Column("source", Text),  # enrichment|reconciliation
-    Column("provider", Text),  # cv|metron|comicinfo
+    Column("source", Text),
+    Column("provider", Text),
     Column("created_at", Text),
 )
 
-# ---------------------------------------------------------------------------
-# ai_cache
-# ---------------------------------------------------------------------------
 ai_cache = Table(
     "ai_cache",
     metadata,
     Column("cache_key", MYSQL_KEY_TEXT, unique=True),
-    Column("cache_type", Text),  # insights|suggestions|expansion
-    Column("data", Text),  # JSON blob
+    Column("cache_type", Text),
+    Column("data", Text),
     Column("created_at", Text),
     Column("expires_at", Text),
 )
 
-# ---------------------------------------------------------------------------
-# ai_chat_threads / ai_chat_messages / ai_chat_attachments
-# ---------------------------------------------------------------------------
 ai_chat_threads = Table(
     "ai_chat_threads",
     metadata,
@@ -698,8 +607,6 @@ ai_chat_messages = Table(
     Column("prompt_tokens", Integer, nullable=False, server_default="0"),
     Column("completion_tokens", Integer, nullable=False, server_default="0"),
     Column("created_at", String(40), nullable=False),
-    # Monotonic within a thread: clock resolution can tie two created_at values,
-    # and a random uuid tiebreak would then order the conversation arbitrarily.
     Column("seq", Integer, nullable=False, server_default="0"),
 )
 
@@ -718,15 +625,6 @@ ai_chat_attachments = Table(
     Column("created_at", String(40), nullable=False),
 )
 
-# ---------------------------------------------------------------------------
-# activity_events
-# ---------------------------------------------------------------------------
-# Append-only Activity Center narrative rows (Activity Center ADR).
-# Derived live state stays on acquisition_runs / acquisition_run_items /
-# pipeline_journal; this table only stores timestamped history the ledgers
-# cannot express. Retention: comicarr.app.activity.retention (90-day age purge).
-# Read APIs live under comicarr.app.activity; sole writer is
-# comicarr.app.activity.events.record_activity (#479).
 activity_events = Table(
     "activity_events",
     metadata,
@@ -747,15 +645,6 @@ activity_events = Table(
     Column("scope_id", String(255)),
 )
 
-# ---------------------------------------------------------------------------
-# pipeline_journal
-# ---------------------------------------------------------------------------
-# Durable, forward-only transition record for the snatch -> download ->
-# post-process pipeline. One row per release_key. Survives process restart so
-# an in-flight item completes exactly once. stage is totally ordered via
-# stage_rank (the conditional advance-only WHERE + the PP-consumer atomic
-# claim). status/retry_count/next_retry_at are R9 resolution columns: operator
-# band exits and FAILED_AUTO stamp status without rewriting stage (#483).
 pipeline_journal = Table(
     "pipeline_journal",
     metadata,
@@ -765,22 +654,17 @@ pipeline_journal = Table(
     Column("downloader_type", Text),
     Column("nzbname", Text),
     Column("hash", Text),
-    Column("stage", MYSQL_KEY_TEXT, nullable=False),  # snatched|downloaded|post_processing|moved|post_processed|failed
-    Column("stage_rank", Integer, nullable=False),  # derived from stage; drives the monotonic guard
-    Column("payload_json", Text),  # reconstruct the SNATCHED_QUEUE/PP_QUEUE item
-    Column("fail_reason", Text),  # nullable
-    # MYSQL_KEY_TEXT: retention index (stage, updated_date) must stay portable.
+    Column("stage", MYSQL_KEY_TEXT, nullable=False),
+    Column("stage_rank", Integer, nullable=False),
+    Column("payload_json", Text),
+    Column("fail_reason", Text),
     Column("updated_date", MYSQL_KEY_TEXT, nullable=False),
-    # Reserved-nullable (R9) — unpopulated now:
     Column("status", Text),
     Column("retry_count", Integer),
     Column("next_retry_at", Text),
     UniqueConstraint("release_key", name="uq_pipeline_journal_release_key"),
 )
 
-# ---------------------------------------------------------------------------
-# acquisition schema + durable command ledgers
-# ---------------------------------------------------------------------------
 
 acquisition_schema_versions = Table(
     "acquisition_schema_versions",
@@ -821,18 +705,10 @@ acquisition_run_items = Table(
     Column("entity_type", String(32), nullable=False),
     Column("entity_id", String(255), nullable=False),
     Column("state", String(32), nullable=False),
-    # Queue handoff state is independent of the worker lifecycle. A durable
-    # item can be accepted but not yet handed to the in-memory worker queue.
     Column("dispatch_state", String(32), nullable=False, server_default="pending"),
     Column("queue_priority", String(16), nullable=False, server_default="routine"),
-    # Validated, bounded JSON containing only the command-kind allowlist. It
-    # must never contain provider credentials or downloader secrets.
     Column("payload_json", Text),
     Column("attempt_count", Integer, nullable=False, server_default="0"),
-    # How many times crash recovery has re-driven this item. Distinct from
-    # attempt_count, which counts worker claims: an item can be re-driven
-    # without ever being claimed. This is the bound that stops a permanently
-    # stuck obligation from being replayed forever (#555).
     Column("recovery_count", Integer, nullable=False, server_default="0"),
     Column("next_attempt_at", String(40)),
     Column("reason", Text),
@@ -848,11 +724,6 @@ acquisition_run_items = Table(
     ),
 )
 
-# A Search all missing preview is an authenticated, short-lived intent to
-# create exactly one durable series-scoped search run.  It intentionally keeps
-# only a bounded canonical issue selection and token digest; request cookies,
-# provider configuration, and any downloader payload remain outside this
-# operational ledger.
 acquisition_search_previews = Table(
     "acquisition_search_previews",
     metadata,
@@ -872,10 +743,6 @@ acquisition_search_previews = Table(
     UniqueConstraint("token_digest", name="uq_acquisition_search_preview_token"),
 )
 
-# An Interactive release search session is authenticated browser-owned state,
-# not a serialized provider response.  The public candidate projection and the
-# credential-free reconstruction allowlist live separately on the candidate
-# row; raw links, provider tuples, cookies, and API credentials are forbidden.
 interactive_search_sessions = Table(
     "interactive_search_sessions",
     metadata,
@@ -918,9 +785,6 @@ interactive_search_candidates = Table(
     ),
 )
 
-# Migration completion is not enough to resume acquisition. This one-row
-# durable control records the operator-visible reconciliation gate across
-# container restarts.
 acquisition_reconciliation = Table(
     "acquisition_reconciliation",
     metadata,
@@ -930,8 +794,6 @@ acquisition_reconciliation = Table(
     Column("updated_at", String(40), nullable=False),
 )
 
-# A repair canary is distinct from a repair-item canary: it authorizes exactly
-# one named external handoff while global maintenance remains active.
 acquisition_canary_permits = Table(
     "acquisition_canary_permits",
     metadata,
@@ -991,15 +853,6 @@ acquisition_maintenance_events = Table(
     Column("created_at", String(40), nullable=False),
 )
 
-# ---------------------------------------------------------------------------
-# acquisition repair manifests
-# ---------------------------------------------------------------------------
-# Repair is deliberately modelled separately from acquisition command runs.
-# A preview creates one durable run plus a complete ordered set of items;
-# confirmation freezes that set into a manifest.  JSON columns are never
-# indexed and contain bounded, canonical projections written by the repair
-# service.  Every identifier participating in a key/index uses a bounded
-# String so the schema remains portable to MySQL as well as SQLite/PostgreSQL.
 
 acquisition_repair_runs = Table(
     "acquisition_repair_runs",
@@ -1128,11 +981,7 @@ acquisition_repair_canaries = Table(
     UniqueConstraint("run_id", name="uq_acq_repair_canary_run"),
 )
 
-# ---------------------------------------------------------------------------
-# Indexes
-# ---------------------------------------------------------------------------
 
-# Standard indexes
 Index("issues_id", issues.c.IssueID)
 Index("comics_id", comics.c.ComicID)
 Index("issues_comicid", issues.c.ComicID)
@@ -1148,7 +997,6 @@ Index("failed_issueid", failed.c.IssueID)
 Index("upcoming_issuedate", upcoming.c.IssueDate)
 Index("upcoming_issueid", upcoming.c.IssueID)
 Index("pipeline_journal_stage", pipeline_journal.c.stage)
-# Retention eligibility + age predicates (see #478). Keep pipeline_journal_stage.
 Index("pipeline_journal_stage_updated", pipeline_journal.c.stage, pipeline_journal.c.updated_date)
 Index("activity_events_created_at", activity_events.c.created_at)
 Index("activity_events_parent_series_id", activity_events.c.parent_series_id)
@@ -1228,14 +1076,11 @@ Index("acq_repair_events_run", acquisition_repair_events.c.run_id, acquisition_r
 Index("acq_repair_canary_run", acquisition_repair_canaries.c.run_id)
 ddl_info_status_updated = Index("ddl_info_status_updated", ddl_info.c.status, ddl_info.c.updated_date)
 
-# Case-insensitive indexes (SQLite uses COLLATE NOCASE on column definition;
-# PostgreSQL functional indexes are created separately in db.py)
 Index("issues_status_comicname", issues.c.Status, issues.c.ComicName)
 Index("issues_comicname", issues.c.ComicName)
 Index("storyarcs_status_comicname", storyarcs.c.Status, storyarcs.c.ComicName)
 Index("storyarcs_status_storyarc", storyarcs.c.Status, storyarcs.c.StoryArc)
 
-# AI indexes
 Index("ai_activity_timestamp", ai_activity_log.c.timestamp)
 Index("ai_activity_entity_id", ai_activity_log.c.entity_id)
 Index("ai_metadata_entity", ai_metadata_history.c.entity_type, ai_metadata_history.c.entity_id)
@@ -1244,7 +1089,6 @@ Index("ai_chat_messages_thread_created", ai_chat_messages.c.thread_id, ai_chat_m
 Index("ai_chat_attachments_message", ai_chat_attachments.c.message_id)
 Index("ai_chat_attachments_thread_created", ai_chat_attachments.c.thread_id, ai_chat_attachments.c.created_at)
 
-# Lookup table: table name -> Table object (used by upsert shim)
 TABLE_MAP = {
     "comics": comics,
     "issues": issues,
@@ -1298,23 +1142,19 @@ TABLE_MAP = {
 }
 
 
-# Upsert key columns per table (derived from UniqueConstraint / unique=True metadata)
 def _derive_upsert_keys():
 
     keys = {}
     for name, table in TABLE_MAP.items():
-        # Prefer named UniqueConstraints
         for constraint in table.constraints:
             if isinstance(constraint, UniqueConstraint) and constraint.name:
                 keys[name] = [col.name for col in constraint.columns]
                 break
-        # Fall back to unique=True on individual columns
         if name not in keys:
             for col in table.columns:
                 if col.unique:
                     keys[name] = [col.name]
                     break
-        # Fall back to composite primary keys (for tables like notifs, tmp_searches)
         if name not in keys:
             pk_cols = [col.name for col in table.primary_key.columns]
             if len(pk_cols) > 1:

@@ -47,8 +47,6 @@ def _mask_password(url):
 
 logger = logging.getLogger("comicarr.db_migrate")
 
-# Table ordering respecting dependencies.
-# Independent tables first, then dependent tables.
 INDEPENDENT_TABLES = [
     "comics",
     "rssdb",
@@ -171,8 +169,6 @@ def _stable_source_order(source_inspector, table_name):
     if primary_key_columns:
         return ", ".join(_quote_identifier(column) for column in primary_key_columns)
 
-    # Ordinary legacy SQLite tables always expose a unique rowid. WITHOUT ROWID
-    # tables require a primary key, so they take the branch above.
     return "rowid"
 
 
@@ -206,7 +202,6 @@ def validate(source_url, target_url):
         int_cols = _get_integer_columns(table_name)
         text_cols = _get_text_columns(table_name)
 
-        # Sample rows for cleaning analysis
         cleaning_count = 0
         with source_engine.connect() as conn:
             sample = conn.execute(text(f"SELECT * FROM {table_name} LIMIT 100"))
@@ -218,7 +213,6 @@ def validate(source_url, target_url):
         status = "OK" if cleaning_count == 0 else f"{cleaning_count} cleanings (sampled)"
         print(f"  {row_count:>8,d} rows  {table_name:25s}  {status}")
 
-    # Check target is empty or has tables
     target_inspector = inspect(target_engine)
     target_tables = set(target_inspector.get_table_names())
     if target_tables:
@@ -257,7 +251,6 @@ def migrate(source_url, target_url, batch_size=5000):
     print(f"Batch size: {batch_size}")
     print()
 
-    # Validate source
     if source_url.startswith("sqlite:///"):
         db_path = source_url.replace("sqlite:///", "")
         _validate_sqlite_file(db_path)
@@ -265,14 +258,11 @@ def migrate(source_url, target_url, batch_size=5000):
     source_engine = create_engine(source_url)
     target_engine = create_engine(target_url)
 
-    # Warn if target is non-localhost
     if "@" in target_url:
         host_part = target_url.split("@")[1].split("/")[0].split(":")[0]
         if host_part not in ("localhost", "127.0.0.1", "::1"):
             print(f"  WARNING: Target host is '{host_part}' (non-localhost)")
 
-    # The target must have a reviewed schema history before any data crosses
-    # dialects. Never bypass this with metadata.create_all().
     print("Upgrading target to Alembic head...")
     target_head = upgrade_database(target_engine)
     print(f"  Target is at revision {target_head}.")
@@ -298,7 +288,6 @@ def migrate(source_url, target_url, batch_size=5000):
             print(f"  SKIP  {table_name} (not in metadata)")
             continue
 
-        # Get target column names to filter source data
         target_cols = {c.name for c in table_obj.columns}
         table_identifier = _quote_identifier(table_name)
         table_migrated = 0
@@ -314,7 +303,6 @@ def migrate(source_url, target_url, batch_size=5000):
                     print(f"  {table_name:25s}  0 rows (empty)")
                     continue
 
-                # Read and insert in batches
                 offset = 0
                 seen_keys = set()
                 upsert_keys = UPSERT_KEYS.get(table_name)
@@ -330,20 +318,18 @@ def migrate(source_url, target_url, batch_size=5000):
                     batch_cleaned = 0
                     for row in rows:
                         row_dict = dict(row._mapping)
-                        # Filter to only columns that exist in the target schema
                         row_dict = {k: v for k, v in row_dict.items() if k in target_cols}
                         cleaned, conversions = _clean_row(row_dict, table_name, int_cols, text_cols)
                         table_cleaned += len(conversions)
                         batch_cleaned += len(conversions)
 
-                        # Deduplicate rows that would violate UNIQUE constraints
                         if upsert_keys:
                             key_vals = tuple(cleaned.get(k) for k in upsert_keys)
                             if any(v is None for v in key_vals):
-                                batch.append(cleaned)  # UNIQUE constraints allow NULL keys
+                                batch.append(cleaned)
                             elif key_vals in seen_keys:
                                 table_deduped += 1
-                                continue  # Skip duplicate
+                                continue
                             else:
                                 seen_keys.add(key_vals)
                                 batch.append(cleaned)
@@ -373,7 +359,6 @@ def migrate(source_url, target_url, batch_size=5000):
             failed_tables.append((table_name, str(e)))
             print(f"  FAIL  {table_name}: {e}")
 
-    # --- Post-migration verification ---
     print("\n=== Verification ===")
     verify_ok = True
     failed_table_names = {name for name, _ in failed_tables}

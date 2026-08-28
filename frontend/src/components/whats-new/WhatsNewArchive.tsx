@@ -18,10 +18,6 @@ function isUnread(
   pending: { from: string; to: string } | null | undefined,
 ): boolean {
   if (!pending) return false;
-  // Server already sliced; treat pending range as unread for the badge.
-  // Compare as strings only when equal ends; full semver compare is server-side.
-  // Prefer a simple check: versions in the returned set with pending flag from API.
-  // Here we mark the top pending slice using from/to inclusive of to, exclusive of from.
   return (
     versionCompare(version, pending.from) > 0 &&
     versionCompare(version, pending.to) <= 0
@@ -54,7 +50,6 @@ export default function WhatsNewArchive() {
 
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  // Expand newest on first successful load.
   const defaultExpanded = expanded ?? sections[0]?.version ?? null;
 
   if (archiveQuery.isLoading) {

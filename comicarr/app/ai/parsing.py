@@ -28,7 +28,6 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
 
     Returns a parseit()-compatible dict on success, or None on failure.
     """
-    # Check AI is configured and available
     ctx = get_ai_runtime()
     if ctx is None or ctx.ai_client is None or ctx.config is None:
         return None
@@ -68,7 +67,6 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
         latency_ms = int((time.time() - start_time) * 1000)
         ctx.ai_circuit_breaker.record_success()
 
-        # Validate against monitored series
         if not _validate_against_library(result.series_name):
             ai_service.log_activity(
                 feature_type="parsing",
@@ -83,7 +81,6 @@ def ai_parse_filename(filename, watchcomic=None, publisher=None):
             logger.fdebug("[AI-PARSE] No library match for series: %s" % result.series_name)
             return None
 
-        # Build parseit()-compatible dict
         parsed = _build_parse_dict(result, filename)
 
         ai_service.log_activity(
@@ -123,17 +120,14 @@ def _validate_against_library(series_name):
     if not series_name:
         return False
 
-    # Exact match first
     result = ai_queries.find_exact_library_match(series_name, series_name.lower().strip())
     if result:
         return True
 
-    # Case-insensitive match
     result = ai_queries.find_case_insensitive_library_match(series_name)
     if result:
         return True
 
-    # Check AlternateSearch field (##-delimited)
     search_lower = series_name.lower()
     for row in ai_queries.get_alternate_search_values():
         alternates = (row.get("AlternateSearch") or "").split("##")

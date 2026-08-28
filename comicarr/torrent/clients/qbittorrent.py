@@ -78,16 +78,12 @@ class TorrentClient(object):
 
             logger.debug('Torrent Hash (load_torrent): "%s"' % hash)
 
-            # Check if torrent already added
             if self.find_torrent(hash):
                 logger.info("load_torrent: Torrent already exists!")
                 return {"status": False, "error": "Torrent already exists"}
-                # should set something here to denote that it's already loaded, and then the failed download checker not run so it doesn't download
-                # multiple copies of the same issues that's already downloaded
             else:
                 logger.info("Torrent not added yet, trying to add it now!")
 
-                # Build an arg dict based on user prefs.
                 addargs = {}
                 if not any(
                     [
@@ -140,7 +136,7 @@ class TorrentClient(object):
                 logger.info("Client default add action selected. Doing nothing.")
 
         try:
-            time.sleep(5)  # wait 5 in case it's not populated yet.
+            time.sleep(5)
             tinfo = self.get_torrent(hash)
         except Exception as e:
             logger.warn("Torrent was not added! Please check logs")
@@ -148,7 +144,6 @@ class TorrentClient(object):
         else:
             logger.info("Torrent successfully added!")
             filelist = self.client.get_torrent_files(hash)
-            # logger.info(filelist)
             if len(filelist) == 1:
                 to_name = filelist[0]["name"]
             else:
@@ -165,7 +160,6 @@ class TorrentClient(object):
                 "status": True,
             }
 
-            # logger.info(torrent_info)
             return torrent_info
 
     def get_the_hash(self, filepath):
@@ -173,7 +167,6 @@ class TorrentClient(object):
 
         from comicarr._vendor import bencode
 
-        # Open torrent file
         torrent_file = open(filepath, "rb")
         metainfo = bencode.decode(torrent_file.read())
         info = metainfo["info"]

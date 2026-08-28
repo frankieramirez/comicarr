@@ -11,7 +11,6 @@ export type DatePreset = {
   shortcut: string;
 };
 
-// TODO: we could type the value(!) especially when using enums
 export type Option = {
   label: string;
   value: string | boolean | number | undefined;
@@ -32,7 +31,6 @@ export type Slider = {
   type: "slider";
   min: number;
   max: number;
-  // if options is undefined, faceted unique values from the data are used in the command
   options?: Option[];
   unit?: string;
 };
@@ -72,13 +70,9 @@ export type DataTableFilterField<TData> =
 export type SheetField<TData, TMeta = Record<string, unknown>> = {
   id: keyof TData;
   label: string;
-  // FIXME: rethink that! I dont think we need this as there is no input type
-  // REMINDER: readonly if we only want to copy the value (e.g. uuid)
-  // TODO: we might have some values that are not in the data but can be computed
   type: "readonly" | "input" | "checkbox" | "slider" | "timerange";
   display?: { type: string; unit?: string; colorMap?: Record<string, string> };
   component?: (
-    // REMINDER: this is used to pass additional data like the `InfiniteQueryMeta`
     props: TData & {
       metadata?: {
         totalRows: number;

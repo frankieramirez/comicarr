@@ -27,7 +27,6 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
-# The only types `Config.check_setting` and `Config.process_kwargs` coerce to.
 COERCIBLE_TYPES = (str, int, bool)
 
 
@@ -50,23 +49,14 @@ class ConfigKey:
     section: str
     default: Any
 
-    # Settings API exposure. Independent, default-deny.
     readable: bool = False
     writable: bool = False
 
-    # Scheduler bindings. A key drives at most one job's cadence and gates at
-    # most one job; `SCHEDULER_JOB_INTERVALS` and `SCHEDULER_JOB_REQUIRED_CONFIG`
-    # are the inverses of these two fields.
     interval_for: str | None = None
     gates: str | None = None
 
-    # `EXTRA_NEWZNABS` / `EXTRA_TORZNABS`. Declared `str`, but hold a list of
-    # provider rows and take their own transaction path in `apply_transaction`
-    # (`config.py:1628`) because provider and scalar writes cannot share one.
     provider_extra: bool = False
 
-    # Free-form marker for the awkwardness a key carries, so the prototype can
-    # show why this key is in the sample. Not load-bearing.
     note: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
@@ -78,10 +68,6 @@ class ConfigKey:
             raise ValueError("%s: section is required" % self.name)
         if self.provider_extra and self.type is not str:
             raise ValueError("%s: provider extras are declared str" % self.name)
-        # `default` is deliberately NOT checked against `type`.
-        # `IGNORE_SEARCH_WORDS` is declared `str` and defaults to `[]`, and
-        # `check_setting` relies on that: the empty-list default is what makes
-        # its `len(value) == 0` branch restore the list rather than a string.
 
     @property
     def ini_key(self) -> str:
@@ -105,13 +91,6 @@ class ConfigKey:
         """
         return (self.type, self.section, copy.copy(self.default))
 
-
-# ---------------------------------------------------------------------------
-# Every config key. Generated once from the _CONFIG_DEFINITIONS literal and the
-# two allowlists by scripts/migrate_config_definitions.py; maintained by hand
-# from here. Order matches config.py, which matters -- check_setting iterates
-# it and the ini file is written in that order.
-# ---------------------------------------------------------------------------
 
 _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("CONFIG_VERSION", int, "General", 18),
@@ -259,10 +238,6 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("MAL_ENABLED", bool, "MAL", False, readable=True, writable=True),
     ConfigKey("MAL_CLIENT_ID", str, "MAL", None, writable=True),
     ConfigKey("LOG_DIR", str, "Logs", None, readable=True),
-    # Readable, never writable: Settings → Logs shows the retention ceiling as
-    # context because turning the level up to debug fills it fast, but the knob
-    # itself is one almost nobody should turn and every writable key is a
-    # permanent API surface.
     ConfigKey("MAX_LOGSIZE", int, "Logs", 10000000, readable=True),
     ConfigKey("MAX_LOGFILES", int, "Logs", 5, readable=True),
     ConfigKey("LOG_LEVEL", int, "Logs", 1, readable=True, writable=True),
@@ -270,16 +245,9 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("GIT_USER", str, "Git", "frankieramirez"),
     ConfigKey("GIT_TOKEN", str, "Git", None),
     ConfigKey("GIT_BRANCH", str, "Git", None),
-    # Operator-facing: Settings → About → Updates "Check for updates".
-    # Controls automatic checks only; force-check ignores this switch.
     ConfigKey("CHECK_GITHUB", bool, "Git", True, readable=True, writable=True),
-    # Operator-facing: Settings → About → Updates "Announce releases to notifiers".
-    # Global gate × *_ENABLED only (#475 / #453); Settings-writable (#471).
     ConfigKey("ANNOUNCE_RELEASES", bool, "Git", False, readable=True, writable=True),
-    # Install-wide dedup for outbound release announces; not a Settings field.
     ConfigKey("LAST_ANNOUNCED_VERSION", str, "Git", None),
-    # Install-wide What's New acknowledgement (#449 / #474); not Settings-writable.
-    # Written only by seed (key absent) and dismiss (Got it / Mark as read).
     ConfigKey("LAST_SEEN_VERSION", str, "Git", None),
     ConfigKey("ENFORCE_PERMS", bool, "Perms", False),
     ConfigKey("CHMOD_DIR", str, "Perms", "0777"),
@@ -407,10 +375,6 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("TORZNAB_HOST", str, "Torznab", None),
     ConfigKey("TORZNAB_APIKEY", str, "Torznab", None),
     ConfigKey("TORZNAB_CATEGORY", str, "Torznab", None),
-    # Verify TLS by default. This value is only ever read to seed the verify
-    # field of a legacy torznab_* entry being absorbed into extra_torznabs, and
-    # an absorbed entry inherits every other field from the operator -- so a
-    # False here silently downgraded a provider they never chose to downgrade.
     ConfigKey("TORZNAB_VERIFY", bool, "Torznab", True),
     ConfigKey("EXPERIMENTAL", bool, "Experimental", False),
     ConfigKey("ALTEXPERIMENTAL", bool, "Experimental", False),
@@ -573,11 +537,6 @@ def _build(keys: tuple[ConfigKey, ...]) -> OrderedDict[str, ConfigKey]:
 
 
 REGISTRY: OrderedDict[str, ConfigKey] = _build(_KEYS)
-
-
-# ---------------------------------------------------------------------------
-# Derived views. Each replaces a hand-maintained literal elsewhere.
-# ---------------------------------------------------------------------------
 
 
 def as_legacy_definitions() -> OrderedDict[str, tuple[type, str, Any]]:

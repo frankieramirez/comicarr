@@ -37,14 +37,6 @@ from comicarr.app.system import support_bundle as support_bundle_module
 router = APIRouter(prefix="/api", tags=["system"])
 
 
-# ---------------------------------------------------------------------------
-# Auth endpoints
-# ---------------------------------------------------------------------------
-
-
-# Login is async so it can await request.json(). The blocking bcrypt
-# call (~250ms on NAS ARM hardware) is offloaded to a threadpool via
-# asyncio.to_thread so it doesn't block the event loop.
 @router.post("/auth/login")
 async def login(request: Request, ctx: AppContext = Depends(get_context)):
     """JSON login — returns JWT in HttpOnly cookie."""
@@ -59,8 +51,6 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
             content={"success": False, "error": "Missing username or password"},
         )
 
-    # Delegate to service (handles rate limiting, bcrypt, migration)
-    # Run in threadpool since verify_login does blocking bcrypt work
     ip = request.client.host if request.client else "unknown"
     result = await asyncio.to_thread(system_service.verify_login, ctx, username, password, ip)
 
@@ -70,10 +60,7 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
             content=result,
         )
 
-    # Issue JWT cookie
     login_timeout = getattr(ctx.config, "LOGIN_TIMEOUT", 43800) if ctx.config else 43800
-    # Serialize issuance with logout rotation so a successful login can never
-    # return a token signed by the just-revoked key.
     with ctx.runtime_lock:
         token = create_session_token(username, ctx.jwt_secret_key, ctx.jwt_generation, login_timeout)
 
@@ -85,7 +72,7 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
         httponly=True,
         secure=enable_https,
         samesite="strict",
-        max_age=2_628_000,  # 30 days
+        max_age=2_628_000,
     )
     return response
 
@@ -154,11 +141,6 @@ async def setup(request: Request, ctx: AppContext = Depends(get_context)):
     return JSONResponse(status_code=status_code, content=result)
 
 
-# ---------------------------------------------------------------------------
-# SSE endpoint
-# ---------------------------------------------------------------------------
-
-
 @router.get("/events/stream", dependencies=[Depends(require_session)])
 async def event_stream(request: Request, ctx: AppContext = Depends(get_context)):
     """Server-Sent Events stream. Uses sse-starlette for proper keepalive."""
@@ -181,7 +163,6 @@ async def event_stream(request: Request, ctx: AppContext = Depends(get_context))
                         id=str(seq),
                     )
                 except asyncio.TimeoutError:
-                    # Keep connection alive — sse-starlette sends pings
                     continue
         except asyncio.CancelledError:
             pass
@@ -189,11 +170,6 @@ async def event_stream(request: Request, ctx: AppContext = Depends(get_context))
             ctx.event_bus.unsubscribe(sub_id)
 
     return EventSourceResponse(generator(), ping=15)
-
-
-# ---------------------------------------------------------------------------
-# Config endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.get("/config", dependencies=[Depends(require_session)])
@@ -245,11 +221,6 @@ async def update_providers(request: Request, ctx: AppContext = Depends(get_conte
 def get_providers(ctx: AppContext = Depends(get_context)):
     """Return provider identities and enablement without credentials."""
     return system_service.get_provider_config(ctx)
-
-
-# ---------------------------------------------------------------------------
-# Admin endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.post("/system/shutdown", dependencies=[Depends(require_session)])
@@ -381,11 +352,6 @@ def get_jobs(include_acquisition: bool = True, ctx: AppContext = Depends(get_con
     return system_service.get_job_info(ctx, include_acquisition=include_acquisition)
 
 
-# ---------------------------------------------------------------------------
-# Startup diagnostics & migration endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.get("/system/diagnostics", dependencies=[Depends(require_session)])
 def get_startup_diagnostics(include_acquisition: bool = True, ctx: AppContext = Depends(get_context)):
     """Return startup diagnostics (db empty, migration dismissed)."""
@@ -456,11 +422,6 @@ async def abort_acquisition_maintenance(
         reason=body.get("reason"),
     )
     return _repair_response(result)
-
-
-# ---------------------------------------------------------------------------
-# Acquisition repair — owner session only (never API-key)
-# ---------------------------------------------------------------------------
 
 
 def _session_identity(request: Request, username: str):
@@ -650,11 +611,6 @@ async def release_acquisition_canary(
         reason=reason,
     )
     return _repair_response(result)
-
-
-# ---------------------------------------------------------------------------
-# Support bundle
-# ---------------------------------------------------------------------------
 
 
 @router.post("/system/support-bundle", dependencies=[Depends(require_session)])

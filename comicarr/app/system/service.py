@@ -66,7 +66,6 @@ from comicarr.app.search.provider_config import (
 )
 from comicarr.tables import comics, jobhistory, storyarcs
 
-# Shared rate limiter instance for authentication endpoints.
 _rate_limiter = LoginRateLimiter()
 _fallback_weekly_refresh_lock = threading.Lock()
 
@@ -123,7 +122,6 @@ def verify_login(ctx, username, password, ip):
         logger.info("[AUTH-AUDIT] Failed login attempt — invalid username from IP: %s" % ip)
         return {"success": False, "error": "Incorrect username or password."}
 
-    # Three-state password verification (bcrypt → legacy base64 → plaintext)
     if forms_pass.startswith("$2b$") or forms_pass.startswith("$2a$"):
         if encrypted.verify_password(password, forms_pass):
             _rate_limiter.record_success(ip)
@@ -145,7 +143,6 @@ def verify_login(ctx, username, password, ip):
             _rate_limiter.record_failure(ip)
             return {"success": False, "error": "Incorrect username or password."}
     else:
-        # Plaintext comparison + auto-migrate
         if password == forms_pass:
             _migrate_password(ctx, password)
             _rate_limiter.record_success(ip)
@@ -178,8 +175,6 @@ def announce_setup_token(setup_token):
     for message in messages:
         logger.info(message)
 
-    # At level 0 the console sink is at WARNING, so the INFO lines above never
-    # reach it — and without the token the operator cannot finish setup at all.
     if logger.current_log_level() == 0:
         for message in messages:
             print(message, flush=True)
@@ -223,16 +218,13 @@ def initial_setup(ctx, username, password, setup_token):
 
     set_runtime_field(ctx, "setup_token", None)
 
-    # Signal restart for session config to take effect
     set_runtime_field(ctx, "signal", "restart")
 
     return {"success": True, "username": username, "needs_restart": True}
 
 
-# Sorted so the response key order is stable; get_safe_config reads it every call.
 _READABLE_KEYS = sorted(readable_keys())
 
-# Repo root: comicarr/app/system/service.py → ../../../..
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
@@ -267,7 +259,7 @@ def _read_pyproject_version():
     try:
         try:
             import tomllib
-        except ModuleNotFoundError:  # Python 3.10
+        except ModuleNotFoundError:
             import tomli as tomllib
         with open(pyproject, "rb") as f:
             data = tomllib.load(f)
@@ -308,7 +300,6 @@ def get_safe_config(ctx):
     for output_key, config_key in secret_indicators.items():
         result[output_key] = _secret_is_configured(getattr(ctx.config, config_key, None))
 
-    # Add derived download client labels (must match config.py enums)
     nzb_labels = {0: "SABnzbd", 1: "NZBGet", 2: "Blackhole", 3: "Disabled"}
     torrent_labels = {0: "Watchfolder", 1: "uTorrent", 2: "rTorrent", 3: "Transmission", 4: "Deluge", 5: "qBittorrent"}
     nzb_val = getattr(ctx.config, "NZB_DOWNLOADER", None)
@@ -318,9 +309,7 @@ def get_safe_config(ctx):
     if torrent_val is not None:
         result["torrent_downloader_label"] = torrent_labels.get(torrent_val, "None")
 
-    # Lowercase all keys for frontend convention
     result = {k.lower(): v for k, v in result.items()}
-    # Release semver only — never ctx.current_version (git SHA / install id).
     version = get_release_version()
     if version:
         result["version"] = version
@@ -400,12 +389,8 @@ def update_config(ctx, key_values):
     if not ctx.config:
         return {"success": False, "error": "Config not loaded"}
 
-    # Normalize incoming keys to uppercase — frontend sends lowercase,
-    # but config internals use UPPERCASE.
     key_values = {k.upper(): v for k, v in key_values.items()}
 
-    # Filter to only writable keys — prevents privilege escalation via
-    # overwriting HTTP_PASSWORD, API_KEY, AUTHENTICATION, etc.
     rejected = [k for k in key_values if k not in WRITABLE_CONFIG_KEYS]
     if rejected:
         logger.info("[CONFIG] Rejected non-writable keys: %s" % rejected)
@@ -415,14 +400,6 @@ def update_config(ctx, key_values):
 
     level_notices = []
     if "LOG_LEVEL" in filtered:
-        # Read by the same rules as every other source of the level, so a value
-        # typed into Settings behaves like one passed on the command line: both
-        # notations are accepted, out of range clamps, and anything else is
-        # refused. A startup source is clamped rather than rejected because
-        # refusing to boot helps nobody; an HTTP request can simply be told it
-        # was wrong, and persisting garbage would leave the level silently
-        # ignored at the next start. Whichever form arrives, an integer is what
-        # gets stored.
         level, level_notices = parse_level(filtered["LOG_LEVEL"], SOURCE_SETTINGS)
         if level is None:
             return {
@@ -455,13 +432,6 @@ def update_config(ctx, key_values):
 
     interval_changed = any(k in set(SCHEDULER_JOB_INTERVALS.values()) for k in filtered)
 
-    # Writing the level and applying it have to be one step. apply_transaction
-    # serializes the write on this same (reentrant) lock, but on its own that
-    # only orders the writes: two saves racing could persist B and then apply A,
-    # leaving config.ini and the running logger disagreeing about the dial —
-    # exactly the confusion this dial exists to remove. Scheduler
-    # reconfiguration is deliberately left outside; it is slow, it touches
-    # APScheduler's own locks, and no config write depends on it having run.
     with config_transaction_lock():
         try:
             persisted = ctx.config.apply_transaction(filtered)
@@ -472,24 +442,15 @@ def update_config(ctx, key_values):
         if not persisted:
             return {"success": False, "error": CONFIG_PERSISTENCE_ERROR}
 
-        # Sync back to globals during transition
         comicarr.CONFIG = ctx.config
 
         if "LOG_LEVEL" in filtered:
-            # After the global sync: configure_log_level rebuilds the handlers
-            # from comicarr.CONFIG, so it has to see the config just written.
             _apply_log_level_now(filtered["LOG_LEVEL"])
 
     if interval_changed:
         _reconfigure_schedulers(ctx)
 
     for notice in level_notices:
-        # WARNING rather than INFO, because it passes at every level by
-        # contract: a clamp notice logged at INFO is invisible at exactly the
-        # level a downward clamp lands on. It is warning-shaped anyway — the
-        # operator asked for a level they did not get. Emitted after the change
-        # is in force, so "using 0" describes what happened rather than what
-        # was about to be attempted.
         logger.warn("[CONFIG] %s" % notice)
 
     return {"success": True}
@@ -533,11 +494,8 @@ def regenerate_api_key(ctx, username, ip):
         logger.error("[API-KEY] Failed to persist regenerated API key: %s" % e)
         return {"success": False, "error": "Failed to persist new API key"}
 
-    # Sync back to globals during transition
     comicarr.CONFIG = ctx.config
 
-    # Rotation revokes every outstanding API credential, so record who did it —
-    # otherwise integrations start failing with nothing in the log to explain why.
     logger.info("[AUTH-AUDIT] API key regenerated by user '%s' from IP: %s" % (username, ip))
 
     return {"success": True, "api_key": new_api_key}
@@ -601,9 +559,6 @@ def update_providers(ctx, provider_data):
                 host = old.host
             rss_uid = None
             if provider_type == "newznab":
-                # Keep the uid the operator is already using when the client
-                # does not send one back, so editing categories cannot silently
-                # repoint the indexer's RSS feed at a different user.
                 rss_uid = row.get("rss_uid")
                 if rss_uid in (None, ""):
                     rss_uid = old.rss_uid if old is not None else None
@@ -644,26 +599,10 @@ def update_providers(ctx, provider_data):
     return result
 
 
-# Scheduler job id -> the config attribute that drives its cadence, in minutes.
 SCHEDULER_JOB_INTERVALS = scheduler_job_intervals()
 
-# Scheduler job id -> a config attribute that must be set for the job to do
-# anything. Mirrors the CHECK_FOLDER / IMPORT_DIR guards in comicarr.start().
 SCHEDULER_JOB_REQUIRED_CONFIG = scheduler_job_required_config()
 
-# Job ids this process parked because their interval was non-positive, so a
-# later positive interval can bring them back.
-#
-# APScheduler's pause_job() is just next_run_time=None, so a paused job cannot
-# say why it is paused -- and job_management() reads that same state back into
-# comicarr.<JOB>_STATUS, which means a job we parked starts looking exactly like
-# one the operator paused from the jobs UI. Remembering who did the parking is
-# what keeps the two apart. A job the operator paused is never in this set and
-# is therefore never resumed here.
-#
-# Process-scoped on purpose: a pause that outlives the process is replayed from
-# jobhistory by job_management(startup=True), and at that point nothing can say
-# why it was paused, so start() stays the authority.
 _INTERVAL_PARKED_JOBS = set()
 
 
@@ -674,8 +613,6 @@ def _job_may_run(ctx, job_id):
     still hold for a job this module parked itself.
     """
     if getattr(ctx, "acquisition_workers_blocked", False):
-        # Every job in SCHEDULER_JOB_INTERVALS is a producer or consumer of
-        # acquisition work; start() leaves them all paused behind this gate.
         return False
 
     required_key = SCHEDULER_JOB_REQUIRED_CONFIG.get(job_id)
@@ -721,20 +658,12 @@ def _reconfigure_schedulers(ctx):
             pending = job.next_run_time
             if pending is None:
                 if job_id in _INTERVAL_PARKED_JOBS and _job_may_run(ctx, job_id):
-                    # We parked this one for a non-positive interval; a positive
-                    # one is the operator asking for it back.
                     job.modify(trigger=trigger, next_run_time=now + datetime.timedelta(minutes=minutes))
                     _INTERVAL_PARKED_JOBS.discard(job_id)
                 else:
-                    # Paused by someone else, so it stays paused. job.modify(trigger=...)
-                    # leaves next_run_time alone; scheduler.reschedule_job() recomputes
-                    # it from the trigger and would silently resume the job.
                     job.modify(trigger=trigger)
             else:
                 _INTERVAL_PARKED_JOBS.discard(job_id)
-                # Shortening an interval takes effect now; lengthening one takes
-                # effect after the run that is already scheduled. A pending run
-                # is never pushed later.
                 job.modify(
                     trigger=trigger,
                     next_run_time=min(pending, now + datetime.timedelta(minutes=minutes)),
@@ -763,8 +692,6 @@ def get_version_info(ctx):
         update_reason = "never_checked"
     from comicarr.app.system.whats_new import resolve_pending_whats_new
 
-    # Seed LAST_SEEN_VERSION when absent (fresh install / first boot after
-    # feature); may write once. Pending compare itself is read-only.
     pending_whats_new = resolve_pending_whats_new(ctx)
 
     return {
@@ -815,8 +742,6 @@ def force_version_check(ctx):
     """
     import comicarr
 
-    # Deliberately does not consult CHECK_GITHUB — Settings "Check now" must
-    # work while automatic checks are off (Settings → About → Updates).
     runner = comicarr.versioncheckit.CheckVersion()
     check_result = runner.run(scheduled_job=False) or {}
     info = get_version_info(ctx)
@@ -846,16 +771,10 @@ def get_build_identity(ctx):
         "release": release,
         "version": version,
         "source": source,
-        # A version string or runtime Git SHA is useful diagnostic context,
-        # but only the image build arguments bind both values to the deployed
-        # artifact. Do not present a local/dev fallback as release-verified.
         "verified": bool(declared_build_id and declared_build_commit),
     }
 
 
-# How many trailing lines Settings → Logs asks for by default, and the ceiling
-# on what it may ask for. The file is capped at MAX_LOGSIZE anyway; the ceiling
-# is here so one request cannot be made to hold an entire rotation in memory.
 DEFAULT_LOG_LINES = 200
 MAX_LOG_LINES = 5000
 
@@ -904,9 +823,6 @@ def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
         return {"logs": [], "level": level, "requested": requested, "path": log_file}
 
     try:
-        # A deque with a maxlen keeps only the tail in memory. `readlines()` on a
-        # 10 MB log allocated the whole file on every Refresh, and the viewer was
-        # always going to throw all but the last N away.
         with open(log_file, "r") as f:
             tail = deque(f, maxlen=requested)
         provider_secrets = []
@@ -940,7 +856,6 @@ def start_new_log(ctx):
         logger.error("[SYSTEM] Error starting a new log file: %s" % e)
         return {"success": False, "rotated": False, "error": str(e)}
     if rotated:
-        # First line of the fresh file: says why history stops here.
         logger.info("[SYSTEM] Started a new log file at operator request; previous log kept as a rotated archive")
     return {"success": True, "rotated": rotated}
 
@@ -1248,8 +1163,6 @@ def start_migration(ctx, path):
     if initial.active and (initial.owner != "migration" or not str(initial.run_id or "").startswith("migration-")):
         return {"success": False, "error": "Acquisition maintenance is owned by another operation", "status_code": 423}
     if initial.active_leases and not initial.active:
-        # Avoid taking a fence merely to report an existing busy worker. A
-        # race after this check is handled by the fenced thread below.
         return {"success": False, "error": "Acquisition workers must drain before migration", "status_code": 423}
 
     run_id = "migration-%s" % uuid.uuid4()
@@ -1264,9 +1177,6 @@ def start_migration(ctx, path):
         success = False
         try:
             _comicarr.MIGRATION_STATUS = "waiting_for_quiescence"
-            # Existing side effects predate the fence and must finish. New
-            # claims are blocked by it. Heartbeat while waiting so diagnostics
-            # distinguish an intentional drain from an abandoned fence.
             deadline = time.monotonic() + 300
             while not controller.status().drained:
                 controller.heartbeat_fence("migration", run_id, fence.epoch)
@@ -1457,11 +1367,6 @@ def abort_acquisition_maintenance(ctx, *, actor, reason, force_stale_leases=Fals
         return {"success": False, "error": "unable to abort acquisition maintenance", "status_code": 500}
 
 
-# ---------------------------------------------------------------------------
-# Acquisition repair (session-bound, owner only)
-# ---------------------------------------------------------------------------
-
-
 def _repair_service():
     from comicarr.app.system.acquisition_repair import RepairService
 
@@ -1622,12 +1527,8 @@ def release_acquisition_canary(ctx, permit_id, *, actor, session_id, reason):
         return _repair_error_response(e)
 
 
-# --- Extracted from helpers.py ---
-
-
 def upgrade_dynamic():
     dynamic_comiclist = []
-    # update the comicdb to include the Dynamic Names (and any futher changes as required)
     from sqlalchemy import select
 
     clist = db.select_all(select(comics))
@@ -1647,7 +1548,6 @@ def upgrade_dynamic():
             newVal = {"DynamicComicName": dl["DynamicComicName"]}
             db.upsert("comics", newVal, CtrlVal)
 
-    # update the storyarcsdb to include the Dynamic Names (and any futher changes as required)
     dynamic_storylist = []
     rlist = db.select_all(select(storyarcs).where(storyarcs.c.StoryArcID.isnot(None)))
     for rl in rlist:
@@ -1759,8 +1659,6 @@ def queue_info():
 
 
 def script_env(mode, vars):
-    # mode = on-snatch, pre-postprocess, post-postprocess
-    # var = dictionary containing variables to pass
     comicarr_env = os.environ.copy()
     shell_cmd = sys.executable
     if mode == "on-snatch":
@@ -1802,9 +1700,7 @@ def script_env(mode, vars):
         if "comicinfo" in vars:
             try:
                 if vars["comicinfo"]["comicid"] is not None:
-                    comicarr_env["comicarr_comicid"] = vars["comicinfo"][
-                        "comicid"
-                    ]  # comicid/issueid are unknown for one-offs (should be fixable tho)
+                    comicarr_env["comicarr_comicid"] = vars["comicinfo"]["comicid"]
                 else:
                     comicarr_env["comicarr_comicid"] = "None"
             except Exception:
@@ -1848,13 +1744,11 @@ def script_env(mode, vars):
         comicarr_env["comicarr_client"] = vars["clientmode"]
 
     elif mode == "post-process":
-        # to-do
         runscript = comicarr.CONFIG.EXTRA_SCRIPTS
         if comicarr.CONFIG.ES_SHELL_LOCATION is not None:
             shell_cmd = comicarr.CONFIG.ES_SHELL_LOCATION
 
     elif mode == "pre-process":
-        # to-do
         runscript = comicarr.CONFIG.PRE_SCRIPTS
         if comicarr.CONFIG.PRE_SHELL_LOCATION is not None:
             shell_cmd = comicarr.CONFIG.PRE_SHELL_LOCATION
@@ -1868,7 +1762,7 @@ def script_env(mode, vars):
         if shell_cmd == "" or shell_cmd is None:
             shell_cmd = "/bin/bash"
 
-    curScriptName = shell_cmd + " " + runscript  # .decode("string_escape")
+    curScriptName = shell_cmd + " " + runscript
     logger.fdebug("snatch script detected...enabling: " + str(curScriptName))
 
     script_cmd = shlex.split(curScriptName)
@@ -1908,7 +1802,6 @@ def job_management(
     jobresults = []
 
     if startup is True:
-        # on startup - db status will over-ride any settings to ensure persistent state
         from sqlalchemy import select
 
         job_info = db.select_all(
@@ -1953,7 +1846,6 @@ def job_management(
                     jstatus = "Waiting"
                 comicarr.SEARCH_STATUS = jstatus
             elif "rss" in ji["JobName"].lower():
-                # db value isn't used in startup as config option controls status
                 if comicarr.SCHED_RSS_LAST is None:
                     comicarr.SCHED_RSS_LAST = ji["prev_run_timestamp"]
                 if jstatus is None:
@@ -1969,7 +1861,6 @@ def job_management(
                     jstatus = "Waiting"
                 comicarr.WEEKLY_STATUS = jstatus
             elif "version" in ji["JobName"].lower():
-                # db value isn't used in startup as config option controls status
                 if comicarr.SCHED_VERSION_LAST is None:
                     comicarr.SCHED_VERSION_LAST = ji["prev_run_timestamp"]
                 if jstatus is None:
@@ -1979,7 +1870,6 @@ def job_management(
                     jstatus = "Paused"
                 comicarr.VERSION_STATUS = jstatus
             elif "monitor" in ji["JobName"].lower():
-                # db value isn't used in startup as config option controls status
                 if comicarr.SCHED_MONITOR_LAST is None:
                     comicarr.SCHED_MONITOR_LAST = ji["prev_run_timestamp"]
                 if jstatus is None:
@@ -2142,9 +2032,6 @@ def job_management(
                     "status": status,
                 }
             elif last_run_completed is not None:
-                # Persist the terminal fact before scheduler inspection, date
-                # presentation, or logging. Those secondary operations must
-                # never be able to mask a completed/failed dispatch.
                 terminal_datetime = datetime.datetime.fromtimestamp(
                     last_run_completed, tz=datetime.timezone.utc
                 ).replace(microsecond=0)
@@ -2193,7 +2080,6 @@ def job_management(
 
                             if comicarr.UPDATER_STATUS != "Paused":
                                 if comicarr.DB_BACKFILL is True:
-                                    # if backfilling, set it for every 15 mins
                                     nextrun_stamp = utctimestamp() + (comicarr.CONFIG.BACKFILL_TIMESPAN * 60)
                                     logger.fdebug(
                                         "[BACKFILL-UPDATER] Will fire off every %s"
@@ -2241,10 +2127,6 @@ def job_management(
                                 comicarr.FORCE_STATUS.pop("weekly")
 
                             if comicarr.WEEKLY_STATUS != "Paused":
-                                # APScheduler has already advanced the interval trigger
-                                # before the job body runs. Preserve that cadence after a
-                                # manual refresh instead of replacing it with a one-off
-                                # delay that drifts from the configured schedule.
                                 nextrun_date = getattr(jbst, "next_run_time", None)
                                 if nextrun_date is not None:
                                     nextrun_stamp = nextrun_date.timestamp()
@@ -2286,7 +2168,6 @@ def job_management(
                             if nextrun_date is not None:
                                 nextrun_date = nextrun_date.replace(microsecond=0)
                     else:
-                        # if the rss is enabled after startup, we have to re-set it up...
                         nextrun_stamp = utctimestamp() + (int(comicarr.CONFIG.RSS_CHECKINTERVAL) * 60)
                         nextrun_date = datetime.datetime.fromtimestamp(nextrun_stamp, tz=datetime.timezone.utc)
                         comicarr.SCHED_RSS_LAST = last_run_completed
@@ -2295,7 +2176,6 @@ def job_management(
                     logger.fdebug("ReScheduled job: %s to %s" % (job, comicarr.helpers.utc_date_to_local(nextrun_date)))
                 lastrun_comp = datetime.datetime.fromtimestamp(last_run_completed, tz=datetime.timezone.utc)
                 lastrun_comp = lastrun_comp.replace(microsecond=0)
-                # if it's completed, then update the last run time to the ending time of the job
                 updateVals = {
                     "prev_run_timestamp": last_run_completed,
                     "prev_run_datetime": lastrun_comp.isoformat(),
@@ -2338,7 +2218,7 @@ def stupidchk():
 def get_free_space(folder):
     from comicarr.helpers import sizeof_fmt
 
-    min_threshold = 100000000  # threshold for minimum amount of freespace available (#100mb)
+    min_threshold = 100000000
     if platform.system() == "Windows":
         free_bytes = ctypes.c_ulonglong(0)
         ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(folder), None, None, ctypes.pointer(free_bytes))
@@ -2356,30 +2236,24 @@ def get_free_space(folder):
 
 def tail_that_log():
     """Tail a file and get X lines from the end"""
-    # place holder for the lines found
     lines_found = []
 
     f = open(os.path.join(comicarr.CONFIG.LOG_DIR, "comicarr.log"), "r")
     lines = 100
     buffer = 4098
 
-    # block counter will be multiplied by buffer
-    # to get the block size from the end
     block_counter = -1
 
-    # loop until we find X lines
     while len(lines_found) <= lines:
         try:
             f.seek(block_counter * buffer, os.SEEK_END)
-        except IOError:  # either file is too small, or too many lines requested
+        except IOError:
             f.seek(0)
             lines_found = f.readlines()
             break
 
         lines_found = f.readlines()
 
-        # decrement the block counter to get the
-        # next X bytes
         block_counter -= 1
 
     return lines_found[-lines:]

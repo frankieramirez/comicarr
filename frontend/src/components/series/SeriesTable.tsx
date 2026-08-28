@@ -54,9 +54,6 @@ import type { Comic } from "@/types";
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, Comic>();
 
-// Domain filters and the view toggle only. `page`, `sort` and `search` are the
-// table's own state and live in the shared URL store (tableUrlStore.ts) under
-// the same keys as before, so existing bookmarks survive (#377).
 const seriesParams = {
   type: parseAsStringLiteral(["comic", "manga"] as const),
   progress: parseAsStringLiteral(["0", "partial", "100"] as const),
@@ -64,10 +61,6 @@ const seriesParams = {
   view: parseAsStringLiteral(["list", "grid"] as const).withDefault("list"),
 };
 
-// List row tracks. Phone widths only keep checkbox / cover / title so the
-// title track always receives free space (#414). Desktop keeps the full row.
-// Title floor on md+ is minmax(10rem, 1fr) so truncate never collapses to 0px
-// beside fixed secondary columns.
 const LIST_ROW_COLS =
   "grid-cols-[20px_40px_minmax(0,1fr)] md:grid-cols-[20px_40px_minmax(10rem,1fr)_160px_100px_110px_180px_60px]";
 
@@ -121,8 +114,6 @@ export default function SeriesTable({
     });
   }, [data, typeFilter, progressFilter, statusFilter]);
 
-  // Columns are only used by TanStack for sorting & filtering state; rendering
-  // is done inline below to match the compact grid design.
   const columns = useMemo(
     () =>
       columnHelper.columns([
@@ -137,12 +128,6 @@ export default function SeriesTable({
   const urlStore = useTableUrlStore({ history: "replace" });
   const search = urlStore.state.globalFilter;
 
-  // The clamp has to count the rows TanStack will actually paginate, and the
-  // global search runs inside the hook — after this clamp is already fixed —
-  // so the search is reproduced here: TanStack's `includesString`
-  // (case-insensitive substring per column value) over the same four accessor
-  // columns. The deep-link test pins a searched out-of-range page so drift
-  // between the two surfaces as a failure, not an empty table.
   const searchedCount = useMemo(() => {
     if (!search) return filteredData.length;
     const query = search.toLowerCase();
@@ -156,13 +141,6 @@ export default function SeriesTable({
     ).length;
   }, [filteredData, search]);
 
-  // The render-time, display-only clamp that replaced the page-clamp effect
-  // (#360): an out-of-range `pageIndex` renders the last real page and the URL
-  // is never rewritten — "rows have not arrived yet" and "genuinely out of
-  // range" are the same code path here, and the rewrite that tried to tell
-  // them apart was the deep-link bug (#372, #381). The clamp composes over the
-  // URL store because the hook feeds `store.state.pageIndex` straight to
-  // TanStack, which renders an empty page for an index past the end.
   const maxPage = Math.max(0, Math.ceil(searchedCount / pageSize) - 1);
   const pageIndex = Math.min(urlStore.state.pageIndex, maxPage);
   const store = useMemo<TableStore>(
@@ -184,8 +162,6 @@ export default function SeriesTable({
     columns,
     getRowId: (row) => row.ComicID,
     pagination,
-    // The one page-scoped select-all left (#382); "filtered" would change what
-    // the header checkbox selects.
     selection: { scope: "page" },
     store,
   });
@@ -193,11 +169,6 @@ export default function SeriesTable({
   const sorting = table.state.sorting;
   const effectivePage = table.state.pagination.pageIndex;
 
-  // A selection change must invalidate an armed delete confirmation. That
-  // reset used to live in `onRowSelectionChange`, which the hook now owns, so
-  // it is derived instead: the confirmation is armed against the selection
-  // state *object*, and every selection change (including the hook's pruning)
-  // produces a new one, disarming it.
   const rowSelection = table.state.rowSelection;
   const confirmDelete =
     confirmDeleteFor !== null && confirmDeleteFor === rowSelection;
@@ -277,9 +248,6 @@ export default function SeriesTable({
     } else {
       next = [];
     }
-    // No explicit page reset: the sorted row model recomputing fires TanStack's
-    // `autoResetPageIndex`, and its microtask drains before nuqs' flush, so the
-    // sort write and the page reset are still one URL write (#360, #377).
     table.setSorting(next);
   };
 
@@ -319,8 +287,6 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
-              // The page-size change resets the page inside the hook — the one
-              // reset auto-reset provably misses (#360).
               setParams({ view: null });
               clearSelection();
             }}
@@ -598,8 +564,6 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
   const statusColor = statusTextColor(status);
   const isSelected = row.getIsSelected();
 
-  // Phone rows fold secondary metadata under the title so the primary
-  // identifier stays readable without horizontal scroll (#414).
   const mobileMeta = [
     comic.ComicPublisher,
     comic.ComicYear ? `(${comic.ComicYear})` : null,

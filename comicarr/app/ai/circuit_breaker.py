@@ -33,10 +33,6 @@ class CircuitBreaker:
         self._opened_at = 0
         self._lock = threading.Lock()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     @property
     def state(self):
         with self._lock:
@@ -69,10 +65,6 @@ class CircuitBreaker:
             self._failure_count = 0
             self._state = STATE_CLOSED
             self._opened_at = 0
-
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
 
     def _maybe_transition_half_open(self):
         """Transition OPEN -> HALF-OPEN once cooldown has elapsed.

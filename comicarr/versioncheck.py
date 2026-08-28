@@ -36,11 +36,6 @@ import comicarr
 from comicarr import db, logger
 from comicarr.tables import jobhistory
 
-# Version state is read from the runtime context by GET /api/system/version.
-# The context is built once at startup from a snapshot of these globals, so a
-# write that lands only on the module is invisible to the API for the life of
-# the process -- which is why the scheduled version check never moved the
-# "update available" banner. Route every write through here instead.
 _VERSION_FIELDS = {
     "current_version": "CURRENT_VERSION",
     "current_version_name": "CURRENT_VERSION_NAME",
@@ -53,11 +48,8 @@ _VERSION_FIELDS = {
     "update_value": "UPDATE_VALUE",
 }
 
-# GitHub update-check calls must not hang indefinitely on a dropped SYN
-# (air-gapped / firewalled installs). Bound from issue #446: 10s connect, 10s read.
 _GITHUB_REQUEST_TIMEOUT = (10, 10)
 
-# Constant owner/repo — update checks never read GIT_USER (issue #470 / #456).
 _GITHUB_RELEASES_LATEST = "https://api.github.com/repos/frankieramirez/comicarr/releases/latest"
 _GITHUB_RELEASE_TAG_URL = "https://github.com/frankieramirez/comicarr/releases/tag/v%s"
 
@@ -178,7 +170,6 @@ def getVersion(ptv):
     if ptv["git_branch"] is not None and ptv["git_branch"].startswith("win32build"):
         _set_version_state(install_type="win")
 
-        # Don't have a way to update exe yet, but don't want to set VERSION to None
         return {
             "current_version": "Windows Install",
             "current_version_name": "None",
@@ -188,7 +179,6 @@ def getVersion(ptv):
 
     elif os.path.isdir(os.path.join(comicarr.PROG_DIR, ".git")):
         _set_version_state(install_type="git")
-        # Try exact tag match first, then get branch name separately
         output = runGit("describe --exact-match --tags", ptv, suppress_errors=True)
         if output:
             branch_output = runGit("rev-parse --abbrev-ref HEAD", ptv)
@@ -198,25 +188,17 @@ def getVersion(ptv):
                 output = None
 
         if not output:
-            # Not on a tag — get commit hash and branch
             output = runGit("rev-parse HEAD --abbrev-ref HEAD", ptv)
             if not output:
                 logger.error("Couldn't find latest installed version.")
                 cur_commit_hash = None
                 cur_branch = ptv["git_branch"]
-        # branch_history, err = runGit("log --oneline --pretty=format:'%h - %ar - %s' -n 5")
-        # bh = []
-        # print ("branch_history: " + branch_history)
-        # bh.append(branch_history.split('\n'))
-        # print ("bh1: " + bh[0])
 
         if output is not None:
             opp = output.find("\n")
             cur_commit_hash = output[:opp]
             cur_branch = output[opp : output.find("\n", opp + 1)].strip()
 
-            # Resolve a tagged checkout to its commit SHA when GitHub checks are on.
-            # Uses the constant comicarr repo; does not drive the semver update check.
             if cur_commit_hash.startswith("v") and ptv.get("check_github") is True:
                 url2 = "https://api.github.com/repos/frankieramirez/comicarr/tags"
                 try:
@@ -236,13 +218,11 @@ def getVersion(ptv):
                         url3 = "https://api.github.com/repos/frankieramirez/comicarr/releases/tags/%s" % (
                             current_version_name,
                         )
-                        # logger.fdebug('url3: %s' % url3)
                         try:
                             repochk = requests.get(
                                 url3, verify=True, auth=ptv["git_token"], timeout=_GITHUB_REQUEST_TIMEOUT
                             )
                             repo_resp = repochk.json()
-                            # logger.fdebug('repo_resp: %s' % repo_resp)
                             current_release_name = repo_resp["name"]
                         except Exception:
                             pass
@@ -311,7 +291,6 @@ def getVersion(ptv):
             logger.info("Not a Docker installation.")
             _set_version_state(install_type="source")
 
-        # current_version = None
         branch = None
 
         version_file = os.path.join(comicarr.PROG_DIR, ".LAST_RELEASE")
@@ -320,8 +299,6 @@ def getVersion(ptv):
                 if not os.path.isfile(version_file):
                     current_version = None
                 else:
-                    # Check if .LAST_RELEASE has unexpanded export-subst placeholders
-                    # (happens when installed via git clone or Docker COPY instead of git archive)
                     with open(version_file, "r") as f:
                         raw = f.read()
                     if "$Format:" in raw or "%H" in raw:
@@ -361,7 +338,6 @@ def getVersion(ptv):
                 logger.error("error: %s" % e)
 
         if current_version_name is not None and current_release_name is None and branch == "master":
-            # only master has tags - so if not master, no need to check at all.
             url2 = "https://api.github.com/repos/frankieramirez/comicarr/releases/tags/%s" % (current_version_name,)
             try:
                 response = requests.get(
@@ -373,7 +349,6 @@ def getVersion(ptv):
                 pass
             else:
                 if os.path.isfile(version_file):
-                    # write the name to the .LAST_RELEASE so we don't have to poll for it
                     logger.fdebug("this would have been written to the .LAST_RELEASE file: %s" % (current_release_name))
                     try:
                         with open(version_file, "a") as wf:
@@ -509,7 +484,6 @@ def _fan_out_release_announce(event, body, current_version, latest_version):
     from comicarr import notifiers
 
     module = "[RELEASE_ANNOUNCE]"
-    # Mattermost's non-test path requires metadata for its embed; content is in body.
     mattermost_meta = {
         "series": "Comicarr",
         "issue": str(latest_version),
@@ -558,8 +532,6 @@ def _fan_out_release_announce(event, body, current_version, latest_version):
 
     if comicarr.CONFIG.DISCORD_ENABLED:
         logger.info("%s Sending Discord notification" % module)
-        # payload["content"] still carries the full body; legacy embed fields
-        # may mis-parse non-issue text and are best-effort here.
         _try("Discord", lambda: notifiers.DISCORD().notify(event, body, module=module))
 
     if comicarr.CONFIG.EMAIL_ENABLED:
@@ -631,7 +603,7 @@ def checkGithub(current_version=None):
     ``current_version`` is accepted for call-site compatibility (install SHA)
     but is not used for behind-ness — that is always Changesets release identity.
     """
-    del current_version  # SHA identity is not the release line.
+    del current_version
 
     from comicarr.app.system.service import get_release_version
 
@@ -701,14 +673,11 @@ def checkGithub(current_version=None):
             message="Could not compare release versions",
         )
 
-    # Cache the release body already returned by this check so behind-popover
-    # notes can reuse it without a second notes network call (issue #472).
     from comicarr.changelog_notes import set_cached_release_body
 
     if update_state == UPDATE_STATE_BEHIND and release_body:
         set_cached_release_body(latest_version, release_body)
     else:
-        # Current/empty: local CHANGELOG covers installed notes; drop stale body.
         set_cached_release_body(None, None)
 
     if update_state == UPDATE_STATE_BEHIND:
@@ -720,14 +689,12 @@ def checkGithub(current_version=None):
         chk_message = "Comicarr is up to date (release %s)" % release_version
     logger.info("[CHECK_GITHUB] %s" % chk_message)
 
-    # No check_update producer — the update badge polls (#470).
     result = _apply_update_state(
         update_state,
         update_reason=None,
         latest_version=latest_version,
         message=chk_message,
     )
-    # Outbound announce after state is computed (#475). All install types.
     maybe_announce_release(
         update_state=result["update_state"],
         latest_version=result["latest_version"],
@@ -776,35 +743,29 @@ def update():
             logger.error("Unable to retrieve new version from " + tar_download_url + ", can't update")
             return
 
-        # try sanitizing the name here...
-        download_name = comicarr.CONFIG.GIT_BRANCH + "-github"  # data.geturl().split('/')[-1].split('?')[0]
+        download_name = comicarr.CONFIG.GIT_BRANCH + "-github"
         tar_download_path = os.path.join(comicarr.PROG_DIR, download_name)
 
-        # Save tar to disk
         with open(tar_download_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
-                if chunk:  # filter out keep-alive new chunks
+                if chunk:
                     f.write(chunk)
                     f.flush()
 
-        # Extract the tar to update folder
         logger.info("Extracting file" + tar_download_path)
         tar = tarfile.open(tar_download_path)
         tar.extractall(update_dir)
         tar.close()
 
-        # Delete the tar.gz
         logger.info("Deleting file" + tar_download_path)
         os.remove(tar_download_path)
 
-        # Find update dir name
         update_dir_contents = [x for x in os.listdir(update_dir) if os.path.isdir(os.path.join(update_dir, x))]
         if len(update_dir_contents) != 1:
             logger.error("Invalid update data, update failed: " + str(update_dir_contents))
             return
         content_dir = os.path.join(update_dir, update_dir_contents[0])
 
-        # walk temp folder and move files to main folder
         for dirname, _dirnames, filenames in os.walk(content_dir):
             dirname = dirname[len(content_dir) + 1 :]
             for curfile in filenames:
@@ -834,13 +795,11 @@ def versionload(cli_values=None, carepackage_call=False):
         current_version=version_info["current_version"],
         current_version_name=version_info["current_version_name"],
         current_release_name=version_info["current_release_name"],
-        # Until a release check runs, never claim current/behind.
         update_state=UPDATE_STATE_UNKNOWN,
         update_reason=REASON_NEVER_CHECKED,
     )
 
     if cli_values or carepackage_call is True:
-        # if cli_values exist, it's from maintenance mode CLI switch, just return now
         return {
             "current_branch": version_info["branch"],
             "current_version": version_info["current_version"],
@@ -850,7 +809,6 @@ def versionload(cli_values=None, carepackage_call=False):
         }
 
     comicarr.CONFIG.GIT_BRANCH = version_info["branch"]
-    # Nothing wrote this before, so /api/system/version always reported null.
     _set_version_state(current_branch=version_info["branch"])
 
     if comicarr.CURRENT_VERSION is not None:
@@ -869,7 +827,6 @@ def versionload(cli_values=None, carepackage_call=False):
 
     logger.info("Version information: %s [%s]" % (comicarr.CONFIG.GIT_BRANCH, comicarr.CURRENT_VERSION))
 
-    # When checking is on, run on startup for every install type (no Docker gate).
     if comicarr.CONFIG.CHECK_GITHUB:
         stmt = select(jobhistory.c.prev_run_timestamp).where(jobhistory.c.JobName == "Check Version")
         with db.get_engine().connect() as conn:

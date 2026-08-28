@@ -30,10 +30,6 @@ class AIRateLimiter:
         self._current_date = datetime.date.today().isoformat()
         self._lock = threading.Lock()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def can_request(self):
         with self._lock:
             self._maybe_reset_daily()
@@ -69,10 +65,6 @@ class AIRateLimiter:
         with self._lock:
             self._maybe_reset_daily()
             return self._today_requests
-
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
 
     def _prune_rpm_window(self):
         """Remove timestamps older than 60 seconds.

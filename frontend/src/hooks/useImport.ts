@@ -48,7 +48,6 @@ interface RefreshImportResponse {
   message: string;
 }
 
-// Query Hooks
 export function useImportPending(
   limit = 50,
   offset = 0,
@@ -65,7 +64,6 @@ export function useImportPending(
   });
 }
 
-// Mutation Hooks
 export function useMatchImport(): UseMutationResult<
   MatchImportResponse,
   Error,
@@ -152,15 +150,12 @@ export function useRefreshImport(): UseMutationResult<
     mutationFn: () =>
       apiRequest<RefreshImportResponse>("POST", "/api/import/refresh"),
     onSuccess: () => {
-      // Delay invalidation to give scan time to start
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["importPending"] });
       }, 2000);
     },
   });
 }
-
-// Manga scan hooks
 
 interface MangaScanResponse {
   success: boolean;
@@ -213,7 +208,6 @@ export function useMangaScanProgress(): UseQueryResult<MangaScanProgress> {
   });
 }
 
-// Manga scan confirm hook
 interface ScanConfirmResponse {
   success: boolean;
   imported: number;
@@ -237,8 +231,6 @@ export function useMangaScanConfirm(): UseMutationResult<
     },
   });
 }
-
-// Comic scan hooks
 
 interface ComicScanResponse {
   success: boolean;

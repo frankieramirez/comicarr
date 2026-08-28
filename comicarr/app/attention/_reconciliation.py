@@ -25,8 +25,6 @@ from __future__ import annotations
 from comicarr import logger
 from comicarr.app.attention._policy import base_reason, is_actionable, reconciliation_for
 
-#: Audit identity for system-driven re-wants. Required by
-#: ``explicit_intent_values``; never invent explicit intent without one.
 RECONCILE_AUDIT_IDENTITY = "system:band-actionability"
 
 
@@ -241,8 +239,6 @@ def reconcile_existing_excluded_rows():
     from comicarr.app.downloads.journal import FAILED, MANUAL_REVIEW, RESOLVED_STATUSES
     from comicarr.tables import pipeline_journal
 
-    # Pre-actionability band: trouble stages + unresolved status, any reason.
-    # (Live ``unresolved_band_condition`` already drops non-actionable rows.)
     pre_actionability = and_(
         pipeline_journal.c.stage.in_((FAILED, MANUAL_REVIEW)),
         or_(

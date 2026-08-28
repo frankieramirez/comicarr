@@ -52,8 +52,6 @@ from comicarr.app.common.numbers import (  # noqa: F401
     sizeof_fmt,
 )
 from comicarr.app.common.numbers import issuedigits as _issuedigits_impl
-
-# --- common/ re-exports ---
 from comicarr.app.common.strings import (  # noqa: F401
     clean_url,
     cleanHost,
@@ -74,15 +72,11 @@ from comicarr.app.common.utilities import (  # noqa: F401
 )
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
-
-# --- core/ re-exports ---
 from comicarr.app.core.security import (  # noqa: F401
     apiremove,
     create_https_certificates,
     remove_apikey,
 )
-
-# --- domain service re-exports ---
 from comicarr.app.downloads.service import (  # noqa: F401
     cdh_monitor,
     check_file_condition,
@@ -158,8 +152,6 @@ from comicarr.app.system.service import (  # noqa: F401
 )
 
 from . import logger
-
-# --- Thin wrappers for functions that need comicarr globals ---
 
 
 def issuedigits(issnum):

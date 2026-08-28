@@ -25,10 +25,6 @@ from comicarr.tables import issues as t_issues
 from comicarr.tables import storyarcs as t_storyarcs
 from comicarr.tables import upcoming as t_upcoming
 
-# ---------------------------------------------------------------------------
-# Column projections (matching api.py _*_COLUMNS)
-# ---------------------------------------------------------------------------
-
 COMICS_COLUMNS = [
     t_comics.c.ComicID.label("ComicID"),
     t_comics.c.ComicName.label("ComicName"),
@@ -83,11 +79,6 @@ ANNUALS_COLUMNS = [
     t_annuals.c.ComicID.label("comicId"),
     t_annuals.c.ComicName.label("comicName"),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Series (comics) queries
-# ---------------------------------------------------------------------------
 
 
 def library_cover_src(comic_id):
@@ -242,11 +233,6 @@ def resume_comic(comic_id):
     db.upsert("comics", {"Status": "Active"}, {"ComicID": comic_id})
 
 
-# ---------------------------------------------------------------------------
-# Issue queries
-# ---------------------------------------------------------------------------
-
-
 def get_issues(comic_id):
     """Get all issues for a comic, ordered by issue number descending."""
     stmt = select(*ISSUES_COLUMNS).where(t_issues.c.ComicID == comic_id).order_by(t_issues.c.Int_IssueNumber.desc())
@@ -298,11 +284,6 @@ def ignore_issue(issue_id, audit_identity):
         explicit_intent_values(AcquisitionIntent.IGNORED, audit_identity),
         {"IssueID": issue_id},
     )
-
-
-# ---------------------------------------------------------------------------
-# Wanted queries
-# ---------------------------------------------------------------------------
 
 
 def get_wanted_issues(limit=None, offset=None, search=None):
@@ -443,9 +424,6 @@ def get_latest_search_items_by_entity_ids(entity_ids):
         .subquery()
     )
     rows = db.select_all(select(ranked).where(ranked.c.rn == 1))
-    # One annotation key per IssueID. If both an issue and annual row somehow
-    # share an id (should not), the later row in the result set wins — callers
-    # always key by the Wanted row's IssueID alone.
     latest = {}
     for row in rows:
         latest[str(row["entity_id"])] = {
@@ -458,11 +436,6 @@ def get_latest_search_items_by_entity_ids(entity_ids):
             "completed_at": row["completed_at"],
         }
     return latest
-
-
-# ---------------------------------------------------------------------------
-# Import queries
-# ---------------------------------------------------------------------------
 
 
 def get_import_pending(limit=50, offset=0, include_ignored=False):
@@ -481,8 +454,6 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     if not include_ignored:
         base_conds.append((ir.c.IgnoreFile.is_(None)) | (ir.c.IgnoreFile == 0))
 
-    # Count distinct groups. New import-inbox rows always carry DynamicName;
-    # older rows fall back to ComicName so they remain reviewable.
     group_count_subq = (
         select(group_key_expr.label("GroupKey"), ir.c.Volume).where(*base_conds).group_by(group_key_expr, ir.c.Volume)
     )
@@ -492,7 +463,6 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
         total = conn.execute(count_stmt).scalar() or 0
         file_total = conn.execute(file_count_stmt).scalar() or 0
 
-    # Get paginated groups
     group_stmt = (
         select(
             group_key_expr.label("GroupKey"),
@@ -519,7 +489,6 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
         dynamic_name = result["GroupKey"]
         volume = result["Volume"]
 
-        # Get all files for this group
         file_conds = list(base_conds)
         file_conds.append(group_key_expr == dynamic_name)
 
@@ -603,11 +572,6 @@ def delete_import(imp_id):
     """Delete an import record."""
     with db.get_engine().begin() as conn:
         conn.execute(delete(t_importresults).where(t_importresults.c.impID == imp_id))
-
-
-# ---------------------------------------------------------------------------
-# REST-compat queries (full-row, no column projection)
-# ---------------------------------------------------------------------------
 
 
 def list_comics_full():

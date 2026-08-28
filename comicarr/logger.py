@@ -29,7 +29,6 @@ from logging import Formatter
 import comicarr
 from comicarr import helpers
 
-# The Web UI log list is an in-memory ring buffer, so it needs a ceiling.
 MAX_LOGLIST_ENTRIES = 2500
 
 
@@ -55,7 +54,6 @@ def threshold_for_level(loglevel):
     return logging.DEBUG
 
 
-# Comicarr logger
 logger = logging.getLogger("comicarr")
 
 
@@ -68,14 +66,10 @@ class LogListHandler(logging.Handler):
         message = self.format(record)
         message = message.replace("\n", "<br />")
         comicarr.LOGLIST.insert(0, (helpers.now(), message, record.levelname, record.threadName))
-        # Bound the buffer. Without this the list grows for the life of the
-        # process; a long-running install eventually pays for it in memory.
         del comicarr.LOGLIST[MAX_LOGLIST_ENTRIES:]
 
 
 def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=None, max_logfiles=5):
-    # concurrentLogHandler/0.8.7 (to deal with windows locks)
-    # since this only happens on windows boxes, if it's nix/mac use the default logger.
     if platform.system() == "Windows":
         try:
             from ConcurrentLogHandler.cloghandler import ConcurrentRotatingFileHandler as RFHandler
@@ -89,10 +83,10 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
         from logging.handlers import RotatingFileHandler as RFHandler
 
     if all([init is True, max_logsize is None]):
-        max_logsize = 1000000  # 1 MB
+        max_logsize = 1000000
     else:
         if max_logsize is None:
-            max_logsize = 1000000  # 1 MB
+            max_logsize = 1000000
 
     """
     Setup logging for Comicarr. It uses the logger instance with the name
@@ -107,10 +101,7 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
     logging.getLogger("apscheduler.threadpool").setLevel(logging.WARN)
     logging.getLogger("apscheduler.scheduler").propagate = False
     logging.getLogger("apscheduler.threadpool").propagate = False
-    # Close and remove old handlers. This is required to reinit the loggers
-    # at runtime
     for handler in logger.handlers[:]:
-        # Just make sure it is cleaned up.
         if isinstance(handler, RFHandler):
             handler.close()
         elif isinstance(handler, logging.StreamHandler):
@@ -118,22 +109,15 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
 
         logger.removeHandler(handler)
 
-    # Configure the logger to accept all messages
     logger.propagate = False
 
-    # One threshold, derived once, applied to the logger and to every sink.
-    # Setting it unconditionally matters: the old code left the level alone
-    # at loglevel 0, so turning the dial *down* at runtime never took effect
-    # and level 0 silently inherited root's WARNING by accident.
     threshold = logging.INFO if init is True else threshold_for_level(loglevel)
     logger.setLevel(threshold)
 
-    # Add list logger
     loglist_handler = LogListHandler()
     loglist_handler.setLevel(threshold)
     logger.addHandler(loglist_handler)
 
-    # Setup file logger
     if log_dir:
         filename = os.path.join(log_dir, "comicarr.log")
         file_formatter = Formatter(
@@ -146,7 +130,6 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
 
         logger.addHandler(file_handler)
 
-    # Setup console logger
     if console:
         console_formatter = logging.Formatter(
             "%(asctime)s - %(levelname)s :: %(name)s.%(funcName)s.%(lineno)s : %(threadName)s : %(message)s",
@@ -158,7 +141,6 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
 
         logger.addHandler(console_handler)
 
-    # Install exception hooks
     initHooks()
 
 
@@ -175,22 +157,18 @@ def initHooks(global_exceptions=True, thread_exceptions=True, pass_original=True
     """
 
     def excepthook(*exception_info):
-        # We should always catch this to prevent loops!
         try:
             message = "".join(traceback.format_exception(*exception_info))
             logger.error("Uncaught exception: %s", message)
         except Exception:
             pass
 
-        # Original excepthook
         if pass_original:
             sys.__excepthook__(*exception_info)
 
-    # Global exception hook
     if global_exceptions:
         sys.excepthook = excepthook
 
-    # Thread exception hook
     if thread_exceptions:
         old_init = threading.Thread.__init__
 
@@ -208,11 +186,9 @@ def initHooks(global_exceptions=True, thread_exceptions=True, pass_original=True
 
             self.run = new_run
 
-        # Monkey patch the run() by monkey patching the __init__ method
         threading.Thread.__init__ = new_init
 
 
-# Expose logger methods
 info = logger.info
 warn = logger.warn
 error = logger.error
@@ -238,24 +214,15 @@ def rotate_log_file():
     rotated = False
     for handler in logger.handlers:
         if isinstance(handler, logging.handlers.BaseRotatingHandler):
-            # The handler lock keeps a concurrent emit() from writing into the
-            # file mid-rename.
             handler.acquire()
             try:
                 handler.doRollover()
-                # The Windows ConcurrentRotatingFileHandler catches a failed
-                # rename and "degrades" instead of raising, which would let
-                # this report a rotation that never happened. We hold the
-                # handler lock, so nothing can have written since the roll:
-                # a non-empty current file means the rollover did not land.
                 filename = handler.baseFilename
                 if os.path.exists(filename) and os.path.getsize(filename) > 0:
                     raise OSError("log rotation did not complete; the log file may be locked by another process")
             finally:
                 handler.release()
             rotated = True
-    # In place, not rebound: LogListHandler holds no reference of its own, but
-    # anything else that grabbed comicarr.LOGLIST must keep seeing new lines.
     del comicarr.LOGLIST[:]
     return rotated
 

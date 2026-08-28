@@ -30,7 +30,6 @@ export default function WantedTable({
   }
 
   return (
-    // Fills the page column: rows scroll, the pager stays on the bottom edge.
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 min-h-0 overflow-auto">
         <DataTable

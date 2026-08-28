@@ -117,9 +117,6 @@ function StatusPill({ status }: { status: string }) {
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawView = searchParams.get("view");
-  // Timeline is the default landing tab (#429 / #486). Queue keeps working via
-  // ?view=queue; history via ?view=history. The status bar's in-flight count
-  // lands on ?state=in_flight — a different dataset than the timeline (#676).
   const currentView: ActivityView =
     searchParams.get("state") === "in_flight"
       ? "in_flight"
@@ -835,13 +832,6 @@ function HistoryView() {
     store,
     manualSorting: true,
     enableSortingRemoval: false,
-    // Was `${IssueID}-${Status}-${index}`, which is positional: the same row
-    // gets a different id on any page or sort change. #383 found the real
-    // identity is already database-enforced — `snatched` carries
-    // UNIQUE(IssueID, Status, Provider) — so there is something to key on
-    // without a backend change. Encoded rather than joined because `Status`
-    // takes the value `Post-Processed`, which contains the delimiter a bare
-    // join would use.
     getRowId: (row) => encodeRowId([row.IssueID, row.Status, row.Provider]),
   });
 

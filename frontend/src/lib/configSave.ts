@@ -4,10 +4,6 @@ import type {
   WritableConfig,
 } from "../types/config.generated";
 
-// Write-only secrets the backend redacts: `GET /api/config` omits the value
-// and sends a boolean indicator instead. An empty field with the indicator
-// set means "unchanged", so the key is dropped rather than clearing the
-// stored secret.
 const REDACTED_SECRET_FIELDS: ReadonlyArray<{
   field: keyof WritableConfig;
   indicator: keyof ReadableConfig;
@@ -27,9 +23,6 @@ export function prepareConfigSaveData(
   formData: SettingsFormData & { api_key?: string },
   config?: ReadableConfig,
 ): SettingsFormData {
-  // The raw API key must never ride along on a settings save, however it
-  // might end up in form state. api_key has no readable or writable registry
-  // entry, so it is typed here as an explicit extra.
   const { api_key: _api_key, ...saveData } = formData;
 
   for (const { field, indicator } of REDACTED_SECRET_FIELDS) {

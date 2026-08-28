@@ -80,19 +80,10 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
     if issue:
         srchterm += "%20" + str(issue)
 
-    # this is for the public trackers included thus far in order to properly cycle throught the correct ones depending on the search request
-    # DEM = rss feed
-    # WWT = rss feed
-    # if pickfeed == 'TPSE-SEARCH':
-    #    pickfeed = '2'
-    #    loopit = 1
     loopit = 1
 
     if pickfeed == "Public":
         pickfeed = "999"
-    #    since DEM is dead, just remove the loop entirely
-    #    #we need to cycle through both DEM + WWT feeds
-    #    loopit = 2
 
     lp = 0
     totalcount = 0
@@ -106,13 +97,13 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
     while lp < loopit:
         if lp == 0 and loopit == 2:
-            pickfeed = "6"  # DEM RSS
+            pickfeed = "6"
         elif lp == 1 and loopit == 2:
-            pickfeed = "999"  # WWT RSS
+            pickfeed = "999"
 
         feedtype = None
 
-        if pickfeed == "1" and comicarr.CONFIG.ENABLE_32P is True:  # 32pages new releases feed.
+        if pickfeed == "1" and comicarr.CONFIG.ENABLE_32P is True:
             feed = (
                 "https://32pag.es/feeds.php?feed=torrents_all&user="
                 + feedinfo["user"]
@@ -125,18 +116,13 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
             )
             feedtype = " from the New Releases RSS Feed for comics"
             verify = bool(comicarr.CONFIG.VERIFY_32P)
-        elif pickfeed == "2" and srchterm is not None:  # TP.SE search / RSS
+        elif pickfeed == "2" and srchterm is not None:
             lp += 1
             continue
-            # feed = tpse_url + 'rss/' + str(srchterm) + '/'
-            # verify = bool(comicarr.CONFIG.TPSE_VERIFY)
-        elif pickfeed == "3":  # TP.SE rss feed (3101 = comics category) / non-RSS
+        elif pickfeed == "3":
             lp += 1
             continue
-            # feed = tpse_url + '?hl=en&safe=off&num=50&start=0&orderby=best&s=&filter=3101'
-            # feedtype = ' from the New Releases RSS Feed for comics from TP.SE'
-            # verify = bool(comicarr.CONFIG.TPSE_VERIFY)
-        elif pickfeed == "4":  # 32p search
+        elif pickfeed == "4":
             if any(
                 [
                     comicarr.CONFIG.USERNAME_32P is None,
@@ -155,7 +141,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 lp = +1
                 continue
             return
-        elif pickfeed == "5" and srchterm is not None:  # demonoid search / non-RSS
+        elif pickfeed == "5" and srchterm is not None:
             feed = (
                 comicarr.DEMURL
                 + "files/?category=10&subcategory=All&language=0&seeded=2&external=2&query="
@@ -163,17 +149,15 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 + "&uid=0&out=rss"
             )
             verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
-        elif pickfeed == "6":  # demonoid rss feed
+        elif pickfeed == "6":
             feed = comicarr.DEMURL + "rss/10.xml"
             feedtype = " from the New Releases RSS Feed from Demonoid"
             verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
-        elif pickfeed == "999":  # WWT rss feed
+        elif pickfeed == "999":
             feed = comicarr.WWTURL + "rss.php?cat=132,50"
             feedtype = " from the New Releases RSS Feed from WorldWideTorrents"
             verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
         elif int(pickfeed) >= 7 and feedinfo is not None and comicarr.CONFIG.ENABLE_32P is True:
-            # personal 32P notification feeds.
-            # get the info here
             feed = (
                 "https://32pag.es/feeds.php?feed="
                 + feedinfo["feed"]
@@ -194,10 +178,6 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
             logger.error("invalid pickfeed denoted...")
             return
 
-        # if pickfeed == '2' or pickfeed == '3':
-        #    picksite = 'TPSE'
-        # if pickfeed == '2':
-        #    feedme = tpse.
         if pickfeed == "5" or pickfeed == "6":
             picksite = "DEM"
         elif pickfeed == "999":
@@ -239,14 +219,13 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 continue
 
             feedme = feedparser.parse(r.content)
-            # logger.info(feedme)   #<-- uncomment this to see what Comicarr is retrieving from the feed
 
         i = 0
 
         if pickfeed == "4":
             for entry in searchresults["entries"]:
-                justdigits = entry["file_size"]  # size not available in follow-list rss feed
-                seeddigits = entry["seeders"]  # number of seeders not available in follow-list rss feed
+                justdigits = entry["file_size"]
+                seeddigits = entry["seeders"]
 
                 if int(seeddigits) >= int(comicarr.CONFIG.MINSEEDS):
                     torthe32p.append(
@@ -257,9 +236,9 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                             + entry["torrent_seriesvol"]
                             + " #"
                             + entry["torrent_seriesiss"],
-                            "volume": entry["torrent_seriesvol"],  # not stored by comicarr yet.
-                            "issue": entry["torrent_seriesiss"],  # not stored by comicarr yet.
-                            "link": entry["torrent_id"],  # just the id for the torrent
+                            "volume": entry["torrent_seriesvol"],
+                            "issue": entry["torrent_seriesiss"],
+                            "link": entry["torrent_id"],
                             "pubdate": entry["pubdate"],
                             "size": entry["file_size"],
                             "seeders": entry["seeders"],
@@ -268,20 +247,10 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                     )
                 i += 1
         elif pickfeed == "3":
-            # TP.SE RSS FEED (parse)
             pass
         elif pickfeed == "5":
-            # DEMONOID SEARCH RESULT (parse)
             pass
         elif pickfeed == "999":
-            # try:
-            #    feedme = feedparser.parse(feed)
-            # except Exception, e:
-            #    logger.warn('Error fetching RSS Feed Data from %s: %s' % (picksite, e))
-            #    lp+=1
-            #    continue
-
-            # WWT / FEED
             for entry in feedme.entries:
                 tmpsz = entry.description
                 tmpsz_st = tmpsz.find("Size:") + 6
@@ -298,15 +267,12 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                         "title": entry.title,
                         "link": "".join(linkwwt),
                         "pubdate": entry.updated,
-                        "size": helpers.human2bytes(
-                            str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz)
-                        ),  # + 2 is for the length of the MB/GB in the size.
+                        "size": helpers.human2bytes(str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz)),
                     }
                 )
                 i += 1
         else:
             for entry in feedme["entries"]:
-                # DEMONOID / FEED
                 if pickfeed == "6":
                     tmpsz = feedme.entries[i].description
                     tmpsz_st = tmpsz.find("Size")
@@ -323,11 +289,11 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                             tmpsz_end = tmp1 + 2
                             tmpsz_st += 7
                     else:
-                        tmpsz = tmpsz[:80]  # limit it to the first 80 so it doesn't pick up alt covers mistakingly
+                        tmpsz = tmpsz[:80]
                         tmpsz_st = tmpsz.rfind("|")
                         if tmpsz_st != -1:
                             tmpsz_end = tmpsz.find("<br />", tmpsz_st)
-                            tmpsize = tmpsz[tmpsz_st:tmpsz_end]  # st+14]
+                            tmpsize = tmpsz[tmpsz_st:tmpsz_end]
                             if any(["GB" in tmpsize, "MB" in tmpsize, "KB" in tmpsize, "TB" in tmpsize]):
                                 tmp1 = tmpsz.find("MB", tmpsz_st)
                                 if tmp1 == -1:
@@ -354,15 +320,10 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                         sz = "T"
                     tsize = helpers.human2bytes(str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz))
 
-                    # timestamp is in YYYY-MM-DDTHH:MM:SS+TZ :/
                     dt = feedme.entries[i].updated
                     try:
                         pd = datetime.strptime(dt[0:19], "%Y-%m-%dT%H:%M:%S")
                         pdate = pd.strftime("%a, %d %b %Y %H:%M:%S") + " " + re.sub(":", "", dt[19:]).strip()
-                        # if dt[19]=='+':
-                        #    pdate+=timedelta(hours=int(dt[20:22]), minutes=int(dt[23:]))
-                        # elif dt[19]=='-':
-                        #    pdate-=timedelta(hours=int(dt[20:22]), minutes=int(dt[23:]))
                     except:
                         pdate = feedme.entries[i].updated
 
@@ -371,28 +332,22 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                             "site": picksite,
                             "title": feedme.entries[i].title,
                             "link": str(re.sub("genid=", "", urllib.parse.urlparse(feedme.entries[i].link)[4]).strip()),
-                            #'link':     str(urlparse.urlparse(feedme.entries[i].link)[2].rpartition('/')[0].rsplit('/',2)[2]),
                             "pubdate": pdate,
                             "size": tsize,
                         }
                     )
 
-                # 32p / FEEDS
                 elif pickfeed == "1" or int(pickfeed) > 7:
                     feedme.entries[i].description
                     st_pub = feedme.entries[i].title.find("(")
                     st_end = feedme.entries[i].title.find(")")
-                    feedme.entries[i].title[st_pub + 1 : st_end]  # +1 to not include (
-                    # logger.fdebug('publisher: ' + re.sub("'",'', pub).strip())  #publisher sometimes is given within quotes for some reason, strip 'em.
+                    feedme.entries[i].title[st_pub + 1 : st_end]
                     vol_find = feedme.entries[i].title.find("vol.")
                     series = feedme.entries[i].title[st_end + 1 : vol_find].strip()
                     series = re.sub("&amp;", "&", series).strip()
-                    # logger.fdebug('series title: ' + series)
                     iss_st = feedme.entries[i].title.find(" - ", vol_find)
                     vol = re.sub(r"\.", "", feedme.entries[i].title[vol_find:iss_st]).strip()
-                    # logger.fdebug('volume #: ' + str(vol))
                     issue = feedme.entries[i].title[iss_st + 3 :].strip()
-                    # logger.fdebug('issue # : ' + str(issue))
 
                     try:
                         justdigits = feedme.entries[i].torrent_contentlength
@@ -401,12 +356,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
                     seeddigits = 0
 
-                    # if '0-Day Comics Pack' in series:
-                    #    logger.info('Comic Pack detected : ' + series)
-                    #    itd = True
-
                     if int(comicarr.CONFIG.MINSEEDS) >= int(seeddigits):
-                        # new releases has it as '&id', notification feeds have it as %ampid (possibly even &amp;id
                         link = feedme.entries[i].link
                         link = re.sub("&amp", "&", link)
                         link = re.sub("&amp;", "&", link)
@@ -419,9 +369,9 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                             {
                                 "site": picksite,
                                 "title": series.lstrip() + " " + vol + " #" + issue,
-                                "volume": vol,  # not stored by comicarr yet.
-                                "issue": issue,  # not stored by comicarr yet.
-                                "link": newlink,  # just the id for the torrent
+                                "volume": vol,
+                                "issue": issue,
+                                "link": newlink,
                                 "pubdate": feedme.entries[i].updated,
                                 "size": justdigits,
                             }
@@ -438,10 +388,8 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
         lp += 1
 
     if not seriesname:
-        # rss search results
         rssdbupdate(feeddata, totalcount, "torrent")
     else:
-        # backlog (parsing) search results
         if pickfeed == "4":
             torinfo["entries"] = torthe32p
         else:
@@ -456,12 +404,10 @@ def ddl(forcerss=False):
     try:
         r = requests.get(ddl_feed, verify=True, headers=headers, timeout=30)
     except Exception as e:
-        # need to handle timeouts / downtime here
         logger.warn("Error fetching RSS Feed Data from DDL: %s" % (e))
         return False
     else:
         if r.status_code != 200:
-            # typically 403 will not return results, but just catch anything other than a 200
             if r.status_code == 503:
                 logger.warn("[ERROR - Cloudflare is probably active] Status code returned: %s" % r.status_code)
             else:
@@ -475,7 +421,7 @@ def ddl(forcerss=False):
         orig_find = soup.find("p", {"style": "text-align: center;"})
         i = 0
         option_find = orig_find
-        while True:  # i <= 10:
+        while True:
             prev_option = option_find
             option_find = option_find.findNext(text=True)
             if "Year" in option_find:
@@ -483,7 +429,7 @@ def ddl(forcerss=False):
                 year = re.sub(r"\|", "", year).strip()
             else:
                 if "Size" in prev_option:
-                    size = option_find  # .findNext(text=True)
+                    size = option_find
                     if "- MB" in size:
                         size = "0 MB"
                     break
@@ -505,7 +451,6 @@ def ddl(forcerss=False):
             sz = "T"
         tsize = helpers.human2bytes(re.sub("[^0-9]", "", size).strip() + sz)
 
-        # link can be referenced with the ?p=id url
         results.append({"Title": title, "Size": tsize, "Link": id, "Site": "DDL(GetComics)", "Pubdate": updated})
 
     logger.info("[DDL][RSS-RESULTS] %s" % (results,))
@@ -536,7 +481,6 @@ def nzbs(provider=None, forcerss=False):
             return False
 
         if r.status_code != 200:
-            # typically 403 will not return results, but just catch anything other than a 200
             if r.status_code == 403:
                 return False
             else:
@@ -594,7 +538,6 @@ def nzbs(provider=None, forcerss=False):
             newznabcat = newznabcat or "7030"
 
             if site[-10:] == "[nzbhydra]":
-                # to allow nzbhydra to do category search by most recent (ie. rss)
                 url = newznab_host[1].rstrip() + "/api"
                 params = {
                     "t": "search",
@@ -653,16 +596,13 @@ def nzbs(provider=None, forcerss=False):
                     titlename = entry.title
                     size = 0
                     try:
-                        # experimental, newznab
                         size = entry.enclosures[0]["length"]
                     except Exception:
                         if "newznab" in entry and "size" in entry["newznab"]:
                             size = entry["newznab"]["size"]
 
-                    # Link
                     link = entry.link
 
-                    # Remove the API keys from the url to allow for possible api key changes
                     filter_patterns = ["&i=[0-9a-zA-Z]+", "&r=[0-9a-zA-Z]+"]
                     for pattern in filter_patterns:
                         link = re.sub(pattern, "", link).strip()
@@ -708,13 +648,9 @@ def experimental_cleaner(rls):
 
 
 def rssdbupdate(feeddata, i, type):
-    # let's add the entries into the db so as to save on searches
-    # also to build up the ID's ;)
 
     for dataval in feeddata:
         if type == "torrent":
-            # we just store the torrent ID's now.
-
             newVal = {
                 "Link": dataval["link"],
                 "Pubdate": dataval["pubdate"],
@@ -810,7 +746,6 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
     if any([comicid is None, comicid == "None", oneoff is True]):
         pass
     else:
-        # logger.fdebug('ComicID: ' + str(comicid))
         with db.get_engine().connect() as conn:
             stmt = select(comics).where(comics.c.ComicID == comicid)
             snm = conn.execute(stmt).mappings().first()
@@ -821,7 +756,6 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
             seriesname = snm["ComicName"]
             seriesname_alt = snm["AlternateSearch"]
 
-    # remove 'and' and 'the':
     tsearch_rem1 = re.sub("\\band\\b", "%", seriesname.lower())
     tsearch_rem2 = re.sub("\\bthe\\b", "%", tsearch_rem1.lower())
     tsearch_removed = re.sub(r"\s+", " ", tsearch_rem2)
@@ -836,12 +770,10 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
         tsearch = tsearch_seriesname + "%"
 
     if seriesname == "0-Day Comics Pack - %s" % (issue[:4]):
-        # call the helper to get the month
         tsearch += "vol%s" % issue[5:7]
         tsearch += "%"
         tsearch += "#%s" % issue[8:10]
         tsearch += "%"
-    # logger.fdebug('tsearch : ' + tsearch)
     AS_Alt = []
     tresults = []
     tsearch = "%" + tsearch
@@ -860,7 +792,6 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
             )
             tresults += [dict(row) for row in conn.execute(stmt).mappings()]
 
-    # logger.fdebug('seriesname_alt:' + str(seriesname_alt))
     if seriesname_alt is None or seriesname_alt == "None":
         if not tresults:
             logger.fdebug("no Alternate name given. Aborting search.")
@@ -872,7 +803,7 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
             AS_Alt.append(seriesname_alt)
         for calt in chkthealt:
             AS_Alter = re.sub("##", "", calt)
-            u_altsearchcomic = AS_Alter  # .encode('ascii', 'ignore').strip()
+            u_altsearchcomic = AS_Alter
             AS_Altrem = re.sub("\\band\\b", "", u_altsearchcomic.lower())
             AS_Altrem = re.sub("\\bthe\\b", "", AS_Altrem.lower())
 
@@ -917,31 +848,22 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
     torinfo = {}
 
     for tor in tresults:
-        # &amp; have been brought into the title field incorretly occassionally - patched now, but to include those entries already in the
-        # cache db that have the incorrect entry, we'll adjust.
         torTITLE = re.sub("&amp;", "&", tor["Title"]).strip()
 
-        # torsplit = torTITLE.split(' ')
         if comicarr.CONFIG.PREFERRED_QUALITY == 1:
             if "cbr" not in torTITLE:
-                # logger.fdebug('Quality restriction enforced [ cbr only ]. Rejecting result.')
                 continue
         elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
             if "cbz" not in torTITLE:
-                # logger.fdebug('Quality restriction enforced [ cbz only ]. Rejecting result.')
                 continue
-        # logger.fdebug('tor-Title: ' + torTITLE)
-        # logger.fdebug('there are ' + str(len(torsplit)) + ' sections in this title')
         if nzbprov is not None:
             if nzbprov != tor["Site"] and not any(
                 [comicarr.CONFIG.ENABLE_PUBLIC, tor["Site"] != "WWT", tor["Site"] != "DEM"]
             ):
-                # logger.fdebug('this is a result from ' + str(tor['Site']) + ', not the site I am looking for of ' + str(nzbprov))
                 continue
-        # 0 holds the title/issue and format-type.
 
         seriesname_mod = seriesname
-        foundname_mod = torTITLE  # torsplit[0]
+        foundname_mod = torTITLE
         seriesname_mod = re.sub("\\band\\b", " ", seriesname_mod.lower())
         foundname_mod = re.sub("\\band\\b", " ", foundname_mod.lower())
         seriesname_mod = re.sub("\\bthe\\b", " ", seriesname_mod.lower())
@@ -952,42 +874,30 @@ def torrentdbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False)
 
         formatrem_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\=\\?\\.\\,]", "", seriesname_mod)
         formatrem_seriesname = re.sub(r"[\-]", " ", formatrem_seriesname)
-        formatrem_seriesname = re.sub(
-            r"[\/]", " ", formatrem_seriesname
-        )  # not necessary since seriesname in a torrent file won't have /
+        formatrem_seriesname = re.sub(r"[\/]", " ", formatrem_seriesname)
         formatrem_seriesname = re.sub(r"\s+", " ", formatrem_seriesname)
         if formatrem_seriesname[:1] == " ":
             formatrem_seriesname = formatrem_seriesname[1:]
 
         formatrem_torsplit = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\=\\?\\.\\,]", "", foundname_mod)
-        formatrem_torsplit = re.sub(
-            r"[\-]", " ", formatrem_torsplit
-        )  # we replace the - with space so we'll get hits if differnces
-        formatrem_torsplit = re.sub(
-            r"[\/]", " ", formatrem_torsplit
-        )  # not necessary since if has a /, should be removed in above line
+        formatrem_torsplit = re.sub(r"[\-]", " ", formatrem_torsplit)
+        formatrem_torsplit = re.sub(r"[\/]", " ", formatrem_torsplit)
         formatrem_torsplit = re.sub(r"\s+", " ", formatrem_torsplit)
-        # logger.fdebug(str(len(formatrem_torsplit)) + ' - formatrem_torsplit : ' + formatrem_torsplit.lower())
-        # logger.fdebug(str(len(formatrem_seriesname)) + ' - formatrem_seriesname :' + formatrem_seriesname.lower())
 
         if formatrem_seriesname.lower() in formatrem_torsplit.lower() or any(
             x.lower() in formatrem_torsplit.lower() for x in AS_Alt
         ):
-            # logger.fdebug('matched to : ' + torTITLE)
-            # logger.fdebug('matched on series title: ' + seriesname)
             titleend = formatrem_torsplit[len(formatrem_seriesname) :]
-            titleend = re.sub(r"\-", "", titleend)  # remove the '-' which is unnecessary
-            # remove extensions
+            titleend = re.sub(r"\-", "", titleend)
             titleend = re.sub("cbr", "", titleend)
             titleend = re.sub("cbz", "", titleend)
             titleend = re.sub("none", "", titleend)
-            # logger.fdebug('titleend: ' + titleend)
 
             titleend.split()
 
             tortheinfo.append(
                 {
-                    "title": torTITLE,  # cttitle,
+                    "title": torTITLE,
                     "link": tor["Link"],
                     "pubdate": tor["Pubdate"],
                     "site": tor["Site"],
@@ -1028,7 +938,6 @@ def nzbdbsearch(
             seriesname_alt = snm["AlternateSearch"]
 
     if rsslist is not None:
-        # -- VariableTable pattern: use a TEMPORARY table via SQLAlchemy --
         _tmp_metadata = MetaData()
         variable_table = Table(
             "VariableTable",
@@ -1061,15 +970,12 @@ def nzbdbsearch(
         )
 
         with db.get_engine().connect() as conn:
-            # Drop if lingering from a previous run, then create
             try:
                 variable_table.drop(conn, checkfirst=False)
             except OperationalError:
                 pass
             variable_table.create(conn)
 
-            # Populate the temp table — use INSERT OR IGNORE for SQLite,
-            # on_conflict_do_nothing for portability
             dialect = db.get_dialect()
             try:
                 if dialect == "sqlite":
@@ -1114,7 +1020,6 @@ def nzbdbsearch(
                             ins = ins.on_conflict_do_nothing(index_elements=["IssueID"])
                         conn.execute(ins)
                     else:
-                        # MySQL or other — use prefix_with approach
                         ins = variable_table.insert().prefix_with("IGNORE").values(**row_dict)
                         conn.execute(ins)
                 conn.commit()
@@ -1123,16 +1028,10 @@ def nzbdbsearch(
             else:
                 logger.info("executed insert...now attempting to select")
 
-            # Count total RSS entries
             cnt_stmt = select(func.count()).select_from(rssdb)
             totalcnt = conn.execute(cnt_stmt).scalar() or 0
             cnt = 0
 
-            # The JOIN query: rssdb r JOIN VariableTable v
-            # ON r.Title LIKE '%' || v.SQLQuery_name || '%'
-            # WHERE r.ComicName LIKE '%' || v.SQLQuery_name || '%'
-            #   AND v.SQLQuery_name IS NOT NULL
-            #   AND v.Issue_Number = r.Issue_Number
             r = rssdb
             v = variable_table
             like_pattern = func.concat("%", v.c.SQLquery_name, "%")
@@ -1162,14 +1061,11 @@ def nzbdbsearch(
                 cnt += 1
                 nzbTITLE = re.sub("&amp;", "&", nzb["Title"]).strip()
                 nzbTITLE = re.sub("&#39;", "'", nzbTITLE).strip()
-                # logger.info('tor[Title]: %s' % tor['Title'])
                 if comicarr.CONFIG.PREFERRED_QUALITY == 1:
                     if "cbr" not in nzbTITLE:
-                        # logger.fdebug('Quality restriction enforced [ cbr only ]. Rejecting result.')
                         continue
                 elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
                     if "cbz" not in nzbTITLE:
-                        # logger.fdebug('Quality restriction enforced [ cbz only ]. Rejecting result.')
                         continue
                 if provider_list is not None:
                     if not any(
@@ -1180,32 +1076,23 @@ def nzbdbsearch(
                 else:
                     if nzbprov is not None:
                         if nzbprov != nzb["Site"] or not comicarr.CONFIG.ENABLE_NEWZNABS:
-                            # logger.fdebug('this is a result from ' + str(tor['Site']) + ', not the site I am looking for of ' + str(nzbprov))
                             continue
 
-                # 0 holds the title/issue and format-type.
                 fmod = comicarr.filechecker.FileChecker()
                 formatrem_seriesname = fmod.dynamic_replace(nzb["ComicName"])["mod_seriesname"]
                 formatrem_nzbsplit = fmod.dynamic_replace(nzbTITLE)["mod_seriesname"]
-                if (
-                    formatrem_seriesname.lower() in formatrem_nzbsplit.lower()
-                ):  # or any(x.lower() in formatrem_torsplit.lower() for x in AS_Alt):
-                    # logger.fdebug('matched to : %s' % nzbTITLE)
-                    # logger.fdebug('matched on series title: %s' % nzb['ComicName'])
+                if formatrem_seriesname.lower() in formatrem_nzbsplit.lower():
                     titleend = formatrem_nzbsplit[len(formatrem_seriesname) :]
-                    titleend = re.sub(r"\-", "", titleend)  # remove the '-' which is unnecessary
-                    # remove extensions
+                    titleend = re.sub(r"\-", "", titleend)
                     titleend = re.sub("cbr", "", titleend)
                     titleend = re.sub("cbz", "", titleend)
                     titleend = re.sub("none", "", titleend)
-                    # logger.fdebug('titleend: ' + titleend)
 
                     titleend.split()
 
                     issues = None
                     pack = False
                     if nzb["Site"] == "DDL(GetComics)":
-                        # see if it's a pack type
                         ddl_check = ddlrss_pack_detect(nzbTITLE, nzb["Link"])
                         if ddl_check is not None:
                             nzbTITLE = ddl_check["title"]
@@ -1214,7 +1101,7 @@ def nzbdbsearch(
 
                     nzbtheinfo.append(
                         {
-                            "title": nzbTITLE,  # cttitle,
+                            "title": nzbTITLE,
                             "link": nzb["Link"],
                             "pubdate": nzb["Pubdate"],
                             "site": nzb["Site"],
@@ -1239,26 +1126,21 @@ def nzbdbsearch(
                                 "RSS": nzb["RSS"],
                                 "ComicID": nzb["ComicID"],
                                 "ComicName_Filesafe": nzb["ComicName_Filesafe"],
-                                # AllowPacks is a Text column storing "1"/"0";
-                                # bool() would treat "0" as True.
                                 "AllowPacks": nzb["AllowPacks"] in (1, "1"),
                                 "OneOff": bool(nzb["OneOff"]),
                                 "TorrentID_32P": nzb["TorrentID_32P"],
                                 "DigitalDate": nzb["DigitalDate"],
                                 "booktype": nzb["BookType"],
-                                # Same Text-column hazard as AllowPacks above.
                                 "ignore_booktype": nzb["Ignore_Booktype"] in (1, "1", True),
                             },
                         }
                     )
 
-            # Drop the temp table before closing
             try:
                 variable_table.drop(conn)
             except OperationalError:
                 pass
 
-            # logger.info('nzbinfo: %s' % nzbtheinfo)
             logger.info(
                 "[RSS-QUERY] Searched through RSSDB looking for %s Wanted items in %s RSS entries. Rough matching to %s items."
                 % (len(rsslist), totalcnt, len(nzbtheinfo))
@@ -1321,23 +1203,19 @@ def nzbdbsearch(
 
             for results in nresults:
                 title = results["Title"]
-                # logger.fdebug("titlesplit: " + str(title.split("\"")))
                 splitTitle = title.split('"')
                 noYear = "False"
                 _digits = re.compile(r"\d")
                 for subs in splitTitle:
-                    # logger.fdebug(subs)
                     if (
                         len(subs) >= len(seriesname)
                         and not any(d in subs.lower() for d in except_list)
                         and bool(_digits.search(subs)) is True
                     ):
                         if subs.lower().startswith("for"):
-                            # need to filter down alternate names in here at some point...
                             if seriesname.lower().startswith("for"):
                                 pass
                             else:
-                                # this is the crap we ignore. Continue
                                 logger.fdebug(
                                     "this starts with FOR : "
                                     + str(subs)
@@ -1353,8 +1231,6 @@ def nzbdbsearch(
                             noYearline = subs
 
                         if searchYear in subs and noYear == "True":
-                            # this would occur on the next check in the line, if year exists and
-                            # the noYear check in the first check came back valid append it
                             subs = noYearline + " (" + searchYear + ")"
                             noYear = "False"
 
@@ -1375,7 +1251,6 @@ def nzbdbsearch(
 
         else:
             for nzb in nresults:
-                # no need to parse here, just compile and throw it back ....
                 nzbtheinfo.append(
                     {
                         "title": nzb["Title"],
@@ -1385,7 +1260,6 @@ def nzbdbsearch(
                         "length": nzb["Size"],
                     }
                 )
-                # logger.fdebug("entered info for " + nzb['Title'])
 
     nzbinfo["entries"] = nzbtheinfo
     return nzbinfo
@@ -1484,11 +1358,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
                 )
 
         if comicarr.KEYS_32P:
-            # keys_32p will be set for auth mode
             auth_key = comicarr.KEYS_32P["auth"]
             pass_key = comicarr.KEYS_32P["passkey"]
         else:
-            # authkey_32p & passkey_32p are set for legacy mode
             auth_key = comicarr.AUTHKEY_32P
             pass_key = comicarr.CONFIG.PASSKEY_32P
         payload = {"action": "download", "torrent_pass": pass_key, "authkey": auth_key, "id": linkit}
@@ -1543,14 +1415,11 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
 
     if site != "Public Torrents" and site != "32P":
         if not verify:
-            # 32P throws back an insecure warning because it can't validate against the CA. The below suppresses the message just for 32P instead of being displayed.
-            # disable SSL warnings - too many 'warning' messages about invalid certificates
             try:
                 from requests.packages.urllib3 import disable_warnings
 
                 disable_warnings()
             except ImportError:
-                # this is probably not necessary and redudant, but leaving in for the time being.
                 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
                 requests.packages.urllib3.disable_warnings()
@@ -1596,13 +1465,6 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
                         else:
                             r = scraper.get(redir_url, stream=True)
         except Exception as e:
-            # Must return, not fall through: every line below dereferences `r`,
-            # which this branch leaves unbound. Falling through raised NameError
-            # out of the sender, and perform_handoff routes a raising sender to
-            # manual review (submission_outcome_unknown) — the ambiguity lane for
-            # "it may have landed". Nothing was sent here, so this is a clean
-            # pre-submission failure and belongs on the "fail" path, which the
-            # caller hands to Failed Download Handling.
             logger.warn("Error fetching data from %s (%s): %s" % (site, url, e))
             return "fail"
 
@@ -1612,7 +1474,6 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
             ):
                 if str(r.status_code) != "503":
                     logger.warn("Unable to download from " + site + " [" + str(r.status_code) + "]")
-                    # retry with the alternate torrent link.
                     url = helpers.torrent_create(site, linkit, True)
                     logger.fdebug("Trying alternate url: " + str(url))
                     try:
@@ -1631,22 +1492,15 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
                     except Exception:
                         return "fail"
 
-            # A DEM/WWT gzip branch used to sit here. It built a GzipFile over
-            # StringIO(r.content) — a TypeError on bytes — and then discarded it,
-            # because `f` is immediately rebound by the open() below and the body
-            # is written straight from r.iter_content(). requests already decodes
-            # Content-Encoding: gzip transparently, so the branch was both broken
-            # and unnecessary.
             with open(filepath, "wb") as f:
                 for chunk in r.iter_content(chunk_size=1024):
-                    if chunk:  # filter out keep-alive new chunks
+                    if chunk:
                         f.write(chunk)
                         f.flush()
 
             logger.fdebug("[" + site + "] Saved torrent file to : " + filepath)
     else:
         if site != "32P":
-            # tpse is magnet links only...
             filepath = linkit
 
     if comicarr.USE_UTORRENT:
@@ -1659,7 +1513,6 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
         if ti == "fail":
             return ti
         else:
-            # if ti is value, it will return the hash
             torrent_info = {}
             torrent_info["hash"] = ti
             torrent_info["clientmode"] = "utorrent"
@@ -1749,10 +1602,6 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
 
     elif comicarr.USE_WATCHDIR:
         if comicarr.CONFIG.TORRENT_LOCAL:
-            # if site == 'TPSE':
-            #    torrent_info = {'hash': pubhash}
-            # else:
-            #    #get the hash so it doesn't mess up...
             torrent_info = helpers.get_the_hash(filepath)
             torrent_info["clientmode"] = "watchdir"
             torrent_info["link"] = linkit
@@ -1773,8 +1622,6 @@ def delete_cache_entry(id):
 
 
 if __name__ == "__main__":
-    # torrents(sys.argv[1])
-    # torrentdbsearch(sys.argv[1], sys.argv[2], sys.argv[3])
     nzbs(provider=sys.argv[1])
 
 
@@ -1795,8 +1642,6 @@ def ddlrss_pack_detect(title, link):
                 issues = title[issfind_st + 1 : iss_en]
                 pack = True
 
-    # to handle packs that are denoted without a # sign being present.
-    # if there's a dash, check to see if both sides of the dash are numeric.
     if pack is False and title.find("-") != -1:
         issfind_en = title.find("-")
         if all(
@@ -1831,12 +1676,9 @@ def ddlrss_pack_detect(title, link):
                     issues = title[set_sp:iss_end].strip()
                     pack = True
 
-    # if it's a pack - remove the issue-range and the possible issue years
-    # (cause it most likely will span) and pass thru as separate items
     if pack is True:
         try:
             title = re.sub(issues, "", title).strip()
-            # kill any brackets in the issue line here.
             issues = re.sub(r"[\(\)\[\]]", "", issues).strip()
         except Exception:
             return
@@ -1847,11 +1689,6 @@ def ddlrss_pack_detect(title, link):
         return {"title": title, "issues": issues, "pack": pack, "link": link}
     else:
         return
-
-
-# ---------------------------------------------------------------------------
-# Manga RSS / Chapter monitoring
-# ---------------------------------------------------------------------------
 
 
 def mangaCheck():
@@ -1870,7 +1707,6 @@ def mangaCheck():
 
     logger.info("[MANGA-RSS] Starting manga blended-frontier search")
 
-    # Prefix *or* ContentType so a mis-stamped md-/mal- row is still checked.
     manga_series = db.select_all(
         select(t_comics).where(
             active_manga_clause(),
@@ -1974,9 +1810,6 @@ def mangadexNewChapterCheck():
 
     logger.info("[MANGA-RSS] Starting MangaDex new-chapter check")
 
-    # Every active manga series MangaDex can supply chapters for. MAL-added
-    # series carry a resolved MangaDexID; restricting this to md- ComicIDs meant
-    # they never polled for new chapters at all.
     from comicarr.app.manga.sync import active_manga_clause
 
     manga_series = db.select_all(
@@ -2005,7 +1838,6 @@ def mangadexNewChapterCheck():
         if not mangadex_id:
             continue
 
-        # Get existing chapter numbers from the database for this series
         existing_issues = db.select_all(
             select(t_issues.c.IssueID, t_issues.c.ChapterNumber).where(
                 t_issues.c.ComicID == comic_id,
@@ -2020,7 +1852,6 @@ def mangadexNewChapterCheck():
             if ch is not None:
                 existing_chapter_nums.add(str(ch))
 
-        # Fetch chapters from MangaDex (rate-limited internally)
         try:
             mdx_chapters = mangadex.get_all_chapters(mangadex_id)
         except Exception as e:
@@ -2038,23 +1869,18 @@ def mangadexNewChapterCheck():
             if ch_num is None:
                 continue
 
-            # Skip if we already track this chapter
             if str(ch_num) in existing_chapter_nums:
                 continue
 
-            # Build an IssueID for the new chapter
             issue_id = "%s-ch%s" % (comic_id, ch_num)
             if issue_id in existing_issue_ids:
                 continue
 
-            # Determine chapter title
             ch_title = ch.get("title") or ("Chapter %s" % ch_num)
 
-            # Determine dates
             publish_at = ch.get("publish_at") or ch.get("created_at") or ""
             issue_date = publish_at[:10] if len(publish_at) >= 10 else "0000-00-00"
 
-            # Insert the new chapter as Wanted
             try:
                 db.upsert(
                     "issues",

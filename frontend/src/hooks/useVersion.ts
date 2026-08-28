@@ -30,7 +30,6 @@ export function useVersionInfo(options?: {
     refetchInterval: enabled ? VERSION_POLL_MS : false,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    // Chip must not sticky last-good behind after transport failure (#473).
     staleTime: 0,
     retry: false,
   });

@@ -19,7 +19,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
 
     cName = searchName
 
-    # clean up searchName due to webparse/redudant naming that would return too specific of results.
     commons = ["and", "the", "&", "-"]
     for x in commons:
         cnt = 0
@@ -104,9 +103,9 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
             joinSearch = joinSearch + " .cbz"
 
         if i == 1:
-            searchline += joinSearch  #'"' + joinSearch + '"'
+            searchline += joinSearch
         else:
-            searchline += " | " + joinSearch  #' | "' + joinSearch + '"'
+            searchline += " | " + joinSearch
 
         i += 1
 
@@ -145,7 +144,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
         return "no results"
 
     if r.status_code != 200:
-        # typically 403 will not return results, but just catch anything other than a 200
         if r.status_code == 403:
             return "no results"
         else:
@@ -160,7 +158,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
         try:
             feed = feedparser.parse(r.content)
         except Exception:
-            # if it fails to parse, it's either invalid schema or no results.
             return "no results"
 
     entries = []
@@ -187,9 +184,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
 
         countUp = countUp + 1
 
-    # thanks to SpammyHagar for spending the time in compiling these regEx's!
-
-    # Sometimes comics aren't actually published the same year comicVine says - trying to adjust for these cases
     "(%s\\s*(0)?(0)?%s\\s*\\(%s\\))" % (regexName, searchIssue, int(searchYear) + 1)
     "(%s\\s*(0)?(0)?%s\\s*\\(%s\\))" % (regexName, searchIssue, int(searchYear) - 1)
     "(%s\\s*(0)?(0)?%s\\s*\\(.*?\\)\\s*\\(%s\\))" % (regexName, searchIssue, int(searchYear) + 1)
@@ -210,13 +204,10 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
                 and not (any(d in subs.lower() for d in except_list) or re.search(block_regex, subs))
                 and bool(_digits.search(subs)) is True
             ):
-                # this will still match on crap like 'For SomeSomayes' especially if the series length < 'For SomeSomayes'
                 if subs.lower().startswith("for"):
                     if cName.lower().startswith("for"):
                         pass
                     else:
-                        # this is the crap we ignore. Continue (commented else, as it spams the logs)
-                        # logger.fdebug('this starts with FOR : ' + str(subs) + '. This is not present in the series - ignoring.')
                         subcnt += 1
                         continue
 
@@ -228,7 +219,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
                         subcnt += 1
                         continue
 
-                # logger.fdebug('match.')
                 if IssDateFix != "no":
                     if IssDateFix == "01" or IssDateFix == "02":
                         ComicYearFix = str(int(searchYear) - 1)
@@ -242,8 +232,6 @@ def Startit(searchName, searchIssue, searchYear, ComicVersion, IssDateFix, bookt
                     noYearline = subs
 
                 if (searchYear in subs or ComicYearFix in subs) and noYear == "True":
-                    # this would occur on the next check in the line, if year exists and
-                    # the noYear check in the first check came back valid append it
                     subs = noYearline + " (" + searchYear + ")"
                     noYear = "False"
 

@@ -43,7 +43,6 @@ export function useUpdateConfig(): UseMutationResult<
     mutationFn: (configData: ConfigUpdate) =>
       apiRequest("PUT", "/api/config", configData),
     onSuccess: () => {
-      // Invalidate and refetch config
       queryClient.invalidateQueries({ queryKey: ["config"] });
     },
     onError: (error: Error) => {

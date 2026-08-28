@@ -17,8 +17,6 @@ export function DataTableServerPagination({
   onPrevPage,
 }: DataTableServerPaginationProps) {
   const { total, offset } = pagination;
-  // A zero limit would only come from a malformed response, but it must not
-  // divide the page maths by zero.
   const limit = pagination.limit || 1;
   const returned = pagination.returned ?? Math.min(limit, total - offset);
 

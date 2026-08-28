@@ -39,14 +39,10 @@ def _set_acquisition_reconciliation(state, message):
         persisted = set_reconciliation_state(state, message)
         comicarr.MIGRATION_RECONCILIATION = persisted
     except Exception as e:
-        # Migration must never resume acquisition just because this diagnostic
-        # update failed; the startup schema gate remains fail-closed.
         comicarr.MIGRATION_RECONCILIATION = {"state": "failed", "reason": "reconciliation_state_unavailable"}
         logger.error("[MIGRATION] Unable to persist reconciliation state: %s" % e)
 
 
-# Tables to migrate, ordered by dependency
-# (ephemeral tables like searchresults, notifs, provider_searches are excluded)
 MIGRATABLE_TABLES = [
     "comics",
     "issues",
@@ -66,7 +62,6 @@ MIGRATABLE_TABLES = [
     "jobhistory",
 ]
 
-# Credential keys that use Fernet encryption (not bcrypt)
 CREDENTIAL_KEYS = [
     "SAB_PASSWORD",
     "SAB_APIKEY",
@@ -90,7 +85,6 @@ CREDENTIAL_KEYS = [
     "TAB_PASS",
 ]
 
-# Path-type settings that may need review in Docker
 PATH_SETTINGS = [
     "DESTINATION_DIR",
     "CACHE_DIR",
@@ -147,7 +141,6 @@ def _get_common_columns(source_conn, dest_conn, table):
         for row in dest_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
         if _SAFE_IDENTIFIER.match(row[1])
     }
-    # For weekly table, exclude rowid from insert (let SQLite auto-assign)
     if table == "weekly":
         source_cols.discard("rowid")
         dest_cols.discard("rowid")
@@ -172,7 +165,6 @@ class Mylar3Migration:
 
         try:
             with _open_source_db(self.dbfile) as conn:
-                # Get Mylar3 version
                 version = "unknown"
                 try:
                     row = conn.execute("SELECT DatabaseVersion FROM mylar_info").fetchone()
@@ -181,7 +173,6 @@ class Mylar3Migration:
                 except Exception:
                     pass
 
-                # Count series and issues
                 series_count = 0
                 issue_count = 0
                 try:
@@ -197,7 +188,6 @@ class Mylar3Migration:
                 except Exception:
                     pass
 
-                # Get table summaries
                 tables = []
                 for table in MIGRATABLE_TABLES:
                     try:
@@ -209,10 +199,8 @@ class Mylar3Migration:
                             }
                         )
                     except Exception:
-                        # Table doesn't exist in source
                         pass
 
-                # Detect config categories
                 config_categories = []
                 config_path = os.path.join(real_path, "config.ini")
                 try:
@@ -222,7 +210,6 @@ class Mylar3Migration:
                 except Exception:
                     pass
 
-                # Check path settings that may need review
                 path_warnings = []
                 for key in PATH_SETTINGS:
                     for section in config_categories:
@@ -258,7 +245,6 @@ class Mylar3Migration:
             comicarr.MIGRATION_TABLES_COMPLETE = 0
             _set_acquisition_reconciliation("migrating", "Mylar3 migration is mutating the destination database")
 
-            # Validate first (use resolved path to prevent TOCTOU)
             if self.dbfile is None or self.real_path is None:
                 valid, result = _validate_source_path(self.source_path)
                 if not valid:
@@ -274,32 +260,24 @@ class Mylar3Migration:
 
             real_path = self.real_path
 
-            # Pre-migration backup
             logger.info("[MIGRATION] Creating pre-migration backup...")
             backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
             maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir)
 
-            # Bring the destination to the reviewed schema head before source
-            # rows are copied. Import must never depend on startup repair to
-            # recreate indexes or add columns afterward.
             logger.info("[MIGRATION] Upgrading destination to Alembic head...")
             from comicarr.app.core.schema import upgrade_database
 
             upgrade_database()
 
-            # Open source database read-only
             with _open_source_db(self.dbfile) as source_conn:
-                # Open destination with direct connection for bulk operations
                 dest_conn = sqlite3.connect(comicarr.DB_FILE, timeout=20)
 
                 try:
-                    # Performance PRAGMAs for bulk import
                     dest_conn.execute("PRAGMA synchronous = NORMAL")
                     dest_conn.execute("PRAGMA cache_size = -128000")
                     dest_conn.execute("PRAGMA temp_store = MEMORY")
                     dest_conn.execute("PRAGMA foreign_keys = OFF")
 
-                    # Determine which tables exist in both source and destination
                     source_tables = {
                         row[0]
                         for row in source_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
@@ -311,7 +289,6 @@ class Mylar3Migration:
                     tables_to_migrate = [t for t in MIGRATABLE_TABLES if t in source_tables and t in dest_tables]
                     comicarr.MIGRATION_TABLES_TOTAL = len(tables_to_migrate)
 
-                    # Migrate each table
                     for table in tables_to_migrate:
                         comicarr.MIGRATION_CURRENT_TABLE = table
                         logger.info("[MIGRATION][%s] Starting import..." % table.upper())
@@ -362,28 +339,20 @@ class Mylar3Migration:
                         pass
                     dest_conn.close()
 
-            # Migrate config after database
             logger.info("[MIGRATION] Migrating config settings...")
             try:
                 migrate_mylar3_config(real_path)
             except Exception as e:
                 logger.error("[MIGRATION] Config migration failed (data migration succeeded): %s" % e)
-                # Don't fail the whole migration for config issues
 
-            # Verify that bulk import did not bypass or disturb schema state.
             logger.info("[MIGRATION] Verifying destination Alembic revision...")
             upgrade_database()
 
-            # Post-migration verification
             _verify_migration(self.dbfile)
 
-            # Clear empty DB flag
             comicarr.DB_EMPTY = False
             comicarr.MIGRATION_STATUS = "complete"
             comicarr.MIGRATION_CURRENT_TABLE = ""
-            # Row counts alone are not recovery-ready. Surface a pending
-            # reconciliation state so operators open the repair preview before
-            # trusting Wanted/Have aggregates or restarting into Auto-Search.
             _set_acquisition_reconciliation(
                 "pending_preview",
                 "Migration copied rows successfully. Preview acquisition reconciliation before enabling automatic search.",
@@ -410,7 +379,6 @@ def migrate_mylar3_config(source_path):
         logger.warn("[MIGRATION] No config.ini found at %s, skipping config migration" % source_path)
         return
 
-    # Bootstrap SECURE_DIR before any credential operations
     if not comicarr.CONFIG.SECURE_DIR:
         comicarr.CONFIG.SECURE_DIR = os.path.join(comicarr.DATA_DIR, ".secure")
     os.makedirs(comicarr.CONFIG.SECURE_DIR, mode=0o700, exist_ok=True)
@@ -419,13 +387,11 @@ def migrate_mylar3_config(source_path):
     if fernet is None:
         raise RuntimeError("Cannot initialize encryption — credential migration aborted")
 
-    # Parse source config
     source_config = configparser.RawConfigParser()
     source_config.read(config_path)
 
     from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
 
-    # Build values dict from source config
     values = {}
     for key, definition in _CONFIG_DEFINITIONS.items():
         key_lower = key.lower()
@@ -437,7 +403,6 @@ def migrate_mylar3_config(source_path):
         except (configparser.NoOptionError, configparser.NoSectionError):
             pass
 
-    # Apply _BAD_DEFINITIONS remappings
     for new_key, bad_def in _BAD_DEFINITIONS.items():
         if len(bad_def) >= 2:
             old_section = bad_def[0]
@@ -452,23 +417,19 @@ def migrate_mylar3_config(source_path):
             except (configparser.NoOptionError, configparser.NoSectionError):
                 pass
 
-    # Handle HTTP_PASSWORD specially (bcrypt, not Fernet)
     if "HTTP_PASSWORD" in values:
         old_pass = values["HTTP_PASSWORD"]
         migrated = encrypted.migrate_password(old_pass)
         if migrated:
             values["HTTP_PASSWORD"] = migrated
             logger.fdebug("[MIGRATION] HTTP_PASSWORD migrated to bcrypt")
-        del old_pass  # Don't keep plaintext reference
+        del old_pass
 
-    # Re-encrypt credential values
     for key in CREDENTIAL_KEYS:
         if key in values and values[key]:
             old_val = values[key]
-            # Decrypt from old format
             dec = encrypted.Encryptor(old_val).decrypt_it()
             if dec["status"]:
-                # Re-encrypt with current Fernet key
                 enc = encrypted.Encryptor(dec["password"]).encrypt_it()
                 if enc["status"]:
                     values[key] = enc["password"]
@@ -477,7 +438,6 @@ def migrate_mylar3_config(source_path):
                     logger.warn("[MIGRATION] Failed to re-encrypt %s, skipping" % key)
                     del values[key]
             else:
-                # Value might be plaintext — encrypt it
                 enc = encrypted.Encryptor(old_val).encrypt_it()
                 if enc["status"]:
                     values[key] = enc["password"]
@@ -485,16 +445,11 @@ def migrate_mylar3_config(source_path):
                     logger.warn("[MIGRATION] Failed to encrypt %s, skipping" % key)
                     del values[key]
 
-    # Drop anything config cannot define before handing the batch over.
-    # process_kwargs raises KeyError on an undefined key, and the caller treats
-    # that as "config migration failed" -- so one stray key silently costs the
-    # user every other setting in this dict. Skipping it costs only that key.
     undefined = [key for key in values if key not in _CONFIG_DEFINITIONS]
     for key in undefined:
         logger.warn("[MIGRATION] Skipping %s — no config definition for it in this version" % key)
         del values[key]
 
-    # Write config atomically
     comicarr.CONFIG.writeconfig(values)
     logger.info("[MIGRATION] Config migration completed — %d settings imported" % len(values))
 
@@ -522,7 +477,6 @@ def _verify_migration(source_db_path):
                     except Exception as e:
                         logger.warn("[MIGRATION][VERIFY] Could not verify %s: %s" % (table, e))
 
-                # Check for orphaned issues
                 try:
                     orphans = dest_conn.execute(
                         "SELECT COUNT(*) as cnt FROM issues WHERE ComicID NOT IN (SELECT ComicID FROM comics)"

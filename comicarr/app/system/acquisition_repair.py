@@ -164,8 +164,6 @@ def _safe_verified_file(series, row):
 
 
 def _source_before(row):
-    # Store the complete source-row snapshot. Apply predicates every column,
-    # including NULLs, so unrelated concurrent edits are visible conflicts.
     return dict(row)
 
 
@@ -193,9 +191,6 @@ def _aggregate_document(series):
         "series_id": series["series_id"],
         "before_have": series.get("before_have"),
         "before_total": series.get("before_total"),
-        # ``final_*`` are the persisted expected aggregate proposal. The
-        # table predates the manifest projection, so retain its bounded,
-        # portable columns rather than adding a second unbounded document.
         "proposed_have": series.get("proposed_have", series.get("final_have")),
         "proposed_total": series.get("proposed_total", series.get("final_total")),
         "selected": bool(series.get("aggregate_selected")),
@@ -243,13 +238,7 @@ class RepairService:
         self.engine = engine
         self.maintenance = maintenance or MaintenanceController(engine)
 
-    # ------------------------------------------------------------------
-    # Read-only evidence preview
-    # ------------------------------------------------------------------
-
     def _journal_evidence(self, conn, issue_id):
-        # Operator / auto R9 resolution stamps (#483 / #437): a row already
-        # retried, ignored, or imported must not re-propose Failed over Wanted.
         from comicarr.app.downloads.journal import RESOLVED_STATUSES
 
         rows = list(
@@ -275,9 +264,6 @@ class RepairService:
             reason = "journal_failed"
             target_status = "Failed"
         elif stage in {"manual_review", "post_processed"}:
-            # A terminal quarantine must never fall through to the optional
-            # Wanted rule. post_processed without verified file/archive
-            # evidence is likewise conservative rather than assumed owned.
             fulfillment = Fulfillment.UNKNOWN
             reason = "journal_%s" % stage
             target_status = None
@@ -286,8 +272,6 @@ class RepairService:
             reason = "journal_reserved"
             target_status = "Reserved"
         else:
-            # downloaded/post_processing/moved mean the downloader accepted the
-            # release but the owned-library fact is not yet fully committed.
             fulfillment = Fulfillment.SNATCHED
             reason = "journal_%s" % stage
             target_status = "Snatched"
@@ -357,10 +341,6 @@ class RepairService:
         }
         selected_date, date_source, date_was_supplied = _selected_date(row)
 
-        # Fulfillment evidence and intent are orthogonal. File/archive and
-        # pipeline/downloader evidence decide fulfillment; explicit intent is
-        # retained alongside that state and only projects the compatibility
-        # Status when no stronger operational evidence owns the Status value.
         if _safe_verified_file(series, row):
             fulfillment = Fulfillment.DOWNLOADED
             reason = "verified_file"
@@ -431,9 +411,6 @@ class RepairService:
                         if current_status != target:
                             proposed["Status"] = target
                     elif reason == "released_missing" and current_status != "Wanted":
-                        # A legacy Skipped status is deliberately NOT explicit
-                        # intent. Released missing policy rows are optional
-                        # Wanted candidates, never automatic mutations.
                         proposed["Status"] = "Wanted"
                         optional = True
 
@@ -472,8 +449,6 @@ class RepairService:
                 .order_by(annuals.c.Int_IssueNumber, annuals.c.Issue_Number, annuals.c.IssueID)
             ).mappings()
         ]
-        # Stable cross-entity ordering. Issues precede annuals, while the order
-        # within each table is explicit and independent of database row order.
         return issue_rows + annual_rows
 
     def _summary(self, items):
@@ -542,8 +517,6 @@ class RepairService:
             "series_id": str(series_id),
             "before_have": series.get("Have"),
             "before_total": series.get("Total"),
-            # Ownership is evidence-backed at preview time. A status repair
-            # cannot make a non-existent file count as owned later.
             "final_have": sum(
                 item["fulfillment"] in {Fulfillment.DOWNLOADED.value, Fulfillment.ARCHIVED.value} for item in items
             ),
@@ -635,10 +608,6 @@ class RepairService:
             "summary": summary,
             "items": [self._public_item(item) for item in items],
         }
-
-    # ------------------------------------------------------------------
-    # One-shot confirmation / manifest freeze
-    # ------------------------------------------------------------------
 
     def _authorize(self, run, actor, session_id):
         if str(actor) != run["actor_id"]:
@@ -748,8 +717,6 @@ class RepairService:
                     .values(aggregate_selected=int(selected_count > 0), updated_at=confirmed_at.isoformat())
                 )
                 series_row["aggregate_selected"] = int(selected_count > 0)
-            # Hash each bounded record rather than one giant document. This
-            # keeps confirmation valid for large libraries just like preview.
             frozen_fingerprint = _fingerprint(documents, aggregate_rows)
             consumed = conn.execute(
                 update(acquisition_repair_runs)
@@ -813,10 +780,6 @@ class RepairService:
             "selected_count": selected_count,
             "state": "confirmed",
         }
-
-    # ------------------------------------------------------------------
-    # Maintenance-fenced CAS apply
-    # ------------------------------------------------------------------
 
     def get_run(self, run_id):
         with self.engine.connect() as conn:
@@ -903,10 +866,6 @@ class RepairService:
                 .values(maintenance_epoch=fence.epoch, updated_at=_iso())
             )
         if not fence.drained:
-            # The fence must remain active until pre-existing side effects
-            # drain; releasing it earlier would let fresh claims race a repair.
-            # Persist a resumable, visible wait state instead of returning a
-            # generic error that looks like an abandoned maintenance toggle.
             self.maintenance.heartbeat_fence(str(actor), run["run_id"], fence.epoch)
             with self.engine.begin() as conn:
                 conn.execute(
@@ -1115,8 +1074,6 @@ class RepairService:
                     )
                     continue
                 if not series["dirty"]:
-                    # A preview with no selected source mutation must never
-                    # "repair" an unrelated stale Have/Total aggregate.
                     conn.execute(
                         update(acquisition_repair_series)
                         .where(acquisition_repair_series.c.series_item_id == series["series_item_id"])
@@ -1292,8 +1249,6 @@ class RepairService:
                     )
                 )
                 self._event(conn, run_id, "canary", actor, "canary %s" % canary_state, refreshed)
-            # The fence deliberately remains active between canary and the
-            # operator-confirmed full continuation.
             return self._result(run_id, new_mutations=new_mutations)
 
         remaining = [item for item in self.list_items(run_id) if item["selected"] and item["apply_state"] == "pending"]
@@ -1312,10 +1267,6 @@ class RepairService:
             self._event(conn, run_id, "apply_complete", actor, state)
         self._release_owned_fence(run_id, actor)
         return self._result(run_id, new_mutations=new_mutations)
-
-    # ------------------------------------------------------------------
-    # Conditional rollback
-    # ------------------------------------------------------------------
 
     def _rollback_item(self, item, actor):
         def operation():
@@ -1436,10 +1387,6 @@ class RepairService:
         self._release_owned_fence(run_id, actor)
         return self._result(run_id, new_mutations=new_mutations)
 
-    # ------------------------------------------------------------------
-    # One named external-acquisition canary
-    # ------------------------------------------------------------------
-
     def authorize_acquisition_canary(
         self,
         run_id,
@@ -1510,9 +1457,6 @@ class RepairService:
                         self.maintenance.release_fence(str(actor), str(existing["permit_id"]), status.epoch)
                 raise RepairConfirmationError("the named acquisition canary has expired")
 
-            # A lease that races the fence must leave an auditable, resumable
-            # permit behind. Retrying authorization after that lease drains is
-            # the only path that turns it into an executable canary.
             fence = self.maintenance.status()
             if not fence.active or fence.owner != str(actor) or fence.run_id != str(existing["permit_id"]):
                 raise RepairBlocked("the existing acquisition canary no longer owns its maintenance fence")
@@ -1665,10 +1609,6 @@ class RepairService:
             self._event(conn, canary["repair_run_id"], "canary_release", actor, str(reason))
         final = self.get_acquisition_canary(permit_id, actor=actor, session_id=session_id)
         return {**final, "maintenance_released": True}
-
-    # ------------------------------------------------------------------
-    # Public item projection
-    # ------------------------------------------------------------------
 
     def _public_item(self, item):
         return {

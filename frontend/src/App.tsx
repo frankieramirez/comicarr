@@ -73,7 +73,6 @@ function ChatWorkspace() {
   );
 }
 
-// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -122,7 +121,6 @@ function SeriesListRedirect() {
 function AppContent() {
   const { isAuthenticated } = useAuth();
 
-  // Set up global keyboard shortcuts
   useKeyboardShortcuts();
 
   return (

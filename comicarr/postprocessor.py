@@ -117,7 +117,6 @@ class PostProcessor(object):
         file_path: The path to the file to be processed
         nzb_name: The name of the NZB which resulted in this file being downloaded (optional)
         """
-        # name of the NZB that resulted in this folder
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
         if module is not None:
@@ -161,12 +160,6 @@ class PostProcessor(object):
 
         self.issuearcid = None
 
-        # Canonical release_key threaded from postprocess_main's atomic claim.
-        # When present it is PREFERRED over re-derivation so the
-        # `moved`/`post_processed` markers advance the SAME row the claim
-        # advanced (single-derivation invariant). None for manual/API/ComicRN
-        # PP that has no journal row — those fall back to re-derivation, which
-        # is a safe monotonic no-op worst case.
         self.journal_release_key = journal_release_key
 
     def _journal_release_key(self, issueid=None, issuearcid=None):
@@ -238,14 +231,13 @@ class PostProcessor(object):
             conn=conn,
         )
 
-    def _log(self, message, level=logger):  # .message):  #level=logger.MESSAGE):
+    def _log(self, message, level=logger):
         """
         A wrapper for the internal logger which also keeps track of messages and saves them to a string for sabnzbd post-processing logging functions.
 
         message: The string to log (unicode)
         level: The log level to use (optional)
         """
-        #        logger.log(message, level)
         self.log += message + "\n"
 
     def _run_pre_scripts(self, nzb_name, nzb_folder, seriesmetadata, filename, file_path):
@@ -258,7 +250,6 @@ class PostProcessor(object):
         self._log("initiating pre script detection.")
         logger.fdebug("comicarr.PRE_SCRIPTS : %s" % comicarr.CONFIG.PRE_SCRIPTS)
         self._log("comicarr.PRE_SCRIPTS : %s" % comicarr.CONFIG.PRE_SCRIPTS)
-        #        for currentScriptName in comicarr.CONFIG.PRE_SCRIPTS:
         with open(comicarr.CONFIG.PRE_SCRIPTS, "r") as f:
             first_line = f.readline()
 
@@ -267,7 +258,6 @@ class PostProcessor(object):
             if shell_cmd == "" or shell_cmd is None:
                 shell_cmd = "/bin/bash"
         else:
-            # forces comicarr to use the executable that it was run with to run the extra script.
             if comicarr.CONFIG.PRE_SHELL_LOCATION is not None:
                 if "powershell" in os.path.basename(comicarr.CONFIG.PRE_SHELL_LOCATION.lower()):
                     shell_cmd = "%s -%s" % (comicarr.CONFIG.PRE_SHELL_LOCATION, "File")
@@ -276,9 +266,8 @@ class PostProcessor(object):
             else:
                 shell_cmd = sys.executable
 
-        currentScriptName = shell_cmd + " " + str(comicarr.CONFIG.PRE_SCRIPTS)  # .decode("string_escape")
+        currentScriptName = shell_cmd + " " + str(comicarr.CONFIG.PRE_SCRIPTS)
         logger.fdebug("pre script detected...enabling: %s" % currentScriptName)
-        # generate a safe command line string to execute the script and provide all the parameters
         script_cmd = shlex.split(currentScriptName, posix=False) + [
             str(nzb_name),
             str(nzb_folder),
@@ -289,12 +278,11 @@ class PostProcessor(object):
         logger.fdebug("cmd to be executed: %s" % (script_cmd,))
         self._log("cmd to be executed: %s" % (script_cmd,))
 
-        # use subprocess to run the cosmmand and capture output
         logger.fdebug("Executing command %s" % (script_cmd,))
         logger.fdebug("Absolute path to script: %s" % (script_cmd[0],))
         try:
             p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=comicarr.PROG_DIR)
-            out, err = p.communicate()  # @UnusedVariable
+            out, err = p.communicate()
             logger.fdebug("Script result: %s" % (out,))
             self._log("Script result: %s" % (out,))
         except OSError:
@@ -311,7 +299,6 @@ class PostProcessor(object):
         self._log("initiating extra script detection.")
         logger.fdebug("comicarr.EXTRA_SCRIPTS : %s" % comicarr.CONFIG.EXTRA_SCRIPTS)
         self._log("comicarr.EXTRA_SCRIPTS : %s" % comicarr.CONFIG.EXTRA_SCRIPTS)
-        #        for curScriptName in comicarr.CONFIG.EXTRA_SCRIPTS:
         with open(comicarr.CONFIG.EXTRA_SCRIPTS, "r") as f:
             first_line = f.readline()
 
@@ -321,7 +308,6 @@ class PostProcessor(object):
                 shell_cmd = "/bin/bash"
         else:
             if comicarr.CONFIG.ES_SHELL_LOCATION is not None:
-                # forces comicarr to use the executable that it was run with to run the extra script.
                 if "powershell" in os.path.basename(comicarr.CONFIG.ES_SHELL_LOCATION.lower()):
                     shell_cmd = "%s -%s" % (comicarr.CONFIG.ES_SHELL_LOCATION, "File")
                 else:
@@ -329,9 +315,8 @@ class PostProcessor(object):
             else:
                 shell_cmd = sys.executable
 
-        curScriptName = shell_cmd + " " + str(comicarr.CONFIG.EXTRA_SCRIPTS)  # .decode("string_escape")
+        curScriptName = shell_cmd + " " + str(comicarr.CONFIG.EXTRA_SCRIPTS)
         logger.fdebug("extra script detected...enabling: %s" % curScriptName)
-        # generate a safe command line string to execute the script and provide all the parameters
         script_cmd = shlex.split(curScriptName, posix=False) + [
             str(nzb_name),
             str(nzb_folder),
@@ -342,14 +327,13 @@ class PostProcessor(object):
         logger.fdebug("cmd to be executed: %s" % (script_cmd,))
         self._log("cmd to be executed: %s" % (script_cmd,))
 
-        # use subprocess to run the command and capture output
         logger.fdebug("Executing command %s" % (script_cmd,))
         logger.fdebug("Absolute path to script: %s" % (script_cmd[0],))
         try:
             p = subprocess.Popen(
                 script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=comicarr.PROG_DIR, text=True
             )
-            out, err = p.communicate()  # @UnusedVariable
+            out, err = p.communicate()
             logger.fdebug("Script result: %s" % (out,))
             self._log("Script result: %s" % (out,))
         except OSError:
@@ -357,7 +341,6 @@ class PostProcessor(object):
             self._log("Unable to run extra_script: %s" % (script_cmd,))
 
     def duplicate_process(self, dupeinfo):
-        # path to move 'should' be the entire path to the given file
         path_to_move = dupeinfo["to_dupe"]
         file_to_move = os.path.split(path_to_move)[1]
 
@@ -379,9 +362,7 @@ class PostProcessor(object):
                 )
                 return True
 
-        # this gets tricky depending on if it's the new filename or the existing filename, and whether or not 'copy' or 'move' has been selected.
         if comicarr.CONFIG.FILE_OPTS == "move":
-            # check to make sure duplicate_dump directory exists:
             filechecker.validateAndCreateDirectory(comicarr.CONFIG.DUPLICATE_DUMP, True, module="[DUPLICATE-CLEANUP]")
 
             if comicarr.CONFIG.DUPLICATE_DATED_FOLDERS is True:
@@ -407,26 +388,20 @@ class PostProcessor(object):
             return True
 
     def tidyup(self, odir=None, del_nzbdir=False, sub_path=None, cacheonly=False, filename=None):
-        # del_nzbdir will remove the original directory location. Must be set to False for manual pp or else will delete manual dir that's provided (if empty).
-        # move = cleanup/delete original location (self.nzb_folder) AND cache location (odir) if metatagging is enabled.
-        # copy = cleanup/delete cache location (odir) only if enabled.
-        # cacheonly = will only delete the cache location (useful if there's an error during metatagging, and/or the final location is out of space)
         try:
-            # tidyup old path
             if cacheonly is False:
                 logger.fdebug(
                     "File Option: %s [META-ENABLED: %s]" % (comicarr.CONFIG.FILE_OPTS, comicarr.CONFIG.ENABLE_META)
                 )
                 logger.fdebug("odir: %s [filename: %s][self.nzb_folder: %s]" % (odir, filename, self.nzb_folder))
                 logger.fdebug("sub_path: %s [cacheonly: %s][del_nzbdir: %s]" % (sub_path, cacheonly, del_nzbdir))
-                # if sub_path exists, then we need to use that in place of self.nzb_folder since the file was in a sub-directory within self.nzb_folder
                 if all(
                     [
                         sub_path is not None,
                         sub_path != self.nzb_folder,
                         sub_path != os.path.join(self.nzb_folder, "mega"),
                     ]
-                ):  # , self.issueid is not None]):
+                ):
                     if self.issueid is None:
                         logger.fdebug(
                             "Sub-directory detected during cleanup. Will attempt to remove if empty: %s" % sub_path
@@ -440,7 +415,6 @@ class PostProcessor(object):
                 else:
                     orig_folder = self.nzb_folder
 
-                # make sure we don't delete the directory passed via manual-pp and ajust for trailling slashes or not
                 if orig_folder.endswith("/") or orig_folder.endswith("\\"):
                     tmp_folder = orig_folder[:-1]
                 else:
@@ -452,9 +426,6 @@ class PostProcessor(object):
                         % (self.module, tmp_folder)
                     )
                     tmp_folder = os.path.split(tmp_folder)[0]
-
-                # if all([os.path.isdir(odir), self.nzb_folder != tmp_folder]) or any([odir.startswith('comicarr_'),del_nzbdir is True]):
-                # check to see if the directory is empty or not.
 
                 if all(
                     [comicarr.CONFIG.FILE_OPTS == "move", self.nzb_name == "Manual Run", tmp_folder != self.nzb_folder]
@@ -522,9 +493,7 @@ class PostProcessor(object):
                                 % (self.module, e, os.path.join(tmp_folder, filename))
                             )
 
-                elif comicarr.CONFIG.FILE_OPTS == "move" and all(
-                    [del_nzbdir is True, self.nzb_name != "Manual Run"]
-                ):  # tmp_folder != self.nzb_folder]):
+                elif comicarr.CONFIG.FILE_OPTS == "move" and all([del_nzbdir is True, self.nzb_name != "Manual Run"]):
                     if not os.listdir(tmp_folder):
                         logger.fdebug(
                             "%s Tidying up. Deleting original folder location : %s" % (self.module, tmp_folder)
@@ -584,8 +553,6 @@ class PostProcessor(object):
                             )
 
             if comicarr.CONFIG.ENABLE_META and all([os.path.isdir(odir), any(["mylar_" in odir, "comicarr_" in odir])]):
-                # Regardless of the copy/move operation, we need to delete the files from within the cache directory, then remove the cache directory itself for the given issue.
-                # sometimes during a meta, it retains the cbr as well after conversion depending on settings. Make sure to delete too thus the 'walk'.
                 for filename in os.listdir(odir):
                     filepath = os.path.join(odir, filename)
                     try:
@@ -679,11 +646,9 @@ class PostProcessor(object):
                     logger.fdebug("%s Now post-processing 0-day pack: %s" % (module, self.nzb_name))
                 else:
                     logger.fdebug("%s Manual Run initiated" % module)
-                # Manual postprocessing on a folder.
-                # first we get a parsed results list  of the files being processed, and then poll against the sql to get a short list of hits.
                 flc = filechecker.FileChecker(self.nzb_folder, justparse=True, pp_mode=True)
                 filelist = flc.listFiles()
-                if filelist["comiccount"] == 0:  # is None:
+                if filelist["comiccount"] == 0:
                     logger.warn("There were no files located - check the debugging logs if you think this is in error.")
                     self.valreturn.append({"self.log": self.log, "mode": "stop"})
                     return self.queue.put(self.valreturn)
@@ -722,14 +687,11 @@ class PostProcessor(object):
                     filelist = {}
                     filelist["comiclist"] = []
                     filelist["comiccount"] = 0
-            # preload the entire ALT list in here.
             alt_list = []
             alt_db = db.select_all(select(comics).where(comics.c.AlternateSearch != "None"))
             if alt_db is not None:
                 for aldb in alt_db:
-                    as_d = filechecker.FileChecker(
-                        AlternateSearch=aldb["AlternateSearch"]
-                    )  # helpers.conversion(aldb['AlternateSearch']))
+                    as_d = filechecker.FileChecker(AlternateSearch=aldb["AlternateSearch"])
                     as_dinfo = as_d.altcheck()
                     alt_list.append(
                         {
@@ -762,7 +724,6 @@ class PostProcessor(object):
                     else:
                         full_filename = os.path.join(fl["comiclocation"], fl["comicfilename"])
 
-                # If after all that I still don't have a filename that is a file, something is probably confused.  Skip the integrity check.
                 if os.path.isfile(full_filename):
                     condition_check = helpers.check_file_condition(full_filename)
                     if condition_check["status"] is False:
@@ -775,13 +736,13 @@ class PostProcessor(object):
 
                 self.matched = False
                 as_d = filechecker.FileChecker()
-                as_dinfo = as_d.dynamic_replace(fl["series_name"])  # helpers.conversion(fl['series_name']))
+                as_dinfo = as_d.dynamic_replace(fl["series_name"])
                 orig_seriesname = as_dinfo["mod_seriesname"]
                 mod_seriesname = as_dinfo["mod_seriesname"]
                 loopchk = []
                 if fl["alt_series"] is not None:
                     logger.fdebug("%s Alternate series naming detected: %s" % (module, fl["alt_series"]))
-                    as_sinfo = as_d.dynamic_replace(fl["alt_series"])  # helpers.conversion(fl['alt_series']))
+                    as_sinfo = as_d.dynamic_replace(fl["alt_series"])
                     mod_altseriesname = as_sinfo["mod_seriesname"]
                     if all([comicarr.CONFIG.ANNUALS_ON, "annual" in mod_altseriesname.lower()]) or all(
                         [comicarr.CONFIG.ANNUALS_ON, "special" in mod_altseriesname.lower()]
@@ -811,7 +772,6 @@ class PostProcessor(object):
                     mod_seriesname = re.sub("annual", "", mod_seriesname, flags=re.I).strip()
                     mod_seriesname = re.sub("special", "", mod_seriesname, flags=re.I).strip()
 
-                # make sure we add back in the original parsed filename here.
                 if not any(re.sub(r"[\|\s]", "", mod_seriesname).lower() == x for x in loopchk):
                     loopchk.append(re.sub(r"[\|\s]", "", mod_seriesname.lower()))
 
@@ -1019,13 +979,9 @@ class PostProcessor(object):
                                                 path_failure = True
                                             else:
                                                 os.replace(tt, clocation)
-                                                self.nzb_folder = (
-                                                    clocation  # this is needed in order to delete after moving.
-                                                )
+                                                self.nzb_folder = clocation
                                         else:
-                                            self.nzb_folder = (
-                                                clocation  # this is needed in order to delete after moving.
-                                            )
+                                            self.nzb_folder = clocation
                                     else:
                                         try:
                                             if all(
@@ -1066,11 +1022,9 @@ class PostProcessor(object):
                                                             path_failure = True
                                                         else:
                                                             os.replace(tt, clocation)
-                                                            self.nzb_folder = clocation  # this is needed in order to delete after moving.
+                                                            self.nzb_folder = clocation
                                                     else:
-                                                        self.nzb_folder = (
-                                                            clocation  # this is needed in order to delete after moving.
-                                                        )
+                                                        self.nzb_folder = clocation
                                                 else:
                                                     logger.warn(
                                                         "Skipping this file due to path conversion error [path: %s]/[name: %s]"
@@ -1159,20 +1113,13 @@ class PostProcessor(object):
                                     func.lower(comics.c.DynamicComicName).in_([x.lower() for x in loopchk])
                                 )
                             )
-                            # if not comicseries:
-                            #    logger.error('[%s][%s] No Series named %s - checking against Story Arcs (just in case). If I do not find anything, maybe you should be running Import?' % (module, fl['comicfilename'], fl['series_name']))
-                            #    continue
                 watchvals = []
                 for wv in comicseries:
-                    # do some extra checks in here to ignore these types:
-                    # check for valid issue number - if not, don't even bother checking it
                     try:
                         tmp_iss = helpers.issuedigits(fl["issue_number"])
                     except Exception as e:
                         logger.warn("Unable to determine issue number. This is a no-go, Captain [%s]" % (e,))
 
-                    # check for Paused status /
-                    # check for Ended status and 100% completion of issues.
                     if wv["ComicPublished"] is None:
                         logger.fdebug(
                             "Publication Run cannot be generated - probably due to an incomplete Refresh. Manually refresh the following series and try again: %s (%s)"
@@ -1232,7 +1179,6 @@ class PostProcessor(object):
                     wv_latestissue = wv["LatestIssue"]
                     wv_intlatestissue = wv["intLatestIssue"]
                     wv_forcecontinuing = bool(wv["ForceContinuing"])
-                    # force it to use the Publication Date of the latest issue instead of the Latest Date (which could be anything)
                     ld_check = db.select_one(
                         select(issues.c.ReleaseDate, issues.c.Issue_Number, issues.c.Int_IssueNumber)
                         .where(issues.c.ComicID == wv["ComicID"])
@@ -1275,7 +1221,6 @@ class PostProcessor(object):
                                         "Largest annual issue # higher than issues - re-assigning latestissue as an annual"
                                     )
                                     highest_issue_check = highest_issue_check_ann
-                        # tmplatestdate = latestdate[0]
                         if ld_check["ReleaseDate"][:4] != wv["LatestDate"][:4]:
                             if ld_check["ReleaseDate"][:4] > wv["LatestDate"][:4]:
                                 latestdate = ld_check["ReleaseDate"]
@@ -1315,7 +1260,6 @@ class PostProcessor(object):
                             .order_by(issues.c.ReleaseDate.desc())
                         )
                         if ld_check:
-                            # tmplatestdate = latestdate[0]
                             try:
                                 if ld_check["ReleaseDate"][:4] != wv["LatestDate"][:4]:
                                     if ld_check["ReleaseDate"][:4] > wv["LatestDate"][:4]:
@@ -1425,7 +1369,6 @@ class PostProcessor(object):
                         if just_the_digits is not None:
                             temploc = just_the_digits.replace("_", " ")
                             temploc = re.sub("[\\#']", "", temploc)
-                            # logger.fdebug('temploc: %s' % temploc)
                         else:
                             if any(
                                 [
@@ -1470,7 +1413,6 @@ class PostProcessor(object):
                                         fcdigit = helpers.issuedigits(
                                             re.sub(ann_line, "", str(temploc.lower())).strip()
                                         )
-                                        # fcdigit = helpers.issuedigits(re.sub('2021 annual', '', str(temploc.lower())).strip())
                                     fcdigit = helpers.issuedigits(re.sub("annual", "", str(temploc.lower())).strip())
                                 else:
                                     fcdigit = helpers.issuedigits(re.sub("special", "", str(temploc.lower())).strip())
@@ -1509,7 +1451,6 @@ class PostProcessor(object):
                             except Exception as e:
                                 logger.fdebug("[PP] Error logging issue info: %s" % e)
                                 continue
-                            # check the last refresh date of the series, and if > than an hr try again:
                             c_date = cs["LastUpdated"]
                             if c_date is None:
                                 logger.error(
@@ -1612,20 +1553,12 @@ class PostProcessor(object):
                                     watch_issueyear = isc["IssueDate"][:4]
 
                             if len(watchmatch) >= 1 and watchmatch["issue_year"] is not None:
-                                # if the # of matches is more than 1, we need to make sure we get the right series
-                                # compare the ReleaseDate for the issue, to the found issue date in the filename.
-                                # if ReleaseDate doesn't exist, use IssueDate
-                                # if no issue date was found, then ignore.
                                 logger.fdebug(
                                     "%s[ISSUE-VERIFY] Now checking against %s - %s"
                                     % (module, cs["ComicName"], cs["ComicID"])
                                 )
                                 issyr = None
-                                # logger.fdebug(module + ' issuedate:' + str(isc['IssueDate']))
-                                # logger.fdebug(module + ' isc: ' + str(isc['IssueDate'][5:7]))
 
-                                # logger.info(module + ' ReleaseDate: ' + str(isc['ReleaseDate']))
-                                # logger.info(module + ' IssueDate: ' + str(isc['IssueDate']))
                                 if isc["DigitalDate"] is not None and isc["DigitalDate"] != "0000-00-00":
                                     if int(isc["DigitalDate"][:4]) < int(watchmatch["issue_year"]):
                                         logger.fdebug(
@@ -1684,13 +1617,8 @@ class PostProcessor(object):
                                     )
 
                             if datematch == "True":
-                                # need to reset this to False here so that the True doesn't carry down and avoid the year checks due to the True
                                 datematch = "False"
                                 lonevol = False
-                                # if we get to here, we need to do some more comparisons just to make sure we have the right volume
-                                # first we chk volume label if it exists, then we drop down to issue year
-                                # if the above both don't exist, and there's more than one series on the watchlist (or the series is > v1)
-                                # then spit out the error message and don't post-process it.
                                 watch_values = cs["WatchValues"]
                                 second_check = False
                                 if watch_values["LatestIssueInt"] >= fcdigit:
@@ -1699,7 +1627,6 @@ class PostProcessor(object):
                                         % (watch_values["LatestIssueInt"], fcdigit)
                                     )
 
-                                    # dynamic-name generation here.
                                     as_d = filechecker.FileChecker(watchcomic=watchmatch["series_name"])
                                     as_dinfo = as_d.dynamic_replace(watchmatch["series_name"])
                                     tmpseriesname = as_dinfo["mod_seriesname"]
@@ -1796,13 +1723,8 @@ class PostProcessor(object):
                                                         )
                                                         second_check = True
                                                 else:
-                                                    # only worry about the last 2 weeks of the pull (basically where the data might be available due to CV being late / not updatin$
                                                     tmp_weeknumber = int(test["weeknumber"])
                                                     tmp_weekyear = int(test["year"])
-                                                    # logger.info('tmp_weeknumber: %s / tmp_weekyear: %s' % (tmp_weeknumber, tmp_weekyear))
-                                                    # logger.info('comicarr.currentyear: %s / comicarr.current_weeknumber: %s' % (comicarr.CURRENT_YEAR, comicarr.CURRENT_WEEKNUMBER))
-                                                    # will have to modify the line below to acocmodate when the current year changes and the weeknumber flips back to 0/1.
-                                                    # migth need to extend +2 to +4 so that it covers the entire month
                                                     if (
                                                         tmp_weekyear == int(comicarr.CURRENT_YEAR)
                                                     ) and tmp_weeknumber + 2 >= int(comicarr.CURRENT_WEEKNUMBER):
@@ -1838,8 +1760,6 @@ class PostProcessor(object):
                                                 )
                                                 second_check = True
                                             else:
-                                                # if the name matches, but the data isn't present on the pull from a previous week (due to being a new install)
-                                                # it won't be able to post-process. Get current issue date, resolve to week and see if week is present in pull.
                                                 ischk = isc["ReleaseDate"]
                                                 if ischk:
                                                     rls_the_date = datetime.datetime.strptime(
@@ -1858,11 +1778,9 @@ class PostProcessor(object):
                                                             )
                                                         )
                                                         if len(w_results) == 0:
-                                                            # if the week doesn't exist, let it pass... (or we can possibly force recreate?)
                                                             second_check = True
                                     else:
                                         pass
-                                        # logger.info('name in dB (%s) does not match name in file (%s)' % (cs['ComicName'], watchmatch['series_name']))
                                 else:
                                     logger.fdebug("not a match")
 
@@ -1964,7 +1882,6 @@ class PostProcessor(object):
                                         watch_issueyear is not None,
                                     ]
                                 ):
-                                    # now we see if the issue year matches exactly to what we have within Comicarr.
                                     if int(watch_issueyear) == int(watchmatch["issue_year"]):
                                         logger.fdebug(
                                             "%s[ISSUE-VERIFY][Issue Year MATCH] Issue Year of %s is a match to the year found in the filename of : %s"
@@ -2007,7 +1924,7 @@ class PostProcessor(object):
                                         )
                                         clocation = os.path.join(
                                             watchmatch["comiclocation"], watchmatch["sub"], watchmatch["comicfilename"]
-                                        )  # helpers.conversion(watchmatch['comicfilename']))
+                                        )
                                         if not os.path.exists(clocation):
                                             scrubs = re.sub(watchmatch["comiclocation"], "", watchmatch["sub"]).strip()
                                             if scrubs[:2] == "//" or scrubs[:2] == "\\":
@@ -2022,7 +1939,7 @@ class PostProcessor(object):
                                         else:
                                             clocation = os.path.join(
                                                 watchmatch["comiclocation"], watchmatch["comicfilename"]
-                                            )  # helpers.conversion(watchmatch['comicfilename']))
+                                            )
                                     annualtype = None
                                     if annchk == "yes":
                                         if "Annual" in isc["ReleaseComicName"]:
@@ -2067,11 +1984,9 @@ class PostProcessor(object):
 
                     if datematch == "True":
                         xmld = filechecker.FileChecker()
-                        xmld1 = xmld.dynamic_replace(cs["ComicName"])  # helpers.conversion(cs['ComicName']))
+                        xmld1 = xmld.dynamic_replace(cs["ComicName"])
                         xseries = xmld1["mod_seriesname"].lower()
-                        xmld2 = xmld.dynamic_replace(
-                            watchmatch["series_name"]
-                        )  # helpers.conversion(watchmatch['series_name']))
+                        xmld2 = xmld.dynamic_replace(watchmatch["series_name"])
                         xfile = xmld2["mod_seriesname"].lower()
 
                         if re.sub(r"\|", "", xseries) == re.sub(r"\|", "", xfile):
@@ -2089,13 +2004,13 @@ class PostProcessor(object):
                                 ]
                             self.matched = True
                         else:
-                            continue  # break
+                            continue
 
                     if datematch == "True":
                         logger.fdebug(
                             "%s[SUCCESSFUL MATCH: %s-%s] Match verified for %s"
                             % (module, cs["ComicName"], cs["ComicID"], fl["comicfilename"])
-                        )  # helpers.conversion(fl['comicfilename'])))
+                        )
                         break
                     elif self.matched is True:
                         logger.warn(
@@ -2103,23 +2018,6 @@ class PostProcessor(object):
                             % (module, cs["ComicName"], cs["ComicID"])
                         )
 
-                # we should setup for manual post-processing of story-arc issues here
-                # we can also search by ComicID to just grab those particular arcs as an alternative as well (not done)
-
-                # as_d = filechecker.FileChecker()
-                # as_dinfo = as_d.dynamic_replace(helpers.conversion(fl['series_name']))
-                # mod_seriesname = as_dinfo['mod_seriesname']
-                # arcloopchk = []
-                # for x in alt_list:
-                #    cname = x['AS_DyComicName']
-                #    for ab in x['AS_Alt']:
-                #        if re.sub('[\|\s]', '', mod_seriesname.lower()).strip() in re.sub('[\|\s]', '', ab.lower()).strip():
-                #            if not any(re.sub('[\|\s]', '', cname.lower()) == x for x in arcloopchk):
-                #                arcloopchk.append(re.sub('[\|\s]', '', cname.lower()))
-
-                ##make sure we add back in the original parsed filename here.
-                # if not any(re.sub('[\|\s]', '', mod_seriesname).lower() == x for x in arcloopchk):
-                #    arcloopchk.append(re.sub('[\|\s]', '', mod_seriesname.lower()))
                 if self.issuearcid is None:
                     arc_series = db.select_all(
                         select(storyarcs).where(
@@ -2154,7 +2052,7 @@ class PostProcessor(object):
                                     "Publisher": av["Publisher"],
                                     "IssueID": av["IssueID"],
                                     "IssueNumber": av["IssueNumber"],
-                                    "IssueYear": av["IssueYear"],  # for some reason this is empty
+                                    "IssueYear": av["IssueYear"],
                                     "ReadingOrder": av["ReadingOrder"],
                                     "IssueDate": av["IssueDate"],
                                     "Status": av["Status"],
@@ -2166,9 +2064,7 @@ class PostProcessor(object):
                                     "ComicVersion": av["Volume"],
                                     "ComicID": av["ComicID"],
                                     "Publisher": av["IssuePublisher"],
-                                    "Total": int(
-                                        av["TotalIssues"]
-                                    ),  # this will return the total issues in the arc (not needed for this)
+                                    "Total": int(av["TotalIssues"]),
                                     "Type": av["Type"],
                                     "IsArc": True,
                                 },
@@ -2197,8 +2093,6 @@ class PostProcessor(object):
                     )
                 for k, v in list(res.items()):
                     i = 0
-                    # k is ComicName
-                    # v is ArcValues and WatchValues
                     while i < len(v):
                         if k is None or k == "None":
                             pass
@@ -2207,7 +2101,6 @@ class PostProcessor(object):
                                 watchcomic=k, Publisher=v[i]["ArcValues"]["ComicPublisher"], manual=v[i]["WatchValues"]
                             )
                             arcmatch = arcm.matchIT(fl)
-                            # logger.fdebug('arcmatch: %s' % arcmatch)
                             if arcmatch["process_status"] == "fail":
                                 nm += 1
                             else:
@@ -2241,7 +2134,6 @@ class PostProcessor(object):
                                 if just_the_digits is not None:
                                     temploc = just_the_digits.replace("_", " ")
                                     temploc = re.sub("[\\#']", "", temploc)
-                                    # logger.fdebug('temploc: %s' % temploc)
                                 else:
                                     if any(
                                         [
@@ -2258,7 +2150,6 @@ class PostProcessor(object):
                                 if any([temploc is not None, temploc != 999999999999999]) and helpers.issuedigits(
                                     temploc
                                 ) != helpers.issuedigits(v[i]["ArcValues"]["IssueNumber"]):
-                                    # logger.fdebug('issues dont match. Skipping')
                                     i += 1
                                     continue
                                 else:
@@ -2282,7 +2173,6 @@ class PostProcessor(object):
                                                     fcdigit = helpers.issuedigits(
                                                         re.sub(ann_line, "", str(temploc.lower())).strip()
                                                     )
-                                                    # fcdigit = helpers.issuedigits(re.sub('2021 annual', '', str(temploc.lower())).strip())
                                                 fcdigit = helpers.issuedigits(
                                                     re.sub("annual", "", str(temploc.lower())).strip()
                                                 )
@@ -2368,19 +2258,11 @@ class PostProcessor(object):
                                                 arc_issueyear = isc["IssueDate"][:4]
 
                                         if len(arcmatch) >= 1 and arcmatch["issue_year"] is not None:
-                                            # if the # of matches is more than 1, we need to make sure we get the right series
-                                            # compare the ReleaseDate for the issue, to the found issue date in the filename.
-                                            # if ReleaseDate doesn't exist, use IssueDate
-                                            # if no issue date was found, then ignore.
                                             logger.fdebug(
                                                 "%s[ARC ISSUE-VERIFY] Now checking against %s - %s"
                                                 % (module, k, v[i]["WatchValues"]["ComicID"])
                                             )
                                             issyr = None
-                                            # logger.fdebug('issuedate: %s' % isc['IssueDate'])
-                                            # logger.fdebug('issuechk: %s' % isc['IssueDate'][5:7])
-                                            # logger.fdebug('StoreDate %s' % isc['ReleaseDate'])
-                                            # logger.fdebug('IssueDate: %s' % isc['IssueDate'])
                                             if isc["DigitalDate"] is not None and isc["DigitalDate"] != "0000-00-00":
                                                 if int(isc["DigitalDate"][:4]) < int(arcmatch["issue_year"]):
                                                     logger.fdebug(
@@ -2461,13 +2343,7 @@ class PostProcessor(object):
                                                     % (module, fcdigit, v[i]["WatchValues"]["ComicID"], isc["IssueID"])
                                                 )
 
-                                        # logger.fdebug('datematch: %s' % datematch)
-                                        # logger.fdebug('temploc: %s' % helpers.issuedigits(temploc))
-                                        # logger.fdebug('arcissue: %s' % helpers.issuedigits(v[i]['ArcValues']['IssueNumber']))
-                                        if (
-                                            datematch == "True"
-                                        ):  # and helpers.issuedigits(temploc) == helpers.issuedigits(v[i]['ArcValues']['IssueNumber']):
-                                            # reset datematch here so it doesn't carry the value down and avoid year checks
+                                        if datematch == "True":
                                             datematch = "False"
                                             lonevol = False
                                             arc_values = v[i]["WatchValues"]
@@ -2569,7 +2445,6 @@ class PostProcessor(object):
                                                     arc_issueyear is not None,
                                                 ]
                                             ):
-                                                # now we see if the issue year matches exactly to what we have within Comicarr.
                                                 if int(arc_issueyear) == int(arcmatch["issue_year"]):
                                                     logger.fdebug(
                                                         "%s[ARC ISSUE-VERIFY][Issue Year MATCH] Issue Year of %s is a match to the year found in the filename of : %s"
@@ -2620,7 +2495,6 @@ class PostProcessor(object):
                                                             "[STORY-ARC POST-PROCESSING] IssueID %s exists in your watchlist. Bypassing Story-Arc post-processing performed later."
                                                             % v[i]["ArcValues"]["IssueID"]
                                                         )
-                                                        # add in the storyarcid into the manual list so it will perform story-arc functions after normal manual PP is finished.
                                                         for a in manual_list:
                                                             if a["IssueID"] == v[i]["ArcValues"]["IssueID"]:
                                                                 a["IssueArcID"] = v[i]["ArcValues"]["IssueArcID"]
@@ -2628,9 +2502,7 @@ class PostProcessor(object):
                                                         passit = True
 
                                                 if not passit:
-                                                    tmpfilename = arcmatch[
-                                                        "comicfilename"
-                                                    ]  # helpers.conversion(arcmatch['comicfilename'])
+                                                    tmpfilename = arcmatch["comicfilename"]
                                                     if arcmatch["sub"]:
                                                         clocation = os.path.join(
                                                             arcmatch["comiclocation"], arcmatch["sub"], tmpfilename
@@ -2724,11 +2596,9 @@ class PostProcessor(object):
                         drop_match = []
                         for x in tmp_arclist:
                             xmld = filechecker.FileChecker()
-                            xmld1 = xmld.dynamic_replace(x["ComicName"])  # helpers.conversion(cs['ComicName']))
+                            xmld1 = xmld.dynamic_replace(x["ComicName"])
                             xseries = xmld1["mod_seriesname"].lower()
-                            xmld2 = xmld.dynamic_replace(
-                                arcmatch["series_name"]
-                            )  # helpers.conversion(watchmatch['series_name']))
+                            xmld2 = xmld.dynamic_replace(arcmatch["series_name"])
                             xfile = xmld2["mod_seriesname"].lower()
                             if re.sub(r"\|", "", xseries) == re.sub(r"\|", "", xfile):
                                 logger.fdebug(
@@ -2748,10 +2618,8 @@ class PostProcessor(object):
                             else:
                                 tmp_list.append(xy)
                         manual_arclist = tmp_list
-                        # logger.fdebug('new_manualarclist: %s' % (manual_arclist,))
 
                 if self.matched is False:
-                    # one-off manual pp'd of torrents
                     if all(["0-Day Week" in self.nzb_name, comicarr.CONFIG.PACK_0DAY_WATCHLIST_ONLY is True]):
                         pass
                     else:
@@ -2775,12 +2643,11 @@ class PostProcessor(object):
                             .where(and_(nzblog.c.OneOff == "1", snatched.c.ComicName.isnot(None)))
                         )
                         if not oneofflist:
-                            pass  # continue
+                            pass
                         else:
                             logger.fdebug("%s[ONEOFF-SELECTION][self.nzb_name: %s]" % (module, self.nzb_name))
                             oneoffvals = []
                             for ofl in oneofflist:
-                                # logger.info('[ONEOFF-SELECTION] ofl: %s' % ofl)
                                 oneoffvals.append(
                                     {
                                         "ComicName": ofl["ComicName"],
@@ -2802,20 +2669,13 @@ class PostProcessor(object):
                                     }
                                 )
 
-                            # this seems redundant to scan in all over again...
-                            # for fl in filelist['comiclist']:
                             for ofv in oneoffvals:
-                                # logger.info('[ONEOFF-SELECTION] ofv: %s' % ofv)
                                 wm = filechecker.FileChecker(
                                     watchcomic=ofv["ComicName"],
                                     Publisher=ofv["ComicPublisher"],
                                     AlternateSearch=None,
                                     manual=ofv["WatchValues"],
                                 )
-                                # if fl['sub'] is not None:
-                                #    pathtofile = os.path.join(fl['comiclocation'], fl['sub'], fl['comicfilename'])
-                                # else:
-                                #    pathtofile = os.path.join(fl['comiclocation'], fl['comicfilename'])
                                 watchmatch = wm.matchIT(fl)
                                 if watchmatch["process_status"] == "fail":
                                     nm += 1
@@ -2862,7 +2722,6 @@ class PostProcessor(object):
                                                 fcdigit = helpers.issuedigits(
                                                     re.sub(ann_line, "", str(temploc.lower())).strip()
                                                 )
-                                                # fcdigit = helpers.issuedigits(re.sub('2021 annual', '', str(temploc.lower())).strip())
                                             fcdigit = helpers.issuedigits(
                                                 re.sub("annual", "", str(temploc.lower())).strip()
                                             )
@@ -2882,7 +2741,7 @@ class PostProcessor(object):
                                     if watchmatch["sub"]:
                                         clocation = os.path.join(
                                             watchmatch["comiclocation"], watchmatch["sub"], watchmatch["comicfilename"]
-                                        )  # helpers.conversion(watchmatch['comicfilename']))
+                                        )
                                         if not os.path.exists(clocation):
                                             scrubs = re.sub(watchmatch["comiclocation"], "", watchmatch["sub"]).strip()
                                             if scrubs[:2] == "//" or scrubs[:2] == "\\":
@@ -2897,7 +2756,7 @@ class PostProcessor(object):
                                         else:
                                             clocation = os.path.join(
                                                 watchmatch["comiclocation"], watchmatch["comicfilename"]
-                                            )  # helpers.conversion(watchmatch['comicfilename']))
+                                            )
                                     oneoff_issuelist.append(
                                         {
                                             "ComicLocation": clocation,
@@ -2920,7 +2779,7 @@ class PostProcessor(object):
                                 logger.fdebug(
                                     "%s[SUCCESSFUL MATCH: %s-%s] Match Verified for %s"
                                     % (module, ofv["ComicName"], ofv["ComicID"], fl["comicfilename"])
-                                )  # helpers.conversion(fl['comicfilename'])))
+                                )
                                 self.matched = True
                                 break
 
@@ -2962,7 +2821,6 @@ class PostProcessor(object):
                         )
                         logger.info("grdst: %s" % grdst)
 
-                        # tag the meta.
                         metaresponse = None
 
                         helpers.crc(ofilename)
@@ -2990,7 +2848,6 @@ class PostProcessor(object):
                             if any([comicarr.CONFIG.ENABLE_META, comicarr.CONFIG.CBR2CBZ_ONLY]):
                                 logger.info("[STORY-ARC POST-PROCESSING] Metatagging enabled - proceeding...")
 
-                                # Read pre-cmtag ComicInfo.xml for AI reconciliation
                                 pre_cmtag_info = None
                                 try:
                                     from comicarr.app.ai.enrichment import _read_comicinfo
@@ -3028,7 +2885,6 @@ class PostProcessor(object):
                                         % module
                                     )
                                     continue
-                                    # launch failed download handling here.
                                 elif metaresponse.startswith("file not found"):
                                     filename_in_error = metaresponse.split("||")[1]
                                     self._log(
@@ -3049,7 +2905,6 @@ class PostProcessor(object):
                                     )
                                     self._log("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
 
-                                    # AI metadata enrichment
                                     try:
                                         from comicarr.app.ai.enrichment import enrich_metadata
 
@@ -3064,7 +2919,6 @@ class PostProcessor(object):
                                     except Exception as e:
                                         logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
-                                    # AI metadata conflict reconciliation
                                     try:
                                         from comicarr.app.ai.reconciliation import reconcile_metadata
 
@@ -3104,7 +2958,6 @@ class PostProcessor(object):
                             self.valreturn.append({"self.log": self.log, "mode": "stop"})
                             return self.queue.put(self.valreturn)
 
-                        # send to renamer here if valid.
                         if comicarr.CONFIG.RENAME_FILES:
                             renamed_file = helpers.rename_param(
                                 ml["ComicID"],
@@ -3118,10 +2971,8 @@ class PostProcessor(object):
                                 dfilename = renamed_file["nfilename"]
                                 logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, ofilename))
 
-                        # if from a StoryArc, check to see if we're appending the ReadingOrder to the filename
                         if comicarr.CONFIG.READ2FILENAME:
                             if multiple_arcs > 1:
-                                # make sure we don't append the previous reading order to the next arc match if belonging to multiple arcs
                                 new_path_f = dfilename[dfilename.find("-") + 1 :].strip()
                             else:
                                 new_path_f = os.path.split(dfilename)[1]
@@ -3143,15 +2994,13 @@ class PostProcessor(object):
                             "%s[ONE-OFF MODE][%s] %s into directory : %s"
                             % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), grab_src, grab_dst)
                         )
-                        # this is also for issues that are part of a story arc, and don't belong to a watchlist series (ie. one-off's)
 
-                        # pre-move marker
                         self._journal_pp("post_processing", issuearcid=ml["IssueArcID"])
 
                         try:
                             checkspace = helpers.get_free_space(grdst)
                             if checkspace is False:
-                                if all([metaresponse is not None, metaresponse != "fail"]):  # meta was done
+                                if all([metaresponse is not None, metaresponse != "fail"]):
                                     self.tidyup(src_location, True, cacheonly=True)
                                 raise OSError
                             mult_count = False
@@ -3175,10 +3024,8 @@ class PostProcessor(object):
                             )
                             return
 
-                        # post-move, pre-tidyup marker
                         self._journal_pp("moved", issuearcid=ml["IssueArcID"])
 
-                        # tidyup old path
                         if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                             if mult_count is False:
                                 self.tidyup(src_location, True, filename=os.path.basename(orig_filename))
@@ -3187,15 +3034,6 @@ class PostProcessor(object):
                                     "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
                                     % os.path.basename(orig_filename)
                                 )
-                        # delete entry from nzblog table
-                        # if it was downloaded via comicarr from the storyarc section, it will have an 'S' in the nzblog
-                        # if it was downloaded outside of comicarr and/or not from the storyarc section, it will be a normal issueid in the nzblog
-                        # IssArcID = 'S' + str(ml['IssueArcID'])
-                        #
-                        # journal post_processed co-commits with the nzblog
-                        # delete in one begin() so the row is never terminal
-                        # while nzblog is still present (conn-mode _journal_pp
-                        # re-raises ⇒ a failure rolls both back).
                         with db.get_engine().begin() as conn:
                             conn.execute(
                                 delete(nzblog).where(
@@ -3264,16 +3102,12 @@ class PostProcessor(object):
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
 
-                    # terminal marker (no-op if co-committed above; sole
-                    # marker on the no-move branch)
                     self._journal_pp("post_processed", issuearcid=ml["IssueArcID"])
 
         if (
             all([self.nzb_name != "Manual Run", self.apicall is False])
             or (self.oneoffinlist is True or all([self.issuearcid is not None, self.issueid is None]))
-        ) and not self.nzb_name.startswith(
-            "0-Day"
-        ):  # and all([self.issueid is None, self.comicid is None, self.apicall is False]):
+        ) and not self.nzb_name.startswith("0-Day"):
             ppinfo = []
             if self.oneoffinlist is False:
                 self.oneoff = False
@@ -3288,16 +3122,12 @@ class PostProcessor(object):
 
                 else:
                     nzbname = self.nzb_name
-                    # remove extensions from nzb_name if they somehow got through (Experimental most likely)
                     if nzbname.lower().endswith(self.extensions):
                         fd, ext = os.path.splitext(nzbname)
                         self._log("Removed extension from nzb: " + ext)
                         nzbname = re.sub(str(ext), "", str(nzbname))
 
-                    # replace spaces
-                    # let's change all space to decimals for simplicity
                     logger.fdebug("[NZBNAME]: " + nzbname)
-                    # gotta replace & or escape it
                     nzbname = re.sub(r"\&", "and", nzbname)
                     nzbname = re.sub("[\\,\\:\\?'\\+]", "", nzbname)
                     nzbname = re.sub(r"[\(\)]", " ", nzbname)
@@ -3305,7 +3135,7 @@ class PostProcessor(object):
                     nzbname = re.sub(".cbr", "", nzbname).strip()
                     nzbname = re.sub(".cbz", "", nzbname).strip()
                     nzbname = re.sub(r"[\.\_]", " ", nzbname).strip()
-                    nzbname = re.sub(r"\s+", " ", nzbname)  # make sure we remove the extra spaces.
+                    nzbname = re.sub(r"\s+", " ", nzbname)
                     logger.fdebug(
                         "[NZBNAME] nzbname (remove extensions, double spaces, convert underscores to spaces): "
                         + nzbname
@@ -3322,7 +3152,6 @@ class PostProcessor(object):
                     if nzbiss is None:
                         self._log("Failure - could not initially locate nzbfile in my database to rename.")
                         logger.fdebug("%s Failure - could not locate nzbfile initially" % module)
-                        # if failed on spaces, change it all to decimals and try again.
                         nzbname = re.sub(r"[\(\)]", "", str(nzbname))
                         self._log("trying again with this nzbname: %s" % nzbname)
                         logger.fdebug("%s Trying to locate nzbfile again with nzbname of : %s" % (module, nzbname))
@@ -3334,7 +3163,6 @@ class PostProcessor(object):
                                 "%s Unable to locate downloaded file within items I have snatched. Attempting to parse the filename directly and process."
                                 % module
                             )
-                            # set it up to run manual post-processing on self.nzb_folder
                             self._log(
                                 "Unable to locate downloaded file within items I have snatched. Attempting to parse the filename directly and process."
                             )
@@ -3343,7 +3171,6 @@ class PostProcessor(object):
                         else:
                             self._log("I corrected and found the nzb as : %s" % nzbname)
                             logger.fdebug("%s Auto-corrected and found the nzb as : %s" % (module, nzbname))
-                            # issueid = nzbiss['IssueID']
 
                 issueid = nzbiss["IssueID"]
                 logger.fdebug("%s Issueid: %s" % (module, issueid))
@@ -3387,7 +3214,6 @@ class PostProcessor(object):
                             "Unable to locate issue as previously snatched arc issue - it might be something else..."
                         )
                     else:
-                        # reverse lookup the issueid here to see if it possible exists on watchlist...
                         tmplookup = db.select_one(select(comics).where(comics.c.ComicID == oneinfo["ComicID"]))
                         if tmplookup is not None:
                             logger.fdebug(
@@ -3406,7 +3232,7 @@ class PostProcessor(object):
                                 "issuenumber": oneinfo["IssueNumber"],
                                 "publisher": oneinfo["IssuePublisher"],
                                 "comiclocation": None,
-                                "issueid": issueid,  # need to keep it so the 'S' is present to denote arc.
+                                "issueid": issueid,
                                 "sarc": sarc,
                                 "oneoff": self.oneoff,
                             }
@@ -3450,8 +3276,6 @@ class PostProcessor(object):
                     )
 
                     self.oneoff = True
-                    # logger.info(module + ' Discovered %s # %s by %s [comicid:%s][issueid:%s]' % (comicname, issuenumber, publisher, comicid, issueid))
-                # use issueid to get publisher, series, year, issue number
             else:
                 for x in oneoff_issuelist:
                     if x["One-Off"] is True:
@@ -3481,7 +3305,6 @@ class PostProcessor(object):
         if any(
             [self.nzb_name == "Manual Run", self.issueid is not None, self.comicid is not None, self.apicall is True]
         ):
-            # loop through the hits here.
             annualtype = None
             issuenumOG = None
             if len(manual_list) == 0 and len(manual_arclist) == 0:
@@ -3491,13 +3314,6 @@ class PostProcessor(object):
                     comicarr.APILOCK.release()
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
-            # elif len(manual_arclist) > 0: # and len(manual_list) == 0:
-            #    logger.info('%s Manual post-processing completed for %s story-arc issues.' % (module, len(manual_arclist)))
-            # if comicarr.APILOCK.locked():
-            #    comicarr.APILOCK.release()
-            # self.valreturn.append({"self.log": self.log,
-            #                       "mode": 'stop'})
-            # return self.queue.put(self.valreturn)
             elif len(manual_arclist) > 0:
                 if len(manual_arclist) > 1:
                     logger.info(
@@ -3527,7 +3343,6 @@ class PostProcessor(object):
                 issuenumOG = ml["IssueNumber"]
                 dspcname = ml["ComicName"]
                 dspcyear = ml["SeriesYear"]
-                # check to see if file is still being written to.
                 waiting = True
                 while waiting is True:
                     try:
@@ -3537,18 +3352,14 @@ class PostProcessor(object):
                         else:
                             break
                     except (OSError, IOError) as e:
-                        # file is no longer present in location / can't be accessed.
                         logger.fdebug("[PP] File no longer accessible: %s" % e)
                         break
 
                 dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
                 if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-                    # check if duplicate dump folder is enabled and if so move duplicate file in there for manual intervention.
-                    #'dupe_file' - do not write new file as existing file is better quality
-                    #'dupe_src' - write new file, as existing file is a lesser quality (dupe)
                     if comicarr.CONFIG.DDUMP and not all(
                         [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
-                    ):  # DUPLICATE_DUMP
+                    ):
                         dupchkit = self.duplicate_process(dupthis)
                         if not dupchkit:
                             logger.warn("Unable to move duplicate file - skipping post-processing of this file.")
@@ -3635,8 +3446,6 @@ class PostProcessor(object):
                     )
                     global_line = "Successfully post-processed %s issues [FAILED: %s]" % (i, self.failed_files)
 
-            # Batch rollup deleted (#430 §3.2 / #484): per-item import.* rows
-            # already emit from journal post_processed / related stages.
             logger.fdebug("%s %s" % (module, global_line))
 
             if comicarr.APILOCK.locked():
@@ -3649,7 +3458,7 @@ class PostProcessor(object):
     def nzb_or_oneoff_pp(self, tinfo=None, manual=None):
         module = self.module
         manual_list = None
-        if tinfo is not None:  # manual is None:
+        if tinfo is not None:
             sandwich = None
             issueid = tinfo["issueid"]
             comicid = tinfo["comicid"]
@@ -3678,8 +3487,6 @@ class PostProcessor(object):
                 )
                 if issuenzb is None:
                     logger.info("%s issuenzb not found." % module)
-                    # if it's non-numeric, it contains a 'G' at the beginning indicating it's a multi-volume
-                    # using GCD data. Set sandwich to 1 so it will bypass and continue post-processing.
                     if "S" in issueid:
                         sandwich = issueid
                         if oneoff is False:
@@ -3716,7 +3523,7 @@ class PostProcessor(object):
                             "%s [ONE-OFF POST-PROCESSING] One-off download detected. Post-processing as a non-watchlist item."
                             % module
                         )
-                        sandwich = None  # arbitrarily set it to None just to force one-off downloading below.
+                        sandwich = None
                     else:
                         logger.error(
                             "%s Unable to locate downloaded file as being initiated via Comicarr. Attempting to parse the filename directly and process."
@@ -3737,7 +3544,6 @@ class PostProcessor(object):
                     sandwich = int(issuenzb["IssueID"])
             if all([sandwich is not None, helpers.is_number(sandwich), sarc is None]):
                 if sandwich < 900000:
-                    # if sandwich is less than 900000 it's a normal watchlist download. Bypass.
                     pass
             else:
                 if (
@@ -3745,8 +3551,6 @@ class PostProcessor(object):
                     or all([sandwich is not None, "S" in str(sandwich), oneoff is True])
                     or int(sandwich) >= 900000
                 ):
-                    # this has no issueID, therefore it's a one-off or a manual post-proc.
-                    # At this point, let's just drop it into the Comic Location folder and forget about it..
                     if sandwich is not None and "S" in sandwich:
                         self._log("One-off STORYARC mode enabled for Post-Processing for %s" % sarc)
                         logger.info("%s One-off STORYARC mode enabled for Post-Processing for %s" % (module, sarc))
@@ -3780,7 +3584,6 @@ class PostProcessor(object):
                             ofilename = orig_filename = os.path.basename(odir)
                             _, ext = os.path.splitext(ofilename)
                         else:
-                            # os.walk the location to get the filename...(coming from sab kinda thing) where it just passes the path.
                             for root, _dirnames, filenames in safe_walk(odir):
                                 for filename in filenames:
                                     if filename.lower().endswith(self.extensions):
@@ -3859,16 +3662,12 @@ class PostProcessor(object):
                         readingorder = rdorder
                     logger.fdebug("readingorder: %s" % (readingorder))
 
-                    # tag the meta
                     metaresponse = None
                     helpers.crc(os.path.join(location, ofilename))
 
-                    # if a one-off download from the pull-list, will not have an issueid associated with it, and will fail to due conversion/tagging.
-                    # if altpull/2 method is being used, issueid may already be present so conversion/tagging is possible with some additional fixes.
                     if all([comicarr.CONFIG.ENABLE_META, issueid is not None]) or comicarr.CONFIG.CBR2CBZ_ONLY:
                         self._log("Metatagging enabled - proceeding...")
 
-                        # Read pre-cmtag ComicInfo.xml for AI reconciliation
                         pre_cmtag_info = None
                         try:
                             from comicarr.app.ai.enrichment import _read_comicinfo
@@ -3912,7 +3711,6 @@ class PostProcessor(object):
                                 "%s This is a corrupt archive - whether CRC errors or it is incomplete. Marking as BAD, and retrying it."
                                 % module
                             )
-                            # launch failed download handling here.
                         elif metaresponse.startswith("file not found"):
                             filename_in_error = metaresponse.split("||")[1]
                             self._log(
@@ -3932,7 +3730,6 @@ class PostProcessor(object):
                             )
                             self._log("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
 
-                            # AI metadata enrichment
                             try:
                                 from comicarr.app.ai.enrichment import enrich_metadata
 
@@ -3945,7 +3742,6 @@ class PostProcessor(object):
                             except Exception as e:
                                 logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
-                            # AI metadata conflict reconciliation
                             try:
                                 from comicarr.app.ai.reconciliation import reconcile_metadata
 
@@ -3979,7 +3775,6 @@ class PostProcessor(object):
                         self.valreturn.append({"self.log": self.log, "mode": "stop"})
                         return self.queue.put(self.valreturn)
 
-                    # send to renamer here if valid.
                     if comicarr.CONFIG.RENAME_FILES:
                         renamed_file = helpers.rename_param(
                             comicid, comicname, issuenumber, dfilename, issueid=issueid, arc=sarc
@@ -3989,7 +3784,6 @@ class PostProcessor(object):
                             logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, dfilename))
 
                     if sandwich is not None and "S" in sandwich:
-                        # if from a StoryArc, check to see if we're appending the ReadingOrder to the filename
                         if comicarr.CONFIG.READ2FILENAME:
                             logger.fdebug("%s readingorder#: %s" % (module, arcdata["ReadingOrder"]))
                             if int(arcdata["ReadingOrder"]) < 10:
@@ -4006,7 +3800,6 @@ class PostProcessor(object):
                         grab_dst = os.path.join(grdst, dfilename)
 
                     if not os.path.exists(grab_dst) or grab_src == grab_dst:
-                        # if it hits this, ofilename is the full path so we need to extract just the filename to path it back to a possible grab_bag dir
                         grab_dst = os.path.join(grdst, os.path.split(dfilename)[1])
 
                     self._log("Destination Path : %s" % grab_dst)
@@ -4016,13 +3809,12 @@ class PostProcessor(object):
                         "%s[%s] %s into directory : %s" % (module, comicarr.CONFIG.FILE_OPTS, ofilename, grab_dst)
                     )
 
-                    # pre-move marker
                     self._journal_pp("post_processing", issueid=issueid, issuearcid=issuearcid)
 
                     try:
                         checkspace = helpers.get_free_space(grdst)
                         if checkspace is False:
-                            if all([metaresponse != "fail", metaresponse is not None]):  # meta was done
+                            if all([metaresponse != "fail", metaresponse is not None]):
                                 self.tidyup(src_location, True, cacheonly=True)
                             raise OSError
                         place(grab_src, grab_dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
@@ -4032,17 +3824,11 @@ class PostProcessor(object):
                         self.valreturn.append({"self.log": self.log, "mode": "stop"})
                         return self.queue.put(self.valreturn)
 
-                    # post-move, pre-tidyup marker
                     self._journal_pp("moved", issueid=issueid, issuearcid=issuearcid)
 
-                    # tidyup old path
                     if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                         self.tidyup(src_location, True, filename=os.path.basename(orig_filename))
 
-                    # journal post_processed co-commits with the nzblog delete
-                    # in one begin() so the row is never terminal while nzblog
-                    # is still present (conn-mode _journal_pp re-raises ⇒ a
-                    # failure rolls both back).
                     with db.get_engine().begin() as conn:
                         conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
                         self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid, conn=conn)
@@ -4110,8 +3896,6 @@ class PostProcessor(object):
                     except Exception as e:
                         logger.error("[PP] Failed to send notification: %s" % e)
 
-                    # terminal marker (no-op if co-committed above; sole
-                    # marker on the no-move branch)
                     self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid)
 
                     self.valreturn.append({"self.log": self.log, "mode": "stop"})
@@ -4153,7 +3937,6 @@ class PostProcessor(object):
             manual_list = manual
 
         if self.nzb_name == "Manual Run":
-            # loop through the hits here.
             if len(manual_list) == 0 and len(manual_arclist) == 0:
                 logger.info("%s No matches for Manual Run ... exiting." % module)
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
@@ -4175,7 +3958,6 @@ class PostProcessor(object):
                 comicid = ml["ComicID"]
                 issueid = ml["IssueID"]
                 issuenumOG = ml["IssueNumber"]
-                # check to see if file is still being written to.
                 while True:
                     try:
                         ctime = max(os.path.getctime(ml["ComicLocation"]), os.path.getmtime(ml["ComicLocation"]))
@@ -4184,20 +3966,14 @@ class PostProcessor(object):
                         else:
                             break
                     except (OSError, IOError) as e:
-                        # file is no longer present in location / can't be accessed.
                         logger.fdebug("[PP] File no longer accessible: %s" % e)
                         break
 
                 dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
                 if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-                    # check if duplicate dump folder is enabled and if so move duplicate file in there for manual intervention.
-                    #'dupe_file' - do not write new file as existing file is better quality
-                    # check if duplicate dump folder is enabled and if so move duplicate file in there for manual intervention.
-                    #'dupe_file' - do not write new file as existing file is better quality
-                    #'dupe_src' - write new file, as existing file is a lesser quality (dupe)
                     if comicarr.CONFIG.DDUMP and not all(
                         [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
-                    ):  # DUPLICATE_DUMP
+                    ):
                         dupchkit = self.duplicate_process(dupthis)
                         if not dupchkit:
                             logger.warn("Unable to move duplicate file - skipping post-processing of this file.")
@@ -4220,12 +3996,8 @@ class PostProcessor(object):
         else:
             comicid = issuenzb["ComicID"]
             issuenumOG = issuenzb["Issue_Number"]
-            # the self.nzb_folder should contain only the existing filename
             dupthis = helpers.duplicate_filecheck(self.nzb_folder, ComicID=comicid, IssueID=issueid)
             if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-                # check if duplicate dump folder is enabled and if so move duplicate file in there for manual intervention.
-                #'dupe_file' - do not write new file as existing file is better quality
-                #'dupe_src' - write new file, as existing file is a lesser quality (dupe)
                 if comicarr.CONFIG.DUPLICATE_DUMP:
                     if comicarr.CONFIG.DDUMP and not all(
                         [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
@@ -4257,7 +4029,6 @@ class PostProcessor(object):
         """
         module = self.module
 
-        # --- Look up the comic (manga series) record ---
         comicnzb = db.select_one(select(comics).where(comics.c.ComicID == self.comicid))
         if not comicnzb:
             self._log("Cannot find manga series in database: %s" % self.comicid)
@@ -4268,7 +4039,6 @@ class PostProcessor(object):
         series_name = comicnzb["ComicName"]
         logger.info("%s Processing manga download for: %s" % (module, series_name))
 
-        # --- Find files in the download directory ---
         nzb_dir = self.nzb_folder
         if not nzb_dir or not os.path.isdir(nzb_dir):
             if self.nzb_name and os.path.isdir(self.nzb_name):
@@ -4285,8 +4055,6 @@ class PostProcessor(object):
                 if any(f.lower().endswith(ext) for ext in self.extensions):
                     manga_files.append(os.path.join(root, f))
 
-        # Deterministic, name-ordered processing so chapters import in order
-        # (ch1 before ch2) regardless of filesystem walk order across platforms.
         manga_files.sort()
 
         if not manga_files:
@@ -4295,7 +4063,6 @@ class PostProcessor(object):
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
 
-        # --- Determine destination directory ---
         manga_dest = get_manga_destination()
         if not manga_dest:
             self._log("No manga destination directory configured")
@@ -4305,14 +4072,12 @@ class PostProcessor(object):
 
         series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
 
-        # Validate series_folder is within manga destination
         if not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
             self._log("Series folder is outside manga destination — refusing to write")
             logger.error("%s Series folder %s is outside manga destination %s" % (module, series_folder, manga_dest))
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
 
-        # Ensure the series folder exists
         if not os.path.isdir(series_folder):
             try:
                 os.makedirs(series_folder, exist_ok=True)
@@ -4323,25 +4088,10 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
 
-        # pre-move marker (release-level: manga matches per-chapter, so this
-        # is keyed on the PostProcessor identity; per-chapter post_processed
-        # below keys on the matched IssueID)
         self._journal_pp("post_processing")
 
-        # --- Process each manga file ---
         processed = 0
         last_matched_issueid = None
-        # P2-6: every chapter in a manga pack shares ONE release_key (the
-        # release-level propagated key from postprocess_main's atomic claim).
-        # Writing the terminal `post_processed` marker per-chapter terminalizes
-        # that shared row on chapter 1, so a mid-loop restart leaves chapters
-        # 2..N abandoned (replay skip-terminal). Fix: collect each matched
-        # chapter's IssueID and defer the nzblog-delete + the SINGLE terminal
-        # `post_processed` write to AFTER the full loop completes, all in one
-        # begin() block so the U9 atomic nzblog-delete+post_processed contract
-        # is preserved (nzblog is never deleted while the journal is
-        # non-terminal) AND the row only goes terminal once every discovered
-        # chapter has been moved.
         matched_issueids = []
         from comicarr.app.manga.parse import parse_in_series_context
 
@@ -4358,25 +4108,12 @@ class PostProcessor(object):
             )
             self._log("Found manga file: %s" % filename)
 
-            # Validate source path is within download directory
             if not os.path.realpath(filepath).startswith(os.path.realpath(nzb_dir)):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
-            # Place the file in the series folder. The placement stage reads
-            # FILE_OPTS at call time and honours all four modes; shutil.move
-            # would destroy the source for the two link modes.
             dst = os.path.join(series_folder, filename)
 
-            # An existing destination is not a failure. It happens on a repack of
-            # a chapter already in the library, on a manual re-run (under the
-            # non-move modes the download folder is never consumed, so the source
-            # stays there), and on the recovery finalizer's full re-drive after a
-            # mid-loop crash. DISPLACE recognises a chapter an earlier pass
-            # already placed, and otherwise moves the existing file aside rather
-            # than deleting it — copy and move truncate the destination as they
-            # write, so deleting up front would leave the library with nothing
-            # while the DB still reports the chapter as Downloaded.
             try:
                 placement = place(filepath, dst, Purpose.SERIES, on_existing=OnExisting.DISPLACE)
             except Exception as e:
@@ -4389,25 +4126,10 @@ class PostProcessor(object):
             else:
                 logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
 
-            # P1: do NOT emit per-file `moved` here. Every chapter in a manga
-            # pack shares ONE release_key; advancing it to `moved` after
-            # chapter 1 makes the replay finalizer treat the release as
-            # "physical move committed, finish DB facts only, NEVER re-import"
-            # — so a crash after chapter 1 but before the post-loop block
-            # strands chapters 2..N. Keep the shared row at `post_processing`
-            # (idempotent, monotonic no-op after the first write) so a mid-loop
-            # crash makes the finalizer re-drive the manga in FULL. Re-driving is
-            # safe because placement above is idempotent: under `move` chapter 1's
-            # source is gone so it never re-matches, and under copy/hardlink/
-            # softlink the source survives but the destination-exists branch
-            # either recognises the already-placed chapter or replaces it. The
-            # single `moved` marker is written ONCE after the loop completes.
             self._journal_pp("post_processing")
 
-            # --- Match to a chapter/issue in the database ---
             matching = None
 
-            # Try ChapterNumber column first
             if parsed and parsed.get("chapter_number") is not None:
                 ch_num = parsed["chapter_number"]
                 ch_str = "%g" % ch_num
@@ -4419,7 +4141,6 @@ class PostProcessor(object):
                         )
                     )
                 )
-                # Fall back to Issue_Number
                 if matching is None:
                     matching = db.select_one(
                         select(issues).where(
@@ -4429,7 +4150,6 @@ class PostProcessor(object):
                             )
                         )
                     )
-                    # Also try the float string form (e.g. "165.0")
                     if matching is None and ch_str != str(ch_num):
                         matching = db.select_one(
                             select(issues).where(
@@ -4440,7 +4160,6 @@ class PostProcessor(object):
                             )
                         )
 
-            # Try VolumeNumber column
             if matching is None and parsed and parsed.get("volume_number") is not None:
                 vol_str = str(parsed["volume_number"])
                 matching = db.select_one(
@@ -4462,13 +4181,8 @@ class PostProcessor(object):
                 logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
                 self._log("Matched to chapter IssueID: %s" % issueid)
 
-                # P2-6: do NOT write the shared release_key's terminal
-                # `post_processed` here (it would strand chapters 2..N on a
-                # restart). Defer the nzblog-delete to the post-loop atomic
-                # block; record this chapter as matched.
                 matched_issueids.append(issueid)
 
-                # Update snatched table
                 db.upsert(
                     "snatched",
                     {"Status": "Post-Processed"},
@@ -4480,7 +4194,6 @@ class PostProcessor(object):
             else:
                 logger.warn("%s Unable to match %s to any chapter for %s" % (module, filename, series_name))
 
-        # Update Have count for the series
         if processed > 0:
             have_count = db.select_one(
                 select(func.count())
@@ -4508,27 +4221,7 @@ class PostProcessor(object):
             except Exception:
                 pass
 
-        # P2-6 terminal marker — written ONCE, AFTER the full chapter loop
-        # completes (all discovered chapters moved), so a mid-loop restart
-        # leaves the shared release_key row at `post_processing`/`moved` (NOT
-        # terminal) and the replay finalizer re-drives the remaining chapters
-        # (idempotent move) instead of skip-terminal-stranding them. The
-        # nzblog-delete for every matched chapter co-commits with the single
-        # `post_processed` write in ONE begin() block (U9 atomic contract:
-        # nzblog is never deleted while the journal is non-terminal;
-        # conn-mode _journal_pp re-raises so a failure rolls back all the
-        # deletes AND the terminal marker together). MUST stay gated on
-        # processed > 0: if nothing matched/moved the row deliberately stays
-        # at post_processing so the replay finalizer re-drives it.
         if processed > 0:
-            # P1: the single authoritative `moved` marker — written ONCE,
-            # after the FULL chapter loop completes (every discovered chapter
-            # physically moved), immediately before the terminal
-            # nzblog-delete + `post_processed` block. This keeps the shared
-            # release_key's lifecycle `post_processing → moved → post_processed`
-            # while ensuring a mid-loop crash leaves the row at
-            # `post_processing` (re-drive in full), never a premature `moved`
-            # that would strand chapters 2..N.
             self._journal_pp("moved", issueid=last_matched_issueid)
             with db.get_engine().begin() as conn:
                 for mid in matched_issueids:
@@ -4594,8 +4287,6 @@ class PostProcessor(object):
             )
         logger.fdebug("%s issueid: %s" % (module, issueid))
         logger.fdebug("%s issuenumOG: %s" % (module, issuenumOG))
-        # issueno = str(issuenum).split('.')[0]
-        # new CV API - removed all decimals...here we go AGAIN!
         issuenum = issuenzb["Issue_Number"]
         issue_except = "None"
 
@@ -4632,7 +4323,6 @@ class PostProcessor(object):
         elif "\xbe" in issuenum:
             issuenum = "0.75"
         elif "\u221e" in issuenum:
-            # issnum = utf-8 will encode the infinity symbol without any help
             issuenum = "infinity"
         else:
             exceptionmatch = [x for x in comicarr.ISSUE_EXCEPTIONS if x.lower() in issuenum.lower()]
@@ -4670,7 +4360,6 @@ class PostProcessor(object):
             iss = issuenum
             issueno = iss
 
-        # issue zero-suppression here
         zeroadd = zero_suppression_prefix(comicarr.CONFIG.ZERO_LEVEL, comicarr.CONFIG.ZERO_LEVEL_N)
 
         logger.fdebug("%s Zero Suppression set to : %s" % (module, comicarr.CONFIG.ZERO_LEVEL_N))
@@ -4683,7 +4372,6 @@ class PostProcessor(object):
         else:
             try:
                 x = float(issueno)
-                # validity check
                 if x < 0:
                     logger.info("%s I've encountered a negative issue #: %s. Trying to accomodate" % (module, issueno))
                     prettycomiss = "-%s%s" % (zeroadd, issueno[1:])
@@ -4699,9 +4387,6 @@ class PostProcessor(object):
                 return
 
         if all([prettycomiss is None, len(str(issueno)) > 0]):
-            # if int(issueno) < 0:
-            #    self._log("issue detected is a negative")
-            #    prettycomiss = '-' + str(zeroadd) + str(abs(issueno))
             if int(issueno) < 10:
                 logger.fdebug("issue detected less than 10")
                 if "." in iss:
@@ -4720,8 +4405,6 @@ class PostProcessor(object):
                 )
             elif int(issueno) >= 10 and int(issueno) < 100:
                 logger.fdebug("issue detected greater than 10, but less than 100")
-                # two-digit issues take at most one leading zero; keep the
-                # helper's no-padding fallback for unrecognized levels
                 if zeroadd == "00":
                     zeroadd = "0"
                 if "." in iss:
@@ -4769,8 +4452,7 @@ class PostProcessor(object):
         self._log("Publisher: %s" % publisher)
         logger.fdebug("%s Publisher: %s" % (module, publisher))
         agerating = comicnzb["AgeRating"]
-        # we need to un-unicode this to make sure we can write the filenames properly for spec.chars
-        series = comicnzb["ComicName"]  # .encode('ascii', 'ignore').strip()
+        series = comicnzb["ComicName"]
         if annchk == "yes":
             series = issuenzb["ReleaseComicName"]
         self._log("Series: %s" % series)
@@ -4778,7 +4460,7 @@ class PostProcessor(object):
         if comicnzb["AlternateFileName"] is None or comicnzb["AlternateFileName"] == "None":
             seriesfilename = series
         else:
-            seriesfilename = comicnzb["AlternateFileName"]  # .encode('ascii', 'ignore').strip()
+            seriesfilename = comicnzb["AlternateFileName"]
             logger.fdebug(
                 "%s Alternate File Naming has been enabled for this series. Will rename series to : %s"
                 % (module, seriesfilename)
@@ -4794,7 +4476,6 @@ class PostProcessor(object):
         logger.fdebug("%s Comic Version: %s" % (module, comversion))
         if comversion is None:
             comversion = "None"
-        # if comversion is None, remove it so it doesn't populate with 'None'
         if comversion == "None":
             chunk_f_f = re.sub(r"\$VolumeN", "", comicarr.CONFIG.FILE_FORMAT)
             chunk_f = re.compile(r"\s+")
@@ -4815,14 +4496,11 @@ class PostProcessor(object):
         else:
             logger.fdebug("%s Chunk_file_format is: %s" % (module, chunk_file_format))
             if "$Annual" not in chunk_file_format:
-                # if it's an annual, but $Annual isn't specified in file_format, we need to
-                # force it in there, by default in the format of $Annual $Issue
                 prettycomiss = "Annual %s" % prettycomiss
                 logger.fdebug("%s prettycomiss: %s" % (module, prettycomiss))
 
         ofilename = None
 
-        # if it's a Manual Run, use the ml['ComicLocation'] for the exact filename.
         if ml is None:
             for root, _dirnames, filenames in safe_walk(self.nzb_folder):
                 for filename in filenames:
@@ -4859,12 +4537,8 @@ class PostProcessor(object):
             logger.fdebug("%s odir: %s" % (module, odir))
             logger.fdebug("%s ofilename: %s" % (module, ofilename))
 
-        # if meta-tagging is not enabled, we need to declare the check as being fail
-        # if meta-tagging is enabled, it gets changed just below to a default of pass
         pcheck = "fail"
 
-        # make sure we know any sub-folder off of self.nzb_folder that is being used so when we do
-        # tidy-up we can remove the empty directory too. odir is the original COMPLETE path at this point
         if ml is None:
             subpath = odir
             orig_filename = ofilename
@@ -4873,13 +4547,9 @@ class PostProcessor(object):
             subpath, orig_filename = os.path.split(ml["ComicLocation"])
             crcvalue = helpers.crc(ml["ComicLocation"])
 
-        # Run Pre-script
-
         if comicarr.CONFIG.ENABLE_PRE_SCRIPTS:
-            nzbn = self.nzb_name  # original nzb name
-            nzbf = self.nzb_folder  # original nzb folder
-            # name, comicyear, comicid , issueid, issueyear, issue, publisher
-            # create the dic and send it.
+            nzbn = self.nzb_name
+            nzbf = self.nzb_folder
             seriesmetadata = {
                 "name": series,
                 "comicyear": seriesyear,
@@ -4891,7 +4561,6 @@ class PostProcessor(object):
             }
             self._run_pre_scripts(nzbn, nzbf, seriesmetadata, orig_filename, subpath)
 
-        # tag the meta.
         if any([comicarr.CONFIG.ENABLE_META, comicarr.CONFIG.CBR2CBZ_ONLY]):
             self._log("Metatagging enabled - proceeding...")
             logger.fdebug("%s Metatagging enabled - proceeding..." % module)
@@ -4901,7 +4570,6 @@ class PostProcessor(object):
             else:
                 vol_label = comversion
 
-            # Read pre-cmtag ComicInfo.xml for AI reconciliation
             pre_cmtag_info = None
             try:
                 from comicarr.app.ai.enrichment import _read_comicinfo
@@ -4914,7 +4582,6 @@ class PostProcessor(object):
                 logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
 
             try:
-                # check for reading order here.
                 order_the_read = db.select_all(
                     select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
                         and_(storyarcs.c.IssueID == issueid, storyarcs.c.ComicID == comicid)
@@ -4966,8 +4633,6 @@ class PostProcessor(object):
                     % module
                 )
                 self.failed_files += 1
-                # we need to set this to the cbz file since not doing it will result in nothing getting moved.
-                # not sure how to do this atm
             elif any([pcheck == "unrar error", pcheck == "corrupt"]):
                 if ml is not None:
                     self._log(
@@ -5014,14 +4679,12 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
 
             else:
-                # need to set the filename source as the new name of the file returned from comictagger.
                 odir = os.path.split(pcheck)[0]
                 ofilename = os.path.split(pcheck)[1]
                 ext = os.path.splitext(ofilename)[1]
                 self._log("Sucessfully wrote metadata to .cbz - Continuing..")
                 logger.info("%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename))
 
-                # AI metadata enrichment
                 try:
                     from comicarr.app.ai.enrichment import enrich_metadata
 
@@ -5034,7 +4697,6 @@ class PostProcessor(object):
                 except Exception as e:
                     logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
 
-                # AI metadata conflict reconciliation
                 try:
                     from comicarr.app.ai.reconciliation import reconcile_metadata
 
@@ -5049,8 +4711,6 @@ class PostProcessor(object):
                         logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
                 except Exception as e:
                     logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
-
-        # Run Pre-script
 
         file_values = {
             "$Series": seriesfilename,
@@ -5071,7 +4731,6 @@ class PostProcessor(object):
                 odir, ofilename = os.path.split(ml["ComicLocation"])
                 orig_filename = ofilename
             elif pcheck:
-                # odir, ofilename already set. Carry it through.
                 pass
             else:
                 odir, orig_filename = os.path.split(ml["ComicLocation"])
@@ -5109,7 +4768,6 @@ class PostProcessor(object):
         if comicarr.CONFIG.FILE_FORMAT == "" or not comicarr.CONFIG.RENAME_FILES:
             self._log("Rename Files isn't enabled...keeping original filename.")
             logger.fdebug("%s Rename Files is not enabled - keeping original filename." % module)
-            # check if extension is in nzb_name - will screw up otherwise
             if ofilename.lower().endswith(self.extensions):
                 nfilename = ofilename[:-4]
             else:
@@ -5117,7 +4775,6 @@ class PostProcessor(object):
         else:
             nfilename = helpers.replace_all(chunk_file_format, file_values)
             if comicarr.CONFIG.REPLACE_SPACES:
-                # comicarr.CONFIG.REPLACE_CHAR ...determines what to replace spaces with underscore or dot
                 nfilename = nfilename.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
         nfilename = re.sub("[\\,\\:\\?\"']", "", nfilename)
         nfilename = re.sub(r"[\/\*]", "-", nfilename)
@@ -5155,13 +4812,10 @@ class PostProcessor(object):
         logger.fdebug("%s Source: %s" % (module, src))
         logger.fdebug("%s Destination: %s" % (module, dst))
 
-        # pre-move marker
         self._journal_pp("post_processing", issueid=issueid)
 
         if ml is None:
-            # downtype = for use with updater on history table to set status to 'Downloaded'
             downtype = "True"
-            # non-manual run moving/deleting...
             logger.fdebug("%s self.nzb_folder: %s" % (module, self.nzb_folder))
             logger.fdebug("%s odir: %s" % (module, odir))
             logger.fdebug("%s ofilename: %s" % (module, ofilename))
@@ -5180,7 +4834,7 @@ class PostProcessor(object):
                 self._log("[%s] %s - to - %s" % (comicarr.CONFIG.FILE_OPTS, src, dst))
                 checkspace = helpers.get_free_space(comlocation)
                 if checkspace is False:
-                    if all([pcheck is not None, pcheck != "fail"]):  # meta was done
+                    if all([pcheck is not None, pcheck != "fail"]):
                         self.tidyup(odir, True, cacheonly=True)
                     raise OSError
                 place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
@@ -5192,17 +4846,13 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
 
-            # post-move, pre-tidyup marker
             self._journal_pp("moved", issueid=issueid)
 
-            # tidyup old path
             if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                 self.tidyup(odir, True, filename=os.path.basename(orig_filename))
 
         else:
-            # downtype = for use with updater on history table to set status to 'Post-Processed'
             downtype = "PP"
-            # Manual Run, this is the portion.
             src = os.path.join(odir, ofilename)
             if comicarr.CONFIG.RENAME_FILES:
                 if ofilename != (nfilename + ext):
@@ -5222,7 +4872,7 @@ class PostProcessor(object):
             try:
                 checkspace = helpers.get_free_space(comlocation)
                 if checkspace is False:
-                    if all([pcheck != "fail", pcheck is not None]):  # meta was done
+                    if all([pcheck != "fail", pcheck is not None]):
                         self.tidyup(odir, True, cacheonly=True)
                     raise OSError
                 place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
@@ -5234,13 +4884,11 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
             logger.info("%s %s successful to : %s" % (module, comicarr.CONFIG.FILE_OPTS, dst))
 
-            # post-move, pre-tidyup marker
             self._journal_pp("moved", issueid=issueid)
 
             if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                 self.tidyup(odir, True, subpath, filename=os.path.basename(orig_filename))
 
-        # Hopefully set permissions on downloaded file
         if comicarr.CONFIG.ENFORCE_PERMS:
             if comicarr.OS_DETECT != "windows":
                 filechecker.setperms(dst.rstrip())
@@ -5258,25 +4906,19 @@ class PostProcessor(object):
                         "%s Continuing post-processing but unable to change file permissions in %s" % (module, dst)
                     )
 
-        # journal post_processed co-commits with the nzblog delete in one
-        # begin() so the row is never terminal while nzblog is still present
-        # (conn-mode _journal_pp re-raises ⇒ a failure rolls both back).
-        # Status=Post-Processed is delegated to updater.foundsearch below in a
-        # separate txn; the finalizer recognizes done via the marker.
         with db.get_engine().begin() as conn:
             conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
             self._journal_pp("post_processed", issueid=issueid, conn=conn)
 
         updater.totals(comicid, havefiles="+1", issueid=issueid, file=dst)
 
-        # update snatched table to change status to Downloaded
         if annchk == "no":
             updater.foundsearch(comicid, issueid, down=downtype, module=module, crc=crcvalue)
             dispiss = "#%s" % issuenumOG
             updatetable = "issues"
         else:
             updater.foundsearch(comicid, issueid, mode="want_ann", down=downtype, module=module, crc=crcvalue)
-            if "annual" in issuenzb["ReleaseComicName"].lower():  # series.lower():
+            if "annual" in issuenzb["ReleaseComicName"].lower():
                 series = issuenzb["ReleaseComicName"]
                 dispiss = "#%s" % issuenumOG
             elif "special" in issuenzb["ReleaseComicName"].lower():
@@ -5287,7 +4929,6 @@ class PostProcessor(object):
             updatetable = "annuals"
         logger.fdebug("[%s][annchk:%s] issue to update: %s" % (series, annchk, dispiss))
 
-        # new method for updating status after pp
         if os.path.isfile(dst):
             ctrlVal = {"IssueID": issueid}
             newVal = {"Status": "Downloaded", "Location": os.path.basename(dst)}
@@ -5309,7 +4950,6 @@ class PostProcessor(object):
                     )
                 )
                 if not arcsforever:
-                    # reverse lookup the issuearcid to get the issueid and check the table for multiple occurances across multiple arcs
                     id_arcsforever = db.select_one(
                         select(storyarcs.c.IssueID).where(
                             and_(storyarcs.c.IssueArcID == ml["IssueArcID"], storyarcs.c.ComicID == ml["ComicID"])
@@ -5367,7 +5007,6 @@ class PostProcessor(object):
                         )
 
                         try:
-                            # need to ensure that src is pointing to the series in order to do a soft/hard-link properly
                             checkspace = helpers.get_free_space(grdst)
                             if checkspace is False:
                                 raise OSError
@@ -5376,16 +5015,10 @@ class PostProcessor(object):
                             logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e))
                             return
 
-                        # post-move marker, secondary (COPY2ARCDIR) move —
-                        # markers must bracket EVERY destructive placement
                         self._journal_pp("moved", issuearcid=arcinfo["IssueArcID"])
                     else:
                         grab_dst = dst
 
-                    # secondary (story-arc) op: journal post_processed keyed on
-                    # arcinfo["IssueArcID"] co-commits with this story-arc
-                    # nzblog delete in one begin() so the row is never terminal
-                    # while nzblog is still present.
                     IssArcID = "S" + str(arcinfo["IssueArcID"])
                     with db.get_engine().begin() as conn:
                         conn.execute(
@@ -5406,17 +5039,12 @@ class PostProcessor(object):
                 logger.error("error encountered: %s" % e)
 
         if comicarr.CONFIG.WEEKFOLDER or comicarr.CONFIG.SEND2READ:
-            # comicarr.CONFIG.WEEKFOLDER = will *copy* the post-processed file to the weeklypull list folder for the given week.
-            # comicarr.CONFIG.SEND2READ = will add the post-processed file to the readinglits
             weeklypull.weekly_check(comicid, issuenum, file=(nfilename + ext), path=dst, module=module, issueid=issueid)
 
-        # retrieve/create the corresponding comic objects
         if comicarr.CONFIG.ENABLE_EXTRA_SCRIPTS:
-            folderp = dst  # folder location after move/rename
-            nzbn = self.nzb_name  # original nzb name
-            filen = nfilename + ext  # new filename
-            # name, comicyear, comicid , issueid, issueyear, issue, publisher
-            # create the dic and send it.
+            folderp = dst
+            nzbn = self.nzb_name
+            filen = nfilename + ext
             seriesmeta = []
             seriesmetadata = {}
             seriesmeta.append(
@@ -5433,20 +5061,6 @@ class PostProcessor(object):
             seriesmetadata["seriesmeta"] = seriesmeta
             self._run_extra_scripts(nzbn, self.nzb_folder, filen, folderp, seriesmetadata)
 
-        # if ml is not None:
-        #    #we only need to return self.log if it's a manual run and it's not a snatched torrent
-        #    #manual run + not snatched torrent (or normal manual-run)
-        #    logger.info(module + ' Post-Processing completed for: ' + series + ' ' + dispiss)
-        #    self._log(u"Post Processing SUCCESSFUL! ")
-        #    self.valreturn.append({"self.log": self.log,
-        #                           "mode": 'stop',
-        #                           "issueid": issueid,
-        #                           "comicid": comicid})
-        #    #if self.apicall is True:
-        #    self.sendnotify(series, issueyear, dispiss, annchk, module)
-        #    return self.queue.put(self.valreturn)
-
-        # If using Pushover with image enabled, Telegram with image enabled, or Discord, extract the first image in the file for the notification
         if any(
             [
                 all([comicarr.CONFIG.PUSHOVER_IMAGE, comicarr.CONFIG.PUSHOVER_ENABLED]),
@@ -5461,8 +5075,7 @@ class PostProcessor(object):
                 imageFile = get_cover["ComicImage"]
             except Exception:
                 logger.info("[WARNING] Could not extract image from download in order to send notification")
-                imageFile = None  # issuenzb['ImageURL']
-                # logger.info('image location used is : %s' % imageFile)
+                imageFile = None
         else:
             imageFile = None
         self.sendnotify(series, issueyear, dispiss, annchk, module, imageFile, issueid)
@@ -5470,8 +5083,6 @@ class PostProcessor(object):
         logger.info("%s Post-Processing completed for: %s %s" % (module, series, dispiss))
         self._log("Post Processing SUCCESSFUL! ")
 
-        # terminal marker (no-op if co-committed above; sole marker on the
-        # no-move branch)
         self._journal_pp("post_processed", issueid=issueid)
 
         self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
@@ -5575,8 +5186,6 @@ class FolderCheck:
                 "There is an import currently running. In order to ensure successful import - deferring this until the import is finished."
             )
             return
-        # monitor a selected folder for 'snatched' files that haven't been processed
-        # junk the queue as it's not needed for folder monitoring, but needed for post-processing to run without error.
         if comicarr.CONFIG.CHECK_FOLDER is None:
             logger.warn(
                 "%s Unable to initialise folder monitor properly - you need to specify a folder to monitor first"

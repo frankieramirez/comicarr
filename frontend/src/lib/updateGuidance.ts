@@ -54,9 +54,6 @@ export function getUpdateGuidance(
         "Pull the notified release and recreate the container on the host. Comicarr cannot replace its own container.",
       commands: [
         ["docker compose pull", "docker compose up -d"].join("\n"),
-        // Stop and rm because a pull replaces the image, never the running
-        // container. The recreate itself belongs to the operator: their
-        // original volume, port, and env flags are not knowable from here.
         [
           `docker pull ${pinned}`,
           "docker stop comicarr",
@@ -86,7 +83,6 @@ export function getUpdateGuidance(
     };
   }
 
-  // source and anything unknown
   return {
     title: "How to update (source)",
     intro: `Upgrade this source install to ${tag} from the GitHub release (reinstall or replace the tree from that tag). Do not run in-app tarball overwrite commands.`,

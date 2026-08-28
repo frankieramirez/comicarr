@@ -123,8 +123,6 @@ export default function AppSidebar() {
     setOpenMobile(false);
   };
 
-  // Chat leaves the app shell, so it is a launcher rather than a nav row. The
-  // thread list only backs the "chats today" line under it.
   const chatThreadsQuery = useChatThreads();
   const chatsToday = useMemo(() => {
     const today = new Date().toDateString();

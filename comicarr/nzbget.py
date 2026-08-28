@@ -80,7 +80,7 @@ class NZBGet(object):
 
         self.nzb_url = url % val
 
-        self.server = xmlrpc.client.ServerProxy(self.nzb_url)  # ,allow_none=True)
+        self.server = xmlrpc.client.ServerProxy(self.nzb_url)
 
     def sender(self, filename, test=False):
         if comicarr.CONFIG.NZBGET_PRIORITY:
@@ -94,11 +94,9 @@ class NZBGet(object):
                 nzbgetpriority = 100
             elif comicarr.CONFIG.NZBGET_PRIORITY == "Force":
                 nzbgetpriority = 900
-            # there's no priority for "paused", so set "Very Low" and deal with that later...
             elif comicarr.CONFIG.NZBGET_PRIORITY == "Paused":
                 nzbgetpriority = -100
         else:
-            # if nzbget priority isn't selected, default to Normal (0)
             nzbgetpriority = 0
 
         with open(filename, "rb") as in_file:
@@ -138,7 +136,6 @@ class NZBGet(object):
                 logger.warn("Invalid response received after sending to NZBGet: %s" % sendresponse)
                 return {"status": False}
             else:
-                # sendresponse is the NZBID that we use to track the progress....
                 return {"status": True, "NZBID": sendresponse}
 
     def processor(self, nzbinfo):
@@ -215,7 +212,7 @@ class NZBGet(object):
                     logger.fdebug("destination: %s" % queuedl[0]["DestDir"])
 
             logger.fdebug("File has now downloaded!")
-            time.sleep(5)  # wait some seconds so shit can get written to history properly
+            time.sleep(5)
             return self.historycheck(nzbinfo)
 
     def historycheck(self, nzbinfo):
@@ -223,9 +220,7 @@ class NZBGet(object):
         history = self.server.history(True)
         destdir = None
         double_pp = False
-        hq = [
-            hs for hs in history if hs["NZBID"] == nzbid
-        ]  # and ('SUCCESS' in hs['Status'] or ('COPY' in hs['Status']))]
+        hq = [hs for hs in history if hs["NZBID"] == nzbid]
         if len(hq) > 0:
             logger.fdebug("found matching completed item in history. Job has a status of %s" % hq[0]["Status"])
             if len(hq[0]["ScriptStatuses"]) > 0:

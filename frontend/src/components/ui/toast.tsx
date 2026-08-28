@@ -34,7 +34,6 @@ export function ToastProvider({ children }: ToastProviderProps) {
     const newToast = { ...toast, id };
     setToasts((prev) => [...prev, newToast]);
 
-    // Auto-dismiss after duration (default 5s)
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, toast.duration || 5000);
@@ -103,7 +102,6 @@ function Toast({
     info: "bg-[var(--status-wanted-bg)] border-[var(--info)]",
   };
 
-  // Support both 'message' and 'description' for backwards compatibility
   const content = message || description;
 
   return (

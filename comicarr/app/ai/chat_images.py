@@ -29,8 +29,6 @@ MAX_LONG_EDGE = 2048
 MAX_FILENAME_LENGTH = 120
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
 
-# Quotes and control characters would ride along into Content-Disposition and
-# into the prompt context, and posixpath.basename leaves a Windows path intact.
 _UNSAFE_FILENAME_CHARS = re.compile(r'[\x00-\x1f\x7f"]')
 
 
@@ -62,8 +60,6 @@ async def save_uploads(thread_id, uploads):
         raise InvalidChatImage("A maximum of 4 images is allowed")
 
     saved = []
-    # Recorded before each save so a failure between save() and the metadata
-    # build still leaves nothing orphaned on disk.
     written = []
     try:
         for upload in uploads:

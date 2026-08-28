@@ -19,7 +19,6 @@ import re
 
 def extract_logline(s):
     """Parse a log line into (timestamp, level, thread, message) tuple."""
-    # Default log format
     pattern = re.compile(
         r"(?P<timestamp>.*?)\s\-\s(?P<level>.*?)\s*\:\:\s(?P<thread>.*?)\s\:\s(?P<message>.*)", re.VERBOSE
     )
@@ -54,7 +53,6 @@ def conversion(value):
 
 def chunker(seq, size):
     """Split a sequence into chunks of given size."""
-    # returns a list from a large group of tuples by size (ie. for group in chunker(seq, 3))
     return [seq[pos : pos + size] for pos in range(0, len(seq), size)]
 
 
@@ -82,7 +80,6 @@ def get_the_hash(filepath):
 
     log = logging.getLogger("comicarr")
 
-    # Open torrent file
     torrent_file = open(filepath, "rb")
     metainfo = bencode.decode(torrent_file.read())
     info = metainfo["info"]
@@ -99,7 +96,6 @@ def log_that_exception(except_info, db=None, now_func=None, log_dir=None, tail_f
     """
     import os
 
-    # snip the log here and get the last 100 lines as quick leadup glance.
     leadup = tail_func()
 
     gather_info = {
@@ -118,11 +114,9 @@ def log_that_exception(except_info, db=None, now_func=None, log_dir=None, tail_f
         "traceback": except_info.get("traceback", None),
     }
 
-    # write it to the exceptions table.
     logdate = now_func()
     db.upsert("exceptions_log", gather_info, {"date": logdate})
 
-    # write the leadup log lines that were tailed above to the external file here...
     from sqlalchemy import select, text
 
     from comicarr.tables import exceptions_log

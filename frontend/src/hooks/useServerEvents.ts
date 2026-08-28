@@ -62,9 +62,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
   const hasConnectedRef = useRef(false); // Track if we've connected before
   const latchRef = useRef<TroubleLatch>(NO_TROUBLE);
 
-  // The latch re-arms on what the operator can actually see, so it follows the
-  // derived attention count rather than the stream. Reading the cache instead
-  // of observing the query keeps this hook from adding a second fetcher.
   useEffect(() => {
     if (!enabled) return;
     const syncLatch = () => {
@@ -88,8 +85,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
 
     let isMounted = true;
 
-    // Collateral caches touched by the current burst, deduplicated by key.
-    // Effect-local: a re-subscribe starts a new burst with nothing pending.
     const pendingCollateral = new Map<string, string[]>();
 
     /**
@@ -127,7 +122,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
       setIsConnected(false);
       setIsReconnecting(retry);
 
-      // Prolonged loss, not a blip, is what the status chrome reports.
       if (!lossTimeoutRef.current) {
         lossTimeoutRef.current = setTimeout(() => {
           lossTimeoutRef.current = null;
@@ -144,7 +138,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         reconnectTimeoutRef.current = null;
       }
 
-      // Clean up existing connection
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
@@ -165,9 +158,7 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
           lossTimeoutRef.current = null;
         }
 
-        // Only verify session on reconnect, not initial connection
         if (hasConnectedRef.current) {
-          // No stream resume: the gap is closed by refetching, not replaying.
           invalidateActivitySurfaces();
 
           fetch("/api/auth/check-session")
@@ -190,7 +181,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         evtSource.close();
         markDisconnected({ retry: isMounted });
 
-        // Attempt to reconnect with exponential backoff
         if (isMounted) {
           const delay = reconnectDelayRef.current;
           console.log(`[SSE] Reconnecting in ${delay}ms...`);
@@ -205,7 +195,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         }
       };
 
-      // Event: activity — the one narrative channel (Activity Center ADR §8).
       evtSource.addEventListener("activity", (e: MessageEvent) => {
         const event = parseActivityEvent(e.data);
         if (!event) return;
@@ -215,8 +204,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         }
         scheduleActivityInvalidation();
 
-        // Search cards settle their add button on this; it is a UI handshake,
-        // not narrative, so it fires per-event rather than coalesced.
         const detail = comicAddedDetail(event);
         if (detail) {
           window.dispatchEvent(new CustomEvent("comic-added", { detail }));
@@ -237,7 +224,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         }
       });
 
-      // Event: ai_activity - AI activity feed updates
       evtSource.addEventListener("ai_activity", (e: MessageEvent) => {
         if (!e.data) return;
 
@@ -251,7 +237,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         }
       });
 
-      // Event: restart - Server is coming back; ride the normal backoff home.
       evtSource.addEventListener("restart", () => {
         console.log("[SSE] Server restarting");
 
@@ -262,8 +247,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
         });
       });
 
-      // Event: shutdown - Server is going away; drop the backoff ladder.
-      // A returning operator can still force a retry via visibility/focus.
       evtSource.addEventListener("shutdown", () => {
         console.log("[SSE] Server shutting down");
 
@@ -296,7 +279,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
 
     setupEventSource();
 
-    // Cleanup function
     return () => {
       isMounted = false;
 
@@ -323,8 +305,6 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
     };
   }, [enabled, queryClient, addToast]);
 
-  // Nothing has proved unreachable until a retry is actually in flight, so a
-  // socket that has never opened reads as connected rather than alarming.
   const live: LiveConnectionState = connectionLost
     ? "lost"
     : !isConnected && isReconnecting

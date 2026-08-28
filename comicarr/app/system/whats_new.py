@@ -25,7 +25,6 @@ from packaging.version import InvalidVersion, Version
 import comicarr
 from comicarr import logger
 
-# About archive pad when nothing (or little) is pending (#451).
 ARCHIVE_FLOOR = 10
 
 
@@ -33,7 +32,7 @@ ARCHIVE_FLOOR = 10
 class DetectResult:
     """Outcome of pure last_seen vs current comparison (no I/O)."""
 
-    kind: str  # "seed" | "pending" | "quiet"
+    kind: str
     pending: dict[str, str] | None = None
 
 
@@ -72,7 +71,6 @@ def detect_pending(*, current: str | None, last_seen: str | None) -> DetectResul
     last_s = _strip_v(last_seen)
 
     if not last_s:
-        # Fresh install / first boot after feature ships — seed, no notes.
         if current_s and _parse(current_s) is not None:
             return DetectResult(kind="seed")
         return DetectResult(kind="quiet")
@@ -87,7 +85,6 @@ def detect_pending(*, current: str | None, last_seen: str | None) -> DetectResul
             kind="pending",
             pending={"from": last_s, "to": current_s},
         )
-    # equal or downgrade
     return DetectResult(kind="quiet")
 
 
@@ -96,7 +93,6 @@ def _record_last_seen(version: str) -> None:
     try:
         comicarr.CONFIG.LAST_SEEN_VERSION = version
         ok = comicarr.CONFIG.writeconfig(values={"last_seen_version": version})
-        # Some Config.writeconfig paths return False on failure without raising.
         if ok is False:
             raise RuntimeError("writeconfig returned False for last_seen_version")
     except Exception as e:
@@ -176,7 +172,6 @@ def archive_sections(
     pending_count = 0
     if last_v is not None:
         pending_count = sum(1 for ver, _ in up_to if ver > last_v)
-    # When last_seen is missing we treat as seeded/quiet for archive purposes.
     depth = max(pending_count, floor)
     return [section for _, section in up_to[:depth]]
 
@@ -194,16 +189,12 @@ def get_archive_notes(ctx) -> dict[str, Any]:
     current = _strip_v(get_release_version())
     last_seen = _strip_v(getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None))
 
-    # Resolve (and seed if needed) so pending matches the modal path.
     pending = resolve_pending_whats_new(ctx)
-    # Re-read after possible seed.
     last_seen = _strip_v(getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None))
 
     text = read_local_changelog(getattr(ctx, "prog_dir", None))
     sections = parse_changelog_text(text) if text else []
 
-    # Optional cache fill for a remote version not yet in local CHANGELOG
-    # (same rules as get_release_notes; rare for post-upgrade path).
     cached = get_cached_release_body()
     if cached and current:
         cached_version = cached.get("version")

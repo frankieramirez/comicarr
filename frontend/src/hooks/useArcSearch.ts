@@ -69,8 +69,6 @@ export function useFindStoryArc(
         );
         return normalizeArcSearchResults(data);
       } catch (error) {
-        // Backend returns 400 with this detail when the provider finds no matches.
-        // Surface that as an empty list so the page can show a distinct empty state.
         if (
           error instanceof ApiError &&
           /no results/i.test(error.userMessage)

@@ -31,8 +31,6 @@ def evaluate_search_candidate(candidate, *, release_date, digital_date, issue_da
     series_status = str(raw_series_status).strip().lower() if raw_series_status else None
     decision = evaluate_eligibility(
         EligibilityInput(
-            # A missing series is retained only for legacy one-off story arcs.
-            # Paused is recognized separately; only active/loading can pass.
             series_active=series_status is None or series_status in {"active", "loading", "paused"},
             paused=series_status == "paused",
             intent=projection.intent,
@@ -344,9 +342,6 @@ def replay_search_obligations(*, work_queue=None, ledger=None, maintenance=None)
     for item in ledger.list_recoverable_items("search"):
         run_id = item["run_id"]
         entity_id = item["entity_id"]
-        # Bound the re-drive before doing any work: an item that has survived
-        # MAX_RECOVERY_ATTEMPTS restarts without terminalising is stuck, not
-        # interrupted, and claim_recovery quarantines it instead (#555).
         if not ledger.claim_recovery(item):
             continue
         try:

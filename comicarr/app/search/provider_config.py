@@ -29,10 +29,6 @@ PROVIDER_EXTRA_WIDTHS = (6, 7)
 PROVIDER_CREDENTIAL_INDEX = 3
 _PROVIDER_BOOLEAN_VALUES = {"0", "1", "false", "true", "no", "yes", "off", "on"}
 _PROVIDER_BOOLEAN_TRUE = {"1", "true", "yes", "on"}
-# Verify-TLS and enabled. Both are read as `bool(int(field))` by the search
-# path and compared against the literal "1" by the enabled filters, so a field
-# spelled any other legal way is a crash or a silent skip -- see
-# canonical_provider_boolean.
 PROVIDER_BOOLEAN_INDEXES = (2, 5)
 
 DEFAULT_NEWZNAB_RSS_UID = "1"
@@ -164,8 +160,6 @@ def join_newznab_category_field(uid, categories):
     """Rebuild the stored ``uid#categories`` field from its two halves."""
     uid = str(uid or "").strip() or DEFAULT_NEWZNAB_RSS_UID
     categories = "#".join(normalize_category_list(categories))
-    # A uid on its own, rather than a trailing '#', so the search path falls
-    # back to its built-in category instead of querying `cat=` empty.
     return "%s#%s" % (uid, categories) if categories else uid
 
 
@@ -179,7 +173,7 @@ class SearchProvider:
     have never been persisted since ids were introduced.
     """
 
-    kind: str  # "newznab" | "torznab"
+    kind: str
     name: str
     host: str
     verify: bool

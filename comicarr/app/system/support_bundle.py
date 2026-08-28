@@ -49,7 +49,7 @@ ZIP_MAX_BYTES = 512 * 1024
 
 _ZIP_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 _ZIP_EXTERNAL_ATTR = 0o644 << 16
-_ZIP_CREATE_SYSTEM = 3  # Unix
+_ZIP_CREATE_SYSTEM = 3
 
 _DEPENDENCY_NAMES = (
     "apscheduler",
@@ -164,7 +164,7 @@ class SupportBundleArtifact:
     content: bytes
     contract_version: int
     filename: str
-    status: str  # complete | partial
+    status: str
 
 
 def error_body(code: str) -> dict[str, Any]:
@@ -237,11 +237,6 @@ def generate_support_bundle(
         _GENERATION_LOCK.release()
 
 
-# ---------------------------------------------------------------------------
-# Capture and collection
-# ---------------------------------------------------------------------------
-
-
 def _capture_generated_at(clock: Optional[Callable[[], datetime]]) -> datetime:
     if clock is not None:
         value = clock()
@@ -272,7 +267,7 @@ def _snapshot_from_config(config, ctx) -> dict[str, Any]:
     return {
         "release_version": (getattr(ctx, "current_version_name", None) or getattr(ctx, "current_release_name", None)),
         "install_type": getattr(ctx, "install_type", None),
-        "build_id": None,  # filled from build authority without env leakage
+        "build_id": None,
         "build_verified": False,
         "build_declared_id": None,
         "POST_PROCESSING": flag("POST_PROCESSING"),
@@ -303,7 +298,6 @@ def _snapshot_from_config(config, ctx) -> dict[str, Any]:
         "ENABLE_TORRENT_SEARCH": flag("ENABLE_TORRENT_SEARCH"),
         "ENABLE_TORRENTS": flag("ENABLE_TORRENTS"),
         "TORRENT_DOWNLOADER": flag("TORRENT_DOWNLOADER"),
-        # Presence-only readiness probes used by health projection helpers.
         "SAB_HOST": bool(flag("SAB_HOST")),
         "SAB_APIKEY": bool(flag("SAB_APIKEY")),
         "SAB_DIRECTORY": bool(flag("SAB_DIRECTORY")),
@@ -394,7 +388,6 @@ def _collect_build(ctx, snapshot: Mapping[str, Any]) -> dict[str, Any]:
 
     release = _normalize_version(snapshot.get("release_version"))
     if release == "unknown":
-        # Fall back to package metadata when runtime has no release name.
         try:
             release = _normalize_version(importlib_metadata.version("comicarr"))
         except Exception:
@@ -539,7 +532,6 @@ def _integration_mal(snapshot: Mapping[str, Any]) -> str:
 def _integration_ai(snapshot: Mapping[str, Any]) -> str:
     if snapshot.get("AI_BASE_URL") and snapshot.get("AI_API_KEY") and snapshot.get("AI_MODEL"):
         return "configured"
-    # Missing keys are not_configured; only fully unknown when config object absent
     if (
         all(snapshot.get(key) is None for key in ("AI_BASE_URL", "AI_API_KEY", "AI_MODEL"))
         and snapshot.get("POST_PROCESSING") is None
@@ -579,7 +571,6 @@ def _acquisition_ddl(snapshot: Mapping[str, Any]) -> dict[str, str]:
     if enabled:
         client = "local"
     else:
-        # When DDL is disabled, client is disabled.
         client = "disabled" if snapshot.get("ENABLE_DDL") is not None else "unknown"
         if snapshot.get("ENABLE_DDL") is None:
             return {"enabled": "unknown", "client": "unknown"}
@@ -607,7 +598,6 @@ def _acquisition_torrent(snapshot: Mapping[str, Any]) -> dict[str, str]:
     except (TypeError, ValueError):
         raw = -1
     if not bool(snapshot.get("ENABLE_TORRENTS")) and snapshot.get("ENABLE_TORRENTS") is not None:
-        # Explicitly disabled acquisition — client may still be reported.
         client = _TORRENT_CLIENTS.get(raw, "disabled")
         if raw not in _TORRENT_CLIENTS:
             client = "disabled"
@@ -653,11 +643,9 @@ def _acquisition_schema(conn) -> tuple[str, int]:
             return "ready", min(version, 65535)
         if version > 0:
             return "not_ready", min(version, 65535)
-        # Table exists but no version row — not ready.
         return "not_ready", 0
     except Exception:
         try:
-            # Probe whether acquisition tables exist at all.
             conn.execute(text("SELECT 1 FROM acquisition_schema_versions LIMIT 1"))
             return "not_ready", 0
         except Exception:
@@ -708,14 +696,10 @@ def _collect_health(
         from comicarr.app.search.health import get_search_health
         from comicarr.db import get_engine
 
-        # Use the live config object for health predicates (presence checks only
-        # for values we already snapshotted as booleans for acquisition).
         config = getattr(ctx, "config", None)
         if config is None:
             return None, "dependency_unavailable"
         engine = get_engine()
-        # Share one connection for consistency with database collection by
-        # reading health through the same engine immediately after.
         health = get_search_health(config, engine=engine)
         generated_ts = generated_at.timestamp()
         return _project_health(health, ctx, generated_ts), None
@@ -834,13 +818,11 @@ def _project_scheduler(ctx) -> dict[str, str]:
                     break
         if key is None or key not in result:
             continue
-        # Prefer next_run / pending state from APScheduler.
         try:
             pending = bool(getattr(job, "pending", False))
         except Exception:
             pending = False
         try:
-            # APScheduler 3.x Job has no direct status; use next_run_time.
             next_run = getattr(job, "next_run_time", None)
             if pending:
                 state = "waiting"
@@ -850,7 +832,6 @@ def _project_scheduler(ctx) -> dict[str, str]:
                 state = "waiting"
         except Exception:
             state = "unknown"
-        # Overlay durable history when available.
         history_status = _job_history_status(job_id or name)
         if history_status:
             state = history_status
@@ -865,7 +846,6 @@ def _job_history_status(job_key: str) -> Optional[str]:
 
         row = db_mod.select_one(select(jobhistory.c.Status).where(jobhistory.c.JobName == job_key))
         if not row:
-            # Try common display names.
             return None
         return _normalize_scheduler_state(row.get("Status"))
     except Exception:
@@ -908,11 +888,6 @@ def _project_overall(
     return "unknown"
 
 
-# ---------------------------------------------------------------------------
-# Normalization helpers
-# ---------------------------------------------------------------------------
-
-
 def _normalize_version(value: Any) -> str:
     if value is None:
         return "unknown"
@@ -921,9 +896,7 @@ def _normalize_version(value: Any) -> str:
         return "unknown"
     if text_value.lower().startswith("v") and text_value[1:2].isdigit():
         text_value = text_value[1:]
-    # Reject prerelease / local / labelled builds.
     if any(ch in text_value for ch in ("+", "-", " ")):
-        # Allow only pure dotted numerics after stripping a leading v.
         base = text_value.split("+", 1)[0].split("-", 1)[0].split(" ", 1)[0]
         if base != text_value:
             return "unknown"
@@ -937,7 +910,6 @@ def _normalize_version(value: Any) -> str:
         number = int(part)
         if number > 65535:
             return "unknown"
-        # Reject leading zeroes except "0".
         if len(part) > 1 and part.startswith("0"):
             return "unknown"
         nums.append(number)
@@ -1010,7 +982,7 @@ def _recency(timestamp: Any, generated_ts: float) -> str:
         ts = float(timestamp)
     except (TypeError, ValueError):
         return "unknown"
-    if not (ts == ts) or ts in (float("inf"), float("-inf")):  # NaN/inf
+    if not (ts == ts) or ts in (float("inf"), float("-inf")):
         return "unknown"
     age = generated_ts - ts
     if age < -60:
@@ -1057,11 +1029,6 @@ def _log_outcome(
     logger.info("[SUPPORT-BUNDLE] %s" % payload)
 
 
-# ---------------------------------------------------------------------------
-# Serialization, ZIP, validation
-# ---------------------------------------------------------------------------
-
-
 def _canonical_json(value: Any) -> bytes:
     text_value = json.dumps(
         value,
@@ -1097,7 +1064,6 @@ def _build_and_validate_archive(
     if len(diagnostics_bytes) > JSON_MEMBER_MAX_BYTES:
         raise SupportBundleValidationFailed()
 
-    # Validate diagnostics before embedding digests into the manifest.
     try:
         Draft202012Validator(_load_schema("diagnostics.schema.json")).validate(diagnostics)
     except Exception as e:
@@ -1169,7 +1135,6 @@ def _validate_cross_document(manifest: Mapping[str, Any], diagnostics: Mapping[s
     if health_available != ("health" in diagnostics):
         raise SupportBundleValidationFailed()
     if not db_available and health_available:
-        # v1 normal path marks health dependency-unavailable when DB fails.
         pass
     if not db_available:
         reason = manifest["sources"]["database"].get("reason")
@@ -1242,13 +1207,11 @@ def _validate_final_zip(
                 data = zf.read(name)
                 if data != expected_members[name]:
                     raise SupportBundleValidationFailed()
-            # Re-validate JSON documents from the archive.
             manifest_obj = _loads_strict(zf.read("manifest.json"))
             diagnostics_obj = _loads_strict(zf.read("diagnostics.json"))
             Draft202012Validator(_load_schema("manifest.schema.json")).validate(manifest_obj)
             Draft202012Validator(_load_schema("diagnostics.schema.json")).validate(diagnostics_obj)
             _validate_cross_document(manifest_obj, diagnostics_obj)
-            # Digest check against payload members.
             readme = zf.read("README.txt")
             diagnostics_bytes = zf.read("diagnostics.json")
             m0 = manifest_obj["members"][0]
@@ -1273,16 +1236,13 @@ def _loads_strict(data: bytes) -> Any:
     if not data.endswith(b"\n"):
         raise SupportBundleValidationFailed()
     text_value = data.decode("utf-8")
-    # Reject comments / trailing data / non-UTF8 already handled by decode.
     if "\ufeff" in text_value:
         raise SupportBundleValidationFailed()
     decoder = json.JSONDecoder()
     obj, idx = decoder.raw_decode(text_value)
-    # Allow only the final newline after the JSON value.
     trailing = text_value[idx:]
     if trailing != "\n":
         raise SupportBundleValidationFailed()
-    # Reject non-finite numbers by round-trip with allow_nan=False.
     try:
         json.dumps(obj, allow_nan=False)
     except (ValueError, TypeError) as e:

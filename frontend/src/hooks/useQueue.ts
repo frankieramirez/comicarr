@@ -67,8 +67,6 @@ export async function applySequentially(
   action: (id: string) => Promise<unknown>,
 ): Promise<BulkIssueResult> {
   const result: BulkIssueResult = { succeeded: [], failed: [] };
-  // Process sequentially to avoid rate limiting, but keep going past a failure
-  // so one bad issue cannot silently drop the rest of the batch.
   for (const id of issueIds) {
     try {
       await action(id);
@@ -83,7 +81,6 @@ export async function applySequentially(
   return result;
 }
 
-// Query Hooks
 export function useUpcoming(
   includeDownloaded = false,
 ): UseQueryResult<UpcomingIssue[]> {
@@ -117,7 +114,6 @@ export function useWanted(
   });
 }
 
-// Mutation Hooks
 export function useForceSearch(): UseMutationResult<
   ForceSearchResult,
   Error,

@@ -118,16 +118,12 @@ export default function OnboardingDialog({
   const start = useStartMigration();
   const progress = useMigrationProgress(step === "running");
 
-  // Derive the visible step: once we're in `running`, advance to `done` as
-  // soon as the backend reports a terminal status. This avoids a setState-
-  // in-effect pattern and keeps the source of truth in backend progress.
   const terminal =
     step === "running" &&
     (progress.data?.status === "complete" || progress.data?.status === "error");
   const visibleStep: Step = terminal ? "done" : step;
   const migrating = visibleStep === "running";
 
-  // Warn on unload during an active migration
   useEffect(() => {
     if (!migrating) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -211,8 +207,6 @@ export default function OnboardingDialog({
     </DialogPrimitive.Root>
   );
 }
-
-// ============ Steps ============
 
 function StepDots({ step }: { step: Step }) {
   const order: Step[] = ["welcome", "migrate", "running", "done"];

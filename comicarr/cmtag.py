@@ -1,7 +1,3 @@
-# This script was initially based from Manders2600 Script with the use of the awesome ComicTagger.
-# Modified, so Comicarr just can pass in relevant information instead of querying CV for it to do it's magic.
-
-
 import os
 import re
 import shutil
@@ -32,19 +28,15 @@ def run(
 
     logger.fdebug(module + " dirName:" + dirName)
 
-    # 2015-11-23: Recent CV API changes restrict the rate-limit to 1 api request / second.
-    # ComicTagger has to be included now with the install as a timer had to be added to allow for the 1/second rule.
     comictagger_cmd = os.path.join(comicarr.CMTAGGER_PATH, "comictagger.py")
     logger.fdebug("ComicTagger Path location for internal comictagger.py set to : " + comictagger_cmd)
-
-    # Force comicarr to use cmtagger_path = comicarr.PROG_DIR to force the use of the included vendor.
 
     logger.fdebug(module + " Filename is : " + filename)
 
     filepath = filename
     og_filepath = filepath
     try:
-        filename = os.path.split(filename)[1]  # just the filename itself
+        filename = os.path.split(filename)[1]
     except:
         logger.warn(
             "Unable to detect filename within directory - I am aborting the tagging. You best check things out."
@@ -52,7 +44,6 @@ def run(
         sendnotify("Error - Unable to detect filename within directory. Tagging aborted.", filename, module)
         return "fail"
 
-    # make use of temporary file location in order to post-process this to ensure that things don't get hammered when converting
     new_filepath = None
     new_folder = None
     try:
@@ -60,7 +51,7 @@ def run(
 
         logger.fdebug("Filepath: %s" % filepath)
         logger.fdebug("Filename: %s" % filename)
-        new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=comicarr.CONFIG.CACHE_DIR)  # prefix, suffix, dir
+        new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=comicarr.CONFIG.CACHE_DIR)
         os.chmod(new_folder, 0o755)
         logger.fdebug("New_Folder: %s" % new_folder)
         new_filepath = os.path.join(new_folder, filename)
@@ -83,7 +74,6 @@ def run(
         tidyup(og_filepath, new_filepath, new_folder, manualmeta)
         return "fail"
 
-    ## Sets up other directories ##
     scriptname = os.path.basename(sys.argv[0])
     downloadpath = os.path.abspath(dirName)
     sabnzbdscriptpath = os.path.dirname(sys.argv[0])
@@ -96,9 +86,6 @@ def run(
     logger.fdebug(module + " comicpath : " + comicpath)
     logger.fdebug(module + " Running the ComicTagger Add-on for Comicarr")
 
-    ##set up default comictagger options here.
-    # used for cbr - to - cbz conversion
-    # depending on copy/move - eitehr we retain the rar or we don't.
     if comicarr.CONFIG.FILE_OPTS == "move":
         cbr2cbzoptions = ["--configfolder", comicarr.CONFIG.CT_SETTINGSPATH, "-e", "--delete-rar"]
     else:
@@ -110,7 +97,6 @@ def run(
     if comicarr.CONFIG.CMTAG_VOLUME:
         if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
             pass
-            # comversion is already converted - just leaving this here so we know
         else:
             if comicarr.CONFIG.SETDEFAULTVOLUME:
                 if any([comversion is None, comversion == "", comversion == "None"]):
@@ -150,10 +136,8 @@ def run(
     tagoptions.extend(["-m", tline])
 
     try:
-        # from comicarr._vendor.comictaggerlib import ctversion
         ct_check = subprocess.check_output([sys.executable, comictagger_cmd, "--version"], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        # logger.warn(module + "[WARNING] "command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
         logger.warn(module + "[WARNING] Make sure that you are using the comictagger included with Comicarr.")
         tidyup(filepath, new_filepath, new_folder, manualmeta)
         return "fail"
@@ -200,7 +184,7 @@ def run(
 
         if comicarr.CONFIG.CT_TAG_CBL:
             if not comicarr.CONFIG.CT_TAG_CR:
-                i = 2  # set the tag to start at cbl and end without doing another tagging.
+                i = 2
             tagcnt = 2
             logger.fdebug(module + " CBL Tagging enabled.")
 
@@ -212,7 +196,6 @@ def run(
         tidyup(filepath, new_filepath, new_folder, manualmeta)
         return "fail"
 
-    # if it's a cbz file - check if no-overwrite existing tags is enabled / disabled in config.
     if filename.endswith(".cbz"):
         if comicarr.CONFIG.CT_CBZ_OVERWRITE:
             logger.fdebug(module + " Will modify existing tag blocks even if it exists.")
@@ -235,10 +218,10 @@ def run(
             f_tagoptions.extend([filepath])
         else:
             if i == 1:
-                tagtype = "cr"  # CR meta-tagging cycle.
+                tagtype = "cr"
                 tagdisp = "ComicRack tagging"
             elif i == 2:
-                tagtype = "cbl"  # Cbl meta-tagging cycle
+                tagtype = "cbl"
                 tagdisp = "Comicbooklover tagging"
 
             f_tagoptions = original_tagoptions
@@ -271,7 +254,6 @@ def run(
                     ),
                 )
             )
-            # generate a safe command line string to execute the script and provide all the parameters
             script_cmdlog = re.sub(
                 f_tagoptions[f_tagoptions.index(comicarr.CONFIG.COMICVINE_API)], "REDACTED", str(script_cmd)
             )
@@ -279,19 +261,12 @@ def run(
         logger.fdebug(module + " Executing command: " + str(script_cmdlog))
         logger.fdebug(module + " Absolute path to script: " + script_cmd[0])
         try:
-            # use subprocess to run the command and capture output
             p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.STDOUT)
             out, err = p.communicate()
-            # logger.info(out)
-            # logger.info(err)
-            # if out is not None:
-            #    out = out.decode('utf-8')
             if all([err is not None, err != ""]):
                 logger.warn("[ERROR RETURNED FROM COMIC-TAGGER] %s" % (err,))
-            #    err = err.decode('utf-8')
             if initial_ctrun and "exported successfully" in out:
                 logger.fdebug("%s[COMIC-TAGGER] : %s" % (module, out))
-                # Archive exported successfully to: X-Men v4 008 (2014) (Digital) (Nahga-Empire).cbz (Original deleted)
                 if "Error deleting" in filepath:
                     tf1 = out.find("exported successfully to: ")
                     tmpfilename = out[tf1 + len("exported successfully to: ") :].strip()

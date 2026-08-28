@@ -46,12 +46,6 @@ class Process(object):
         self.apicall = apicall
         self.ddl = ddl
         self.download_info = download_info
-        # U4: the canonical release_key computed ONCE at PP-item dequeue in
-        # postprocess_main (where the atomic claim won). Threaded through to
-        # the PostProcessor so its U3 `moved`/`post_processed` markers write
-        # to the SAME journal row the claim advanced (single-derivation
-        # invariant). None when PP was initiated outside the journaled path
-        # (manual/API/ComicRN) — the markers then fall back to re-derivation.
         self.journal_release_key = journal_release_key
 
     def _terminalize_handling_disabled(self):
@@ -118,11 +112,6 @@ class Process(object):
                 ddl=self.ddl,
                 journal_release_key=self.journal_release_key,
             )
-            # This call is intentionally owned by the queue worker. The former
-            # raw detached thread made exceptions invisible to postprocess_main
-            # (and could leave APILOCK held forever). A synchronous call gives
-            # the owner a reliable success/failure boundary and still preserves
-            # PostProcessor's queue result contract.
             PostProcess.Process()
             if not ppqueue.empty():
                 chk = ppqueue.get()
@@ -142,7 +131,6 @@ class Process(object):
 
         if self.failed is True:
             if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
-                # drop the if-else continuation so we can drop down to this from the above if statement.
                 logger.info("Initiating Failed Download handling for this download.")
                 nzbid = self.download_info["id"]
                 provider = self.download_info["provider"]
@@ -169,9 +157,6 @@ class Process(object):
                     logger.error("mode is unsupported: " + failchk[0]["mode"])
             else:
                 logger.warn("Failed Download Handling is not enabled. Leaving Failed Download as-is.")
-                # Still terminalize the journal so a stuck open stage is not
-                # counted as in-flight forever (#457 / #482). No further work
-                # is scheduled — leave R9 status null (on band).
                 self._terminalize_handling_disabled()
 
         if retry_outside:

@@ -37,8 +37,6 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "notifications", label: "Notifications" },
   { id: "clients", label: "Download clients" },
   { id: "ai", label: "AI" },
-  // Immediately before About: the #610 path is "open logs, raise verbosity,
-  // reproduce", which needs a named home rather than a drawer under General.
   { id: "logs", label: "Logs" },
   { id: "about", label: "About" },
 ];
@@ -63,7 +61,6 @@ export default function SettingsPage() {
   );
   const [providerDirty, setProviderDirty] = useState(false);
 
-  // Honour ?section=about (modal overflow → archive) without losing local nav.
   useEffect(() => {
     if (sectionFromUrl && sectionFromUrl !== section) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- URL is the source of truth for deep links
@@ -109,9 +106,6 @@ export default function SettingsPage() {
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [providerDirty]);
 
-  // BrowserRouter does not expose the data-router useBlocker API. Capture
-  // in-app link activations here so SPA navigation gets the same confirmation
-  // as section changes, while allowing ordinary navigation when clean.
   useEffect(() => {
     if (!providerDirty) return;
     const confirmNavigation = (event: MouseEvent) => {
@@ -290,8 +284,6 @@ export default function SettingsPage() {
   }
 
   const configPath = config?.config_path || "/config/config.ini";
-  // Same release SSOT as sidebar/login/onboarding (frontend/package.json), not
-  // config.version which used to surface git SHAs or stale install metadata.
   const version = `comicarr ${formatAppVersion()}`;
 
   const configData: Config = config ?? {};

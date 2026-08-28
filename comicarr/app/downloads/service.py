@@ -49,11 +49,6 @@ def _maintenance_retry_delay(item):
     return maintenance_retry_delay(attempt)
 
 
-# ---------------------------------------------------------------------------
-# Download history
-# ---------------------------------------------------------------------------
-
-
 def _paginated_activity_response(key, query, **options):
     paginated = query(**options)
     return {
@@ -98,11 +93,6 @@ def clear_history(status_type=None):
     return {"success": True}
 
 
-# ---------------------------------------------------------------------------
-# Post-processing
-# ---------------------------------------------------------------------------
-
-
 def force_process(
     nzb_name,
     nzb_folder,
@@ -120,7 +110,6 @@ def force_process(
     ComicRN/APC compatibility runs the post-processor directly.
     """
     if apc_version is not None:
-        # ComicRN/APC compatibility mode — direct processing
         logger.info("[API] Api Call from ComicRN detected - initiating script post-processing.")
         import queue as queue_mod
         import threading
@@ -140,7 +129,6 @@ def force_process(
             thread_.join()
         return {"success": True}
 
-    # Standard mode — queue for background processing
     logger.info("Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder))
     comicarr.PP_QUEUE.put(
         {
@@ -170,11 +158,6 @@ def process_issue(comicid, folder, issueid=None):
         return {"success": False, "error": str(e)}
 
 
-# ---------------------------------------------------------------------------
-# Needs-attention compatibility adapters
-# ---------------------------------------------------------------------------
-
-# Deprecated public alias retained for callers during the route migration.
 BAND_BATCH_CAP = BATCH_CAP
 
 
@@ -211,11 +194,6 @@ def _legacy_item(item, action):
         }
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
-        # Pre-refactor, any post-queue search failure — blocked or not — carried
-        # the row identity plus ``stamped: False``, while the precheck block did
-        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
-        # what separates "we re-wanted the issue and left it unstamped" from
-        # "we stopped before touching the row".
         if item.stamp_written is False:
             result.update(
                 {
@@ -335,11 +313,6 @@ def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
     return _legacy_batch_report(report)
 
 
-# ---------------------------------------------------------------------------
-# DDL queue management
-# ---------------------------------------------------------------------------
-
-
 def get_ddl_queue(limit=None, offset=None, search=None, status=None, sort=None, order="desc"):
     """Get the active DDL download queue."""
     if limit is not None:
@@ -409,8 +382,6 @@ def recover_queued_ddl_commands(queue=None):
 
         try:
             if not _enqueue_ddl_queue_item(target_queue, command.to_queue_item()):
-                # Already handed to this process's worker/queue — durable row
-                # remains Queued/Downloading under the existing owner.
                 continue
         except Exception as e:
             result["handoff_failed_ids"].append(command.id)
@@ -442,9 +413,6 @@ def requeue_ddl_item(item_id):
         return {"success": False, "error": "DDL item not found: %s" % item_id, "not_found": True}
 
     status = str(item.get("status") or item.get("Status") or "").strip()
-    # Only a terminal failure can be manually retried. Queued rows belong to
-    # the durable outbox/recovery worker; accepting them here would allow two
-    # concurrent requests to enqueue the same external download.
     if status != "Failed":
         if not status:
             try:
@@ -521,7 +489,6 @@ def queue_ddl_download(command_values):
 
     try:
         if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
-            # Durable row is already owned by this process's worker/queue.
             logger.info(
                 "[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id
             )
@@ -555,7 +522,6 @@ def get_issue_file_path(issue_id):
     if os.path.isfile(pathfile):
         return pathfile, issue["Location"]
 
-    # Check secondary destination directories
     if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
         try:
             secondary = os.path.join(
@@ -569,9 +535,6 @@ def get_issue_file_path(issue_id):
             pass
 
     return None, None
-
-
-# --- Extracted from helpers.py ---
 
 
 def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=None, annualize=None, arc=False):
@@ -1059,11 +1022,6 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
     issuelist = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
 
     if kind == "series":
-        # A numberless complete-series pack ("Solo Leveling (2021-2026)")
-        # carries no range to expand: it claims every row of the series
-        # that is not already Downloaded, volume and chapter rows alike —
-        # except rows published after the pack's own year span, which the
-        # pack cannot contain (span_end from parse_series_pack_title).
         try:
             cutoff = int(span_end)
         except (TypeError, ValueError):
@@ -1142,8 +1100,6 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
                     issueinfo.append({"issueid": xb["IssueID"], "int_iss": int_iss, "issuenumber": xb["Issue_Number"]})
                     write_valids.append({"issueid": xb["IssueID"], "pack_id": pack_id})
                     if kind != "volume":
-                        # one row per issue number, but a covered volume can
-                        # hold many chapter rows - keep collecting those.
                         break
             else:
                 ignores.append(iss_item)
@@ -1252,8 +1208,6 @@ def _finalize_ddl_download(item, ddzstat, release_key):
                 if not current or current.get("stage") != journal.DOWNLOADED:
                     raise RuntimeError("DDL downloaded transition did not advance the accepted obligation")
     except Exception as e:
-        # The artifact is already on disk. Preserve that fact and force an
-        # operator decision; never amplify this into another external fetch.
         try:
             db.upsert("ddl_info", completed, {"ID": item["id"]})
             record(
@@ -1268,8 +1222,6 @@ def _finalize_ddl_download(item, ddzstat, release_key):
                 )
             )
         except Exception as quarantine_error:
-            # Never let a failed quarantine write replace the persistence error
-            # the operator actually needs to see; that one is re-raised below.
             logger.error(
                 "[DOWNLOADS-DDL] unable to persist quarantine for id=%s: %s"
                 % (item.get("id"), type(quarantine_error).__name__)
@@ -1330,8 +1282,6 @@ def ddl_downloader(queue):
                     )
                 except Exception as status_error:
                     logger.error("[DOWNLOADS-DDL] Unable to mark failed DDL item %s: %s" % (item_id, status_error))
-                # Close any open journal obligation for this id so recovery does
-                # not re-enqueue a poison command that just failed hard.
                 try:
                     from comicarr.app.downloads import journal
 
@@ -1346,9 +1296,6 @@ def ddl_downloader(queue):
                     )
                     existing = journal.read_one(rkey)
                     if existing and not journal.is_terminal(existing.get("stage")):
-                        # fail_reason is token-only; exception text is not
-                        # concatenated (#430 A5). Sanitised detail rides the
-                        # payload for diagnostics / narrative reason_detail.
                         from comicarr.app.common.redaction import redact_sensitive_text
 
                         fail_detail = redact_sensitive_text(str(e))[:1000]
@@ -1410,9 +1357,6 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
             ctrlval = {"ID": item["id"]}
             val = {"status": "Downloading", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
-            # Persist the durable command state first. The journal reservation
-            # is acquired below, inside the maintenance lease, immediately
-            # before the external download/file-write side effect.
             from comicarr.app.acquisition.maintenance import MaintenanceBlocked
             from comicarr.app.downloads import handoff, journal
 
@@ -1556,23 +1500,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                 tdnow = datetime.datetime.now()
                 nval = {"status": "Completed", "updated_date": tdnow.strftime("%Y-%m-%d %H:%M")}
 
-                # --- DDL download complete: ddl_info status='Completed' +
-                #     journal downloaded (U3) ---------------------------------
-                # The DDL "download complete" write is atomic-capable, so the
-                # journal `downloaded` transition is CO-COMMITTED with the
-                # ddl_info status='Completed' write in a single explicit
-                # begin() block via db.upsert_conn (mirrors the U2 snatch
-                # block) — no residual window between the durable Completed
-                # status and the journal; a failure rolls both back. key_dict
-                # uses the real "ID" column (UPSERT_KEYS["ddl_info"]), not the
-                # legacy lowercase "id" alias.
                 ddlc_issueid = item.get("issueid")
-                # P2-5(b): the COMPLETE replay path rebuilds a PP item via
-                # recovery._pp_item_from_row which reads nzb_folder/nzb_name
-                # FROM THIS payload. Without them a replayed DDL `downloaded`
-                # row rebuilt a PP item with None paths (un-processable). Both
-                # are available here from ddzstat; mirror the live PP_QUEUE.put
-                # shape below (no-filename ⇒ basename(path)/path).
                 if ddzstat["filename"] is None:
                     ddlc_nzb_name = os.path.basename(ddzstat["path"])
                 else:
@@ -1649,10 +1577,6 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     continue
 
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
-                # Propagate the exact `downloaded`-write key onto the PP item
-                # so the atomic claim advances THIS row, never re-derived (the
-                # no-filename DDL PP item carries issueid=None, so re-derivation
-                # could never reproduce the one-off downloader-id-keyed key).
                 try:
                     if ddzstat["filename"] is None:
                         comicarr.PP_QUEUE.put(
@@ -1713,10 +1637,6 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                             link_type_failure[item["id"]].append(item["link_type"])
                         except KeyError:
                             link_type_failure[item["id"]] = [item["link_type"]]
-                        # parse_downloadresults re-queues this same id for the next link
-                        # (getcomics._queue_download_batch reuses item_id when there is one
-                        # link), so release in-process ownership first or the retry is
-                        # deduped away by _enqueue_ddl_queue_item and the item never runs (#784).
                         comicarr.DDL_QUEUED.discard(item["id"])
                         ggc = getcomics.GC(comicid=item["comicid"], issueid=item["issueid"], oneoff=item["oneoff"])
                         ggc.parse_downloadresults(
@@ -1749,10 +1669,6 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     )
             active_item["value"] = None
         else:
-            # Live outbox sweep: durable Queued rows whose in-memory handoff
-            # failed (or were never claimed) must not wait for process restart.
-            # _enqueue_ddl_queue_item dedupes against DDL_QUEUED so this is safe
-            # while the queue still holds the same ids.
             try:
                 recover_queued_ddl_commands(queue)
             except Exception as recover_error:
@@ -1796,14 +1712,6 @@ def ddl_health_check():
         if age_minutes > threshold_minutes:
             if item["ID"] in comicarr.DDL_STUCK_NOTIFIED:
                 continue
-            # U5 reconciliation: if startup recovery classification already
-            # marked this item's journal row terminally `failed` (classified
-            # GONE — status=Downloading + dead source link), do NOT also fire
-            # a "download stuck" notification for it. recovery_classify also
-            # registers the id into DDL_STUCK_NOTIFIED on its side; this is the
-            # symmetric guard so the two paths never double-report regardless
-            # of ordering. Best-effort: a journal read failure here must not
-            # break the existing health-check notify behavior.
             try:
                 from comicarr.app.downloads import journal
                 from comicarr.tables import pipeline_journal
@@ -1898,8 +1806,6 @@ def _run_owned_postprocess(item):
     canonical_release_key = intended_key
     try:
         controller.assert_lease_current(lease)
-        # Revalidate inside the held lease immediately before the claim and
-        # filesystem work, closing the common validate-then-symlink-swap gap.
         item = validate_postprocess_item(item, roots=_configured_postprocess_roots())
         try:
             won = journal.record_transition(
@@ -2073,10 +1979,6 @@ def _handle_torrent_monitor_result(item, snstat):
         logger.error(
             "[DOWNLOADS-WORKER] torrent hash not found in client for issueid=%s; marking failed." % item.get("issueid")
         )
-        # `worker_main` catches only MaintenanceBlocked, so anything else that
-        # escapes here kills the torrent-monitor thread until restart. Recording
-        # now also runs strict reconciliation, so degrade a write failure to a
-        # logged error and keep the monitor alive.
         try:
             record(
                 Failure(
@@ -2117,9 +2019,6 @@ def _handle_torrent_monitor_result(item, snstat):
             hash=item.get("hash"),
         )
     except Exception as e:
-        # Same worker-loop containment as the NOT FOUND branch above: the
-        # quarantine is best-effort, but failing to write it must not take the
-        # monitor thread down with it.
         try:
             record(
                 ManualReview(
@@ -2289,15 +2188,7 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
             logger.info("File successfully downloaded - now initiating completed downloading handling.")
         else:
             logger.info("File failed - now initiating completed failed downloading handling.")
-        # downloaded marker, written before the PP_QUEUE.put. A failed
-        # download is STILL journaled `downloaded` here (it advances to the PP
-        # failure path which must NOT write post_processed; replay classifies
-        # it from there).
         di = nzstat.get("download_info") or {}
-        # The exact rkey is propagated onto the PP item as
-        # `journal_release_key` so the atomic claim advances THIS row — never
-        # re-derived from the PP item (no provider/hash there). None only if
-        # the journal write failed (consumer fallback re-derivation handles).
         cdh_journal_release_key = None
         try:
             from comicarr.app.downloads import journal
@@ -2442,7 +2333,6 @@ def lookupthebitches(
             )
 
 
-# Magic numbers for file type detection
 magic_numbers = {
     "PDF": bytes([0x25, 0x50, 0x44, 0x46]),
     "ZIP": bytes([0x50, 0x4B, 0x03, 0x04]),

@@ -366,7 +366,6 @@ const ISSUES_BY_COMIC = new Map<string, Issue[]>(
 function recentNarrativeEvents() {
   const now = new Date();
   const sample = [COVERS[0], COVERS[1], COVERS[2], COVERS[3], COVERS[6]];
-  // Mixed successes and failures — the point of reading the narrative stream.
   const cells: Array<{ activity: string; status: string }> = [
     { activity: "download", status: "succeeded" },
     { activity: "grab", status: "failed" },
@@ -490,17 +489,14 @@ function seriesDetail(id: string) {
 export function isMockEnabled(): boolean {
   if (typeof window === "undefined") return false;
 
-  // Query param always wins over storage. Storage is purely a convenience
-  // so the flag survives reloads; if it throws (private browsing, quota,
-  // etc.), honor the URL and keep going rather than silently disabling.
   let paramMock: "1" | "0" | null = null;
   try {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("mock");
     if (raw === "1") paramMock = "1";
     else if (raw === "0") paramMock = "0";
-  } catch {
-    // URL parse failure — treat as "no param set".
+  } catch (ignored) {
+    void ignored;
   }
 
   try {
@@ -514,14 +510,10 @@ export function isMockEnabled(): boolean {
     }
     return localStorage.getItem("comicarr:mock") === "1";
   } catch {
-    // Storage unavailable — respect the URL param if present.
     return paramMock === "1";
   }
 }
 
-// Session state used by mock auth endpoints below. Lives in module scope
-// so logout actually sticks within a single browser session even though
-// there's no real backend to keep it.
 let mockAuthenticated = true;
 
 /** Provider search results. Enough of them to page through. */
@@ -655,7 +647,6 @@ export function mockApiResponse(
     return { status: "ok" };
   }
   if (m === "GET" && url === "/api/activity/status") {
-    // Quiet-count inputs for AppStatusBar (Variant A). Fixture: light open work.
     return { in_flight: 2, recovery_pending: 1, attention: 0 };
   }
   if (m === "GET" && url === "/api/activity/in-flight") {
@@ -809,8 +800,6 @@ export function mockApiResponse(
     return ISSUES_BY_COMIC.get(resolveCoverId(issuesMatch[1])) || [];
   }
 
-  // Cover art — return a tiny transparent gif; frontend already falls back
-  // gracefully, and the list views synthesize their own SVG covers.
   const artMatch = url.match(/^\/api\/metadata\/art\/([^/]+)$/);
   if (m === "GET" && artMatch) {
     const cover = COVERS.find((c) => c.id === resolveCoverId(artMatch[1]));

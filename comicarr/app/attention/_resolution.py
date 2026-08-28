@@ -118,10 +118,6 @@ def _failure(key, problem, message, *, status="failed", issue_id=None, stamp_wri
 
 
 def _admitted_row(key):
-    # Admission is stage + unresolved status only. A non-actionable fail_reason
-    # is a *display* exclusion (see ``_read.unresolved_condition``); gating
-    # resolution on it too would strand the row — hidden from the queue and
-    # refused by every action, so its release key could never be reserved again.
     row = journal.read_one(key)
     if row is None:
         return None, _failure(key, "row_not_found", "Journal row not found")
@@ -156,9 +152,6 @@ def _retry_or_search(row, key, *, action, actor, effects):
             result.get("error") or result.get("message") or "Search could not be queued",
             status="blocked" if blocked else (result.get("status") or "failed"),
             issue_id=issue_id,
-            # The issue was already re-wanted; the row deliberately stays on the
-            # band unstamped. Distinguishes this from the precheck block above,
-            # which never touched the row.
             stamp_written=False,
         )
     stamped = journal.stamp_resolution(key, journal.STATUS_RETRIED, increment_retry=True)

@@ -57,8 +57,6 @@ export function useLogs(
     queryFn: () =>
       apiRequest<LogsResponse>("GET", `/api/system/logs?lines=${lines}`),
     enabled,
-    // The level context is only true as of the moment it was read, and a save
-    // from this very page changes it.
     staleTime: 0,
     refetchOnWindowFocus: false,
     retry: false,

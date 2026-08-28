@@ -24,10 +24,6 @@ from comicarr.app.downloads import service as dl_service
 
 router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 
-# ---------------------------------------------------------------------------
-# History endpoints
-# ---------------------------------------------------------------------------
-
 
 @router.get("/history", dependencies=[Depends(require_session)])
 def get_history(
@@ -55,11 +51,6 @@ def clear_history(
 ):
     """Clear download history, optionally filtered by status."""
     return dl_service.clear_history(status_type=status_type)
-
-
-# ---------------------------------------------------------------------------
-# Post-processing endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.post("/process", dependencies=[Depends(require_session)])
@@ -118,11 +109,6 @@ def process_issue(
     if not result["success"]:
         return JSONResponse(status_code=500, content={"detail": result.get("error")})
     return result
-
-
-# ---------------------------------------------------------------------------
-# Needs-attention band resolution (#483)
-# ---------------------------------------------------------------------------
 
 
 def _resolution_response(result):
@@ -212,11 +198,6 @@ def needs_attention_import(
     )
 
 
-# ---------------------------------------------------------------------------
-# DDL queue endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.get("/queue", dependencies=[Depends(require_session)])
 def get_ddl_queue(
     limit: int | None = Query(None, ge=1, le=100),
@@ -280,11 +261,6 @@ def delete_ddl_item(item_id: str):
     return dl_service.delete_ddl_item(item_id)
 
 
-# ---------------------------------------------------------------------------
-# File download endpoint
-# ---------------------------------------------------------------------------
-
-
 @router.get("/file/{issue_id}", dependencies=[Depends(require_session)])
 def download_file(issue_id: str):
     """Serve a downloaded issue file.
@@ -303,7 +279,6 @@ def download_file(issue_id: str):
             content={"detail": "File not found for issue: %s" % issue_id},
         )
 
-    # Validate path is within allowed directories (fail closed)
     real_path = os.path.realpath(pathfile)
     allowed_dirs = []
     for d in [
@@ -321,7 +296,6 @@ def download_file(issue_id: str):
             content={"detail": "No allowed directories configured"},
         )
 
-    # Use commonpath for prefix-collision-safe validation
     path_allowed = False
     for d in allowed_dirs:
         try:

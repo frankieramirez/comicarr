@@ -127,9 +127,6 @@ type OwnedOptions =
   | "features"
   | "manualPagination"
   | "autoResetPageIndex"
-  // Derived from `selection` and set after the passthrough spread, so a caller
-  // passing it would be silently overridden — precisely the quiet no-op the
-  // Omit exists to make impossible.
   | "enableRowSelection";
 
 export type UseTableStateOptions<TData extends RowData> = Omit<
@@ -188,9 +185,6 @@ function applyUpdater<T>(updater: Updater<T>, current: T): T {
 export function getIsAllSelected<TData extends RowData>(
   table: ComicarrCoreTable<TData>,
 ): boolean | "indeterminate" {
-  // Both halves have to read the same scope. Mixing them — an all-check scoped
-  // to the page and a some-check scoped to everything — renders a page with no
-  // selected rows as indeterminate whenever any *other* page holds a selection.
   const isPageScope = table.options.meta?.selectAllScope === "page";
   const isAll = isPageScope
     ? table.getIsAllPageRowsSelected()
@@ -270,18 +264,11 @@ export function useTableState<TData extends RowData>({
     [paginationState, store],
   );
 
-  // Auto-reset is armed one render AFTER rows first arrive. TanStack reads this
-  // option synchronously inside `_autoResetPageIndex`, before it queues the
-  // reset onto a microtask, so a ref read at render time is the value that
-  // decides. Arming it immediately would let the reset fire against a page a
-  // render-time clamp had already raised, stripping a deep link (#372, #381).
   const seenRows = useRef(false);
   const rowCount = passthrough.data.length;
   useEffect(() => {
     if (rowCount > 0) seenRows.current = true;
   });
-  // This snapshot is intentionally a render input: TanStack reads the option
-  // synchronously while building the row model, as explained above.
   // eslint-disable-next-line react-hooks/refs
   const autoResetPageIndex = seenRows.current;
 
@@ -310,13 +297,6 @@ export function useTableState<TData extends RowData>({
     enableRowSelection: selection !== undefined,
   });
 
-  // A page-size change alters no `data` identity, so TanStack's auto-reset
-  // provably cannot see it — the one page reset the hook still owes (#360).
-  //
-  // Layout effect, not effect: the reset has to land before paint, or a
-  // pageSize change renders one frame of the *old* page index against the new
-  // size — on the Library grid/list toggle (20 <-> 24) that is a visible flash
-  // of rows the user did not ask for.
   const pageSize = pagination?.pageSize;
   const previousPageSize = useRef(pageSize);
   useLayoutEffect(() => {
@@ -325,24 +305,12 @@ export function useTableState<TData extends RowData>({
       if (store) {
         store.setState({ pageIndex: 0 });
       } else {
-        // This reconciles hook-owned pagination with a changed page-size input.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setLocalPageIndex(0);
       }
     }
   }, [pageSize, store]);
 
-  // TanStack never prunes stale selection ids and offers no option to — it is
-  // documented as intentional (#355). Rows leave for reasons the hook cannot
-  // see (a refetch, a domain filter applied before `data` arrives here), which
-  // is exactly why pruning is generic: it drops ids whose rows are gone without
-  // knowing why they went. Deriving outputs from `getSelectedRowModel()` is not
-  // a substitute, because the header checkbox counts raw state (#359).
-  // Read the row models during render rather than memoising on `table`: the
-  // table instance is referentially stable for the life of the component, so
-  // `[table]` would compute this once and pruning would never fire again. The
-  // row-model getters are memoised inside TanStack on the state they derive
-  // from, so their `rows` arrays are the honest dependency.
   const filteredRows = table.getFilteredRowModel().rows;
   const visibleRowIds = useMemo(
     () => new Set(filteredRows.map((row) => row.id)),
@@ -350,8 +318,6 @@ export function useTableState<TData extends RowData>({
   );
 
   useEffect(() => {
-    // TanStack intentionally retains stale row ids; reconcile them when the
-    // filtered row model changes so header selection state stays truthful.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRowSelection((current) => {
       const selectedKeys = Object.keys(current);
@@ -371,15 +337,6 @@ export function useTableState<TData extends RowData>({
   const selectedRows = table.getSelectedRowModel().rows;
 
   const clearSelection = useCallback(() => {
-    // Existing *because* v8's deselect-all is scope-limited: under page scope
-    // `toggleAllSelected(table, false)` clears the page and leaves every other
-    // selected id behind, with no escape hatch (#355). Clearing has to be a
-    // separate operation from deselect-all, not an argument to it.
-    //
-    // The `true` is explicit rather than load-bearing — it resets to `{}`
-    // instead of `initialState.rowSelection`, and `initialState` is `Omit`ted
-    // so no caller can set one. It is kept so the intent survives if that
-    // changes.
     table.resetRowSelection(true);
   }, [table]);
 

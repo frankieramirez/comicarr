@@ -41,33 +41,17 @@ ENV_VAR = "COMICARR_LOG_LEVEL"
 
 MIN_LEVEL = 0
 MAX_LEVEL = 2
-# What the dial sits at when nothing supplies a level. Matches the `LOG_LEVEL`
-# default in the config registry.
 DEFAULT_LEVEL = 1
 
-# One name per level, and the threshold picks it: level 0 is `WARNING`, so it is
-# called `warning`. The tempting `quiet`/`normal`/`verbose` triple is not here on
-# purpose -- level 0 emits warnings and errors, and a dial labelled "quiet" is
-# the same lie #610 was about. `warn`, `error`, and `critical` are rejected too:
-# the first is a second name for one level, and the last two name a severity no
-# level can deliver on its own.
 LEVEL_NAMES = {"warning": 0, "info": 1, "debug": 2}
 NAME_FOR_LEVEL = {level: name for name, level in LEVEL_NAMES.items()}
 
-# Every source accepts both notations, so every rejection describes both. One
-# string because the CLI notice and the Settings HTTP error must not drift.
 ACCEPTED_FORMS = "%s-%s or one of %s" % (MIN_LEVEL, MAX_LEVEL, ", ".join(LEVEL_NAMES))
 
-# Named for the source, not the mechanism, because these strings are echoed to
-# the operator when the level is decided.
 SOURCE_ARGUMENT = "startup argument"
 SOURCE_ENVIRONMENT = f"the {ENV_VAR} environment variable"
 SOURCE_CONFIG = "the config file"
 SOURCE_DEFAULT = "the built-in default"
-# Not a startup source -- the Settings page writes `LOG_LEVEL` while the process
-# is running, and `resolve_startup_log_level` re-decides it on the next start.
-# It shares `parse_level` so a level typed into the UI is read by exactly the
-# same rules as one passed on the command line.
 SOURCE_SETTINGS = "the Settings page"
 
 
@@ -136,7 +120,7 @@ def parse_level(raw, origin: str) -> tuple[int | None, list[str]]:
     notices: list[str] = []
     if raw is None:
         return None, notices
-    if isinstance(raw, bool):  # bool is an int subclass; never a level
+    if isinstance(raw, bool):
         return None, [f"Ignoring {origin}: {raw!r} is not a log level."]
     if isinstance(raw, int):
         parsed = raw
@@ -157,11 +141,6 @@ def parse_level(raw, origin: str) -> tuple[int | None, list[str]]:
     return clamped, notices
 
 
-# The one thing about the chain that cannot be re-read later. The environment
-# and the config file are still there to be consulted at any moment; the startup
-# argument is consumed once at boot and `comicarr.LOG_LEVEL` is overwritten with
-# the resolved level straight after, so without this the Settings page could not
-# tell an operator that a `--log-level` flag is what keeps overruling their dial.
 _startup_argument: int | None = None
 
 
@@ -202,8 +181,6 @@ def resolve_startup_log_level(
         return LogLevelResolution(level=DEFAULT_LEVEL, source=SOURCE_DEFAULT, notices=notices)
 
     level, source = supplied[0]
-    # Say what lost, so an operator who edits the Settings dial and sees nothing
-    # change has the reason in front of them rather than in the source.
     overridden = [
         f"{describe_level(other_level)} from {other_source}"
         for other_level, other_source in supplied[1:]
@@ -231,9 +208,6 @@ def resolve_effective_log_level(
         config_level=config_level,
         environ=environ,
     )
-    # A config file with no usable `LOG_LEVEL` still has a dial position: the
-    # registry default. Borrowing the resolved level instead would show the
-    # operator a startup argument's value in a field that edits the config.
     saved, _ = parse_level(config_level, SOURCE_CONFIG)
     return EffectiveLogLevel(
         level=clamp_level(int(running_level or 0)),

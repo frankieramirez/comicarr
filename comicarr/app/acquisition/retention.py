@@ -39,10 +39,6 @@ from comicarr.tables import (
     pipeline_journal,
 )
 
-# ---------------------------------------------------------------------------
-# Parameters (#464) — constants only
-# ---------------------------------------------------------------------------
-
 DELETE_BATCH_SIZE = 500
 
 ITEMS_AGE_DAYS = 90
@@ -51,7 +47,7 @@ ITEMS_KEEP_NEWEST = 50_000
 RUNS_AGE_DAYS = 90
 RUNS_KEEP_NEWEST = 2_000
 
-JOURNAL_AGE_DAYS = 365  # age-only; no count floor
+JOURNAL_AGE_DAYS = 365
 
 MAINTENANCE_AGE_DAYS = 90
 MAINTENANCE_KEEP_NEWEST = 5_000
@@ -87,8 +83,6 @@ def run_ledger_retention(now=None):
             "ai_activity_log": 0,
         }
         logger.info("[LEDGER-RETENTION] Starting sweep (now=%s)" % when.isoformat())
-        # One transaction per table step so a late failure does not roll back
-        # earlier tables, and batch loops do not hold a single multi-table lock.
         with engine.begin() as conn:
             summary["acquisition_run_items"] = _purge_acquisition_run_items(conn, when)
         with engine.begin() as conn:
@@ -116,11 +110,6 @@ def run_ledger_retention(now=None):
         return None
 
 
-# ---------------------------------------------------------------------------
-# Per-table purge steps
-# ---------------------------------------------------------------------------
-
-
 def _purge_acquisition_run_items(conn, when):
     age_expr = func.coalesce(acquisition_run_items.c.completed_at, acquisition_run_items.c.updated_at)
     eligible = acquisition_run_items.c.state.notin_(_NONTERMINAL_ITEM_STATES)
@@ -139,9 +128,6 @@ def _purge_acquisition_run_items(conn, when):
 def _purge_acquisition_runs(conn, when):
     age_expr = func.coalesce(acquisition_runs.c.completed_at, acquisition_runs.c.updated_at)
     has_items = exists(select(1).where(acquisition_run_items.c.run_id == acquisition_runs.c.run_id))
-    # Complete = finished work (reconcile sets completed_at when every item is
-    # terminal: completed / partial / blocked / failed). Incomplete pending
-    # and running runs never have completed_at and stay immortal (#463).
     eligible = and_(
         acquisition_runs.c.completed_at.isnot(None),
         ~has_items,
@@ -159,7 +145,6 @@ def _purge_acquisition_runs(conn, when):
 
 
 def _purge_pipeline_journal(conn, when):
-    # Eligible: post_processed, or resolved failed/manual_review (#463 / #437).
     eligible = or_(
         pipeline_journal.c.stage == POST_PROCESSED,
         and_(
@@ -202,11 +187,6 @@ def _purge_ai_activity_log(conn, when):
         cutoff=cutoff,
         keep_newest=AI_KEEP_NEWEST,
     )
-
-
-# ---------------------------------------------------------------------------
-# Batch delete helpers
-# ---------------------------------------------------------------------------
 
 
 def _batched_hybrid_delete(conn, table, pk_col, age_expr, eligible_clause, cutoff, keep_newest):
@@ -257,11 +237,6 @@ def _batched_age_only_delete(conn, table, pk_col, age_expr, eligible_clause, cut
         if len(ids) < DELETE_BATCH_SIZE:
             break
     return deleted_total
-
-
-# ---------------------------------------------------------------------------
-# Time helpers
-# ---------------------------------------------------------------------------
 
 
 def _as_utc_datetime(now):

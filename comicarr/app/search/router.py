@@ -35,11 +35,6 @@ def _session_identity(request: Request, username: str):
     return request.cookies.get(COOKIE_NAME) or username
 
 
-# ---------------------------------------------------------------------------
-# Comic / manga search
-# ---------------------------------------------------------------------------
-
-
 @router.post("/comics", dependencies=[Depends(require_session)])
 def search_comics(
     request_body: dict = None,
@@ -98,11 +93,6 @@ def search_manga(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Add comic / manga to library
-# ---------------------------------------------------------------------------
-
-
 @router.post("/add", dependencies=[Depends(require_session)])
 def add_comic(
     request_body: dict = None,
@@ -139,11 +129,6 @@ def add_manga(
     if not result["success"]:
         return JSONResponse(status_code=400, content={"detail": result.get("error")})
     return result
-
-
-# ---------------------------------------------------------------------------
-# Force search / RSS
-# ---------------------------------------------------------------------------
 
 
 @router.post("/force", dependencies=[Depends(require_session)])
@@ -187,8 +172,6 @@ async def start_interactive_search(
         body = {}
     if not isinstance(body, dict):
         body = {}
-    # Off the event loop: validation hits the DB and provider plan checks
-    # before the collection thread is spawned (#733).
     result = await asyncio.to_thread(
         interactive_search.start_search,
         ctx,
@@ -243,9 +226,6 @@ async def grab_interactive_candidate(
     if not isinstance(body, dict):
         body = {}
     try:
-        # Off the event loop: revalidation re-runs a provider search and the
-        # handoff talks to the download client — minutes, not milliseconds.
-        # Running it inline froze every other request (#733).
         result = await asyncio.to_thread(
             interactive_search.grab_candidate,
             ctx,

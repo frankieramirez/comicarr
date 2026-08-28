@@ -54,7 +54,6 @@ export function SettingField({
 }: SettingFieldProps) {
   const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
-  // Checkbox: circular accent check + label + help text + right-aligned spacing
   if (type === "checkbox") {
     return (
       <label
@@ -108,7 +107,6 @@ export function SettingField({
     );
   }
 
-  // Read-only inline row: label on left, input + tag on right (stacks on mobile)
   if (readOnly) {
     return (
       <div className="grid gap-2 sm:gap-4 py-3 sm:items-center grid-cols-1 sm:[grid-template-columns:200px_1fr]">
@@ -135,7 +133,6 @@ export function SettingField({
     );
   }
 
-  // Select field
   if (type === "select") {
     const selectedLabel = labelForSelectValue(options, value);
     return (
@@ -178,7 +175,6 @@ export function SettingField({
     );
   }
 
-  // Text / password / number
   return (
     <div className="py-2.5">
       <Label htmlFor={fieldId} className="text-[12.5px] font-medium">

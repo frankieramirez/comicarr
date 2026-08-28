@@ -192,7 +192,3 @@ export function runProgress(story: Story): string | null {
   if (!counts || counts.resolved == null) return null;
   return `${counts.resolved} of ${counts.accepted} resolved`;
 }
-
-// Band phrasing used to live here. It now comes from the server as
-// `reason_phrase` on each group, keyed off the same base token the grouping
-// keys off, so matching and wording cannot drift apart (#523/#526).

@@ -52,7 +52,7 @@ class TorrentClient(object):
             "name": torrent.name,
             "folder": torrent.downloadDir,
             "completed": torrent.progress == 100,
-            "label": "None",  ## labels not supported in transmission - for when it's in transmission
+            "label": "None",
             "files": torrent_files,
             "upload_total": torrent.uploadedEver,
             "download_total": torrent.downloadedEver,

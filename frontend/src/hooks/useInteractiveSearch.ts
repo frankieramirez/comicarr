@@ -11,9 +11,6 @@ import type {
 const INTERACTIVE_POLL_MS = 2_000;
 const ACTIVE_STATES = new Set(["queued", "running"]);
 
-// Expiry never appears as a session `state` — the server signals it as a
-// 410 on poll and grab (router returns {"status": "expired"}), so it must
-// be recognized from the error, not the payload.
 export function isInteractiveSessionExpired(error: unknown): boolean {
   return error instanceof ApiError && error.status === 410;
 }
@@ -56,9 +53,6 @@ export function useInteractiveSearch(sessionId: string | null) {
     retry: (failureCount, error) =>
       !isInteractiveSessionExpired(error) && failureCount < 1,
     refetchInterval: (query) => {
-      // After an error the query keeps its last payload, so a session that
-      // expired mid-run still reads as "running" — without this branch the
-      // client polls the dead session (and its 410) forever.
       if (isInteractiveSessionExpired(query.state.error)) return false;
       return ACTIVE_STATES.has(query.state.data?.state ?? "")
         ? INTERACTIVE_POLL_MS
@@ -101,8 +95,6 @@ export function useInteractiveReview() {
   const [reviewSessionId, setReviewSessionId] = useState<string | null>(null);
   const [reviewTarget, setReviewTarget] =
     useState<StartInteractiveSearchInput | null>(null);
-  // Guards overlapping starts. `isPending` from the closure is stale for two
-  // clicks in the same tick, so the in-flight flag lives in a ref instead.
   const startInFlight = useRef(false);
 
   const startReview = async (
@@ -119,11 +111,9 @@ export function useInteractiveReview() {
     try {
       const session = await startInteractiveSearch.mutateAsync(target);
       setReviewSessionId(session.session_id);
-    } catch {
-      // The sheet owns the actionable error and retry affordance.
+    } catch (ignored) {
+      void ignored;
     } finally {
-      // Always clears, so a failed start still allows retry and closing the
-      // sheet mid-flight cannot strand the flag.
       startInFlight.current = false;
     }
   };

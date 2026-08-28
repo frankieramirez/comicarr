@@ -249,9 +249,8 @@ function ConfirmationDialog({
         override: needsOverride,
       });
       onGrabbed(result);
-    } catch {
-      // The dialog renders grab.error below; without this catch the
-      // rejection from mutateAsync escapes `void submit()` unhandled.
+    } catch (ignored) {
+      void ignored;
     }
   };
   return (
@@ -344,9 +343,6 @@ export function ReleaseReviewSheet({
     candidates.find((candidate) => candidate.state === "available") ??
     candidates[0] ??
     null;
-  // The query keeps the last payload after a 410, so once the session
-  // expires `data.state` still reads "queued"/"running" — expiry must win
-  // over `active` or the strip keeps its spinner on a dead session.
   const expired = isInteractiveSessionExpired(session.error);
   const active =
     !expired &&

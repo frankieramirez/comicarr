@@ -37,8 +37,6 @@ from comicarr.tables import comics, storyarcs
 
 _ENTITY_TYPES = frozenset({"issue", "annual", "story_arc_issue", "series"})
 _SEARCH_MODES = frozenset({"review", "unfiltered"})
-# Only newznab/torznab indexers accept one bare-title API query; the other
-# provider kinds (DDL, experimental, public torrents, 32p) have no such seam.
 _UNFILTERED_PROVIDER_KINDS = frozenset({"newznab", "torznab"})
 _WORKER_LOCK = threading.Lock()
 _GRAB_LOCK = threading.Lock()
@@ -189,8 +187,6 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id, mode=No
             }
         entity["missing"] = missing
         if mode == "unfiltered":
-            # One bare-title query per indexer (#767): a single anchor issue
-            # carries the evaluation context instead of the gap-start fan-out.
             entity["search_mode"] = "unfiltered"
             entity["targets"] = _ordered_missing(missing)[:1]
         else:
@@ -219,8 +215,6 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id, mode=No
         if provider.blocked
     ]
     if mode == "unfiltered":
-        # Surfaced, never silently skipped: these providers complete without
-        # querying because they cannot run one bare series-title query.
         initial_failures += [
             {
                 "provider": provider.name,
@@ -348,10 +342,6 @@ def _merge_series_evaluation(collected, evaluation):
         collected[identity] = evaluation
         return
     if _verdict_rank(evaluation) < _verdict_rank(existing):
-        # The same release can be rejected for one searched target (e.g. a
-        # pack that does not contain it) yet accepted for another. Keep the
-        # grabbable evaluation — its satisfies list leads, so the persisted
-        # anchor (satisfies[0]) stays a target the grab can revalidate against.
         _union_satisfies(evaluation, existing)
         collected[identity] = evaluation
         return
@@ -359,9 +349,6 @@ def _merge_series_evaluation(collected, evaluation):
 
 
 def _order_series_evaluations(collected):
-    # Acceptance ranks above coverage and the pack flag: complete_search_session
-    # truncates this ordered list, so rejected packs must never crowd out
-    # grabbable releases.
     evaluations = list(collected.values())
     evaluations.sort(
         key=lambda evaluation: (
@@ -416,8 +403,6 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
 
     publish_progress()
     try:
-        # The legacy provider loop owns one global search lock. Manual mode
-        # evaluates matches but never invokes verification/searcher handoff.
         with (
             _WORKER_LOCK,
             search_filer.interactive_collection(
@@ -464,10 +449,6 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
     targets = entity.get("targets") or _search_targets(missing)
     eligible = {(item["entity_type"], str(item["entity_id"])): item for item in missing}
     unfiltered = entity.get("search_mode") == "unfiltered"
-    # provider_total counts every provider once per target, so blocked providers
-    # (which never report completion) have to be offset per target too. Other
-    # initial failures (unfiltered mode's unsupported providers) still report
-    # completion themselves and must not be offset.
     blocked_count = sum(1 for failure in initial_failures if failure.get("code") == "temporarily_blocked")
     blocked_offset = blocked_count * max(1, len(targets))
 
@@ -502,8 +483,6 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
         def on_evaluations(values, searched=target):
             for evaluation in values:
                 if unfiltered:
-                    # Grab must revalidate under the same bare-title pass, so
-                    # the mode travels with the persisted reconstruction.
                     evaluation.reconstruction_hint = dict(
                         evaluation.reconstruction_hint or {}, search_mode="unfiltered"
                     )
@@ -676,9 +655,6 @@ def grab_candidate(
 ):
     """Re-find, revalidate, and journal-handoff one owned release candidate."""
 
-    # Fail fast instead of queueing: a grab holds the lock for its whole
-    # revalidation + handoff, and each waiter would park a worker thread from
-    # the shared to_thread pool for that duration (#733).
     if not _GRAB_LOCK.acquire(blocking=False):
         return {
             "success": False,
@@ -755,8 +731,6 @@ def grab_candidate(
             evaluations, search_result = _revalidate_candidate(
                 entity,
                 override_reason=override_reason,
-                # An unfiltered candidate may only be retrievable by the bare
-                # pass (e.g. a newznab result), so revalidation reuses it.
                 unfiltered=(candidate.get("reconstruction") or {}).get("search_mode") == "unfiltered",
             )
         except Exception as e:

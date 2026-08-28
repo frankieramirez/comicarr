@@ -90,13 +90,10 @@ class SABnzbd(object):
             if chkstatus is True:
                 queueinfo = sendresponse["queue"]
                 if str(queueinfo["status"]).lower() == "paused":
-                    # logger.info('queue IS paused')
                     return {"status": True}
                 else:
-                    # logger.info('queue NOT paused')
                     return {"status": False}
 
-            # logger.fdebug(sendresponse)
             if sendresponse["status"] is True:
                 queue_params = {
                     "status": True,
@@ -125,7 +122,7 @@ class SABnzbd(object):
                 self.params["queue"]["category"] = comicarr.CONFIG.SAB_CATEGORY
             logger.fdebug("[SAB-QUEUE] parameters set to %s" % self.params)
             self.params["queue"]["apikey"] = tmp_apikey
-            time.sleep(5)  # pause 5 seconds before monitoring just so it hits the queue
+            time.sleep(5)
             h = requests.get(self.sab_url, params=self.params["queue"], verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
         except Exception as e:
             logger.fdebug(
@@ -137,7 +134,7 @@ class SABnzbd(object):
             queueresponse = h.json()
             logger.fdebug("successfully queried the queue for status")
             try:
-                if queueresponse["noofslots"] == 1:  # 1 means it matched to one instance
+                if queueresponse["noofslots"] == 1:
                     queueinfo = queueresponse["queue"]["slots"][0]
                     logger.info(
                         "monitoring ... detected download - %s [%s]" % (queueinfo["filename"], queueinfo["status"])
@@ -161,19 +158,14 @@ class SABnzbd(object):
                     )
                     and float(queueinfo["mbleft"]) > 0
                 ):
-                    # if 'comicrn' in queueinfo['script'].lower():
-                    #    logger.warn('ComicRN has been detected as being active for this category & download. Completed Download Handling will NOT be performed due to this.')
-                    #    logger.warn('Either disable Completed Download Handling for SABnzbd within Comicarr, or remove ComicRN from your category script in SABnzbd.')
-                    #    return {'status': 'double-pp', 'failed': False}
                     no_findie = False
                     tmp_queue = self.params["queue"]
                     try:
                         tmp_queue.pop("nzo_ids")
                     except Exception:
-                        # if this triggers than nzo_id is no longer in the active queue and we can assume it's finished
                         logger.fdebug("unable to pop nzo_id - possibly already done/finished/does not exist")
                         no_findie = True
-                    tmp_queue["nzo_ids"] = self.params["nzo_id"]  # if it pops, still there - make sure we put it back
+                    tmp_queue["nzo_ids"] = self.params["nzo_id"]
                     queue_resp = requests.get(
                         self.sab_url, params=tmp_queue, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30
                     )
@@ -184,7 +176,6 @@ class SABnzbd(object):
                         try:
                             tmp_queue.pop("nzo_ids")
                         except Exception:
-                            # logger.fdebug('unable to pop nzo_id - possibly already done/finished/does not exist')
                             no_findie = True
                         else:
                             tmp_queue["nzo_ids"] = self.params["nzo_id"]
@@ -217,7 +208,6 @@ class SABnzbd(object):
         if sab_check == "some value":
             hist_params["limit"] = 200
         else:
-            # set min_sab to 3.2.0 since 3.2.0 beta 1 has the api call for history search by nzo_id
             try:
                 min_sab = "3.2.0"
                 sab_vers = comicarr.CONFIG.SAB_VERSION
@@ -236,7 +226,6 @@ class SABnzbd(object):
 
         hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
         historyresponse = hist.json()
-        # logger.info(historyresponse)
         histqueue = historyresponse["history"]
         found = {"status": False}
         nzo_exists = False
@@ -247,8 +236,6 @@ class SABnzbd(object):
                 if hq["nzo_id"] == sendresponse and any(
                     [hq["status"] == "Completed", hq["status"] == "Running", "comicrn" in hq["script"].lower()]
                 ):
-                    # A rare occurrence from SAB has it returning two history entries for this nzo, one of which has an empty storage entry.  If hitting this
-                    # assume that it will condense back into one entry on subsequent re-check
                     if hq["storage"] == "" and not roundtwo:
                         logger.fdebug(
                             f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {comicarr.CONFIG.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
@@ -272,9 +259,7 @@ class SABnzbd(object):
                         logger.fdebug("location found @ %s" % hq["storage"])
                         found = {
                             "status": True,
-                            "name": ntpath.basename(
-                                hq["storage"]
-                            ),  # os.pathre.sub('.nzb', '', hq['nzb_name']).strip(),
+                            "name": ntpath.basename(hq["storage"]),
                             "location": os.path.abspath(os.path.join(hq["storage"], os.pardir)),
                             "failed": False,
                             "issueid": nzbinfo["issueid"],
@@ -343,7 +328,6 @@ class SABnzbd(object):
 
                 elif hq["nzo_id"] == sendresponse and hq["status"] == "Failed":
                     nzo_exists = True
-                    # get the stage / error message and see what we can do
                     stage = hq["stage_log"]
                     logger.fdebug("stage: %s" % (stage,))
                     for x in stage:
@@ -394,9 +378,7 @@ class SABnzbd(object):
                         time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
                         if hq["status"] == "Extracting":
                             try:
-                                to_delay = (
-                                    int(int(hq["bytes"]) / 25000000) + 2
-                                )  # for every 25mb add another retry pause as a precaution
+                                to_delay = int(int(hq["bytes"]) / 25000000) + 2
                             except Exception:
                                 to_delay = 4
 

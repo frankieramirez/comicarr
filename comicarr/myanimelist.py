@@ -33,10 +33,8 @@ import comicarr
 from comicarr import logger, series_kind
 from comicarr.helpers import listLibrary
 
-# MAL API base URL
 MAL_API_BASE = "https://api.myanimelist.net/v2"
 
-# Fields to request from MAL API
 _MANGA_LIST_FIELDS = (
     "id,title,main_picture,alternative_titles,start_date,end_date,"
     "synopsis,mean,rank,num_volumes,num_chapters,status,genres,"
@@ -49,11 +47,9 @@ _MANGA_DETAIL_FIELDS = (
     "genres,authors{first_name,last_name},media_type,pictures"
 )
 
-# Rate limiter state
 _last_request_time = 0
-_rate_limit_interval = 1.0  # 1 request per second for MAL
+_rate_limit_interval = 1.0
 
-# Status mapping: MAL -> Comicarr
 _STATUS_MAP = {
     "currently_publishing": "ongoing",
     "finished": "completed",
@@ -61,7 +57,6 @@ _STATUS_MAP = {
     "on_hiatus": "hiatus",
 }
 
-# Media types we consider as manga
 _MANGA_TYPES = {"manga", "manhwa", "manhua", "one_shot", "light_novel"}
 
 
@@ -124,7 +119,6 @@ def search_manga(name, limit=None, offset=None, sort=None):
     search_start = time.time()
     logger.info("[MAL] Starting search for: %s (limit=%s, offset=%s)" % (name, limit, offset))
 
-    # Get library for "haveit" status
     comicLibrary = listLibrary()
 
     page_limit = min(limit, 100) if limit else 10
@@ -160,15 +154,12 @@ def search_manga(name, limit=None, offset=None, sort=None):
         title = node.get("title", "Unknown")
         media_type = node.get("media_type", "unknown")
 
-        # Skip non-manga types
         if media_type not in _MANGA_TYPES:
             continue
 
-        # Extract images
         main_picture = node.get("main_picture", {})
         cover_url = _proxy_image_url(main_picture.get("large") or main_picture.get("medium") or "")
 
-        # Extract alt titles
         alt_titles_data = node.get("alternative_titles", {})
         alt_titles = []
         if alt_titles_data.get("en") and alt_titles_data["en"] != title:
@@ -179,29 +170,22 @@ def search_manga(name, limit=None, offset=None, sort=None):
             if syn and syn != title:
                 alt_titles.append(syn)
 
-        # Extract year from start_date
         start_date = node.get("start_date", "")
         year = start_date[:4] if start_date and len(start_date) >= 4 else "0000"
 
-        # Map status
         mal_status = node.get("status", "unknown")
         status = _STATUS_MAP.get(mal_status, "unknown")
 
-        # Extract description
         description = node.get("synopsis", "") or ""
 
-        # Extract author
         authors = node.get("authors", [])
         author = _format_authors(authors)
 
-        # Num chapters/volumes
         num_chapters = node.get("num_chapters", 0)
         num_volumes = node.get("num_volumes", 0)
 
-        # Score
         score = node.get("mean")
 
-        # Check if already in library
         mal_comic_id = series_kind.add_prefix(mal_id, series_kind.SeriesProvider.MYANIMELIST)
         haveit = "No"
         if mal_comic_id in comicLibrary:
@@ -211,7 +195,6 @@ def search_manga(name, limit=None, offset=None, sort=None):
             if name_key in comicLibrary:
                 haveit = comicLibrary[name_key]
 
-        # Build year range
         yearRange = [str(year)]
         if str(year).isdigit():
             current_year = datetime.now().year
@@ -250,7 +233,6 @@ def search_manga(name, limit=None, offset=None, sort=None):
             }
         )
 
-    # Estimate total from paging
     has_next = "next" in paging
     total_estimate = page_offset + len(comiclist) + (1 if has_next else 0)
 
@@ -288,7 +270,6 @@ def get_manga_details(mal_id):
 
     title = data.get("title", "Unknown")
 
-    # Extract alt titles
     alt_titles_data = data.get("alternative_titles", {})
     alt_titles = []
     if alt_titles_data.get("en") and alt_titles_data["en"] != title:
@@ -299,22 +280,15 @@ def get_manga_details(mal_id):
         if syn and syn != title:
             alt_titles.append(syn)
 
-    # Extract images
     main_picture = data.get("main_picture", {})
-    # Detail payloads are consumed by the backend importer, which needs an
-    # absolute provider URL to cache the image. Search payloads proxy this URL
-    # separately for browser display.
     cover_url = main_picture.get("large") or main_picture.get("medium") or ""
 
-    # Extract year
     start_date = data.get("start_date", "")
     year = start_date[:4] if start_date and len(start_date) >= 4 else None
 
-    # Map status
     mal_status = data.get("status", "unknown")
     status = _STATUS_MAP.get(mal_status, "unknown")
 
-    # Extract metadata
     description = data.get("synopsis", "")
     num_chapters = data.get("num_chapters", 0)
     num_volumes = data.get("num_volumes", 0)
@@ -323,7 +297,6 @@ def get_manga_details(mal_id):
     artist = _format_authors(authors, role="Art")
     score = data.get("mean")
 
-    # Extract tags/genres
     tags = [g.get("name", "") for g in data.get("genres", []) if g.get("name")]
 
     return {

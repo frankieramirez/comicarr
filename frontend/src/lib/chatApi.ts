@@ -71,8 +71,8 @@ export async function streamChatTurn({
         error?: string;
       };
       message = body.detail || body.error || message;
-    } catch {
-      // Keep the status-based fallback for non-JSON errors.
+    } catch (ignored) {
+      void ignored;
     }
     throw new Error(message);
   }
@@ -95,8 +95,6 @@ export async function streamChatTurn({
     try {
       event = JSON.parse(value) as ChatStreamEvent;
     } catch {
-      // A truncated or malformed frame is not worth killing the turn over; a
-      // missing "done" is caught below with a message the user can act on.
       return;
     }
     if (event.type === "done") receivedDone = true;

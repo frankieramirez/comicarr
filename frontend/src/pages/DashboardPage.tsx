@@ -107,18 +107,11 @@ export default function DashboardPage() {
     mangaScan.isPending ||
     comicScanning ||
     mangaScanning;
-  // A failed read is not a library that was never configured. The button only
-  // renders once the read succeeded, so "Configure a library directory first"
-  // can never end up naming the wrong cause; a failed read says so instead.
   const canScan = Boolean(scanTargets.data?.comic || scanTargets.data?.manga);
   const scanTitle = canScan
     ? "Scan configured comic and manga libraries"
     : "Configure a library directory first";
 
-  // The summary repeats each panel's own verdict rather than re-deriving it,
-  // so a broken source says so instead of contributing a zero that reads as
-  // fact. `panelState` stays the only place the precedence lives. Open work is
-  // absent here on purpose: `InFlightLine` is the only place that reports it.
   const summary = summarize(
     libraryState,
     "library",

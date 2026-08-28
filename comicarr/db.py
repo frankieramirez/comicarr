@@ -47,21 +47,10 @@ import comicarr
 from comicarr import logger
 from comicarr.tables import TABLE_MAP, UPSERT_KEYS
 
-# ---------------------------------------------------------------------------
-# Module-level state
-# ---------------------------------------------------------------------------
-
 _engine = None
 _engine_lock = threading.Lock()
 
-# Retained only for DBConnection.action() write serialization during shim period.
-# Remove together with DBConnection once all callers are migrated.
 _db_lock = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Engine management
-# ---------------------------------------------------------------------------
 
 
 def _get_database_url() -> str:
@@ -75,7 +64,6 @@ def _get_database_url() -> str:
         if config_url:
             return config_url
 
-    # Default: SQLite in DATA_DIR
     db_path = os.path.join(comicarr.DATA_DIR, "comicarr.db")
     return f"sqlite:///{db_path}"
 
@@ -95,10 +83,10 @@ def _apply_sqlite_pragmas(dbapi_conn, _connection_record):
     cursor.execute("PRAGMA busy_timeout = 15000")
     cursor.execute("PRAGMA foreign_keys = ON")
     cursor.execute("PRAGMA synchronous = NORMAL")
-    cursor.execute("PRAGMA mmap_size = 67108864")  # 64MB
-    cursor.execute("PRAGMA journal_size_limit = 67108864")  # 64MB
+    cursor.execute("PRAGMA mmap_size = 67108864")
+    cursor.execute("PRAGMA journal_size_limit = 67108864")
     cursor.execute("PRAGMA journal_mode = WAL")
-    cursor.execute("PRAGMA cache_size = -64000")  # 64MB
+    cursor.execute("PRAGMA cache_size = -64000")
     cursor.close()
 
 
@@ -121,15 +109,12 @@ def get_engine() -> Engine:
 
         if dialect == "sqlite":
             kwargs["connect_args"] = {"check_same_thread": False, "timeout": 20}
-            # QueuePool is the SQLAlchemy 2.x default for file-based SQLite
         else:
-            # PostgreSQL / MySQL
             kwargs["pool_size"] = 5
             kwargs["max_overflow"] = 5
             kwargs["pool_pre_ping"] = True
             kwargs["pool_recycle"] = 1800
 
-            # Warn if non-localhost without SSL
             if dialect in ("postgresql", "mysql") and "@" in url:
                 host_part = url.split("@")[1].split("/")[0].split(":")[0]
                 if host_part not in ("localhost", "127.0.0.1", "::1"):
@@ -144,7 +129,6 @@ def get_engine() -> Engine:
         logger.fdebug("Initializing database engine: %s", _mask_password(url))
         _engine = create_engine(url, **kwargs)
 
-        # SQLite PRAGMA listener
         if dialect == "sqlite":
             event.listen(_engine, "connect", _apply_sqlite_pragmas)
 
@@ -168,11 +152,6 @@ def get_connection() -> Connection:
 def get_dialect() -> str:
     """Return the dialect name: 'sqlite', 'postgresql', or 'mysql'."""
     return get_engine().dialect.name
-
-
-# ---------------------------------------------------------------------------
-# Public query helpers (used by all modules instead of local copies)
-# ---------------------------------------------------------------------------
 
 
 def select_all(stmt):
@@ -220,11 +199,6 @@ def raw_execute(sql, args=None, executemany=False):
         return conn.execute(text(converted), params)
 
 
-# ---------------------------------------------------------------------------
-# Portable helpers
-# ---------------------------------------------------------------------------
-
-
 def ci_compare(column: Column, value: Any) -> BinaryExpression:
     """Build a dialect-aware case-insensitive comparison expression.
 
@@ -235,7 +209,6 @@ def ci_compare(column: Column, value: Any) -> BinaryExpression:
     dialect = get_dialect()
     if dialect == "postgresql":
         return func.lower(column) == func.lower(value)
-    # sqlite and mysql: default collation handles case
     return column == value
 
 
@@ -270,9 +243,6 @@ def _build_upsert_stmt(table_name: str, value_dict: dict, key_dict: dict):
             "set_": value_dict,
         }
         if dialect == "sqlite":
-            # Legacy SQLite databases use partial unique indexes so historical
-            # null/empty keys remain valid. Use the identical literal predicate
-            # here so SQLite can infer those indexes as the conflict target.
             conflict_options["index_where"] = and_(
                 *(
                     and_(
@@ -332,11 +302,6 @@ def upsert(table_name: str, value_dict: dict, key_dict: dict) -> None:
         raise OperationalError(f"Upsert on {table_name} failed after 5 retries", None, None)
 
 
-# ---------------------------------------------------------------------------
-# Query parameter conversion (? -> :param_N)
-# ---------------------------------------------------------------------------
-
-
 def _convert_positional_to_named(query, args=None):
     """Convert ? placeholders to :param_N named parameters.
 
@@ -376,15 +341,6 @@ def _convert_positional_to_named(query, args=None):
     return converted, args
 
 
-# ---------------------------------------------------------------------------
-# DBConnection -- deprecated compatibility shim
-# ---------------------------------------------------------------------------
-# DEPRECATED: This class is a legacy compatibility shim. All new code should
-# use SQLAlchemy Core expressions via get_engine()/get_connection() directly,
-# or the public helpers (select_all, select_one, raw_select_all, etc.) above.
-# This class will be removed once all callers have been migrated.
-
-
 class DBConnection:
     """Deprecated compatibility shim wrapping SQLAlchemy for legacy raw-SQL callers.
 
@@ -410,7 +366,6 @@ class DBConnection:
             try:
                 with get_engine().connect() as conn:
                     result = conn.execute(text(converted), params)
-                    # Return a list of dicts for compatibility with sqlite3.Row access
                     rows = [dict(row._mapping) for row in result]
                     return rows
             except OperationalError as e:
@@ -439,10 +394,8 @@ class DBConnection:
                 try:
                     with get_engine().begin() as conn:
                         if executemany and args is not None:
-                            # Convert list of tuples to list of dicts
                             param_names = [f"param_{i}" for i in range(converted.count(":param_"))]
                             if not param_names:
-                                # Count params from the converted query
                                 import re as _re
 
                                 param_names = [m.group(0).lstrip(":") for m in _re.finditer(r":param_\d+", converted)]

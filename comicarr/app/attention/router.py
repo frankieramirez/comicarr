@@ -66,8 +66,6 @@ def serialize_report(report):
         "results": [_item_wire(item) for item in report.results],
     }
     if not report.success:
-        # Carry both envelopes: the shipped UI reads `error` first, other
-        # clients (and this route's own 400) speak FastAPI's `detail`.
         body["error"] = "No rows could be resolved"
         body["detail"] = body["error"]
     return body

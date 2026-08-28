@@ -16,7 +16,6 @@ export function useLocalStorage<T>(
   key: string,
   initialValue: T,
 ): [T, React.Dispatch<React.SetStateAction<T>>] {
-  // Initialize directly from localStorage to avoid hydration mismatch
   const [storedValue, setStoredValue] = useState<T>(() =>
     getItemFromLocalStorage(key, initialValue),
   );
@@ -25,13 +24,10 @@ export function useLocalStorage<T>(
     (value) => {
       setStoredValue((prev) => {
         const newValue = value instanceof Function ? value(prev) : value;
-        // Save to localStorage asynchronously to avoid blocking UI
         queueMicrotask(() => {
           try {
             window.localStorage.setItem(key, JSON.stringify(newValue));
-          } catch {
-            // Ignore localStorage errors (quota exceeded, etc.)
-          }
+          } catch {}
         });
         return newValue;
       });

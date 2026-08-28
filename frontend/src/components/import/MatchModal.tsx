@@ -19,7 +19,6 @@ interface MatchModalProps {
   isMatching?: boolean;
 }
 
-// Inner component that resets when importGroup changes
 function MatchModalContent({
   importGroup,
   onClose,
@@ -32,7 +31,6 @@ function MatchModalContent({
   const mangaBlocked = isLoaded && searchMode === "manga" && !mangaEnabled;
   const mangaSearchEnabled = searchMode === "manga" && isLoaded && mangaEnabled;
 
-  // Initialize search query from importGroup - this will reset when the key changes
   const initialQuery = importGroup?.ComicName || "";
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedComic, setSelectedComic] = useState<SearchResult | null>(null);
@@ -255,7 +253,6 @@ export default function MatchModal({
   onMatch,
   isMatching = false,
 }: MatchModalProps) {
-  // Generate a unique key based on importGroup to reset internal state when it changes
   const modalKey = useMemo(() => {
     if (!importGroup) return "closed";
     return `${importGroup.DynamicName}-${importGroup.Volume || "null"}-${isOpen}`;
@@ -263,7 +260,6 @@ export default function MatchModal({
 
   if (!isOpen) return null;
 
-  // Using key prop to reset the inner component's state when importGroup changes
   return (
     <MatchModalContent
       key={modalKey}

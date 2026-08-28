@@ -54,7 +54,6 @@ def find_comic(
     except (ValueError, TypeError):
         return {"error": "Invalid pagination parameters"}
 
-    # Route to appropriate provider
     if content_type == "manga":
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
             return {"error": "MangaDex integration is not enabled"}
@@ -82,7 +81,6 @@ def find_comic(
             content_type=content_type,
         )
 
-    # Add in_library flag
     def add_in_library(comic):
         comic["in_library"] = comic.get("haveit") != "No"
         return comic
@@ -115,7 +113,6 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
         manga["in_library"] = manga.get("haveit") != "No"
         return manga
 
-    # Try MAL first if configured
     mal_enabled = getattr(ctx.config, "MAL_ENABLED", False)
     mal_client_id = getattr(ctx.config, "MAL_CLIENT_ID", None)
 
@@ -130,7 +127,6 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
         except Exception as e:
             logger.error("[SEARCH] MAL search failed, falling back to MangaDex: %s" % e)
 
-    # Fall back to MangaDex
     from comicarr import mangadex
 
     searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
@@ -146,10 +142,6 @@ def add_comic(ctx, comic_id):
     from comicarr import importer, metron
 
     try:
-        # Metron search results carry "metron-"-prefixed ids (#765). Resolve to
-        # the ComicVine volume id before queueing so the id we queue, narrate in
-        # activity events, and eventually store is the one the frontend hears
-        # back on the comic-added handshake (the response carries it below).
         if metron.is_metron_id(comic_id):
             cv_comicid = metron.get_cv_id(comic_id)
             if not cv_comicid:
@@ -328,10 +320,6 @@ def force_search(ctx):
             "message": "No eligible Wanted issues were queued",
         }
 
-    # Every enqueue records accepted dispatch itself. Reasserting it is
-    # idempotent and makes the outer scan's acceptance visible even if the
-    # legacy loop later changes its internal handoff details. A mixed scan
-    # retains the accepted obligations but surfaces the handoff failures.
     ledger.record_dispatch(run_id, DispatchState.ERROR if handoff_errors else DispatchState.ACCEPTED)
     run = ledger.get_run(run_id) or {}
     if handoff_errors:
@@ -494,11 +482,7 @@ def retry_run(ctx, run_id):
     }
 
 
-# --- Extracted from helpers.py ---
-
-
 def LoadAlternateSearchNames(seriesname_alt, comicid):
-    # seriesname_alt = db.comics['AlternateSearch']
     AS_Alt = []
     Alternate_Names = {}
     alt_count = 0
@@ -650,25 +634,14 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
         logger.error("Torrent hash is missing, or an invalid hash value has been passed")
         return {"snatch_status": "MONITOR ERROR"}
 
-    # One normalised snapshot for every client. Previously only rTorrent and
-    # Deluge were handled here and everything else fell through to MONITOR
-    # ERROR, so a torrent snatched via qBittorrent, Transmission or uTorrent
-    # could never be monitored or recovered.
     snapshot = torrent_monitor.probe(torrent_hash)
     logger.info("torrent_info: %s" % snapshot)
 
     if not snapshot.get("reachable"):
-        # The client did not answer. NOT the same as "no such torrent" —
-        # recovery must not treat an outage as proof the download is gone.
         logger.warn("torrent client unreachable for hash %s: %s" % (torrent_hash, snapshot.get("reason")))
         return {"snatch_status": "MONITOR ERROR", "error": snapshot.get("reason")}
 
     if not snapshot.get("found"):
-        # The client was queried and returned no torrent for this hash. This is
-        # an EXPLICIT "hash not present in the client" signal, which lets U5
-        # recovery classification distinguish absent-from-a-reachable-client
-        # (→ gone, after the done-signal cross-check) from a transient outage
-        # (MONITOR ERROR → unknown).
         logger.warn("torrent not present in client for hash %s (explicit NOT FOUND)." % torrent_hash)
         return {"snatch_status": "NOT FOUND", "hash": torrent_hash}
     else:
@@ -745,16 +718,8 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 torrent_info["copied_filepath"] = os.path.join(comicarr.CONFIG.PP_SSHLOCALCD, torrent_info["name"])
                 torrent_info["snatch_status"] = snatch_status
         else:
-            # Present in client but not finished (or not in download/complete path).
-            # Prefer IN PROGRESS so recovery classifies present torrents as "still"
-            # rather than NOT SNATCHED → absent/gone. NOT FOUND remains the only
-            # explicit absent marker (returned above when the client has no hash).
             snatch_status = "IN PROGRESS"
             if monitor is True:
-                # Copying an in-flight torrent's files needs the client to hold
-                # off writing to them. Clients without a pause API simply skip
-                # this; the torrent is still monitored, it is just not copied
-                # early for local post-processing.
                 if snapshot.get("client") in torrent_monitor.PAUSABLE_ROUTES:
                     pauseit = torrent_monitor.pause(torrent_hash)
                     if pauseit is False:
@@ -775,10 +740,6 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                             )
                             torrent_info["copied_filepath"] = torrent_path
                         finally:
-                            # The pause above must be undone on every exit path.
-                            # Resuming only on success left a failed copy's
-                            # torrent paused in the client with nothing to
-                            # restart it.
                             if torrent_monitor.resume(torrent_hash) is False:
                                 logger.warn(
                                     "Unable to resume torrent %s after the local copy - it may still be paused in the client."
@@ -824,8 +785,6 @@ def block_provider_check(site, simple=True, force=False):
         return {"blocked": False, "remain": 0}
 
 
-# Socket errnos that mean the provider itself could not be reached. An HTTP
-# response of any status proves the opposite, so it is checked first.
 PROVIDER_DOWN_ERRNOS = frozenset(
     {
         errno.ETIMEDOUT,
@@ -871,8 +830,6 @@ def provider_unreachable(exc):
     code = _nested_errno(exc)
     if code is not None:
         return code in PROVIDER_DOWN_ERRNOS
-    # No errno to inspect (DNS failure, SSL handshake, read timeout): trust the
-    # requests exception class instead.
     return isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout))
 
 
@@ -1010,8 +967,8 @@ def _process_search_command(command):
     issueid = command.issueid
     if "_" in issueid:
         arcid = issueid
-        comicid = None  # required for storyarcs to work
-        issueid = None  # required for storyarcs to work
+        comicid = None
+        issueid = None
 
     mofo = comicarr.filers.FileHandlers(
         ComicID=comicid,
@@ -1135,9 +1092,6 @@ def search_queue(queue, ledger=None, maintenance=None):
                 if ItemOutcome(item_state["state"]).terminal:
                     continue
                 if item_state["state"] == ItemOutcome.RUNNING.value:
-                    # A live duplicate must never reclaim an in-flight
-                    # provider search. True crash recovery resets RUNNING
-                    # obligations before it puts them back on this queue.
                     continue
                 if not command_ledger.claim_item(command.run_id, command.entity_type, command.issueid):
                     continue

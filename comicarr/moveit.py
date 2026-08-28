@@ -7,8 +7,6 @@ from comicarr import db, filechecker, helpers, logger, updater
 
 
 def movefiles(comicid, comlocation, imported):
-    # comlocation is destination
-    # comicid is used for rename
     files_moved = []
     try:
         imported = ast.literal_eval(imported)
@@ -30,7 +28,6 @@ def movefiles(comicid, comlocation, imported):
         for impr in impres:
             srcimp = impr["comiclocation"]
             orig_filename = impr["comicfilename"]
-            # before moving check to see if Rename to Comicarr structure is enabled.
             if comicarr.CONFIG.IMP_RENAME and comicarr.CONFIG.FILE_FORMAT != "":
                 logger.fdebug("Renaming files according to configuration details : " + str(comicarr.CONFIG.FILE_FORMAT))
                 renameit = helpers.rename_param(comicid, imported["ComicName"], impr["issuenumber"], orig_filename)
@@ -50,7 +47,6 @@ def movefiles(comicid, comlocation, imported):
                 logger.error("Failed to move files - check directories and manually re-run.")
 
         logger.fdebug("all files moved.")
-        # now that it's moved / renamed ... we remove it from importResults or mark as completed.
 
     if len(files_moved) > 0:
         logger.info("files_moved: " + str(files_moved))
@@ -58,7 +54,6 @@ def movefiles(comicid, comlocation, imported):
             try:
                 result["import_id"]
             except:
-                # if it's an 'older' import that wasn't imported, just make it a basic match so things can move and update properly.
                 controlValue = {"ComicFilename": result["filename"], "SRID": result["srid"]}
                 newValue = {"Status": "Imported", "ComicID": comicid}
             else:
@@ -69,7 +64,6 @@ def movefiles(comicid, comlocation, imported):
 
 
 def archivefiles(comicid, comlocation, imported):
-    # if move files isn't enabled, let's set all found comics to Archive status :)
     try:
         imported = ast.literal_eval(imported)
     except Exception as e:
@@ -89,7 +83,7 @@ def archivefiles(comicid, comlocation, imported):
 
         for sdir in scandir:
             logger.info("Updating issue information and setting status to Archived for location: " + sdir)
-            updater.forceRescan(comicid, archive=sdir)  # send to rescanner with archive mode turned on
+            updater.forceRescan(comicid, archive=sdir)
 
         logger.info("Now scanning in files.")
         updater.forceRescan(comicid)
@@ -98,7 +92,6 @@ def archivefiles(comicid, comlocation, imported):
             try:
                 result["import_id"]
             except:
-                # if it's an 'older' import that wasn't imported, just make it a basic match so things can move and update properly.
                 controlValue = {"ComicFilename": result["comicfilename"], "SRID": imported["srid"]}
                 newValue = {"Status": "Imported", "ComicID": comicid}
             else:

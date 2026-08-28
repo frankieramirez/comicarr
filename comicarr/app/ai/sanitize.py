@@ -16,7 +16,6 @@ values with Microsoft Spotlighting delimiters.
 
 import re
 
-# Patterns that may indicate prompt injection attempts
 _INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.IGNORECASE),
     re.compile(r"ignore\s+(all\s+)?above\s+instructions", re.IGNORECASE),

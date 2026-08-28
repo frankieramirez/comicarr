@@ -320,8 +320,6 @@ def _ensure_control_row(engine):
                     )
                 )
         except IntegrityError:
-            # A concurrent initializer won after our read; the desired row is
-            # now present and normal controller construction stays read-only.
             pass
 
 
@@ -661,10 +659,6 @@ class MaintenanceController:
             current = row._mapping
             if current["active"]:
                 if current["owner"] == str(owner) and current["run_id"] == str(run_id):
-                    # Return the durable status only after this transaction
-                    # commits. A second connection cannot see an uncommitted
-                    # epoch on SQLite/PostgreSQL and would otherwise persist a
-                    # stale fence token into the repair manifest.
                     pass
                 else:
                     raise MaintenanceConflict("acquisition maintenance is owned by another operation")

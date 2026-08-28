@@ -20,8 +20,6 @@ from starlette.responses import JSONResponse, Response
 
 from comicarr.app.core.image_hosts import csp_img_src_origins
 
-# Exempt only specific endpoints that cannot send the CSRF header
-# (OPDS uses HTTP Basic auth, not cookies, so CSRF is not applicable)
 CSRF_EXEMPT_PREFIXES = (
     "/opds",
     "/api/health",

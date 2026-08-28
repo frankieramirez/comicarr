@@ -26,11 +26,6 @@ from comicarr.app.metadata.image_fetch import fetch_allowed_image
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 
 
-# ---------------------------------------------------------------------------
-# Search endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.post("/search", dependencies=[Depends(require_session)])
 def search_comics(
     request_body: dict = None,
@@ -90,11 +85,6 @@ def search_manga(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Comic/issue info endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.get("/comic/{comic_id}", dependencies=[Depends(require_session)])
 def get_comic_info(comic_id: str, ctx: AppContext = Depends(get_context)):
     """Get comic metadata from database."""
@@ -130,8 +120,6 @@ def image_proxy(url: str = Query(..., description="External image URL to proxy")
     """
     result = fetch_allowed_image(url)
     if result is None:
-        # Distinguish policy reject (403) vs fetch/type failure (502) is hard after
-        # the shared helper; treat as forbidden for non-allowlisted URLs via helper log.
         from comicarr.app.metadata.image_fetch import is_allowed_image_url
 
         if not is_allowed_image_url(url):
@@ -148,11 +136,6 @@ def get_series_image(series_id: str, ctx: AppContext = Depends(get_context)):
     """Get cover image URL for a Metron series (lazy loading)."""
     image_url = metadata_service.get_series_image(ctx, series_id)
     return {"image": image_url}
-
-
-# ---------------------------------------------------------------------------
-# Metatag endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.post("/metatag", dependencies=[Depends(require_session)])
@@ -193,7 +176,6 @@ def metatag_bulk(
     if not issue_ids:
         return JSONResponse(status_code=400, content={"detail": "Missing issue_ids"})
 
-    # Support both list and comma-separated string
     if isinstance(issue_ids, str):
         issue_ids = [iid.strip() for iid in issue_ids.split(",") if iid.strip()]
 

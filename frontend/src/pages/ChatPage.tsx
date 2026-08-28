@@ -95,8 +95,6 @@ export default function ChatPage() {
     images: PendingChatImage[];
     error: string | null;
     retryMessageId?: string;
-    // A question handed over from another page starts life in the composer, so a
-    // failed turn still leaves the user with their draft.
   }>(() => ({
     input: searchParams.get("q")?.trim() || "",
     images: [],
@@ -355,8 +353,6 @@ export default function ChatPage() {
     }
   };
 
-  // A question typed on another page arrives as ?q= and is asked once, then the
-  // parameter is dropped so a reload never replays the turn.
   const seedHandledRef = useRef(false);
   useEffect(() => {
     if (seedHandledRef.current || !aiStatus?.configured) return;
@@ -382,8 +378,6 @@ export default function ChatPage() {
     navigate("/chat");
   };
 
-  // The listener outlives any one render, so it reads the handler through a ref
-  // rather than closing over a `handleNew` whose `images` would go stale.
   const handleNewRef = useRef(handleNew);
   useEffect(() => {
     handleNewRef.current = handleNew;

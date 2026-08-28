@@ -50,9 +50,7 @@ export function useSearchComics(
         offset,
         ...(sortBy ? { sort: sortBy } : {}),
       }),
-    // Transform backend field names to match frontend expectations
     select: (data: RawSearchResponse): SearchResponse => {
-      // Handle old format (array) for backward compatibility
       if (Array.isArray(data)) {
         return {
           results: data.map((comic) => ({
@@ -67,7 +65,6 @@ export function useSearchComics(
           },
         };
       }
-      // Handle new format (object with pagination)
       return {
         results: (data.results || []).map((comic) => ({
           ...comic,

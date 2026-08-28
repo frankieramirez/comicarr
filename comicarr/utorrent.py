@@ -30,7 +30,7 @@ from comicarr._vendor import bencode
 class utorrentclient(object):
     def __init__(self):
 
-        host = comicarr.CONFIG.UTORRENT_HOST  # has to be in the format of URL:PORT
+        host = comicarr.CONFIG.UTORRENT_HOST
         if not host.startswith("http"):
             host = "http://" + host
 
@@ -80,7 +80,6 @@ class utorrentclient(object):
             logger.debug("Error sending to uTorrent Client. uTorrent responded with error: " + str(err))
             return "fail"
 
-        # (to-do) verify the hash in order to ensure it's loaded here
         if str(r.status_code) == "200":
             logger.info("Successfully added torrent to uTorrent client.")
             hash = self.calculate_torrent_hash(data=tordata)
@@ -102,7 +101,6 @@ class utorrentclient(object):
             logger.debug("Error sending to uTorrent Client. uTorrent responded with error: " + str(err))
             return "fail"
 
-        # (to-do) verify the hash in order to ensure it's loaded here
         if str(r.status_code) == "200":
             logger.info("Successfully added torrent to uTorrent client.")
             hash = self.calculate_torrent_hash(link=url)
@@ -152,29 +150,3 @@ class utorrentclient(object):
             logger.warn("Cannot calculate torrent hash without magnet link or data")
 
         return thehash
-
-
-# not implemented yet #
-#    def load_torrent(self, filepath):
-#        start = bool(comicarr.CONFIG.UTORRENT_STARTONLOAD)
-
-#        logger.info('filepath to torrent file set to : ' + filepath)
-#
-#        torrent = self.addfile(filepath, verify_load=True)
-# torrent should return the hash if it's valid and loaded (verify_load checks)
-#        if not torrent:
-#            return False
-
-#        if comicarr.CONFIG.UTORRENT_LABEL:
-#            self.setlabel(torrent)
-#            logger.info('Setting label for torrent to : ' + comicarr.CONFIG.UTORRENT_LABEL)
-
-#        logger.info('Successfully loaded torrent.')
-
-#        #note that if set_directory is enabled, the torrent has to be started AFTER it's loaded or else it will give chunk errors and not seed
-#        if start:
-#            logger.info('[' + str(start) + '] Now starting torrent.')
-#            torrent.start()
-#        else:
-#            logger.info('[' + str(start) + '] Not starting torrent due to configuration setting.')
-#        return True

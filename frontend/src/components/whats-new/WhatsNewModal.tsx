@@ -37,8 +37,6 @@ export default function WhatsNewModal() {
   const notesQuery = useReleaseNotes(from, to, Boolean(pending));
   const dismiss = useDismissWhatsNew();
 
-  // Open from first paint when pending — flipping open in an effect races
-  // Base UI enter transitions. Session-local close (X) does not dismiss.
   const [open, setOpen] = useState(true);
   const navigate = useNavigate();
 
@@ -54,13 +52,12 @@ export default function WhatsNewModal() {
     try {
       await dismiss.mutateAsync();
       setOpen(false);
-    } catch {
-      // Keep the modal open so a failed write does not clear the cue for this session.
+    } catch (ignored) {
+      void ignored;
     }
   };
 
   const handleOverflow = () => {
-    // Navigation only — must not write LAST_SEEN_VERSION (#451).
     setOpen(false);
     navigate(WHATS_NEW_ARCHIVE_PATH);
   };
@@ -69,7 +66,6 @@ export default function WhatsNewModal() {
     <Dialog
       open
       onOpenChange={(next) => {
-        // X / overlay closes for this session only; does not dismiss.
         if (!next) setOpen(false);
       }}
     >

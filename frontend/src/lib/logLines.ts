@@ -32,8 +32,6 @@ const SEVERITIES: Record<string, LogLineSeverity> = {
   WARNING: "WARNING",
   WARN: "WARNING",
   ERROR: "ERROR",
-  // No level emits these on its own, but the stdlib can, and an operator
-  // filtering for errors wants them.
   CRITICAL: "ERROR",
   FATAL: "ERROR",
   EXCEPTION: "ERROR",

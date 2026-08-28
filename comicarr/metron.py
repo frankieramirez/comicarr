@@ -33,15 +33,10 @@ import comicarr
 from comicarr import logger
 from comicarr.helpers import listLibrary
 
-# In-memory cache for series images to avoid repeated API calls
-_IMAGE_CACHE = OrderedDict()  # {series_id: image_url}
+_IMAGE_CACHE = OrderedDict()
 _IMAGE_CACHE_MAXSIZE = 1000
 _IMAGE_CACHE_LOCK = threading.Lock()
 
-# Metron series ids are bare integers, indistinguishable from ComicVine volume
-# ids once they leave this module. Search results therefore carry this prefix so
-# the add path knows to resolve them to ComicVine first (#765). The prefix never
-# reaches the database — addComictoDB translates it before any row is written.
 METRON_ID_PREFIX = "metron-"
 
 
@@ -172,20 +167,15 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
         logger.error("[METRON] Metron API not initialized")
         return {"results": [], "pagination": {"total": 0, "limit": limit or 50, "offset": offset or 0, "returned": 0}}
 
-    # Get library for "haveit" status
     comicLibrary = listLibrary()
 
-    # Set pagination defaults
     page_limit = limit if limit else 50
     page_offset = offset if offset else 0
 
     try:
-        # Metron uses 'page' instead of offset - calculate page number
-        # Metron returns 30 results per page by default
-        page_size = 30  # Metron's default page size
+        page_size = 30
         page_number = (page_offset // page_size) + 1
 
-        # Search using mokkari
         results = api.series_list(
             {
                 "name": name,
@@ -193,52 +183,38 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             }
         )
 
-        # mokkari returns a SeriesList object with iteration support
-        # BaseSeries fields: id, year_began, issue_count, volume, modified, display_name
-        # Convert to list first to avoid iterator issues
         results_list = list(results)
         total_results = len(results_list)
         comiclist = []
 
         for series in results_list:
-            # Map Metron fields to Comicarr format
             metron_id = str(series.id) if hasattr(series, "id") else None
 
             if metron_id is None:
                 continue
 
-            # Get display_name and parse it (format: "Series Name (Year)")
             display_name = series.display_name if hasattr(series, "display_name") else "Unknown"
-            # Extract series name by removing the year suffix if present
             series_name = display_name
             if display_name and "(" in display_name:
                 series_name = display_name.rsplit("(", 1)[0].strip()
 
-            # Get year
             start_year = str(series.year_began) if hasattr(series, "year_began") and series.year_began else "0000"
             issue_count = series.issue_count if hasattr(series, "issue_count") and series.issue_count else 0
             volume = series.volume if hasattr(series, "volume") and series.volume else None
 
-            # Note: BaseSeries doesn't include publisher, image, cv_id, desc, series_type
-            # These would require fetching full series details via api.series(id)
-            # For search results, we use defaults
             publisher = "Unknown"
             cover_url = None
-            cv_id = None  # Not available in list results
+            cv_id = None
 
-            # Check if we already have this series
             haveit = "No"
-            # Check by Metron ID first
             if metron_id in comicLibrary:
                 haveit = comicLibrary[metron_id]
-            # Fallback: check by name and year for cross-provider matching
             else:
                 if series_name and start_year:
                     name_key = "name:" + series_name.lower().strip() + ":" + start_year.strip()
                     if name_key in comicLibrary:
                         haveit = comicLibrary[name_key]
 
-            # Build year range for filtering (similar to CV logic)
             yearRange = [start_year]
             if start_year.isdigit():
                 possible_years = int(start_year) + (issue_count // 12) + 1
@@ -246,7 +222,6 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                     if str(year) not in yearRange:
                         yearRange.append(str(year))
 
-            # Apply year filter if specified
             if limityear and limityear != "None":
                 if not any(v in limityear for v in yearRange):
                     continue
@@ -255,16 +230,16 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                 {
                     "name": series_name,
                     "comicyear": start_year,
-                    "comicid": METRON_ID_PREFIX + metron_id,  # Prefixed so the add path resolves it to CV (#765)
-                    "cv_comicid": cv_id,  # Not available in list results
+                    "comicid": METRON_ID_PREFIX + metron_id,
+                    "cv_comicid": cv_id,
                     "url": "https://metron.cloud/series/%s/" % metron_id,
                     "issues": str(issue_count),
                     "comicimage": cover_url,
                     "comicthumb": cover_url,
                     "publisher": publisher,
-                    "description": None,  # Not available in list results
+                    "description": None,
                     "deck": None,
-                    "type": None,  # Not available in list results
+                    "type": None,
                     "haveit": haveit,
                     "lastissueid": None,
                     "firstissueid": None,
@@ -275,17 +250,14 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                 }
             )
 
-            # Respect limit
             if limit and len(comiclist) >= limit:
                 break
 
-        # Fetch cover images in parallel (uses cache, so fast for repeat queries)
         _backfill_images(comiclist)
 
         search_duration = time.time() - search_start_time
         logger.info("[METRON] Search completed in %.2f seconds (%d results)" % (search_duration, len(comiclist)))
 
-        # Apply manual sorting since mokkari may not support ordering parameter
         if sort:
             if sort in ["year_desc", "date_last_updated:desc"]:
                 comiclist.sort(key=lambda x: (x["comicyear"] or "0000", x["issues"] or "0"), reverse=True)
@@ -304,7 +276,6 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
             elif sort == "name_desc":
                 comiclist.sort(key=lambda x: x["name"].lower() if x["name"] else "", reverse=True)
 
-        # Return with pagination metadata if limit was provided
         if limit is not None:
             result = {
                 "results": comiclist,
@@ -316,7 +287,6 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
                 },
             }
         else:
-            # Legacy format: just return the list
             result = comiclist
 
         return result
@@ -373,7 +343,6 @@ def get_series_image(series_id):
     Returns:
         Image URL string, or None if not available
     """
-    # Check cache first
     with _IMAGE_CACHE_LOCK:
         if series_id in _IMAGE_CACHE:
             _IMAGE_CACHE.move_to_end(series_id)
@@ -404,6 +373,5 @@ def get_series_image(series_id):
 
     except Exception as e:
         logger.error("[METRON] Failed to fetch series image for %s: %s" % (series_id, e))
-        # Cache failures to prevent repeated failing API calls
         _cache_image(series_id, None)
         return None

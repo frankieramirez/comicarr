@@ -20,7 +20,6 @@ def newpull():
     soup = BeautifulSoup(r.content)
     getthedate = soup.findAll("div", {"class": "Headline"})[0]
 
-    # the date will be in the FIRST ahref
     try:
         getdate_link = getthedate("a")[0]
         newdates = getdate_link.findNext(text=True).strip()
@@ -47,12 +46,12 @@ def newpull():
     isspublisher = None
 
     while x < lenlinks:
-        headt = cntlinks[x]  # iterate through the hrefs pulling out only results.
+        headt = cntlinks[x]
         found_iss = headt.findAll("td")
-        pubcheck = found_iss[0].text.strip()  # .findNext(text=True)
+        pubcheck = found_iss[0].text.strip()
         for pub in publishers:
             if pub in pubcheck:
-                chklink = found_iss[0].findAll("a", href=True)  # make sure it doesn't have a link in it.
+                chklink = found_iss[0].findAll("a", href=True)
                 if not chklink:
                     isspublisher = pub
                     break
@@ -61,12 +60,10 @@ def newpull():
             pass
 
         elif any([isspublisher == "MAGAZINES", isspublisher == "MERCHANDISE"]):
-            # logger.fdebug('End.')
             break
 
         else:
             if "PREVIEWS" in headt:
-                # logger.fdebug('Ignoring: ' + found_iss[0])
                 break
 
             if "/Catalog/" in str(headt):
@@ -78,7 +75,6 @@ def newpull():
                     x += 1
                     continue
                 elif "Home/1/1/71" in issue_link:
-                    # logger.fdebug('Ignoring - menu option.')
                     x += 1
                     continue
 

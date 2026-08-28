@@ -39,10 +39,6 @@ from comicarr.app.core.runtime import get_runtime_if_initialized
 from comicarr.db import get_engine
 from comicarr.tables import activity_events
 
-# ---------------------------------------------------------------------------
-# Vocabulary (Activity Center ADR §4, amended by #426/#427/#430/#432)
-# ---------------------------------------------------------------------------
-
 ACTIVITIES = frozenset({"search", "grab", "download", "import", "refresh", "add", "tag"})
 
 STATUSES = frozenset(
@@ -59,7 +55,6 @@ STATUSES = frozenset(
 
 SUBJECT_TYPES = frozenset({"issue", "annual", "series", "arc", "run"})
 
-# Severity is a pure function of status — never stored.
 _SEVERITY_BY_STATUS = {
     "started": "normal",
     "succeeded": "normal",
@@ -72,18 +67,10 @@ _SEVERITY_BY_STATUS = {
 
 ACTION_REQUIRED_STATUSES = frozenset(status for status, severity in _SEVERITY_BY_STATUS.items() if severity != "normal")
 
-# Activities that join the pipeline journal and therefore require release_key.
 _RELEASE_KEY_ACTIVITIES = frozenset({"download", "import"})
 
-# Legal (activity, status, subject_type) cells. Summary of the #426 table with
-# later amendments:
-#   - tag row (#430)
-#   - refresh × arc, grab × cancelled, import × cancelled, download × cancelled
-#   - dropped: search.no_match @ issue, all retrying, search.blocked @ run
-#   - grab.cancelled @ series (pack reverse producer)
 LEGAL_CELLS = frozenset(
     {
-        # search — run brackets + per-issue trouble (no per-issue no_match)
         ("search", "started", "run"),
         ("search", "succeeded", "run"),
         ("search", "cancelled", "issue"),
@@ -94,7 +81,6 @@ LEGAL_CELLS = frozenset(
         ("search", "blocked", "annual"),
         ("search", "needs_attention", "issue"),
         ("search", "needs_attention", "annual"),
-        # grab
         ("grab", "succeeded", "issue"),
         ("grab", "succeeded", "annual"),
         ("grab", "failed", "issue"),
@@ -104,14 +90,12 @@ LEGAL_CELLS = frozenset(
         ("grab", "cancelled", "issue"),
         ("grab", "cancelled", "annual"),
         ("grab", "cancelled", "series"),
-        # download — no started (live state, not narrated)
         ("download", "succeeded", "issue"),
         ("download", "succeeded", "annual"),
         ("download", "failed", "issue"),
         ("download", "failed", "annual"),
         ("download", "cancelled", "issue"),
         ("download", "cancelled", "annual"),
-        # import
         ("import", "started", "issue"),
         ("import", "started", "annual"),
         ("import", "succeeded", "issue"),
@@ -122,7 +106,6 @@ LEGAL_CELLS = frozenset(
         ("import", "needs_attention", "annual"),
         ("import", "cancelled", "issue"),
         ("import", "cancelled", "annual"),
-        # refresh
         ("refresh", "started", "series"),
         ("refresh", "started", "issue"),
         ("refresh", "started", "arc"),
@@ -132,14 +115,12 @@ LEGAL_CELLS = frozenset(
         ("refresh", "failed", "series"),
         ("refresh", "failed", "issue"),
         ("refresh", "failed", "arc"),
-        # add
         ("add", "started", "series"),
         ("add", "started", "arc"),
         ("add", "succeeded", "series"),
         ("add", "succeeded", "arc"),
         ("add", "failed", "series"),
         ("add", "failed", "arc"),
-        # tag — metatagger only @ issue|series
         ("tag", "started", "issue"),
         ("tag", "started", "series"),
         ("tag", "succeeded", "issue"),
@@ -211,13 +192,10 @@ def _validate(
         return "reason_code required when severity is not normal (status=%s)" % status
     if activity in _RELEASE_KEY_ACTIVITIES and not release_key:
         return "release_key required for activity %r" % (activity,)
-    # ADR field contract: run_id is search-only (removed from grab).
     if run_id and activity != "search":
         return "run_id is only valid for activity 'search'"
-    # Grab without a source is unreadable (#426).
     if activity == "grab" and not provider:
         return "provider required for activity 'grab'"
-    # scope_* only applies to run subjects (ADR §4).
     if (scope_type or scope_id) and subject_type != "run":
         return "scope_type/scope_id are only valid when subject_type is 'run'"
     if (scope_type is None) != (scope_id is None):
@@ -228,7 +206,6 @@ def _validate(
 def _row_payload(event_id, created_at, values: dict) -> dict:
     payload = {"event_id": event_id, "created_at": created_at}
     payload.update(values)
-    # Stable key order / explicit nulls for optional columns.
     return {key: payload.get(key) for key in _PAYLOAD_KEYS}
 
 
@@ -336,16 +313,12 @@ def record_activity(
         values["created_at"] = created_at
 
     if conn is not None:
-        # Co-commit: caller owns the transaction, so a failed insert must
-        # surface. Swallowing it here would leave the caller's transaction
-        # poisoned and fail later at an unrelated statement or commit().
         return _insert_row(conn, values)
 
     try:
         engine = get_engine()
         with engine.begin() as owned_conn:
             payload = _insert_row(owned_conn, values)
-        # Commit succeeded — only now announce.
         publish_activity(payload)
         return payload
     except Exception as e:

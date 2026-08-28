@@ -48,9 +48,6 @@ _ROUTE_ALIASES = {
     "watchdir": "watchdir",
     "blackhole": "blackhole",
 }
-# Routes whose acceptance yields an identity the monitor can poll after a
-# restart. Every torrent client with a probe belongs here; watchdir and
-# blackhole produce no client-side identity and so stay out.
 _RESTART_SAFE_ROUTES = frozenset(
     {"sabnzbd", "nzbget", "ddl", "rtorrent", "deluge", "qbittorrent", "transmission", "utorrent"}
 )
@@ -218,8 +215,6 @@ def record_acceptance(release_key, route, response, payload=None, **fields):
             **acceptance_fields,
         )
     except Exception as e:
-        # The sender already accepted. Never call it again here; the durable
-        # reservation makes startup classify this as manual review.
         logger.error("[HANDOFF] acceptance persistence failed for %s: %s" % (release_key, type(e).__name__))
         _record_route_health(normalized, False, "acceptance_persistence_failed")
         raise HandoffAcceptanceError("external acceptance could not be persisted") from e
@@ -261,11 +256,6 @@ def perform_handoff(
             try:
                 response = sender()
             except Exception as e:
-                # Classify BEFORE recording. The submission may have landed;
-                # only "we do not know" is truthful here. If recording the
-                # manual-review row then fails, the outer handler must not be
-                # able to downgrade this to `handoff_failed` — that would tell
-                # the operator the download definitely did not happen.
                 outcome = "submission_outcome_unknown"
                 _record_route_health(normalized, False, "submission_outcome_unknown")
                 try:
@@ -299,6 +289,4 @@ def perform_handoff(
                 outcome = "handoff_failed"
             raise
         finally:
-            # A claimed canary is terminal regardless of the result. Never
-            # re-open it for an automatic retry after an ambiguous side effect.
             controller.complete_canary_handoff(lease, outcome)

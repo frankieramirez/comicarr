@@ -21,7 +21,6 @@ export default function ErrorDisplay({
   const message = getErrorMessage(error);
   const canRetry = isRetryableError(error);
 
-  // Determine icon based on error type
   const getIcon = () => {
     if (error instanceof Error) {
       if (

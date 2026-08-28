@@ -36,11 +36,6 @@ router = APIRouter(prefix="/opds", tags=["opds"])
 OPDS_MEDIA = "application/atom+xml; profile=opds-catalog"
 
 
-# ---------------------------------------------------------------------------
-# Atom XML rendering helpers
-# ---------------------------------------------------------------------------
-
-
 def _opds_root():
     """Return the configured OPDS root path."""
     if comicarr.CONFIG.HTTP_ROOT is None:
@@ -89,7 +84,6 @@ def _entry_xml(entry):
     else:
         link_type = "application/atom+xml; profile=opds-catalog; kind=navigation"
     if rel == "file":
-        # Direct file download link
         ext = os.path.splitext(href.split("file=")[-1] if "file=" in href else href)[1].lower()
         if ext in (".cbr", ".rar"):
             mime = "application/x-cbr"
@@ -170,11 +164,6 @@ def _page_size():
     return comicarr.CONFIG.OPDS_PAGESIZE
 
 
-# ---------------------------------------------------------------------------
-# Navigation link helpers
-# ---------------------------------------------------------------------------
-
-
 def _nav_link(ltype="application/atom+xml; profile=opds-catalog; kind=navigation"):
     return ltype
 
@@ -193,11 +182,6 @@ def _next_link(href):
 
 def _prev_link(href):
     return {"href": href, "type": _nav_link(), "rel": "previous"}
-
-
-# ---------------------------------------------------------------------------
-# OPDS endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.get("/", dependencies=[Depends(require_opds_auth)])
@@ -631,7 +615,6 @@ def opds_recent(
         number = 1
         subset = recents[index : (index + page_size)]
 
-        # Batch-load all IssueIDs and ComicIDs for this page
         issue_ids = [r["IssueID"] for r in subset if r.get("IssueID")]
         comic_ids = [r["ComicID"] for r in subset if r.get("ComicID")]
 
@@ -647,7 +630,6 @@ def opds_recent(
                 for row in rows:
                     issues_lookup[row["IssueID"]] = row
 
-                # Load annuals for any IssueIDs not found in issues
                 missing_ids = [iid for iid in issue_ids if iid not in issues_lookup]
                 if missing_ids:
                     rows = [
@@ -780,7 +762,6 @@ def opds_issue(
     if not _validate_file_path(file_path):
         return Response(status_code=403)
 
-    # Mark as read
     try:
         from comicarr import readinglist
 
@@ -947,7 +928,6 @@ def opds_storyarc(
         stmt = select(storyarcs).where(storyarcs.c.StoryArcID == arc_id).order_by(storyarcs.c.ReadingOrder)
         arclist = [dict(row._mapping) for row in conn.execute(stmt)]
 
-    # Batch-load all referenced IssueIDs and ComicIDs
     all_issue_ids = [b["IssueID"] for b in arclist if b.get("IssueID")]
     issues_lookup = {}
     annuals_lookup = {}
@@ -970,7 +950,6 @@ def opds_storyarc(
                 for row in rows:
                     annuals_lookup[row["IssueID"]] = row
 
-        # Collect all ComicIDs from issues and annuals lookups
         all_comic_ids = set()
         for row in issues_lookup.values():
             if row.get("ComicID"):
@@ -1123,7 +1102,6 @@ def opds_readlist(
         stmt = select(readlist).where(readlist.c.Status != "Read")
         rlist = [dict(row._mapping) for row in conn.execute(stmt)]
 
-    # Batch-load all referenced IssueIDs and ComicIDs
     rl_issue_ids = [b["IssueID"] for b in rlist if b.get("IssueID")]
     rl_comic_ids = [b["ComicID"] for b in rlist if b.get("ComicID")]
 
@@ -1313,11 +1291,6 @@ def opds_oneoffs(
     return _xml_response(feed)
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
 def _resolve_issue_file(issue_id):
     """Resolve the file path for an issue ID.
 
@@ -1327,7 +1300,6 @@ def _resolve_issue_file(issue_id):
     """
     from sqlalchemy import select
 
-    # Check storyarcs first (they may have absolute Location paths)
     with db.get_engine().connect() as conn:
         stmt = select(storyarcs).where(
             storyarcs.c.IssueID == issue_id,
@@ -1339,14 +1311,12 @@ def _resolve_issue_file(issue_id):
     if issue:
         return issue["Location"], os.path.split(issue["Location"])[1], issue["IssueID"]
 
-    # Check issues table
     with db.get_engine().connect() as conn:
         stmt = select(issues).where(issues.c.IssueID == issue_id)
         result = [dict(row._mapping) for row in conn.execute(stmt)]
         issue = result[0] if result else None
 
     if not issue:
-        # Check annuals
         with db.get_engine().connect() as conn:
             stmt = select(annuals).where(annuals.c.IssueID == issue_id)
             result = [dict(row._mapping) for row in conn.execute(stmt)]
@@ -1354,7 +1324,6 @@ def _resolve_issue_file(issue_id):
         if not issue:
             return None, None, None
 
-    # Look up the comic for the ComicLocation
     with db.get_engine().connect() as conn:
         stmt = select(comics).where(comics.c.ComicID == issue["ComicID"])
         result = [dict(row._mapping) for row in conn.execute(stmt)]

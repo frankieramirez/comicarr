@@ -108,7 +108,6 @@ def want_all_issues(arc_id):
     """Mark all eligible arc issues as Wanted and trigger search."""
     queued, skipped = arc_queries.want_all_issues(arc_id)
 
-    # Trigger search in background if any were queued
     if queued > 0:
         start_background_thread(_read_get_wanted, args=(arc_id,), name="StoryArcWantedSearch")
 
@@ -135,11 +134,6 @@ def refresh_arc(arc_id):
     )
 
     return {"success": True, "message": "Refreshing %s from ComicVine" % arc_row["StoryArc"]}
-
-
-# ---------------------------------------------------------------------------
-# Extracted from webserve.WebInterface (ReadGetWanted, addStoryArc)
-# ---------------------------------------------------------------------------
 
 
 def _read_get_wanted(StoryArcID):
@@ -413,7 +407,6 @@ def _add_story_arc(
                 logger.warn(module + " Unable to retrieve issue details at this time. Something is probably wrong.")
                 return
 
-    # Ensure storyarcs cache dir exists
     if not os.path.isdir(os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs")):
         checkdirectory = filechecker.validateAndCreateDirectory(
             os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs"), True
@@ -611,7 +604,6 @@ def _add_story_arc(
 
             db.upsert("storyarcs", newVals, newCtrl)
 
-    # Run the Search for Watchlist matches now.
     logger.fdebug(module + " Now searching your watchlist for matches belonging to this story arc.")
     _arc_watchlist(storyarcid)
     if arcrefresh:
@@ -630,11 +622,6 @@ def _add_story_arc(
             emit_arc_activity("add", "succeeded", storyarcid, storyarcname)
         except Exception as e:
             logger.fdebug("[ACTIVITY] add.succeeded @arc emit skipped: %s" % e)
-
-
-# ---------------------------------------------------------------------------
-# Reading list
-# ---------------------------------------------------------------------------
 
 
 def get_readlist():
@@ -667,11 +654,6 @@ def clear_read_issues():
     return {"success": True}
 
 
-# ---------------------------------------------------------------------------
-# Upcoming
-# ---------------------------------------------------------------------------
-
-
 def get_current_week(today=None):
     """Return the application current Sunday-based week and year."""
     today = today or datetime.date.today()
@@ -690,12 +672,8 @@ def get_upcoming(include_downloaded=False):
     return arc_queries.get_upcoming(week, year, include_downloaded=include_downloaded)
 
 
-# --- Extracted from helpers.py ---
-
-
 def listStoryArcs():
     library = {}
-    # Get Distinct CV Arc IDs
     from sqlalchemy import select
 
     stmt = select(storyarcs.c.CV_ArcID).distinct()
@@ -712,7 +690,6 @@ def manualArc(issueid, reading_order, storyarcid):
 
     from comicarr.helpers import issuedigits
 
-    # import db
     if issueid.startswith("4000-"):
         issueid = issueid[5:]
 
@@ -757,7 +734,6 @@ def manualArc(issueid, reading_order, storyarcid):
             manual_mod = aid["Manual"]
 
         if reading_order is None:
-            # if no reading order is given, drop in the last spot.
             reading_order = len(iss_arcids) + 1
         if int(aid["ReadingOrder"]) >= int(reading_order):
             reading_seq = int(aid["ReadingOrder"]) + 1
@@ -790,7 +766,6 @@ def manualArc(issueid, reading_order, storyarcid):
             seriesYear = cid["SeriesYear"]
             issuePublisher = cid["Publisher"]
             seriesVolume = cid["Volume"]
-            # assume that the arc is the same
             storyarcpublisher = issuePublisher
             break
 
@@ -806,9 +781,7 @@ def manualArc(issueid, reading_order, storyarcid):
         "IssueNumber": issnum,
         "Publisher": storyarcpublisher,
         "TotalIssues": str(int(storyarcissues) + 1),
-        "ReadingOrder": int(
-            reading_order
-        ),  # arbitrarily set it to the last reading order sequence # just to see if it works.
+        "ReadingOrder": int(reading_order),
         "IssueDate": issdate,
         "ReleaseDate": storedate,
         "SeriesYear": seriesYear,
@@ -820,7 +793,6 @@ def manualArc(issueid, reading_order, storyarcid):
 
     db.upsert("storyarcs", newVals, newCtrl)
 
-    # now we resequence the reading-order to accomdate the change.
     logger.info(
         "Adding the new issue into the reading order & resequencing the order to make sure there are no sequence drops..."
     )
@@ -841,7 +813,6 @@ def manualArc(issueid, reading_order, storyarcid):
 
         db.upsert("storyarcs", r1_new, rl_ctrl)
 
-    # check to see if the issue exists already so we can set the status right away.
     iss_chk = db.select_one(select(issues).where(issues.c.IssueID == issueid))
     if iss_chk is None:
         logger.info("Issue is not currently in your watchlist. Setting status to Skipped")
@@ -930,7 +901,6 @@ def updatearc_locs(storyarcid, arc_issues):
                 grdst = arcformat(arcinfo["StoryArc"], spantheyears(arcinfo["StoryArcID"]), arcpub)
                 if grdst is not None:
                     logger.info("grdst:" + grdst)
-                    # send to renamer here if valid.
                     dfilename = chk["Location"]
                     if comicarr.CONFIG.RENAME_FILES:
                         renamed_file = rename_param(
@@ -961,11 +931,6 @@ def updatearc_locs(storyarcid, arc_issues):
                     )
 
                     try:
-                        # SKIP absorbs the `if not os.path.isfile(pathdst)` guard
-                        # this used to carry: anything already sitting at the
-                        # destination means no placement at all. The source must
-                        # keep pointing at the series so a hard or soft link
-                        # resolves into the library rather than the arc folder.
                         placement.place(pathsrc, pathdst, placement.Purpose.ARC, on_existing=placement.OnExisting.SKIP)
                     except (OSError, IOError):
                         logger.fdebug(
@@ -976,9 +941,6 @@ def updatearc_locs(storyarcid, arc_issues):
                             + " - check directories and manually re-run."
                         )
                         continue
-                    # Rewritten whether or not this run placed anything, exactly
-                    # as before: an arc entry whose file is already in place still
-                    # needs its recorded location to point there.
                     updateloc = pathdst
                 else:
                     updateloc = pathsrc

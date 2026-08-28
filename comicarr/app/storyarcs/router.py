@@ -25,11 +25,6 @@ from comicarr.app.storyarcs import service as arc_service
 router = APIRouter(prefix="/api", tags=["storyarcs"])
 
 
-# ---------------------------------------------------------------------------
-# Story arc endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.post("/storyarcs/generate", dependencies=[Depends(require_session)])
 async def generate_story_arc(request: Request):
     """Generate a reading order from a natural language arc description using AI."""
@@ -44,16 +39,12 @@ async def generate_story_arc(request: Request):
             content={"success": False, "error": "Description must be at least 3 characters"},
         )
 
-    # Off the event loop: AI generation and ComicVine enrichment are
-    # network-bound and would stall every other request (#733).
     result = await asyncio.to_thread(story_arcs.generate_reading_order, description)
     if not result["success"]:
         return JSONResponse(content=result)
 
-    # Enrich with provider data (ComicVine match)
     issues = await asyncio.to_thread(story_arcs.enrich_with_providers, result["issues"])
 
-    # Map against user's library
     issues = await asyncio.to_thread(story_arcs.map_to_library, issues)
 
     return JSONResponse(content={"success": True, "issues": issues, "description": description})
@@ -74,7 +65,6 @@ async def save_generated_arc(request: Request):
             content={"success": False, "error": "arc_name and issues are required"},
         )
 
-    # Off the event loop: the save writes the storyarcs table (#733).
     result = await asyncio.to_thread(story_arcs.save_arc, arc_name, issues)
     return JSONResponse(content=result)
 
@@ -152,11 +142,6 @@ def refresh_story_arc(arc_id: str):
     return result
 
 
-# ---------------------------------------------------------------------------
-# Reading list endpoints
-# ---------------------------------------------------------------------------
-
-
 @router.get("/readlist", dependencies=[Depends(require_session)])
 def get_readlist():
     """Get all reading list entries."""
@@ -188,11 +173,6 @@ def remove_from_readlist(issue_id: str):
 def clear_read_issues():
     """Remove all issues marked as Read from the reading list."""
     return arc_service.clear_read_issues()
-
-
-# ---------------------------------------------------------------------------
-# Upcoming endpoints
-# ---------------------------------------------------------------------------
 
 
 @router.get("/upcoming", dependencies=[Depends(require_session)])

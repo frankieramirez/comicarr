@@ -28,7 +28,6 @@ from cryptography.fernet import Fernet
 
 from comicarr import logger
 
-# Module-level cache for the Fernet instance (loaded once per process)
 _fernet_instance = None
 _fernet_secure_dir = None
 _fernet_lock = threading.RLock()
@@ -111,8 +110,6 @@ def _publish_master_key(key_path, key):
             os.fsync(key_file.fileno())
 
         try:
-            # A same-directory hard link publishes the fully written inode
-            # atomically and fails instead of replacing another process's key.
             os.link(temp_path, key_path)
         except FileExistsError:
             return False
@@ -160,7 +157,6 @@ def _load_or_create_master_key(key_path, create):
             logger.info("[ENCRYPTION] Generated new master key at %s" % key_path)
             return key
 
-        # A concurrent process published its complete key first.
         with open(key_path, "rb") as key_file:
             return key_file.read().strip()
 
@@ -205,9 +201,6 @@ def _get_fernet(secure_dir=None, create=True):
         return instance
 
 
-# --- bcrypt helpers for login passwords ---
-
-
 def hash_password(password):
     """Hash a login password with bcrypt (cost factor 12)."""
     if isinstance(password, str):
@@ -239,22 +232,20 @@ def migrate_password(stored_password):
         return None
 
     if stored_password.startswith("$2b$") or stored_password.startswith("$2a$"):
-        return stored_password  # Already bcrypt
+        return stored_password
 
     if stored_password.startswith("^~$z$"):
-        # Old base64 encoding — decode to get plaintext
         try:
             decoded = base64.b64decode(stored_password[5:], validate=True)
             if len(decoded) <= 8:
                 logger.error("[ENCRYPTION] Base64 payload too short to contain password + salt")
                 return None
-            plaintext = decoded[:-8].decode("utf-8")  # Strip 8-byte salt
+            plaintext = decoded[:-8].decode("utf-8")
         except Exception as e:
             logger.error("[ENCRYPTION] Failed to decode base64 password for migration: %s" % e)
             return None
         return hash_password(plaintext)
 
-    # Plaintext password — hash directly
     return hash_password(stored_password)
 
 
@@ -290,7 +281,6 @@ class Encryptor(object):
         if self.password is None:
             return {"status": False}
 
-        # Already a Fernet token (starts with gAAAAA)
         if self.password.startswith("gAAAAA"):
             fernet = _get_fernet(self.secure_dir, create=False)
             if fernet is None:
@@ -304,7 +294,6 @@ class Encryptor(object):
                 logger.warn("Error when decrypting Fernet token: %s" % e)
                 return {"status": False}
 
-        # Legacy base64 encoding (^~$z$ prefix)
         if self.password.startswith("^~$z$"):
             try:
                 passd = base64.b64decode(self.password[5:], validate=True)
@@ -315,7 +304,6 @@ class Encryptor(object):
                 logger.warn("Error when decrypting legacy password: %s" % e)
                 return {"status": False}
 
-        # Not encrypted — return failure
         if not self.logon:
             logger.warn("Error not an encryption that I recognize.")
         return {"status": False}

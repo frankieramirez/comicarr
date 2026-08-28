@@ -28,8 +28,6 @@ _WRITE_ATTEMPTS = 5
 
 def _run_write(operation):
     """Run a Core mutation with the legacy shim's in-process lock/retry contract."""
-    # Keep ordering with remaining legacy DBConnection.action callers until the
-    # root shim itself can be retired.
     with db._db_lock:
         for attempt in range(_WRITE_ATTEMPTS):
             try:
