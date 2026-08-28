@@ -1,13 +1,57 @@
 #  Copyright (C) 2026 Comicarr contributors
 #
 #  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
 
 """Weekly pull-list upstream outage fallback tests."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+from sqlalchemy import insert
+
 import comicarr
-from comicarr import weeklypull
+from comicarr import db, weeklypull
+from comicarr.tables import metadata, weekly
+
+
+@pytest.fixture
+def weekly_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    db.shutdown_engine()
+    engine = db.get_engine()
+    metadata.create_all(engine)
+    yield engine
+    db.shutdown_engine()
+
+
+def test_weekly_pull_has_data_runs_the_real_query(weekly_db):
+    with weekly_db.begin() as conn:
+        conn.execute(
+            insert(weekly),
+            [
+                {
+                    "COMIC": "Cached title",
+                    "ISSUE": "1",
+                    "ComicID": "cached",
+                    "IssueID": "cached-1",
+                    "SHIPDATE": "20260827",
+                    "weeknumber": "33",
+                    "year": "2026",
+                }
+            ],
+        )
+
+    assert weeklypull._weekly_pull_has_data(33, 2026) is True
+    assert weeklypull._weekly_pull_has_data("33", "2026") is True
+    assert weeklypull._weekly_pull_has_data(34, 2026) is False
 
 
 def test_pullit_uses_cached_week_when_upstream_fails(monkeypatch):

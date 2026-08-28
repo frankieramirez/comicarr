@@ -47,7 +47,7 @@ def _weekly_pull_has_data(weeknumber, year):
         )
         return db.select_one(stmt) is not None
     except Exception as e:
-        logger.fdebug("[PULL-LIST] Unable to check for cached pull-list data: %s" % e)
+        logger.warn("[PULL-LIST] Unable to check for cached pull-list data: %s" % e)
         return False
 
 
