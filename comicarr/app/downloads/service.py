@@ -210,6 +210,11 @@ def _legacy_item(item, action):
         }
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
+        # Pre-refactor, any post-queue search failure — blocked or not — carried
+        # the row identity plus ``stamped: False``, while the precheck block did
+        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
+        # what separates "we re-wanted the issue and left it unstamped" from
+        # "we stopped before touching the row".
         if item.stamp_written is False:
             result.update(
                 {
