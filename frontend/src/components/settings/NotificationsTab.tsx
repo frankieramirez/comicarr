@@ -52,7 +52,8 @@ export function NotificationsTab({
               label="User/Chat ID"
               value={formData.telegram_userid || ""}
               onChange={(v) => onChange("telegram_userid", v as string)}
-              helpText="Your Telegram user or chat ID"
+              helpText="Your Telegram user or chat ID. To post into a forum topic, append the topic ID."
+              placeholder="-1007356238347 or -1007356238347:15"
             />
             <SettingField
               label="Notify on snatch"

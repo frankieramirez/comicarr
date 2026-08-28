@@ -13,6 +13,30 @@ class TestTelegramInit:
 
         assert telegram.userid == "123456789"
         assert telegram.token == "test_telegram_token"
+        assert telegram.message_thread_id is None
+
+    def test_init_parses_forum_topic_from_userid(self, notifiers_module, mock_notifier_config):
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:15")
+
+        assert telegram.userid == "-1007356238347"
+        assert telegram.message_thread_id == 15
+
+    @pytest.mark.parametrize("userid", ["some:host", "-1007356238347:", "-1007356238347:15a"])
+    def test_init_keeps_non_numeric_suffix_as_chat_id(
+        self, notifiers_module, mock_notifier_config, userid
+    ):
+        """A colon whose suffix is not a topic ID is left alone, preserving old behaviour."""
+        telegram = notifiers_module.TELEGRAM(test_userid=userid)
+
+        assert telegram.userid == userid
+        assert telegram.message_thread_id is None
+
+    def test_init_ignores_non_ascii_digit_suffix(self, notifiers_module, mock_notifier_config):
+        """str.isdigit() accepts Unicode digits int() rejects; those must not raise."""
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:²")
+
+        assert telegram.userid == "-1007356238347:²"
+        assert telegram.message_thread_id is None
 
     def test_init_test_params_override_config(
         self, notifiers_module, mock_notifier_config
@@ -60,6 +84,24 @@ class TestTelegramNotify:
         assert request_body["text"] == "Test message"
 
     @responses.activate
+    def test_notify_forum_topic_includes_message_thread_id(self, notifiers_module, mock_notifier_config):
+        responses.add(
+            responses.POST,
+            "https://api.telegram.org/bottest_telegram_token/sendMessage",
+            json={"ok": True, "result": {}},
+            status=200,
+        )
+
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:15")
+        assert telegram.notify("Test message") is True
+
+        import json
+
+        request_body = json.loads(responses.calls[0].request.body)
+        assert request_body["chat_id"] == "-1007356238347"
+        assert request_body["message_thread_id"] == 15
+
+    @responses.activate
     def test_notify_with_image(
         self, notifiers_module, mock_notifier_config, sample_image_base64
     ):
@@ -80,6 +122,53 @@ class TestTelegramNotify:
         assert "multipart/form-data" in responses.calls[0].request.headers.get(
             "Content-Type", ""
         )
+
+    @responses.activate
+    def test_notify_with_image_includes_message_thread_id(
+        self, notifiers_module, mock_notifier_config, sample_image_base64
+    ):
+        """sendPhoto encodes the topic ID as multipart form data, not JSON."""
+        responses.add(
+            responses.POST,
+            "https://api.telegram.org/bottest_telegram_token/sendPhoto",
+            json={"ok": True, "result": {}},
+            status=200,
+        )
+
+        telegram = notifiers_module.TELEGRAM(test_userid="-1007356238347:15")
+        result = telegram.notify("Test message with image", imageFile=sample_image_base64)
+
+        assert result is True
+        assert len(responses.calls) == 1
+
+        body = responses.calls[0].request.body
+        if isinstance(body, bytes):
+            body = body.decode("utf-8", errors="replace")
+        assert 'name="message_thread_id"' in body
+        assert 'name="chat_id"' in body
+        # The field value follows the multipart headers, before the next boundary.
+        thread_part = body.split('name="message_thread_id"')[1]
+        assert thread_part.split("--")[0].strip() == "15"
+
+    @responses.activate
+    def test_notify_omits_message_thread_id_without_topic(
+        self, notifiers_module, mock_notifier_config
+    ):
+        """A plain chat ID must not send message_thread_id at all."""
+        responses.add(
+            responses.POST,
+            "https://api.telegram.org/bottest_telegram_token/sendMessage",
+            json={"ok": True, "result": {}},
+            status=200,
+        )
+
+        telegram = notifiers_module.TELEGRAM()
+        assert telegram.notify("Test message") is True
+
+        import json
+
+        request_body = json.loads(responses.calls[0].request.body)
+        assert "message_thread_id" not in request_body
 
     @responses.activate
     def test_notify_image_decode_error_falls_back_to_text(

@@ -330,20 +330,38 @@ class PUSHBULLET:
         return self.notify(prline="Test Message", prline2="Release the Ninjas!")
 
 
+def _parse_telegram_target(userid):
+    """Split ``chat_id:topic_id`` targets used for forum topics (#787)."""
+    if userid is None:
+        return None, None
+    raw = str(userid).strip()
+    if ":" not in raw:
+        return raw, None
+    chat_id, topic_id = raw.rsplit(":", 1)
+    # isdigit() accepts non-decimal Unicode digits that int() rejects, so gate on ASCII.
+    if topic_id.isascii() and topic_id.isdigit():
+        return chat_id, int(topic_id)
+    return raw, None
+
+
 class TELEGRAM:
     def __init__(self, test_userid=None, test_token=None):
         self.TELEGRAM_API = "https://api.telegram.org/bot%s/%s"
-        if test_userid is None:
-            self.userid = comicarr.CONFIG.TELEGRAM_USERID
-        else:
-            self.userid = test_userid
+        raw_userid = comicarr.CONFIG.TELEGRAM_USERID if test_userid is None else test_userid
+        self.userid, self.message_thread_id = _parse_telegram_target(raw_userid)
         if test_token is None:
             self.token = comicarr.CONFIG.TELEGRAM_TOKEN
         else:
             self.token = test_token
 
+    def _payload(self, **fields):
+        payload = dict(fields)
+        if self.message_thread_id is not None:
+            payload["message_thread_id"] = self.message_thread_id
+        return payload
+
     def notify(self, message, imageFile=None):
-        payload = {"chat_id": self.userid, "text": message}
+        payload = self._payload(chat_id=self.userid, text=message)
         sendMethod = "sendMessage"
         files = None
 
@@ -351,7 +369,7 @@ class TELEGRAM:
             # Construct message
             try:
                 files = {"photo": base64.b64decode(imageFile)}
-                payload = {"chat_id": self.userid, "caption": message}
+                payload = self._payload(chat_id=self.userid, caption=message)
                 sendMethod = "sendPhoto"
             except Exception as e:
                 logger.info("Telegram notify failed to decode image: " + str(e))
@@ -471,17 +489,7 @@ class SLACK:
         else:
             pass
 
-        payload = {
-            #            "text": text,
-            #            "attachments": [
-            #                {
-            #                    "color": "#36a64f",
-            #                    "text": attachment_text
-            #                }
-            #            ]
-            # FIX: #1861 move notif from attachment to msg body - bbq
-            "text": attachment_text
-        }
+        payload = {"text": attachment_text}
 
         response = None
         try:
@@ -490,7 +498,6 @@ class SLACK:
             logger.info(module + "Slack notify failed: " + str(e))
             return False
 
-        # Error logging
         sent_successfuly = True
         if not response.status_code == 200:
             logger.info(
@@ -567,7 +574,6 @@ class MATTERMOST:
             logger.info(module + "Mattermost notify failed: " + str(e))
             return False
 
-        # Error logging
         sent_successfuly = True
         if not response.status_code == 200:
             logger.info(
@@ -598,7 +604,6 @@ class DISCORD:
             module = ""
         module += "[NOTIFIER]"
 
-        # Setup discord variables
         payload = {}
         timestamp = str(datetime.utcnow())
 
@@ -613,20 +618,15 @@ class DISCORD:
                 snatched_text = "%s: %s" % (attachment_text, snatched_nzb)
                 if all([sent_to is not None, prov is not None]):
                     snatched_text += " from %s and %s" % (prov, sent_to)
-                    # If sent_to is not None, split it by whitespace into a list
                     sent_to_split = sent_to.split()
                     if "DDL" in sent_to:
                         sent_to = "DDL"
-                    # If client is in this string, that's a torrent client. Get second to last word.
                     elif "client" in sent_to:
-                        # This should be the name of our torrent client
                         sent_to = sent_to_split[len(sent_to_split) - 2]
-                    # If neither DDL nor client are in the string, it's an nzb. Get last word.
                     else:
                         sent_to = sent_to_split[len(sent_to_split) - 1]
                 elif sent_to is None:
                     snatched_text += " from %s" % prov
-                # Separate series and issue numbers
                 split_snatched_nzb = snatched_nzb.split()
                 issue = split_snatched_nzb[len(split_snatched_nzb) - 1]
                 split_snatched_nzb.pop()
@@ -647,7 +647,6 @@ class DISCORD:
                         "timestamp": timestamp,
                     }
                 ]
-            # If error is in the message
             elif "error" in attachment_text.lower():
                 payload["content"] = attachment_text
                 payload["embeds"] = [
@@ -659,17 +658,14 @@ class DISCORD:
                         "timestamp": timestamp,
                     }
                 ]
-            # If snatched or error is not in the message, it's a download and post-process
             else:
                 logger.info("attachment_text:%s" % (attachment_text,))
-                # extract series and issue number
                 series_num = attachment_text[41:]
                 series_num_split = series_num.split()
                 issue = series_num_split[len(series_num_split) - 1]
                 series_num_split.pop()
                 series = " ".join(map(str, series_num_split))
 
-                # If there's an image file, put it in
                 if imageFile is not None:
                     payload["content"] = attachment_text
                     payload["embeds"] = [
@@ -681,9 +677,7 @@ class DISCORD:
                                 {"name": "Series", "value": series, "inline": "true"},
                                 {"name": "Issue", "value": issue, "inline": "true"},
                             ],
-                            "image": {
-                                "url": "attachment://image.jpg",
-                            },
+                            "image": {"url": "attachment://image.jpg"},
                             "timestamp": timestamp,
                         }
                     ]
@@ -720,7 +714,6 @@ class DISCORD:
             except Exception as e:
                 logger.info(module + "Discord notify failed: " + str(e))
 
-        # Error logging
         if response is None:
             return False
         sent_successfuly = True
@@ -794,7 +787,6 @@ class GOTIFY:
             logger.info(module + "Gotify notify failed: " + str(e))
             return False
 
-        # Error logging
         sent_successfuly = True
         if not response.status_code == 200:
             logger.info(
@@ -837,8 +829,6 @@ class MATRIX:
                 snatched_text += " from %s" % prov
             attachment_text = snatched_text
 
-        # Matrix Client-Server API endpoint for sending messages
-        # Using a transaction ID based on timestamp for idempotency
         txn_id = str(int(time.time() * 1000))
         url = f"{self.homeserver.rstrip('/')}/_matrix/client/r0/rooms/{self.room_id}/send/m.room.message/{txn_id}"
 

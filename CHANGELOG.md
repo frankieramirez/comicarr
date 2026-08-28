@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.0
+
+### Minor Changes
+
+- c9c20b1: Telegram notifications can now post into a specific forum topic instead of a supergroup's General thread. In **Settings → Notifications**, append the topic ID to the chat ID in **User/Chat ID**, for example `-1007356238347:15`, and every notification Comicarr sends — text and cover images alike — lands in that topic. A plain chat ID or `@username` keeps working exactly as before, and a value whose suffix is not a topic number is still treated as an ordinary chat ID rather than being split.
+
+### Patch Changes
+
+- f2252e6: Import Inbox auto-matches now actually move files into your library. High-confidence matches previously got marked Imported without the move, rename, or series rescan ever running, leaving the files behind in the import directory. Auto-matched files now go through the same finalization as manual matches, files that stay in the inbox after a successful import (archive-in-place or copy modes) are no longer re-imported on every scan, and if finalization fails the files fall back to the manual review queue instead of being falsely marked Imported. Auto-imported records also keep their real match source and confidence instead of being relabeled as 100% manual matches.
+
 ## 0.37.1
 
 ### Patch Changes
