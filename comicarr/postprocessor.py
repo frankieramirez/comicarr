@@ -4720,15 +4720,9 @@ class PostProcessor(object):
                 )
             elif int(issueno) >= 10 and int(issueno) < 100:
                 logger.fdebug("issue detected greater than 10, but less than 100")
-                if any(
-                    [
-                        comicarr.CONFIG.ZERO_LEVEL_N == "none",
-                        comicarr.CONFIG.ZERO_LEVEL_N is None,
-                        comicarr.CONFIG.ZERO_LEVEL is False,
-                    ]
-                ):
-                    zeroadd = ""
-                else:
+                # two-digit issues take at most one leading zero; keep the
+                # helper's no-padding fallback for unrecognized levels
+                if zeroadd == "00":
                     zeroadd = "0"
                 if "." in iss:
                     if int(iss_decval) > 0:
