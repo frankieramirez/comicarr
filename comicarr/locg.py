@@ -19,6 +19,7 @@
 
 import datetime
 import re
+from email.utils import parsedate_to_datetime
 
 import requests
 from sqlalchemy import and_, delete
@@ -31,7 +32,8 @@ from comicarr.tables import weekly
 # Cloudflare fronts the pull-list host and answers for it whenever the origin
 # is unhealthy, so these arrive as ordinary responses rather than as request
 # exceptions. They say the upstream is unwell, not that the request was wrong,
-# and are transient — the next scheduled run is the retry.
+# and are transient — callers may honor the accompanying Retry-After hint to
+# retry sooner than the next scheduled run.
 CLOUDFLARE_ORIGIN_ERRORS = {
     "520": "returned an unknown error",
     "521": "is down",
@@ -49,6 +51,24 @@ def _retry_advice(retry_after):
     if value.isdigit():
         return " Upstream asked us to retry in %s seconds." % value
     return " Upstream asked us to retry after %s." % value
+
+
+def _retry_after_seconds(retry_after):
+    """Parse a Retry-After header into whole seconds from now, or None."""
+    value = str(retry_after or "").strip()
+    if not value:
+        return None
+    if value.isdigit():
+        seconds = int(value)
+    else:
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except (TypeError, ValueError):
+            return None
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=datetime.timezone.utc)
+        seconds = int((retry_at - datetime.datetime.now(datetime.timezone.utc)).total_seconds())
+    return seconds if seconds > 0 else None
 
 
 def locg(pulldate=None, weeknumber=None, year=None):
@@ -110,7 +130,11 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
         )
         comicarr.BACKENDSTATUS_WS = "down"
-        return {"status": "failure"}
+        failure = {"status": "failure"}
+        retry_after = _retry_after_seconds(r.headers.get("Retry-After"))
+        if retry_after is not None:
+            failure["retry_after"] = retry_after
+        return failure
     elif str(r.status_code) == "999" or str(r.status_code) == "111":
         logger.warn(
             "[%s] Unable to retrieve data from site - this is a site.specific issue [%s]" % (r.status_code, pulldate)

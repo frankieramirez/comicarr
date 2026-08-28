@@ -102,6 +102,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         weekly_info = helpers.weekly_info()
         current_weeknumber = weekly_info["weeknumber"]
         weekly_info["year"]
+        retry_hint = None
         for x in [1, 2]:
             # for now we'll query WS twice - once for the previous week & once for the current week
             # but only when requesting data for the current week. This is done in order to make sure that
@@ -151,6 +152,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     "[PULL-LIST] Unable to retrieve weekly pull-list. Pull list for week %s, %s may be stale."
                     % (weeknumber_mod, year_mod)
                 )
+                retry_hint = chk_locg.get("retry_after") or retry_hint
                 if _weekly_pull_has_data(weeknumber_mod, year_mod):
                     logger.info(
                         "[PULL-LIST] Falling back to the cached pull-list already stored for week %s, %s."
@@ -165,9 +167,15 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                         % (weeknumber_mod, year_mod)
                     )
                     continue
+                if retry_hint:
+                    return {"status": "failure", "retry_after": retry_hint}
                 return {"status": "failure"}
                 # comicarr.PULLBYFILE = pull_the_file(newrl)
                 # break
+        if retry_hint:
+            # A pass served stale cached data; surface upstream's hint so the
+            # scheduler can retry sooner than the regular interval.
+            return {"status": "success", "retry_after": retry_hint}
         return {"status": "success"}
 
     else:

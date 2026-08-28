@@ -71,6 +71,42 @@ def _restore_manual_next_run():
         logger.error("[WEEKLY] Could not restore scheduled refresh time: %s" % e)
 
 
+def _honor_upstream_retry(retry_after):
+    """Move the weekly job's next run earlier when upstream asked for a sooner retry.
+
+    Only ever pulls the schedule forward - a hint later than the regular next
+    run is ignored, as is anything beyond an hour, where the normal interval
+    is the better retry anyway.
+    """
+    try:
+        seconds = int(retry_after)
+    except (TypeError, ValueError):
+        return
+    if seconds <= 0 or seconds > 3600:
+        return
+    seconds = max(seconds, 60)
+    try:
+        scheduler = _get_weekly_runtime_value("scheduler", "SCHED")
+        job = scheduler.get_job("weekly") if scheduler is not None else None
+        if job is None:
+            return
+        next_run = getattr(job, "next_run_time", None)
+        if next_run is not None and next_run.tzinfo is not None:
+            now = datetime.datetime.now(tz=next_run.tzinfo)
+        else:
+            now = datetime.datetime.utcnow()
+        retry_at = now + datetime.timedelta(seconds=seconds)
+        if next_run is not None and next_run <= retry_at:
+            return
+        job.modify(next_run_time=retry_at)
+        logger.info(
+            "[WEEKLY] Upstream asked for a retry in %s seconds - next pull-list check moved up to %s."
+            % (seconds, retry_at.strftime("%Y-%m-%d %H:%M:%S"))
+        )
+    except Exception as e:
+        logger.error("[WEEKLY] Could not honor upstream retry request: %s" % e)
+
+
 class Weekly:
     def __init__(self):
         pass
@@ -84,14 +120,18 @@ class Weekly:
                 write=True, job="Weekly Pullist", current_run=helpers.utctimestamp(), status="Running"
             )
             _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Running")
+            retry_hint = None
             try:
                 pull_result = weeklypull.pullit()
-                if isinstance(pull_result, dict) and pull_result.get("status") == "failure":
-                    raise RuntimeError("Weekly pull source reported a failure")
+                if isinstance(pull_result, dict):
+                    retry_hint = pull_result.get("retry_after")
+                    if pull_result.get("status") == "failure":
+                        raise RuntimeError("Weekly pull source reported a failure")
                 weeklypull.future_check()
             except Exception as e:
                 logger.error("[WEEKLY] Pull-list refresh failed: %s" % e)
                 _restore_manual_next_run()
+                _honor_upstream_retry(retry_hint)
                 helpers.job_management(
                     write=True,
                     job="Weekly Pullist",
@@ -104,6 +144,7 @@ class Weekly:
                 raise
 
             _restore_manual_next_run()
+            _honor_upstream_retry(retry_hint)
             helpers.job_management(
                 write=True, job="Weekly Pullist", last_run_completed=helpers.utctimestamp(), status="Waiting"
             )
