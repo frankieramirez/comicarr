@@ -361,6 +361,8 @@ def search_init(
                 AlternateSearch = manga_alt_str
 
     provider_list = provider_order(initial_run=True)
+    if content_type == "manga":
+        provider_list = _providers_without_ddl(provider_list)
     findit = {}
     findit["status"] = False
 
@@ -945,6 +947,14 @@ def search_init(
                 logger.error("[AI-SEARCH] Expansion fallback error: %s" % e)
 
     return findit, "None"
+
+
+def _providers_without_ddl(provider_list):
+    """Copy a provider_order() result with comic DDL indexers removed."""
+    filtered = dict(provider_list)
+    filtered["prov_order"] = [name for name in provider_list.get("prov_order", []) if not str(name).startswith("DDL(")]
+    filtered["totalproviders"] = len(filtered["prov_order"])
+    return filtered
 
 
 def provider_order(initial_run=False):

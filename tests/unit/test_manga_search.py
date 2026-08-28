@@ -236,3 +236,77 @@ class TestSeriesContentKindSearchHandoff:
         search.searchforissue("issue-1", manual=True)
 
         assert search_init.call_args.kwargs["content_type"] == expected_kind
+
+
+_DDL_PROVIDER_PLAN = {
+    "prov_order": ["DDL(GetComics)", "DDL(External)", "torznab: Nyaa.si", "32p"],
+    "torznab_info": [{"provider": "torznab: Nyaa.si", "info": ["Nyaa.si"]}],
+    "newznab_info": [],
+    "totalproviders": 4,
+}
+
+
+def _search_init_logged_provider_order(monkeypatch, mock_log, *, content_type):
+    from comicarr import search
+
+    orders = []
+
+    def capture(msg, *a, **k):
+        text = str(msg)
+        if text.startswith("search provider order is"):
+            orders.append(text)
+            raise RuntimeError("captured-provider-order")
+
+    mock_log.fdebug = capture
+    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *a, **k: None)
+    monkeypatch.setattr(
+        search,
+        "provider_order",
+        lambda initial_run=False: {
+            **_DDL_PROVIDER_PLAN,
+            "prov_order": list(_DDL_PROVIDER_PLAN["prov_order"]),
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="captured-provider-order"):
+        search.search_init(
+            "One Piece",
+            "1",
+            "1997",
+            "1997",
+            None,
+            "1997-07-22",
+            "1997-07-22",
+            "issue-1",
+            content_type=content_type,
+        )
+    return orders[0]
+
+
+class TestProvidersWithoutDdl:
+    def test_drops_getcomics_and_external(self):
+        from comicarr.search import _providers_without_ddl
+
+        original = {
+            **_DDL_PROVIDER_PLAN,
+            "prov_order": list(_DDL_PROVIDER_PLAN["prov_order"]),
+        }
+        snapshot = list(original["prov_order"])
+        filtered = _providers_without_ddl(original)
+
+        assert filtered["prov_order"] == ["torznab: Nyaa.si", "32p"]
+        assert filtered["totalproviders"] == 2
+        assert original["prov_order"] == snapshot
+
+    def test_search_init_manga_drops_ddl(self, monkeypatch, _mock_logger):
+        logged = _search_init_logged_provider_order(monkeypatch, _mock_logger, content_type="manga")
+        assert "DDL(GetComics)" not in logged
+        assert "DDL(External)" not in logged
+        assert "torznab: Nyaa.si" in logged
+        assert "32p" in logged
+
+    def test_search_init_comic_keeps_ddl(self, monkeypatch, _mock_logger):
+        logged = _search_init_logged_provider_order(monkeypatch, _mock_logger, content_type="comic")
+        assert "DDL(GetComics)" in logged
+        assert "DDL(External)" in logged
+        assert "torznab: Nyaa.si" in logged
