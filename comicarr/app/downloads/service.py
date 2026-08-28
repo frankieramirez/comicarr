@@ -119,47 +119,28 @@ def force_process(
     ComicRN/APC compatibility runs the post-processor directly.
     """
     if apc_version is not None:
-        # ComicRN/APC compatibility mode — direct processing
         logger.info("[API] Api Call from ComicRN detected - initiating script post-processing.")
         import queue as queue_mod
         import threading
-
         from comicarr import postprocessor
-
         pp_queue = queue_mod.Queue()
         if failed == "0":
             failed = False
         elif failed == "1":
             failed = True
-
         if not failed:
             pp = postprocessor.PostProcessor(nzb_name, nzb_folder, queue=pp_queue)
             thread_ = threading.Thread(target=pp.Process, name="Post-Processing")
             thread_.start()
             thread_.join()
         return {"success": True}
-
-    # Standard mode — queue for background processing
     logger.info("Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder))
-    comicarr.PP_QUEUE.put(
-        {
-            "nzb_name": nzb_name,
-            "nzb_folder": nzb_folder,
-            "issueid": issueid,
-            "failed": failed,
-            "oneoff": oneoff,
-            "comicid": comicid,
-            "apicall": True,
-            "ddl": ddl,
-        }
-    )
+    comicarr.PP_QUEUE.put({"nzb_name": nzb_name, "nzb_folder": nzb_folder, "issueid": issueid, "failed": failed, "oneoff": oneoff, "comicid": comicid, "apicall": True, "ddl": ddl})
     return {"success": True, "message": "Successfully submitted request for post-processing for %s" % nzb_name}
 
 
 def process_issue(comicid, folder, issueid=None):
-    """Post-process a specific issue."""
     from comicarr import process
-
     try:
         fp = process.Process(nzb_name=comicid, nzb_folder=folder, issueid=issueid)
         result = fp.post_process()
@@ -168,12 +149,6 @@ def process_issue(comicid, folder, issueid=None):
         logger.error("[DOWNLOADS] Error processing issue: %s" % e)
         return {"success": False, "error": str(e)}
 
-
-# ---------------------------------------------------------------------------
-# Needs-attention compatibility adapters
-# ---------------------------------------------------------------------------
-
-# Deprecated public alias retained for callers during the route migration.
 BAND_BATCH_CAP = BATCH_CAP
 
 
@@ -188,12 +163,7 @@ def _legacy_request_error(error, *, single=False):
         message = "Missing release_key"
     else:
         message = "No release_keys supplied"
-    return {
-        "success": False,
-        "status": "failed",
-        "error": message,
-        "status_code": 400,
-    }
+    return {"success": False, "status": "failed", "error": message, "status_code": 400}
 
 
 def _legacy_item(item, action):
@@ -202,37 +172,13 @@ def _legacy_item(item, action):
         error = item.message
         if item.problem == "not_in_attention":
             error = "Row is not on the needs-attention band"
-        result = {
-            "success": False,
-            "status": item.status or "failed",
-            "error": error,
-            "status_code": status_code,
-        }
+        result = {"success": False, "status": item.status or "failed", "error": error, "status_code": status_code}
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
-        # Pre-refactor, any post-queue search failure — blocked or not — carried
-        # the row identity plus ``stamped: False``, while the precheck block did
-        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
-        # what separates "we re-wanted the issue and left it unstamped" from
-        # "we stopped before touching the row".
         if item.stamp_written is False:
-            result.update(
-                {
-                    "release_key": item.release_key,
-                    "issue_id": item.issue_id,
-                    "stamped": False,
-                }
-            )
+            result.update({"release_key": item.release_key, "issue_id": item.issue_id, "stamped": False})
         return result
-
-    result = {
-        "success": True,
-        "status": item.status,
-        "action": action,
-        "release_key": item.release_key,
-        "stamped": item.stamp_written,
-        "message": item.message,
-    }
+    result = {"success": True, "status": item.status, "action": action, "release_key": item.release_key, "stamped": item.stamp_written, "message": item.message}
     if item.issue_id is not None:
         result["issue_id"] = item.issue_id
     if action in {"retry", "search_again"}:
@@ -243,90 +189,35 @@ def _legacy_item(item, action):
 def _legacy_batch_report(report):
     results = []
     for item in report.results:
-        results.append(
-            {
-                "release_key": item.release_key,
-                "ok": item.ok,
-                "status": item.status,
-                "error": (
-                    None
-                    if item.ok
-                    else (
-                        "Row is not on the needs-attention band" if item.problem == "not_in_attention" else item.message
-                    )
-                ),
-                "status_code": None if item.ok else PROBLEM_STATUS.get(item.problem, 500),
-            }
-        )
-    response = {
-        "success": report.success,
-        "partial": report.partial,
-        "action": report.action,
-        "requested": report.requested,
-        "processed": report.processed,
-        "succeeded": report.succeeded,
-        "failed": report.failed,
-        "capped": report.capped,
-        "skipped_for_cap": report.skipped_for_cap,
-        "cap": report.cap,
-        "results": results,
-    }
+        results.append({"release_key": item.release_key, "ok": item.ok, "status": item.status, "error": (None if item.ok else ("Row is not on the needs-attention band" if item.problem == "not_in_attention" else item.message)), "status_code": None if item.ok else PROBLEM_STATUS.get(item.problem, 500)})
+    response = {"success": report.success, "partial": report.partial, "action": report.action, "requested": report.requested, "processed": report.processed, "succeeded": report.succeeded, "failed": report.failed, "capped": report.capped, "skipped_for_cap": report.skipped_for_cap, "cap": report.cap, "results": results}
     if not report.success:
         response["status_code"] = 409
         response["error"] = "No rows could be resolved"
     return response
 
 
-def resolve_needs_attention(
-    ctx,
-    release_key,
-    action,
-    *,
-    audit_identity,
-    nzb_name=None,
-    nzb_folder=None,
-):
-    """Deprecated one-row adapter for :func:`comicarr.app.attention.resolve`."""
+def resolve_needs_attention(ctx, release_key, action, *, audit_identity, nzb_name=None, nzb_folder=None):
     from comicarr.app.attention import ImportSource, InvalidAttentionRequest, ResolutionRequest, resolve
-
     source = None
     if str(action or "").strip().lower() == "import" and (nzb_name is not None or nzb_folder is not None):
         source = ImportSource(nzb_name=nzb_name, nzb_folder=nzb_folder)
     try:
-        report = resolve(
-            ctx,
-            ResolutionRequest(
-                action=action,
-                release_keys=(release_key,),
-                actor=audit_identity,
-                import_source=source,
-            ),
-        )
+        report = resolve(ctx, ResolutionRequest(action=action, release_keys=(release_key,), actor=audit_identity, import_source=source))
     except InvalidAttentionRequest as e:
         return _legacy_request_error(e, single=True)
     return _legacy_item(report.results[0], report.action)
 
 
 def _batch_order(release_keys):
-    """Deprecated ordering adapter retained for compatibility tests."""
     from comicarr.app.attention._resolution import _batch_order as attention_batch_order
-
     return attention_batch_order(release_keys)
 
 
 def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
-    """Deprecated batch adapter for :func:`comicarr.app.attention.resolve`."""
     from comicarr.app.attention import InvalidAttentionRequest, ResolutionRequest, resolve
-
     try:
-        report = resolve(
-            ctx,
-            ResolutionRequest(
-                action=action,
-                release_keys=release_keys,
-                actor=audit_identity,
-            ),
-        )
+        report = resolve(ctx, ResolutionRequest(action=action, release_keys=release_keys, actor=audit_identity))
     except InvalidAttentionRequest as e:
         result = _legacy_request_error(e)
         result.pop("status", None)
@@ -334,47 +225,19 @@ def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
     return _legacy_batch_report(report)
 
 
-# ---------------------------------------------------------------------------
-# DDL queue management
-# ---------------------------------------------------------------------------
-
-
 def get_ddl_queue(limit=None, offset=None, search=None, status=None, sort=None, order="desc"):
-    """Get the active DDL download queue."""
     if limit is not None:
-        return _paginated_activity_response(
-            "queue",
-            dl_queries.get_ddl_queue,
-            limit=limit,
-            offset=offset,
-            search=search,
-            status=status,
-            sort=sort,
-            order=order,
-        )
-    return dl_queries.get_ddl_queue(
-        search=search,
-        status=status,
-        sort=sort,
-        order=order,
-    )
+        return _paginated_activity_response("queue", dl_queries.get_ddl_queue, limit=limit, offset=offset, search=search, status=status, sort=sort, order=order)
+    return dl_queries.get_ddl_queue(search=search, status=status, sort=sort, order=order)
 
 
 def delete_ddl_item(item_id):
-    """Remove an item from the DDL queue."""
     dl_queries.delete_ddl_item(item_id)
     logger.info("[DOWNLOADS] Removed DDL item: %s" % item_id)
     return {"success": True}
 
 
 def _enqueue_ddl_queue_item(target_queue, item):
-    """Hand a DDL command to the in-memory worker queue with process-local dedupe.
-
-    ``DDL_QUEUED`` tracks ids already handed to this process's worker (queued or
-    in-flight). Skipping duplicates prevents cold-start Queued recovery from
-    racing journal STILL re-enqueue of the same id, and allows live outbox
-    sweeps without double-dispatching items already sitting in the queue.
-    """
     item_id = None
     if isinstance(item, dict):
         item_id = item.get("id") or item.get("ID")
@@ -387,14 +250,8 @@ def _enqueue_ddl_queue_item(target_queue, item):
 
 
 def recover_queued_ddl_commands(queue=None):
-    """Replay the durable Queued outbox before the DDL worker starts.
-
-    Only ``Queued`` rows are eligible: ``Downloading`` rows belong to the
-    pipeline journal recovery path and must never be duplicated here.
-    """
     target_queue = queue if queue is not None else comicarr.DDL_QUEUE
     result = {"enqueued_ids": [], "failed_ids": [], "handoff_failed_ids": []}
-
     for row in dl_queries.get_queued_ddl_items():
         item_id = row.get("ID")
         try:
@@ -405,180 +262,287 @@ def recover_queued_ddl_commands(queue=None):
                 result["failed_ids"].append(item_id)
             logger.error("[DOWNLOADS-DDL] Invalid durable Queued item %s marked Failed: %s" % (item_id, e))
             continue
-
         try:
             if not _enqueue_ddl_queue_item(target_queue, command.to_queue_item()):
-                # Already handed to this process's worker/queue — durable row
-                # remains Queued/Downloading under the existing owner.
                 continue
         except Exception as e:
             result["handoff_failed_ids"].append(command.id)
-            logger.error(
-                "[DOWNLOADS-DDL] Startup handoff failed for Queued item %s; row remains recoverable: %s"
-                % (command.id, e)
-            )
+            logger.error("[DOWNLOADS-DDL] Startup handoff failed for Queued item %s; row remains recoverable: %s" % (command.id, e))
             continue
-
         result["enqueued_ids"].append(command.id)
-
     if result["enqueued_ids"]:
         logger.info("[DOWNLOADS-DDL] Recovered %d durable Queued item(s)." % len(result["enqueued_ids"]))
     return result
 
 
 def requeue_ddl_item(item_id):
-    """Requeue a failed DDL download."""
     try:
         item = dl_queries.get_ddl_item(item_id)
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to read DDL item %s for requeue: %s" % (item_id, e))
-        return {
-            "success": False,
-            "error": "Unable to read the durable DDL item",
-            "operational_error": True,
-        }
+        return {"success": False, "error": "Unable to read the durable DDL item", "operational_error": True}
     if not item:
         return {"success": False, "error": "DDL item not found: %s" % item_id, "not_found": True}
-
     status = str(item.get("status") or item.get("Status") or "").strip()
-    # Only a terminal failure can be manually retried. Queued rows belong to
-    # the durable outbox/recovery worker; accepting them here would allow two
-    # concurrent requests to enqueue the same external download.
     if status != "Failed":
         if not status:
             try:
                 DDLCommand.from_mapping(item)
             except DDLCommandError as e:
                 return {"success": False, "error": str(e), "validation_error": True}
-        return {
-            "success": False,
-            "error": "DDL item status %s cannot be requeued" % status,
-            "validation_error": True,
-        }
-
+        return {"success": False, "error": "DDL item status %s cannot be requeued" % status, "validation_error": True}
     try:
         command = DDLCommand.from_mapping(item)
     except DDLCommandError as e:
         return {"success": False, "error": str(e), "validation_error": True}
-
     try:
         claimed = dl_queries.claim_failed_ddl_retry(item_id)
         if not claimed:
-            return {
-                "success": False,
-                "error": "DDL item changed before retry could be claimed",
-                "validation_error": True,
-            }
+            return {"success": False, "error": "DDL item changed before retry could be claimed", "validation_error": True}
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to update DDL item %s for requeue: %s" % (item_id, e))
-        return {
-            "success": False,
-            "error": "Unable to update the durable DDL item",
-            "operational_error": True,
-        }
-
+        return {"success": False, "error": "Unable to update the durable DDL item", "operational_error": True}
     try:
         if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
-            return {
-                "success": False,
-                "error": "Unable to insert DDL command into the worker queue",
-                "handoff_error": True,
-            }
+            return {"success": False, "error": "Unable to insert DDL command into the worker queue", "handoff_error": True}
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to requeue DDL item %s; durable row remains Queued: %s" % (item_id, e))
-        return {
-            "success": False,
-            "error": "Unable to insert DDL command into the worker queue",
-            "handoff_error": True,
-        }
-
+        return {"success": False, "error": "Unable to insert DDL command into the worker queue", "handoff_error": True}
     logger.info("[DOWNLOADS] Requeued DDL item: %s" % item_id)
     return {"success": True}
 
 
 def queue_ddl_download(command_values):
-    """Validate, persist, and queue a complete direct-download command.
-
-    The durable row is committed before the in-memory handoff. If the queue
-    insertion fails, the row remains Queued so cold-start recovery can replay
-    the command without losing it.
-    """
     try:
         command = DDLCommand.from_mapping(command_values)
     except DDLCommandError as e:
         return {"success": False, "error": str(e), "validation_error": True}
-
     try:
         db.upsert("ddl_info", command.to_persisted_values(), {"ID": command.id})
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to persist DDL item %s: %s" % (command.id, e))
-        return {
-            "success": False,
-            "error": "Unable to persist the DDL command",
-            "operational_error": True,
-        }
-
+        return {"success": False, "error": "Unable to persist the DDL command", "operational_error": True}
     try:
         if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
-            # Durable row is already owned by this process's worker/queue.
-            logger.info(
-                "[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id
-            )
+            logger.info("[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id)
             return {"success": True, "message": "DDL download already queued: %s" % command.id}
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to queue DDL item %s; durable row remains Queued: %s" % (command.id, e))
-        return {
-            "success": False,
-            "error": "Unable to insert DDL command into the worker queue",
-            "handoff_error": True,
-        }
-
+        return {"success": False, "error": "Unable to insert DDL command into the worker queue", "handoff_error": True}
     logger.info("[DOWNLOADS] Queued DDL download: %s (site=%s)" % (command.id, command.site))
     return {"success": True, "message": "DDL download queued: %s" % command.id}
 
 
 def get_issue_file_path(issue_id):
-    """Resolve the on-disk file path for an issue.
-
-    Returns (path, filename) tuple or (None, None) if not found.
-    Checks primary ComicLocation and MULTIPLE_DEST_DIRS secondary.
-    """
     issue = dl_queries.get_issue_file_info(issue_id)
     if not issue:
         return None, None
-
     if not issue.get("Location") or not issue.get("ComicLocation"):
         return None, None
-
     pathfile = os.path.join(issue["ComicLocation"], issue["Location"])
     if os.path.isfile(pathfile):
         return pathfile, issue["Location"]
-
-    # Check secondary destination directories
     if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
         try:
-            secondary = os.path.join(
-                comicarr.CONFIG.MULTIPLE_DEST_DIRS,
-                os.path.basename(issue["ComicLocation"]),
-            )
+            secondary = os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(issue["ComicLocation"]))
             alt_path = os.path.join(secondary, issue["Location"])
             if os.path.isfile(alt_path):
                 return alt_path, issue["Location"]
         except Exception:
             pass
-
     return None, None
-
-
-# --- Extracted from helpers.py ---
 
 
 def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=None, annualize=None, arc=False):
     from sqlalchemy import select
-
     from comicarr.helpers import filesafe, fullmonth, issuedigits, replace_all
-
     comicid = str(comicid)
-
     logger.fdebug(type(comicid))
-    logger.fdebug(ty
+    logger.fdebug(type(issueid))
+    logger.fdebug("comicid: %s" % comicid)
+    logger.fdebug("issue# as per cv: %s" % issue)
+    if issueid is None:
+        logger.fdebug("annualize is " + str(annualize))
+        if arc:
+            chkissue = db.select_one(select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.IssueNumber == issue))
+        else:
+            chkissue = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.Issue_Number == issue))
+            if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
+                chkissue = db.select_one(select(annuals).where(annuals.c.ComicID == comicid, annuals.c.Issue_Number == issue, annuals.c.Deleted != 1))
+        if chkissue is None:
+            if arc:
+                chkissue = db.select_one(select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.Int_IssueNumber == issuedigits(issue)))
+            else:
+                chkissue = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.Int_IssueNumber == issuedigits(issue)))
+                if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
+                    chkissue = db.select_one(select(annuals).where(annuals.c.ComicID == comicid, annuals.c.Int_IssueNumber == issuedigits(issue), annuals.c.Deleted != 1))
+            if chkissue is None:
+                logger.error("Invalid Issue_Number - please validate.")
+                return
+            else:
+                logger.info("Int Issue_number compare found. continuing...")
+                issueid = chkissue["IssueID"]
+        else:
+            issueid = chkissue["IssueID"]
+    logger.fdebug("issueid is now : " + str(issueid))
+    if arc:
+        issuenzb = db.select_one(select(storyarcs).where(storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid, storyarcs.c.StoryArc == arc))
+    else:
+        issuenzb = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.IssueID == issueid))
+        if issuenzb is None:
+            logger.fdebug("not an issue, checking against annuals")
+            issuenzb = db.select_one(select(annuals).where(annuals.c.ComicID == comicid, annuals.c.IssueID == issueid, annuals.c.Deleted != 1))
+            if issuenzb is None:
+                logger.fdebug("Unable to rename - cannot locate issue id within db")
+                return
+            else:
+                annualize = True
+    if issuenzb is None:
+        logger.fdebug("Unable to rename - cannot locate issue id within db")
+        return
+    if arc:
+        issuenum = issuenzb["IssueNumber"]
+        issuedate = issuenzb["IssueDate"]
+        publisher = issuenzb["IssuePublisher"]
+        series = issuenzb["ComicName"]
+        seriesfilename = series
+        seriesyear = issuenzb["SeriesYear"]
+        arcdir = filesafe(issuenzb["StoryArc"])
+        if comicarr.CONFIG.REPLACE_SPACES:
+            arcdir = arcdir.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+        if comicarr.CONFIG.STORYARCDIR:
+            if comicarr.CONFIG.STORYARC_LOCATION is None:
+                storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "StoryArcs", arcdir)
+            else:
+                storyarcd = os.path.join(comicarr.CONFIG.STORYARC_LOCATION, arcdir)
+            logger.fdebug("Story Arc Directory set to : " + storyarcd)
+        else:
+            logger.fdebug("Story Arc Directory set to : " + comicarr.CONFIG.GRABBAG_DIR)
+            storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.GRABBAG_DIR)
+        comlocation = storyarcd
+        comversion = None
+    else:
+        issuenum = issuenzb["Issue_Number"]
+        issuedate = issuenzb["IssueDate"]
+        comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comicid))
+        publisher = comicnzb["ComicPublisher"]
+        series = comicnzb["ComicName"]
+        if any([comicnzb["AlternateFileName"] is None, comicnzb["AlternateFileName"] == "None"]) or all([comicnzb["AlternateFileName"] is not None, comicnzb["AlternateFileName"].strip() == ""]):
+            seriesfilename = series
+        else:
+            seriesfilename = comicnzb["AlternateFileName"]
+            logger.fdebug("Alternate File Naming has been enabled for this series. Will rename series title to : " + seriesfilename)
+        seriesyear = comicnzb["ComicYear"]
+        comlocation = comicnzb["ComicLocation"]
+        comversion = comicnzb["ComicVersion"]
+    unicodeissue = issuenum
+    if type(issuenum) == str:
+        vals = {"\xbd": ".5", "\xbc": ".25", "\xbe": ".75", "\u221e": "9999999999", "\xe2": "9999999999"}
+    else:
+        vals = {"\xbd": ".5", "\xbc": ".25", "\xbe": ".75", "\\u221e": "9999999999", "\xe2": "9999999999"}
+    x = [vals[key] for key in vals if key in issuenum]
+    if x:
+        issuenum = x[0]
+        logger.fdebug("issue number formatted: %s" % issuenum)
+    issue_except = "None"
+    valid_spaces = (".", "-")
+    for issexcept in comicarr.ISSUE_EXCEPTIONS:
+        if issexcept.lower() in issuenum.lower():
+            logger.fdebug("ALPHANUMERIC EXCEPTION : [" + issexcept + "]")
+            v_chk = [v for v in valid_spaces if v in issuenum]
+            iss_space = v_chk[0] if v_chk else ""
+            if issexcept == "NOW" and "!" in issuenum:
+                issuenum = re.sub(r"\!", "", issuenum)
+            issue_except = iss_space + issexcept
+            logger.fdebug("issue_except denoted as : %s" % issue_except)
+            if issuenum.lower() != issue_except.lower():
+                issuenum = re.sub("[^0-9]", "", issuenum)
+                if any([issuenum == "", issuenum is None]):
+                    issuenum = issue_except
+            break
+    if "." in issuenum:
+        iss_find = issuenum.find(".")
+        iss_b4dec = issuenum[:iss_find] if iss_find != 0 else "0"
+        iss_decval = issuenum[iss_find + 1 :]
+        if iss_decval.endswith("."):
+            iss_decval = iss_decval[:-1]
+        if int(iss_decval) == 0:
+            iss = iss_b4dec
+            issueno = iss
+        else:
+            iss = iss_b4dec + "." + iss_decval if len(iss_decval) == 1 else iss_b4dec + "." + iss_decval.rstrip("0")
+            issueno = iss_b4dec
+    else:
+        iss = issuenum
+        issueno = iss
+    if comicarr.CONFIG.ZERO_LEVEL is False:
+        zeroadd = ""
+    else:
+        if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL_N is None]):
+            zeroadd = ""
+        elif comicarr.CONFIG.ZERO_LEVEL_N == "0x":
+            zeroadd = "0"
+        elif comicarr.CONFIG.ZERO_LEVEL_N == "00x":
+            zeroadd = "00"
+    prettycomiss = None
+    if issueno.isalpha():
+        prettycomiss = str(issueno)
+    else:
+        try:
+            x = float(issuenum)
+            if x < 0:
+                prettycomiss = "-" + str(zeroadd) + str(issueno[1:])
+            elif x == 9999999999:
+                issuenum = "infinity"
+            elif x < 0:
+                raise ValueError
+        except ValueError:
+            logger.warn("Unable to properly determine issue number [ %s]" % issueno)
+            return
+    if all([prettycomiss is None, len(str(issueno)) > 0]):
+        if int(issueno) < 10:
+            if "." in iss:
+                if int(iss_decval) > 0:
+                    issueno = str(iss)
+                    prettycomiss = str(zeroadd) + str(iss)
+                else:
+                    prettycomiss = str(zeroadd) + str(int(issueno))
+            else:
+                prettycomiss = str(zeroadd) + str(iss)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+        elif int(issueno) >= 10 and int(issueno) < 100:
+            if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL_N is None, comicarr.CONFIG.ZERO_LEVEL is False]):
+                zeroadd = ""
+            else:
+                zeroadd = "0"
+            if "." in iss:
+                if int(iss_decval) > 0:
+                    issueno = str(iss)
+                    prettycomiss = str(zeroadd) + str(iss)
+                else:
+                    prettycomiss = str(zeroadd) + str(int(issueno))
+            else:
+                prettycomiss = str(zeroadd) + str(iss)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+        else:
+            if issuenum == "infinity":
+                prettycomiss = "infinity"
+            else:
+                if "." in iss and int(iss_decval) > 0:
+                    issueno = str(iss)
+                prettycomiss = str(issueno)
+            if issue_except != "None":
+                prettycomiss = str(prettycomiss) + issue_except
+    elif len(str(issueno)) == 0:
+        prettycomiss = str(issueno)
+    if comicarr.CONFIG.UNICODE_ISSUENUMBER:
+        prettycomiss = unicodeissue
+    issueyear = issuedate[:4]
+    month = issuedate[5:7].replace("-", "").strip()
+    month_name = fullmonth(month) or "None"
+    if comversion is None:
+        comversion = "None"
+    if comversion == "None":
+       
