@@ -210,6 +210,11 @@ def _legacy_item(item, action):
         }
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
+        # Pre-refactor, any post-queue search failure — blocked or not — carried
+        # the row identity plus ``stamped: False``, while the precheck block did
+        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
+        # what separates "we re-wanted the issue and left it unstamped" from
+        # "we stopped before touching the row".
         if item.stamp_written is False:
             result.update(
                 {
@@ -363,7 +368,13 @@ def delete_ddl_item(item_id):
 
 
 def _enqueue_ddl_queue_item(target_queue, item):
-    """Hand a DDL command to the in-memory worker queue with process-local dedupe."""
+    """Hand a DDL command to the in-memory worker queue with process-local dedupe.
+
+    ``DDL_QUEUED`` tracks ids already handed to this process's worker (queued or
+    in-flight). Skipping duplicates prevents cold-start Queued recovery from
+    racing journal STILL re-enqueue of the same id, and allows live outbox
+    sweeps without double-dispatching items already sitting in the queue.
+    """
     item_id = None
     if isinstance(item, dict):
         item_id = item.get("id") or item.get("ID")
@@ -376,7 +387,11 @@ def _enqueue_ddl_queue_item(target_queue, item):
 
 
 def recover_queued_ddl_commands(queue=None):
-    """Replay the durable Queued outbox before the DDL worker starts."""
+    """Replay the durable Queued outbox before the DDL worker starts.
+
+    Only ``Queued`` rows are eligible: ``Downloading`` rows belong to the
+    pipeline journal recovery path and must never be duplicated here.
+    """
     target_queue = queue if queue is not None else comicarr.DDL_QUEUE
     result = {"enqueued_ids": [], "failed_ids": [], "handoff_failed_ids": []}
 
@@ -393,6 +408,8 @@ def recover_queued_ddl_commands(queue=None):
 
         try:
             if not _enqueue_ddl_queue_item(target_queue, command.to_queue_item()):
+                # Already handed to this process's worker/queue — durable row
+                # remains Queued/Downloading under the existing owner.
                 continue
         except Exception as e:
             result["handoff_failed_ids"].append(command.id)
@@ -424,6 +441,9 @@ def requeue_ddl_item(item_id):
         return {"success": False, "error": "DDL item not found: %s" % item_id, "not_found": True}
 
     status = str(item.get("status") or item.get("Status") or "").strip()
+    # Only a terminal failure can be manually retried. Queued rows belong to
+    # the durable outbox/recovery worker; accepting them here would allow two
+    # concurrent requests to enqueue the same external download.
     if status != "Failed":
         if not status:
             try:
@@ -477,7 +497,12 @@ def requeue_ddl_item(item_id):
 
 
 def queue_ddl_download(command_values):
-    """Validate, persist, and queue a complete direct-download command."""
+    """Validate, persist, and queue a complete direct-download command.
+
+    The durable row is committed before the in-memory handoff. If the queue
+    insertion fails, the row remains Queued so cold-start recovery can replay
+    the command without losing it.
+    """
     try:
         command = DDLCommand.from_mapping(command_values)
     except DDLCommandError as e:
@@ -495,6 +520,7 @@ def queue_ddl_download(command_values):
 
     try:
         if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+            # Durable row is already owned by this process's worker/queue.
             logger.info(
                 "[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id
             )
@@ -512,7 +538,11 @@ def queue_ddl_download(command_values):
 
 
 def get_issue_file_path(issue_id):
-    """Resolve the on-disk file path for an issue."""
+    """Resolve the on-disk file path for an issue.
+
+    Returns (path, filename) tuple or (None, None) if not found.
+    Checks primary ComicLocation and MULTIPLE_DEST_DIRS secondary.
+    """
     issue = dl_queries.get_issue_file_info(issue_id)
     if not issue:
         return None, None
@@ -524,6 +554,7 @@ def get_issue_file_path(issue_id):
     if os.path.isfile(pathfile):
         return pathfile, issue["Location"]
 
+    # Check secondary destination directories
     if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
         try:
             secondary = os.path.join(
