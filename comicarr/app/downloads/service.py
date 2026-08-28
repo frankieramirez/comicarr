@@ -581,4 +581,4 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     comicid = str(comicid)
 
     logger.fdebug(type(comicid))
-    lo
+    logger.fdebug(ty
