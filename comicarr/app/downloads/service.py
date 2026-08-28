@@ -210,11 +210,6 @@ def _legacy_item(item, action):
         }
         if item.problem in {"search_blocked", "search_failed", "invalid_import_source"}:
             result["message"] = item.message
-        # Pre-refactor, any post-queue search failure — blocked or not — carried
-        # the row identity plus ``stamped: False``, while the precheck block did
-        # not. Both surface as ``search_blocked``; ``stamp_written is False`` is
-        # what separates "we re-wanted the issue and left it unstamped" from
-        # "we stopped before touching the row".
         if item.stamp_written is False:
             result.update(
                 {
@@ -305,3 +300,254 @@ def resolve_needs_attention(
     except InvalidAttentionRequest as e:
         return _legacy_request_error(e, single=True)
     return _legacy_item(report.results[0], report.action)
+
+
+def _batch_order(release_keys):
+    """Deprecated ordering adapter retained for compatibility tests."""
+    from comicarr.app.attention._resolution import _batch_order as attention_batch_order
+
+    return attention_batch_order(release_keys)
+
+
+def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
+    """Deprecated batch adapter for :func:`comicarr.app.attention.resolve`."""
+    from comicarr.app.attention import InvalidAttentionRequest, ResolutionRequest, resolve
+
+    try:
+        report = resolve(
+            ctx,
+            ResolutionRequest(
+                action=action,
+                release_keys=release_keys,
+                actor=audit_identity,
+            ),
+        )
+    except InvalidAttentionRequest as e:
+        result = _legacy_request_error(e)
+        result.pop("status", None)
+        return result
+    return _legacy_batch_report(report)
+
+
+# ---------------------------------------------------------------------------
+# DDL queue management
+# ---------------------------------------------------------------------------
+
+
+def get_ddl_queue(limit=None, offset=None, search=None, status=None, sort=None, order="desc"):
+    """Get the active DDL download queue."""
+    if limit is not None:
+        return _paginated_activity_response(
+            "queue",
+            dl_queries.get_ddl_queue,
+            limit=limit,
+            offset=offset,
+            search=search,
+            status=status,
+            sort=sort,
+            order=order,
+        )
+    return dl_queries.get_ddl_queue(
+        search=search,
+        status=status,
+        sort=sort,
+        order=order,
+    )
+
+
+def delete_ddl_item(item_id):
+    """Remove an item from the DDL queue."""
+    dl_queries.delete_ddl_item(item_id)
+    logger.info("[DOWNLOADS] Removed DDL item: %s" % item_id)
+    return {"success": True}
+
+
+def _enqueue_ddl_queue_item(target_queue, item):
+    """Hand a DDL command to the in-memory worker queue with process-local dedupe."""
+    item_id = None
+    if isinstance(item, dict):
+        item_id = item.get("id") or item.get("ID")
+    if item_id and item_id in comicarr.DDL_QUEUED:
+        return False
+    target_queue.put(item)
+    if item_id:
+        comicarr.DDL_QUEUED.add(item_id)
+    return True
+
+
+def recover_queued_ddl_commands(queue=None):
+    """Replay the durable Queued outbox before the DDL worker starts."""
+    target_queue = queue if queue is not None else comicarr.DDL_QUEUE
+    result = {"enqueued_ids": [], "failed_ids": [], "handoff_failed_ids": []}
+
+    for row in dl_queries.get_queued_ddl_items():
+        item_id = row.get("ID")
+        try:
+            command = DDLCommand.from_mapping(row)
+        except DDLCommandError as e:
+            if item_id:
+                dl_queries.update_ddl_status(item_id, "Failed")
+                result["failed_ids"].append(item_id)
+            logger.error("[DOWNLOADS-DDL] Invalid durable Queued item %s marked Failed: %s" % (item_id, e))
+            continue
+
+        try:
+            if not _enqueue_ddl_queue_item(target_queue, command.to_queue_item()):
+                continue
+        except Exception as e:
+            result["handoff_failed_ids"].append(command.id)
+            logger.error(
+                "[DOWNLOADS-DDL] Startup handoff failed for Queued item %s; row remains recoverable: %s"
+                % (command.id, e)
+            )
+            continue
+
+        result["enqueued_ids"].append(command.id)
+
+    if result["enqueued_ids"]:
+        logger.info("[DOWNLOADS-DDL] Recovered %d durable Queued item(s)." % len(result["enqueued_ids"]))
+    return result
+
+
+def requeue_ddl_item(item_id):
+    """Requeue a failed DDL download."""
+    try:
+        item = dl_queries.get_ddl_item(item_id)
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to read DDL item %s for requeue: %s" % (item_id, e))
+        return {
+            "success": False,
+            "error": "Unable to read the durable DDL item",
+            "operational_error": True,
+        }
+    if not item:
+        return {"success": False, "error": "DDL item not found: %s" % item_id, "not_found": True}
+
+    status = str(item.get("status") or item.get("Status") or "").strip()
+    if status != "Failed":
+        if not status:
+            try:
+                DDLCommand.from_mapping(item)
+            except DDLCommandError as e:
+                return {"success": False, "error": str(e), "validation_error": True}
+        return {
+            "success": False,
+            "error": "DDL item status %s cannot be requeued" % status,
+            "validation_error": True,
+        }
+
+    try:
+        command = DDLCommand.from_mapping(item)
+    except DDLCommandError as e:
+        return {"success": False, "error": str(e), "validation_error": True}
+
+    try:
+        claimed = dl_queries.claim_failed_ddl_retry(item_id)
+        if not claimed:
+            return {
+                "success": False,
+                "error": "DDL item changed before retry could be claimed",
+                "validation_error": True,
+            }
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to update DDL item %s for requeue: %s" % (item_id, e))
+        return {
+            "success": False,
+            "error": "Unable to update the durable DDL item",
+            "operational_error": True,
+        }
+
+    try:
+        if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+            return {
+                "success": False,
+                "error": "Unable to insert DDL command into the worker queue",
+                "handoff_error": True,
+            }
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to requeue DDL item %s; durable row remains Queued: %s" % (item_id, e))
+        return {
+            "success": False,
+            "error": "Unable to insert DDL command into the worker queue",
+            "handoff_error": True,
+        }
+
+    logger.info("[DOWNLOADS] Requeued DDL item: %s" % item_id)
+    return {"success": True}
+
+
+def queue_ddl_download(command_values):
+    """Validate, persist, and queue a complete direct-download command."""
+    try:
+        command = DDLCommand.from_mapping(command_values)
+    except DDLCommandError as e:
+        return {"success": False, "error": str(e), "validation_error": True}
+
+    try:
+        db.upsert("ddl_info", command.to_persisted_values(), {"ID": command.id})
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to persist DDL item %s: %s" % (command.id, e))
+        return {
+            "success": False,
+            "error": "Unable to persist the DDL command",
+            "operational_error": True,
+        }
+
+    try:
+        if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+            logger.info(
+                "[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id
+            )
+            return {"success": True, "message": "DDL download already queued: %s" % command.id}
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to queue DDL item %s; durable row remains Queued: %s" % (command.id, e))
+        return {
+            "success": False,
+            "error": "Unable to insert DDL command into the worker queue",
+            "handoff_error": True,
+        }
+
+    logger.info("[DOWNLOADS] Queued DDL download: %s (site=%s)" % (command.id, command.site))
+    return {"success": True, "message": "DDL download queued: %s" % command.id}
+
+
+def get_issue_file_path(issue_id):
+    """Resolve the on-disk file path for an issue."""
+    issue = dl_queries.get_issue_file_info(issue_id)
+    if not issue:
+        return None, None
+
+    if not issue.get("Location") or not issue.get("ComicLocation"):
+        return None, None
+
+    pathfile = os.path.join(issue["ComicLocation"], issue["Location"])
+    if os.path.isfile(pathfile):
+        return pathfile, issue["Location"]
+
+    if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
+        try:
+            secondary = os.path.join(
+                comicarr.CONFIG.MULTIPLE_DEST_DIRS,
+                os.path.basename(issue["ComicLocation"]),
+            )
+            alt_path = os.path.join(secondary, issue["Location"])
+            if os.path.isfile(alt_path):
+                return alt_path, issue["Location"]
+        except Exception:
+            pass
+
+    return None, None
+
+
+# --- Extracted from helpers.py ---
+
+
+def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=None, annualize=None, arc=False):
+    from sqlalchemy import select
+
+    from comicarr.helpers import filesafe, fullmonth, issuedigits, replace_all
+
+    comicid = str(comicid)
+
+    logger.fdebug(type(comicid))
+    lo
