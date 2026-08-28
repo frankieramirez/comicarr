@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.1
+
+### Patch Changes
+
+- 3bea4e6: Fix DDL downloads that could stall in Queued and never resume. When a GetComics download failed and Comicarr retried the remaining links, or when a download failed for the last time, the item was left marked as still in progress inside the running process. Any later attempt to queue that same download was treated as a duplicate and silently dropped, so the item sat in Queued until Comicarr was restarted. Those paths now release the item when they finish, and the retry runs as expected.
+- 98158f4: Manga chapter and volume searches no longer query GetComics or other DDL indexers. Comic searches still use the full provider list.
+- 40bf019: Keep showing your pull list when the upstream release site is down. Comicarr now falls back to the pull-list data it already has stored for that week and polls your watchlist against it, instead of failing the whole update and leaving the week blank. A failed check for the previous week no longer aborts the current week's update either. When upstream says how soon to retry, the next pull-list check is moved up to match (never sooner than a minute, never honored beyond an hour) so fresh data arrives as soon as the site is back. If there is no stored data for the week at all, the update still reports a failure as before.
+
 ## 0.38.0
 
 ### Minor Changes
