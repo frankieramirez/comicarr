@@ -116,7 +116,7 @@ def force_process(
     """Queue a download for post-processing.
 
     For standard API calls, queues to PP_QUEUE for background processing.
-    ComicRN/APC compatibility runs runs the post-processor directly.
+    ComicRN/APC compatibility runs the post-processor directly.
     """
     if apc_version is not None:
         # ComicRN/APC compatibility mode — direct processing
