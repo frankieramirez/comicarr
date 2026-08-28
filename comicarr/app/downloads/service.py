@@ -836,4 +836,253 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     if comversion is None:
         comversion = "None"
     if comversion == "None":
-        chunk_f_f = r
+        chunk_f_f = re.sub(r"\$VolumeN", "", comicarr.CONFIG.FILE_FORMAT)
+        chunk_f = re.compile(r"\s+")
+        chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+    else:
+        chunk_file_format = comicarr.CONFIG.FILE_FORMAT
+
+    if annualize is None:
+        chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+        chunk_f = re.compile(r"\s+")
+        chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+    else:
+        if comicarr.CONFIG.ANNUALS_ON:
+            if "annual" in series.lower():
+                if "$Annual" not in chunk_file_format:
+                    pass
+                else:
+                    chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+                    chunk_f = re.compile(r"\s+")
+                    chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+            else:
+                if "$Annual" not in chunk_file_format:
+                    prettycomiss = "Annual %s" % prettycomiss
+        else:
+            if "annual" in series.lower():
+                if "$Annual" not in chunk_file_format:
+                    pass
+                else:
+                    chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+                    chunk_f = re.compile(r"\s+")
+                    chunk_file_format = chunk_f.sub(" ", chunk_f_f)
+            else:
+                if "$Annual" not in chunk_file_format:
+                    prettycomiss = "Annual %s" % prettycomiss
+
+    seriesfilename = seriesfilename
+    filebad = [":", ",", "/", "?", "!", "'", '"', r"\*"]
+    for dbd in filebad:
+        if dbd in seriesfilename:
+            if any([dbd == "/", dbd == "*"]):
+                repthechar = "-"
+            else:
+                repthechar = ""
+            seriesfilename = seriesfilename.replace(dbd, repthechar)
+
+    publisher = re.sub("!", "", publisher)
+
+    file_values = {
+        "$Series": seriesfilename,
+        "$Issue": prettycomiss,
+        "$Year": issueyear,
+        "$series": series.lower(),
+        "$Publisher": publisher,
+        "$publisher": publisher.lower(),
+        "$VolumeY": "V" + str(seriesyear),
+        "$VolumeN": comversion,
+        "$monthname": month_name,
+        "$month": month,
+        "$Annual": "Annual",
+    }
+
+    extensions = (".cbr", ".cbz", ".cb7")
+    if ofilename.lower().endswith(extensions):
+        path, ext = os.path.splitext(ofilename)
+
+    if comicarr.CONFIG.FILE_FORMAT == "":
+        if ofilename.lower().endswith(extensions):
+            nfilename = ofilename[:-4]
+        else:
+            nfilename = ofilename
+    else:
+        nfilename = replace_all(chunk_file_format, file_values)
+        if comicarr.CONFIG.REPLACE_SPACES:
+            nfilename = nfilename.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+
+    nfilename = re.sub(r"[\,\:]", "", nfilename) + ext.lower()
+
+    if comicarr.CONFIG.LOWERCASE_FILENAMES:
+        nfilename = nfilename.lower()
+        dst = os.path.join(comlocation, nfilename)
+    else:
+        dst = os.path.join(comlocation, nfilename)
+
+    rename_this = {"destination_dir": dst, "nfilename": nfilename, "issueid": issueid, "comicid": comicid}
+    return rename_this
+
+
+def renamefile_readingorder(readorder):
+    logger.fdebug("readingorder#: " + str(readorder))
+    if int(readorder) < 10:
+        readord = "00" + str(readorder)
+    elif int(readorder) >= 10 and int(readorder) <= 99:
+        readord = "0" + str(readorder)
+    else:
+        readord = str(readorder)
+    return readord
+
+
+def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, rtnval=None):
+    from sqlalchemy import select
+
+    logger.info("[DUPECHECK] Duplicate check for " + filename)
+    try:
+        filesz = os.path.getsize(filename)
+    except OSError:
+        logger.warn("[DUPECHECK] File cannot be located in location specified.")
+        return {"action": None}
+
+    if IssueID:
+        dupchk = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
+    if dupchk is None:
+        dupchk = db.select_one(select(annuals).where(annuals.c.IssueID == IssueID, annuals.c.Deleted != 1))
+        if dupchk is None:
+            logger.info("[DUPECHECK] Unable to find corresponding Issue within the DB.")
+            return {"action": None}
+
+    series = db.select_one(select(comics).where(comics.c.ComicID == dupchk["ComicID"]))
+
+    if dupchk["Status"] == "Downloaded" or dupchk["Status"] == "Archived":
+        try:
+            dupsize = dupchk["ComicSize"]
+        except Exception:
+            rtnval = {"action": "write"}
+
+        if dupsize is None:
+            havechk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+            if havechk:
+                if havechk["Have"] > havechk["Total"]:
+                    cid = [ComicID]
+                    comicarr.updater.dbUpdate(ComicIDList=cid, calledfrom="dupechk")
+                    return duplicate_filecheck(filename, ComicID, IssueID, StoryArcID)
+                else:
+                    if rtnval is not None:
+                        return rtnval
+                    else:
+                        rtnval = {"action": "dont_dupe"}
+                        comicarr.updater.forceRescan(ComicID)
+                        chk1 = duplicate_filecheck(filename, ComicID, IssueID, StoryArcID, rtnval)
+                        rtnval = chk1
+            else:
+                rtnval = {"action": "dupe_file", "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"])}
+        else:
+            fixed = False
+            fixed_file = re.findall(r"[(]f\d{1}[)]", filename.lower())
+            fixed_db_file = re.findall(r"[(]f\d{1}[)]", dupchk["Location"].lower())
+            if all([fixed_file, not fixed_db_file]):
+                fixed = True
+                rtnval = {"action": "dupe_src", "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"])}
+            elif all([fixed_db_file, not fixed_file]):
+                fixed = True
+                rtnval = {"action": "dupe_file", "to_dupe": filename}
+            elif int(dupsize) == 0:
+                if dupchk["Status"] == "Archived":
+                    rtnval = {"action": "dupe_file", "to_dupe": filename}
+                    return rtnval
+
+            tmp_dupeconstraint = comicarr.CONFIG.DUPECONSTRAINT
+            if not fixed and (comicarr.CONFIG.DUPECONSTRAINT == "filesize" or tmp_dupeconstraint == "filesize"):
+                if filesz <= int(dupsize) and int(dupsize) != 0:
+                    rtnval = {"action": "dupe_file", "to_dupe": filename}
+                else:
+                    rtnval = {
+                        "action": "dupe_src",
+                        "to_dupe": os.path.join(series["ComicLocation"], dupchk["Location"]),
+                    }
+    else:
+        rtnval = {"action": "write"}
+    return rtnval
+
+
+def _pack_row_matches(row, int_iss, iss_item, kind):
+    """Decide whether one issues-table row belongs to a pack range entry.
+
+    A volume pack (e.g. ``v01-14``) covers rows by their ``VolumeNumber``
+    — including manga chapter rows that belong to a covered volume — but
+    must never claim a chapter numbered like a volume (a chapter 7 with
+    an unknown volume is not volume 7). Rows without volume metadata
+    (TPB/GN-tracked series) fall back to the plain issue-number match.
+    Issue/chapter packs symmetrically never claim volume rows.
+    """
+    volume = row.get("VolumeNumber")
+    chapter = row.get("ChapterNumber")
+    if kind == "volume":
+        if volume not in (None, ""):
+            try:
+                return int(float(volume)) == int(iss_item)
+            except (TypeError, ValueError):
+                return False
+        if chapter not in (None, ""):
+            return False
+    elif volume not in (None, "") and chapter in (None, ""):
+        return False
+    return row["Int_IssueNumber"] == int_iss
+
+
+def _register_pack_claims(write_valids, valid):
+    if valid:
+        for wv in write_valids:
+            comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+
+
+def _row_released_after(row, cutoff_year):
+    """True when the row's first usable date is later than cutoff_year.
+
+    A pack whose title span ends in ``cutoff_year`` cannot contain anything
+    published after it. Rows with no parseable date (or the 0000-00-00
+    sentinel) are not excluded — the pack keeps the benefit of the doubt.
+    """
+    for field in ("ReleaseDate", "IssueDate", "DigitalDate"):
+        value = str(row.get(field) or "")
+        if len(value) >= 4 and value[:4].isdigit() and int(value[:4]) > 0:
+            return int(value[:4]) > cutoff_year
+    return False
+
+
+def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue", span_end=None):
+    from sqlalchemy import select
+
+    from comicarr.helpers import issuedigits
+
+    issuelist = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
+
+    if kind == "series":
+        # A numberless complete-series pack ("Solo Leveling (2021-2026)")
+        # carries no range to expand: it claims every row of the series
+        # that is not already Downloaded, volume and chapter rows alike —
+        # except rows published after the pack's own year span, which the
+        # pack cannot contain (span_end from parse_series_pack_title).
+        try:
+            cutoff = int(span_end)
+        except (TypeError, ValueError):
+            cutoff = None
+        Int_IssueNumber = issuedigits(IssueNumber)
+        issueinfo = []
+        write_valids = []
+        valid = False
+        for xb in issuelist:
+            if xb["Status"] == "Downloaded":
+                continue
+            if cutoff is not None and _row_released_after(xb, cutoff):
+                continue
+            if Int_IssueNumber == xb["Int_IssueNumber"]:
+                valid = True
+            issueinfo.append(
+                {
+                    "issueid": xb["IssueID"],
+                    "int_iss": xb["Int_IssueNumber"],
+                    "issuenumber": xb["Issue_Number"],
+                }
+            )
+            write_valids.append({"issueid": xb["IssueID"], "pack_id"
