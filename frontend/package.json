@@ -76,7 +76,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",
-    "globals": "^17.9.0",
+    "globals": "^17.11.0",
     "happy-dom": "^20.11.12",
     "msw": "^2.15.0",
     "portless": "^0.15.5",
