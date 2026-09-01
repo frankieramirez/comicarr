@@ -1057,8 +1057,89 @@ class TestMangaTagShapeWiring:
             "tagged with the series volume label and an issue number again"
         )
 
-    def test_a_manga_volume_clears_the_issue_number(self):
+    def test_a_manga_volume_clears_the_issue_number_after_tagging(self):
+        """-m cannot do it: the online overlay runs after -m and puts it back."""
         source = self._run_source()
-        assert 'iline = "issue="' in source, "manga must be tagged with no issue number"
-        tline = source.split("tline = ")[1].splitlines()[0]
-        assert "iline" in tline, "the issue-clearing term never reaches the tag options"
+        assert "clear_issue_number(comictagger_cmd, filepath, module)" in source, (
+            "manga volumes would keep the issue number ComicVine catalogues them "
+            "under, and a reader would file every volume as a chapter"
+        )
+
+    def test_the_clear_runs_before_the_file_leaves_the_cache(self):
+        """Both passes must land while the file is still the tagging copy."""
+        source = self._run_source()
+        assert source.index("clear_issue_number(") < source.index("restore_tagged_file_mode("), (
+            "the issue number would be cleared after the mode was restored, "
+            "reducing a library file's permissions again"
+        )
+
+    def test_the_tag_options_no_longer_carry_a_doomed_issue_clear(self):
+        """One owner for the clear -- a second, silently-ignored one is a lie."""
+        tline = self._run_source().split("tline = ")[1].splitlines()[0]
+        assert "iline" not in tline
+
+
+class TestClearIssueNumber:
+    """The clear only works as a SECOND, offline pass.
+
+    ComicTagger applies -m before the ComicVine overlay, so an issue= sent with
+    the tagging run is overwritten by the number ComicVine supplies. Re-applying
+    it with no -o is what actually removes <Number>.
+    """
+
+    @staticmethod
+    def _cfg(cr=True, cbl=False):
+        return SimpleNamespace(CT_TAG_CR=cr, CT_TAG_CBL=cbl, CT_SETTINGSPATH="/config/ct")
+
+    @staticmethod
+    def _popen(out="Save complete\n"):
+        proc = MagicMock()
+        proc.communicate.return_value = (out, "")
+        return MagicMock(return_value=proc)
+
+    def _run(self, cfg, popen):
+        from comicarr import cmtag
+
+        with patch.object(comicarr, "CONFIG", cfg):
+            with patch.object(cmtag.subprocess, "Popen", popen):
+                return cmtag.clear_issue_number("/app/comictagger.py", "/cache/OPM v07.cbz")
+
+    def test_the_clear_pass_never_goes_online(self):
+        """A second -o would refetch the very number being removed."""
+        popen = self._popen()
+        assert self._run(self._cfg(), popen) is True
+        cmd = popen.call_args[0][0]
+        assert "-o" not in cmd, "the online overlay would rewrite the issue number"
+        assert "--id" not in cmd
+
+    def test_the_clear_pass_saves_an_empty_issue_for_the_written_style(self):
+        popen = self._popen()
+        self._run(self._cfg(), popen)
+        cmd = popen.call_args[0][0]
+        assert "-s" in cmd
+        assert cmd[cmd.index("--type") + 1] == "cr"
+        assert cmd[cmd.index("-m") + 1] == "issue="
+        assert cmd[-1] == "/cache/OPM v07.cbz"
+
+    def test_every_written_tag_style_is_cleared(self):
+        """A style left untouched keeps the number in its own tag block."""
+        popen = self._popen()
+        assert self._run(self._cfg(cr=True, cbl=True), popen) is True
+        assert [c[0][0][c[0][0].index("--type") + 1] for c in popen.call_args_list] == ["cr", "cbl"]
+
+    def test_nothing_runs_when_no_tag_style_is_written(self):
+        popen = self._popen()
+        assert self._run(self._cfg(cr=False, cbl=False), popen) is False
+        popen.assert_not_called()
+
+    def test_a_refused_save_is_reported_not_raised(self):
+        """Best-effort: an extra number beats losing the tags entirely."""
+        popen = self._popen(out="Sorry, but this is not a comic archive!\n")
+        assert self._run(self._cfg(), popen) is False
+
+    def test_a_subprocess_failure_never_breaks_tagging(self):
+        from comicarr import cmtag
+
+        with patch.object(comicarr, "CONFIG", self._cfg()):
+            with patch.object(cmtag.subprocess, "Popen", side_effect=OSError("no interpreter")):
+                assert cmtag.clear_issue_number("/app/comictagger.py", "/cache/a.cbz") is False

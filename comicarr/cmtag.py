@@ -108,6 +108,67 @@ def manga_volume_for_issue(issueid):
     return volume
 
 
+def clear_issue_number(comictagger_cmd, filepath, module=""):
+    """Remove <Number> from a manga volume's tags, after the online overlay.
+
+    A manga volume is a book: the file *is* volume N and carries no issue
+    number. Asking for that with ``-m "issue="`` is not enough on its own,
+    because ComicTagger applies -m too early to survive the fetch --
+    ``cli.create_local_metadata()`` ends with ``md.overlay(opts.metadata)``
+    under the comment "finally, use explicit stuff", and the caller then runs
+    ``md.overlay(cv_md)``. ComicVine catalogues an English manga volume as an
+    issue, so v7 comes back numbered 7 and that number is written straight back
+    over the clear. The file lands tagged <Number>7</Number>, and a reader files
+    every volume as a chapter of one volume named for the series.
+
+    So re-apply the clear once the overlay is done. A second save pass with no
+    ``-o`` reads back the tags just written, overlays the empty issue and saves:
+    ``GenericMetadata.overlay`` maps "" to None, and the ComicInfo writer skips
+    a None field, so the element is removed rather than left empty. No other
+    field is passed, and there is no online fetch to repeat.
+
+    Deliberately scoped to the manga branch rather than fixed by re-applying
+    opts.metadata after the overlay in general: Comicarr also sends a bare
+    ``volume=`` whenever comversion is None, so a blanket re-apply would strip
+    the start-year <Volume> that a periodical comic legitimately carries.
+
+    Best-effort, like the volume resolution it completes -- a file tagged with
+    one number too many is worth far more than an untagged file -- so a failure
+    warns and leaves the tags as ComicTagger wrote them.
+    """
+    styles = []
+    if comicarr.CONFIG.CT_TAG_CR:
+        styles.append("cr")
+    if comicarr.CONFIG.CT_TAG_CBL:
+        styles.append("cbl")
+
+    for style in styles:
+        script_cmd = [
+            sys.executable,
+            comictagger_cmd,
+            "-s",
+            "--configfolder",
+            comicarr.CONFIG.CT_SETTINGSPATH,
+            "--type",
+            style,
+            "-m",
+            "issue=",
+            filepath,
+        ]
+        try:
+            p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.STDOUT)
+            out, err = p.communicate()
+        except Exception as e:
+            logger.warn("%s [MANGA] Unable to clear the issue number on %s [%s]" % (module, filepath, e))
+            return False
+        if "Save complete" not in out:
+            logger.warn("%s [MANGA] Could not clear the issue number on %s : %s" % (module, filepath, out))
+            return False
+        logger.fdebug("%s [MANGA] Cleared the issue number from the %s tags on %s" % (module, style, filepath))
+
+    return bool(styles)
+
+
 def run(
     dirName,
     nzbName=None,
@@ -217,9 +278,10 @@ def run(
     # volume label, so a reader groups the files as the volumes they were
     # published as rather than as chapters of a single volume.
     #
-    # An empty value clears the field on overlay -- the same mechanism the
-    # ``cvers = "volume="`` default above already relies on -- so ``issue=``
-    # removes the number ComicVine supplies for the catalogued issue.
+    # <Volume> can be set here because ComicVine only supplies one when
+    # use_series_start_as_volume is on. The issue number cannot: it is set
+    # unconditionally by the overlay that runs after -m, so clearing it is
+    # clear_issue_number()'s job, once tagging has finished.
     manga_volume = manga_volume_for_issue(issueid)
     if manga_volume is not None:
         logger.fdebug(
@@ -227,9 +289,6 @@ def run(
             % (module, manga_volume, comversion)
         )
         cvers = "volume=%s" % manga_volume
-        iline = "issue="
-    else:
-        iline = None
 
     if readingorder is not None:
         if type(readingorder) == list:
@@ -253,7 +312,7 @@ def run(
     else:
         arating = "ageRating="
 
-    tline = ", ".join(part for part in (cvers, rorder, arating, iline) if part is not None)
+    tline = ", ".join(part for part in (cvers, rorder, arating) if part is not None)
     tagoptions.extend(["-m", tline])
 
     try:
@@ -481,6 +540,11 @@ def run(
             return "fail"
         if comicarr.CONFIG.CBR2CBZ_ONLY and not initial_ctrun:
             break
+
+    # Tagging is done, so the ComicVine overlay has run and the issue number it
+    # supplied for the catalogued volume is now on the file. Take it back off.
+    if manga_volume is not None and not comicarr.CONFIG.CBR2CBZ_ONLY:
+        clear_issue_number(comictagger_cmd, filepath, module)
 
     restore_tagged_file_mode(filepath, og_file_mode, module)
     return filepath
