@@ -34,9 +34,7 @@ if "windows" not in platform.system().lower():
     from pwd import getpwnam
 
 
-_TRAILING_VOLUME_LABEL = re.compile(
-    r"[\s._-]*\b(?:v|vol|vols|volume)\.?\s*0*(\d+)\s*$", re.IGNORECASE
-)
+_TRAILING_VOLUME_LABEL = re.compile(r"[\s._-]*\b(?:v|vol|vols|volume)\.?\s*0*(\d+)\s*$", re.IGNORECASE)
 
 
 def strip_trailing_volume_label(series_name, volume_number):
