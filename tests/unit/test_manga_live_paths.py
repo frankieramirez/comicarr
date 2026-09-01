@@ -447,3 +447,29 @@ def test_a_fractional_volume_search_term_round_trips():
     assert volume_numbers_match("v01.25", "1.25") is True
     # the number the old rounding would have searched must NOT satisfy it
     assert volume_numbers_match("v01.2", "1.25") is False
+
+
+def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
+    """The folder scan must ask whether a series is numbered by volume.
+
+    Deriving the number inline meant a manga series fell through to the issue
+    branch, so a volume file yielded no number and matched no issue.
+    """
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    called = {
+        node.func.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "volume_identifies_file" in called, "the folder scan no longer consults the volume predicate"
+
+    watch_value_keys = {
+        key.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Dict)
+        for key in node.keys
+        if isinstance(key, ast.Constant) and isinstance(key.value, str)
+    }
+    assert "IsManga" in watch_value_keys, "WatchValues no longer carries the manga signal"

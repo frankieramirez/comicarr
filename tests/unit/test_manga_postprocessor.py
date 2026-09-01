@@ -35,7 +35,12 @@ from tests.conftest import placement_result
 if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
-from comicarr.postprocessor import PostProcessor, log_scan_summary, summarize_scan_matches
+from comicarr.postprocessor import (
+    PostProcessor,
+    log_scan_summary,
+    summarize_scan_matches,
+    volume_identifies_file,
+)
 
 
 def test_scan_summary_emits_one_bounded_line_without_candidate_chatter():
@@ -787,3 +792,35 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         assert release_dir.exists(), "nothing was filed, so the source must survive for a retry"
         result = mock_queue.put.call_args[0][0]
         assert "0 files matched" in result[0]["self.log"]
+
+
+class TestVolumeIdentifiesFile:
+    """Which series number their scanned files by volume rather than issue.
+
+    A manga volume file carries no issue number, so without a volume arm the
+    folder scan derives no number, compares the file against every issue in
+    the series and selects none of them.
+    """
+
+    def test_manga_series_is_identified_by_volume(self):
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}) is True
+
+    def test_manga_arm_does_not_depend_on_the_series_length(self):
+        """A single-volume manga is still numbered by volume."""
+        assert volume_identifies_file({"Type": "Digital", "Total": 1, "IsManga": True}) is True
+
+    def test_comic_series_of_the_same_type_is_still_identified_by_issue(self):
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": False}) is False
+
+    @pytest.mark.parametrize("series_type", ["TPB", "HC", "GN"])
+    def test_collected_editions_keep_their_volume_numbering(self, series_type):
+        assert volume_identifies_file({"Type": series_type, "Total": 5, "IsManga": False}) is True
+        assert volume_identifies_file({"Type": series_type, "Total": 1, "IsManga": False}) is False
+
+    def test_one_shots_keep_their_volume_numbering(self):
+        assert volume_identifies_file({"Type": "One-Shot", "Total": 1, "IsManga": False}) is True
+        assert volume_identifies_file({"Type": "One-Shot", "Total": 2, "IsManga": False}) is False
+
+    def test_a_row_without_the_manga_flag_is_read_as_a_comic(self):
+        """One-off rows build WatchValues without IsManga and must not raise."""
+        assert volume_identifies_file({"Type": "Digital", "Total": 0}) is False
