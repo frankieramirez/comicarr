@@ -78,6 +78,27 @@ def log_scan_summary(module, filename, candidate_count, selected_items, annual_c
     )
 
 
+def volume_identifies_file(watch_values):
+    """Return whether this series numbers its files by volume rather than issue.
+
+    Collected editions (TPB/HC/GN spanning more than one entry) and One-Shots
+    have always been numbered this way, so a scanned file is located by the
+    ``vNN`` token in its name rather than by an issue number.
+
+    Manga joins them for a different reason. In a periodical, ``vNN`` names
+    *which run* of the series a release belongs to; in manga it names *which
+    book*, so the volume is the file's identity exactly as an issue number is
+    elsewhere. A manga volume file carries no issue number at all, so without
+    this the scan derives no number for it, matches it against every issue in
+    the series, and selects none of them.
+    """
+    if watch_values.get("IsManga"):
+        return True
+    series_type = watch_values["Type"]
+    total = watch_values["Total"]
+    return (series_type in ("TPB", "HC", "GN") and total > 1) or (series_type == "One-Shot" and total == 1)
+
+
 def summarize_scan_matches(normal_items, arc_items):
     """Build summary fields from the matches selected for one input file."""
     selected_items = normal_items + arc_items
@@ -1169,6 +1190,7 @@ class PostProcessor(object):
                     wv_seriesyear = wv["ComicYear"]
                     wv_comicversion = wv["ComicVersion"]
                     wv_publisher = wv["ComicPublisher"]
+                    wv_is_manga = series_kind.is_manga(wv)
                     wv_total = int(wv["Total"])
                     wv_agerating = wv["AgeRating"]
                     wv_latestissue = wv["LatestIssue"]
@@ -1318,6 +1340,7 @@ class PostProcessor(object):
                                 "Publisher": wv_publisher,
                                 "Total": wv_total,
                                 "ComicID": wv_comicid,
+                                "IsManga": wv_is_manga,
                                 "IsArc": False,
                             },
                         }
@@ -1337,16 +1360,7 @@ class PostProcessor(object):
                         continue
                     else:
                         try:
-                            if (
-                                any(
-                                    [
-                                        cs["WatchValues"]["Type"] == "TPB",
-                                        cs["WatchValues"]["Type"] == "HC",
-                                        cs["WatchValues"]["Type"] == "GN",
-                                    ]
-                                )
-                                and cs["WatchValues"]["Total"] > 1
-                            ) or all([cs["WatchValues"]["Type"] == "One-Shot", cs["WatchValues"]["Total"] == 1]):
+                            if volume_identifies_file(cs["WatchValues"]):
                                 if watchmatch["series_volume"] is not None:
                                     just_the_digits = re.sub("[^0-9]", "", watchmatch["series_volume"]).strip()
                                 else:
