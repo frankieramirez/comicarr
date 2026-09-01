@@ -10,6 +10,51 @@ import comicarr
 from comicarr import logger, notifiers
 
 
+def manga_volume_for_issue(issueid):
+    """Return the volume number this file *is*, or None for a periodical issue.
+
+    A licensed manga is catalogued by ComicVine as a Series whose "issues" are
+    the English volumes, so an untouched tag reads ``<Number>7</Number>`` with
+    ``<Volume>`` set to the series-level label. A reader consuming ComicInfo
+    then files every volume as a chapter of one volume named after the series,
+    losing the volume structure the files were published in. A manga volume is a
+    book: the file *is* volume 7 and carries no issue number.
+
+    Both facts are looked up from their existing owners rather than restated
+    here -- ``series_kind.is_manga`` decides the Series, and
+    ``ledger.normalize_volume_number`` decides what the number means.
+
+    Best-effort: a missing row, a ledger without volume numbers, or a Series
+    that is not manga all return None, leaving the periodical tag shape exactly
+    as it was.
+    """
+    if issueid is None:
+        return None
+    # Imported here rather than at module scope: cmtag is itself imported lazily
+    # from the post-processor, and keeping the DB/table chain out of import time
+    # preserves that ordering.
+    from sqlalchemy import select
+
+    from comicarr import db, series_kind
+    from comicarr.app.manga import ledger
+    from comicarr.tables import comics, issues
+
+    try:
+        row = db.select_one(select(issues.c.ComicID, issues.c.VolumeNumber).where(issues.c.IssueID == issueid))
+        if row is None or "VolumeNumber" not in set(row.keys()):
+            return None
+        volume = ledger.normalize_volume_number(row["VolumeNumber"])
+        if volume is None:
+            return None
+        comic = db.select_one(select(comics).where(comics.c.ComicID == row["ComicID"]))
+        if comic is None or not series_kind.is_manga(comic):
+            return None
+    except Exception as e:
+        logger.fdebug("[META-TAGGER] Could not resolve a manga volume for issue %s: %s" % (issueid, e))
+        return None
+    return volume
+
+
 def run(
     dirName,
     nzbName=None,
@@ -110,6 +155,25 @@ def run(
         if comversion is not None:
             cvers = "volume=%s" % comversion
 
+    # A manga volume is a book, not an instalment of one: the file is volume N
+    # and has no issue number. Write that shape instead of the series-level
+    # volume label, so a reader groups the files as the volumes they were
+    # published as rather than as chapters of a single volume.
+    #
+    # An empty value clears the field on overlay -- the same mechanism the
+    # ``cvers = "volume="`` default above already relies on -- so ``issue=``
+    # removes the number ComicVine supplies for the catalogued issue.
+    manga_volume = manga_volume_for_issue(issueid)
+    if manga_volume is not None:
+        logger.fdebug(
+            "%s [MANGA] tagging as volume %s with no issue number (was volume label: %s)"
+            % (module, manga_volume, comversion)
+        )
+        cvers = "volume=%s" % manga_volume
+        iline = "issue="
+    else:
+        iline = None
+
     if readingorder is not None:
         if type(readingorder) == list:
             orderseq = []
@@ -132,7 +196,7 @@ def run(
     else:
         arating = "ageRating="
 
-    tline = "%s, %s, %s" % (cvers, rorder, arating)
+    tline = ", ".join(part for part in (cvers, rorder, arating, iline) if part is not None)
     tagoptions.extend(["-m", tline])
 
     try:

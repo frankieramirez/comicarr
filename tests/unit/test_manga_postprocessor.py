@@ -878,3 +878,73 @@ class TestVolumeMatchSettlesYear:
     def test_collected_editions_are_not_covered(self):
         """A TPB year mismatch can still mean the wrong edition."""
         assert volume_match_settles_year({"Type": "TPB", "Total": 5}, True) is False
+
+
+class TestMangaVolumeForIssue:
+    """A licensed manga's catalogued "issues" are its English volumes.
+
+    The tag must name the volume the file is, and carry no issue number, or a
+    reader groups every volume as a chapter of one volume named for the series.
+    """
+
+    @staticmethod
+    def _resolve(issue_row, comic_row, issueid="446055"):
+        from comicarr import cmtag
+
+        rows = [issue_row, comic_row]
+        with patch("comicarr.db.select_one", side_effect=lambda *a, **k: rows.pop(0)):
+            return cmtag.manga_volume_for_issue(issueid)
+
+    def test_a_manga_issue_resolves_to_its_volume_number(self):
+        assert self._resolve({"ComicID": "71856", "VolumeNumber": "7"}, {"ContentType": "manga"}) == "7"
+
+    def test_the_number_is_canonicalised_by_the_ledger(self):
+        """Reuses normalize_volume_number rather than restating the format."""
+        assert self._resolve({"ComicID": "71856", "VolumeNumber": 7.0}, {"ContentType": "manga"}) == "7"
+
+    def test_a_comic_series_keeps_the_periodical_shape(self):
+        assert self._resolve({"ComicID": "17993", "VolumeNumber": "2"}, {"ContentType": "comic"}) is None
+
+    def test_a_ledger_without_volume_numbers_falls_back(self):
+        """MangaDex-backed rows carry chapters only; tagging must still run."""
+        assert self._resolve({"ComicID": "71856", "VolumeNumber": None}, {"ContentType": "manga"}) is None
+
+    def test_a_missing_issue_row_falls_back(self):
+        assert self._resolve(None, None) is None
+
+    def test_no_issueid_never_queries(self):
+        from comicarr import cmtag
+
+        with patch("comicarr.db.select_one", side_effect=AssertionError("must not query")):
+            assert cmtag.manga_volume_for_issue(None) is None
+
+    def test_a_lookup_failure_never_breaks_tagging(self):
+        """Best-effort enrichment: a DB error tags as a periodical, not 'fail'."""
+        from comicarr import cmtag
+
+        with patch("comicarr.db.select_one", side_effect=RuntimeError("boom")):
+            assert cmtag.manga_volume_for_issue("446055") is None
+
+
+class TestMangaTagShapeWiring:
+    """The resolver is only useful if run() actually consults it."""
+
+    @staticmethod
+    def _run_source():
+        import inspect
+
+        from comicarr import cmtag
+
+        return inspect.getsource(cmtag.run)
+
+    def test_run_resolves_a_manga_volume(self):
+        assert "manga_volume_for_issue(issueid)" in self._run_source(), (
+            "the meta-tagger no longer resolves a manga volume; manga would be "
+            "tagged with the series volume label and an issue number again"
+        )
+
+    def test_a_manga_volume_clears_the_issue_number(self):
+        source = self._run_source()
+        assert 'iline = "issue="' in source, "manga must be tagged with no issue number"
+        tline = source.split("tline = ")[1].splitlines()[0]
+        assert "iline" in tline, "the issue-clearing term never reaches the tag options"
