@@ -1,0 +1,40 @@
+name: Forward issues to Comicarr
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  forward:
+    name: POST opened issue to Comicarr webhook
+    if: github.repository == 'frankieramirez/comicarr'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Forward issue payload
+        uses: actions/github-script@v7
+        env:
+          COMICARR_WEBHOOK_URL: ${{ secrets.COMICARR_WEBHOOK_URL }}
+          COMICARR_WEBHOOK_KEY: ${{ secrets.COMICARR_WEBHOOK_KEY }}
+        with:
+          script: |
+            const url = process.env.COMICARR_WEBHOOK_URL
+            const key = process.env.COMICARR_WEBHOOK_KEY
+            if (!url || !key) {
+              throw new Error('Missing COMICARR_WEBHOOK_URL or COMICARR_WEBHOOK_KEY repo secret')
+            }
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${key}`,
+                'Content-Type': 'application/json',
+                'X-GitHub-Event': 'issues',
+                'X-GitHub-Delivery': context.payload.issue?.node_id || context.runId.toString(),
+              },
+              body: JSON.stringify(context.payload),
+            })
+            if (!res.ok) {
+              throw new Error(`Webhook responded ${res.status}`)
+            }
