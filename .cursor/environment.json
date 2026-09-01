@@ -12,5 +12,14 @@
       "command": "npm --prefix frontend run dev:vite"
     }
   ],
-  "ports": [8090, 5173]
+  "ports": [
+    {
+      "name": "backend",
+      "port": 8090
+    },
+    {
+      "name": "frontend",
+      "port": 5173
+    }
+  ]
 }
