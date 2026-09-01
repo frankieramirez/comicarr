@@ -38,8 +38,10 @@ if comicarr.LOG_LEVEL is None:
 from comicarr.postprocessor import (
     PostProcessor,
     log_scan_summary,
+    numbered_by_volume,
     summarize_scan_matches,
     volume_identifies_file,
+    volume_match_settles_year,
 )
 
 
@@ -824,3 +826,55 @@ class TestVolumeIdentifiesFile:
     def test_a_row_without_the_manga_flag_is_read_as_a_comic(self):
         """One-off rows build WatchValues without IsManga and must not raise."""
         assert volume_identifies_file({"Type": "Digital", "Total": 0}) is False
+
+
+class TestNumberedByVolume:
+    """Which series are exempt from the checks that assume an issue number.
+
+    The weekly-pull cross-check, the "no issue number" rejection and the
+    default-to-1 fallback all skip series whose files are named by volume.
+    Manga must be exempt for the same reason collected editions are.
+    """
+
+    def test_manga_series_is_exempt(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 33, "IsManga": True}) is True
+
+    def test_comic_series_of_the_same_type_is_not_exempt(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 33, "IsManga": False}) is False
+
+    @pytest.mark.parametrize("series_type", ["TPB", "HC", "GN", "One-Shot"])
+    def test_collected_editions_stay_exempt_regardless_of_run_length(self, series_type):
+        """Exemption is a property of the type alone, unlike locating a file."""
+        assert numbered_by_volume({"Type": series_type, "Total": 1, "IsManga": False}) is True
+        assert numbered_by_volume({"Type": series_type, "Total": 9, "IsManga": False}) is True
+
+    def test_a_single_entry_tpb_is_exempt_but_is_not_located_by_volume(self):
+        """The two predicates deliberately disagree here; that split is the point."""
+        watch_values = {"Type": "TPB", "Total": 1, "IsManga": False}
+        assert numbered_by_volume(watch_values) is True
+        assert volume_identifies_file(watch_values) is False
+
+    def test_a_row_without_the_manga_flag_is_read_as_a_comic(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 0}) is False
+
+
+class TestVolumeMatchSettlesYear:
+    """A matched manga volume makes the filename's year irrelevant.
+
+    Providers date the licensed English printing while releases carry the
+    volume's original year, so the two routinely disagree by a year.
+    """
+
+    def test_matched_manga_volume_overrides_a_year_mismatch(self):
+        assert volume_match_settles_year({"IsManga": True}, True) is True
+
+    def test_an_unmatched_volume_never_overrides_the_year(self):
+        """Without a volume match there is no identity to trust instead."""
+        assert volume_match_settles_year({"IsManga": True}, False) is False
+
+    def test_a_comic_year_mismatch_still_decides(self):
+        assert volume_match_settles_year({"IsManga": False}, True) is False
+
+    def test_collected_editions_are_not_covered(self):
+        """A TPB year mismatch can still mean the wrong edition."""
+        assert volume_match_settles_year({"Type": "TPB", "Total": 5}, True) is False

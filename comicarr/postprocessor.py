@@ -78,25 +78,64 @@ def log_scan_summary(module, filename, candidate_count, selected_items, annual_c
     )
 
 
+_COLLECTED_TYPES = ("TPB", "HC", "GN")
+
+
+def numbered_by_volume(watch_values):
+    """Return whether this series names its files by volume rather than issue.
+
+    Collected editions and One-Shots have always been named this way, which is
+    why the scan exempts them from every check that assumes a file carries an
+    issue number: the weekly-pull cross-check, the "no issue number" rejection,
+    and the fallback that defaults a missing number to 1.
+
+    Manga belongs with them. In a periodical ``vNN`` names *which run* of the
+    series a release belongs to; in manga it names *which book*. A manga volume
+    file therefore carries no issue number at all, so applying the periodical
+    checks to it rejects a perfectly good file.
+
+    Rows built without the manga flag -- story arcs and one-offs assembled from
+    tables that do not carry it -- read as comics, which is the prior behaviour.
+    """
+    if watch_values.get("IsManga"):
+        return True
+    return watch_values["Type"] in _COLLECTED_TYPES + ("One-Shot",)
+
+
+def volume_match_settles_year(watch_values, volume_matched):
+    """Return whether a matched volume makes the filename's year irrelevant.
+
+    The year check exists because periodical issue numbers repeat across runs,
+    so ``Batman 1`` needs a year to say *which* Batman 1. A manga volume number
+    does not repeat -- there is one volume 1 -- so once it matches, the year
+    cannot be evidence of a wrong file.
+
+    It is routinely a mismatch, too: a provider dates the licensed English
+    printing while the release is labelled with the volume's original year. For
+    One-Punch Man v01 those are 2015 and 2014, and the file was rejected for it.
+
+    Deliberately manga-only. A collected edition's year mismatch can still mean
+    the wrong edition, so periodical and TPB behaviour is untouched.
+    """
+    return bool(volume_matched) and bool(watch_values.get("IsManga"))
+
+
 def volume_identifies_file(watch_values):
-    """Return whether this series numbers its files by volume rather than issue.
+    """Return whether a scanned file is located by volume rather than issue.
 
-    Collected editions (TPB/HC/GN spanning more than one entry) and One-Shots
-    have always been numbered this way, so a scanned file is located by the
-    ``vNN`` token in its name rather than by an issue number.
+    This is :func:`numbered_by_volume` qualified by the run length, because a
+    collected edition only numbers *files* by volume when the run actually has
+    volumes to distinguish: TPB/HC/GN spanning more than one entry, or a
+    One-Shot standing alone.
 
-    Manga joins them for a different reason. In a periodical, ``vNN`` names
-    *which run* of the series a release belongs to; in manga it names *which
-    book*, so the volume is the file's identity exactly as an issue number is
-    elsewhere. A manga volume file carries no issue number at all, so without
-    this the scan derives no number for it, matches it against every issue in
-    the series, and selects none of them.
+    Manga is not qualified that way. Volume 1 of a one-volume manga is still
+    identified by its volume, so the run length says nothing useful here.
     """
     if watch_values.get("IsManga"):
         return True
     series_type = watch_values["Type"]
     total = watch_values["Total"]
-    return (series_type in ("TPB", "HC", "GN") and total > 1) or (series_type == "One-Shot" and total == 1)
+    return (series_type in _COLLECTED_TYPES and total > 1) or (series_type == "One-Shot" and total == 1)
 
 
 def summarize_scan_matches(normal_items, arc_items):
@@ -1379,27 +1418,13 @@ class PostProcessor(object):
                             temploc = just_the_digits.replace("_", " ")
                             temploc = re.sub("[\\#']", "", temploc)
                         else:
-                            if any(
-                                [
-                                    cs["WatchValues"]["Type"] == "TPB",
-                                    cs["WatchValues"]["Type"] == "GN",
-                                    cs["WatchValues"]["Type"] == "HC",
-                                    cs["WatchValues"]["Type"] == "One-Shot",
-                                ]
-                            ):
+                            if numbered_by_volume(cs["WatchValues"]):
                                 temploc = "1"
                             else:
                                 temploc = None
                         datematch = "False"
 
-                        if temploc is None and all(
-                            [
-                                cs["WatchValues"]["Type"] != "TPB",
-                                cs["WatchValues"]["Type"] != "GN",
-                                cs["WatchValues"]["Type"] != "HC",
-                                cs["WatchValues"]["Type"] != "One-Shot",
-                            ]
-                        ):
+                        if temploc is None and not numbered_by_volume(cs["WatchValues"]):
                             logger.info(
                                 "this should have an issue number to match to this particular series: %s"
                                 % cs["ComicID"]
@@ -1657,14 +1682,9 @@ class PostProcessor(object):
                                             alts = x["AS_Alt"]
                                     alt_listing = [True if x.lower() == dynamic_seriesname else False for x in alts]
 
-                                    if any([cs["DynamicName"] == dynamic_seriesname, alt_listing]) and all(
-                                        [
-                                            cs["WatchValues"]["Type"] != "TPB",
-                                            cs["WatchValues"]["Type"] != "GN",
-                                            cs["WatchValues"]["Type"] != "HC",
-                                            cs["WatchValues"]["Type"] != "One-Shot",
-                                        ]
-                                    ):
+                                    if any(
+                                        [cs["DynamicName"] == dynamic_seriesname, alt_listing]
+                                    ) and not numbered_by_volume(cs["WatchValues"]):
                                         logger.fdebug(
                                             "name match exact : %s - %s" % (cs["DynamicName"], dynamic_seriesname)
                                         )
@@ -1793,15 +1813,7 @@ class PostProcessor(object):
                                 else:
                                     logger.fdebug("not a match")
 
-                                if all(
-                                    [
-                                        second_check is False,
-                                        cs["WatchValues"]["Type"] != "TPB",
-                                        cs["WatchValues"]["Type"] != "GN",
-                                        cs["WatchValues"]["Type"] != "HC",
-                                        cs["WatchValues"]["Type"] != "One-Shot",
-                                    ]
-                                ):
+                                if second_check is False and not numbered_by_volume(cs["WatchValues"]):
                                     logger.fdebug(
                                         "%s %s in filename don't match up to what's in the dB for %s [%s]. This is a wrong match. Continuing..."
                                         % (
@@ -1922,6 +1934,13 @@ class PostProcessor(object):
                                     logger.fdebug(
                                         "%s[LONE-VOLUME/NO YEAR][MATCH] Only Volume on watchlist matches, no year present in filename. Assuming match based on volume and title."
                                         % module
+                                    )
+                                    datematch = "True"
+
+                                if datematch == "False" and volume_match_settles_year(cs["WatchValues"], lonevol):
+                                    logger.fdebug(
+                                        "%s[MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file. Assuming match based on volume and title."
+                                        % (module, watchmatch["series_volume"], watchmatch["issue_year"])
                                     )
                                     datematch = "True"
 
@@ -2075,6 +2094,7 @@ class PostProcessor(object):
                                     "Publisher": av["IssuePublisher"],
                                     "Total": int(av["TotalIssues"]),
                                     "Type": av["Type"],
+                                    "IsManga": series_kind.is_manga(av),
                                     "IsArc": True,
                                 },
                             }
@@ -2114,18 +2134,7 @@ class PostProcessor(object):
                                 nm += 1
                             else:
                                 try:
-                                    if (
-                                        any(
-                                            [
-                                                v[i]["WatchValues"]["Type"] == "TPB",
-                                                v[i]["WatchValues"]["Type"] == "GN",
-                                                v[i]["WatchValues"]["Type"] == "HC",
-                                            ]
-                                        )
-                                        and v[i]["WatchValues"]["Total"] > 1
-                                    ) or all(
-                                        [v[i]["WatchValues"]["Type"] == "One-Shot", v[i]["WatchValues"]["Total"] == 1]
-                                    ):
+                                    if volume_identifies_file(v[i]["WatchValues"]):
                                         if arcmatch["series_volume"] is not None:
                                             just_the_digits = re.sub("[^0-9]", "", arcmatch["series_volume"]).strip()
                                         else:
@@ -2144,14 +2153,7 @@ class PostProcessor(object):
                                     temploc = just_the_digits.replace("_", " ")
                                     temploc = re.sub("[\\#']", "", temploc)
                                 else:
-                                    if any(
-                                        [
-                                            v[i]["WatchValues"]["Type"] == "TPB",
-                                            v[i]["WatchValues"]["Type"] == "GN",
-                                            v[i]["WatchValues"]["Type"] == "HC",
-                                            v[i]["WatchValues"]["Type"] == "One-Shot",
-                                        ]
-                                    ):
+                                    if numbered_by_volume(v[i]["WatchValues"]):
                                         temploc = "1"
                                     else:
                                         temploc = None
@@ -2673,6 +2675,7 @@ class PostProcessor(object):
                                             "Total": 0,
                                             "Type": ofl["format"],
                                             "ComicID": ofl["ComicID"],
+                                            "IsManga": series_kind.is_manga(ofl),
                                             "IsArc": False,
                                         },
                                     }
@@ -2691,7 +2694,7 @@ class PostProcessor(object):
                                     continue
                                 else:
                                     try:
-                                        if ofv["WatchValues"]["Type"] is not None and ofv["WatchValues"]["Total"] > 1:
+                                        if volume_identifies_file(ofv["WatchValues"]):
                                             if watchmatch["series_volume"] is not None:
                                                 just_the_digits = re.sub(
                                                     "[^0-9]", "", watchmatch["series_volume"]
