@@ -4159,8 +4159,7 @@ class PostProcessor(object):
 
         if pcheck != filepath:
             logger.info(
-                "%s [MANGA] Wrote metadata: %s -> %s"
-                % (module, os.path.basename(filepath), os.path.basename(pcheck))
+                "%s [MANGA] Wrote metadata: %s -> %s" % (module, os.path.basename(filepath), os.path.basename(pcheck))
             )
         else:
             logger.info("%s [MANGA] Wrote metadata to %s" % (module, os.path.basename(pcheck)))

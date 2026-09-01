@@ -52,9 +52,7 @@ def restore_tagged_file_mode(path, original_mode, module=""):
     try:
         os.chmod(path, original_mode)
     except OSError as e:
-        logger.warn(
-            "%s Unable to restore permissions %s on %s [%s]" % (module, oct(original_mode), path, e)
-        )
+        logger.warn("%s Unable to restore permissions %s on %s [%s]" % (module, oct(original_mode), path, e))
         return False
     logger.fdebug(
         "%s Restored pre-tagging permissions %s on %s (tagging left it %s)"
