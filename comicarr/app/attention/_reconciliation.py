@@ -222,6 +222,30 @@ def reconcile_excluded(
     return "rewanted"
 
 
+def _close_if_already_fulfilled(row):
+    """Close a parked row whose work is provably already done. True if closed.
+
+    Runs BEFORE the actionability skip on purpose: an actionable reason is
+    exactly what puts a row in front of an operator, and the whole point of this
+    check is to establish there is nothing left for them to do. Skipping it for
+    actionable rows would exempt every row this is meant to clear.
+    """
+    try:
+        from comicarr.app.downloads.recovery import close_fulfilled_band_row
+
+        if not close_fulfilled_band_row(row):
+            return False
+    except Exception as e:
+        logger.warn("[BAND-RECONCILE] fulfilled-close skipped for release_key=%s: %s" % (row.get("release_key"), e))
+        return False
+    logger.info(
+        "[BAND-RECONCILE] closed release_key=%s — its issue is already Downloaded with a "
+        "verified library file, so no operator action can clear it (audit=%s)"
+        % (row.get("release_key"), RECONCILE_AUDIT_IDENTITY)
+    )
+    return True
+
+
 def reconcile_existing_excluded_rows():
     """One-shot pass: re-want / blocklist issues stranded by pre-#541 exclusions.
 
@@ -248,10 +272,13 @@ def reconcile_existing_excluded_rows():
     )
 
     rows = db.select_all(select(pipeline_journal).where(pre_actionability))
-    summary = {"scanned": 0, "acted": 0, "skipped_actionable": 0, "results": {}}
+    summary = {"scanned": 0, "acted": 0, "closed_fulfilled": 0, "skipped_actionable": 0, "results": {}}
     for row in rows or []:
         summary["scanned"] += 1
         reason = row.get("fail_reason")
+        if _close_if_already_fulfilled(row):
+            summary["closed_fulfilled"] += 1
+            continue
         if is_actionable(reason):
             summary["skipped_actionable"] += 1
             continue
@@ -265,9 +292,10 @@ def reconcile_existing_excluded_rows():
         )
         summary["acted"] += 1
         summary["results"][result] = summary["results"].get(result, 0) + 1
-    if summary["acted"]:
+    if summary["acted"] or summary["closed_fulfilled"]:
         logger.warn(
-            "[BAND-RECONCILE] one-shot stranded-row pass: scanned=%s acted=%s results=%s"
-            % (summary["scanned"], summary["acted"], summary["results"])
+            "[BAND-RECONCILE] one-shot stranded-row pass: scanned=%s acted=%s "
+            "closed_fulfilled=%s results=%s"
+            % (summary["scanned"], summary["acted"], summary["closed_fulfilled"], summary["results"])
         )
     return summary

@@ -468,6 +468,92 @@ def _resume_item_from_row(row, payload):
     return "nzb", item
 
 
+def _anchor_shared_with_open_row(conn, rkey, row):
+    """Whether another OPEN journal row would lose its anchor to this delete.
+
+    The fulfilment gate is issue-wide -- the issue is `Downloaded` with a
+    verified file under the series root -- but nzblog is unique on
+    (IssueID, PROVIDER). A DDL release_key carries a discriminant, so a DDL
+    sibling for the same issue and provider is a DIFFERENT journal row sharing
+    ONE anchor. Deleting it while closing the parked row leaves that sibling
+    anchorless, and the same startup then reads the missing anchor as a
+    done-signal and marks it done although nothing ran for it.
+
+    The parked row still closes either way; only the shared anchor survives,
+    to be deleted by whichever obligation finishes last. A lookup failure
+    reports True -- keeping an anchor is recoverable, deleting one is not.
+    """
+    issueid = row.get("issueid")
+    provider = row.get("provider")
+    if not issueid or not provider:
+        return False
+    try:
+        sibling = conn.execute(
+            select(pipeline_journal.c.release_key)
+            .where(pipeline_journal.c.release_key != rkey)
+            .where(pipeline_journal.c.issueid == str(issueid))
+            .where(pipeline_journal.c.provider == provider)
+            .where(pipeline_journal.c.stage.in_(journal.OPEN_STAGES))
+            .limit(1)
+        ).fetchone()
+    except Exception as e:
+        logger.warn("[RECOVERY] shared-anchor lookup failed for %s: %s — keeping the nzblog anchor." % (rkey, e))
+        return True
+    if sibling is not None:
+        logger.fdebug(
+            "[RECOVERY] keeping nzblog anchor for issue %s/%s — still open for %s" % (issueid, provider, sibling[0])
+        )
+        return True
+    return False
+
+
+def close_fulfilled_band_row(row, payload=None):
+    """Close a band row parked for an operator whose work is provably DONE.
+
+    A `manual_review` / `failed` row exists to ask a human to act. When the
+    obligation's own issue is already `Downloaded` with a verified file beneath
+    the series root, there is nothing left to ask for: the entry is noise no
+    operator action can usefully clear, and both stages are TERMINAL, so
+    `replay_pipeline` -- which builds its work list from OPEN stages only --
+    never revisits it. Left alone such a row sits in the band forever.
+
+    Reaches the same end state a successful operator "Import" produces (anchor
+    gone, row stamped `imported`) WITHOUT re-running the import: the file is
+    already placed, and re-driving post-processing against a source folder that
+    is legitimately gone is what parked several of these rows to begin with.
+
+    Deliberately stamps the R9 resolution rather than advancing the stage. The
+    lattice is forward-only and `manual_review` (rank 55) sits ABOVE
+    `post_processed` (50), so `record_transition` would log a no-op and leave
+    the row admitted -- the close would look like it worked and change nothing.
+
+    Fails CLOSED: returns False unless fulfilment is proven and the stamp lands.
+
+    Stamps BEFORE deleting the anchor, and only deletes if the stamp landed.
+    `stamp_resolution` returns False without raising when the row is gone, is
+    not on a band stage, or is already resolved -- so deleting first would let
+    the begin() block commit an anchor deletion alongside an unresolved journal
+    row. That is strictly worse than doing nothing: the anchor is what a later
+    pass uses to reconstruct the obligation, so the row would be left open with
+    nothing to rebuild it from.
+    """
+    from comicarr.app.downloads._postprocess_completion import delete_anchor, obligation_already_fulfilled
+
+    if not obligation_already_fulfilled(row):
+        return False
+    rkey = row.get("release_key")
+    if not rkey:
+        return False
+    if payload is None:
+        payload = journal.load_payload(row.get("payload_json"))
+    with db.get_engine().begin() as conn:
+        if not journal.stamp_resolution(rkey, journal.STATUS_IMPORTED, conn=conn):
+            return False
+        if not _anchor_shared_with_open_row(conn, rkey, row):
+            delete_anchor(conn, row, payload)
+        return True
+
+
 def _resolve_row(snapshot_row, probes=None):
     """Resolve ONE open obligation. RECHECKS the row's current stage with a
     cheap point lookup before acting (workers are live; skip if it advanced

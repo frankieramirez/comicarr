@@ -9,6 +9,7 @@
 
 """#541 — band actionability predicate and clause-2 reconciliation."""
 
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -18,7 +19,7 @@ import comicarr
 from comicarr import db
 from comicarr.app.activity import queries, reasons
 from comicarr.app.activity import reconcile as band_reconcile
-from comicarr.tables import failed, issues, metadata, pipeline_journal
+from comicarr.tables import comics, failed, issues, metadata, nzblog, pipeline_journal
 
 
 @pytest.fixture
@@ -224,3 +225,86 @@ def test_reconcile_existing_excluded_rows(activity_db):
     # Actionable row's issue stays Snatched (operator still needs to act).
     other = db.select_one(select(issues).where(issues.c.IssueID == "iss-b"))
     assert other["Status"] == "Snatched"
+
+
+def _placed_library_file(tmp_path, name="Saga v01.cbz"):
+    """Create a real series root + issue file so placement evidence is genuine."""
+    series = tmp_path / "library" / "Saga"
+    series.mkdir(parents=True, exist_ok=True)
+    issue_file = series / name
+    issue_file.write_bytes(b"x")
+    return str(series), str(issue_file)
+
+
+def _seed_parked_row(conn, *, status, location, release_key="done-1", issueid="iss-done", series_dir=None):
+    conn.execute(insert(comics), [{"ComicID": "c1", "ComicLocation": series_dir}])
+    conn.execute(
+        insert(issues),
+        [{"IssueID": issueid, "ComicID": "c1", "ComicName": "Saga", "Status": status, "Location": location}],
+    )
+    conn.execute(insert(nzblog), [{"IssueID": issueid, "NZBName": "Saga.cbz", "PROVIDER": "DDL", "ID": "n1"}])
+    conn.execute(
+        insert(pipeline_journal),
+        [
+            _journal(
+                release_key=release_key,
+                issueid=issueid,
+                stage="manual_review",
+                stage_rank=55,
+                fail_reason="recovered_postprocess_error:TypeError",
+            )
+        ],
+    )
+
+
+def test_reconcile_closes_parked_row_whose_work_is_already_done(activity_db, tmp_path):
+    """An ACTIONABLE parked row is closed when its work is provably finished.
+
+    `manual_review` is terminal, so replay never revisits it; without this the
+    row asks an operator for an action that cannot change anything, forever.
+    """
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Downloaded", location=issue_file, series_dir=series_dir)
+
+    summary = band_reconcile.reconcile_existing_excluded_rows()
+
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    # Stamped resolved WITHOUT regressing the forward-only lattice: manual_review
+    # (55) outranks post_processed (50), so a stage advance would be a silent no-op.
+    assert row["status"] == "imported"
+    assert row["stage"] == "manual_review"
+    # Anchor cleared -- the same end state a successful operator Import reaches.
+    assert db.select_one(select(nzblog).where(nzblog.c.IssueID == "iss-done")) is None
+    assert summary["closed_fulfilled"] == 1
+    assert summary["skipped_actionable"] == 0
+
+
+def test_reconcile_keeps_parked_row_when_file_is_missing(activity_db, tmp_path):
+    """Control: `Downloaded` alone is not evidence. No file -> stays in the band."""
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    os.remove(issue_file)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Downloaded", location=issue_file, series_dir=series_dir)
+
+    summary = band_reconcile.reconcile_existing_excluded_rows()
+
+    assert summary["closed_fulfilled"] == 0
+    assert summary["skipped_actionable"] == 1
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert row["status"] is None
+    assert db.select_one(select(nzblog).where(nzblog.c.IssueID == "iss-done")) is not None
+
+
+def test_reconcile_keeps_parked_row_when_issue_not_downloaded(activity_db, tmp_path):
+    """Control: a real file under a still-`Snatched` issue is not fulfilment."""
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Snatched", location=issue_file, series_dir=series_dir)
+
+    summary = band_reconcile.reconcile_existing_excluded_rows()
+
+    assert summary["closed_fulfilled"] == 0
+    assert summary["skipped_actionable"] == 1
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert row["status"] is None
