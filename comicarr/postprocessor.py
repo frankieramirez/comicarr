@@ -4041,6 +4041,131 @@ class PostProcessor(object):
             return
         self.tidyup(nzb_dir, True)
 
+
+    def _match_manga_issue(self, parsed):
+        """Return the ledger row a parsed manga file belongs to, or None.
+
+        A pure lookup over `parsed` and this series' issue rows: it reads the
+        database and nothing else, so it can be answered before the file is
+        placed. That ordering matters -- tagging needs the IssueID, and tagging
+        has to happen while the file is still at its download location.
+
+        Chapter first, then volume: a chapter number is the more specific
+        claim, and a volume-numbered file has no chapter number to offer.
+        """
+        if parsed is None:
+            return None
+
+        matching = None
+
+        if parsed.get("chapter_number") is not None:
+            ch_num = parsed["chapter_number"]
+            ch_str = "%g" % ch_num
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.ChapterNumber == ch_str,
+                    )
+                )
+            )
+            if matching is None:
+                matching = db.select_one(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.Issue_Number == ch_str,
+                        )
+                    )
+                )
+                if matching is None and ch_str != str(ch_num):
+                    matching = db.select_one(
+                        select(issues).where(
+                            and_(
+                                issues.c.ComicID == self.comicid,
+                                issues.c.Issue_Number == str(ch_num),
+                            )
+                        )
+                    )
+
+        if matching is None and parsed.get("volume_number") is not None:
+            vol_str = str(parsed["volume_number"])
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.VolumeNumber == vol_str,
+                    )
+                )
+            )
+
+        return matching
+
+    def _metatag_manga_file(self, filepath, issueid):
+        """Write metadata into a manga file before it is placed.
+
+        The comic path tags at the download location and then places whatever
+        ComicTagger hands back, because tagging can rename the file: it cannot
+        write into an existing archive, so a .cbr is rebuilt as a .cbz. The
+        manga path placed files the same way but never tagged them at all, so a
+        manga volume arrived in the library with no ComicInfo.xml while every
+        comic beside it had one -- and the only way to fix that was a manual
+        bulk re-tag afterwards.
+
+        Returns the path to place: the tagged file on success, the original
+        path otherwise. Tagging is best effort; a metadata failure must not
+        cost the import, exactly as it does not on the comic path.
+        """
+        module = self.module
+
+        # Same condition the comic path uses (ENABLE_META or CBR2CBZ_ONLY), read
+        # defensively: tagging is an enhancement to the import, so a process
+        # without configuration loaded places the file untagged rather than
+        # failing the import over it.
+        config = comicarr.CONFIG
+        if config is None:
+            return filepath
+        if not (getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False)):
+            return filepath
+
+        try:
+            from . import cmtag
+
+            pcheck = cmtag.run(
+                self.nzb_folder,
+                issueid=issueid,
+                filename=filepath,
+            )
+        except ImportError:
+            logger.fdebug(
+                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                % module
+            )
+            return filepath
+        except Exception as e:
+            logger.error("%s [MANGA] Metatagging raised for %s [%s]" % (module, filepath, e))
+            return filepath
+
+        # cmtag.run returns a path on success and a sentinel string otherwise
+        # ("fail", "corrupt", "unrar error", "file not found||<path>"). Requiring
+        # an existing file rather than enumerating the sentinels means a new
+        # sentinel degrades to "not tagged" instead of placing a bogus path.
+        if not isinstance(pcheck, str) or not os.path.isfile(pcheck):
+            logger.warn(
+                "%s [MANGA] Unable to write metadata to %s [%s] - placing it untagged."
+                % (module, os.path.basename(filepath), pcheck)
+            )
+            return filepath
+
+        if pcheck != filepath:
+            logger.info(
+                "%s [MANGA] Wrote metadata: %s -> %s"
+                % (module, os.path.basename(filepath), os.path.basename(pcheck))
+            )
+        else:
+            logger.info("%s [MANGA] Wrote metadata to %s" % (module, os.path.basename(pcheck)))
+        return pcheck
+
     def _process_manga(self):
         """Post-process a downloaded manga file.
 
@@ -4140,6 +4265,24 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
+            # Resolve the ledger row first: the lookup only reads `parsed` and
+            # the series' issue rows, and the tagger needs the IssueID to know
+            # which volume this file is. Tagging then happens here, at the
+            # download location, because it can rename the file -- so the name
+            # that gets placed and recorded has to be the tagged one.
+            matching = self._match_manga_issue(parsed)
+
+            if matching is not None:
+                # Best effort: a row without an IssueID cannot be tagged, but it
+                # can still be placed and marked, so this must not raise.
+                try:
+                    tag_issueid = matching["IssueID"]
+                except (KeyError, TypeError, IndexError):
+                    tag_issueid = None
+                if tag_issueid is not None:
+                    filepath = self._metatag_manga_file(filepath, tag_issueid)
+                    filename = os.path.basename(filepath)
+
             dst = os.path.join(series_folder, filename)
 
             try:
@@ -4155,49 +4298,6 @@ class PostProcessor(object):
                 logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
 
             self._journal_pp("post_processing")
-
-            matching = None
-
-            if parsed and parsed.get("chapter_number") is not None:
-                ch_num = parsed["chapter_number"]
-                ch_str = "%g" % ch_num
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.ChapterNumber == ch_str,
-                        )
-                    )
-                )
-                if matching is None:
-                    matching = db.select_one(
-                        select(issues).where(
-                            and_(
-                                issues.c.ComicID == self.comicid,
-                                issues.c.Issue_Number == ch_str,
-                            )
-                        )
-                    )
-                    if matching is None and ch_str != str(ch_num):
-                        matching = db.select_one(
-                            select(issues).where(
-                                and_(
-                                    issues.c.ComicID == self.comicid,
-                                    issues.c.Issue_Number == str(ch_num),
-                                )
-                            )
-                        )
-
-            if matching is None and parsed and parsed.get("volume_number") is not None:
-                vol_str = str(parsed["volume_number"])
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.VolumeNumber == vol_str,
-                        )
-                    )
-                )
 
             if matching:
                 issueid = matching["IssueID"]

@@ -797,6 +797,175 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         assert "0 files matched" in result[0]["self.log"]
 
 
+class TestMangaMetatagOnImport:
+    """A manga import must tag its file, exactly as a comic import does.
+
+    The comic path tags at the download location and places whatever
+    ComicTagger returns, because tagging can rename the file (.cbr -> .cbz).
+    The manga path placed files but never tagged them, so a manga volume landed
+    in the library with no ComicInfo.xml and only a manual bulk re-tag fixed it.
+    """
+
+    @staticmethod
+    def _meta_config(enable_meta=True, cbr2cbz_only=False):
+        return SimpleNamespace(ENABLE_META=enable_meta, CBR2CBZ_ONLY=cbr2cbz_only)
+
+    def _run(self, tmp_path, cmtag_return, config, issue_row="default"):
+        download = tmp_path / "download"
+        download.mkdir()
+        src = download / "Chainsaw Man 165.cbr"
+        src.write_bytes(b"fake cbr")
+        # ComicTagger builds its output away from the download directory, and
+        # keeping it out matters here: a .cbz under the scanned tree would be
+        # picked up as a second file to import.
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        tagged = cache / "Chainsaw Man 165.cbz"
+        tagged.write_bytes(b"fake cbz")
+
+        dest_dir = tmp_path / "manga" / "Chainsaw Man"
+        dest_dir.mkdir(parents=True)
+
+        pp, mock_queue = _make_pp(
+            nzb_name="Chainsaw Man 165.cbr",
+            nzb_folder=str(download),
+            comicid="md-csm",
+        )
+
+        comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
+        if issue_row == "default":
+            issue_row = {"IssueID": "md-csm-ch165", "ChapterNumber": "165", "ComicID": "md-csm"}
+        # comic lookup, then the chapter lookup, then nothing else matches. The
+        # trailing Nones keep this robust to how many lookups the match tries:
+        # a truthy row leaking into a later lookup would fake a match.
+        lookups = [comic_row, issue_row] + [None] * 8
+
+        mock_conn = MagicMock()
+        resolved = str(tagged) if cmtag_return == "TAGGED" else cmtag_return
+
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.app.downloads.journal.record_transition", return_value=True),
+            patch("comicarr.postprocessor.place", return_value=placement_result()) as mock_place,
+            patch("comicarr.cmtag.run", return_value=resolved) as mock_cmtag,
+            patch.object(comicarr, "CONFIG", config),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.side_effect = lookups
+            mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
+
+            pp._process_manga()
+
+        return mock_place, mock_cmtag, mock_db, mock_queue, str(src), str(tagged)
+
+    def test_import_tags_the_file_before_placing_it(self, tmp_path):
+        mock_place, mock_cmtag, _db, _q, src, tagged = self._run(
+            tmp_path, "TAGGED", self._meta_config()
+        )
+
+        mock_cmtag.assert_called_once()
+        assert mock_cmtag.call_args.kwargs["filename"] == src, (
+            "the tagger must run on the download-location file, before placement"
+        )
+        assert mock_cmtag.call_args.kwargs["issueid"] == "md-csm-ch165"
+        assert mock_place.call_args[0][0] == tagged, (
+            "placement must move the TAGGED file, not the untagged original"
+        )
+
+    def test_the_recorded_location_is_the_tagged_filename(self, tmp_path):
+        _place, _cmtag, mock_db, _q, _src, _tagged = self._run(
+            tmp_path, "TAGGED", self._meta_config()
+        )
+
+        mock_db.upsert.assert_any_call(
+            "issues",
+            {"Status": "Downloaded", "Location": "Chainsaw Man 165.cbz"},
+            {"IssueID": "md-csm-ch165"},
+        )
+
+    def test_metatagging_disabled_places_the_original_untouched(self, tmp_path):
+        mock_place, mock_cmtag, _db, _q, src, _tagged = self._run(
+            tmp_path, "TAGGED", self._meta_config(enable_meta=False)
+        )
+
+        mock_cmtag.assert_not_called()
+        assert mock_place.call_args[0][0] == src
+
+    def test_cbr2cbz_only_still_runs_the_tagger(self, tmp_path):
+        """Mirrors the comic path, which gates on ENABLE_META *or* CBR2CBZ_ONLY."""
+        _place, mock_cmtag, _db, _q, _src, _tagged = self._run(
+            tmp_path, "TAGGED", self._meta_config(enable_meta=False, cbr2cbz_only=True)
+        )
+
+        mock_cmtag.assert_called_once()
+
+    @pytest.mark.parametrize("sentinel", ["fail", "corrupt", "unrar error"])
+    def test_a_tagging_failure_never_costs_the_import(self, tmp_path, sentinel):
+        mock_place, _cmtag, mock_db, mock_queue, src, _tagged = self._run(
+            tmp_path, sentinel, self._meta_config()
+        )
+
+        assert mock_place.call_args[0][0] == src, (
+            "a sentinel is not a path; the original file must still be placed"
+        )
+        mock_db.upsert.assert_any_call(
+            "issues",
+            {"Status": "Downloaded", "Location": "Chainsaw Man 165.cbr"},
+            {"IssueID": "md-csm-ch165"},
+        )
+        result = mock_queue.put.call_args[0][0]
+        assert "Post Processing SUCCESSFUL" in result[0]["self.log"]
+
+    def test_an_unmatched_file_is_not_tagged(self, tmp_path):
+        """No ledger row means no IssueID, and the tagger needs one."""
+        mock_place, mock_cmtag, _db, _q, src, _tagged = self._run(
+            tmp_path, "TAGGED", self._meta_config(), issue_row=None
+        )
+
+        mock_cmtag.assert_not_called()
+        assert mock_place.call_args[0][0] == src
+
+    def test_config_absent_places_untagged_rather_than_raising(self, tmp_path):
+        mock_place, mock_cmtag, _db, _q, src, _tagged = self._run(tmp_path, "TAGGED", None)
+
+        mock_cmtag.assert_not_called()
+        assert mock_place.call_args[0][0] == src
+
+
+class TestMangaMetatagWiring:
+    """The helper is only useful if _process_manga actually calls it."""
+
+    @staticmethod
+    def _source():
+        import inspect
+
+        from comicarr.postprocessor import PostProcessor
+
+        return inspect.getsource(PostProcessor._process_manga)
+
+    def test_process_manga_calls_the_tagger(self):
+        assert "self._metatag_manga_file(" in self._source(), (
+            "_process_manga no longer tags its files; a manga volume will land "
+            "in the library with no ComicInfo.xml"
+        )
+
+    def test_the_ledger_row_is_resolved_before_placement(self):
+        src = self._source()
+        assert "self._match_manga_issue(" in src
+        assert src.index("self._match_manga_issue(") < src.index("placement = place("), (
+            "the IssueID must be resolved before placement, because the tagger "
+            "needs it and must run while the file is still at the download location"
+        )
+
+    def test_the_tagger_runs_before_placement(self):
+        src = self._source()
+        assert src.index("self._metatag_manga_file(") < src.index("placement = place("), (
+            "tagging can rename .cbr -> .cbz, so it must happen before the name "
+            "that gets placed and recorded is decided"
+        )
+
+
 class TestVolumeIdentifiesFile:
     """Which series number their scanned files by volume rather than issue.
 
