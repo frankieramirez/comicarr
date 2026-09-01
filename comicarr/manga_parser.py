@@ -109,6 +109,43 @@ _PATTERNS = [
 ]
 
 
+# Every pattern above anchors its number at the end of the stem, but scene
+# releases append metadata groups after it -- "Series v20 (2020) (Digital)
+# (Group)".  Stripping those lets the same patterns see the volume/chapter
+# token they were written for.
+_PAT_TRAILING_TAGS = re.compile(r"(?:\s*[\(\[][^()\[\]]*[\)\]])+\s*$")
+
+
+def strip_trailing_tags(stem):
+    """Return ``stem`` without its trailing ``(...)``/``[...]`` tag groups.
+
+    Returns the stem unchanged when it does not end in a tag group.
+    """
+    return _PAT_TRAILING_TAGS.sub("", stem).strip()
+
+
+def _match_patterns(stem):
+    """Match ``stem`` against ``_PATTERNS``, returning ``(match, pattern)``.
+
+    The full stem is tried first, so any filename that already parsed keeps
+    its existing result.  Only when nothing matches is the stem retried with
+    trailing release tags removed.
+    """
+    for pattern in _PATTERNS:
+        m = pattern.match(stem)
+        if m:
+            return m, pattern
+
+    stripped = strip_trailing_tags(stem)
+    if stripped and stripped != stem:
+        for pattern in _PATTERNS:
+            m = pattern.match(stripped)
+            if m:
+                return m, pattern
+
+    return None, None
+
+
 def parse_manga_filename(
     filename,
     series_name=None,
@@ -159,13 +196,12 @@ def parse_manga_filename(
         volume_count=volume_count,
         chapter_count=chapter_count,
     )
-    for pattern in _PATTERNS:
-        m = pattern.match(stem)
-        if m:
-            result = _build_result(m)
-            if result is not None and pattern is _PAT_BARE_NUMBER:
-                return apply_bare_number(result, resolved_mode)
-            return result
+    m, pattern = _match_patterns(stem)
+    if m:
+        result = _build_result(m)
+        if result is not None and pattern is _PAT_BARE_NUMBER:
+            return apply_bare_number(result, resolved_mode)
+        return result
 
     if series_name:
         chapter = parse_manga_chapter_number(filename)
@@ -192,11 +228,9 @@ def parse_manga_chapter_number(filename):
     if not stem or len(stem) > 512:
         return None
 
-    for pattern in _PATTERNS:
-        m = pattern.match(stem)
-        if m:
-            groups = m.groupdict()
-            return _to_chapter_number(groups.get("chapter"))
+    m, _pattern = _match_patterns(stem)
+    if m:
+        return _to_chapter_number(m.groupdict().get("chapter"))
 
     return _parse_chapter_only_stem(stem)
 
