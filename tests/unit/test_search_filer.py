@@ -314,6 +314,47 @@ def test_datetime_rejection_does_not_fall_through_to_disagreeing_integer_compari
     assert _reason(evaluation) == "rejected.before_reference_date"
 
 
+class TestStoreDateGateOnAMangaVolumePass:
+    """A volume number identifies the book; a street date cannot improve on it.
+
+    The store-date comparison is a periodical tiebreak: an issue NUMBER recycles
+    across runs, so the street date says which run a result belongs to. A volume
+    number does not recycle, and digital manga is routinely posted before the
+    street date ComicVine records -- so on a volume pass the gate only discards
+    correct files.
+    """
+
+    _EARLY = dict(
+        UseFuzzy="0",
+        StoreDate="2024-02-01",
+        IssueDate="2024-02-01",
+        digitaldate="2024-02-01",
+    )
+
+    @staticmethod
+    def _evaluate(**info):
+        return search_filer.search_check().evaluate_entry(
+            _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
+            _info(**info),
+        )
+
+    def test_a_volume_pass_survives_a_pubdate_before_the_store_date(self):
+        """The real rejection: OPM v06 posted 2016-04-13, store date 2016-04-27."""
+        evaluation = self._evaluate(manga_match_name="Example Series", **self._EARLY)
+        assert _reason(evaluation) != "rejected.before_reference_date"
+
+    def test_a_periodical_with_the_same_dates_is_STILL_rejected(self):
+        """Control: this must stay a rejection, or the gate is disabled, not scoped."""
+        evaluation = self._evaluate(**self._EARLY)
+        assert _reason(evaluation) == "rejected.before_reference_date"
+
+    def test_the_exemption_needs_the_volume_pass_not_merely_a_manga_series(self):
+        """manga_match_name is set only by the volume pass; a chapter pass keeps
+        normal issue-number handling and so keeps the date tiebreak."""
+        evaluation = self._evaluate(manga_match_name=None, booktype="Manga", **self._EARLY)
+        assert _reason(evaluation) == "rejected.before_reference_date"
+
+
 @pytest.mark.parametrize(
     ("parsed", "matched", "match_error", "info", "reason_code"),
     [
