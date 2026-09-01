@@ -7,7 +7,60 @@ import sys
 from packaging.version import parse as parse_version
 
 import comicarr
-from comicarr import logger, notifiers
+from comicarr import filechecker, logger, notifiers
+
+
+def current_file_mode(path):
+    """Return path's permission bits, or None if they cannot be read.
+
+    Captured before tagging starts, because the original file may be gone by
+    the time tagging finishes: a .cbr is converted to .cbz and, under
+    FILE_OPTS = move, the rar is deleted.
+    """
+    try:
+        return os.stat(path).st_mode & 0o7777
+    except OSError:
+        return None
+
+
+def restore_tagged_file_mode(path, original_mode, module=""):
+    """Give a freshly tagged file the accessibility it had before tagging.
+
+    Tagging is a round trip, and a round trip must not change how readable a
+    file is. ComicTagger cannot write into an existing archive, so it builds a
+    NEW file (converting .cbr -> .cbz along the way) with tempfile semantics --
+    0600 -- instead of inheriting the library file's mode. Moving that back
+    into place leaves a tagged issue less readable than every untagged issue
+    beside it, and nothing logs the change.
+
+    ENFORCE_PERMS is the configured owner of file modes, so when it is on this
+    defers to filechecker.setperms() exactly as the six other placement sites
+    do. When it is off the user has asked for modes to be left alone -- which
+    means left alone, not quietly reduced -- so the pre-tag mode is restored.
+
+    Returns True when the mode was applied, False when there was nothing to do.
+    """
+    if comicarr.CONFIG.ENFORCE_PERMS:
+        filechecker.setperms(path)
+        return True
+
+    if original_mode is None:
+        return False
+    current = current_file_mode(path)
+    if current is None or current == original_mode:
+        return False
+    try:
+        os.chmod(path, original_mode)
+    except OSError as e:
+        logger.warn(
+            "%s Unable to restore permissions %s on %s [%s]" % (module, oct(original_mode), path, e)
+        )
+        return False
+    logger.fdebug(
+        "%s Restored pre-tagging permissions %s on %s (tagging left it %s)"
+        % (module, oct(original_mode), path, oct(current))
+    )
+    return True
 
 
 def manga_volume_for_issue(issueid):
@@ -80,6 +133,10 @@ def run(
 
     filepath = filename
     og_filepath = filepath
+    # Capture before anything is copied or converted: under FILE_OPTS = move a
+    # .cbr is deleted once it becomes a .cbz, so this is the last point the
+    # library file's own mode can still be read.
+    og_file_mode = current_file_mode(og_filepath)
     try:
         filename = os.path.split(filename)[1]
     except:
@@ -425,6 +482,7 @@ def run(
         if comicarr.CONFIG.CBR2CBZ_ONLY and not initial_ctrun:
             break
 
+    restore_tagged_file_mode(filepath, og_file_mode, module)
     return filepath
 
 

@@ -23,6 +23,7 @@ Tests cover the _process_manga() method and the manga branch in Process().
 
 import os
 import queue
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -924,6 +925,119 @@ class TestMangaVolumeForIssue:
 
         with patch("comicarr.db.select_one", side_effect=RuntimeError("boom")):
             assert cmtag.manga_volume_for_issue("446055") is None
+
+
+class TestRestoreTaggedFileMode:
+    """Tagging is a round trip and must not change how readable a file is.
+
+    ComicTagger cannot write into an existing archive, so it builds a NEW file
+    with tempfile semantics (0600) instead of inheriting the library file's
+    mode. Left alone, a tagged issue ends up less readable than every untagged
+    issue beside it, and nothing logs it -- invisible while the reader runs as
+    root, and a silent breakage the moment it does not.
+    """
+
+    @staticmethod
+    def _cfg(enforce=False):
+        return SimpleNamespace(ENFORCE_PERMS=enforce)
+
+    def test_a_mode_tagging_reduced_is_restored(self, tmp_path):
+        from comicarr import cmtag
+
+        f = tmp_path / "One-Punch Man v01.cbz"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o600)
+        with patch.object(comicarr, "CONFIG", self._cfg()):
+            assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
+        assert os.stat(f).st_mode & 0o7777 == 0o644
+
+    def test_an_unchanged_mode_is_left_alone(self, tmp_path):
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o644)
+        with patch.object(comicarr, "CONFIG", self._cfg()):
+            assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
+        assert os.stat(f).st_mode & 0o7777 == 0o644
+
+    def test_enforce_perms_defers_to_the_existing_owner(self, tmp_path):
+        """CHMOD_FILE has an owner already; this must not become a second one."""
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+            with patch.object(cmtag.filechecker, "setperms") as setperms:
+                assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
+        setperms.assert_called_once_with(str(f))
+
+    def test_an_uncapturable_original_mode_changes_nothing(self, tmp_path):
+        """A stat failure before tagging must not invent a mode."""
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o600)
+        with patch.object(comicarr, "CONFIG", self._cfg()):
+            assert cmtag.restore_tagged_file_mode(str(f), None) is False
+        assert os.stat(f).st_mode & 0o7777 == 0o600
+
+    def test_a_chmod_failure_never_breaks_tagging(self, tmp_path):
+        """Best-effort: a tagged file is still worth returning."""
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o600)
+        with patch.object(comicarr, "CONFIG", self._cfg()):
+            with patch("os.chmod", side_effect=OSError("read-only fs")):
+                assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
+
+    def test_current_file_mode_reads_the_bits(self, tmp_path):
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o640)
+        assert cmtag.current_file_mode(str(f)) == 0o640
+
+    def test_current_file_mode_of_a_missing_path_is_none(self, tmp_path):
+        """The .cbr is deleted by the .cbz conversion under FILE_OPTS = move."""
+        from comicarr import cmtag
+
+        assert cmtag.current_file_mode(str(tmp_path / "gone.cbr")) is None
+
+
+class TestRestoreTaggedFileModeWiring:
+    """The helper is only useful if run() captures early and applies late."""
+
+    @staticmethod
+    def _run_source():
+        import inspect
+
+        from comicarr import cmtag
+
+        return inspect.getsource(cmtag.run)
+
+    def test_run_captures_the_mode_before_tagging(self):
+        src = self._run_source()
+        assert "og_file_mode = current_file_mode(og_filepath)" in src, (
+            "run() no longer captures the pre-tag mode; it must be read before "
+            "the .cbr -> .cbz conversion deletes the original"
+        )
+
+    def test_run_restores_the_mode_on_the_success_path(self):
+        src = self._run_source()
+        assert "restore_tagged_file_mode(filepath, og_file_mode, module)" in src, (
+            "run() no longer restores the file mode before returning the tagged path"
+        )
+
+    def test_the_capture_precedes_the_restore(self):
+        src = self._run_source()
+        assert src.index("og_file_mode = current_file_mode(") < src.index(
+            "restore_tagged_file_mode("
+        ), "the mode must be captured before it can be restored"
 
 
 class TestMangaTagShapeWiring:
