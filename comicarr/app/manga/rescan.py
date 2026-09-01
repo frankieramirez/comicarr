@@ -57,7 +57,12 @@ def parse_folder_files(series, filenames, *, issues=None, series_name=None):
 
 
 def mark_parsed_files_downloaded(comic_id, files):
-    """Mark matching chapter/volume rows Downloaded. Returns the mark count."""
+    """Mark matching chapter/volume rows Downloaded. Returns the mark count.
+
+    Already-Downloaded rows keep their Status. If the file found on disk
+    differs from the stored Location (e.g. metatag exported ``.cbr`` to
+    ``.cbz``), Location is updated to the current filename.
+    """
     all_issues = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
     if not all_issues:
         return 0
@@ -93,6 +98,14 @@ def mark_parsed_files_downloaded(comic_id, files):
             matched = volume_lookup.get(int(parsed["volume_number"]), [])
         for issue in matched:
             if issue.get("Status") == "Downloaded":
+                if issue.get("Location") != filename:
+                    db.upsert(
+                        "issues",
+                        {"Location": filename},
+                        {"IssueID": issue["IssueID"]},
+                    )
+                    issue["Location"] = filename
+                    logger.fdebug("[MANGA-RESCAN] Updated location: %s -> %s" % (filename, issue["IssueID"]))
                 continue
             db.upsert(
                 "issues",
@@ -100,6 +113,7 @@ def mark_parsed_files_downloaded(comic_id, files):
                 {"IssueID": issue["IssueID"]},
             )
             issue["Status"] = "Downloaded"
+            issue["Location"] = filename
             count += 1
             logger.fdebug("[MANGA-RESCAN] Marked as downloaded: %s -> %s" % (filename, issue["IssueID"]))
 
