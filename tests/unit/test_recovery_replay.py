@@ -552,6 +552,53 @@ def test_unknown_leaves_stage_unchanged(queues):
     assert _drain(queues["pp"]) == []
 
 
+def test_unprobeable_without_done_signal_leaves_stage_without_blaming_client(queues, capture_logs):
+    """#832: a row we cannot probe (no client id) is not a transient
+    downloader outage. Without a done-signal it stays UNKNOWN / snatched
+    and the recovery log must not accuse the client."""
+    rkey = journal.release_key("832", "nzbgeek", nzbname="NoId.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="832", PROVIDER="nzbgeek"))
+        conn.execute(issues.insert().values(IssueID="832", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "832"},
+        issueid="832",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    summary = recovery.replay_pipeline(probes=_probe("unprobeable"))
+    assert _journal_row(rkey)["stage"] == journal.SNATCHED
+    assert _drain(queues["pp"]) == []
+    assert summary["actions"].get("unknown-unchanged") == 1
+    assert "no client id to probe" in capture_logs.text
+    assert "transient downloader outage" not in capture_logs.text
+
+
+def test_unprobeable_with_done_signal_enqueues_pp_not_unknown(queues):
+    """#832: unprobeable still hits the done-signal / eviction guard.
+    History-evicted completion without placement is COMPLETE (same as
+    absent), so recovery re-drives PP instead of looping as a fake outage."""
+    rkey = journal.release_key("832b", "nzbgeek", nzbname="Done.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="832b", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "832b", "provider": "nzbgeek", "nzbname": "Done.cbz"},
+        issueid="832b",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    summary = recovery.replay_pipeline(probes=_probe("unprobeable"))
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED
+    assert summary["actions"].get("complete-pp-enqueued") == 1
+    assert summary["actions"].get("unknown-unchanged") is None
+    assert len(_drain(queues["pp"])) == 1
+
+
 # ---------------------------------------------------------------------------
 # Two-marker finalizer — decided ONLY by `moved`, no file probe
 # ---------------------------------------------------------------------------
