@@ -9,6 +9,11 @@ from packaging.version import parse as parse_version
 import comicarr
 from comicarr import filechecker, logger, notifiers
 
+# A second save pass over an archive whose tags were just written: no online
+# fetch, no conversion. Generous enough for a large archive on slow storage,
+# short enough that a wedged ComicTagger cannot hold the post-processor.
+_CLEAR_ISSUE_TIMEOUT = 300
+
 
 def current_file_mode(path):
     """Return path's permission bits, or None if they cannot be read.
@@ -41,8 +46,20 @@ def restore_tagged_file_mode(path, original_mode, module=""):
     Returns True when the mode was applied, False when there was nothing to do.
     """
     if comicarr.CONFIG.ENFORCE_PERMS:
-        filechecker.setperms(path)
-        return True
+        # Wrapped like the chmod branch below, and not left bare: setperms
+        # catches only OSError, while its own `int(CONFIG.CHMOD_FILE, 8)`
+        # raises ValueError for a mode the config accepts but Python cannot
+        # parse ('888'). That escaped run(), whose caller catches only
+        # ImportError, and killed post-processing AFTER the tag had already
+        # succeeded -- losing the rest of the job to a cosmetic step.
+        try:
+            applied = filechecker.setperms(path)
+        except Exception as e:
+            logger.warn("%s Unable to enforce permissions on %s [%s]" % (module, path, e))
+            return False
+        # setperms reports its own failure by returning False; answering True
+        # regardless would claim a mode that was never applied.
+        return bool(applied)
 
     if original_mode is None:
         return False
@@ -91,19 +108,108 @@ def manga_volume_for_issue(issueid):
     from comicarr.tables import comics, issues
 
     try:
-        row = db.select_one(select(issues.c.ComicID, issues.c.VolumeNumber).where(issues.c.IssueID == issueid))
+        row = db.select_one(
+            select(issues.c.ComicID, issues.c.VolumeNumber, issues.c.ChapterNumber, issues.c.Issue_Number).where(
+                issues.c.IssueID == issueid
+            )
+        )
         if row is None or "VolumeNumber" not in set(row.keys()):
-            return None
-        volume = ledger.normalize_volume_number(row["VolumeNumber"])
-        if volume is None:
             return None
         comic = db.select_one(select(comics).where(comics.c.ComicID == row["ComicID"]))
         if comic is None or not series_kind.is_manga(comic):
+            return None
+        # A chapter is not a book, so it keeps its number. MangaDex chapter
+        # rows also store the CONTAINING volume in VolumeNumber, so reading
+        # VolumeNumber alone tagged Chainsaw Man 165 as volume 18 with its
+        # number stripped -- the chapter became unidentifiable.
+        if ledger.normalize_volume_number(row.get("ChapterNumber")) is not None:
+            return None
+        # ComicVine catalogues a licensed manga's English volumes as the
+        # series' issues: the volume lands in Issue_Number and VolumeNumber is
+        # never written. Reading VolumeNumber alone meant One-Punch Man v7
+        # never reached this branch at all and kept <Number>7</Number>, which
+        # is the periodical shape this exists to correct.
+        volume = ledger.normalize_volume_number(row.get("VolumeNumber"))
+        if volume is None:
+            volume = ledger.normalize_volume_number(row.get("Issue_Number"))
+        if volume is None:
             return None
     except Exception as e:
         logger.fdebug("[META-TAGGER] Could not resolve a manga volume for issue %s: %s" % (issueid, e))
         return None
     return volume
+
+
+def volume_metadata_field(comversion, manga_volume, module=""):
+    """The ``volume=`` field of ComicTagger's -m line.
+
+    Split out of run() alongside online_tag_options for the same reason: it is
+    the other half of what a manga tag run has to get right, and the only way
+    to check it otherwise is to grep run()'s source, which passes whether or
+    not the value is correct.
+
+    A manga volume is a book, not an instalment of one: the file IS volume N
+    and has no issue number, so it overrides the series-level volume label a
+    periodical would carry. Written that way, a reader groups the files as the
+    volumes they were published as rather than as chapters of one volume named
+    for the series.
+
+    <Volume> can be set here because ComicVine only supplies one when
+    use_series_start_as_volume is on. The issue number cannot: it is set
+    unconditionally by the overlay that runs after -m, so clearing it is
+    clear_issue_number()'s job, once tagging has finished.
+    """
+    cvers = "volume="
+    if comicarr.CONFIG.CMTAG_VOLUME:
+        if not comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+            if comicarr.CONFIG.SETDEFAULTVOLUME:
+                if any([comversion is None, comversion == "", comversion == "None"]):
+                    comversion = "1"
+                comversion = re.sub("[^0-9]", "", comversion).strip()
+            else:
+                if any([comversion is None, comversion == "", comversion == "None"]):
+                    comversion = None
+                else:
+                    comversion = re.sub("[^0-9]", "", comversion).strip()
+        if comversion is not None:
+            cvers = "volume=%s" % comversion
+
+    if manga_volume is not None:
+        logger.fdebug(
+            "%s [MANGA] tagging as volume %s with no issue number (was volume label: %s)"
+            % (module, manga_volume, comversion)
+        )
+        cvers = "volume=%s" % manga_volume
+    return cvers
+
+
+def online_tag_options(issueid, module=""):
+    """The ComicTagger online-fetch options for this issue.
+
+    Split out of run() so the decision can be asserted directly: it is one of
+    the two things about a manga tag run that has to be right, and the only
+    alternative is grepping run()'s source, which passes whether or not the
+    code works.
+
+    A non-numeric id is not a ComicVine issue id. MangaDex ids look like
+    ``md-csm-ch165``, and handing one to ``--id`` makes ComicVine 404 -- which
+    fails the whole tag run, so the file is placed untagged. There is no
+    ComicVine record to fetch for such an issue, so tag from the local metadata
+    instead of asking for one.
+
+    ``-f -o`` is not the fallback either: that is an online search BY FILENAME,
+    and for a manga chapter it finds the wrong series more often than the right
+    one. Better an accurate local tag than a confident wrong one.
+    """
+    if issueid is None:
+        return ["-f", "-o"]
+    if str(issueid).strip().isdigit():
+        return ["-o", "--id", issueid]
+    logger.fdebug(
+        "%s[COMIC-TAGGER] %s is not a ComicVine issue id -- tagging from local metadata, no online fetch."
+        % (module, issueid)
+    )
+    return []
 
 
 def clear_issue_number(comictagger_cmd, filepath, module=""):
@@ -140,6 +246,9 @@ def clear_issue_number(comictagger_cmd, filepath, module=""):
     if comicarr.CONFIG.CT_TAG_CBL:
         styles.append("cbl")
 
+    cleared = []
+    failed = []
+
     for style in styles:
         script_cmd = [
             sys.executable,
@@ -155,14 +264,43 @@ def clear_issue_number(comictagger_cmd, filepath, module=""):
         ]
         try:
             p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.STDOUT)
-            out, err = p.communicate()
+            try:
+                # Bounded, because an unbounded communicate() on a wedged
+                # ComicTagger never returns: the post-processor is waiting on
+                # this call, so no later file in the job places either. A
+                # cosmetic tag fix must not be able to stall the pipeline.
+                out, err = p.communicate(timeout=_CLEAR_ISSUE_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                # Reap it, so the killed child does not linger as a zombie.
+                p.communicate()
+                logger.warn(
+                    "%s [MANGA] Timed out after %ss clearing the issue number from the %s tags on %s"
+                    % (module, _CLEAR_ISSUE_TIMEOUT, style, filepath)
+                )
+                failed.append(style)
+                continue
         except Exception as e:
             logger.warn("%s [MANGA] Unable to clear the issue number on %s [%s]" % (module, filepath, e))
-            return False
+            failed.append(style)
+            continue
         if "Save complete" not in out:
             logger.warn("%s [MANGA] Could not clear the issue number on %s : %s" % (module, filepath, out))
-            return False
+            failed.append(style)
+            continue
+        cleared.append(style)
         logger.fdebug("%s [MANGA] Cleared the issue number from the %s tags on %s" % (module, style, filepath))
+
+    # Every style is attempted even after one fails. Returning early left the
+    # number gone from one tag block and present in the other -- and run()
+    # places the file regardless -- so the two blocks disagreed about what the
+    # file is, which is worse than either outcome on its own.
+    if failed:
+        logger.warn(
+            "%s [MANGA] Issue number cleared from %s but not %s on %s -- the tag blocks now disagree"
+            % (module, cleared or "no", failed, filepath)
+        )
+        return False
 
     return bool(styles)
 
@@ -254,39 +392,8 @@ def run(
 
     tagoptions = ["-s"]
 
-    cvers = "volume="
-    if comicarr.CONFIG.CMTAG_VOLUME:
-        if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
-            pass
-        else:
-            if comicarr.CONFIG.SETDEFAULTVOLUME:
-                if any([comversion is None, comversion == "", comversion == "None"]):
-                    comversion = "1"
-                comversion = re.sub("[^0-9]", "", comversion).strip()
-            else:
-                if any([comversion is None, comversion == "", comversion == "None"]):
-                    comversion = None
-                else:
-                    comversion = re.sub("[^0-9]", "", comversion).strip()
-        if comversion is not None:
-            cvers = "volume=%s" % comversion
-
-    # A manga volume is a book, not an instalment of one: the file is volume N
-    # and has no issue number. Write that shape instead of the series-level
-    # volume label, so a reader groups the files as the volumes they were
-    # published as rather than as chapters of a single volume.
-    #
-    # <Volume> can be set here because ComicVine only supplies one when
-    # use_series_start_as_volume is on. The issue number cannot: it is set
-    # unconditionally by the overlay that runs after -m, so clearing it is
-    # clear_issue_number()'s job, once tagging has finished.
     manga_volume = manga_volume_for_issue(issueid)
-    if manga_volume is not None:
-        logger.fdebug(
-            "%s [MANGA] tagging as volume %s with no issue number (was volume label: %s)"
-            % (module, manga_volume, comversion)
-        )
-        cvers = "volume=%s" % manga_volume
+    cvers = volume_metadata_field(comversion, manga_volume, module)
 
     if readingorder is not None:
         if type(readingorder) == list:
@@ -381,10 +488,7 @@ def run(
             logger.fdebug(module + " Will NOT modify existing tag blocks even if they exist already.")
             tagoptions.extend(["--nooverwrite"])
 
-    if issueid is None:
-        tagoptions.extend(["-f", "-o"])
-    else:
-        tagoptions.extend(["-o", "--id", issueid])
+    tagoptions.extend(online_tag_options(issueid, module))
 
     original_tagoptions = tagoptions
     og_tagtype = None

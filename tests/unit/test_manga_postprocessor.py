@@ -860,23 +860,17 @@ class TestMangaMetatagOnImport:
         return mock_place, mock_cmtag, mock_db, mock_queue, str(src), str(tagged)
 
     def test_import_tags_the_file_before_placing_it(self, tmp_path):
-        mock_place, mock_cmtag, _db, _q, src, tagged = self._run(
-            tmp_path, "TAGGED", self._meta_config()
-        )
+        mock_place, mock_cmtag, _db, _q, src, tagged = self._run(tmp_path, "TAGGED", self._meta_config())
 
         mock_cmtag.assert_called_once()
         assert mock_cmtag.call_args.kwargs["filename"] == src, (
             "the tagger must run on the download-location file, before placement"
         )
         assert mock_cmtag.call_args.kwargs["issueid"] == "md-csm-ch165"
-        assert mock_place.call_args[0][0] == tagged, (
-            "placement must move the TAGGED file, not the untagged original"
-        )
+        assert mock_place.call_args[0][0] == tagged, "placement must move the TAGGED file, not the untagged original"
 
     def test_the_recorded_location_is_the_tagged_filename(self, tmp_path):
-        _place, _cmtag, mock_db, _q, _src, _tagged = self._run(
-            tmp_path, "TAGGED", self._meta_config()
-        )
+        _place, _cmtag, mock_db, _q, _src, _tagged = self._run(tmp_path, "TAGGED", self._meta_config())
 
         mock_db.upsert.assert_any_call(
             "issues",
@@ -902,13 +896,9 @@ class TestMangaMetatagOnImport:
 
     @pytest.mark.parametrize("sentinel", ["fail", "corrupt", "unrar error"])
     def test_a_tagging_failure_never_costs_the_import(self, tmp_path, sentinel):
-        mock_place, _cmtag, mock_db, mock_queue, src, _tagged = self._run(
-            tmp_path, sentinel, self._meta_config()
-        )
+        mock_place, _cmtag, mock_db, mock_queue, src, _tagged = self._run(tmp_path, sentinel, self._meta_config())
 
-        assert mock_place.call_args[0][0] == src, (
-            "a sentinel is not a path; the original file must still be placed"
-        )
+        assert mock_place.call_args[0][0] == src, "a sentinel is not a path; the original file must still be placed"
         mock_db.upsert.assert_any_call(
             "issues",
             {"Status": "Downloaded", "Location": "Chainsaw Man 165.cbr"},
@@ -946,8 +936,7 @@ class TestMangaMetatagWiring:
 
     def test_process_manga_calls_the_tagger(self):
         assert "self._metatag_manga_file(" in self._source(), (
-            "_process_manga no longer tags its files; a manga volume will land "
-            "in the library with no ComicInfo.xml"
+            "_process_manga no longer tags its files; a manga volume will land in the library with no ComicInfo.xml"
         )
 
     def test_the_ledger_row_is_resolved_before_placement(self):
@@ -974,12 +963,56 @@ class TestVolumeIdentifiesFile:
     the series and selects none of them.
     """
 
-    def test_manga_series_is_identified_by_volume(self):
-        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}) is True
+    def test_manga_volume_file_is_identified_by_volume(self):
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 33, "IsManga": True},
+                {"manga_volume": "33", "manga_chapter": None},
+            )
+            is True
+        )
 
     def test_manga_arm_does_not_depend_on_the_series_length(self):
         """A single-volume manga is still numbered by volume."""
-        assert volume_identifies_file({"Type": "Digital", "Total": 1, "IsManga": True}) is True
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 1, "IsManga": True},
+                {"manga_volume": "1", "manga_chapter": None},
+            )
+            is True
+        )
+
+    def test_manga_chapter_file_is_not_identified_by_volume(self):
+        """A manga series holds both kinds; only the file says which is in hand.
+
+        `Chainsaw Man c181` went down the volume branch, where series_volume's
+        `v1` default was looked up as an issue number and marked chapter 1
+        Downloaded. `Series v33` landed on chapter 33 the same way.
+        """
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": None, "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_carrying_both_is_a_chapter(self):
+        """A MangaDex chapter file also names its containing volume."""
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": "18", "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_with_no_tokens_claims_no_volume(self):
+        """Fails closed -- never falls back to the defaulted series_volume."""
+        assert (
+            volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, {"series_volume": "v1"}) is False
+        )
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, None) is False
 
     def test_comic_series_of_the_same_type_is_still_identified_by_issue(self):
         assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": False}) is False
@@ -1065,19 +1098,52 @@ class TestMangaVolumeForIssue:
         with patch("comicarr.db.select_one", side_effect=lambda *a, **k: rows.pop(0)):
             return cmtag.manga_volume_for_issue(issueid)
 
+    @staticmethod
+    def _issue(**overrides):
+        """An issues row with every column the resolver selects."""
+        row = {"ComicID": "71856", "VolumeNumber": None, "ChapterNumber": None, "Issue_Number": None}
+        row.update(overrides)
+        return row
+
     def test_a_manga_issue_resolves_to_its_volume_number(self):
-        assert self._resolve({"ComicID": "71856", "VolumeNumber": "7"}, {"ContentType": "manga"}) == "7"
+        assert self._resolve(self._issue(VolumeNumber="7"), {"ContentType": "manga"}) == "7"
 
     def test_the_number_is_canonicalised_by_the_ledger(self):
         """Reuses normalize_volume_number rather than restating the format."""
-        assert self._resolve({"ComicID": "71856", "VolumeNumber": 7.0}, {"ContentType": "manga"}) == "7"
+        assert self._resolve(self._issue(VolumeNumber=7.0), {"ContentType": "manga"}) == "7"
 
     def test_a_comic_series_keeps_the_periodical_shape(self):
-        assert self._resolve({"ComicID": "17993", "VolumeNumber": "2"}, {"ContentType": "comic"}) is None
+        assert self._resolve(self._issue(ComicID="17993", VolumeNumber="2"), {"ContentType": "comic"}) is None
 
-    def test_a_ledger_without_volume_numbers_falls_back(self):
-        """MangaDex-backed rows carry chapters only; tagging must still run."""
-        assert self._resolve({"ComicID": "71856", "VolumeNumber": None}, {"ContentType": "manga"}) is None
+    def test_a_comicvine_volume_is_read_off_the_issue_number(self):
+        """ComicVine models a licensed manga's English volumes as its issues.
+
+        The volume lands in Issue_Number and VolumeNumber is never written, so
+        reading VolumeNumber alone meant One-Punch Man v7 never reached this
+        branch and kept the <Number>7</Number> this exists to remove.
+        """
+        assert self._resolve(self._issue(Issue_Number="7"), {"ContentType": "manga"}) == "7"
+
+    def test_a_chapter_keeps_its_number_even_though_it_names_a_volume(self):
+        """A chapter is not a book.
+
+        MangaDex chapter rows store the CONTAINING volume in VolumeNumber, so
+        reading it here tagged Chainsaw Man 165 as volume 18 with its number
+        stripped -- leaving the chapter unidentifiable.
+        """
+        assert (
+            self._resolve(
+                self._issue(ChapterNumber="165", VolumeNumber="18", Issue_Number="165"),
+                {"ContentType": "manga"},
+            )
+            is None
+        )
+
+    def test_a_chapter_without_a_volume_also_keeps_its_number(self):
+        assert self._resolve(self._issue(ChapterNumber="165", Issue_Number="165"), {"ContentType": "manga"}) is None
+
+    def test_a_row_with_no_numbers_at_all_falls_back(self):
+        assert self._resolve(self._issue(), {"ContentType": "manga"}) is None
 
     def test_a_missing_issue_row_falls_back(self):
         assert self._resolve(None, None) is None
@@ -1137,9 +1203,42 @@ class TestRestoreTaggedFileMode:
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
-            with patch.object(cmtag.filechecker, "setperms") as setperms:
+            with patch.object(cmtag.filechecker, "setperms", return_value=True) as setperms:
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
         setperms.assert_called_once_with(str(f))
+
+    def test_a_setperms_failure_is_reported_not_claimed(self, tmp_path):
+        """setperms says False when it could not apply the mode.
+
+        Answering True regardless claimed a mode that was never set.
+        """
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+            with patch.object(cmtag.filechecker, "setperms", return_value=False):
+                assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
+
+    def test_a_raising_setperms_never_costs_the_import(self, tmp_path):
+        """setperms catches only OSError.
+
+        A CHMOD_FILE the config accepts but int(_, 8) cannot parse ('888')
+        raises ValueError out of it. That escaped run(), whose caller catches
+        only ImportError, and killed post-processing AFTER the tag had already
+        succeeded -- losing the rest of the job to a cosmetic step.
+        """
+        from comicarr import cmtag
+
+        f = tmp_path / "a.cbz"
+        f.write_bytes(b"x")
+        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+            with patch.object(
+                cmtag.filechecker,
+                "setperms",
+                side_effect=ValueError("invalid literal for int() with base 8: '888'"),
+            ):
+                assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
 
     def test_an_uncapturable_original_mode_changes_nothing(self, tmp_path):
         """A stat failure before tagging must not invent a mode."""
@@ -1204,9 +1303,9 @@ class TestRestoreTaggedFileModeWiring:
 
     def test_the_capture_precedes_the_restore(self):
         src = self._run_source()
-        assert src.index("og_file_mode = current_file_mode(") < src.index(
-            "restore_tagged_file_mode("
-        ), "the mode must be captured before it can be restored"
+        assert src.index("og_file_mode = current_file_mode(") < src.index("restore_tagged_file_mode("), (
+            "the mode must be captured before it can be restored"
+        )
 
 
 class TestMangaTagShapeWiring:
@@ -1238,8 +1337,7 @@ class TestMangaTagShapeWiring:
         """Both passes must land while the file is still the tagging copy."""
         source = self._run_source()
         assert source.index("clear_issue_number(") < source.index("restore_tagged_file_mode("), (
-            "the issue number would be cleared after the mode was restored, "
-            "reducing a library file's permissions again"
+            "the issue number would be cleared after the mode was restored, reducing a library file's permissions again"
         )
 
     def test_the_tag_options_no_longer_carry_a_doomed_issue_clear(self):
@@ -1312,3 +1410,170 @@ class TestClearIssueNumber:
         with patch.object(comicarr, "CONFIG", self._cfg()):
             with patch.object(cmtag.subprocess, "Popen", side_effect=OSError("no interpreter")):
                 assert cmtag.clear_issue_number("/app/comictagger.py", "/cache/a.cbz") is False
+
+
+class TestOnlineTagOptions:
+    """Which ComicTagger online options an issue id earns.
+
+    Asserted directly rather than by grepping run()'s source: the source
+    assertions elsewhere in this file pass whether or not the decision is
+    correct, so CI never saw ComicTagger abort on a MangaDex id.
+    """
+
+    def test_a_comicvine_id_is_fetched_by_id(self):
+        from comicarr import cmtag
+
+        assert cmtag.online_tag_options("446055") == ["-o", "--id", "446055"]
+
+    def test_no_id_falls_back_to_a_filename_search(self):
+        from comicarr import cmtag
+
+        assert cmtag.online_tag_options(None) == ["-f", "-o"]
+
+    @pytest.mark.parametrize("issueid", ["md-csm-ch165", "md-opm-v07", "mal-1234"])
+    def test_a_non_comicvine_id_asks_for_nothing_online(self, issueid):
+        """`--id md-csm-ch165` 404s, which fails the run and places it untagged.
+
+        `-f -o` is not the fallback either -- that searches ComicVine by
+        filename, which for a manga chapter finds the wrong series more often
+        than the right one.
+        """
+        from comicarr import cmtag
+
+        options = cmtag.online_tag_options(issueid)
+
+        assert options == []
+        assert "--id" not in options
+        assert "-o" not in options
+
+
+class TestVolumeMetadataField:
+    """The -m volume= field, asserted on the value rather than on run()'s source."""
+
+    @staticmethod
+    def _cfg(**overrides):
+        values = {
+            "CMTAG_VOLUME": True,
+            "CMTAG_START_YEAR_AS_VOLUME": False,
+            "SETDEFAULTVOLUME": False,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def test_a_manga_volume_overrides_the_series_volume_label(self, monkeypatch):
+        """The file IS volume 7, so it is tagged volume 7 -- not volume 2015."""
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        assert cmtag.volume_metadata_field("2015", "7") == "volume=7"
+
+    def test_a_manga_volume_wins_even_with_no_series_label(self, monkeypatch):
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        assert cmtag.volume_metadata_field(None, "7") == "volume=7"
+
+    def test_a_manga_volume_wins_over_the_default_volume_setting(self, monkeypatch):
+        """SETDEFAULTVOLUME forces 1; the book's own volume must still win."""
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg(SETDEFAULTVOLUME=True))
+        assert cmtag.volume_metadata_field(None, "7") == "volume=7"
+
+    def test_a_periodical_keeps_its_series_volume_label(self, monkeypatch):
+        """Control: with no manga volume the comic behaviour is untouched."""
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        assert cmtag.volume_metadata_field("2015", None) == "volume=2015"
+
+    def test_volume_tagging_off_still_clears_the_field(self, monkeypatch):
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg(CMTAG_VOLUME=False))
+        assert cmtag.volume_metadata_field("2015", None) == "volume="
+
+
+class TestClearIssueNumberAcrossStyles:
+    """Both tag blocks, or neither -- and never a hang.
+
+    run() places the file whichever way this goes, so returning after the first
+    failure left <Number> gone from one block and present in the other: the two
+    blocks then disagreed about what the file is, which is worse than either
+    outcome alone.
+    """
+
+    @staticmethod
+    def _cfg():
+        return SimpleNamespace(CT_TAG_CR=True, CT_TAG_CBL=True, CT_SETTINGSPATH="/tmp/ct")
+
+    def _run(self, monkeypatch, results):
+        """results: one entry per style, either a stdout string or an Exception."""
+        from comicarr import cmtag
+
+        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        calls = []
+        timeouts = []
+        pending = list(results)
+
+        class FakeProc:
+            def __init__(self, cmd, **kwargs):
+                self.cmd = cmd
+                calls.append(cmd)
+                self._result = pending.pop(0)
+
+            def communicate(self, timeout=None):
+                timeouts.append(timeout)
+                if isinstance(self._result, Exception):
+                    # Only a BOUNDED wait can time out. An unbounded one just
+                    # blocks forever, which a test cannot represent -- so the
+                    # recorded timeout below is what actually pins it.
+                    if timeout is None:
+                        raise AssertionError("communicate() was unbounded; a wedged child would hang here")
+                    raise self._result
+                return self._result, ""
+
+            def kill(self):
+                calls.append(["killed"])
+
+        monkeypatch.setattr(cmtag.subprocess, "Popen", FakeProc)
+        ok = cmtag.clear_issue_number("/tmp/comictagger.py", "/library/One-Punch Man v07.cbz")
+        return ok, calls, timeouts
+
+    def test_both_styles_are_cleared(self, monkeypatch):
+        ok, calls, timeouts = self._run(monkeypatch, ["Save complete", "Save complete"])
+
+        assert ok is True
+        assert [c[c.index("--type") + 1] for c in calls] == ["cr", "cbl"]
+
+    def test_a_failing_style_does_not_skip_the_remaining_one(self, monkeypatch):
+        """The early return left the blocks disagreeing and said nothing."""
+        ok, calls, timeouts = self._run(monkeypatch, ["Save complete", "Error: could not write"])
+
+        assert ok is False, "a partial clear must not report success"
+        assert len(calls) == 2, "the second style was never attempted"
+
+    def test_a_first_style_failure_still_attempts_the_second(self, monkeypatch):
+        ok, calls, timeouts = self._run(monkeypatch, ["Error: could not write", "Save complete"])
+
+        assert ok is False
+        assert [c[c.index("--type") + 1] for c in calls] == ["cr", "cbl"]
+
+    def test_a_wedged_comictagger_is_killed_rather_than_waited_on(self, monkeypatch):
+        """An unbounded communicate() never returns, and the post-processor is
+        waiting on it -- so no later file in the job places either."""
+        import subprocess as sp
+
+        from comicarr import cmtag
+
+        ok, calls, timeouts = self._run(
+            monkeypatch,
+            [sp.TimeoutExpired(cmd="comictagger", timeout=cmtag._CLEAR_ISSUE_TIMEOUT), "Save complete"],
+        )
+
+        assert ok is False
+        assert ["killed"] in calls, "the wedged child was never killed"
+        assert [c[c.index("--type") + 1] for c in calls if c != ["killed"]] == ["cr", "cbl"]
+        # The bound itself: an unbounded communicate() cannot time out at all,
+        # it simply never returns, and the post-processor waits on it.
+        assert timeouts[0] == cmtag._CLEAR_ISSUE_TIMEOUT, "the wait was not bounded"
