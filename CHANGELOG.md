@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.38.3
+
+### Patch Changes
+
+- 48aab84: Failed downloads now reach failed-handling instead of parking in Needs Attention. A download NZBGet reported as failed sits in `InterDir`, outside the configured post-processing roots, so the command was rejected on its path before anything looked at the failed flag. The grab was never marked failed, the failed-download checker never tripped, and the same broken release was re-grabbed on every later search while the issue stayed stuck in Needs Attention with no way to clear it. Failed downloads are still path-sanitised, and successful ones are still confined to the configured roots.
+  
+  A previously failed release no longer rejects every alternative for the same issue. Every candidate the provider returned was checked against the *first* candidate's release id, so one failed release discarded the whole result set and the issue stayed Wanted with nothing to show for the search. Each candidate is now judged on its own, and the release that is actually snatched is the one recorded against the issue — so post-processing can match the download back to it.
+- 4200f21: Metatagging a manga `.cbr` now updates the issue's stored file path to the new `.cbz`. ComicTagger cannot write into a RAR archive, so tagging converts the file and deletes the original; the library row used to keep pointing at the deleted `.cbr` even though Have and Status still looked correct. Re-tagging and anything else that opens the file through that path now finds the archive that is actually on disk.
+
 ## 0.38.2
 
 ### Patch Changes
