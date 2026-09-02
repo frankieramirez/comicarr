@@ -465,6 +465,33 @@ def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
     }
     assert "volume_identifies_file" in called, "the folder scan no longer consults the volume predicate"
     assert "numbered_by_volume" in called, "the scan's issue-number checks no longer consult the exemption"
+    # the year gate must actually be reached, and must be reached through the
+    # composed helper -- not handed a flag the scan computed for another purpose
+    assert "volume_settles_year_for_match" in called, "the scan no longer consults the volume year gate"
+    assert "chapter_named_file" in called, (
+        "the scan no longer distinguishes a chapter file from a volume file, so a "
+        "defaulted v1 will locate c181 as issue 1 again"
+    )
+    assert "manga_volume_rows" in called, (
+        "the scan no longer resolves a manga volume on VolumeNumber, so v20 will "
+        "attach to chapter 20 on MangaDex again"
+    )
+    assert "volume_match_settles_year" in called, "the volume year gate is defined but never called"
+
+    settles_year_args = [
+        node.args
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "volume_match_settles_year"
+    ]
+    assert settles_year_args, "volume_match_settles_year is never called"
+    for args in settles_year_args:
+        names = {arg.id for arg in args if isinstance(arg, ast.Name)}
+        assert "lonevol" not in names, (
+            "the year gate is keyed off lonevol again -- manga has no ComicVersion, "
+            "so that defaults to 1 and only v01 would pass"
+        )
 
     watch_value_keys = [
         key.value
@@ -483,7 +510,31 @@ def test_the_volume_numbered_type_list_has_a_single_owner():
 
     Each copy silently omitted manga, so a manga volume file failed a different
     check depending on which copy it reached. The list now lives in one tuple.
+
+    Asserted over the AST rather than the raw source: a source-text count is
+    blind to a duplicate written with single quotes, and fails on a mere
+    mention of TPB in a comment or docstring.
     """
     pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
-    source = pp_path.read_text(encoding="utf-8")
-    assert source.count('"TPB"') == 1, "the volume-numbered type list has been duplicated again"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    definitions = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_COLLECTED_TYPES" for target in node.targets)
+    ]
+    assert len(definitions) == 1, "_COLLECTED_TYPES must be defined exactly once"
+
+    value = definitions[0].value
+    assert isinstance(value, ast.Tuple), "_COLLECTED_TYPES must stay a literal tuple"
+    assert [element.value for element in value.elts] == ["TPB", "HC", "GN"]
+
+    # and no other literal "TPB" may exist -- quote style is irrelevant to the
+    # AST, and a comment or docstring mentioning TPB is not a Constant of it
+    literals = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value == "TPB"
+    ]
+    assert len(literals) == 1, "the volume-numbered type list has been duplicated again"

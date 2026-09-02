@@ -37,11 +37,14 @@ if comicarr.LOG_LEVEL is None:
 
 from comicarr.postprocessor import (
     PostProcessor,
+    chapter_named_file,
     log_scan_summary,
+    manga_volume_rows,
     numbered_by_volume,
     summarize_scan_matches,
     volume_identifies_file,
     volume_match_settles_year,
+    volume_settles_year_for_match,
 )
 
 
@@ -878,3 +881,107 @@ class TestVolumeMatchSettlesYear:
     def test_collected_editions_are_not_covered(self):
         """A TPB year mismatch can still mean the wrong edition."""
         assert volume_match_settles_year({"Type": "TPB", "Total": 5}, True) is False
+
+
+class TestVolumeSettlesYearForMatch:
+    """The year gate as the folder scan actually reaches it.
+
+    The helper tests above supply `volume_matched` themselves, so they cannot
+    catch the scan deriving that flag wrongly. This drives the composed gate
+    with the watchmatch shapes FileChecker really produces.
+    """
+
+    def _manga(self):
+        return {"Type": "Digital", "Total": 33, "IsManga": True}
+
+    def test_v20_with_a_mismatched_year_is_settled_by_the_volume(self):
+        """The regression that keyed this off lonevol.
+
+        lonevol means "the filename's volume digits equal ComicVersion", and a
+        manga series has no ComicVersion so the scan defaults it to 1. v01
+        passed by coincidence; v20 failed on 20 != 1 and the file was rejected
+        for a year the provider and the release simply disagree about.
+        """
+        match = {"series_volume": "v20", "issue_year": "2014", "booktype": "issue"}
+
+        assert volume_settles_year_for_match(self._manga(), match) is True
+
+    def test_v01_is_settled_for_the_same_reason_and_not_by_accident(self):
+        match = {"series_volume": "v01", "issue_year": "2014", "booktype": "issue"}
+
+        assert volume_settles_year_for_match(self._manga(), match) is True
+
+    def test_a_chapter_file_is_not_settled_by_its_defaulted_volume(self):
+        """FileChecker defaults a missing volume to v1 on a chapter file.
+
+        Letting that stand in for a volume match would wave a chapter file
+        past the year check on evidence it never actually carried.
+        """
+        match = {"series_volume": "v1", "issue_year": "2023", "booktype": "manga"}
+
+        assert chapter_named_file(match) is True
+        assert volume_settles_year_for_match(self._manga(), match) is False
+
+    def test_a_file_with_no_volume_at_all_is_not_settled(self):
+        match = {"series_volume": None, "issue_year": "2014", "booktype": "issue"}
+
+        assert volume_settles_year_for_match(self._manga(), match) is False
+
+    def test_a_comic_series_keeps_its_year_check(self):
+        """Deliberately manga-only: a TPB year mismatch can mean a wrong edition."""
+        match = {"series_volume": "v20", "issue_year": "2014", "booktype": "issue"}
+
+        assert volume_settles_year_for_match({"Type": "TPB", "Total": 5, "IsManga": False}, match) is False
+        assert volume_match_settles_year({"Type": "TPB", "Total": 5, "IsManga": False}, True) is False
+
+
+class TestMangaVolumeRows:
+    """A manga VOLUME resolves on VolumeNumber, not Int_IssueNumber.
+
+    MangaDex and MyAnimeList store the CHAPTER in Int_IssueNumber. Looking a
+    volume up there files "v20" against chapter 20 -- the file lands on a row
+    it has nothing to do with, and Have ticks up on the wrong one.
+    """
+
+    def test_a_volume_file_matches_the_volume_row(self):
+        rows = [
+            {"IssueID": "md-csm-v20", "VolumeNumber": "20"},
+            {"IssueID": "md-csm-v21", "VolumeNumber": "21"},
+        ]
+        with patch("comicarr.postprocessor.db") as mock_db:
+            mock_db.select_all.return_value = rows
+
+            matched = manga_volume_rows("md-csm", "v20")
+
+        assert [row["IssueID"] for row in matched] == ["md-csm-v20"]
+
+    def test_zero_padding_and_the_v_marker_do_not_prevent_a_match(self):
+        rows = [{"IssueID": "md-csm-v01", "VolumeNumber": "1"}]
+        with patch("comicarr.postprocessor.db") as mock_db:
+            mock_db.select_all.return_value = rows
+
+            assert manga_volume_rows("md-csm", "v01") == rows
+
+    def test_a_series_with_no_volume_rows_defers_to_the_issue_query(self):
+        """ComicVine stores volumes AS issues, so Int_IssueNumber is correct there.
+
+        Returning None (rather than an empty list) is what tells the caller to
+        run its existing query instead of concluding nothing matched.
+        """
+        with patch("comicarr.postprocessor.db") as mock_db:
+            mock_db.select_all.return_value = []
+
+            assert manga_volume_rows("cv-123", "v20") is None
+
+    def test_an_unusable_volume_defers_without_querying(self):
+        with patch("comicarr.postprocessor.db") as mock_db:
+            assert manga_volume_rows("md-csm", None) is None
+            assert manga_volume_rows("md-csm", "v") is None
+            mock_db.select_all.assert_not_called()
+
+    def test_a_volume_with_no_matching_row_reports_no_match(self):
+        """An empty list is a real answer: the series has volumes, just not this one."""
+        with patch("comicarr.postprocessor.db") as mock_db:
+            mock_db.select_all.return_value = [{"IssueID": "md-csm-v01", "VolumeNumber": "1"}]
+
+            assert manga_volume_rows("md-csm", "v20") == []
