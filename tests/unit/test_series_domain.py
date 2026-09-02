@@ -414,7 +414,7 @@ def test_update_content_kind_persists_and_returns_canonical_value(monkeypatch, c
     }
     updated = dict(existing, ContentType=content_type)
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
 
@@ -478,7 +478,7 @@ def test_update_content_kind_repoints_comicvine_series_to_manga_dest(monkeypatch
         "ContentType": "manga",
     }
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
     monkeypatch.setattr(series_service.logger, "warn", warn)
@@ -510,7 +510,7 @@ def test_update_content_kind_leaves_location_when_already_under_manga_dest(monke
     }
     updated = dict(existing, ContentType="manga")
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
     monkeypatch.setattr(series_service.logger, "warn", warn)
@@ -538,7 +538,7 @@ def test_update_content_kind_heals_manga_series_still_under_comics_dest(monkeypa
         "ContentType": "manga",
     }
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
 
@@ -559,7 +559,7 @@ def test_update_content_kind_to_comic_does_not_repoint_location(monkeypatch):
     }
     updated = dict(existing, ContentType="comic")
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
 
@@ -586,7 +586,7 @@ def test_update_content_kind_sets_manga_location_when_unset_without_orphan_warni
         "ContentType": "manga",
     }
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
     monkeypatch.setattr(series_service.logger, "warn", warn)
@@ -610,7 +610,7 @@ def test_update_content_kind_leaves_location_when_manga_dest_missing(monkeypatch
     }
     updated = dict(existing, ContentType="manga")
     rows = iter([existing, updated])
-    monkeypatch.setattr(series_service, "get_manga_destination", lambda: None)
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: None)
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
     monkeypatch.setattr(series_service.logger, "warn", warn)

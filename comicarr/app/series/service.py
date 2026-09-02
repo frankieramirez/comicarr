@@ -31,7 +31,6 @@ from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.strings import filesafe
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.series import queries as series_queries
-from comicarr.config import get_manga_destination
 from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, weekly
 
 _LIBRARY_ROOT_CONFIG_KEYS = (
@@ -466,6 +465,13 @@ def _location_under_manga_dest(location, manga_dest):
     return is_path_within_allowed_dirs(location, [manga_dest])
 
 
+def _manga_destination():
+    # Lazy import: helpers.py imports this module during comicarr.config init.
+    from comicarr.config import get_manga_destination
+
+    return get_manga_destination()
+
+
 def manga_series_location(series_name, manga_dest):
     """Return ``<manga_dest>/<filesafe(series_name)>``, or None if either is missing."""
     folder = filesafe(series_name) if series_name else ""
@@ -528,7 +534,7 @@ def update_content_kind(ctx, comic_id, content_type):
 
     new_location = None
     if content_type == "manga":
-        new_location, warning = manga_location_for_reclassify(existing, get_manga_destination())
+        new_location, warning = manga_location_for_reclassify(existing, _manga_destination())
         if warning:
             logger.warn(warning)
 
