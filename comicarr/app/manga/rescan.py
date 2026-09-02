@@ -20,6 +20,7 @@ from sqlalchemy import select
 from comicarr import db, logger
 from comicarr.app.manga.parse import parse_in_series_context
 from comicarr.scanutil import COMIC_EXTENSIONS
+from comicarr.tables import comics as t_comics
 from comicarr.tables import issues as t_issues
 
 MANGA_EXTENSIONS = COMIC_EXTENSIONS
@@ -56,16 +57,64 @@ def parse_folder_files(series, filenames, *, issues=None, series_name=None):
     ]
 
 
-def mark_parsed_files_downloaded(comic_id, files):
+def _same_stem_different_ext(stored_name, filename):
+    stored_stem, stored_ext = os.path.splitext(stored_name)
+    file_stem, file_ext = os.path.splitext(filename)
+    if not stored_stem or not stored_ext or not file_ext:
+        return False
+    return stored_stem == file_stem and stored_ext.lower() != file_ext.lower()
+
+
+def _is_directly_in_directory(filepath, directory):
+    if not filepath or not directory:
+        return False
+    parent = os.path.normpath(os.path.dirname(os.path.abspath(filepath)))
+    root = os.path.normpath(os.path.abspath(directory))
+    return parent == root
+
+
+def _series_directory(comic_id, directory=None):
+    if directory:
+        return directory
+    row = db.select_one(select(t_comics.c.ComicLocation).where(t_comics.c.ComicID == comic_id))
+    if not row:
+        return None
+    return row.get("ComicLocation")
+
+
+def _can_repoint_downloaded_location(directory, stored, filepath):
+    """True when a Downloaded row should follow ``filepath``.
+
+    Same-stem extension change at the series root (``.cbr`` -> ``.cbz``),
+    or the stored basename is gone there and the candidate exists there.
+    Nested leftovers and different-stem matches stay put.
+    """
+    filename = os.path.basename(filepath)
+    stored_name = os.path.basename(stored) if stored else ""
+    if stored_name == filename:
+        return False
+    if not _is_directly_in_directory(filepath, directory):
+        return False
+    if _same_stem_different_ext(stored_name, filename):
+        return True
+    stored_path = os.path.join(directory, stored_name) if directory and stored_name else None
+    stored_missing = not stored_path or not os.path.isfile(stored_path)
+    candidate_path = os.path.join(directory, filename) if directory else None
+    return stored_missing and bool(candidate_path) and os.path.isfile(candidate_path)
+
+
+def mark_parsed_files_downloaded(comic_id, files, *, directory=None):
     """Mark matching chapter/volume rows Downloaded. Returns the mark count.
 
-    Already-Downloaded rows keep their Status. If the file found on disk
-    differs from the stored Location (e.g. metatag exported ``.cbr`` to
-    ``.cbz``), Location is updated to the current filename.
+    Already-Downloaded rows keep their Status. Location is rewritten only
+    for a same-stem extension change at the series root (e.g. metatag
+    exported ``.cbr`` to ``.cbz``), or when the stored basename is gone
+    there and the candidate exists there.
     """
     all_issues = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
     if not all_issues:
         return 0
+    series_dir = _series_directory(comic_id, directory)
 
     chapter_lookup = {}
     volume_lookup = {}
@@ -98,7 +147,9 @@ def mark_parsed_files_downloaded(comic_id, files):
             matched = volume_lookup.get(int(parsed["volume_number"]), [])
         for issue in matched:
             if issue.get("Status") == "Downloaded":
-                if issue.get("Location") != filename:
+                if issue.get("Location") != filename and _can_repoint_downloaded_location(
+                    series_dir, issue.get("Location"), filepath
+                ):
                     db.upsert(
                         "issues",
                         {"Location": filename},
@@ -133,4 +184,4 @@ def rescan_manga_series(series, *, directory=None):
         return 0
     issue_rows = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
     parsed = parse_folder_files(series, paths, issues=issue_rows)
-    return mark_parsed_files_downloaded(comic_id, parsed)
+    return mark_parsed_files_downloaded(comic_id, parsed, directory=folder)

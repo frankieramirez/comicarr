@@ -186,3 +186,68 @@ def test_mark_parsed_files_downloaded_skips_matching_downloaded_location(monkeyp
     assert row["Status"] == "Downloaded"
     assert row["Location"] == "Naruto 100.cbz"
     assert comic["Have"] == 1
+
+
+def test_mark_parsed_files_downloaded_keeps_chapter_location_when_volume_pack_matches(monkeypatch, tmp_path):
+    (tmp_path / "Naruto c100.cbz").write_bytes(b"chapter")
+    (tmp_path / "Naruto v12.cbz").write_bytes(b"volume")
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    _seed_manga(
+        engine,
+        tmp_path,
+        status="Downloaded",
+        location="Naruto c100.cbz",
+        have=1,
+    )
+    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+
+    count = mark_parsed_files_downloaded(
+        "md-naruto",
+        [
+            (str(tmp_path / "Naruto c100.cbz"), {"chapter_number": 100, "volume_number": None}),
+            (str(tmp_path / "Naruto v12.cbz"), {"chapter_number": None, "volume_number": 12}),
+        ],
+    )
+
+    assert count == 0
+    with engine.connect() as conn:
+        row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
+        comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
+    assert row["Status"] == "Downloaded"
+    assert row["Location"] == "Naruto c100.cbz"
+    assert comic["Have"] == 1
+
+
+def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, tmp_path):
+    (tmp_path / "Naruto 12.cbz").write_bytes(b"cbz")
+    leftover = tmp_path / "old"
+    leftover.mkdir()
+    (leftover / "Naruto 12.cbr").write_bytes(b"cbr")
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    _seed_manga(
+        engine,
+        tmp_path,
+        bare_mode="volumes",
+        status="Downloaded",
+        location="Naruto 12.cbr",
+        have=1,
+    )
+
+    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(
+        updater.filechecker,
+        "FileChecker",
+        MagicMock(side_effect=AssertionError("manga forceRescan must not use FileChecker")),
+    )
+
+    updater.forceRescan("md-naruto")
+
+    with engine.connect() as conn:
+        row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
+        comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
+    assert row["Status"] == "Downloaded"
+    assert row["Location"] == "Naruto 12.cbz"
+    assert comic["Have"] == 1
