@@ -308,3 +308,95 @@ def test_reconcile_keeps_parked_row_when_issue_not_downloaded(activity_db, tmp_p
     assert summary["skipped_actionable"] == 1
     row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
     assert row["status"] is None
+
+
+def test_failed_stamp_leaves_the_nzblog_anchor_in_place(activity_db, tmp_path, monkeypatch):
+    """A stamp that does not land must not take the anchor with it.
+
+    `stamp_resolution` returns False without raising when the row is gone, is
+    off a band stage, or is already resolved. Deleting the anchor first let the
+    begin() block commit that deletion beside an unresolved journal row --
+    leaving the obligation open with nothing left to reconstruct it from,
+    which is worse than not having tried.
+    """
+    from comicarr.app.downloads import recovery
+
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Downloaded", location=issue_file, series_dir=series_dir)
+
+    monkeypatch.setattr(recovery.journal, "stamp_resolution", lambda *a, **k: False)
+
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert recovery.close_fulfilled_band_row(row) is False
+
+    assert db.select_one(select(nzblog).where(nzblog.c.IssueID == "iss-done")) is not None, (
+        "anchor deleted although the resolution never landed"
+    )
+    after = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert after["status"] is None
+
+
+def test_open_sibling_on_the_same_anchor_keeps_it(activity_db, tmp_path):
+    """One nzblog row can back two obligations; closing one must not strand the other.
+
+    The fulfilment gate is issue-wide, but nzblog is unique on
+    (IssueID, PROVIDER). A DDL release_key carries a discriminant, so a DDL
+    sibling for the same issue and provider is a separate journal row sharing
+    one anchor. Deleting it here would leave that sibling anchorless, and a
+    missing anchor reads downstream as a done-signal -- so the sibling would be
+    marked done although nothing ever ran for it.
+    """
+    from comicarr.app.downloads import recovery
+
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Downloaded", location=issue_file, series_dir=series_dir)
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(
+                    release_key="done-1|ddl|sibling",
+                    issueid="iss-done",
+                    provider="DDL",
+                    stage="snatched",
+                    stage_rank=20,
+                )
+            ],
+        )
+
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert recovery.close_fulfilled_band_row(row) is True
+
+    # The parked row still closes -- that is the point of the change.
+    closed = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert closed["status"] == "imported"
+    # But the shared anchor survives for the still-open sibling.
+    assert db.select_one(select(nzblog).where(nzblog.c.IssueID == "iss-done")) is not None, (
+        "deleted the anchor a still-open sibling depends on"
+    )
+
+
+def test_terminal_sibling_does_not_keep_the_anchor(activity_db, tmp_path):
+    """Control: only an OPEN sibling holds the anchor. A terminal one is done with it."""
+    from comicarr.app.downloads import recovery
+
+    series_dir, issue_file = _placed_library_file(tmp_path)
+    with activity_db.begin() as conn:
+        _seed_parked_row(conn, status="Downloaded", location=issue_file, series_dir=series_dir)
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(
+                    release_key="done-1|ddl|sibling",
+                    issueid="iss-done",
+                    provider="DDL",
+                    stage="post_processed",
+                    stage_rank=50,
+                )
+            ],
+        )
+
+    row = db.select_one(select(pipeline_journal).where(pipeline_journal.c.release_key == "done-1"))
+    assert recovery.close_fulfilled_band_row(row) is True
+    assert db.select_one(select(nzblog).where(nzblog.c.IssueID == "iss-done")) is None
