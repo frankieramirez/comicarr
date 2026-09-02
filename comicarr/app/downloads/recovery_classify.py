@@ -623,10 +623,7 @@ def classify_details(row, probes=None, payload=None):
 
     if has_done_signal(row):
         if raw_state == "unprobeable":
-            logger.fdebug(
-                "[RECOVERY-CLASSIFY] %s unprobeable BUT done-signal present "
-                "-> complete, NOT unknown." % rkey
-            )
+            logger.fdebug("[RECOVERY-CLASSIFY] %s unprobeable BUT done-signal present -> complete, NOT unknown." % rkey)
         else:
             logger.fdebug(
                 "[RECOVERY-CLASSIFY] %s absent in client BUT done-signal present "
@@ -637,8 +634,7 @@ def classify_details(row, probes=None, payload=None):
 
     if raw_state == "unprobeable":
         logger.warn(
-            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (row has no client id to probe) "
-            "— journal stage left unchanged." % rkey
+            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (row has no client id to probe) — journal stage left unchanged." % rkey
         )
         details["verdict"] = UNKNOWN
         return details
