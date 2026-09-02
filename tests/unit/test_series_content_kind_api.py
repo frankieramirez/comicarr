@@ -58,6 +58,29 @@ def test_content_kind_route_accepts_enum_and_returns_service_result(monkeypatch,
     update.assert_called_once_with(ctx, "160294", content_type)
 
 
+def test_content_kind_route_returns_repointed_location_from_service(monkeypatch):
+    update = MagicMock(
+        return_value={
+            "success": True,
+            "content_type": "manga",
+            "location_repointed": True,
+            "comic_location": "/manga/Berserk",
+            "previous_location": "/comics/Berserk (2003)",
+        }
+    )
+    monkeypatch.setattr(series_router.series_service, "update_content_kind", update)
+
+    response = series_router.update_series_content_kind("160294", {"content_type": "manga"}, SimpleNamespace())
+
+    assert response == {
+        "success": True,
+        "content_type": "manga",
+        "location_repointed": True,
+        "comic_location": "/manga/Berserk",
+        "previous_location": "/comics/Berserk (2003)",
+    }
+
+
 def test_content_kind_route_maps_unknown_series_to_404(monkeypatch):
     monkeypatch.setattr(
         series_router.series_service,

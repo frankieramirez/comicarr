@@ -449,14 +449,16 @@ export default function SeriesDetailPage() {
   const handleContentKindChange = async (nextKind: ContentType) => {
     if (!comicId || nextKind === contentKind) return;
     try {
-      await contentKindMutation.mutateAsync({
+      const result = await contentKindMutation.mutateAsync({
         comicId,
         contentType: nextKind,
       });
       addToast({
         type: "success",
         title: "Content kind updated",
-        description: `This series now uses ${nextKind} labels and matching rules.`,
+        description: result.location_repointed
+          ? "This series now uses manga labels. New downloads import under the manga destination. Files already at the previous comics path were not moved."
+          : `This series now uses ${nextKind} labels and matching rules.`,
       });
     } catch {
       addToast({

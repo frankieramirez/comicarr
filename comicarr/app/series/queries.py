@@ -214,13 +214,23 @@ def update_comic_search_settings(comic_id, values):
 
 
 def get_comic_content_kind(comic_id):
-    """Get the persisted provider-independent content kind for a Series."""
-    return db.select_one(select(t_comics.c.ComicID, t_comics.c.ContentType).where(t_comics.c.ComicID == comic_id))
+    """Get the persisted content kind and location fields for a Series."""
+    return db.select_one(
+        select(
+            t_comics.c.ComicID,
+            t_comics.c.ComicName,
+            t_comics.c.ComicLocation,
+            t_comics.c.ContentType,
+        ).where(t_comics.c.ComicID == comic_id)
+    )
 
 
-def update_comic_content_kind(comic_id, content_type):
-    """Atomically persist only the Series content-kind field."""
-    db.upsert("comics", {"ContentType": content_type}, {"ComicID": comic_id})
+def update_comic_content_kind(comic_id, content_type, comic_location=None):
+    """Atomically persist content kind, and ComicLocation when provided."""
+    values = {"ContentType": content_type}
+    if comic_location is not None:
+        values["ComicLocation"] = comic_location
+    db.upsert("comics", values, {"ComicID": comic_id})
 
 
 def pause_comic(comic_id):

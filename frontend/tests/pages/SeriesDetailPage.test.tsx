@@ -364,7 +364,13 @@ describe("SeriesDetailPage", () => {
       http.patch("/api/series/1/content-kind", async ({ request }) => {
         payload = await request.json();
         contentType = "manga";
-        return HttpResponse.json({ success: true, content_type: "manga" });
+        return HttpResponse.json({
+          success: true,
+          content_type: "manga",
+          location_repointed: true,
+          comic_location: "/manga/Absolute Batman",
+          previous_location: "/comics/Absolute Batman (2024)",
+        });
       }),
     );
     const user = userEvent.setup();
@@ -376,12 +382,18 @@ describe("SeriesDetailPage", () => {
     expect(
       screen.getByText(/Existing files and issue history stay unchanged/),
     ).toBeTruthy();
+    expect(
+      screen.getByText(/stores the series under the manga destination/),
+    ).toBeTruthy();
     screen.getByRole("radio", { name: "Comic" }).focus();
     await user.keyboard("{ArrowRight}");
 
     await waitFor(() => expect(payload).toEqual({ content_type: "manga" }));
     await waitFor(() => expect(detailReads).toBeGreaterThan(1));
     expect(await screen.findByText("Content kind updated")).toBeTruthy();
+    expect(
+      screen.getByText(/Files already at the previous comics path were not moved/),
+    ).toBeTruthy();
     expect(
       screen.getByRole("radio", { name: "Manga" }).getAttribute("aria-checked"),
     ).toBe("true");
