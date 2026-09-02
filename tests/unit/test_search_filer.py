@@ -533,9 +533,7 @@ def test_numberless_series_pack_is_not_detected_for_print_series(monkeypatch):
 
 
 def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
-    monkeypatch.setattr(
-        search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
-    )
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
     info = _info(allow_packs=True)
     entry = _entry(title="Example Series #1-10 (2024)")
 
@@ -670,3 +668,58 @@ def test_first_result_preserves_preference_and_last_fallback(monkeypatch):
     process.reset_mock(side_effect=True)
     process.side_effect = candidates[:2]
     assert checker.check_for_first_result([1, 2], {}, prefer_pack=False)["name"] == "last-pack"
+
+
+class TestMangaVolumeAcceptanceArm:
+    """The volume-number acceptance arm, driven through evaluate_entry.
+
+    The store-date tests above cannot reach it: they stub justthedigits as 1,
+    so they accept via `intIss == comintIss` and the arm never runs. A volume
+    release carries no issue digits at all, which is precisely the shape that
+    reaches this arm.
+    """
+
+    @staticmethod
+    def _evaluate(monkeypatch, *, volume, wanted, series_volume=None):
+        _install_parser(
+            monkeypatch,
+            parsed=_parsed(series_volume=series_volume or "v%s" % volume, issue_number=None, booktype="TPB"),
+            # No issue digits: a volume release has none, so pc_in is None,
+            # and the volume itself is what the arm compares against.
+            matched=_matched(
+                justthedigits=None,
+                booktype="TPB",
+                volume=series_volume or "v%s" % volume,
+                series_volume=series_volume or "v%s" % volume,
+            ),
+        )
+        return search_filer.search_check().evaluate_entry(
+            _entry(title="Example Series v%s (2024)" % volume),
+            _info(
+                manga_match_name="Example Series",
+                findcomiciss=wanted,
+                IssueNumber=wanted,
+                cmloopit=3,
+                UseFuzzy="0",
+                booktype="TPB",
+            ),
+        )
+
+    def test_the_wanted_volume_is_accepted(self, monkeypatch):
+        evaluation = self._evaluate(monkeypatch, volume="06", wanted="6")
+        assert _reason(evaluation) is None or "rejected" not in str(_reason(evaluation))
+
+    def test_a_different_volume_is_rejected(self, monkeypatch):
+        """The arm must discriminate, not wave every volume through."""
+        evaluation = self._evaluate(monkeypatch, volume="07", wanted="6")
+        assert "rejected" in str(_reason(evaluation))
+
+    def test_a_three_digit_volume_is_still_read_as_a_volume(self, monkeypatch):
+        """v100 is 3 digits after the v, so it is a volume and not a year.
+
+        The version arm measured the whole `v100` string against `< 4`, so it
+        matched no arm, left fndcomicversion None and lost the year bypass --
+        One Piece v100 labelled 2021 against a 1997 series year was rejected.
+        """
+        evaluation = self._evaluate(monkeypatch, volume="100", wanted="100")
+        assert _reason(evaluation) is None or "rejected" not in str(_reason(evaluation))

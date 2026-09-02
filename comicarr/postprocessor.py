@@ -42,6 +42,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessJournalStage,
 )
 from comicarr.app.downloads.pp_commands import safe_walk
+from comicarr.app.manga.ledger import is_volume_target
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -120,19 +121,35 @@ def volume_match_settles_year(watch_values, volume_matched):
     return bool(volume_matched) and bool(watch_values.get("IsManga"))
 
 
-def volume_identifies_file(watch_values):
-    """Return whether a scanned file is located by volume rather than issue.
+def volume_identifies_file(watch_values, parsed_file=None):
+    """Return whether THIS scanned file is located by volume rather than issue.
 
     This is :func:`numbered_by_volume` qualified by the run length, because a
     collected edition only numbers *files* by volume when the run actually has
     volumes to distinguish: TPB/HC/GN spanning more than one entry, or a
     One-Shot standing alone.
 
-    Manga is not qualified that way. Volume 1 of a one-volume manga is still
-    identified by its volume, so the run length says nothing useful here.
+    Manga is not qualified that way -- volume 1 of a one-volume manga is still
+    identified by its volume, so the run length says nothing useful. It is
+    qualified per FILE instead, because a manga series holds both kinds: a
+    volume file is located by its volume and a chapter file by its chapter,
+    and the series cannot say which one is in hand.
+
+    That has to be read off the parsed file's own volume/chapter tokens,
+    through the shared ``is_volume_target`` rule. It cannot be read off
+    ``series_volume``, which FileChecker defaults to ``v1`` whenever the
+    filename carried no volume token -- so answering the series-level question
+    for every manga file sent ``Chainsaw Man c181`` down the volume branch,
+    where the defaulted ``1`` was looked up as an issue number and marked
+    chapter 1 Downloaded. ``Series v33`` landed on chapter 33 the same way.
+
+    Callers pass the matchIT result. Omitting it answers the series-level
+    question only, and for manga that is never a safe default -- so it says
+    False rather than claiming a volume the file may not have.
     """
     if watch_values.get("IsManga"):
-        return True
+        parsed = parsed_file or {}
+        return is_volume_target(parsed.get("manga_chapter"), parsed.get("manga_volume"))
     series_type = watch_values["Type"]
     total = watch_values["Total"]
     return (series_type in _COLLECTED_TYPES and total > 1) or (series_type == "One-Shot" and total == 1)
@@ -1399,7 +1416,7 @@ class PostProcessor(object):
                         continue
                     else:
                         try:
-                            if volume_identifies_file(cs["WatchValues"]):
+                            if volume_identifies_file(cs["WatchValues"], watchmatch):
                                 if watchmatch["series_volume"] is not None:
                                     just_the_digits = re.sub("[^0-9]", "", watchmatch["series_volume"]).strip()
                                 else:
@@ -1654,6 +1671,15 @@ class PostProcessor(object):
                                 datematch = "False"
                                 lonevol = False
                                 watch_values = cs["WatchValues"]
+                                # Did the file's own BOOK VOLUME locate this row?
+                                # volume_identifies_file is what selected the volume
+                                # token as the lookup number, and reaching here means
+                                # that number matched an issue row. lonevol cannot
+                                # answer this: it asks whether the filename's volume
+                                # equals the watchlist ComicVersion, which MangaDex
+                                # leaves unset -- so it reads as 1, true for v01 and
+                                # false for every later volume of the same series.
+                                book_volume_matched = volume_identifies_file(watch_values, watchmatch)
                                 second_check = False
                                 if watch_values["LatestIssueInt"] >= fcdigit:
                                     logger.fdebug(
@@ -1937,7 +1963,9 @@ class PostProcessor(object):
                                     )
                                     datematch = "True"
 
-                                if datematch == "False" and volume_match_settles_year(cs["WatchValues"], lonevol):
+                                if datematch == "False" and volume_match_settles_year(
+                                    cs["WatchValues"], book_volume_matched
+                                ):
                                     logger.fdebug(
                                         "%s[MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file. Assuming match based on volume and title."
                                         % (module, watchmatch["series_volume"], watchmatch["issue_year"])
@@ -2134,7 +2162,7 @@ class PostProcessor(object):
                                 nm += 1
                             else:
                                 try:
-                                    if volume_identifies_file(v[i]["WatchValues"]):
+                                    if volume_identifies_file(v[i]["WatchValues"], arcmatch):
                                         if arcmatch["series_volume"] is not None:
                                             just_the_digits = re.sub("[^0-9]", "", arcmatch["series_volume"]).strip()
                                         else:
@@ -2694,7 +2722,7 @@ class PostProcessor(object):
                                     continue
                                 else:
                                     try:
-                                        if volume_identifies_file(ofv["WatchValues"]):
+                                        if volume_identifies_file(ofv["WatchValues"], watchmatch):
                                             if watchmatch["series_volume"] is not None:
                                                 just_the_digits = re.sub(
                                                     "[^0-9]", "", watchmatch["series_volume"]

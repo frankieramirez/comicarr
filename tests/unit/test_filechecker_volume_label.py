@@ -70,26 +70,66 @@ class TestStripTrailingVolumeLabel:
         assert _strip(None, "33") is None
 
 
-class TestVolumeLabelWiring:
-    """The helper is only useful if parseit consults it."""
+def _parse(filename):
+    """Parse one filename the way the scan does, and return the result."""
+    from unittest.mock import MagicMock
 
-    @staticmethod
-    def _source():
-        import inspect
+    import comicarr
+    from comicarr.filechecker import FileChecker
 
-        from comicarr.filechecker import FileChecker
+    if comicarr.LOG_LEVEL is None:
+        comicarr.LOG_LEVEL = 0
+    config = MagicMock()
+    config.IGNORE_SEARCH_WORDS = []
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(comicarr, "CONFIG", config)
+        return FileChecker(dir="/tmp", file=filename, justparse=True).listFiles()
 
-        return inspect.getsource(FileChecker.parseit)
 
-    def test_parseit_strips_the_label_from_the_series_title(self):
-        assert "strip_trailing_volume_label(series_name, detected_volume)" in self._source(), (
-            "parseit no longer removes an already-detected volume label from the "
-            "series title; a 'Series Vol.NN' release will match no series"
+class TestVolumeLabelParsing:
+    """What the parse actually produces, rather than what parseit's source says.
+
+    Asserting on the source text of parseit passed while the behaviour was
+    still broken: the call was present, but the regex behind it did not match
+    the long form, so `One-Punch Man Vol.33` parsed as the series
+    `'One-Punch Man Vol .33'` and matched nothing.
+    """
+
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "One-Punch Man Vol.33 (2014) (Digital).cbz",
+            "One-Punch Man Vol 33 (2014) (Digital).cbz",
+            "One-Punch Man Volume 33 (2014) (Digital).cbz",
+            "One-Punch Man v33 (2014) (Digital).cbz",
+            "One-Punch Man v033 (2014) (Digital).cbz",
+        ],
+    )
+    def test_the_label_never_reaches_the_series_title(self, filename):
+        from comicarr.app.manga.ledger import volume_numbers_match
+
+        parsed = _parse(filename)
+
+        assert parsed["series_name"] == "One-Punch Man", (
+            "the volume label survived into the series title, which matches no series"
         )
+        # Compared through the ledger rule rather than by string: the parse
+        # keeps whatever padding the filename used (`v033`), and normalising
+        # that is the ledger's job, not the parser's.
+        assert volume_numbers_match(parsed["series_volume"], "33"), "the volume was not read off as the volume"
 
-    def test_the_manga_volume_regex_result_is_used_when_the_walker_missed_it(self):
-        src = self._source()
-        assert "detected_volume = manga_volume" in src, (
-            "the long-form label is only found by the manga volume regex, so that "
-            "is the value the strip has to be driven by"
-        )
+    def test_a_short_and_a_long_form_of_one_release_parse_alike(self):
+        """The whole point: the same release named two ways is one release."""
+        short = _parse("One-Punch Man v06 (2014).cbz")
+        long_form = _parse("One-Punch Man Vol.06 (2014).cbz")
+
+        assert short["series_name"] == long_form["series_name"] == "One-Punch Man"
+        assert short["series_volume"] == long_form["series_volume"] == "v06"
+
+    def test_a_chapter_file_keeps_its_number_and_claims_no_volume(self):
+        """Control: the strip must not invent a volume for a numbered chapter."""
+        parsed = _parse("Chainsaw Man 165.cbz")
+
+        assert parsed["series_name"] == "Chainsaw Man"
+        assert parsed["issue_number"] == "165"
+        assert parsed["series_volume"] is None

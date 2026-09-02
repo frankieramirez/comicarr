@@ -804,12 +804,56 @@ class TestVolumeIdentifiesFile:
     the series and selects none of them.
     """
 
-    def test_manga_series_is_identified_by_volume(self):
-        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}) is True
+    def test_manga_volume_file_is_identified_by_volume(self):
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 33, "IsManga": True},
+                {"manga_volume": "33", "manga_chapter": None},
+            )
+            is True
+        )
 
     def test_manga_arm_does_not_depend_on_the_series_length(self):
         """A single-volume manga is still numbered by volume."""
-        assert volume_identifies_file({"Type": "Digital", "Total": 1, "IsManga": True}) is True
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 1, "IsManga": True},
+                {"manga_volume": "1", "manga_chapter": None},
+            )
+            is True
+        )
+
+    def test_manga_chapter_file_is_not_identified_by_volume(self):
+        """A manga series holds both kinds; only the file says which is in hand.
+
+        `Chainsaw Man c181` went down the volume branch, where series_volume's
+        `v1` default was looked up as an issue number and marked chapter 1
+        Downloaded. `Series v33` landed on chapter 33 the same way.
+        """
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": None, "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_carrying_both_is_a_chapter(self):
+        """A MangaDex chapter file also names its containing volume."""
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": "18", "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_with_no_tokens_claims_no_volume(self):
+        """Fails closed -- never falls back to the defaulted series_volume."""
+        assert (
+            volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, {"series_volume": "v1"}) is False
+        )
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, None) is False
 
     def test_comic_series_of_the_same_type_is_still_identified_by_issue(self):
         assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": False}) is False
@@ -878,3 +922,26 @@ class TestVolumeMatchSettlesYear:
     def test_collected_editions_are_not_covered(self):
         """A TPB year mismatch can still mean the wrong edition."""
         assert volume_match_settles_year({"Type": "TPB", "Total": 5}, True) is False
+
+    @pytest.mark.parametrize("volume", ["1", "6", "20", "100"])
+    def test_every_volume_of_a_mangadex_series_settles_its_year(self, volume):
+        """Not just v01.
+
+        The scan used to feed this `lonevol`, which asks whether the
+        filename's volume equals the watchlist ComicVersion. MangaDex leaves
+        ComicVersion unset, so it reads as 1 -- true for v01 and false for
+        every later volume. One-Punch Man v06 dated 2014 against a 2015 ledger
+        year was still rejected. It is now fed the file-level volume match,
+        which does not depend on ComicVersion at all.
+        """
+        watch_values = {"IsManga": True, "Type": "Digital", "Total": 200, "ComicVersion": None}
+        parsed = {"manga_volume": volume, "manga_chapter": None}
+
+        assert volume_match_settles_year(watch_values, volume_identifies_file(watch_values, parsed)) is True
+
+    def test_a_chapter_file_does_not_settle_its_year(self):
+        """The widening must stop at volumes: a chapter still answers to its year."""
+        watch_values = {"IsManga": True, "Type": "Digital", "Total": 200, "ComicVersion": None}
+        parsed = {"manga_volume": None, "manga_chapter": "181"}
+
+        assert volume_match_settles_year(watch_values, volume_identifies_file(watch_values, parsed)) is False

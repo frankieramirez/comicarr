@@ -779,7 +779,14 @@ class search_check(object):
                 logger.fdebug("[Vx] Version detected as %s" % parsed_comic["series_volume"])
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]
-            elif parsed_comic["series_volume"][1:].isdigit() and len(parsed_comic["series_volume"]) < 4:
+            # Digits AFTER the v, matching the two arms above. Measuring the
+            # whole string here made `v100` 4 characters, so it failed `< 4`
+            # although its 3 digits are plainly a volume and not a year. It
+            # then matched no arm at all, left fndcomicversion None and lost
+            # the year bypass -- One Piece v100, labelled 2021 against a 1997
+            # series year, was rejected for it. Four digits after the v is
+            # still a year, and is still claimed by the [Vxxxx] arm above.
+            elif parsed_comic["series_volume"][1:].isdigit() and len(parsed_comic["series_volume"][1:]) < 4:
                 logger.fdebug("[Vxxx] Version detected as %s" % parsed_comic["series_volume"])
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]

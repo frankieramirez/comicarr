@@ -34,7 +34,11 @@ if "windows" not in platform.system().lower():
     from pwd import getpwnam
 
 
-_TRAILING_VOLUME_LABEL = re.compile(r"[\s._-]*\b(?:v|vol|vols|volume)\.?\s*0*(\d+)\s*$", re.IGNORECASE)
+# `\s*\.?\s*` rather than `\.?\s*`: the token walker splits `Vol.33` into
+# `Vol .33`, moving the separator dot AFTER the space, so a pattern that only
+# allowed the dot to come first matched the short form and missed the very
+# long form this exists to catch.
+_TRAILING_VOLUME_LABEL = re.compile(r"[\s._-]*\b(?:v|vol|vols|volume)\s*\.?\s*0*(\d+)\s*$", re.IGNORECASE)
 
 
 def strip_trailing_volume_label(series_name, volume_number):
@@ -1746,6 +1750,12 @@ class FileChecker(object):
                 "annual_comicid": annual_comicid,
                 "scangroup": series_info["scangroup"],
                 "booktype": series_info["booktype"],
+                # Carried through so a caller can tell a volume file from a
+                # chapter file. series_volume cannot answer that: it defaults
+                # to v1 when the filename had no volume token, which makes a
+                # chapter file indistinguishable from a genuine volume 1.
+                "manga_chapter": series_info.get("manga_chapter"),
+                "manga_volume": series_info.get("manga_volume"),
             }
 
         else:
