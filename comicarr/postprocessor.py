@@ -4070,7 +4070,14 @@ class PostProcessor(object):
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
 
-        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+        from comicarr.app.series.service import persist_manga_location_if_needed
+
+        series_folder, _repointed = persist_manga_location_if_needed(comicnzb, manga_dest)
+        if not series_folder:
+            series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+        if comicnzb.get("ComicLocation") != series_folder:
+            comicnzb = dict(comicnzb)
+            comicnzb["ComicLocation"] = series_folder
 
         if not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
             self._log("Series folder is outside manga destination — refusing to write")

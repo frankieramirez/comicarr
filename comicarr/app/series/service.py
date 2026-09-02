@@ -500,21 +500,45 @@ def manga_location_for_reclassify(existing, manga_dest):
     if new_location is None:
         if not _series_text(manga_dest):
             return None, (
-                "[SERIES] Reclassified %s as manga, but no manga destination is configured. "
+                "[SERIES] Manga series %s has no manga destination configured. "
                 "ComicLocation was left at %s." % (comic_id, old_location or "(unset)")
             )
         return None, (
-            "[SERIES] Reclassified %s as manga, but the series has no usable name. "
+            "[SERIES] Manga series %s has no usable name. "
             "ComicLocation was left at %s." % (comic_id, old_location or "(unset)")
         )
 
     if old_location and not _paths_equal(old_location, new_location):
         return new_location, (
-            "[SERIES] Reclassified %s (%s) as manga. ComicLocation is now %s "
+            "[SERIES] Manga series %s (%s): ComicLocation is now %s "
             "(under the manga destination). Files already at %s were not moved."
             % (series_name, comic_id, new_location, old_location)
         )
     return new_location, None
+
+
+def persist_manga_location_if_needed(existing, manga_dest=None):
+    """Rewrite and persist ComicLocation when it would fail the manga dest check.
+
+    Used by manga post-processing so an already-manga series that still points
+    at the comics tree is repaired without another operator click. Returns
+    ``(location_to_use, did_repoint)``.
+    """
+    dest = manga_dest if manga_dest is not None else _manga_destination()
+    new_location, warning = manga_location_for_reclassify(existing, dest)
+    if warning:
+        logger.warn(warning)
+    old_location = _series_text((existing or {}).get("ComicLocation"))
+    if new_location is None:
+        return old_location, False
+    comic_id = (existing or {}).get("ComicID")
+    if comic_id:
+        series_queries.update_comic_content_kind(
+            comic_id,
+            (existing or {}).get("ContentType") or "manga",
+            comic_location=new_location,
+        )
+    return new_location, True
 
 
 def update_content_kind(ctx, comic_id, content_type):

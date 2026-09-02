@@ -620,7 +620,7 @@ def test_update_content_kind_leaves_location_when_manga_dest_missing(monkeypatch
     update.assert_called_once_with("160294", "manga")
     assert result["location_repointed"] is False
     warn.assert_called_once()
-    assert "no manga destination is configured" in warn.call_args.args[0]
+    assert "no manga destination configured" in warn.call_args.args[0]
 
 
 @pytest.mark.parametrize(
@@ -647,6 +647,47 @@ def test_manga_location_for_reclassify_ignores_dest_prefix_lookalikes():
 
     assert new_location == "/manga/Berserk"
     assert "were not moved" in warning
+
+
+def test_persist_manga_location_if_needed_writes_when_outside_dest(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    location, did_repoint = series_service.persist_manga_location_if_needed(
+        {
+            "ComicID": "160294",
+            "ComicName": "Berserk",
+            "ComicLocation": "/comics/Berserk (2003)",
+            "ContentType": "manga",
+        },
+        "/manga",
+    )
+
+    assert location == "/manga/Berserk"
+    assert did_repoint is True
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    warn.assert_called_once()
+
+
+def test_persist_manga_location_if_needed_skips_when_already_under_dest(monkeypatch):
+    update = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    location, did_repoint = series_service.persist_manga_location_if_needed(
+        {
+            "ComicID": "md-1",
+            "ComicName": "Berserk",
+            "ComicLocation": "/manga/Berserk (2003)",
+            "ContentType": "manga",
+        },
+        "/manga",
+    )
+
+    assert location == "/manga/Berserk (2003)"
+    assert did_repoint is False
+    update.assert_not_called()
 
 
 def test_preview_search_all_missing_excludes_owned_future_and_skipped(monkeypatch):

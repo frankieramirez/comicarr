@@ -21,6 +21,7 @@ Unit tests for manga post-processing in comicarr/postprocessor.py.
 Tests cover the _process_manga() method and the manga branch in Process().
 """
 
+import os
 import queue
 from unittest.mock import MagicMock, patch
 
@@ -301,6 +302,82 @@ class TestProcessMangaNoDestination:
         result = mock_queue.put.call_args[0][0]
         assert result[0]["mode"] == "stop"
         assert "No manga destination" in result[0]["self.log"]
+
+
+class TestProcessMangaHealsMisplacedLocation:
+    """An already-manga series whose ComicLocation still sits under the comics
+    dest used to be refused forever. Heal the path on this import and continue.
+    """
+
+    def test_repoints_comics_location_then_places(self, tmp_path):
+        cbz = tmp_path / "Berserk v1.cbz"
+        cbz.write_bytes(b"fake cbz")
+        comics_dir = tmp_path / "comics" / "Berserk (2003)"
+        comics_dir.mkdir(parents=True)
+        manga_dest = tmp_path / "manga"
+
+        pp, mock_queue = _make_pp(
+            nzb_name="Berserk v1.cbz",
+            nzb_folder=str(tmp_path),
+            comicid="160294",
+        )
+
+        comic_row = {
+            "ComicID": "160294",
+            "ComicName": "Berserk",
+            "ComicLocation": str(comics_dir),
+            "ContentType": "manga",
+        }
+
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
+            patch("comicarr.postprocessor.db") as mock_db,
+            patch("comicarr.app.series.queries.update_comic_content_kind") as update,
+        ):
+            mock_db.select_one.side_effect = [comic_row, None, None, None]
+            with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
+                pp._process_manga()
+
+        expected = os.path.join(str(manga_dest), "Berserk")
+        update.assert_called_once_with("160294", "manga", comic_location=expected)
+        placer.assert_called_once()
+        assert expected in placer.call_args[0][1]
+        result = mock_queue.put.call_args[0][0]
+        assert "outside manga destination" not in result[0]["self.log"]
+
+    def test_still_refuses_when_name_cannot_build_a_folder(self, tmp_path):
+        cbz = tmp_path / "chapter.cbz"
+        cbz.write_bytes(b"fake cbz")
+        comics_dir = tmp_path / "comics" / "unknown"
+        comics_dir.mkdir(parents=True)
+        manga_dest = tmp_path / "manga"
+
+        pp, mock_queue = _make_pp(
+            nzb_name="chapter.cbz",
+            nzb_folder=str(tmp_path),
+            comicid="160294",
+        )
+
+        comic_row = {
+            "ComicID": "160294",
+            "ComicName": "???",
+            "ComicLocation": str(comics_dir),
+            "ContentType": "manga",
+        }
+
+        with (
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
+            patch("comicarr.postprocessor.db") as mock_db,
+            patch("comicarr.app.series.queries.update_comic_content_kind") as update,
+        ):
+            mock_db.select_one.return_value = comic_row
+            pp._process_manga()
+
+        update.assert_not_called()
+        mock_queue.put.assert_called_once()
+        result = mock_queue.put.call_args[0][0]
+        assert result[0]["mode"] == "stop"
+        assert "outside manga destination" in result[0]["self.log"]
 
 
 class TestProcessMangaFileMove:
