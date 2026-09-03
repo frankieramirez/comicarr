@@ -16,10 +16,12 @@ from comicarr.app.manga.ledger import (
     blended_progress,
     chapter_id,
     covers_to_volume_rows,
+    is_volume_target,
     last_released_volume,
     merge_refresh_row,
     normalize_volume_number,
     volume_id,
+    volume_numbers_match,
 )
 
 
@@ -117,7 +119,70 @@ def test_covered_fulfillment_is_not_have_and_is_not_searchable():
     assert decision.reason == "covered"
 
 
+def test_is_volume_target_requires_a_volume_and_no_chapter():
+    """The single owner of the volume-vs-chapter rule, used by search and packs."""
+    assert is_volume_target(None, "1") is True
+    assert is_volume_target("", "1") is True
+    # A chapter that happens to know its volume is still a chapter -- this is
+    # what stops a volume pack claiming "chapter 7" as "volume 7".
+    assert is_volume_target("7", "1") is False
+    assert is_volume_target("7", None) is False
+    assert is_volume_target(None, None) is False
+
+
+def test_volume_numbers_match_across_the_spellings_in_use():
+    """A release writes "v01", the ledger stores "1", a pack yields int 1."""
+    assert volume_numbers_match("v01", "1") is True
+    assert volume_numbers_match("Vol. 3", 3) is True
+    assert volume_numbers_match("01", 1) is True
+    assert volume_numbers_match("v02", "1") is False
+
+
+def test_volume_numbers_match_never_matches_on_missing_or_unparsable_data():
+    """Returning False on junk keeps a parse failure from claiming a volume."""
+    assert volume_numbers_match(None, "1") is False
+    assert volume_numbers_match("v01", None) is False
+    assert volume_numbers_match("", "") is False
+    assert volume_numbers_match("none", "1") is False
+    # "v" is only stripped when it introduces a number, so this stays unequal.
+    assert volume_numbers_match("vTPB", "1") is False
+
+
+def test_volume_numbers_match_keeps_fractional_volumes_distinct():
+    """A fractional volume is its own volume, not a truncation of the integer.
+
+    normalize_volume_number() already models fractional volumes, so 1.5 must
+    not collapse into 1 the way an int(float(...)) comparison would.
+    """
+    assert volume_numbers_match("1.5", "1") is False
+    assert volume_numbers_match("1.5", "1.5") is True
+
+
 def test_normalize_volume_number_treats_none_sentinel_as_absent():
     assert normalize_volume_number("1.0") == "1"
     assert normalize_volume_number("none") is None
     assert normalize_volume_number("") is None
+
+
+class TestVolumeNumbersMatchIsExact:
+    """The matcher's own contract: no usable volume on either side means False.
+
+    normalize_volume_number is a DISPLAY normaliser -- it preserves arbitrary
+    text and formats floats to six significant digits -- so comparing through
+    it made two non-volumes equal each other and lost precision.
+    """
+
+    def test_two_identical_non_volumes_do_not_match(self):
+        """"TPB" is not a volume, so a TPB does not satisfy another TPB."""
+        assert volume_numbers_match("TPB", "TPB") is False
+
+    def test_precision_is_not_rounded_away(self):
+        assert volume_numbers_match("1.0000001", "1") is False
+
+    def test_padding_and_markers_still_match(self):
+        assert volume_numbers_match("v01", "1") is True
+        assert volume_numbers_match("01", "1") is True
+        assert volume_numbers_match("v01.5", "1.5") is True
+
+    def test_a_different_volume_still_does_not_match(self):
+        assert volume_numbers_match("v01", "1.5") is False

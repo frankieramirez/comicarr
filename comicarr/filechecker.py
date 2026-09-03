@@ -357,7 +357,10 @@ class FileChecker(object):
             manga_chapter = manga_chapter_match.group(1)
             logger.fdebug("[MANGA] Chapter detected: %s" % manga_chapter)
 
-        manga_volume_match = re.search(r"(?:v(?:ol(?:ume)?)?\.?\s*)(\d+)", modfilename, re.IGNORECASE)
+        # Captures the fraction like the chapter pattern above: a "v01.5" file
+        # that reports its volume as "01" is compared against the ledger's 1.5
+        # and rejected, so the half volume never imports.
+        manga_volume_match = re.search(r"(?:v(?:ol(?:ume)?)?\.?\s*)(\d+(?:\.\d+)?)", modfilename, re.IGNORECASE)
         if manga_volume_match:
             manga_volume = manga_volume_match.group(1)
             logger.fdebug("[MANGA] Volume detected: %s" % manga_volume)

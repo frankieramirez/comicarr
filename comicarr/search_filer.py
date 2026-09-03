@@ -162,6 +162,22 @@ def report_provider_failure(provider, code, detail):
         collector["failure"](str(provider), str(code), str(detail))
 
 
+def manga_volume_satisfies(found_volume, wanted_number):
+    """Does a matched manga volume satisfy the ledger row being searched?
+
+    A manga volume release carries no issue number -- "One-Punch Man v01 (2014)
+    (Digital)" -- so the issue-number acceptance arms can never accept it. The
+    volume IS the unit being acquired, so the release satisfies the row when
+    the two volume numbers agree.
+
+    The comparison itself belongs to the ledger, which already owns what a
+    volume number means; this only names the acceptance question.
+    """
+    from comicarr.app.manga.ledger import volume_numbers_match
+
+    return volume_numbers_match(found_volume, wanted_number)
+
+
 class search_check(object):
     def __init__(self):
         pass
@@ -316,6 +332,11 @@ class search_check(object):
     def _match_entry(self, entry, is_info):
         if is_info:
             ComicName = is_info["ComicName"]
+            # A manga volume pass searches "<series> v01", but the release
+            # parses as the plain series name, so comparing against the query
+            # would fail every result. Match against the real name instead.
+            match_name = is_info.get("manga_match_name") or ComicName
+            manga_volume_pass = bool(is_info.get("manga_match_name"))
             nzbprov = is_info["nzbprov"]
             RSS = is_info["RSS"]
             UseFuzzy = is_info["UseFuzzy"]
@@ -665,7 +686,7 @@ class search_check(object):
                     "parse_status": "success",
                 }
             else:
-                p_comic = filechecker.FileChecker(file=ComicTitle, watchcomic=ComicName)
+                p_comic = filechecker.FileChecker(file=ComicTitle, watchcomic=match_name)
                 parsed_comic = p_comic.listFiles()
 
         logger.fdebug("parsed_info: %s" % parsed_comic)
@@ -692,7 +713,7 @@ class search_check(object):
             or re.sub("None", "issue", str(booktype)) in parsed_comic["booktype"]
         ):
             try:
-                fcomic = filechecker.FileChecker(watchcomic=ComicName)
+                fcomic = filechecker.FileChecker(watchcomic=match_name)
                 filecomic = fcomic.matchIT(parsed_comic)
             except Exception as e:
                 logger.error("[PARSE-ERROR]: %s" % e)
@@ -871,7 +892,27 @@ class search_check(object):
             logger.fdebug("SCVersion: %s" % S_ComicVersion)
             logger.fdebug("ComicYear: %s" % ComicYear)
 
-            if all(
+            # fndcomicversion or the parsed volume: the version arms above only
+            # recognise an all-digit vNN, so a FRACTIONAL volume leaves
+            # fndcomicversion None even though FileChecker parsed `v01.5`
+            # perfectly well. The comparison then failed and the half volume
+            # this branch exists to accept was rejected before the post-gate
+            # fallback could run.
+            parsed_volume = fndcomicversion or parsed_comic.get("series_volume")
+            if manga_volume_pass and manga_volume_satisfies(parsed_volume, findcomiciss):
+                # "vNN" means different things in the two formats. In a comic
+                # release it is which RUN of the series this is (Amazing
+                # Spider-Man v2), which is why the arms below compare it to the
+                # series' ComicVersion or year. In manga it is which BOOK --
+                # volume 30 of one continuous series -- so the only meaningful
+                # comparison is against the volume being searched for.
+                #
+                # Without this, a manga volume matches only when the series'
+                # ComicVersion happens to equal the volume number, i.e. volume 1
+                # of a v1 series, and every later volume is discarded with
+                # "Versions wrong" despite being the exact release requested.
+                logger.fdebug("[MANGA] volume %s matches the volume searched for" % fndcomicversion)
+            elif all(
                 [
                     annualize is True,
                     parsed_comic["issue_number"] is not None,
@@ -1122,6 +1163,16 @@ class search_check(object):
                     or all([cmloopit == 4, findcomiciss is None, pc_in is None])
                     or all([cmloopit == 4, findcomiciss is None, pc_in == 1])
                     or all([cmloopit == 4, findcomiciss == 1, pc_in is None])
+                    or all(
+                        [
+                            manga_volume_pass,
+                            pc_in is None,
+                            manga_volume_satisfies(
+                                filecomic.get("volume") or filecomic.get("series_volume"),
+                                findcomiciss,
+                            ),
+                        ]
+                    )
                 ):
                     nowrite = False
                     logger.info(
