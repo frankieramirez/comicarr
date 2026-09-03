@@ -36,6 +36,7 @@ def _config(tmp_path, **overrides):
         "SAB_DIRECT_UNPACK": True,
         "SAB_DIRECTORY": str(tmp_path / "sab"),
         "NZBGET_DIRECTORY": str(tmp_path / "nzbget"),
+        "NZBGET_CATEGORY": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -140,3 +141,66 @@ def test_disabled_downloaders_do_not_require_config_for_manga_branch(tmp_path):
 
     assert result == "manga"
     manga.assert_called_once_with()
+
+
+def test_nzbget_resolution_finds_download_under_category_subdirectory(tmp_path):
+    """NZBGet files downloads under <directory>/<category>/, not <directory>/.
+
+    Without this fallback the resolved folder does not exist, post-processing
+    aborts without reaching a terminal stage, and the stranded obligation holds
+    the post-processing lock so Folder Monitor can never sweep.
+    """
+    config = _config(tmp_path, NZBGET_CATEGORY="Comics")
+    resolved = tmp_path / "nzbget" / "Comics" / "Saga.001"
+    resolved.mkdir(parents=True)
+    processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
+
+    result, _manga = _run(processor, config, use_nzbget=1)
+
+    assert result == "manga"
+    assert processor.nzb_folder == str(resolved)
+
+
+def test_nzbget_resolution_prefers_uncategorised_path_when_it_exists(tmp_path):
+    """The category fallback must not steal a download that is already correct."""
+    config = _config(tmp_path, NZBGET_CATEGORY="Comics")
+    plain = tmp_path / "nzbget" / "Saga.001"
+    plain.mkdir(parents=True)
+    (tmp_path / "nzbget" / "Comics" / "Saga.001").mkdir(parents=True)
+    processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
+
+    result, _manga = _run(processor, config, use_nzbget=1)
+
+    assert result == "manga"
+    assert processor.nzb_folder == str(plain)
+
+
+def test_nzbget_resolution_without_category_keeps_plain_join(tmp_path):
+    """An unset category must leave the historical path untouched."""
+    config = _config(tmp_path, NZBGET_CATEGORY=None)
+    processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
+
+    result, _manga = _run(processor, config, use_nzbget=1)
+
+    assert result == "manga"
+    assert processor.nzb_folder == str(tmp_path / "nzbget" / "Saga.001")
+
+
+def test_nzbget_resolution_keeps_plain_join_when_neither_path_exists(tmp_path):
+    """With a category set but nothing on disk, the plain join must survive.
+
+    The fallback is a probe, not a rewrite: if the categorised path is not
+    there either, there is no evidence the category is in play, and the
+    historical path is the one whose failure the caller already reports. This
+    is the branch that pins the `_path_exists(categorised)` guard -- without
+    it the resolver silently redirects every unresolvable NZBGet download into
+    a category subdirectory that does not exist, and the "unable to locate"
+    error then names a path the operator never configured.
+    """
+    config = _config(tmp_path, NZBGET_CATEGORY="Comics")
+    processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
+
+    result, _manga = _run(processor, config, use_nzbget=1)
+
+    assert result == "manga"
+    assert processor.nzb_folder == str(tmp_path / "nzbget" / "Saga.001")

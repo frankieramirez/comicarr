@@ -596,6 +596,7 @@ class PostProcessor(object):
                 sab_direct_unpack=(comicarr.CONFIG.SAB_DIRECT_UNPACK if use_sabnzbd else False),
                 sab_directory=(comicarr.CONFIG.SAB_DIRECTORY if use_sabnzbd else None),
                 nzbget_directory=(comicarr.CONFIG.NZBGET_DIRECTORY if use_nzbget else None),
+                nzbget_category=(comicarr.CONFIG.NZBGET_CATEGORY if use_nzbget else None),
             )
         )
         self.nzb_folder = input_result.folder
