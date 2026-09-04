@@ -20,6 +20,10 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 
 Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloads`, `system`, `dashboard`, `metadata`, `storyarcs`, `weekly`, `opds`, `ai`, plus `core` and `common`.
 
+Anything a user can see is governed by **`DESIGN.md`** — tokens, theming, typography,
+primitives, and the frontend anti-pattern list. Read it before touching
+`frontend/src/index.css` or adding a component.
+
 ## Commands
 
 | Action | Command |
@@ -28,7 +32,7 @@ Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloa
 | Run app | `python3 Comicarr.py --nolaunch` |
 | Test backend | `pytest tests/unit -v` |
 | Lint modern backend | `npm run lint:modern` (`comicarr/app` + `Comicarr.py`) |
-| Run every contributor gate | `npm run lint:guards` (`scripts/check_retired_globals.py`, `scripts/check_fail_reason_registry.py`, `scripts/check_upsert_tables.py`, `scripts/check_attention_seam.py`, `scripts/check_support_bundle_terms.py`) |
+| Run every contributor gate | `npm run lint:guards` (`scripts/check_retired_globals.py`, `scripts/check_fail_reason_registry.py`, `scripts/check_upsert_tables.py`, `scripts/check_attention_seam.py`, `scripts/check_support_bundle_terms.py`, `scripts/check_design_tokens.py`, `scripts/check_palette_classes.py`) |
 | Lint all (CI parity) | `npm run lint` |
 | Regenerate settings types | `npm run lint:fix:generated` (after editing the config registry) |
 
@@ -79,6 +83,7 @@ Conventional PR titles keep history readable, but they do not control releases. 
 - **Do NOT import `comicarr.app.attention._*` from outside the module** - ADR-0003 gives Attention one public seam — `read`, `resolve`, `record`, plus the contract types in `__all__` — and calls everything else an implementation detail. `scripts/check_attention_seam.py` (under `lint:guards`) AST-scans `comicarr/` for crossings, including function-local and relative ones. Existing crossings are waived by an allowlist keyed on `(file, private submodule)`, split into permanent internal hooks and deprecated shims; each entry names its removal trigger. The list only ever shrinks — a stale entry fails the guard, so a deleted shim takes its waiver with it. Widening `__all__` is not the fix. Contributor-only gate — no changeset.
 - **Do NOT make a handoff route depend on the download client reaching back into Comicarr** - A handoff delivers the content, never a pointer to Comicarr, and must be verifiable from the client's own response alone (ADR-0002 / #552 / #564). `blackhole` and `watchdir` are the named exceptions to *verifiability* only — they pay for it by staying out of `_RESTART_SAFE_ROUTES`. There is no cheap static signal for "callback URL", so this is a review gate, not a lint one.
 - **Do NOT add per-feature SSE event types** - `activity` is the only narrative channel; `ai_activity`, `restart`, and `shutdown` are the only other listeners in `useServerEvents`. The client invalidates queries from a payload and never accumulates the stream into a list.
+- **Do NOT hardcode a color, or `var()` a token you haven't defined** - Comicarr ships light and dark. A raw Tailwind palette class (`text-green-400`) ignores `.dark` entirely; and CSS fails *open*, so a `var()` naming an undefined property invalidates the whole declaration and the style vanishes silently instead of erroring. Both shipped: `--text-muted` was `.dark`-only (25 lines, 6 files, dead in light mode), `--status-success`/`--status-warning` were never tokens at all (17 usages, and inside `color-mix()` an invalid inner var voids the entire color in *both* themes), and `text-success` resolved to a near-white surface value. `scripts/check_design_tokens.py` now gates the whole class with no allowlist; `scripts/check_palette_classes.py` holds a shrink-only per-file baseline for the 58 remaining palette literals. Use `--status-*` for semantics — the set is exhaustive, there is no `--status-success`. `var(--x, var(--fallback))` is the sanctioned optional-token form. Full rules and drift backlog: `DESIGN.md`. Contributor-only gates — no changeset.
 - **Do NOT finish without linting** - Run `npm run lint` (or `npm run lint:fix` then re-check) before considering work done; do not bypass hooks with `--no-verify`
 
 ## Gotchas
