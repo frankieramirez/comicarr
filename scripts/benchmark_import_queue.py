@@ -33,13 +33,17 @@ from comicarr.app.series import queries  # noqa: E402
 from comicarr.tables import importresults  # noqa: E402
 
 
+def warm_caches(read):
+    read()
+
+
 def measure(engine, read, repeats):
     statements = []
 
     def record(*args):
         statements.append(args[2])
 
-    read()  # Warm the connection and statement cache.
+    warm_caches(read)
     event.listen(engine, "before_cursor_execute", record)
     samples = []
     try:

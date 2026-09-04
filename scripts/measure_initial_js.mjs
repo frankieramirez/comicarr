@@ -1,6 +1,3 @@
-// Measure the production entry's complete static JS dependency closure.
-// Usage: node scripts/measure_initial_js.mjs frontend/dist [another/dist]
-// Build each directory with: npm --prefix frontend run build -- --manifest
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";

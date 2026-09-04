@@ -448,6 +448,26 @@ def get_latest_search_items_by_entity_ids(entity_ids):
     return latest
 
 
+# SQLite before 3.32 accepts 999 bind parameters per statement; 100 groups
+# with distinct volumes bind about 900.
+_FILE_READ_BATCH_GROUPS = 100
+
+
+def _legacy_volume_key(volume):
+    """Legacy rows stored a missing volume as NULL or the string "None"; both share one file list."""
+    return None if volume == "None" else volume
+
+
+def _database_resolved_page_group(group_key_expr, batch_keys, volume_conditions):
+    """Index into ``batch_keys`` for each file row, decided by the database's own collation rather than Python."""
+    return case(
+        *(
+            (and_(group_key_expr == key, volume_conditions[volume]), index)
+            for index, (key, volume) in enumerate(batch_keys)
+        )
+    )
+
+
 def get_import_pending(limit=50, offset=0, include_ignored=False):
     """Get pending import files grouped by DynamicName/Volume with pagination."""
     ir = t_importresults
@@ -494,18 +514,12 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     )
     results = db.select_all(group_stmt)
 
-    # Fetch the page's files together instead of rescanning the inbox per group.
-    # Legacy NULL and string "None" volumes share a file list, even though the
-    # group summary keeps them separate.
     files_by_group = {}
-    page_keys = list(
-        dict.fromkeys((row["GroupKey"], None if row["Volume"] == "None" else row["Volume"]) for row in results)
-    )
-    # Bound bind parameters and expression depth even for compatibility callers
-    # asking for unusually large pages. MySQL collations can make the legacy
-    # "None" predicate overlap a distinct NULL group (e.g. volume "none").
-    # Keep those reads independent so a file can belong to both legacy lists.
-    batch_size = 1 if db.get_dialect() == "mysql" else 100
+    page_keys = list(dict.fromkeys((row["GroupKey"], _legacy_volume_key(row["Volume"])) for row in results))
+    # MySQL collations can make the legacy "None" predicate overlap a distinct
+    # NULL group (e.g. volume "none"). Keep those reads independent so a file
+    # can belong to both legacy lists.
+    batch_size = 1 if db.get_dialect() == "mysql" else _FILE_READ_BATCH_GROUPS
     for start in range(0, len(page_keys), batch_size):
         batch_keys = page_keys[start : start + batch_size]
         keys_by_volume = {}
@@ -522,17 +536,10 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
             if None in group_keys:
                 key_condition = or_(key_condition, group_key_expr.is_(None))
             page_conditions.append(and_(key_condition, volume_condition))
-        # Resolve the bucket in SQL too: database collations may group strings
-        # that Python considers distinct.
-        bucket = case(
-            *(
-                (and_(group_key_expr == key, volume_conditions[volume]), index)
-                for index, (key, volume) in enumerate(batch_keys)
-            )
-        )
+        page_group = _database_resolved_page_group(group_key_expr, batch_keys, volume_conditions)
         files_stmt = (
             select(
-                bucket.label("PageGroup"),
+                page_group.label("PageGroup"),
                 ir.c.impID,
                 ir.c.ComicFilename,
                 ir.c.ComicLocation,
@@ -558,7 +565,7 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
         dynamic_name = result["GroupKey"]
         volume = result["Volume"]
 
-        files = files_by_group.get((dynamic_name, None if volume == "None" else volume), [])
+        files = files_by_group.get((dynamic_name, _legacy_volume_key(volume)), [])
 
         file_list = []
         for f in files:

@@ -44,16 +44,9 @@ const loadWhatsNewModal = (): Promise<WhatsNewModalComponent> =>
 interface ActivityFeedDrawerSlotProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Overridable for tests; production always imports the real chunk. */
   load?: () => Promise<ActivityFeedDrawerComponent>;
 }
 
-/**
- * Loads the optional AI drawer the first time it opens. Once loaded the
- * drawer stays mounted with the real `open` prop so the Sheet can run its
- * close transition and return focus; a failed chunk load shows a fallback
- * and retries on the next open.
- */
 export function ActivityFeedDrawerSlot({
   open,
   onOpenChange,
@@ -66,15 +59,31 @@ export function ActivityFeedDrawerSlot({
   );
 
   if (Drawer) return <Drawer open={open} onOpenChange={onOpenChange} />;
-  if (!open) return null;
+  return open ? (
+    <LazyDrawerPlaceholder
+      error={error}
+      onDismiss={() => onOpenChange(false)}
+    />
+  ) : null;
+}
+
+function LazyDrawerPlaceholder({
+  error,
+  onDismiss,
+}: {
+  error: Error | null;
+  onDismiss: () => void;
+}) {
+  const card =
+    "fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg";
   if (error) {
     return (
-      <div className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg">
+      <div className={card}>
         <p>AI activity failed to load. Reload the page if this persists.</p>
         <button
           type="button"
           className="mt-2 text-xs text-primary underline"
-          onClick={() => onOpenChange(false)}
+          onClick={onDismiss}
         >
           Dismiss
         </button>
@@ -82,34 +91,22 @@ export function ActivityFeedDrawerSlot({
     );
   }
   return (
-    <div
-      className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg"
-      role="status"
-      aria-live="polite"
-    >
+    <div className={card} role="status" aria-live="polite">
       Loading AI activity…
     </div>
   );
 }
 
 interface WhatsNewGateProps {
-  /** Overridable for tests; production always imports the real chunk. */
   load?: () => Promise<WhatsNewModalComponent>;
 }
 
-/**
- * Keeps release-note rendering out of the shell until an upgrade is pending.
- * Once loaded the modal owns its own visibility (it already returns null when
- * nothing is pending), so a transient version-poll failure cannot unmount a
- * modal the user closed and bring it back open on the next success.
- * If the optional chunk cannot be loaded nothing renders; the regular
- * Settings → About route remains available.
- */
 export function WhatsNewGate({ load = loadWhatsNewModal }: WhatsNewGateProps) {
   const { status, data } = useVersionInfo();
-  const pending = status === "success" && Boolean(data?.pending_whats_new);
+  const shouldLoadModal =
+    status === "success" && Boolean(data?.pending_whats_new);
   const { module: Modal } = useLazyModule(
-    pending,
+    shouldLoadModal,
     load,
     "What's New failed to load",
   );
@@ -201,7 +198,6 @@ export default function Layout({ children }: LayoutProps) {
         open={activityOpen}
         onOpenChange={setActivityOpen}
       />
-      {/* Post-upgrade What's New — only loads its body when pending (#474). */}
       <WhatsNewGate />
     </SidebarProvider>
   );

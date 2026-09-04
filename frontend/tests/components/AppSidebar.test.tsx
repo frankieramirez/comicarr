@@ -3,8 +3,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import { renderMinimal, screen } from "../test-utils";
 
-// The sidebar only launches Chat now. Keeping this mocked module explosive
-// makes an accidental reintroduction of the eager thread query fail loudly.
 vi.mock("@/hooks/useLibraryChat", () => ({
   useChatThreads: () => {
     throw new Error("sidebar must not load chat threads");

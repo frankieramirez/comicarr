@@ -193,15 +193,19 @@ def test_import_empty_page_does_not_read_files(import_engine):
     assert len(statements) == 3
 
 
-def test_mysql_collation_keeps_overlapping_legacy_volume_lists(import_engine, monkeypatch):
-    # Exercise a case-insensitive volume collation with SQLite so the suite
-    # covers the MySQL fallback without requiring an external database.
+@pytest.fixture
+def nocase_volume_engine(import_engine):
     importresults.drop(import_engine)
     ddl = str(CreateTable(importresults).compile(import_engine)).replace(
         '"Volume" TEXT', '"Volume" TEXT COLLATE NOCASE'
     )
     with import_engine.begin() as conn:
         conn.exec_driver_sql(ddl)
+    return import_engine
+
+
+def test_mysql_collation_keeps_overlapping_legacy_volume_lists(nocase_volume_engine, monkeypatch):
+    with nocase_volume_engine.begin() as conn:
         conn.execute(importresults.insert(), [_import_row("a", Volume=None), _import_row("b", Volume="none")])
     monkeypatch.setattr(queries.db, "get_dialect", lambda: "mysql")
     result = queries.get_import_pending()

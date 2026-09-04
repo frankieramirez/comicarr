@@ -18,8 +18,6 @@ export function ActivityFeedDrawer({
   open,
   onOpenChange,
 }: ActivityFeedDrawerProps) {
-  // Only fetch while visible: the drawer stays mounted after its first open so
-  // the Sheet can animate closed, but a closed drawer makes no requests.
   const { data: entries, isLoading } = useAiActivity(50, { enabled: open });
 
   return (

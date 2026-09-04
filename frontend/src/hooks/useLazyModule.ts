@@ -13,8 +13,8 @@ const IDLE: LazyModuleState<never> = { module: null, error: null };
  * `error` and cleared again when `active` drops, so the next activation
  * starts a fresh import instead of replaying the stale failure.
  *
- * Kept as an effect rather than `React.lazy` for the same reason as
- * RouteLoader: React caches a rejected lazy import and would never retry.
+ * Not `React.lazy`: React caches a rejected lazy import, so it could never
+ * retry.
  */
 export function useLazyModule<T>(
   active: boolean,
@@ -25,8 +25,6 @@ export function useLazyModule<T>(
   const [state, setState] = useState<LazyModuleState<T>>(IDLE);
   const [seenActive, setSeenActive] = useState(active);
 
-  // Adjust state during render when the trigger changes (react.dev: "you
-  // might not need an effect"): a failure only lives for one activation.
   if (seenActive !== active) {
     setSeenActive(active);
     if (!active && state.error) setState(IDLE);

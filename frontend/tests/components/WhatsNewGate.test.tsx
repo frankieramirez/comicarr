@@ -17,7 +17,6 @@ vi.mock("@/hooks/useVersion", () => ({
   useVersionInfo: () => ({ status: version.status, data: version.data }),
 }));
 
-/** Mirrors WhatsNewModal: owns its own open flag, closes locally on X. */
 const StubModal: ModalModule = function StubModal() {
   const [open, setOpen] = useState(true);
   if (!open) return null;
@@ -74,8 +73,6 @@ describe("WhatsNewGate", () => {
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    // One failed refetch flips the query to error with data retained; the
-    // next success must not remount the modal the user already closed.
     version.status = "error";
     view.rerender(<WhatsNewGate load={load} />);
     expect(screen.queryByRole("dialog")).toBeNull();

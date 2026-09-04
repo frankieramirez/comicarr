@@ -6,7 +6,6 @@ import { ActivityFeedDrawerSlot } from "@/components/layout/Layout";
 type DrawerProps = { open: boolean; onOpenChange: (open: boolean) => void };
 type DrawerModule = typeof import("@/components/ai/ActivityFeedDrawer").ActivityFeedDrawer;
 
-/** Mirrors a Sheet: mounted while closed, but renders no dialog. */
 function makeStubDrawer(seenOpen: boolean[]): DrawerModule {
   return function StubDrawer({ open, onOpenChange }: DrawerProps) {
     seenOpen.push(open);
@@ -55,8 +54,6 @@ describe("ActivityFeedDrawerSlot", () => {
       />,
     );
     expect(screen.queryByRole("dialog")).toBeNull();
-    // The loaded drawer stayed mounted and saw open=false, so the Sheet can
-    // run its own close transition instead of being torn out of the tree.
     expect(seenOpen.at(-1)).toBe(false);
 
     view.rerender(
