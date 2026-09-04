@@ -84,8 +84,20 @@ import comicarr
 comicarr.CONFIG.option_name
 
 from comicarr import db
-db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])
+from comicarr.tables import issues
+from sqlalchemy import select
+
+db.select_one(select(issues).where(issues.c.IssueID == issueid))
+db.upsert("issues", {"Status": "Downloaded"}, {"IssueID": issueid})
+
+# Raw SQL only where a Core expression will not do. `?` placeholders are
+# parameterized; never interpolate values into the string.
+db.raw_select_one("SELECT * FROM issues WHERE IssueID=?", [issueid])
 ```
+
+`db.DBConnection()` is a deprecated compatibility shim for legacy raw-SQL
+callers and will be removed once the query migration finishes. Do not use it in
+new code.
 
 Import order: stdlib → third-party → local (`from comicarr import ...`).
 

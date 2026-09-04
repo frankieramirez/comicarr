@@ -107,7 +107,7 @@ npm run test:run
 - **Always catch specific exceptions** — use `except Exception as e`, never bare `except:`
 - **Logging pattern**: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
 - **Config access**: `comicarr.CONFIG.option_name`
-- **Database**: Always use parameterized queries — `db.DBConnection().action("SELECT * FROM table WHERE id=?", [id])`
+- **Database**: SQLAlchemy Core expressions through the `db` helpers — `db.select_one(stmt)`, `db.select_all(stmt)`, `db.upsert(table, values, keys)`. When raw SQL is genuinely needed, `db.raw_select_one` / `db.raw_select_all` / `db.raw_execute` take `?` placeholders and parameterize them. Never interpolate values into SQL. `db.DBConnection()` is a deprecated shim awaiting removal — do not use it in new code
 
 ### Frontend (React/TypeScript)
 
