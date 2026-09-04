@@ -7,12 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""
-Metadata domain service — ComicVine, Metron, MangaDex provider wrappers.
-
-Module-level functions wrapping the existing provider modules.
-Preserves ThreadPoolExecutor batch enrichment for cover image backfill.
-"""
+"""Metadata provider searches, artwork, and comic archive access."""
 
 import json
 import os

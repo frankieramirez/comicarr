@@ -133,13 +133,6 @@ DEPRECATED_SHIMS = {
         "deprecated band wire-shape serialization in the Activity read service; "
         "delete with the /api/activity/band adapter next release"
     ),
-    # _batch_order backs the deprecated POST /api/downloads/needs-attention/*
-    # adapters, whose compatibility tests pin the legacy result ordering.
-    # Removal trigger: deleting those routes next release.
-    ("comicarr/app/downloads/service.py", "_resolution"): (
-        "deprecated needs-attention batch adapter reusing Attention's result "
-        "ordering; delete with the /api/downloads/needs-attention routes next release"
-    ),
 }
 
 ALLOWLIST = {**PERMANENT_HOOKS, **DEPRECATED_SHIMS}

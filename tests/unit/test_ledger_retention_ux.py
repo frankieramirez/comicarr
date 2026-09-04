@@ -20,9 +20,7 @@ Seams under test (existing product surfaces only — no full UI e2e):
 - ``activity.queries.list_attention_band`` / journal band — unresolved rows
   survive; empty band only when no unresolved trouble remains
 
-Decision-only Timeline progress / Wanted sticky / band presentation rules are
-pinned as documented fixture contracts below (no tombstones; inherit empty
-contracts when those surfaces ship).
+Wanted annotation rendering is covered by the frontend helper tests.
 """
 
 import datetime
@@ -358,33 +356,8 @@ def test_needs_attention_band_empty_only_when_no_unresolved_work():
     assert activity_queries.list_attention_band() == []
 
 
-# ---------------------------------------------------------------------------
-# Pure-helper / documented-fixture contracts for decision-only surfaces (#465)
-# ---------------------------------------------------------------------------
-
-
-def test_decision_only_wanted_null_acquisition_is_never_searched_presentation():
-    """Fixture contract: null acquisition maps to the never-searched glyph.
-
-    Frontend pure helper ``formatWantedAcquisitionAnnotation(null)`` is the
-    product seam; this documents the backend payload shape retention produces.
-    """
-    pruned_row = {
-        "IssueID": "issue-x",
-        "Status": "Wanted",
-        "acquisition": None,
-    }
-    # No tombstone field, no "pruned" flag — same shape as never-searched.
-    assert "pruned" not in pruned_row
-    assert pruned_row["acquisition"] is None
-
-
-def test_decision_only_timeline_progress_has_no_synthetic_counters_for_missing_run():
-    """Fixture contract: missing run yields no ghost '17 of 42' progress.
-
-    Timeline progress UI is still decision-only for some surfaces; when a run
-    id is absent the existing missing contract applies — no synthetic counters.
-    """
+def test_missing_run_has_no_synthetic_progress_counters():
+    """A missing run returns an error without fabricated progress fields."""
     missing = search_service.get_run(_ctx(), "never-existed-run")
     assert missing["success"] is False
     assert missing["status_code"] == 404
@@ -392,14 +365,6 @@ def test_decision_only_timeline_progress_has_no_synthetic_counters_for_missing_r
     # No fabricated progress fields on the error payload.
     for key in ("accepted_count", "terminal_count", "processed", "of"):
         assert key not in missing
-
-
-def test_decision_only_band_empty_means_no_unresolved_trouble():
-    """Fixture contract: empty attention band is data absence, not a tombstone."""
-    empty = activity_queries.list_attention_band()
-    assert empty == []
-    # No synthetic placeholder rows.
-    assert not any(isinstance(row, dict) and row.get("pruned") for row in empty)
 
 
 def test_no_tombstone_rows_written_by_sweep(monkeypatch):

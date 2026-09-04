@@ -234,7 +234,6 @@ comicarr/app/imports/finalization.py
 comicarr/app/imports/queries.py
 comicarr/app/metadata/__init__.py
 comicarr/app/metadata/image_fetch.py
-comicarr/app/metadata/queries.py
 comicarr/app/metadata/router.py
 comicarr/app/metadata/service.py
 comicarr/app/opds/__init__.py
