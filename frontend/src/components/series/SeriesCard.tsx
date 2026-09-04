@@ -33,7 +33,7 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
         },
       })}
       onClick={onClick}
-      className={`bg-card border-card-border card-shadow hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" : ""}`}
+      className={`bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" : ""}`}
     >
       {/* Cover Image */}
       <div className="aspect-[2/3] bg-muted relative overflow-hidden flex-shrink-0">

@@ -103,4 +103,7 @@ Import order: stdlib → third-party → local (`from comicarr import ...`).
 - Auth: JWT session cookie `comicarr_session`; changing auth secrets invalidates sessions
 - Vite proxy default is 8090 to match `HTTP_PORT`
 
+Frontend design system — tokens, theming, typography, primitives, and the
+visual anti-pattern list — is `DESIGN.md`.
+
 Keep this file aligned with `CLAUDE.md` when architecture changes.

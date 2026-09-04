@@ -628,7 +628,9 @@ export default function SeriesDetailPage() {
             <span style={{ color: "var(--text-muted)" }}>·</span>
             <span
               style={{
-                color: isPaused ? "var(--text-muted)" : "var(--status-active)",
+                color: isPaused
+                  ? "var(--status-paused)"
+                  : "var(--status-active)",
               }}
             >
               ● {isPaused ? "paused" : "ongoing"}
@@ -885,7 +887,9 @@ export default function SeriesDetailPage() {
                     borderTop: index > 1 ? "1px solid var(--border)" : "none",
                   }}
                 >
-                  <span style={{ color: "var(--text-muted)" }}>{label}</span>
+                  <span style={{ color: "var(--muted-foreground)" }}>
+                    {label}
+                  </span>
                   <span>{value}</span>
                 </div>
               ))}
@@ -897,7 +901,7 @@ export default function SeriesDetailPage() {
           >
             <div
               className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ color: "var(--text-muted)" }}
+              style={{ color: "var(--muted-foreground)" }}
             >
               Search options
             </div>
@@ -922,7 +926,9 @@ export default function SeriesDetailPage() {
                 title={title}
                 className="flex cursor-pointer items-center justify-between gap-2 py-1 font-mono text-[10px]"
               >
-                <span style={{ color: "var(--text-muted)" }}>{label}</span>
+                <span style={{ color: "var(--muted-foreground)" }}>
+                  {label}
+                </span>
                 <Checkbox
                   checked={checked}
                   disabled={searchSettingsMutation.isPending}
@@ -936,7 +942,7 @@ export default function SeriesDetailPage() {
             {isManga ? (
               <div className="mt-2 grid gap-2">
                 <label className="grid gap-1 font-mono text-[10px]">
-                  <span style={{ color: "var(--text-muted)" }}>
+                  <span style={{ color: "var(--muted-foreground)" }}>
                     Bare numbers
                   </span>
                   <select
@@ -958,7 +964,9 @@ export default function SeriesDetailPage() {
                   </select>
                 </label>
                 <label className="grid gap-1 font-mono text-[10px]">
-                  <span style={{ color: "var(--text-muted)" }}>Monitor</span>
+                  <span style={{ color: "var(--muted-foreground)" }}>
+                    Monitor
+                  </span>
                   <select
                     aria-label="Monitor"
                     className="h-7 rounded-[5px] border bg-background px-2"
@@ -992,7 +1000,7 @@ export default function SeriesDetailPage() {
         </div>
         <div
           className="font-mono text-[10px] uppercase tracking-[0.08em]"
-          style={{ color: "var(--text-muted)" }}
+          style={{ color: "var(--muted-foreground)" }}
           data-testid="ledger-facets"
         >
           {ledgerFacets.length
@@ -1052,7 +1060,7 @@ export default function SeriesDetailPage() {
           {filteredIssues.length === 0 ? (
             <div
               className="px-5 py-8 text-center font-mono text-[11px]"
-              style={{ color: "var(--text-muted)" }}
+              style={{ color: "var(--muted-foreground)" }}
             >
               no issues to display
             </div>
@@ -1246,7 +1254,7 @@ export default function SeriesDetailPage() {
                     {preview.route?.reason && (
                       <div
                         className="mt-2 font-mono text-[10px]"
-                        style={{ color: "var(--text-muted)" }}
+                        style={{ color: "var(--muted-foreground)" }}
                       >
                         {preview.route.reason}
                       </div>
@@ -1315,7 +1323,7 @@ export default function SeriesDetailPage() {
                     style={{ borderColor: "var(--border)" }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span style={{ color: "var(--text-muted)" }}>
+                      <span style={{ color: "var(--muted-foreground)" }}>
                         run state
                       </span>
                       <span>{run.completion_state}</span>
@@ -1336,7 +1344,7 @@ export default function SeriesDetailPage() {
                 {searchRun.isLoading && (
                   <div
                     className="mt-3 font-mono text-[10px]"
-                    style={{ color: "var(--text-muted)" }}
+                    style={{ color: "var(--muted-foreground)" }}
                   >
                     Checking run outcome…
                   </div>
