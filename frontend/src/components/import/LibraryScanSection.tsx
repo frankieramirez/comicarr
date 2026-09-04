@@ -297,7 +297,7 @@ function ScanTile({
           {progress.current && (
             <span
               className="truncate ml-auto"
-              style={{ color: "var(--text-muted)" }}
+              style={{ color: "var(--muted-foreground)" }}
             >
               {progress.current}
             </span>

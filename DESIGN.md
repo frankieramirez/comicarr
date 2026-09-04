@@ -191,14 +191,14 @@ target state — the rules above are the target state.
 | Dead `components/custom/` | 6 files, 0 importers | Unlinted, unreachable code |
 | Dead `frontend/src/App.css` | 42 lines, imported nowhere | Vite scaffold leftover |
 | Dead `border-card-border` class | removed from 2 cards | `--color-card-border` was never registered, so the class never existed |
-| `--text-muted` contrast | 2.95:1 both themes | Below WCAG AA; see below |
+| `--text-muted` contrast | 2.95:1 both themes | Decorative only; see below |
 
-`--text-muted` is used mostly for decorative separators (`/`, `·`) and micro-labels,
-but a few sites give it real words. It sits at 2.95:1 in both themes — that parity
-is deliberate (the light value was tuned to the ratio dark already shipped), but
-2.95:1 is under the 4.5:1 AA threshold for body text and under 3:1 for large text.
-Raising it is a design decision, not a bug fix, so it is recorded here rather than
-changed unilaterally.
+`--text-muted` is for decorative separators (`/`, `·`) and 10px uppercase
+micro-labels. It sits at 2.95:1 in both themes — that parity is deliberate (the
+light value was tuned to the ratio dark already shipped). Real words use
+`--muted-foreground` (AA-safe in light at `oklch(0.552 …)`). Raising
+`--text-muted` itself to 4.5:1 would recolour every separator and is still a
+design decision, not a bug fix.
 
 ### Fixed and now gated
 

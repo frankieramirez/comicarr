@@ -31,9 +31,9 @@
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
-  /* Dimmer than --muted-foreground: separators, micro-labels. Tuned to the
-     same 2.95:1 contrast the dark theme gives this token, so "muted" reads
-     the same in both. */
+  /* Dimmer than --muted-foreground: separators and 10px micro-labels only.
+     Real words use --muted-foreground. Tuned to the same 2.95:1 contrast the
+     dark theme gives this token, so "muted" reads the same in both. */
   --text-muted: oklch(0.675 0.016 285.938);
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
