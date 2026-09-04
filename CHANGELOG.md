@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.8
+
+### Patch Changes
+
+- bb0d8aa: Speed up large import queues by batching file reads on SQLite. Reduce startup JavaScript by loading table code and optional dialogs only when needed, and remove background chat-thread and closed activity-drawer requests.
+
 ## 0.38.7
 
 ### Patch Changes
