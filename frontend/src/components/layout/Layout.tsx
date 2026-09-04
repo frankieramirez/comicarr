@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
+import { useLazyModule } from "@/hooks/useLazyModule";
 import { useVersionInfo } from "@/hooks/useVersion";
 import { Bell } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
@@ -25,48 +26,51 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+type ActivityFeedDrawerComponent =
+  typeof import("@/components/ai/ActivityFeedDrawer").ActivityFeedDrawer;
+type WhatsNewModalComponent =
+  typeof import("@/components/whats-new/WhatsNewModal").default;
+
+const loadActivityFeedDrawer = (): Promise<ActivityFeedDrawerComponent> =>
+  import("@/components/ai/ActivityFeedDrawer").then(
+    (module) => module.ActivityFeedDrawer,
+  );
+
+const loadWhatsNewModal = (): Promise<WhatsNewModalComponent> =>
+  import("@/components/whats-new/WhatsNewModal").then(
+    (module) => module.default,
+  );
+
 interface ActivityFeedDrawerSlotProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Overridable for tests; production always imports the real chunk. */
+  load?: () => Promise<ActivityFeedDrawerComponent>;
 }
 
-/** Loads the optional AI drawer only when opened and contains chunk failures. */
+/**
+ * Loads the optional AI drawer the first time it opens. Once loaded the
+ * drawer stays mounted with the real `open` prop so the Sheet can run its
+ * close transition and return focus; a failed chunk load shows a fallback
+ * and retries on the next open.
+ */
 export function ActivityFeedDrawerSlot({
   open,
   onOpenChange,
+  load = loadActivityFeedDrawer,
 }: ActivityFeedDrawerSlotProps) {
-  const [Drawer, setDrawer] = useState<
-    | typeof import("@/components/ai/ActivityFeedDrawer").ActivityFeedDrawer
-    | null
-  >(null);
-  const [loadError, setLoadError] = useState<Error | null>(null);
+  const { module: Drawer, error } = useLazyModule(
+    open,
+    load,
+    "AI activity failed to load",
+  );
 
-  useEffect(() => {
-    if (!open || Drawer || loadError) return;
-    let cancelled = false;
-    void import("@/components/ai/ActivityFeedDrawer")
-      .then(({ ActivityFeedDrawer: LoadedDrawer }) => {
-        if (!cancelled) setDrawer(() => LoadedDrawer);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setLoadError(
-            error instanceof Error
-              ? error
-              : new Error("AI activity failed to load"),
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [Drawer, loadError, open]);
-
+  if (Drawer) return <Drawer open={open} onOpenChange={onOpenChange} />;
   if (!open) return null;
-  if (loadError) {
+  if (error) {
     return (
       <div className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg">
-        <p>AI activity failed to load.</p>
+        <p>AI activity failed to load. Reload the page if this persists.</p>
         <button
           type="button"
           className="mt-2 text-xs text-primary underline"
@@ -77,45 +81,40 @@ export function ActivityFeedDrawerSlot({
       </div>
     );
   }
-  if (!Drawer) {
-    return (
-      <div
-        className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg"
-        role="status"
-        aria-live="polite"
-      >
-        Loading AI activity…
-      </div>
-    );
-  }
-  return <Drawer open onOpenChange={onOpenChange} />;
+  return (
+    <div
+      className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg"
+      role="status"
+      aria-live="polite"
+    >
+      Loading AI activity…
+    </div>
+  );
 }
 
-/** Keeps release-note rendering out of the shell until an upgrade is pending. */
-function WhatsNewGate() {
+interface WhatsNewGateProps {
+  /** Overridable for tests; production always imports the real chunk. */
+  load?: () => Promise<WhatsNewModalComponent>;
+}
+
+/**
+ * Keeps release-note rendering out of the shell until an upgrade is pending.
+ * Once loaded the modal owns its own visibility (it already returns null when
+ * nothing is pending), so a transient version-poll failure cannot unmount a
+ * modal the user closed and bring it back open on the next success.
+ * If the optional chunk cannot be loaded nothing renders; the regular
+ * Settings → About route remains available.
+ */
+export function WhatsNewGate({ load = loadWhatsNewModal }: WhatsNewGateProps) {
   const { status, data } = useVersionInfo();
   const pending = status === "success" && Boolean(data?.pending_whats_new);
-  const [Modal, setModal] = useState<
-    typeof import("@/components/whats-new/WhatsNewModal").default | null
-  >(null);
+  const { module: Modal } = useLazyModule(
+    pending,
+    load,
+    "What's New failed to load",
+  );
 
-  useEffect(() => {
-    if (!pending || Modal) return;
-    let cancelled = false;
-    void import("@/components/whats-new/WhatsNewModal")
-      .then(({ default: LoadedModal }) => {
-        if (!cancelled) setModal(() => LoadedModal);
-      })
-      .catch(() => {
-        // The regular Settings → About route remains available if this
-        // optional notification chunk cannot be loaded.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [Modal, pending]);
-
-  return Modal && pending ? <Modal /> : null;
+  return Modal ? <Modal /> : null;
 }
 
 export default function Layout({ children }: LayoutProps) {
