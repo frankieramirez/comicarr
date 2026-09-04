@@ -23,6 +23,7 @@ and the lock-free (no INIT_LOCK) property.
 import json
 import queue as queue_module
 import types
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -550,6 +551,112 @@ def test_unknown_leaves_stage_unchanged(queues):
     )
     recovery.replay_pipeline(probes=_probe("unreachable"))
     assert _journal_row(rkey)["stage"] == journal.SNATCHED
+    assert _drain(queues["pp"]) == []
+
+
+def test_unprobeable_without_done_signal_leaves_stage_without_blaming_client(queues, capture_logs):
+    """#832: a row we cannot probe (no client id) is not a transient
+    downloader outage. Without a done-signal it stays UNKNOWN / snatched
+    and the recovery log must not accuse the client."""
+    rkey = journal.release_key("832", "nzbgeek", nzbname="NoId.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="832", PROVIDER="nzbgeek"))
+        conn.execute(issues.insert().values(IssueID="832", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "832"},
+        issueid="832",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    summary = recovery.replay_pipeline(probes=_probe("unprobeable"))
+    assert _journal_row(rkey)["stage"] == journal.SNATCHED
+    assert _drain(queues["pp"]) == []
+    assert summary["actions"].get("unknown-unchanged") == 1
+    assert "no client id to probe" in capture_logs.text
+    assert "transient downloader outage" not in capture_logs.text
+
+
+def test_unprobeable_with_done_signal_enqueues_pp_not_unknown(queues):
+    """#832: unprobeable still hits the done-signal / eviction guard.
+    History-evicted completion without placement is COMPLETE (same as
+    absent), so recovery re-drives PP instead of looping as a fake outage."""
+    rkey = journal.release_key("832b", "nzbgeek", nzbname="Done.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="832b", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "832b", "provider": "nzbgeek", "nzbname": "Done.cbz"},
+        issueid="832b",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    summary = recovery.replay_pipeline(probes=_probe("unprobeable"))
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED
+    assert summary["actions"].get("complete-pp-enqueued") == 1
+    assert summary["actions"].get("unknown-unchanged") is None
+    assert len(_drain(queues["pp"])) == 1
+
+
+def test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe(queues):
+    """#832: a reconstructed NZBGet row with an empty payload (no NZBID)
+    and no nzblog must go through the built-in `_nzbget_history`
+    unprobeable branch and match absent — COMPLETE / downloaded / PP
+    enqueued — not the #734 unreachable → manual_review path.
+
+    The injectable `unprobeable` seam is not enough: this calls
+    `replay_pipeline()` with no probes so the empty-payload branch
+    cannot drift from classify's raw-state handling."""
+    rkey = journal.release_key("832c", "nzbgeek", nzbname="Reconstructed.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="832c", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={},
+        issueid="832c",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        summary = recovery.replay_pipeline()
+        hist.assert_not_called()
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.DOWNLOADED
+    assert summary["actions"].get("complete-pp-enqueued") == 1
+    assert summary["actions"].get("done-unplaced-manual-review") is None
+    assert summary["actions"].get("unknown-unchanged") is None
+    items = _drain(queues["pp"])
+    assert len(items) == 1
+    assert not (items[0].get("nzb_folder") or items[0].get("nzb_name") or "").strip()
+
+
+def test_imported_oneoff_missing_nzbid_marks_done_after_library_status_fix(queues):
+    """#832 + #831 observed restart: synthetic one-off, empty payload, no
+    NZBID, issues already Downloaded with a Location. Recovery's early
+    done-check now sees a real done-signal and marks post_processed —
+    it must not loop as unknown-unchanged or accuse NZBGet."""
+    rkey = "oneoff|nzbgeek|One-Punch.Man.v30.2025.Digital.LuCaZ|hash832r"
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="1099556", Status="Downloaded", Location="v30.cbz"))
+        conn.execute(nzblog.insert().values(IssueID="1099556", PROVIDER="nzbgeek"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={},
+        issueid="1099556",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        summary = recovery.replay_pipeline()
+        hist.assert_not_called()
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert summary["actions"].get("done-check") == 1
+    assert summary["actions"].get("unknown-unchanged") is None
     assert _drain(queues["pp"]) == []
 
 
@@ -1272,12 +1379,15 @@ def _issue_row(issueid, status="Snatched", location=None):
 
 
 def test_done_signal_without_placement_is_not_marked_post_processed(queues):
-    """#734 repro: reconstructed snatched row, nzblog ABSENT (done-signal),
-    but the issue row is still Snatched with no Location — no import ever
-    ran. The downloader cannot be probed (reconstructed payload has no
-    client id). The row must NOT become `post_processed`; it must be
-    quarantined to manual_review so the operator sees needs_attention
-    instead of a false import/succeeded."""
+    """#734 repro: done-signal (nzblog ABSENT) + no placement + the
+    downloader probe is transiently unreachable. The row must NOT become
+    `post_processed`; it is quarantined to manual_review so the operator
+    sees needs_attention instead of a false import/succeeded.
+
+    A reconstructed NZBGet row with no client id is a different state
+    (`unprobeable`) and matches absent — see
+    test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe.
+    This test injects `unreachable` for the genuine outage path only."""
     rkey = journal.release_key("734", "nzb.su", nzbname="Ghosted.001.cbz")
     _issue_row("734")
     _insert_journal(

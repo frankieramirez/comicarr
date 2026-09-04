@@ -822,10 +822,16 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
                 "files remain in the download directory (#734)." % rkey
             )
             return "done-unplaced-manual-review"
-        logger.warn(
-            "[RECOVERY] %s -> UNKNOWN (transient downloader outage) — stage "
-            "left UNCHANGED, reclassified next start." % rkey
-        )
+        if details.get("raw_state") == "unprobeable":
+            logger.warn(
+                "[RECOVERY] %s -> UNKNOWN (row has no client id to probe) — "
+                "stage left UNCHANGED, reclassified next start." % rkey
+            )
+        else:
+            logger.warn(
+                "[RECOVERY] %s -> UNKNOWN (transient downloader outage) — stage "
+                "left UNCHANGED, reclassified next start." % rkey
+            )
         return "unknown-unchanged"
 
     if verdict == recovery_classify.COMPLETE:

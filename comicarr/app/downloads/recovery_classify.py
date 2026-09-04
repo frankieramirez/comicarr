@@ -397,14 +397,19 @@ def _sab_history_or_queue(row, payload=None):
 
 
 def _nzbget_history(row, payload=None):
-    """NZBGet: history lookup by NZBID. Reuses nzbget.NZBGet.historycheck()."""
+    """NZBGet: history lookup by NZBID. Reuses nzbget.NZBGet.historycheck().
+
+    A missing NZBID is a permanent property of the row (nothing to ask the
+    client), so it is ``unprobeable`` — not a transient ``unreachable``.
+    Genuine historycheck failures stay ``unreachable`` (#832).
+    """
     payload = payload if payload is not None else journal.load_payload(row.get("payload_json"))
     payload = payload or {}
     di = payload.get("download_info") or {}
     nzbid = payload.get("NZBID") or di.get("NZBID") or row.get("NZBID")
     if not nzbid:
         logger.warn("[RECOVERY-CLASSIFY] NZBGet row %s has no NZBID to probe." % row.get("release_key"))
-        return "unreachable"
+        return "unprobeable"
     try:
         from comicarr import nzbget
 
@@ -439,7 +444,7 @@ def _nzstat_to_raw(nzstat):
     return "complete"
 
 
-_RAW_PROBE_STATES = frozenset(("still", "complete", "absent", "unreachable"))
+_RAW_PROBE_STATES = frozenset(("still", "complete", "absent", "unreachable", "unprobeable"))
 
 
 def _probe_evidence(raw):
@@ -465,8 +470,14 @@ def _probe_evidence(raw):
     return raw_state, location, name, failed
 
 
-def _empty_details(verdict=UNKNOWN):
-    return {"verdict": verdict, "location": None, "name": None, "failed": None}
+def _empty_details(verdict=UNKNOWN, raw_state=None):
+    return {
+        "verdict": verdict,
+        "location": None,
+        "name": None,
+        "failed": None,
+        "raw_state": raw_state,
+    }
 
 
 def _probe_nzb(row, payload=None):
@@ -575,15 +586,21 @@ def _resolve_downloader(row, payload=None):
 def classify_details(row, probes=None, payload=None):
     """Classify one open journal row and return completion evidence.
 
-    Returns ``{verdict, location, name, failed}``. ``verdict`` is one of
-    STILL/COMPLETE/GONE/UNKNOWN. ``location``/``name``/``failed`` come from a
-    richer SAB/NZBGet probe result when present; they are None when the probe
-    returned only a raw state string. PURE: never mutates the journal.
+    Returns ``{verdict, location, name, failed, raw_state}``. ``verdict`` is
+    one of STILL/COMPLETE/GONE/UNKNOWN. ``location``/``name``/``failed`` come
+    from a richer SAB/NZBGet probe result when present; they are None when
+    the probe returned only a raw state string. ``raw_state`` is the
+    normalized probe vocabulary (including ``unprobeable``) so callers can
+    distinguish a missing client id from a transient outage. PURE: never
+    mutates the journal.
 
     `probes` (test seam): optional {downloader_type: callable(row)->raw}
     overriding the real client-query paths. `raw` is one of
-    "still"/"complete"/"absent"/"unreachable", or a historycheck-shaped dict
-    with ``status`` plus optional ``location``/``name``/``failed``.
+    "still"/"complete"/"absent"/"unreachable"/"unprobeable", or a
+    historycheck-shaped dict with ``status`` plus optional
+    ``location``/``name``/``failed``. ``unprobeable`` means this row has
+    nothing to ask the client (e.g. no NZBID); it is not a transient
+    outage and still receives the done-signal / history-eviction guard.
 
     `payload` (efficiency): the already-decoded payload_json dict, parsed once
     per replay row by the caller and threaded in to avoid re-parsing it for
@@ -613,7 +630,13 @@ def classify_details(row, probes=None, payload=None):
         return _empty_details(UNKNOWN)
 
     raw_state, location, name, failed = _probe_evidence(raw)
-    details = {"verdict": UNKNOWN, "location": location, "name": name, "failed": failed}
+    details = {
+        "verdict": UNKNOWN,
+        "location": location,
+        "name": name,
+        "failed": failed,
+        "raw_state": raw_state,
+    }
 
     if raw_state == "still":
         logger.fdebug("[RECOVERY-CLASSIFY] %s -> still (in client)" % rkey)
@@ -632,11 +655,21 @@ def classify_details(row, probes=None, payload=None):
         return details
 
     if has_done_signal(row):
-        logger.fdebug(
-            "[RECOVERY-CLASSIFY] %s absent in client BUT done-signal present "
-            "(history likely evicted while down) -> complete, NOT gone." % rkey
-        )
+        if raw_state == "unprobeable":
+            logger.fdebug("[RECOVERY-CLASSIFY] %s unprobeable BUT done-signal present -> complete, NOT unknown." % rkey)
+        else:
+            logger.fdebug(
+                "[RECOVERY-CLASSIFY] %s absent in client BUT done-signal present "
+                "(history likely evicted while down) -> complete, NOT gone." % rkey
+            )
         details["verdict"] = COMPLETE
+        return details
+
+    if raw_state == "unprobeable":
+        logger.warn(
+            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (row has no client id to probe) — journal stage left unchanged." % rkey
+        )
+        details["verdict"] = UNKNOWN
         return details
 
     logger.warn(

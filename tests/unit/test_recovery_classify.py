@@ -313,7 +313,7 @@ def test_classify_never_mutates_journal_for_any_verdict():
     (mark_failed/record_transition are never called from classify())."""
     row = _insert_journal("P1|sab|n", journal.SNATCHED, issueid="P1", provider="sab", downloader_type="nzb")
     with patch.object(journal, "record_transition") as rt:
-        for raw in ("still", "complete", "absent", "unreachable"):
+        for raw in ("still", "complete", "absent", "unreachable", "unprobeable"):
             recovery_classify.classify(row, probes=_probe(raw))
         rt.assert_not_called()
 
@@ -713,3 +713,155 @@ def test_annual_not_placed_is_not_a_done_signal(status):
     row = _imported_annual(status=status)
     assert recovery_classify.has_done_signal(row) is False
     assert recovery_classify.classify(row, probes=_probe("absent")) == recovery_classify.GONE
+
+
+# ---------------------------------------------------------------------------
+# #832 — missing NZBID is unprobeable, not a transient NZBGet outage
+# ---------------------------------------------------------------------------
+
+
+def _warn_messages(mock_warn):
+    return [str(call.args[0]) if call.args else str(call) for call in mock_warn.call_args_list]
+
+
+def test_nzbget_missing_nzbid_is_unprobeable_not_unreachable():
+    """A journal row with no NZBID cannot be asked about; that is not a
+    reachability failure. The built-in probe must return unprobeable and
+    must not call historycheck at all."""
+    row = _insert_journal(
+        "oneoff|nzbgeek||0db5cc8c289a08a0",
+        journal.SNATCHED,
+        issueid="900010",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={"download_info": {}},
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        assert recovery_classify._nzbget_history(row) == "unprobeable"
+        hist.assert_not_called()
+
+
+def test_nzbget_api_failure_is_still_unreachable():
+    """Genuine NZBGet historycheck failures stay transient unreachable."""
+    row = _insert_journal(
+        "N3|nzbget|n",
+        journal.SNATCHED,
+        issueid="N3",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={"NZBID": 42, "download_info": {"NZBID": 42}},
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck", side_effect=RuntimeError("connection refused")):
+        assert recovery_classify._nzbget_history(row) == "unreachable"
+        assert recovery_classify.classify(row) == recovery_classify.UNKNOWN
+
+
+def test_unprobeable_with_done_signal_is_complete_not_unknown():
+    """Unprobeable still receives the history-eviction / done-signal guard.
+    A row we cannot ask the client about, but whose library already proves
+    completion, closes as COMPLETE instead of looping as UNKNOWN."""
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="N1", Status="Post-Processed"))
+    row = _insert_journal(
+        "N1|nzbget|n",
+        journal.SNATCHED,
+        issueid="N1",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={},
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        details = recovery_classify.classify_details(row)
+        assert details["verdict"] == recovery_classify.COMPLETE
+        assert details["raw_state"] == "unprobeable"
+        hist.assert_not_called()
+
+
+def test_unprobeable_without_done_signal_is_unknown_not_gone():
+    """Cannot probe ≠ absent-from-a-reachable-client. Without a done-signal
+    the row stays UNKNOWN (not GONE) and the log does not accuse NZBGet."""
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="N2", Status="Snatched"))
+        conn.execute(nzblog.insert().values(IssueID="N2", PROVIDER="nzbgeek"))
+    row = _insert_journal(
+        "N2|nzbget|n",
+        journal.SNATCHED,
+        issueid="N2",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={},
+    )
+    before = _journal_row("N2|nzbget|n")
+    with (
+        patch("comicarr.nzbget.NZBGet.historycheck") as hist,
+        patch.object(recovery_classify.logger, "warn") as warn,
+    ):
+        details = recovery_classify.classify_details(row)
+        hist.assert_not_called()
+    assert details["verdict"] == recovery_classify.UNKNOWN
+    assert details["raw_state"] == "unprobeable"
+    assert _journal_row("N2|nzbget|n") == before
+    messages = " ".join(_warn_messages(warn))
+    assert "no NZBID to probe" in messages
+    assert "no client id to probe" in messages
+    assert "downloader API unreachable" not in messages
+
+
+def test_unprobeable_probe_seam_hits_done_signal_not_gone():
+    """Injectable unprobeable follows the same classify path as the built-in
+    missing-NZBID probe: done-signal → COMPLETE; otherwise UNKNOWN, never GONE."""
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="N4", Status="Snatched"))
+        conn.execute(nzblog.insert().values(IssueID="N4", PROVIDER="sab"))
+        conn.execute(issues.insert().values(IssueID="N5", Status="Post-Processed"))
+    open_row = _insert_journal("N4|sab|n", journal.SNATCHED, issueid="N4", provider="sab", downloader_type="nzb")
+    done_row = _insert_journal("N5|sab|n", journal.SNATCHED, issueid="N5", provider="sab", downloader_type="nzb")
+    assert recovery_classify.classify(open_row, probes=_probe("unprobeable")) == recovery_classify.UNKNOWN
+    assert recovery_classify.classify(done_row, probes=_probe("unprobeable")) == recovery_classify.COMPLETE
+    assert recovery_classify.classify(open_row, probes=_probe("absent")) == recovery_classify.GONE
+
+
+def test_nzbget_oneoff_missing_nzbid_is_unknown_without_accusing_client():
+    """Synthetic one-off, empty nzbname, no NZBID, and no library row.
+    nzblog-absence is advisory only for one-offs, so there is no done-signal;
+    the row stays UNKNOWN and must not be labelled a transient outage."""
+    oneoff_key = "oneoff|nzbgeek||0db5cc8c289a08a0"
+    row = _insert_journal(
+        oneoff_key,
+        journal.SNATCHED,
+        issueid="900011",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={},
+    )
+    assert recovery_classify.has_done_signal(row) is False
+    with patch.object(recovery_classify.logger, "warn") as warn:
+        assert recovery_classify.classify(row) == recovery_classify.UNKNOWN
+    messages = " ".join(_warn_messages(warn))
+    assert "no NZBID to probe" in messages
+    assert "no client id to probe" in messages
+    assert "downloader API unreachable" not in messages
+
+
+def test_unprobeable_imported_oneoff_is_complete_via_builtin_probe():
+    """#832 + #831 observed production shape: synthetic one-off, no NZBID,
+    issues.Status=Downloaded + Location. The unprobeable fall-through now
+    sees `_library_status_done` and classifies COMPLETE instead of looping
+    UNKNOWN as a fake NZBGet outage."""
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="1099555", Status="Downloaded", Location="v30.cbz"))
+        conn.execute(nzblog.insert().values(IssueID="1099555", PROVIDER="nzbgeek"))
+    row = _insert_journal(
+        "oneoff|nzbgeek|One-Punch.Man.v30.2025.Digital.LuCaZ|hash832",
+        journal.SNATCHED,
+        issueid="1099555",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={},
+    )
+    assert recovery_classify.has_done_signal(row) is True
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        details = recovery_classify.classify_details(row)
+        hist.assert_not_called()
+    assert details["verdict"] == recovery_classify.COMPLETE
+    assert details["raw_state"] == "unprobeable"
