@@ -634,6 +634,32 @@ def test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe(queue
     assert not (items[0].get("nzb_folder") or items[0].get("nzb_name") or "").strip()
 
 
+def test_imported_oneoff_missing_nzbid_marks_done_after_library_status_fix(queues):
+    """#832 + #831 observed restart: synthetic one-off, empty payload, no
+    NZBID, issues already Downloaded with a Location. Recovery's early
+    done-check now sees a real done-signal and marks post_processed —
+    it must not loop as unknown-unchanged or accuse NZBGet."""
+    rkey = "oneoff|nzbgeek|One-Punch.Man.v30.2025.Digital.LuCaZ|hash832r"
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="1099556", Status="Downloaded", Location="v30.cbz"))
+        conn.execute(nzblog.insert().values(IssueID="1099556", PROVIDER="nzbgeek"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={},
+        issueid="1099556",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+    )
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        summary = recovery.replay_pipeline()
+        hist.assert_not_called()
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert summary["actions"].get("done-check") == 1
+    assert summary["actions"].get("unknown-unchanged") is None
+    assert _drain(queues["pp"]) == []
+
+
 # ---------------------------------------------------------------------------
 # Two-marker finalizer — decided ONLY by `moved`, no file probe
 # ---------------------------------------------------------------------------

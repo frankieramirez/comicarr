@@ -822,7 +822,7 @@ def test_unprobeable_probe_seam_hits_done_signal_not_gone():
 
 
 def test_nzbget_oneoff_missing_nzbid_is_unknown_without_accusing_client():
-    """Observed #832 shape: synthetic one-off, empty nzbname, no NZBID.
+    """Synthetic one-off, empty nzbname, no NZBID, and no library row.
     nzblog-absence is advisory only for one-offs, so there is no done-signal;
     the row stays UNKNOWN and must not be labelled a transient outage."""
     oneoff_key = "oneoff|nzbgeek||0db5cc8c289a08a0"
@@ -841,3 +841,27 @@ def test_nzbget_oneoff_missing_nzbid_is_unknown_without_accusing_client():
     assert "no NZBID to probe" in messages
     assert "no client id to probe" in messages
     assert "downloader API unreachable" not in messages
+
+
+def test_unprobeable_imported_oneoff_is_complete_via_builtin_probe():
+    """#832 + #831 observed production shape: synthetic one-off, no NZBID,
+    issues.Status=Downloaded + Location. The unprobeable fall-through now
+    sees `_library_status_done` and classifies COMPLETE instead of looping
+    UNKNOWN as a fake NZBGet outage."""
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="1099555", Status="Downloaded", Location="v30.cbz"))
+        conn.execute(nzblog.insert().values(IssueID="1099555", PROVIDER="nzbgeek"))
+    row = _insert_journal(
+        "oneoff|nzbgeek|One-Punch.Man.v30.2025.Digital.LuCaZ|hash832",
+        journal.SNATCHED,
+        issueid="1099555",
+        provider="nzbgeek",
+        downloader_type="nzbget",
+        payload={},
+    )
+    assert recovery_classify.has_done_signal(row) is True
+    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+        details = recovery_classify.classify_details(row)
+        hist.assert_not_called()
+    assert details["verdict"] == recovery_classify.COMPLETE
+    assert details["raw_state"] == "unprobeable"
