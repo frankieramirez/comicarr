@@ -45,7 +45,7 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MA
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import inspect, text
-from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.config
 from comicarr import (
@@ -1479,32 +1479,6 @@ def sql_db():
     from comicarr.db import get_engine
 
     return get_engine().connect()
-
-
-def _ensure_columns(engine, table_name, required_columns):
-    """Add missing columns to an existing table.
-
-    Uses SQLAlchemy inspect() for portable column detection.
-    Each ALTER TABLE runs in its own transaction.
-
-    Args:
-        engine: SQLAlchemy Engine
-        table_name: Name of the table to check
-        required_columns: List of (column_name, column_type_sql) tuples
-    """
-    inspector = inspect(engine)
-    try:
-        existing = {c["name"] for c in inspector.get_columns(table_name)}
-    except Exception:
-        return
-
-    for col_name, col_type in required_columns:
-        if col_name not in existing:
-            try:
-                with engine.begin() as conn:
-                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
-            except (OperationalError, ProgrammingError) as e:
-                logger.warn("Could not add column %s.%s: %s", table_name, col_name, e)
 
 
 def dbcheck():

@@ -1134,8 +1134,6 @@ def _validate_cross_document(manifest: Mapping[str, Any], diagnostics: Mapping[s
         raise SupportBundleValidationFailed()
     if health_available != ("health" in diagnostics):
         raise SupportBundleValidationFailed()
-    if not db_available and health_available:
-        pass
     if not db_available:
         reason = manifest["sources"]["database"].get("reason")
         if reason not in {

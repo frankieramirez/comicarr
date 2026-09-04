@@ -287,13 +287,6 @@ def resolve_needs_attention(
     return _legacy_item(report.results[0], report.action)
 
 
-def _batch_order(release_keys):
-    """Deprecated ordering adapter retained for compatibility tests."""
-    from comicarr.app.attention._resolution import _batch_order as attention_batch_order
-
-    return attention_batch_order(release_keys)
-
-
 def resolve_needs_attention_batch(ctx, action, release_keys, *, audit_identity):
     """Deprecated batch adapter for :func:`comicarr.app.attention.resolve`."""
     from comicarr.app.attention import InvalidAttentionRequest, ResolutionRequest, resolve

@@ -156,7 +156,8 @@ def test_scheduled_search_failure_is_supervised_and_propagated(monkeypatch):
     job_management = MagicMock()
     monkeypatch.setattr(searchit.helpers, "job_management", job_management)
     monkeypatch.setattr(searchit.helpers, "utctimestamp", lambda: 123.0)
-    monkeypatch.setattr(comicarr.search, "searchforissue", MagicMock(side_effect=RuntimeError("provider down")))
+    failure = RuntimeError("provider down")
+    monkeypatch.setattr(comicarr.search, "searchforissue", MagicMock(side_effect=failure))
 
     with pytest.raises(RuntimeError, match="provider down"):
         searchit.CurrentSearcher().run()
@@ -168,5 +169,5 @@ def test_scheduled_search_failure_is_supervised_and_propagated(monkeypatch):
         "last_run_completed": 123.0,
         "status": "Error",
         "failure": True,
-        "failure_message": job_management.call_args_list[-1].kwargs["failure_message"],
+        "failure_message": failure,
     }

@@ -574,12 +574,15 @@ def test_batch_keeps_unknown_keys_where_they_were_submitted():
 
     # Unknown keys both before and between the dated rows.
     submitted = ["ghost-a", older, "ghost-b", newer]
-    ordered = dl_service._batch_order(submitted)
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention_batch(ctx, "stop_wanting", submitted, audit_identity="op")
+    ordered = [item["release_key"] for item in result["results"]]
 
     assert ordered[0] == "ghost-a"
     assert ordered[2] == "ghost-b"
     # The two dated slots are filled newest-first.
     assert [ordered[1], ordered[3]] == [newer, older]
+    assert [item["ok"] for item in result["results"]] == [False, True, False, True]
 
 
 def test_reason_to_stage_is_a_function():

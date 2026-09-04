@@ -64,37 +64,15 @@ def _journal_stage_done(row):
 
 
 def _library_status_done(issueid, story_arc=None):
-    """True iff a library row shows this obligation already completed — an
-    authoritative "already done" signal that survives history eviction.
+    """Check completion across issue, annual, and story-arc library rows.
 
-    Accepts every status that means the file was placed (``_PLACED_STATUSES``),
-    not only 'Post-Processed'. Post-processing writes BOTH statuses in the same
-    block, to DIFFERENT tables (postprocessor ~4293-4306): 'Downloaded' +
-    Location onto the *library* row, and 'Post-Processed' onto *snatched*. A
-    library row therefore never carries 'Post-Processed', so testing for it
-    here could never return True.
+    Library rows use ``_PLACED_STATUSES``; 'Post-Processed' belongs to snatched
+    history. This signal survives client-history eviction and is essential
+    when synthetic-one-off detection suppresses the nzblog fallback, including
+    annuals whose real IDs exceed the synthetic-ID floor.
 
-    That matters because this is the ONLY done-signal a synthetic-HIGHCOUNT
-    one-off can have: nzblog-presence is advisory for those (see
-    has_done_signal) and a stranded row's stage is still `snatched`. A fully
-    downloaded and imported one-off was therefore stranded at `snatched`
-    forever — each restart re-probed it and logged "UNKNOWN (downloader API
-    unreachable / transient)" while the library plainly showed the issue
-    Downloaded with a Location.
-
-    Reads every table that can carry the row, via ``_library_rows``, rather
-    than only *issues*. An annual's completion is written onto *annuals*
-    (updater.foundsearch, mode='want_ann') and an arc's onto *storyarcs*, so an
-    issues-only lookup missed both. Annuals are the case that bites: their
-    IssueIDs are real ComicVine ids, which routinely exceed the 900000
-    synthetic-one-off floor, so ``is_synthetic_oneoff`` reads True for them and
-    suppresses the nzblog fallback below — leaving this the only signal they
-    have, and it was looking in the wrong table. A successfully imported
-    annual classified GONE on every restart.
-
-    Status only, deliberately: a non-empty Location is placement evidence and
-    belongs to has_library_placement, which answers a different question. A
-    lookup failure returns False — never fabricate a done-signal.
+    Check status only; filesystem placement belongs to has_library_placement.
+    Missing rows or a lookup failure return False.
     """
     if issueid is None:
         return False

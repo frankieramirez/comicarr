@@ -9,7 +9,7 @@ export default tseslint.config(
   // The data-table ignore also covered the shared renderer the product tables
   // actually use, so it had never been linted. Now that the unused schema-driven
   // table system is gone, what remains under data-table/ is live code.
-  { ignores: ['dist', 'src/components/custom/**', 'src/components/controls.tsx', 'src/lib/format.ts', 'src/lib/delimiters.ts', 'src/lib/is-array.ts', 'src/lib/compose-refs.ts', 'src/lib/date-preset.ts', 'src/lib/react-table.d.ts', 'src/lib/constants/**', 'src/hooks/use-debounce.ts', 'src/hooks/use-hot-key.ts', 'src/hooks/use-media-query.ts', 'src/hooks/use-local-storage.ts', 'src/hooks/use-copy-to-clipboard.ts'] },
+  { ignores: ['dist', 'src/components/custom/**', 'src/components/controls.tsx', 'src/lib/format.ts', 'src/lib/delimiters.ts', 'src/lib/compose-refs.ts', 'src/lib/date-preset.ts', 'src/lib/react-table.d.ts', 'src/lib/constants/**', 'src/hooks/use-debounce.ts', 'src/hooks/use-local-storage.ts', 'src/hooks/use-copy-to-clipboard.ts'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
