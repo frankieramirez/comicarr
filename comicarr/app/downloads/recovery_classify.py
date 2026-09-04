@@ -23,8 +23,8 @@ STILL/COMPLETE/UNKNOWN.
 history is finite and operator/auto-pruned: a release that completed and was
 post-processed while the app was down, then had its history row evicted, reads
 as absent. Before classifying any "absent" as GONE we cross-check the
-authoritative done-signals (issues.Status == 'Post-Processed' / nzblog row
-absent / journal stage already post_processing+).
+authoritative done-signals (a library row's Status shows placement / nzblog
+row absent / journal stage already post_processing+).
 
 One-off caveat: synthetic-HIGHCOUNT IssueID one-offs have a non-persisted
 IssueID that diverges across restart, and nzblog() has a mid-flight
@@ -63,17 +63,45 @@ def _journal_stage_done(row):
     return rank is not None and pp_rank is not None and rank >= pp_rank
 
 
-def _issue_post_processed(issueid):
-    """True iff issues.Status == 'Post-Processed' for this IssueID — an
-    authoritative "already completed" signal that survives history eviction."""
+def _library_status_done(issueid, story_arc=None):
+    """True iff a library row shows this obligation already completed — an
+    authoritative "already done" signal that survives history eviction.
+
+    Accepts every status that means the file was placed (``_PLACED_STATUSES``),
+    not only 'Post-Processed'. Post-processing writes BOTH statuses in the same
+    block, to DIFFERENT tables (postprocessor ~4293-4306): 'Downloaded' +
+    Location onto the *library* row, and 'Post-Processed' onto *snatched*. A
+    library row therefore never carries 'Post-Processed', so testing for it
+    here could never return True.
+
+    That matters because this is the ONLY done-signal a synthetic-HIGHCOUNT
+    one-off can have: nzblog-presence is advisory for those (see
+    has_done_signal) and a stranded row's stage is still `snatched`. A fully
+    downloaded and imported one-off was therefore stranded at `snatched`
+    forever — each restart re-probed it and logged "UNKNOWN (downloader API
+    unreachable / transient)" while the library plainly showed the issue
+    Downloaded with a Location.
+
+    Reads every table that can carry the row, via ``_library_rows``, rather
+    than only *issues*. An annual's completion is written onto *annuals*
+    (updater.foundsearch, mode='want_ann') and an arc's onto *storyarcs*, so an
+    issues-only lookup missed both. Annuals are the case that bites: their
+    IssueIDs are real ComicVine ids, which routinely exceed the 900000
+    synthetic-one-off floor, so ``is_synthetic_oneoff`` reads True for them and
+    suppresses the nzblog fallback below — leaving this the only signal they
+    have, and it was looking in the wrong table. A successfully imported
+    annual classified GONE on every restart.
+
+    Status only, deliberately: a non-empty Location is placement evidence and
+    belongs to has_library_placement, which answers a different question. A
+    lookup failure returns False — never fabricate a done-signal.
+    """
     if issueid is None:
         return False
-    try:
-        rec = db.select_one(select(issues.c.Status).where(issues.c.IssueID == str(issueid)))
-    except Exception as e:
-        logger.warn("[RECOVERY-CLASSIFY] issues.Status lookup failed for %s: %s" % (issueid, e))
+    recs = _library_rows(issueid, story_arc)
+    if not recs:
         return False
-    return bool(rec) and rec["Status"] == "Post-Processed"
+    return any((rec["Status"] or "") in _PLACED_STATUSES for rec in recs)
 
 
 def _nzblog_present(issueid, provider, story_arc=None):
@@ -152,6 +180,17 @@ def _payload_story_arc(payload):
     if isinstance(payload, dict) and "mode" in payload:
         return payload.get("mode") == "story_arc"
     return None
+
+
+def _row_story_arc(row):
+    """The tri-state arc signal for a journal row, read off its payload. A
+    payload that will not parse yields None, which the arc-scoped lookups
+    treat as "unknown" and answer by preferring the plain-issue reading."""
+    try:
+        return _payload_story_arc(journal.load_payload((row or {}).get("payload_json")))
+    except Exception as e:
+        logger.warn("[RECOVERY-CLASSIFY] payload parse for arc-signal failed (%s) — using prefer-plain fallback." % e)
+        return None
 
 
 def _library_rows(issueid, story_arc):
@@ -254,7 +293,7 @@ def has_done_signal(row):
 
     Returns True iff the release is authoritatively already complete:
       * journal stage is post_processing+, OR
-      * issues.Status == 'Post-Processed', OR
+      * a library row shows a placed status (see _library_status_done), OR
       * nzblog row absent (deleted on PP success).
 
     One-off rule: for a synthetic-HIGHCOUNT one-off the nzblog-presence test
@@ -262,7 +301,10 @@ def has_done_signal(row):
     delete-reupsert window). For those rows the journal release_key/stage is
     AUTHORITATIVE and nzblog-presence is ADVISORY only — so we do NOT treat
     nzblog-absence as a done-signal for one-offs (an in-flight one-off must
-    not be misread as done/GONE).
+    not be misread as done/GONE). That rule makes _library_status_done the
+    only done-signal such a row can have while its stage is still `snatched`,
+    so that test must recognise both the status post-processing actually
+    writes and the table it writes it to.
     """
     row = row or {}
     if _journal_stage_done(row):
@@ -270,8 +312,9 @@ def has_done_signal(row):
 
     issueid = row.get("issueid")
     provider = row.get("provider")
+    story_arc = _row_story_arc(row)
 
-    if _issue_post_processed(issueid):
+    if _library_status_done(issueid, story_arc):
         return True
 
     if journal.is_synthetic_oneoff(issueid):
@@ -280,16 +323,6 @@ def has_done_signal(row):
             "ADVISORY only; journal stage is authoritative." % row.get("release_key")
         )
         return False
-
-    story_arc = None
-    try:
-        pl = journal.load_payload(row.get("payload_json")) or {}
-        if "mode" in pl:
-            story_arc = pl.get("mode") == "story_arc"
-    except Exception as e:
-        logger.warn(
-            "[RECOVERY-CLASSIFY] payload parse for arc-signal failed (%s) — using prefer-plain nzblog fallback." % e
-        )
 
     present = _nzblog_present(issueid, provider, story_arc=story_arc)
     if present is False:
