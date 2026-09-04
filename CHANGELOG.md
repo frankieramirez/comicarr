@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.38.6
+
+### Patch Changes
+
+- e62a188: Fixed status colours that were missing or unreadable in several places.
+  
+  In **Settings → Acquisition Health**, badges and stat tiles in the "ready" and "warning" states were drawn with no colour at all — no green or amber border, tint, or text — so they were indistinguishable from a plain tile. Error-state tiles were unaffected. The confirmation banner and the "Verified build" indicator on the same tab had the same problem.
+  
+  In **manual import**, the "Saved" confirmation was drawn in near-white and was effectively invisible against a light background; it is now green. The **library scan** summary banner lost its green border and tint the same way.
+  
+  Light mode also renders de-emphasised text correctly again: the separators and small metadata labels on series detail, issue detail, search results, and the releases page were being drawn at full contrast instead of muted. Words that were sitting on that same low-contrast token (series-detail labels, empty-state copy, form labels) now use the readable muted colour.
+
+## 0.38.5
+
+### Patch Changes
+
+- 2a66870: A manga download that cannot be placed no longer stops every other import. Manga post-processing holds the global post-processing lock, and each of its six early exits — series not in the database, missing folder, no files found, no manga destination configured, a series folder outside that destination, and a failed directory create — returned without giving it back. Nothing downstream could recover: the post-processing worker skips any item while the lock is held, and the Folder Monitor that exists to rescue stalled imports bails on the same lock. One misplaced series froze the pipeline for 85 minutes. The lock is now released from a single place that covers every exit, including one taken by an exception, and it is held until the pipeline journal has been written rather than being given up part-way through.
+- 9486abf: A manga series tracked by volume now reads "Volumes" in the series table instead of "Chapters", with the volume shown on each row. The heading was taken from the content kind rather than from the rows themselves, so a volume ledger was labelled chapters and the type column on every row was blank — reporting the wrong one of the two things blended monitoring searches. A ledger holding both now reads "Volumes & chapters" and counts each. This covers a ComicVine manga such as One-Punch Man, which models its English volumes as the series' issues and so carries the volume as the issue number rather than as a volume number. Comic series are unchanged: a bare issue number on a comic is still an issue, and the table reads "Issues". The table also stops claiming rows are grouped by arc when every arc cell is empty.
+- 23a6f9c: Manga series tracked by volume now actually grab the releases they find. A volume-numbered series would run every search, receive the correct results from the provider, and snatch none of them — five separate gates each discarded the release, so the series sat permanently Wanted with nothing to show for it. Volume searches now query the volume name the way the RSS path already did, match results against the real series name, and accept a release on its volume number rather than demanding an issue number the release never carries. Half volumes such as v01.5 keep their fraction instead of being searched and matched as v01.
+- 2312cac: NZBGet downloads that land under a configured category subdirectory are now found and post-processed. NZBGet files a completed download under `<DestDir>/<category>/`, but Comicarr only looked in `<DestDir>/`, so the folder it resolved did not exist. Post-processing aborted before reaching a terminal stage and the stranded obligation held the post-processing lock, which stopped Folder Monitor from sweeping anything else.
+- 3c10055: Post-processing no longer stalls on downloads that were already filed. A journal row left at `post_processing` after its file had actually moved was re-driven at every startup and could never finish, because the folder it wanted to import from was already empty. Those stuck obligations held post-processing state, so Folder Monitor lost its lock on every sweep and stopped importing anything at all. Recovery now checks the library for the file before re-driving: when the issue reads Downloaded and its location resolves to a real file under the series folder, the move demonstrably happened, so the row is closed instead of retried. Anything it cannot verify is re-driven exactly as before.
+- f70995f: A download that finished and imported while Comicarr was down is no longer failed on the next start. Startup recovery cross-checks the library before deciding a release is gone, but it looked for a status the library never carries: post-processing writes 'Post-Processed' to the history table and 'Downloaded' onto the issue, so the check could not return true. It also only ever read the issues table, while an annual's completion is written to annuals and a story arc's to storyarcs. Annuals were hit hardest — their ComicVine ids sit above the range Comicarr reserves for one-off downloads, which suppresses the fallback check — so an annual that imported cleanly was re-probed and failed on every restart.
+
+## 0.38.4
+
+### Patch Changes
+
+- dc8a8ca: Switching a series to manga now stores it under the manga destination so completed downloads can import. A series that was already manga but still pointed at the comics folder is repaired on the next import. Files already in the old comics folder are not moved.
+
 ## 0.38.3
 
 ### Patch Changes

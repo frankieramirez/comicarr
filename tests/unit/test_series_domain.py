@@ -406,19 +406,27 @@ def test_search_settings_query_upserts_lowercase_comics_table(monkeypatch):
 @pytest.mark.parametrize("content_type", ["comic", "manga"])
 def test_update_content_kind_persists_and_returns_canonical_value(monkeypatch, content_type):
     update = MagicMock()
-    rows = iter(
-        [
-            {"ComicID": "160294", "ContentType": "comic"},
-            {"ComicID": "160294", "ContentType": content_type},
-        ]
-    )
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk",
+        "ContentType": "comic",
+    }
+    updated = dict(existing, ContentType=content_type)
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
     monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
     monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
 
     result = series_service.update_content_kind(_make_ctx(), "160294", content_type)
 
     update.assert_called_once_with("160294", content_type)
-    assert result == {"success": True, "content_type": content_type}
+    assert result == {
+        "success": True,
+        "content_type": content_type,
+        "location_repointed": False,
+        "comic_location": "/manga/Berserk",
+    }
 
 
 def test_update_content_kind_rejects_unknown_series_without_writing(monkeypatch):
@@ -439,6 +447,247 @@ def test_content_kind_query_updates_only_content_type(monkeypatch):
     series_queries.update_comic_content_kind("160294", "manga")
 
     upsert.assert_called_once_with("comics", {"ContentType": "manga"}, {"ComicID": "160294"})
+
+
+def test_content_kind_query_updates_content_type_and_location(monkeypatch):
+    upsert = MagicMock()
+    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+
+    series_queries.update_comic_content_kind("160294", "manga", comic_location="/manga/Berserk")
+
+    upsert.assert_called_once_with(
+        "comics",
+        {"ContentType": "manga", "ComicLocation": "/manga/Berserk"},
+        {"ComicID": "160294"},
+    )
+
+
+def test_update_content_kind_repoints_comicvine_series_to_manga_dest(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/comics/Berserk (2003)",
+        "ContentType": "comic",
+    }
+    updated = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk",
+        "ContentType": "manga",
+    }
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
+
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    assert result == {
+        "success": True,
+        "content_type": "manga",
+        "location_repointed": True,
+        "comic_location": "/manga/Berserk",
+        "previous_location": "/comics/Berserk (2003)",
+    }
+    warn.assert_called_once()
+    message = warn.call_args.args[0]
+    assert "ComicLocation is now /manga/Berserk" in message
+    assert "Files already at /comics/Berserk (2003) were not moved" in message
+
+
+def test_update_content_kind_leaves_location_when_already_under_manga_dest(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    existing = {
+        "ComicID": "md-1",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk (2003)",
+        "ContentType": "comic",
+    }
+    updated = dict(existing, ContentType="manga")
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    result = series_service.update_content_kind(_make_ctx(), "md-1", "manga")
+
+    update.assert_called_once_with("md-1", "manga")
+    assert result["location_repointed"] is False
+    assert result["comic_location"] == "/manga/Berserk (2003)"
+    warn.assert_not_called()
+
+
+def test_update_content_kind_heals_manga_series_still_under_comics_dest(monkeypatch):
+    update = MagicMock()
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/comics/Berserk (2003)",
+        "ContentType": "manga",
+    }
+    updated = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk",
+        "ContentType": "manga",
+    }
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
+
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    assert result["location_repointed"] is True
+    assert result["comic_location"] == "/manga/Berserk"
+
+
+def test_update_content_kind_to_comic_does_not_repoint_location(monkeypatch):
+    update = MagicMock()
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk",
+        "ContentType": "manga",
+    }
+    updated = dict(existing, ContentType="comic")
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", "comic")
+
+    update.assert_called_once_with("160294", "comic")
+    assert result["location_repointed"] is False
+    assert result["comic_location"] == "/manga/Berserk"
+
+
+def test_update_content_kind_sets_manga_location_when_unset_without_orphan_warning(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": None,
+        "ContentType": "comic",
+    }
+    updated = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/manga/Berserk",
+        "ContentType": "manga",
+    }
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: "/manga")
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
+
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    assert result["location_repointed"] is True
+    assert "previous_location" not in result
+    warn.assert_not_called()
+
+
+def test_update_content_kind_leaves_location_when_manga_dest_missing(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    existing = {
+        "ComicID": "160294",
+        "ComicName": "Berserk",
+        "ComicLocation": "/comics/Berserk (2003)",
+        "ContentType": "comic",
+    }
+    updated = dict(existing, ContentType="manga")
+    rows = iter([existing, updated])
+    monkeypatch.setattr(series_service, "_manga_destination", lambda: None)
+    monkeypatch.setattr(series_service.series_queries, "get_comic_content_kind", lambda _comic_id: next(rows))
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
+
+    update.assert_called_once_with("160294", "manga")
+    assert result["location_repointed"] is False
+    warn.assert_called_once()
+    assert "no manga destination configured" in warn.call_args.args[0]
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_folder"),
+    [
+        ("Berserk", "Berserk"),
+        ("Batman: The Dark Knight", "Batman The Dark Knight"),
+        ("Solo Leveling", "Solo Leveling"),
+    ],
+)
+def test_manga_series_location_uses_filesafe_name(name, expected_folder):
+    assert series_service.manga_series_location(name, "/manga") == os.path.join("/manga", expected_folder)
+
+
+def test_manga_location_for_reclassify_ignores_dest_prefix_lookalikes():
+    new_location, warning = series_service.manga_location_for_reclassify(
+        {
+            "ComicID": "1",
+            "ComicName": "Berserk",
+            "ComicLocation": "/manga-extra/Berserk",
+        },
+        "/manga",
+    )
+
+    assert new_location == "/manga/Berserk"
+    assert "were not moved" in warning
+
+
+def test_persist_manga_location_if_needed_writes_when_outside_dest(monkeypatch):
+    update = MagicMock()
+    warn = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+    monkeypatch.setattr(series_service.logger, "warn", warn)
+
+    location, did_repoint = series_service.persist_manga_location_if_needed(
+        {
+            "ComicID": "160294",
+            "ComicName": "Berserk",
+            "ComicLocation": "/comics/Berserk (2003)",
+            "ContentType": "manga",
+        },
+        "/manga",
+    )
+
+    assert location == "/manga/Berserk"
+    assert did_repoint is True
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    warn.assert_called_once()
+
+
+def test_persist_manga_location_if_needed_skips_when_already_under_dest(monkeypatch):
+    update = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "update_comic_content_kind", update)
+
+    location, did_repoint = series_service.persist_manga_location_if_needed(
+        {
+            "ComicID": "md-1",
+            "ComicName": "Berserk",
+            "ComicLocation": "/manga/Berserk (2003)",
+            "ContentType": "manga",
+        },
+        "/manga",
+    )
+
+    assert location == "/manga/Berserk (2003)"
+    assert did_repoint is False
+    update.assert_not_called()
 
 
 def test_preview_search_all_missing_excludes_owned_future_and_skipped(monkeypatch):

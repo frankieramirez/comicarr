@@ -142,14 +142,14 @@ function StatusPill({
     { border: string; color: string; background: string }
   > = {
     ready: {
-      border: "color-mix(in oklab, var(--status-success) 36%, transparent)",
-      color: "var(--status-success)",
-      background: "color-mix(in oklab, var(--status-success) 11%, transparent)",
+      border: "color-mix(in oklab, var(--status-active) 36%, transparent)",
+      color: "var(--status-active)",
+      background: "color-mix(in oklab, var(--status-active) 11%, transparent)",
     },
     warning: {
-      border: "color-mix(in oklab, var(--status-warning) 42%, transparent)",
-      color: "var(--status-warning)",
-      background: "color-mix(in oklab, var(--status-warning) 10%, transparent)",
+      border: "color-mix(in oklab, var(--status-paused) 42%, transparent)",
+      color: "var(--status-paused)",
+      background: "color-mix(in oklab, var(--status-paused) 10%, transparent)",
     },
     danger: {
       border: "color-mix(in oklab, var(--status-error) 42%, transparent)",
@@ -185,9 +185,9 @@ function Metric({
 }) {
   const color =
     tone === "ready"
-      ? "var(--status-success)"
+      ? "var(--status-active)"
       : tone === "warning"
-        ? "var(--status-warning)"
+        ? "var(--status-paused)"
         : tone === "danger"
           ? "var(--status-error)"
           : "var(--foreground)";
@@ -217,11 +217,11 @@ function Message({
   tone?: Tone;
 }) {
   const color =
-    tone === "danger" ? "var(--status-error)" : "var(--status-warning)";
+    tone === "danger" ? "var(--status-error)" : "var(--status-paused)";
   const background =
     tone === "danger"
       ? "var(--status-error-bg)"
-      : "color-mix(in oklab, var(--status-warning) 10%, transparent)";
+      : "color-mix(in oklab, var(--status-paused) 10%, transparent)";
   return (
     <div
       className="flex gap-2 rounded-[6px] border px-3 py-2 text-[12px] leading-relaxed"
@@ -711,12 +711,12 @@ export function AcquisitionHealthTab() {
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           {operations.diagnostics.data?.build?.verified ? (
             <span className="inline-flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-[var(--status-success)]" />
+              <ShieldCheck className="h-3.5 w-3.5 text-[var(--status-active)]" />
               Verified build
             </span>
           ) : (
             <span className="inline-flex items-center gap-1">
-              <CircleAlert className="h-3.5 w-3.5 text-[var(--status-warning)]" />
+              <CircleAlert className="h-3.5 w-3.5 text-[var(--status-paused)]" />
               Build commit is not verified
             </span>
           )}
@@ -1205,10 +1205,10 @@ export function AcquisitionHealthTab() {
           className="flex items-start gap-2 rounded-[6px] border px-3 py-2 text-[12px]"
           style={{
             borderColor:
-              "color-mix(in oklab, var(--status-success) 35%, transparent)",
+              "color-mix(in oklab, var(--status-active) 35%, transparent)",
             background:
-              "color-mix(in oklab, var(--status-success) 10%, transparent)",
-            color: "var(--status-success)",
+              "color-mix(in oklab, var(--status-active) 10%, transparent)",
+            color: "var(--status-active)",
           }}
           aria-live="polite"
         >

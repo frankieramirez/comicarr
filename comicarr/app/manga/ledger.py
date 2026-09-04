@@ -14,10 +14,16 @@ chapters and volume→chapter containment come from unfiltered `/aggregate`.
 Owning a volume covers only the chapters that mapping actually lists.
 """
 
+import re
+from decimal import Decimal, InvalidOperation
+
 from comicarr.app.acquisition.models import Fulfillment
 
 _OPERATOR_FIELDS = ("Status", "AcquisitionIntent", "Location", "status", "acquisitionIntent", "location")
 _NON_VOLUME = frozenset({"", "none", "null", "unknown"})
+# Only strips a marker that actually introduces a number, so "vTPB" is left
+# alone and never compares equal to a real volume.
+_VOLUME_MARKER = re.compile(r"^v(?:ol(?:ume)?)?\.?\s*(?=\d)", re.IGNORECASE)
 
 
 def normalize_volume_number(value):
@@ -34,6 +40,62 @@ def normalize_volume_number(value):
     if number.is_integer():
         return str(int(number))
     return format(number, "g")
+
+
+def is_volume_target(chapter_number, volume_number):
+    """Is this pair a volume rather than a chapter?
+
+    The single owner of the volume-vs-chapter rule: a volume has a volume
+    number and no chapter number. Stated once because getting it wrong in
+    either direction is silently destructive — a chapter treated as a volume
+    lets a pack claim "chapter 7" as "volume 7", and a volume treated as a
+    chapter is searched as ``c001`` and never matches a ``v01`` release.
+    """
+    return volume_number not in (None, "") and chapter_number in (None, "")
+
+
+def volume_numbers_match(left, right):
+    """Do two volume references denote the same volume?
+
+    The same volume is written differently everywhere it appears: a release
+    says ``v01``, the ledger stores ``1``, a pack range yields the integer 1.
+    Both sides are stripped of a leading volume marker and canonicalised
+    through :func:`normalize_volume_number` before comparison.
+
+    Returns False whenever either side has no usable volume, so a parse
+    failure can never be read as a match and claim an arbitrary volume.
+    """
+    left_value = _exact_volume(_strip_volume_marker(left))
+    right_value = _exact_volume(_strip_volume_marker(right))
+    if left_value is None or right_value is None:
+        return False
+    return left_value == right_value
+
+
+def _exact_volume(value):
+    """A volume reference as an exact number, or None when it is not one.
+
+    normalize_volume_number is a DISPLAY normaliser: it preserves arbitrary
+    text and formats floats to six significant digits. Comparing through it
+    therefore made "TPB" equal "TPB" -- two releases with no volume at all
+    reading as the same volume -- and "1.0000001" equal "1". Neither is a
+    volume identity, and the contract above says so.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return Decimal(text).normalize()
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _strip_volume_marker(value):
+    if value is None:
+        return None
+    return _VOLUME_MARKER.sub("", str(value).strip())
 
 
 def chapter_id(comic_id, chapter_number):

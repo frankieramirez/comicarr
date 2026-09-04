@@ -596,6 +596,7 @@ class PostProcessor(object):
                 sab_direct_unpack=(comicarr.CONFIG.SAB_DIRECT_UNPACK if use_sabnzbd else False),
                 sab_directory=(comicarr.CONFIG.SAB_DIRECTORY if use_sabnzbd else None),
                 nzbget_directory=(comicarr.CONFIG.NZBGET_DIRECTORY if use_nzbget else None),
+                nzbget_category=(comicarr.CONFIG.NZBGET_CATEGORY if use_nzbget else None),
             )
         )
         self.nzb_folder = input_result.folder
@@ -4021,11 +4022,61 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
 
     def _process_manga(self):
+        """Post-process a downloaded manga file, always releasing APILOCK.
+
+        The real work is in _process_manga_body(); this wrapper exists solely
+        to guarantee the lock this Process acquired is released on EVERY exit.
+
+        Why a finally rather than a release at each return: the body has six
+        early returns that all precede its success-path release, and every one
+        of them leaked the lock. The caller cannot clean up after them either
+        -- downloads/service.py gates its safety net on `if pp is not None`,
+        and every exit here is `return self.queue.put(...)`, which is None.
+
+        A leak is not confined to the failing series. APILOCK is global and the
+        post-processing worker takes it per item, so one leak stops ALL
+        imports, and the Folder Monitor that exists to rescue them bails on the
+        same lock ("Unable to initiate folder monitor as another process is
+        currently using it"). A single misplaced manga series froze the whole
+        pipeline for 85 minutes.
+
+        Releasing here is safe: the worker loop refuses to start an item while
+        the lock is held, so if it is still held when this returns, it is ours.
+
+        This is the ONLY release site, deliberately. The body used to release
+        itself on the success path and then carry on -- journal "moved", the
+        nzblog deletes, journal "post_processed" -- with the lock already
+        given up. Keeping that release alongside this finally would leave two
+        sites and a real window between them: PostProcessor.__init__ gates
+        only on APILOCK.locked(), and startup recovery re-drives items inline
+        on the main thread with apicall=True (app/downloads/recovery.py) while
+        the PPPOOL worker is running. An acquirer landing in that window would
+        then have its lock released by this finally, and the two would overlap.
+        With one site the lock also covers the journal write, which is where
+        it belonged in the first place.
+
+        self.apicall is part of the guard, not redundant with locked(): an
+        apicall=False Process never acquired, so a held lock there is someone
+        else's and must not be released.
+        """
+        try:
+            return self._process_manga_body()
+        finally:
+            if self.apicall is True and comicarr.APILOCK.locked():
+                try:
+                    comicarr.APILOCK.release()
+                except Exception:
+                    pass
+
+    def _process_manga_body(self):
         """Post-process a downloaded manga file.
 
         Routes manga downloads to the manga destination directory,
         matches files to chapters using the manga filename parser,
         and updates chapter status to Downloaded.
+
+        Call _process_manga() instead -- that wrapper owns the APILOCK
+        guarantee for every exit path below.
         """
         module = self.module
 
@@ -4070,7 +4121,14 @@ class PostProcessor(object):
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
 
-        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+        from comicarr.app.series.service import persist_manga_location_if_needed
+
+        series_folder, _repointed = persist_manga_location_if_needed(comicnzb, manga_dest)
+        if not series_folder:
+            series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+        if comicnzb.get("ComicLocation") != series_folder:
+            comicnzb = dict(comicnzb)
+            comicnzb["ComicLocation"] = series_folder
 
         if not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
             self._log("Series folder is outside manga destination — refusing to write")
@@ -4214,12 +4272,6 @@ class PostProcessor(object):
         else:
             self._log("Manga post-processing complete: 0 files matched to chapters")
         logger.info("%s Manga post-processing complete for %s: %d files" % (module, series_name, processed))
-
-        if self.apicall is True:
-            try:
-                comicarr.APILOCK.release()
-            except Exception:
-                pass
 
         if processed > 0:
             self._journal_pp("moved", issueid=last_matched_issueid)

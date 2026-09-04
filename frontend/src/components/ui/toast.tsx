@@ -93,13 +93,15 @@ function Toast({
         style={{ color: "var(--status-error)" }}
       />
     ),
-    info: <Info className="w-5 h-5" style={{ color: "var(--info)" }} />,
+    info: (
+      <Info className="w-5 h-5" style={{ color: "var(--status-wanted)" }} />
+    ),
   };
 
   const styles: Record<ToastType, string> = {
     success: "bg-[var(--status-active-bg)] border-[var(--status-active)]",
     error: "bg-[var(--status-error-bg)] border-[var(--status-error)]",
-    info: "bg-[var(--status-wanted-bg)] border-[var(--info)]",
+    info: "bg-[var(--status-wanted-bg)] border-[var(--status-wanted)]",
   };
 
   const content = message || description;

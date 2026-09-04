@@ -189,8 +189,16 @@ export interface SeriesContentKindInput {
   contentType: ContentType;
 }
 
+export interface SeriesContentKindResult {
+  success: boolean;
+  content_type: ContentType;
+  location_repointed?: boolean;
+  comic_location?: string;
+  previous_location?: string;
+}
+
 export function useUpdateSeriesContentKind(): UseMutationResult<
-  { success: boolean; content_type: ContentType },
+  SeriesContentKindResult,
   Error,
   SeriesContentKindInput
 > {
@@ -198,7 +206,7 @@ export function useUpdateSeriesContentKind(): UseMutationResult<
 
   return useMutation({
     mutationFn: ({ comicId, contentType }) =>
-      apiRequest<{ success: boolean; content_type: ContentType }>(
+      apiRequest<SeriesContentKindResult>(
         "PATCH",
         `/api/series/${comicId}/content-kind`,
         { content_type: contentType },

@@ -36,7 +36,7 @@ function FileSaveState({ state }: { state: SaveState }) {
     return <span className="text-muted-foreground">Saving...</span>;
   }
   if (state === "saved") {
-    return <span className="text-success">Saved</span>;
+    return <span className="text-[var(--status-active)]">Saved</span>;
   }
   if (state === "error") {
     return <span className="text-destructive">Save failed</span>;

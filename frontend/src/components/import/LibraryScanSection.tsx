@@ -214,7 +214,7 @@ function ImportSummary({
 
   return (
     <div
-      className="rounded-[6px] border border-[var(--status-success)]/40 bg-[var(--status-success)]/10 px-3.5 py-3 text-[12px] text-foreground"
+      className="rounded-[6px] border border-[var(--status-active)]/40 bg-[var(--status-active)]/10 px-3.5 py-3 text-[12px] text-foreground"
       role="status"
     >
       Imported {imported} {type} series. The library has been refreshed.
@@ -297,7 +297,7 @@ function ScanTile({
           {progress.current && (
             <span
               className="truncate ml-auto"
-              style={{ color: "var(--text-muted)" }}
+              style={{ color: "var(--muted-foreground)" }}
             >
               {progress.current}
             </span>

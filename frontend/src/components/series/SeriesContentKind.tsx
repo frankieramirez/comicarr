@@ -44,7 +44,9 @@ export function SeriesContentKind({
           </p>
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
             Future labels and matching follow this choice. Existing files and
-            issue history stay unchanged.
+            issue history stay unchanged. Switching to manga also stores the
+            series under the manga destination so downloads can import; files
+            already on disk are not moved.
           </p>
         </div>
         <div

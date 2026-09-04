@@ -55,6 +55,7 @@ class PostProcessInputContext:
     sab_direct_unpack: bool
     sab_directory: str | None
     nzbget_directory: str | None
+    nzbget_category: str | None = None
 
 
 @dataclass(frozen=True)
@@ -122,6 +123,13 @@ class PostProcessInputStage:
             elif context.nzbget_directory not in (None, "None"):
                 self._log.fdebug(f"{context.module} NZB name as passed from NZBGet: {context.nzb_name}")
                 folder = os.path.join(context.nzbget_directory, context.nzb_name)
+                if not self._path_exists(folder) and context.nzbget_category not in (None, "", "None"):
+                    categorised = os.path.join(context.nzbget_directory, context.nzbget_category, context.nzb_name)
+                    if self._path_exists(categorised):
+                        folder = categorised
+                        self._log.fdebug(
+                            f"{context.module} NZBGet category subdirectory in use. Directory set to : {folder}"
+                        )
                 self._log.fdebug(f"{context.module} NZBGET Download folder option enabled. Directory set to : {folder}")
 
         return PostProcessInputResult(folder)

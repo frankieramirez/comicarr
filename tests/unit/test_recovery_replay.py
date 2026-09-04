@@ -32,8 +32,9 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import RecordOutcome
 from comicarr.app.downloads import journal, recovery, recovery_classify
+from comicarr.app.downloads.recovery import _MAX_INLINE_PP_REDRIVE_PER_PASS
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
+from comicarr.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
 
 
 @pytest.fixture(autouse=True)
@@ -1645,3 +1646,203 @@ def test_done_signal_without_placement_absent_probe_enqueues_pp_not_done(queues)
     assert row["stage"] == journal.DOWNLOADED
     assert summary["actions"].get("done-check") is None
     assert len(_drain(queues["pp"])) == 1
+
+
+# ===========================================================================
+# A `post_processing` row whose work is PROVABLY already done must self-heal.
+#
+# The inverse of the #734 rule above, through the SAME evidence gate: #734
+# says absent placement evidence must never be promoted to post_processed;
+# this says positive placement evidence (issue `Downloaded` + a verified file
+# under the series root) proves the move committed and only the marker write
+# was lost — so recovery finishes the DB facts instead of re-driving PP
+# forever against a source folder it already emptied.
+# ===========================================================================
+
+
+def _placed_issue(tmp_path, issueid, filename, *, status="Downloaded", create=True, location=None):
+    """Create a comics row with a real series root plus an issue row, and
+    (optionally) the placed file itself. Returns the series root."""
+    root = tmp_path / ("series-%s" % issueid)
+    root.mkdir(exist_ok=True)
+    if create:
+        (root / filename).write_bytes(b"cbz")
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID="C%s" % issueid, ComicLocation=str(root)))
+        conn.execute(
+            issues.insert().values(
+                IssueID=issueid,
+                ComicID="C%s" % issueid,
+                Status=status,
+                Location=str(root / filename) if location is None else location,
+            )
+        )
+    return root
+
+
+def _pp_obligation(tmp_path, issueid, name):
+    rkey = journal.release_key(issueid, "nzb.su", nzbname=name)
+    _insert_journal(
+        rkey,
+        journal.POST_PROCESSING,
+        payload={
+            "issueid": issueid,
+            "comicid": "C%s" % issueid,
+            "nzb_name": name,
+            "nzb_folder": _artifact_folder(tmp_path, "src-%s" % issueid),
+        },
+        issueid=issueid,
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    return rkey
+
+
+def _forbid_reimport(monkeypatch):
+    import comicarr.process as process_mod
+
+    monkeypatch.setattr(
+        process_mod,
+        "Process",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not re-drive a fulfilled obligation")),
+    )
+
+
+def _capture_reimport(monkeypatch):
+    calls = {}
+    import comicarr.process as process_mod
+
+    class _FakeProc:
+        def __init__(self, *a, journal_release_key=None, **k):
+            calls["rkey"] = journal_release_key
+
+        def post_process(self):
+            calls["ran"] = True
+
+    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    return calls
+
+
+def test_post_processing_with_verified_placement_finishes_without_redrive(queues, tmp_path, monkeypatch):
+    """The file is already in the library and the issue reads Downloaded, so
+    the move committed — recovery must close the obligation with DB facts
+    only, exactly as it does for a `moved` row, and never re-import."""
+    _placed_issue(tmp_path, "901", "Series v01.cbz")
+    rkey = _pp_obligation(tmp_path, "901", "Series.v01.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="901", PROVIDER="nzb.su", NZBName="Series.v01.cbz"))
+    _forbid_reimport(monkeypatch)
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert summary["actions"].get("post_processing-already-fulfilled") == 1
+    with get_engine().connect() as conn:
+        assert conn.execute(select(nzblog).where(nzblog.c.IssueID == "901")).fetchall() == []
+    assert _drain(queues["pp"]) == []
+
+
+def test_post_processing_not_downloaded_still_redrives(queues, tmp_path, monkeypatch):
+    """A placed-looking file is not enough: until the issue row itself reads
+    Downloaded the obligation is unproven, so the pre-existing re-drive must
+    still run."""
+    _placed_issue(tmp_path, "902", "Series v02.cbz", status="Snatched")
+    rkey = _pp_obligation(tmp_path, "902", "Series.v02.cbz")
+    calls = _capture_reimport(monkeypatch)
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert calls.get("ran") is True
+    assert calls["rkey"] == rkey
+
+
+def test_post_processing_with_missing_file_still_redrives(queues, tmp_path, monkeypatch):
+    """A Downloaded row whose Location does not exist on disk is NOT evidence
+    — the check fails closed and the obligation is re-driven."""
+    _placed_issue(tmp_path, "903", "Series v03.cbz", create=False)
+    _pp_obligation(tmp_path, "903", "Series.v03.cbz")
+    calls = _capture_reimport(monkeypatch)
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert calls.get("ran") is True
+
+
+def test_post_processing_with_file_outside_series_root_still_redrives(queues, tmp_path, monkeypatch):
+    """A file that exists but resolves OUTSIDE the series root proves nothing
+    about this series, so it must not close the obligation."""
+    stray = tmp_path / "stray.cbz"
+    stray.write_bytes(b"cbz")
+    _placed_issue(tmp_path, "904", "Series v04.cbz", create=False, location=str(stray))
+    _pp_obligation(tmp_path, "904", "Series.v04.cbz")
+    calls = _capture_reimport(monkeypatch)
+
+    recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert calls.get("ran") is True
+
+
+def test_fulfilled_backlog_larger_than_the_cap_drains_in_one_pass(queues, tmp_path, monkeypatch):
+    """The inline cap exists to bound expensive re-drives. A provably
+    fulfilled row costs only the same DB facts as `moved`, so it must not be
+    charged to that budget — otherwise a backlog of already-done rows needs
+    one restart per five to clear."""
+    keys = []
+    for n in range(_MAX_INLINE_PP_REDRIVE_PER_PASS + 3):
+        issueid = "95%d" % n
+        _placed_issue(tmp_path, issueid, "Series v%02d.cbz" % n)
+        keys.append(_pp_obligation(tmp_path, issueid, "Series.v%02d.cbz" % n))
+    _forbid_reimport(monkeypatch)
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert summary["actions"].get("skip-pp-cap-deferred") is None
+    assert all(_journal_row(k)["stage"] == journal.POST_PROCESSED for k in keys)
+
+
+def test_unfulfilled_rows_are_still_capped(queues, tmp_path, monkeypatch):
+    """The cap still bounds real re-drives: with no placement evidence, only
+    _MAX_INLINE_PP_REDRIVE_PER_PASS rows run and the rest defer."""
+    for n in range(_MAX_INLINE_PP_REDRIVE_PER_PASS + 3):
+        _pp_obligation(tmp_path, "96%d" % n, "Nope.v%02d.cbz" % n)
+    ran = {"count": 0}
+    import comicarr.process as process_mod
+
+    class _FakeProc:
+        def __init__(self, *a, **k):
+            pass
+
+        def post_process(self):
+            ran["count"] += 1
+
+    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert ran["count"] == _MAX_INLINE_PP_REDRIVE_PER_PASS
+    assert summary["actions"].get("skip-pp-cap-deferred") == 3
+
+
+def test_unanswerable_story_arc_clears_the_S_anchor_from_nzb_name(queues, tmp_path, monkeypatch):
+    """When the story-arc discriminator cannot answer, the fallback narrows the
+    nzblog delete by release NAME so it can safely clear both the plain and the
+    `S<issueid>` anchor. The PP seam writes that name as `nzb_name`, so reading
+    only `nzbname` left the fallback nameless, deleted just the unprefixed row,
+    and still advanced the journal to `post_processed` — stranding the `S`
+    anchor with no obligation left to clean it up."""
+    _placed_issue(tmp_path, "902", "Arc v01.cbz")
+    rkey = _pp_obligation(tmp_path, "902", "Arc.v01.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="902", PROVIDER="nzb.su", NZBName="Arc.v01.cbz"))
+        conn.execute(nzblog.insert().values(IssueID="S902", PROVIDER="nzb.su", NZBName="Arc.v01.cbz"))
+    # the discriminator's own unanswerable case: no issueid, or the lookup raised
+    monkeypatch.setattr(recovery, "_is_story_arc_obligation", lambda issueid: None)
+    _forbid_reimport(monkeypatch)
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
+    assert summary["actions"].get("post_processing-already-fulfilled") == 1
+    with get_engine().connect() as conn:
+        left = conn.execute(select(nzblog.c.IssueID).where(nzblog.c.IssueID.in_(["902", "S902"]))).fetchall()
+    assert left == [], "story-arc S anchor was stranded: %r" % (left,)

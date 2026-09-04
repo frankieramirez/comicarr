@@ -9,6 +9,8 @@
 
 """What automatic search should enqueue for a manga Series."""
 
+from decimal import Decimal, InvalidOperation
+
 from comicarr.app.manga.ledger import last_released_volume, normalize_volume_number
 
 MONITOR_MODES = frozenset({"blended", "volumes", "chapters"})
@@ -153,21 +155,42 @@ def search_plan_for_series(series, issues):
     )
 
 
-def _pad_volume(number):
+def _pad_number(number, width):
+    """Zero-pad a volume or chapter number, keeping its fraction EXACTLY.
+
+    Half instalments are real ("v01.5", "c001.5"), and truncating one searches
+    the wrong book -- the exact comparison in _pack_row_matches then rejects
+    the 1 it got against the 1.5 it wanted, so the row can never snatch.
+
+    The fraction is carried as text rather than through float arithmetic.
+    `round(value % 1, 1)` keeps only ONE fractional digit, so it silently
+    rewrote the number it was meant to preserve: 1.25 searched "v01.2" and
+    1.75 searched "v01.8" -- not a truncation of the wanted volume but a
+    DIFFERENT one, which the same exact comparison then rejects.
+
+    A non-numeric value is returned as given: some series number instalments
+    in ways no padding rule can improve on, and inventing one would be worse
+    than leaving it alone.
+    """
+    if number in (None, ""):
+        return None
+    text = str(number).strip()
     try:
-        return "%02d" % int(float(number))
-    except (TypeError, ValueError):
-        return str(number) if number not in (None, "") else None
+        value = Decimal(text)
+    except (InvalidOperation, TypeError, ValueError):
+        return text
+    if value == value.to_integral_value():
+        return "%0*d" % (width, int(value))
+    whole, _, fraction = format(value, "f").partition(".")
+    return "%0*d.%s" % (width, int(whole), fraction)
+
+
+def _pad_volume(number):
+    return _pad_number(number, 2)
 
 
 def _pad_chapter(number):
-    try:
-        value = float(number)
-    except (TypeError, ValueError):
-        return str(number) if number not in (None, "") else None
-    if value == int(value):
-        return "%03d" % int(value)
-    return "%03d.%s" % (int(value), str(round(value % 1, 1))[2:])
+    return _pad_number(number, 3)
 
 
 def _as_float(value):

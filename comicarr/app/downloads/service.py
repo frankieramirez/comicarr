@@ -30,6 +30,7 @@ from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
+from comicarr.app.manga.ledger import is_volume_target, volume_numbers_match
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
@@ -983,13 +984,10 @@ def _pack_row_matches(row, int_iss, iss_item, kind):
     chapter = row.get("ChapterNumber")
     if kind == "volume":
         if volume not in (None, ""):
-            try:
-                return int(float(volume)) == int(iss_item)
-            except (TypeError, ValueError):
-                return False
+            return volume_numbers_match(volume, iss_item)
         if chapter not in (None, ""):
             return False
-    elif volume not in (None, "") and chapter in (None, ""):
+    elif is_volume_target(chapter, volume):
         return False
     return row["Int_IssueNumber"] == int_iss
 

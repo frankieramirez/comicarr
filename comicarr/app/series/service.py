@@ -28,6 +28,7 @@ from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility, project_legacy_state
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
+from comicarr.app.common.strings import filesafe
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.series import queries as series_queries
 from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, weekly
@@ -445,12 +446,108 @@ def update_search_settings(
     }
 
 
+def _series_text(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _paths_equal(left, right):
+    if not left or not right:
+        return False
+    return os.path.normcase(os.path.realpath(left)) == os.path.normcase(os.path.realpath(right))
+
+
+def _location_under_manga_dest(location, manga_dest):
+    if not location or not manga_dest:
+        return False
+    return is_path_within_allowed_dirs(location, [manga_dest])
+
+
+def _manga_destination():
+    # Lazy import: helpers.py imports this module during comicarr.config init.
+    from comicarr.config import get_manga_destination
+
+    return get_manga_destination()
+
+
+def manga_series_location(series_name, manga_dest):
+    """Return ``<manga_dest>/<filesafe(series_name)>``, or None if either is missing."""
+    folder = filesafe(series_name) if series_name else ""
+    folder = str(folder).strip() if folder else ""
+    dest = _series_text(manga_dest)
+    if not dest or not folder:
+        return None
+    return os.path.join(dest, folder)
+
+
+def manga_location_for_reclassify(existing, manga_dest):
+    """Decide whether switching to manga must also rewrite ComicLocation.
+
+    Returns ``(new_location_or_None, warning_or_None)``. A None location means
+    leave the stored path unchanged — either it already satisfies the manga
+    destination contract, or we cannot compute a valid replacement.
+    """
+    series_name = _series_text((existing or {}).get("ComicName"))
+    old_location = _series_text((existing or {}).get("ComicLocation"))
+    comic_id = (existing or {}).get("ComicID")
+
+    if _location_under_manga_dest(old_location, manga_dest):
+        return None, None
+
+    new_location = manga_series_location(series_name, manga_dest)
+    if new_location is None:
+        if not _series_text(manga_dest):
+            return None, (
+                "[SERIES] Manga series %s has no manga destination configured. "
+                "ComicLocation was left at %s." % (comic_id, old_location or "(unset)")
+            )
+        return None, (
+            "[SERIES] Manga series %s has no usable name. "
+            "ComicLocation was left at %s." % (comic_id, old_location or "(unset)")
+        )
+
+    if old_location and not _paths_equal(old_location, new_location):
+        return new_location, (
+            "[SERIES] Manga series %s (%s): ComicLocation is now %s "
+            "(under the manga destination). Files already at %s were not moved."
+            % (series_name, comic_id, new_location, old_location)
+        )
+    return new_location, None
+
+
+def persist_manga_location_if_needed(existing, manga_dest=None):
+    """Rewrite and persist ComicLocation when it would fail the manga dest check.
+
+    Used by manga post-processing so an already-manga series that still points
+    at the comics tree is repaired without another operator click. Returns
+    ``(location_to_use, did_repoint)``.
+    """
+    dest = manga_dest if manga_dest is not None else _manga_destination()
+    new_location, warning = manga_location_for_reclassify(existing, dest)
+    if warning:
+        logger.warn(warning)
+    old_location = _series_text((existing or {}).get("ComicLocation"))
+    if new_location is None:
+        return old_location, False
+    comic_id = (existing or {}).get("ComicID")
+    if comic_id:
+        series_queries.update_comic_content_kind(
+            comic_id,
+            (existing or {}).get("ContentType") or "manga",
+            comic_location=new_location,
+        )
+    return new_location, True
+
+
 def update_content_kind(ctx, comic_id, content_type):
     """Persist an operator-controlled comic-or-manga classification.
 
-    Content kind is deliberately independent of provider identity and legacy
-    publication ``Type``. This write therefore touches only ``ContentType``;
-    provider metadata and issue/annual rows remain unchanged.
+    Content kind is independent of provider identity and legacy publication
+    ``Type``. The write always updates ``ContentType``. Switching to manga also
+    repoints ``ComicLocation`` under the manga destination when the stored path
+    would be refused by manga post-processing. Existing files are not moved.
     """
     if content_type not in ("comic", "manga"):
         return {"success": False, "error": "Content kind must be comic or manga"}
@@ -459,11 +556,32 @@ def update_content_kind(ctx, comic_id, content_type):
     if not existing:
         return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
 
-    series_queries.update_comic_content_kind(comic_id, content_type)
+    new_location = None
+    if content_type == "manga":
+        new_location, warning = manga_location_for_reclassify(existing, _manga_destination())
+        if warning:
+            logger.warn(warning)
+
+    if new_location is not None:
+        series_queries.update_comic_content_kind(comic_id, content_type, comic_location=new_location)
+    else:
+        series_queries.update_comic_content_kind(comic_id, content_type)
+
     updated = series_queries.get_comic_content_kind(comic_id)
     canonical = updated["ContentType"] if updated else content_type
+    current_location = _series_text((updated or {}).get("ComicLocation")) or new_location
     logger.fdebug("[SERIES] Updated content kind for %s: %s" % (comic_id, canonical))
-    return {"success": True, "content_type": canonical}
+    result = {
+        "success": True,
+        "content_type": canonical,
+        "location_repointed": new_location is not None,
+    }
+    if current_location:
+        result["comic_location"] = current_location
+    previous_location = _series_text((existing or {}).get("ComicLocation"))
+    if new_location is not None and previous_location and not _paths_equal(previous_location, new_location):
+        result["previous_location"] = previous_location
+    return result
 
 
 def pause_comic(ctx, comic_id):

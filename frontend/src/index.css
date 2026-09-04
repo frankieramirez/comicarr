@@ -31,6 +31,10 @@
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
+  /* Dimmer than --muted-foreground: separators and 10px micro-labels only.
+     Real words use --muted-foreground. Tuned to the same 2.95:1 contrast the
+     dark theme gives this token, so "muted" reads the same in both. */
+  --text-muted: oklch(0.675 0.016 285.938);
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
@@ -77,10 +81,6 @@
     oklch(0.67 0.16 58),
     oklch(0.77 0.16 70)
   );
-  --success: hsl(210 40% 96.1%);
-  --warning: hsl(24.6 95% 53.1%);
-  --error: hsl(0 84.2% 60.2%);
-  --info: hsl(198.63 88.66% 48.43%);
 }
 
 body {
@@ -128,30 +128,6 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-mono: var(--font-mono);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-error: var(--error);
-  --color-info: var(--info);
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-
-  @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
-  }
-
-  @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
-  }
 }
 
 .dark {
@@ -187,14 +163,7 @@ body {
   --sidebar-border: #232834;
   --sidebar-ring: #ff6a1f;
 
-  /* Surface layers */
-  --surface-deep: #0b0d12;
-  --surface-elevated: #181c25;
-  --border-elevated: #232834;
-  --border-soft: #1a1f2a;
-  --text-tertiary: #8a92a5;
   --text-muted: #565d6f;
-  --text-disabled: #3a4050;
 
   /* Status Badges - Dark Mode */
   --status-active: #53d37d;
@@ -217,10 +186,6 @@ body {
 
   /* Gradient */
   --gradient-brand: linear-gradient(135deg, #ff6a1f, #ff8a4c);
-  --success: hsl(217.2 32.6% 17.5%);
-  --warning: hsl(24.6 95% 53.1%);
-  --error: hsl(0 84.2% 60.2%);
-  --info: hsl(198.63 88.66% 48.43%);
 }
 
 @layer base {
@@ -317,10 +282,6 @@ body {
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-  }
-
-  .card-shadow {
-    box-shadow: var(--card-shadow);
   }
 
   .page-transition {

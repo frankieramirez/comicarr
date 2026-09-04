@@ -88,7 +88,7 @@ export default function ComicCard({ comic }: ComicCardProps) {
   };
 
   return (
-    <div className="bg-card border-card-border card-shadow hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full">
+    <div className="bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full">
       {/* Cover Image */}
       <div className="aspect-[2/3] bg-muted relative overflow-hidden flex-shrink-0">
         {comic.image ? (
