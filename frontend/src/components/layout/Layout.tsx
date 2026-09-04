@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
-import { ActivityFeedDrawer } from "@/components/ai/ActivityFeedDrawer";
-import WhatsNewModal from "@/components/whats-new/WhatsNewModal";
+import { useVersionInfo } from "@/hooks/useVersion";
 import { Bell } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
@@ -24,6 +23,99 @@ const FULL_BLEED_PREFIXES = ["/library/", "/series/", "/story-arcs/"];
 
 interface LayoutProps {
   children: React.ReactNode;
+}
+
+interface ActivityFeedDrawerSlotProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Loads the optional AI drawer only when opened and contains chunk failures. */
+export function ActivityFeedDrawerSlot({
+  open,
+  onOpenChange,
+}: ActivityFeedDrawerSlotProps) {
+  const [Drawer, setDrawer] = useState<
+    | typeof import("@/components/ai/ActivityFeedDrawer").ActivityFeedDrawer
+    | null
+  >(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!open || Drawer || loadError) return;
+    let cancelled = false;
+    void import("@/components/ai/ActivityFeedDrawer")
+      .then(({ ActivityFeedDrawer: LoadedDrawer }) => {
+        if (!cancelled) setDrawer(() => LoadedDrawer);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error
+              ? error
+              : new Error("AI activity failed to load"),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [Drawer, loadError, open]);
+
+  if (!open) return null;
+  if (loadError) {
+    return (
+      <div className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg">
+        <p>AI activity failed to load.</p>
+        <button
+          type="button"
+          className="mt-2 text-xs text-primary underline"
+          onClick={() => onOpenChange(false)}
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+  if (!Drawer) {
+    return (
+      <div
+        className="fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg"
+        role="status"
+        aria-live="polite"
+      >
+        Loading AI activity…
+      </div>
+    );
+  }
+  return <Drawer open onOpenChange={onOpenChange} />;
+}
+
+/** Keeps release-note rendering out of the shell until an upgrade is pending. */
+function WhatsNewGate() {
+  const { status, data } = useVersionInfo();
+  const pending = status === "success" && Boolean(data?.pending_whats_new);
+  const [Modal, setModal] = useState<
+    typeof import("@/components/whats-new/WhatsNewModal").default | null
+  >(null);
+
+  useEffect(() => {
+    if (!pending || Modal) return;
+    let cancelled = false;
+    void import("@/components/whats-new/WhatsNewModal")
+      .then(({ default: LoadedModal }) => {
+        if (!cancelled) setModal(() => LoadedModal);
+      })
+      .catch(() => {
+        // The regular Settings → About route remains available if this
+        // optional notification chunk cannot be loaded.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [Modal, pending]);
+
+  return Modal && pending ? <Modal /> : null;
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -106,9 +198,12 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </main>
 
-      <ActivityFeedDrawer open={activityOpen} onOpenChange={setActivityOpen} />
-      {/* Post-upgrade What's New — only when pending_whats_new is set (#474). */}
-      <WhatsNewModal />
+      <ActivityFeedDrawerSlot
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+      />
+      {/* Post-upgrade What's New — only loads its body when pending (#474). */}
+      <WhatsNewGate />
     </SidebarProvider>
   );
 }

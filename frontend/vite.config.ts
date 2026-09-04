@@ -14,17 +14,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    rolldownOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('@tanstack/react-table') || id.includes('nuqs') || id.includes('zod')) {
-            return 'vendor-table'
-          }
-        },
-      },
-    },
-  },
   server: {
     proxy: {
       '/api': {

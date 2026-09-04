@@ -13,7 +13,7 @@ Series domain queries — comics, issues, annuals, importresults tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import delete, func, literal, or_, select
+from sqlalchemy import and_, case, delete, func, literal, or_, select
 
 from comicarr import db
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
@@ -494,20 +494,71 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
     )
     results = db.select_all(group_stmt)
 
+    # Fetch the page's files together instead of rescanning the inbox per group.
+    # Legacy NULL and string "None" volumes share a file list, even though the
+    # group summary keeps them separate.
+    files_by_group = {}
+    page_keys = list(
+        dict.fromkeys((row["GroupKey"], None if row["Volume"] == "None" else row["Volume"]) for row in results)
+    )
+    # Bound bind parameters and expression depth even for compatibility callers
+    # asking for unusually large pages. MySQL collations can make the legacy
+    # "None" predicate overlap a distinct NULL group (e.g. volume "none").
+    # Keep those reads independent so a file can belong to both legacy lists.
+    batch_size = 1 if db.get_dialect() == "mysql" else 100
+    for start in range(0, len(page_keys), batch_size):
+        batch_keys = page_keys[start : start + batch_size]
+        keys_by_volume = {}
+        for group_key, volume in batch_keys:
+            keys_by_volume.setdefault(volume, set()).add(group_key)
+        page_conditions = []
+        volume_conditions = {}
+        for volume, group_keys in keys_by_volume.items():
+            volume_condition = (
+                or_(ir.c.Volume.is_(None), ir.c.Volume == "None") if volume is None else ir.c.Volume == volume
+            )
+            volume_conditions[volume] = volume_condition
+            key_condition = group_key_expr.in_(sorted(key for key in group_keys if key is not None))
+            if None in group_keys:
+                key_condition = or_(key_condition, group_key_expr.is_(None))
+            page_conditions.append(and_(key_condition, volume_condition))
+        # Resolve the bucket in SQL too: database collations may group strings
+        # that Python considers distinct.
+        bucket = case(
+            *(
+                (and_(group_key_expr == key, volume_conditions[volume]), index)
+                for index, (key, volume) in enumerate(batch_keys)
+            )
+        )
+        files_stmt = (
+            select(
+                bucket.label("PageGroup"),
+                ir.c.impID,
+                ir.c.ComicFilename,
+                ir.c.ComicLocation,
+                ir.c.IssueNumber,
+                ir.c.ComicYear,
+                ir.c.Status,
+                ir.c.IgnoreFile,
+                ir.c.MatchConfidence,
+                ir.c.SuggestedComicID,
+                ir.c.SuggestedComicName,
+                ir.c.SuggestedIssueID,
+                ir.c.MatchSource,
+            )
+            .where(*base_conds, or_(*page_conditions))
+            .order_by(ir.c.ComicFilename)
+        )
+        for file_row in db.select_all(files_stmt):
+            key = batch_keys[file_row["PageGroup"]]
+            files_by_group.setdefault(key, []).append(file_row)
+
     imports = []
     for result in results:
         dynamic_name = result["GroupKey"]
         volume = result["Volume"]
 
-        file_conds = list(base_conds)
-        file_conds.append(group_key_expr == dynamic_name)
-
-        if volume is None or volume == "None":
-            file_conds.append((ir.c.Volume.is_(None)) | (ir.c.Volume == "None"))
-        else:
-            file_conds.append(ir.c.Volume == volume)
-
-        files = db.select_all(select(ir).where(*file_conds).order_by(ir.c.ComicFilename))
+        files = files_by_group.get((dynamic_name, None if volume == "None" else volume), [])
 
         file_list = []
         for f in files:
