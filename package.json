@@ -1,6 +1,6 @@
 {
   "name": "comicarr",
-  "version": "0.38.6",
+  "version": "0.38.7",
   "private": true,
   "type": "module",
   "scripts": {
