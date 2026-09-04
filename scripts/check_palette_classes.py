@@ -56,8 +56,12 @@ SRC = ROOT / "frontend" / "src"
 SCAN_SUFFIXES = {".ts", ".tsx"}
 SKIP_DIR_NAMES = {"node_modules", "dist", "__pycache__"}
 
+# Longer directional suffixes first so `border-ss-red-500` is not eaten as `border-s`.
 _UTILITIES = (
-    "text|bg|border|ring|from|to|via|decoration|outline|shadow|accent|caret|divide|fill|stroke"
+    r"(?:text|bg|from|to|via|decoration|outline|shadow|accent|caret|fill|stroke|placeholder)"
+    r"|border(?:-ss|-se|-es|-ee|-tl|-tr|-bl|-br|-s|-e|-[trblxy])?"
+    r"|divide(?:-[xy])?"
+    r"|ring(?:-offset)?"
 )
 _PALETTES = (
     "gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|"
@@ -126,10 +130,7 @@ def main() -> int:
             stale.append(f"  {rel}: clean now — delete the entry ({allowed} recorded)")
 
     if not regressions and not stale:
-        print(
-            f"Palette class guard: ok ({sum(counts.values())} legacy usages "
-            f"in {len(counts)} file(s), none new)"
-        )
+        print(f"Palette class guard: ok ({sum(counts.values())} legacy usages in {len(counts)} file(s), none new)")
         return 0
 
     if regressions:

@@ -221,7 +221,7 @@ changed unilaterally.
 Both gates run under `npm run lint:guards`:
 
 ```bash
-python3 scripts/check_design_tokens.py    # no var() resolves to nothing
+python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive
 python3 scripts/check_palette_classes.py  # no new palette literals
 ```
 

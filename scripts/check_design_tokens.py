@@ -33,14 +33,18 @@ codebase fails, and it is why every instance of this class shipped:
 * ``--card-shadow`` was undefined, so the ``.card-shadow`` utility applied to
   two card components had never drawn a shadow.
 
-Three checks, one class:
+Four checks, one class:
 
 1. Every custom property assigned in ``.dark`` is also assigned in ``:root``.
    A dark-only token is always a bug — it cannot resolve in light mode. The
    converse is fine: theme-invariant tokens (``--radius``, ``--font-mono``,
    ``--glassmorphism-blur``) legitimately live in ``:root`` alone.
-2. Every ``var(--x)`` inside the stylesheet resolves.
-3. Every ``var(--x)`` in component source resolves.
+2. Every ``var(--x)`` inside the stylesheet resolves, including across newlines
+   (``var(\\n  --x\\n)`` is valid CSS and used to slip past a line-by-line scan).
+3. Every ``var(--x)`` in component source resolves, same rule.
+4. Every ``--status-*`` assignment and ``var(--status-*)`` reference is in the
+   documented exhaustive set. Defining ``--status-success`` in both theme blocks
+   used to satisfy checks 1–3 and still ship a name that is not a token.
 
 Only the fallback-less form is checked. ``var(--x, var(--border))`` remains a
 valid declaration when ``--x`` is undefined, so it is the sanctioned way to
@@ -78,8 +82,25 @@ SKIP_DIR_NAMES = {"node_modules", "dist", "__pycache__"}
 ASSIGN_RE = re.compile(r"""["']?(--[A-Za-z0-9_-]+)["']?\s*:""")
 # Only the fallback-less form is dangerous. `var(--x, var(--border))` stays
 # valid when --x is undefined, so it is the sanctioned way to reference an
-# optional token and is deliberately not flagged.
+# optional token and is deliberately not flagged. `\s*` is why this must run
+# over the whole file, not splitlines: `var(\n  --x\n)` is valid CSS.
 USE_RE = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*\)")
+
+# DESIGN.md "Status" — exhaustive. There is no --status-success / --status-warning.
+STATUS_STEMS = (
+    "active",
+    "wanted",
+    "downloaded",
+    "paused",
+    "ended",
+    "error",
+    "skipped",
+)
+STATUS_TOKENS = frozenset(f"--status-{stem}{suffix}" for stem in STATUS_STEMS for suffix in ("", "-bg"))
+
+
+def _line_at(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
 
 
 def _block(css: str, selector: str) -> dict[str, int]:
@@ -122,21 +143,53 @@ def main() -> int:
             failures.append(f"  frontend/src/index.css:{dark_tokens[name]}: {name}")
         failures.append("  Give each a `:root` value, or delete it if nothing uses it.")
 
-    # 2 & 3. unresolvable var() references
+    # 2 & 3. unresolvable var() references. Scan the whole file so a var() that
+    # wraps its name across newlines still counts — CSS allows that, and the
+    # browser still drops the declaration if the name is undefined.
     assigned: set[str] = set()
     uses: list[tuple[str, int, str]] = []
+    unknown_status: list[tuple[str, int, str]] = []
+    seen_unknown: set[tuple[str, int, str]] = set()
+
+    def _note_unknown_status(rel: str, lineno: int, name: str) -> None:
+        if name.startswith("--status-") and name not in STATUS_TOKENS:
+            key = (rel, lineno, name)
+            if key not in seen_unknown:
+                seen_unknown.add(key)
+                unknown_status.append(key)
+
     for path in _iter_sources():
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
         rel = path.relative_to(ROOT).as_posix()
-        assigned.update(ASSIGN_RE.findall(text))
-        for lineno, line in enumerate(text.splitlines(), 1):
-            for name in USE_RE.findall(line):
-                uses.append((rel, lineno, name))
+        for match in ASSIGN_RE.finditer(text):
+            name = match.group(1)
+            assigned.add(name)
+            _note_unknown_status(rel, _line_at(text, match.start()), name)
+        for match in USE_RE.finditer(text):
+            name = match.group(1)
+            lineno = _line_at(text, match.start())
+            uses.append((rel, lineno, name))
+            _note_unknown_status(rel, lineno, name)
 
-    dangling = [(rel, lineno, name) for rel, lineno, name in uses if name not in assigned]
+    if unknown_status:
+        if failures:
+            failures.append("")
+        failures.append(
+            "Unknown `--status-*` token — the set is exhaustive "
+            f"({', '.join(STATUS_STEMS)} and their `-bg` pairs; see DESIGN.md):"
+        )
+        for rel, lineno, name in unknown_status:
+            near = _suggest(name, STATUS_TOKENS)
+            failures.append(f"  {rel}:{lineno}: {name}{near}")
+
+    dangling = [
+        (rel, lineno, name)
+        for rel, lineno, name in uses
+        if name not in assigned and (rel, lineno, name) not in seen_unknown
+    ]
     if dangling:
         if failures:
             failures.append("")
@@ -147,8 +200,7 @@ def main() -> int:
 
     if not failures:
         print(
-            "Design token guard: ok "
-            f"({len(root_tokens)} :root, {len(dark_tokens)} .dark, {len(uses)} var() references)"
+            f"Design token guard: ok ({len(root_tokens)} :root, {len(dark_tokens)} .dark, {len(uses)} var() references)"
         )
         return 0
 
@@ -159,7 +211,7 @@ def main() -> int:
     return 1
 
 
-def _suggest(name: str, assigned: set[str]) -> str:
+def _suggest(name: str, assigned: set[str] | frozenset[str]) -> str:
     """Offer the closest defined token — these bugs are usually near-misses."""
     import difflib
 
