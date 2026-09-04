@@ -80,6 +80,46 @@ function isIssueMonitored(issue: Issue): boolean {
   return intent !== "skipped" && intent !== "ignored";
 }
 
+type LedgerKind = "annual" | "chapter" | "volume";
+
+function hasLedgerNumber(value?: string | number | null): boolean {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+/**
+ * What a ledger row actually is, read off the row rather than the series.
+ *
+ * The row shape is not implied by the content kind: a ComicVine manga models
+ * the English volumes as its issues, so every row carries a volume number and
+ * no chapter number, while a MangaDex ledger is chapters. Labelling anything
+ * manga "Chapters" therefore told a volume ledger it was something it is not,
+ * and the type column stayed blank for exactly the series that needed it.
+ *
+ * Chapter wins over volume because a chapter number is the more specific
+ * claim: a MangaDex chapter row also carries the volume that contains it,
+ * while a volume row has no chapter number to offer.
+ *
+ * A ComicVine manga writes neither: it models the English volumes as the
+ * series' issues, so the volume lands in Issue_Number and VolumeNumber stays
+ * null. On a manga ledger a bare number is therefore a volume, which is why
+ * this needs the content kind — on a comic ledger the same row is an issue.
+ */
+function getLedgerKind(issue: Issue, isManga: boolean): LedgerKind | null {
+  if (issue.annual) return "annual";
+  if (hasLedgerNumber(issue.chapterNumber)) return "chapter";
+  if (hasLedgerNumber(issue.volumeNumber)) return "volume";
+  if (isManga && hasLedgerNumber(issue.number ?? issue.Issue_Number)) {
+    return "volume";
+  }
+  return null;
+}
+
+const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
+  annual: "Annual",
+  chapter: "Chapter",
+  volume: "Volume",
+};
+
 function getSeparateIntent(issue: Issue): string | null {
   const intent = issue.acquisitionIntent?.toLowerCase();
   if (!intent || intent === "policy" || issue.intentExplicit === false) {
@@ -153,7 +193,7 @@ function pluralize(count: number, singular: string): string {
 }
 
 const ISSUE_GRID_COLS =
-  "grid-cols-[54px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
+  "grid-cols-[72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
 
 function toReleaseReviewIssue(
   issue: Issue,
@@ -387,11 +427,42 @@ export default function SeriesDetailPage() {
       });
     }
   };
-  const isManga =
+  // Boolean() because the optional chains make this boolean | undefined, and
+  // getLedgerKind takes it as a real argument rather than a truthiness test.
+  const isManga = Boolean(
     comic.ContentType === "manga" ||
     comicId?.startsWith("md-") ||
-    comicId?.startsWith("mal-");
+    comicId?.startsWith("mal-"),
+  );
   const contentKind: ContentType = isManga ? "manga" : "comic";
+  const volumeCount = allIssues.filter(
+    (issue) => getLedgerKind(issue, isManga) === "volume",
+  ).length;
+  const chapterCount = allIssues.filter(
+    (issue) => getLedgerKind(issue, isManga) === "chapter",
+  ).length;
+  // A blended manga ledger holds both, so name both rather than picking one.
+  // Falling back to the content kind only when no row carries either number
+  // keeps a synthesised placeholder ledger reading as chapters, as before.
+  const ledgerLabel =
+    volumeCount && chapterCount
+      ? "Volumes & chapters"
+      : volumeCount
+        ? "Volumes"
+        : chapterCount
+          ? "Chapters"
+          : isManga
+            ? "Chapters"
+            : "Issues";
+  const hasArcs = allIssues.some((issue) => Boolean(issue.Arc));
+  const ledgerFacets: string[] = [];
+  if (volumeCount && chapterCount) {
+    ledgerFacets.push(`volumes: ${volumeCount}`, `chapters: ${chapterCount}`);
+  }
+  if (annualCount) ledgerFacets.push(`annuals: ${annualCount}`);
+  // "grouped by arc" used to print unconditionally whenever there were no
+  // annuals, including on a ledger whose every arc cell reads "—".
+  if (hasArcs) ledgerFacets.push("grouped by arc");
   const provider = comicId?.startsWith("md-")
     ? "MangaDex"
     : comicId?.startsWith("mal-")
@@ -916,14 +987,17 @@ export default function SeriesDetailPage() {
         className="flex flex-wrap items-center gap-3 border-b px-5 py-2.5"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="text-[13px] font-semibold">
-          {isManga ? "Chapters" : "Issues"}
+        <div className="text-[13px] font-semibold" data-testid="ledger-label">
+          {ledgerLabel}
         </div>
         <div
           className="font-mono text-[10px] uppercase tracking-[0.08em]"
           style={{ color: "var(--text-muted)" }}
+          data-testid="ledger-facets"
         >
-          {total} · {annualCount ? `annuals: ${annualCount}` : "grouped by arc"}
+          {ledgerFacets.length
+            ? `${total} · ${ledgerFacets.join(" · ")}`
+            : total}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5 font-mono text-[10px]">
           {(
@@ -995,6 +1069,7 @@ export default function SeriesDetailPage() {
               );
               const status = getIssueStatus(issue);
               const separateIntent = getSeparateIntent(issue);
+              const ledgerKind = getLedgerKind(issue, isManga);
               return (
                 <div
                   key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
@@ -1002,7 +1077,7 @@ export default function SeriesDetailPage() {
                   style={{ borderColor: "var(--border)" }}
                 >
                   <div>
-                    {issue.annual && (
+                    {ledgerKind && (
                       <span
                         className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
                         style={{
@@ -1011,7 +1086,7 @@ export default function SeriesDetailPage() {
                           color: "var(--primary)",
                         }}
                       >
-                        Annual
+                        {LEDGER_KIND_LABEL[ledgerKind]}
                       </span>
                     )}
                   </div>

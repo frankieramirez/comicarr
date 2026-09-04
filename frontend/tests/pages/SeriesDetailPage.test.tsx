@@ -452,6 +452,155 @@ describe("SeriesDetailPage", () => {
     expect(screen.queryByText("Reserved handoff")).toBeNull();
   });
 
+  function serveLedger(
+    comic: Record<string, unknown>,
+    issues: Record<string, unknown>[],
+  ) {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "One-Punch Man",
+            ComicYear: "2015",
+            ComicPublisher: "VIZ",
+            Status: "Active",
+            ...comic,
+          },
+          issues,
+          annuals: [],
+        }),
+      ),
+    );
+  }
+
+  function ledgerRow(id: string, extra: Record<string, unknown>) {
+    return {
+      IssueID: id,
+      ComicID: "1",
+      Issue_Number: id,
+      IssueName: `Row ${id}`,
+      IssueDate: "2025-01-01",
+      Status: "Wanted",
+      displayState: "Wanted",
+      missing: true,
+      monitored: true,
+      ...extra,
+    };
+  }
+
+  it("names a ComicVine manga ledger by its volumes, not chapters", async () => {
+    // ComicVine models a licensed manga's English volumes as the series'
+    // issues: the volume lands in `number` and VolumeNumber is never written.
+    // This is the shape One-Punch Man actually arrives in.
+    serveLedger({ ContentType: "manga" }, [
+      ledgerRow("1", { number: "1" }),
+      ledgerRow("2", { number: "2" }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("One-Punch Man");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
+    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.queryByText("Chapter")).toBeNull();
+  });
+
+  it("names a manga ledger by its volumes when VolumeNumber is written", async () => {
+    serveLedger({ ContentType: "manga" }, [
+      ledgerRow("1", { volumeNumber: "1" }),
+      ledgerRow("2", { volumeNumber: "2" }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("One-Punch Man");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
+    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.queryByText("Chapter")).toBeNull();
+  });
+
+  it("names a MangaDex chapter ledger by its chapters", async () => {
+    serveLedger({ ContentType: "manga" }, [
+      ledgerRow("1", { chapterNumber: "1" }),
+      ledgerRow("2", { chapterNumber: "2", volumeNumber: "1" }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("One-Punch Man");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
+    // The second row carries both numbers; the chapter is the more specific
+    // claim, so it must not read as a volume.
+    expect(screen.getAllByText("Chapter")).toHaveLength(2);
+    expect(screen.queryByText("Volume")).toBeNull();
+  });
+
+  it("names a blended ledger as both and counts each kind", async () => {
+    serveLedger({ ContentType: "manga" }, [
+      ledgerRow("1", { volumeNumber: "1" }),
+      ledgerRow("2", { volumeNumber: "2" }),
+      ledgerRow("3", { chapterNumber: "17" }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("One-Punch Man");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe(
+      "Volumes & chapters",
+    );
+    expect(screen.getByTestId("ledger-facets").textContent).toBe(
+      "3 · volumes: 2 · chapters: 1",
+    );
+  });
+
+  it("falls back to chapters for a manga ledger carrying no numbers", async () => {
+    // A synthesised placeholder row: no issue number under either spelling,
+    // so there is nothing on the row to read a kind off.
+    serveLedger({ ContentType: "manga" }, [
+      ledgerRow("1", { Issue_Number: "", number: null }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("One-Punch Man");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
+  });
+
+  it("keeps calling a comic ledger issues and leaves its type blank", async () => {
+    serveLedger({ ComicName: "Invincible" }, [
+      ledgerRow("1", {}),
+      ledgerRow("2", {}),
+    ]);
+    renderDetail();
+
+    await screen.findByText("Invincible");
+
+    expect(screen.getByTestId("ledger-label").textContent).toBe("Issues");
+    expect(screen.queryByText("Volume")).toBeNull();
+    expect(screen.queryByText("Chapter")).toBeNull();
+  });
+
+  it("claims arc grouping only when a row actually carries an arc", async () => {
+    serveLedger({ ComicName: "Invincible" }, [ledgerRow("1", {})]);
+    renderDetail();
+
+    await screen.findByText("Invincible");
+    expect(screen.getByTestId("ledger-facets").textContent).toBe("1");
+  });
+
+  it("still claims arc grouping when a row carries an arc", async () => {
+    serveLedger({ ComicName: "Invincible" }, [
+      ledgerRow("1", { Arc: "Reboot" }),
+    ]);
+    renderDetail();
+
+    await screen.findByText("Invincible");
+    expect(screen.getByTestId("ledger-facets").textContent).toBe(
+      "1 · grouped by arc",
+    );
+  });
+
   it("renders sentinel/null/empty issue dates as — and keeps valid ISO dates", async () => {
     server.use(
       http.get("/api/series/1", () =>
