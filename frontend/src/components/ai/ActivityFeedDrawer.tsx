@@ -18,7 +18,7 @@ export function ActivityFeedDrawer({
   open,
   onOpenChange,
 }: ActivityFeedDrawerProps) {
-  const { data: entries, isLoading } = useAiActivity(50);
+  const { data: entries, isLoading } = useAiActivity(50, { enabled: open });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

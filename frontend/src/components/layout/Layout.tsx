@@ -4,8 +4,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
-import { ActivityFeedDrawer } from "@/components/ai/ActivityFeedDrawer";
-import WhatsNewModal from "@/components/whats-new/WhatsNewModal";
+import { useLazyModule } from "@/hooks/useLazyModule";
+import { useVersionInfo } from "@/hooks/useVersion";
 import { Bell } from "lucide-react";
 import { isMockEnabled } from "@/lib/mockData";
 
@@ -24,6 +24,94 @@ const FULL_BLEED_PREFIXES = ["/library/", "/series/", "/story-arcs/"];
 
 interface LayoutProps {
   children: React.ReactNode;
+}
+
+type ActivityFeedDrawerComponent =
+  typeof import("@/components/ai/ActivityFeedDrawer").ActivityFeedDrawer;
+type WhatsNewModalComponent =
+  typeof import("@/components/whats-new/WhatsNewModal").default;
+
+const loadActivityFeedDrawer = (): Promise<ActivityFeedDrawerComponent> =>
+  import("@/components/ai/ActivityFeedDrawer").then(
+    (module) => module.ActivityFeedDrawer,
+  );
+
+const loadWhatsNewModal = (): Promise<WhatsNewModalComponent> =>
+  import("@/components/whats-new/WhatsNewModal").then(
+    (module) => module.default,
+  );
+
+interface ActivityFeedDrawerSlotProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  load?: () => Promise<ActivityFeedDrawerComponent>;
+}
+
+export function ActivityFeedDrawerSlot({
+  open,
+  onOpenChange,
+  load = loadActivityFeedDrawer,
+}: ActivityFeedDrawerSlotProps) {
+  const { module: Drawer, error } = useLazyModule(
+    open,
+    load,
+    "AI activity failed to load",
+  );
+
+  if (Drawer) return <Drawer open={open} onOpenChange={onOpenChange} />;
+  return open ? (
+    <LazyDrawerPlaceholder
+      error={error}
+      onDismiss={() => onOpenChange(false)}
+    />
+  ) : null;
+}
+
+function LazyDrawerPlaceholder({
+  error,
+  onDismiss,
+}: {
+  error: Error | null;
+  onDismiss: () => void;
+}) {
+  const card =
+    "fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg";
+  if (error) {
+    return (
+      <div className={card}>
+        <p>AI activity failed to load. Reload the page if this persists.</p>
+        <button
+          type="button"
+          className="mt-2 text-xs text-primary underline"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className={card} role="status" aria-live="polite">
+      Loading AI activity…
+    </div>
+  );
+}
+
+interface WhatsNewGateProps {
+  load?: () => Promise<WhatsNewModalComponent>;
+}
+
+export function WhatsNewGate({ load = loadWhatsNewModal }: WhatsNewGateProps) {
+  const { status, data } = useVersionInfo();
+  const shouldLoadModal =
+    status === "success" && Boolean(data?.pending_whats_new);
+  const { module: Modal } = useLazyModule(
+    shouldLoadModal,
+    load,
+    "What's New failed to load",
+  );
+
+  return Modal ? <Modal /> : null;
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -106,9 +194,11 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </main>
 
-      <ActivityFeedDrawer open={activityOpen} onOpenChange={setActivityOpen} />
-      {/* Post-upgrade What's New — only when pending_whats_new is set (#474). */}
-      <WhatsNewModal />
+      <ActivityFeedDrawerSlot
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+      />
+      <WhatsNewGate />
     </SidebarProvider>
   );
 }

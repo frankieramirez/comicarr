@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState, SubmitEvent } from "react";
+import { useEffect, useState, SubmitEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useChatThreads } from "@/hooks/useLibraryChat";
 import { isEditableTarget } from "@/lib/keyboard";
 import VersionChip from "@/components/layout/VersionChip";
 import {
@@ -122,15 +121,6 @@ export default function AppSidebar() {
   const handleNavClick = () => {
     setOpenMobile(false);
   };
-
-  const chatThreadsQuery = useChatThreads();
-  const chatsToday = useMemo(() => {
-    const today = new Date().toDateString();
-    return (
-      chatThreadsQuery.data?.pages.flatMap((page) => page.threads) || []
-    ).filter((thread) => new Date(thread.updated_at).toDateString() === today)
-      .length;
-  }, [chatThreadsQuery.data]);
 
   const openChat = () => {
     setOpenMobile(false);
@@ -261,9 +251,7 @@ export default function AppSidebar() {
           </button>
           <div className="flex items-center justify-between gap-2 px-2.5 pt-1.5">
             <span className="mono-meta text-[10px]">
-              {chatsToday > 0
-                ? `${chatsToday} chat${chatsToday === 1 ? "" : "s"} today`
-                : "ask about your library"}
+              ask about your library
             </span>
             <Kbd className="font-mono text-[10px]">⌘⇧K</Kbd>
           </div>
