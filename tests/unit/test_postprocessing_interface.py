@@ -36,6 +36,8 @@ def isolated_db(tmp_path, monkeypatch):
             MANUAL_PP_FOLDER=str(tmp_path),
             POST_PROCESSING=True,
             ACQUISITION_WORKERS_BLOCKED=False,
+            FILE_OPTS="move",
+            ENABLE_META=False,
         ),
         raising=False,
     )

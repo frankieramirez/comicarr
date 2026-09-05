@@ -40,8 +40,8 @@ Region B — Process_next MANUAL-RUN story-arc/oneoff path:
         + ~4101 db.upsert("oneoffhistory")  -> INLINE upserts, AFTER the block
   ~4145 post_processed (issueid, issuearcid)             [terminal, own txn -> U9: into block]
 
-Region C — _process_manga per-file loop (manga has NO tidyup; move IS the
-relocation):
+Region C — _process_manga per-file loop (empty-folder tidy after the
+terminal block; move is the relocation):
   ~4358 post_processing (release-level identity)         [pre-loop / pre-move]
   ~4376 place(filepath, dst)                  PER-FILE placement
   ~4388 moved (release-level)                            [post per-file fileop]
@@ -114,7 +114,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
-        types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True),
+        types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, FILE_OPTS="move", ENABLE_META=False),
         raising=False,
     )
     engine = get_engine()

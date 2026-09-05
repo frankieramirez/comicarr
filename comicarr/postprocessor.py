@@ -4008,6 +4008,22 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
                 return self.queue.put(self.valreturn)
 
+    def _tidyup_manga_folder(self, nzb_dir):
+        """Remove a download folder that `move` has emptied.
+
+        The comic path gets this from `tidyup(del_nzbdir=True)`. `_process_manga`
+        never called it, so a completed manga release left its now-empty folder
+        in the downloader's completed directory. Nothing else sweeps them — the
+        folder monitor looks for files, and the journal row is already terminal.
+
+        The `move` / `Manual Run` guards are applied here so manga never asks
+        `tidyup` to touch an operator-chosen folder. `tidyup` itself still
+        refuses to delete a directory that is not empty.
+        """
+        if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
+            return
+        self.tidyup(nzb_dir, True)
+
     def _process_manga(self):
         """Post-process a downloaded manga file.
 
@@ -4218,6 +4234,7 @@ class PostProcessor(object):
                 anchor_ids=tuple(matched_issueids),
                 database=db,
             )
+            self._tidyup_manga_folder(nzb_dir)
 
         result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
         if last_matched_issueid:
