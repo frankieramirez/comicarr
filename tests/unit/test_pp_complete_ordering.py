@@ -114,7 +114,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
-        types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, FILE_OPTS="move"),
+        types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, FILE_OPTS="move", ENABLE_META=False),
         raising=False,
     )
     engine = get_engine()

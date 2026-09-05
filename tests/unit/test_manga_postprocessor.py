@@ -631,6 +631,7 @@ class TestProcessMangaChapterMatch:
         # the post-import folder tidy does, and it runs on the success path.
         config = MagicMock()
         config.FILE_OPTS = "move"
+        config.ENABLE_META = False
 
         with (
             patch.object(comicarr, "CONFIG", config),
@@ -737,6 +738,8 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
             lookups = [comic_row, issue_row, have_count]
         else:
             lookups = [comic_row, None, None, None]
+
+        config.ENABLE_META = False
 
         with (
             patch.object(comicarr, "CONFIG", config),

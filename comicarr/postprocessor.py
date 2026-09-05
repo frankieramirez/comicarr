@@ -4016,32 +4016,13 @@ class PostProcessor(object):
         in the downloader's completed directory. Nothing else sweeps them — the
         folder monitor looks for files, and the journal row is already terminal.
 
-        Guards match the comic path: `move` only, never a `Manual Run` (that
-        folder is operator-chosen, not a per-release download directory), and
-        only when the folder is genuinely empty. A leftover file is evidence
-        that something did not import. Removal uses `os.rmdir` so a file that
-        appears after the empty check cannot be deleted with the folder.
+        The `move` / `Manual Run` guards are applied here so manga never asks
+        `tidyup` to touch an operator-chosen folder. `tidyup` itself still
+        refuses to delete a directory that is not empty.
         """
         if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
             return
-        if not nzb_dir or os.path.islink(nzb_dir) or not os.path.isdir(nzb_dir):
-            return
-        try:
-            folder = os.path.realpath(nzb_dir)
-            parent = os.path.dirname(folder)
-            if not parent or parent == folder or not folder.startswith(parent + os.sep):
-                return
-            if os.listdir(folder):
-                logger.fdebug(
-                    "%s %s still holds files after import - leaving it for inspection." % (self.module, folder)
-                )
-                return
-            os.rmdir(folder)
-        except Exception as e:
-            logger.error("%s [%s] Unable to remove emptied manga download folder: %s" % (self.module, e, nzb_dir))
-            return
-        logger.fdebug("%s Tidying up. Deleted emptied manga download folder: %s" % (self.module, folder))
-        self._log("Removed temporary directory : %s" % folder)
+        self.tidyup(nzb_dir, True)
 
     def _process_manga(self):
         """Post-process a downloaded manga file.
