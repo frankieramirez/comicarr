@@ -4008,6 +4008,37 @@ class PostProcessor(object):
                 self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
                 return self.queue.put(self.valreturn)
 
+    def _tidyup_manga_folder(self, nzb_dir):
+        """Remove a download folder that `move` has emptied.
+
+        The comic path gets this from `tidyup(del_nzbdir=True)`; the manga path
+        never called it, so a completed manga release left its now-empty folder
+        in the downloader's completed dir forever. Nothing else sweeps them --
+        the folder monitor looks for files, and the journal row is already
+        terminal -- so they only accumulate.
+
+        Guards mirror the comic path: `move` only, never a `Manual Run` (whose
+        folder is operator-chosen rather than per-release), and only when the
+        folder is genuinely empty. A leftover file means something did not
+        import, and it is the evidence needed to find out why.
+        """
+        if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
+            return
+        if not nzb_dir or not os.path.isdir(nzb_dir):
+            return
+        try:
+            if os.listdir(nzb_dir):
+                logger.fdebug(
+                    "%s %s still holds files after import - leaving it for inspection." % (self.module, nzb_dir)
+                )
+                return
+            shutil.rmtree(nzb_dir)
+        except Exception as e:
+            logger.warn("%s [%s] Unable to remove emptied manga download folder: %s" % (self.module, e, nzb_dir))
+            return
+        logger.fdebug("%s Tidying up. Deleted emptied manga download folder: %s" % (self.module, nzb_dir))
+        self._log("Removed temporary directory : %s" % nzb_dir)
+
     def _process_manga(self):
         """Post-process a downloaded manga file.
 
@@ -4218,6 +4249,7 @@ class PostProcessor(object):
                 anchor_ids=tuple(matched_issueids),
                 database=db,
             )
+            self._tidyup_manga_folder(nzb_dir)
 
         result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
         if last_matched_issueid:
