@@ -58,9 +58,23 @@ Set verbosity to **0** for warnings and errors, **1** for normal output (the def
 Set it wherever suits the install. An explicit startup argument takes precedence over the environment variable, which takes precedence over the level saved in Settings:
 
 ```bash
-docker run -e COMICARR_LOG_LEVEL=2 ...   # Docker / Compose
+docker run -e COMICARR_LOG_LEVEL=2 ...   # Docker only
 python3 Comicarr.py --log-level 2        # source install
 ```
+
+For an existing Docker Compose install, add or uncomment this entry in the
+`comicarr` service's `environment` section alongside the existing `PUID`,
+`PGID`, and `TZ` entries in `docker-compose.yml`:
+
+```yaml
+services:
+  comicarr:
+    environment:
+      - COMICARR_LOG_LEVEL=2
+```
+
+Keep the rest of the existing `docker-compose.yml` and apply the change with
+`docker compose up -d`.
 
 Changing it in **Settings** takes effect immediately, no restart. Leave `COMICARR_LOG_LEVEL` unset unless you are debugging: setting it wins over Settings on every restart. (`--quiet` still works as an alias for `--log-level 0`, but it is deprecated.)
 
