@@ -497,11 +497,11 @@ def _anchor_shared_with_open_row(conn, rkey, row):
             .limit(1)
         ).fetchone()
     except Exception as e:
-        logger.warn("[RECOVERY] shared-anchor lookup failed for %s: %s — keeping the nzblog anchor." % (rkey, e))
+        logger.warn("[RECOVERY] shared-anchor lookup failed for %s: %s, keeping the nzblog anchor." % (rkey, e))
         return True
     if sibling is not None:
         logger.fdebug(
-            "[RECOVERY] keeping nzblog anchor for issue %s/%s — still open for %s" % (issueid, provider, sibling[0])
+            "[RECOVERY] keeping nzblog anchor for issue %s/%s, still open for %s" % (issueid, provider, sibling[0])
         )
         return True
     return False

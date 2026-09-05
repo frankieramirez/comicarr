@@ -239,7 +239,7 @@ def _close_if_already_fulfilled(row):
         logger.warn("[BAND-RECONCILE] fulfilled-close skipped for release_key=%s: %s" % (row.get("release_key"), e))
         return False
     logger.info(
-        "[BAND-RECONCILE] closed release_key=%s — its issue is already Downloaded with a "
+        "[BAND-RECONCILE] closed release_key=%s, its issue is already Downloaded with a "
         "verified library file, so no operator action can clear it (audit=%s)"
         % (row.get("release_key"), RECONCILE_AUDIT_IDENTITY)
     )

@@ -1832,7 +1832,7 @@ def test_fulfilled_row_still_closes_after_the_cap_is_exhausted(queues, tmp_path,
     The all-fulfilled test above cannot show this: with nothing to re-drive
     the counter never increments, so the cap is never reached and the
     deferral branch never runs. Here the budget is spent in full by real
-    re-drives first, and the fulfilled row arrives last — if a later change
+    re-drives first, and the fulfilled row arrives last, if a later change
     consulted the cap before the fulfilment check, this row would defer
     instead of closing, and every other test would stay green.
     """
