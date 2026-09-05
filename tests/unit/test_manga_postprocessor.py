@@ -627,7 +627,13 @@ class TestProcessMangaChapterMatch:
         # to a benign no-op here. This test pins the issues-upsert + success
         # log, not the journal seam (covered by test_pp_complete_ordering.py /
         # test_journal_pp_seam.py).
+        # `place` is mocked here, so nothing else in this test reads CONFIG --
+        # the post-import folder tidy does, and it runs on the success path.
+        config = MagicMock()
+        config.FILE_OPTS = "move"
+
         with (
+            patch.object(comicarr, "CONFIG", config),
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.postprocessor.place", return_value=placement_result()),
@@ -676,5 +682,105 @@ class TestProcessMangaChapterMatch:
 
             pp._process_manga()
 
+        result = mock_queue.put.call_args[0][0]
+        assert "0 files matched" in result[0]["self.log"]
+
+
+class TestMangaTidiesTheEmptiedDownloadFolder:
+    """A `move` import consumes the file and must not leave the folder behind.
+
+    The comic path calls `tidyup(del_nzbdir=True)`, which removes the download
+    directory once `move` has emptied it. `_process_manga` never called it, so
+    every completed manga release left a permanently empty directory in the
+    downloader's completed dir. Nothing sweeps them: the folder monitor only
+    looks for files, and the journal row is already terminal, so the count only
+    ever grows.
+
+    The guards match the comic path exactly, and each has a test below,
+    because a cleanup that fires when any one of them should have stopped it
+    deletes a download the operator still needs:
+
+      * only under FILE_OPTS `move` -- copy/hardlink/softlink deliberately
+        leave the source, so the folder is legitimately non-empty;
+      * never for a `Manual Run`, whose folder is an operator-chosen directory
+        that may hold anything, not a per-release download folder;
+      * only when the folder is EMPTY -- a leftover file means something was
+        not imported, and that is exactly the evidence needed to find out why;
+      * only when at least one file matched, so a release that imported
+        nothing keeps its source for a retry.
+    """
+
+    def _run(self, tmp_path, file_opts="move", nzb_name="Chainsaw Man 165.cbz", extra_file=None, matched=True):
+        release_dir = tmp_path / "completed" / "Chainsaw.Man.165"
+        release_dir.mkdir(parents=True)
+        (release_dir / "Chainsaw Man 165.cbz").write_bytes(b"fake cbz")
+        if extra_file is not None:
+            (release_dir / extra_file).write_bytes(b"leftover")
+
+        dest_dir = tmp_path / "manga" / "Chainsaw Man"
+        dest_dir.mkdir(parents=True)
+
+        pp, mock_queue = _make_pp(nzb_name=nzb_name, nzb_folder=str(release_dir), comicid="md-csm")
+
+        config = MagicMock()
+        config.FILE_OPTS = file_opts
+        config.ARC_FILEOPS = file_opts
+        config.ARC_FILEOPS_SOFTLINK_RELATIVE = False
+        config.IGNORE_SEARCH_WORDS = []
+
+        comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
+        issue_row = {"IssueID": "md-csm-ch165", "ChapterNumber": "165", "ComicID": "md-csm"}
+        have_count = {"count_1": 5}
+        mock_conn = MagicMock()
+
+        if matched:
+            lookups = [comic_row, issue_row, have_count]
+        else:
+            lookups = [comic_row, None, None, None]
+
+        with (
+            patch.object(comicarr, "CONFIG", config),
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.app.downloads.journal.record_transition", return_value=True),
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.side_effect = lookups
+            mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
+
+            pp._process_manga()
+
+        return release_dir, dest_dir / "Chainsaw Man 165.cbz", mock_queue
+
+    def test_move_removes_the_emptied_release_folder(self, tmp_path):
+        release_dir, placed, _ = self._run(tmp_path)
+
+        assert placed.exists(), "the volume must still reach the library"
+        assert not release_dir.exists(), "the emptied download folder must not be left behind"
+
+    @pytest.mark.parametrize("file_opts", ("copy", "hardlink", "softlink"))
+    def test_a_non_move_mode_keeps_the_folder(self, tmp_path, file_opts):
+        release_dir, placed, _ = self._run(tmp_path, file_opts=file_opts)
+
+        assert placed.exists()
+        assert release_dir.exists(), "%s keeps the source, so its folder is not ours to delete" % file_opts
+
+    def test_a_manual_run_keeps_the_folder(self, tmp_path):
+        release_dir, placed, _ = self._run(tmp_path, nzb_name="Manual Run")
+
+        assert placed.exists()
+        assert release_dir.exists(), "a Manual Run folder is operator-chosen, not a per-release download folder"
+
+    def test_a_folder_still_holding_a_file_is_kept(self, tmp_path):
+        release_dir, placed, _ = self._run(tmp_path, extra_file="Chainsaw Man 165.nfo")
+
+        assert placed.exists()
+        assert release_dir.exists(), "a non-empty folder is evidence something did not import"
+        assert (release_dir / "Chainsaw Man 165.nfo").exists()
+
+    def test_a_release_that_matched_nothing_keeps_its_folder(self, tmp_path):
+        release_dir, _placed, mock_queue = self._run(tmp_path, matched=False)
+
+        assert release_dir.exists(), "nothing was filed, so the source must survive for a retry"
         result = mock_queue.put.call_args[0][0]
         assert "0 files matched" in result[0]["self.log"]
