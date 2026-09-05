@@ -91,14 +91,13 @@ def _insert_journal(key, stage, *, payload=None, issueid="I1", provider=None):
         )
 
 
-def test_run_claims_canonical_key_and_executes_with_owner(monkeypatch, tmp_path, apilock):
+def test_run_claims_canonical_key_and_executes_under_public_lock(monkeypatch, tmp_path, apilock):
     key = "provider-release-1"
     _insert_journal(key, journal.DOWNLOADED)
     seen = {}
 
-    def execute(item, ownership):
+    def execute(item):
         seen["item"] = item
-        seen["ownership"] = ownership
         seen["locked"] = apilock.locked()
         return None
 
@@ -106,7 +105,6 @@ def test_run_claims_canonical_key_and_executes_with_owner(monkeypatch, tmp_path,
     result = postprocessing.run(_item(tmp_path, journal_release_key=key))
 
     assert result.status == "processed"
-    assert seen["ownership"]
     assert seen["locked"] is True
     assert _row(key)["stage"] == journal.POST_PROCESSING
     assert apilock.locked() is False
@@ -138,7 +136,7 @@ def test_run_duplicate_does_not_execute_or_regress(monkeypatch, tmp_path, monkey
 @pytest.fixture
 def monkeypatch_exec(monkeypatch):
     calls = []
-    monkeypatch.setattr(postprocessing, "_execute", lambda *args: calls.append(args))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item))
     return calls
 
 
@@ -148,7 +146,7 @@ def test_run_propagated_key_claim_failure_is_retryable_and_does_not_execute(monk
         postprocessing.journal, "record_transition", lambda *a, **k: (_ for _ in ()).throw(RuntimeError())
     )
     calls = []
-    monkeypatch.setattr(postprocessing, "_execute", lambda *args: calls.append(args))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item))
 
     result = postprocessing.run(_item(tmp_path, journal_release_key=key))
 
@@ -164,20 +162,20 @@ def test_run_manual_without_key_keeps_legacy_fallback_when_journal_fails(monkeyp
         postprocessing.journal, "record_transition", lambda *a, **k: (_ for _ in ()).throw(RuntimeError())
     )
     calls = []
-    monkeypatch.setattr(postprocessing, "_execute", lambda item, ownership: calls.append((item, ownership)))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item))
 
     result = postprocessing.run(_item(tmp_path, source="manual", journal_release_key=None))
 
     assert result.status == "processed"
     assert len(calls) == 1
-    assert calls[0][1]
+    assert calls[0]["source"] == "manual"
 
 
 @pytest.mark.parametrize("source", ["manual", "compat", "monitor"])
 def test_unjournaled_compatibility_scans_are_not_suppressed_by_display_name(monkeypatch, tmp_path, source):
     calls = []
     monkeypatch.setattr(postprocessing, "validate_postprocess_item", lambda item: dict(item))
-    monkeypatch.setattr(postprocessing, "_execute", lambda item, ownership: calls.append(item.copy()))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item.copy()))
 
     first = postprocessing.run(_item(tmp_path, source=source, journal_release_key=None))
     second = postprocessing.run(_item(tmp_path, source=source, journal_release_key=None))
@@ -190,7 +188,7 @@ def test_unjournaled_compatibility_scans_are_not_suppressed_by_display_name(monk
 
 
 def test_constructor_failure_releases_global_lock(monkeypatch, tmp_path, apilock):
-    def constructor_failure(_item, _ownership):
+    def constructor_failure(_item):
         raise TypeError("post-processor constructor failed")
 
     monkeypatch.setattr(postprocessing, "_execute", constructor_failure)
@@ -198,6 +196,26 @@ def test_constructor_failure_releases_global_lock(monkeypatch, tmp_path, apilock
 
     assert result.status == "failed"
     assert "constructor failed" in result.detail
+    assert apilock.locked() is False
+
+
+def test_nested_retry_outside_keeps_canonical_key_and_public_lock(monkeypatch, tmp_path, apilock):
+    seen = []
+    monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
+
+    def process_once(self):
+        seen.append((self.journal_release_key, self.apicall, apilock.locked()))
+        mode = "outside" if len(seen) == 1 else "stop"
+        self.queue.put([{"mode": mode}])
+
+    monkeypatch.setattr(comicarr.postprocessor.PostProcessor, "Process", process_once)
+    key = "nested-retry-release"
+    _insert_journal(key, journal.DOWNLOADED)
+
+    result = postprocessing.run(_item(tmp_path, journal_release_key=key, apicall=True))
+
+    assert result.status == "processed"
+    assert seen == [(key, True, True), (key, False, True)]
     assert apilock.locked() is False
 
 
@@ -256,6 +274,15 @@ def test_run_executes_real_legacy_manga_adapter_and_completes(tmp_path, monkeypa
         "comicarr.postprocessor.get_manga_destination",
         lambda: str(manga_root),
     )
+    stages = []
+    record_transition = journal.record_transition
+
+    def record_under_lock(key, stage, **kwargs):
+        assert apilock.locked(), stage
+        stages.append(stage)
+        return record_transition(key, stage, **kwargs)
+
+    monkeypatch.setattr(journal, "record_transition", record_under_lock)
 
     result = postprocessing.run(
         {
@@ -273,6 +300,7 @@ def test_run_executes_real_legacy_manga_adapter_and_completes(tmp_path, monkeypa
     )
 
     assert result.status == "processed", result
+    assert journal.POST_PROCESSED in stages
     assert destination.joinpath("Real Manga 1.cbz").exists()
     with get_engine().connect() as conn:
         issue = conn.execute(select(issues).where(issues.c.IssueID == issue_id)).fetchone()
@@ -286,7 +314,7 @@ def test_run_executes_real_legacy_manga_adapter_and_completes(tmp_path, monkeypa
 
 
 def test_run_releases_only_its_lock_owner_after_early_failure(monkeypatch, tmp_path, apilock):
-    def fail(*_args):
+    def fail(_item):
         assert apilock.locked()
         raise RuntimeError("execution failed")
 
@@ -303,13 +331,12 @@ def test_recover_moved_finishes_db_facts_without_execution(monkeypatch, tmp_path
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="I1", PROVIDER="NZB"))
     calls = []
-    monkeypatch.setattr(postprocessing, "_execute", lambda *args: calls.append(args))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item))
 
     result = postprocessing.recover(key)
 
     assert result.status == "processed"
     assert result.action == "moved-finish-dbfacts"
-    assert result.redriven is False
     assert calls == []
     assert _row(key)["stage"] == journal.POST_PROCESSED
     with get_engine().connect() as conn:
@@ -336,9 +363,8 @@ def test_recover_post_processing_redrives_without_fresh_claim(monkeypatch, tmp_p
 
     assert result.status == "processed"
     assert result.action == "post_processing-redrive"
-    assert result.redriven is True
     assert len(monkeypatch_exec) == 1
-    assert monkeypatch_exec[0][0]["journal_release_key"] == key
+    assert monkeypatch_exec[0]["journal_release_key"] == key
     assert _row(key)["stage"] == journal.POST_PROCESSING
 
 
@@ -350,7 +376,6 @@ def test_recover_terminal_or_changed_row_is_ignored(monkeypatch, tmp_path, monke
 
     assert result.status == "ignored"
     assert result.action == "ignored"
-    assert result.redriven is False
     assert monkeypatch_exec == []
 
 
@@ -367,6 +392,5 @@ def test_recover_busy_is_retryable_and_does_not_redrive(monkeypatch, tmp_path, a
 
     assert result.status == "busy"
     assert result.action == "post_processing-busy"
-    assert result.redriven is False
     assert _row(key)["stage"] == journal.POST_PROCESSING
     apilock.release()

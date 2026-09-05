@@ -827,17 +827,13 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     executed = []
     with (
         patch.object(comicarr, "CONFIG", types.SimpleNamespace(DDL_LOCATION=str(src))),
-        patch.object(
-            postprocessing, "_execute", side_effect=lambda item, ownership: executed.append((item, ownership))
-        ),
+        patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
     ):
         outcome = postprocessing.recover(rkey)
 
     assert outcome.action == "post_processing-redrive"
-    assert outcome.redriven is True
     assert len(executed) == 1
-    assert executed[0][0]["journal_release_key"] == rkey
-    assert executed[0][1]
+    assert executed[0]["journal_release_key"] == rkey
     # It did NOT take the `moved` finish-only path (nzblog untouched here —
     # that happens in the real PP terminal block, not the finalizer).
     assert len(_rows(nzblog)) == 2

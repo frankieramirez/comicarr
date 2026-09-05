@@ -121,7 +121,7 @@ def _run_postprocess_main(items):
     received (i.e. the items that WON the claim and reached process.Process)."""
     processed_keys = []
 
-    def _fake_execute(item, _ownership):
+    def _fake_execute(item):
         processed_keys.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
@@ -166,7 +166,7 @@ def test_claim_is_cas_not_read_then_process():
     results = []
     barrier = threading.Barrier(2)
 
-    def _fake_factory(item, _ownership):
+    def _fake_factory(item):
         results.append(item.get("journal_release_key"))
 
     def worker():
@@ -272,7 +272,7 @@ def test_release_key_identical_on_8arg_and_2arg_paths():
     # ONCE (before either construction) and threaded into the 2-arg retry.
     captured = []
 
-    def _factory(item, _ownership):
+    def _factory(item):
         captured.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
@@ -299,7 +299,7 @@ def test_journal_failure_in_guard_does_not_crash_falls_through():
     threaded key is None so PP markers fall back to re-derivation."""
     processed = []
 
-    def _factory(item, _ownership):
+    def _factory(item):
         processed.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
@@ -349,7 +349,7 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
 
     captured_pp = {}
 
-    def _factory(item, ownership):
+    def _factory(item):
         # Build a real PostProcessor threaded with the canonical key, like
         # the production execution adapter does, and drive its U3 markers.
         mock_apilock = MagicMock()
@@ -365,7 +365,6 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
                 issueid="Ithr",
                 queue=MagicMock(spec=queuelib.Queue),
                 journal_release_key=item.get("journal_release_key"),
-                ownership=ownership,
             )
         captured_pp["pp"] = pp
         # The PP markers (moved/post_processed) advance the threaded row.
@@ -488,7 +487,7 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
 
     captured = {}
 
-    def _factory(item, ownership):
+    def _factory(item):
         threaded = item.get("journal_release_key")
         captured["threaded"] = threaded
         # Build a real PostProcessor threaded with the propagated key (as
@@ -506,7 +505,6 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
                 issueid="Ie2e",
                 queue=MagicMock(spec=queuelib.Queue),
                 journal_release_key=threaded,
-                ownership=ownership,
             )
         captured["marker_key"] = pp._journal_release_key(issueid="Ie2e")
         pp._journal_pp("moved", issueid="Ie2e")

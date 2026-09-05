@@ -129,16 +129,17 @@ def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypat
     lock.release()
 
 
-def test_folder_monitor_defers_when_processing_becomes_busy(tmp_path, monkeypatch):
+def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     from comicarr.postprocessor import FolderCheck
 
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock())
+    lock = threading.Lock()
+    lock.acquire()
+    monkeypatch.setattr(comicarr, "APILOCK", lock)
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
     monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
     updates = []
     monkeypatch.setattr("comicarr.helpers.job_management", lambda **kw: updates.append(kw))
-    monkeypatch.setattr(postprocessing, "run", lambda request: postprocessing.PostProcessResult("busy"))
 
     result = FolderCheck().run()
 
@@ -146,6 +147,8 @@ def test_folder_monitor_defers_when_processing_becomes_busy(tmp_path, monkeypatc
     assert comicarr.MONITOR_STATUS == "Waiting"
     assert updates[-1]["status"] == "Waiting"
     assert all("last_run_completed" not in update for update in updates)
+    assert lock.locked()
+    lock.release()
 
 
 def test_maintenance_controller_failure_releases_processing_lock(sqlite_ddl_db, monkeypatch, tmp_path):
@@ -291,7 +294,7 @@ def test_postprocess_worker_quarantines_owned_failure_and_continues(sqlite_ddl_d
     q.put("exit")
     calls = []
 
-    def execute(item, _ownership):
+    def execute(item):
         calls.append(item["nzb_name"])
         if calls[-1] == "First.cbz":
             raise RuntimeError("secret=/very/private/path")

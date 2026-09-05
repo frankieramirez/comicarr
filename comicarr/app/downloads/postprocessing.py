@@ -31,7 +31,6 @@ class PostProcessResult:
     value: object = None
     detail: str | None = None
     action: str | None = None
-    redriven: bool = False
 
 
 def _recovery_pass(function):
@@ -48,7 +47,7 @@ def _recovery_pass(function):
     return replay
 
 
-def _execute(item, ownership):
+def _execute(item):
     from comicarr import postprocessor, process
 
     if item.get("source") in {"compat", "monitor"}:
@@ -66,7 +65,6 @@ def _execute(item, ownership):
             apicall=item.get("apicall", False),
             ddl=item.get("ddl", False),
             journal_release_key=item.get("journal_release_key"),
-            ownership=ownership,
         )
         processor.Process()
         return None if result_queue.empty() else result_queue.get_nowait()
@@ -80,7 +78,6 @@ def _execute(item, ownership):
         item.get("ddl", False),
         item.get("download_info"),
         journal_release_key=item.get("journal_release_key"),
-        ownership=ownership,
     )
     return processor.post_process()
 
@@ -155,7 +152,7 @@ def run(request):
             # A manual folder can discover many releases on successive runs.
             # Claiming its display name would suppress every subsequent scan.
             item["journal_release_key"] = None
-            return PostProcessResult("processed", value=_execute(item, object()))
+            return PostProcessResult("processed", value=_execute(item))
         try:
             won = journal.record_transition(
                 key,
@@ -187,7 +184,7 @@ def run(request):
         if not won:
             return PostProcessResult("duplicate")
         item["journal_release_key"] = key
-        return PostProcessResult("processed", value=_execute(item, object()))
+        return PostProcessResult("processed", value=_execute(item))
     except MaintenanceBlocked:
         return PostProcessResult(
             "busy", detail="Post-processing is paused for maintenance; retry later", action="retry"
@@ -218,7 +215,6 @@ def recover(release_key):
     controller = None
     lease = None
     item = None
-    redriven = False
     try:
         controller = MaintenanceController()
         lease = controller.acquire_lease(
@@ -247,9 +243,8 @@ def recover(release_key):
             return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
         if budget is not None:
             budget["count"] += 1
-        redriven = True
-        value = _execute(item, object())
-        return PostProcessResult("processed", value=value, action="post_processing-redrive", redriven=True)
+        value = _execute(item)
+        return PostProcessResult("processed", value=value, action="post_processing-redrive")
     except MaintenanceBlocked:
         return PostProcessResult(
             "busy", detail="Post-processing is paused for maintenance", action="post_processing-busy"
@@ -258,7 +253,7 @@ def recover(release_key):
         if item is None:
             raise
         _quarantine(item, "recovered_postprocess_error:%s" % type(e).__name__, release_key)
-        return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review", redriven=redriven)
+        return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
     finally:
         try:
             if lease is not None:

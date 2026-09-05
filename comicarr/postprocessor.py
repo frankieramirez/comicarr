@@ -87,8 +87,9 @@ def summarize_scan_matches(normal_items, arc_items):
 
 
 class PostProcessor(object):
-    """
-    A class which will process a media file according to the post processing settings in the config.
+    """File matching and placement behind downloads.postprocessing.run/recover.
+
+    The post-processing module owns the lock across this work and any retries.
     """
 
     EXISTS_LARGER = 1
@@ -111,7 +112,6 @@ class PostProcessor(object):
         apicall=False,
         ddl=False,
         journal_release_key=None,
-        ownership=None,
     ):
         """
         Creates a new post processor with the given file path and optionally an NZB name.
@@ -129,17 +129,7 @@ class PostProcessor(object):
         if queue:
             self.queue = queue
 
-        self._ownership = ownership
-        if ownership is not None:
-            self.apicall = apicall is True
-        else:
-            if comicarr.APILOCK.locked():
-                return {"status": "IN PROGRESS"}
-            if apicall is True:
-                self.apicall = True
-                comicarr.APILOCK.acquire()
-            else:
-                self.apicall = False
+        self.apicall = apicall is True
 
         if ddl is True:
             self.ddl = True
@@ -165,16 +155,6 @@ class PostProcessor(object):
         self.issuearcid = None
 
         self.journal_release_key = journal_release_key
-
-    def _release_legacy_lock(self):
-        """Release only a lock acquired by this legacy instance."""
-        if getattr(self, "_ownership", None) is not None:
-            return
-        if getattr(self, "apicall", False) is True and comicarr.APILOCK.locked():
-            try:
-                comicarr.APILOCK.release()
-            except RuntimeError:
-                pass
 
     def _journal_release_key(self, issueid=None, issuearcid=None):
         """Derive the journal release_key for this PP item.
@@ -3318,7 +3298,6 @@ class PostProcessor(object):
             if len(manual_list) == 0 and len(manual_arclist) == 0:
                 if self.nzb_name == "Manual Run":
                     logger.info("%s No matches for Manual Run ... exiting." % module)
-                self._release_legacy_lock()
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
             elif len(manual_arclist) > 0:
@@ -3455,7 +3434,6 @@ class PostProcessor(object):
 
             logger.fdebug("%s %s" % (module, global_line))
 
-            self._release_legacy_lock()
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
         else:
@@ -4031,25 +4009,11 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
 
     def _process_manga(self):
-        """Keep standalone legacy lock cleanup across every manga exit.
-
-        Owned execution leaves release to postprocessing.run/recover, which
-        holds the lock through completion and any subsequent retry.
-        """
-        try:
-            return self._process_manga_body()
-        finally:
-            self._release_legacy_lock()
-
-    def _process_manga_body(self):
         """Post-process a downloaded manga file.
 
         Routes manga downloads to the manga destination directory,
         matches files to chapters using the manga filename parser,
         and updates chapter status to Downloaded.
-
-        Call _process_manga() so standalone legacy callers also release their
-        lock on early returns and failures.
         """
         module = self.module
 
@@ -5225,12 +5189,6 @@ class FolderCheck:
             comicarr.MONITOR_STATUS = "Paused"
             helpers.job_management(write=True)
         else:
-            if comicarr.APILOCK.locked():
-                logger.info(
-                    "%s Unable to initiate folder monitor as another process is currently using it or using post-processing."
-                    % self.module
-                )
-                return {"status": "IN PROGRESS"}
             helpers.job_management(
                 write=True, job="Folder Monitor", current_run=helpers.utctimestamp(), status="Running"
             )
