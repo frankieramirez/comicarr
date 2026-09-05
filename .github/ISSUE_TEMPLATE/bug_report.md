@@ -1,7 +1,6 @@
 ---
 name: Bug report
-about: Help us to help you. Drop your problem with the requested info - or we just
-  drop the issue.
+about: Tell us what went wrong so we can investigate it.
 title: ''
 labels: ''
 assignees: ''
@@ -9,7 +8,8 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+Thanks for taking the time to report this. Tell us what happened, what you
+expected to happen, and how we can reproduce it.
 
 **Support bundle**
 1. Go to **Settings → About → Support bundle**.
@@ -20,9 +20,11 @@ A clear and concise description of what the bug is.
 The bundle contains allowlisted diagnostic facts only. It is not a copy of your database, settings values, raw logs, library names, paths, or free text.
 
 
-**Environment (please complete the following information):**
- - OS: [e.g. Windows10]
- - Branch / commit: [e.g. Dev/38aksi1]
+**Environment**
+ - Comicarr version: [e.g. 0.38.8]
+ - Install method: [e.g. Docker, source checkout, packaged release]
+ - OS: [e.g. Windows 10, Ubuntu 24.04, macOS 15]
+ - Branch / commit (if using a development checkout):
 
 **Additional information**
-Add any other information about the problem here.
+Add logs, screenshots, or other details that may help us investigate.

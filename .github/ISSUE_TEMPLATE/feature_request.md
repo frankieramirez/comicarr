@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Describe what you'd like to see.
+about: Suggest an improvement for Comicarr.
 title: ''
 labels: ''
 assignees: ''
@@ -8,14 +8,17 @@ assignees: ''
 ---
 
 **Describe the request**
-A clear and concise description of what the request is.
+Thanks for the suggestion. Tell us what you would like Comicarr to do and why
+it would help.
 
 **How did you come up with the idea?**
-Have you seen this request implemented somewhere else? An example or two might speed along development
+Share an example, use case, or reference if you have one.
 
-**Environment (please complete the following information):**
- - OS: [e.g. Windows10]
- - Branch / commit: [e.g. Dev/38aksi1]
+**Environment**
+ - Comicarr version: [e.g. 0.38.8]
+ - Install method: [e.g. Docker, source checkout, packaged release]
+ - OS: [e.g. Windows 10, Ubuntu 24.04, macOS 15]
+ - Branch / commit (if using a development checkout):
 
 **Additional information**
-Add any other information about the request here.
+Add any other context that may help us understand the request.
