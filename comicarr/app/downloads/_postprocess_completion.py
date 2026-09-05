@@ -67,8 +67,14 @@ def complete(
         )
 
 
-def finish_obligation(rkey, row, payload):
-    """Finish a physically moved obligation without re-importing it."""
+def delete_anchor(conn, row, payload):
+    """Delete one obligation's ``nzblog`` anchor on an already-open connection.
+
+    Every close path deletes the same anchor, so the story-arc ("S"-prefixed
+    IssueID) and nzbname disambiguation lives here once rather than being
+    restated by each caller. A surviving anchor is what lets a later pass
+    reconstruct a phantom obligation for work that is already finished.
+    """
     issue_id = row.get("issueid")
     provider = row.get("provider")
     story_arc = None
@@ -80,35 +86,40 @@ def finish_obligation(rkey, row, payload):
     nzb_name = None
     if isinstance(payload, dict):
         nzb_name = payload.get("nzbname") or payload.get("nzb_name")
-    with db.get_engine().begin() as conn:
-        if story_arc is False:
-            predicate = nzblog.c.IssueID == str(issue_id)
-        elif story_arc is True:
-            predicate = or_(
+    if story_arc is False:
+        predicate = nzblog.c.IssueID == str(issue_id)
+    elif story_arc is True:
+        predicate = or_(
+            nzblog.c.IssueID == str(issue_id),
+            nzblog.c.IssueID == "S" + str(issue_id),
+        )
+    elif nzb_name:
+        predicate = and_(
+            or_(
                 nzblog.c.IssueID == str(issue_id),
                 nzblog.c.IssueID == "S" + str(issue_id),
-            )
-        elif nzb_name:
-            predicate = and_(
-                or_(
-                    nzblog.c.IssueID == str(issue_id),
-                    nzblog.c.IssueID == "S" + str(issue_id),
-                ),
-                nzblog.c.NZBName == nzb_name,
-            )
-        else:
-            predicate = nzblog.c.IssueID == str(issue_id)
-        stmt = delete(nzblog).where(predicate)
-        if provider:
-            stmt = stmt.where(nzblog.c.PROVIDER == provider)
-        conn.execute(stmt)
+            ),
+            nzblog.c.NZBName == nzb_name,
+        )
+    else:
+        predicate = nzblog.c.IssueID == str(issue_id)
+    stmt = delete(nzblog).where(predicate)
+    if provider:
+        stmt = stmt.where(nzblog.c.PROVIDER == provider)
+    conn.execute(stmt)
+
+
+def finish_obligation(rkey, row, payload):
+    """Finish a physically moved obligation without re-importing it."""
+    with db.get_engine().begin() as conn:
+        delete_anchor(conn, row, payload)
         journal.record_transition(
             rkey,
             journal.POST_PROCESSED,
             payload=payload,
             conn=conn,
-            issueid=issue_id,
-            provider=provider,
+            issueid=row.get("issueid"),
+            provider=row.get("provider"),
         )
 
 

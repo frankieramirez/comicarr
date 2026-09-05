@@ -1826,6 +1826,53 @@ def test_fulfilled_backlog_larger_than_the_cap_drains_in_one_pass(queues, tmp_pa
     assert all(_journal_row(k)["stage"] == journal.POST_PROCESSED for k in keys)
 
 
+def test_fulfilled_row_still_closes_after_the_cap_is_exhausted(queues, tmp_path, monkeypatch):
+    """Fulfilment is checked BEFORE the cap, not after.
+
+    The all-fulfilled test above cannot show this: with nothing to re-drive
+    the counter never increments, so the cap is never reached and the
+    deferral branch never runs. Here the budget is spent in full by real
+    re-drives first, and the fulfilled row arrives last, if a later change
+    consulted the cap before the fulfilment check, this row would defer
+    instead of closing, and every other test would stay green.
+    """
+    # _MAX unfulfilled rows, oldest-first, consume the whole re-drive budget.
+    for n in range(_MAX_INLINE_PP_REDRIVE_PER_PASS):
+        _pp_obligation(tmp_path, "97%d" % n, "Nope.v%02d.cbz" % n)
+
+    # One fulfilled row, stamped newer so read_open()'s oldest-first ordering
+    # puts it after the cap has already been spent.
+    _placed_issue(tmp_path, "979", "Series v79.cbz")
+    fulfilled = _pp_obligation(tmp_path, "979", "Series.v79.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(
+            pipeline_journal.update()
+            .where(pipeline_journal.c.release_key == fulfilled)
+            .values(updated_date="2026-05-18 00:00:00")
+        )
+
+    redriven = []
+    import comicarr.process as process_mod
+
+    class _FakeProc:
+        def __init__(self, *a, journal_release_key=None, **k):
+            self._rkey = journal_release_key
+
+        def post_process(self):
+            redriven.append(self._rkey)
+
+    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+
+    summary = recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert len(redriven) == _MAX_INLINE_PP_REDRIVE_PER_PASS, "the cap must still bound real re-drives"
+    assert fulfilled not in redriven, "a fulfilled obligation must never be re-imported"
+    assert summary["actions"].get("skip-pp-cap-deferred") is None
+    assert _journal_row(fulfilled)["stage"] == journal.POST_PROCESSED, (
+        "fulfilled row was deferred by a budget it does not spend"
+    )
+
+
 def test_unfulfilled_rows_are_still_capped(queues, tmp_path, monkeypatch):
     """The cap still bounds real re-drives: with no placement evidence, only
     _MAX_INLINE_PP_REDRIVE_PER_PASS rows run and the rest defer."""
