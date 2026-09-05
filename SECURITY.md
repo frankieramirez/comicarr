@@ -4,9 +4,9 @@
 
 If you discover a security vulnerability in Comicarr, please report it responsibly:
 
-1. **Do NOT open a public GitHub issue** for security vulnerabilities
-2. Email security concerns to the maintainer via GitHub's private vulnerability reporting:
-   - Go to the [Security tab](https://github.com/frankieramirez/comicarr/security/advisories) and click "Report a vulnerability"
+1. **Do not open a public GitHub issue** for a security vulnerability.
+2. Use GitHub's private vulnerability reporting:
+   - Go to the [Security tab](https://github.com/frankieramirez/comicarr/security/advisories) and click "Report a vulnerability".
 3. Include as much detail as possible: steps to reproduce, affected versions, and potential impact
 
 You should receive a response within 72 hours. We will work with you to understand and address the issue before any public disclosure.
@@ -19,11 +19,11 @@ You should receive a response within 72 hours. We will work with you to understa
 
 ## Security Practices
 
-- API keys and credentials are never logged in plaintext
-- Configuration files with credentials (`config.ini`) are excluded from version control
-- The Docker image runs as a non-root user with configurable PUID/PGID
-- All database queries use parameterized statements to prevent SQL injection
-- The Support bundle exports only allowlisted diagnostic facts; operators must review the archive before public attachment
+- Scheduled-job error summaries redact common credential formats before storage or display.
+- Local configuration files with credentials (`config.ini`) are ignored by the repository.
+- The Docker entrypoint applies the configured PUID/PGID before starting Comicarr.
+- Database helpers support parameterized statements; contributors should preserve that pattern in new queries.
+- The support bundle contract limits exported fields to its allowlist and marks each bundle for operator review before sharing.
 
 ## Known Scanner Findings
 

@@ -7,7 +7,7 @@ Thank you for your interest in contributing to Comicarr! This guide will help yo
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 22+
+- Node.js 22+ for the frontend build and raw Vite server
 - [uv](https://docs.astral.sh/uv/) (recommended for Python dependency management)
 
 ### Getting Started
@@ -26,6 +26,7 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 # Install frontend dependencies (lockfile-respecting; matches CI)
 cd frontend
 npm ci
+npm run build
 cd ..
 
 # Install git pre-commit hooks (lint/format on commit)
@@ -54,7 +55,8 @@ Hooks run automatically on `git commit` and mirror the CI lint/format checks:
 - **Backend**: `ruff` (lint + autofix) and `ruff format` on `comicarr/`
 - **Frontend**: Prettier and ESLint (via `frontend/` lockfile tools)
 
-One-time install: `uv sync --extra dev && pre-commit install` (and `cd frontend && npm ci` for frontend hooks).
+Install the hooks after the backend and frontend dependencies are ready with
+`pre-commit install`.
 
 Useful commands:
 
@@ -64,7 +66,8 @@ npm run lint                 # same checks CI uses (backend + frontend)
 npm run lint:fix             # autofix what can be fixed
 ```
 
-If a hook rewrites files, stage the changes and commit again. Avoid `git commit --no-verify` unless you have a deliberate reason — CI will still enforce the same rules.
+If a hook rewrites files, stage the changes and commit again. Keep the hooks
+enabled for every commit; CI runs the same checks.
 
 ### Frontend Development
 
@@ -80,6 +83,8 @@ npm run build      # Production build
 The default `dev` script goes through [portless](https://github.com/vercel-labs/portless)
 (`https://comicarr.localhost:1355`) so other local apps can keep their own named
 URLs without stealing port 5173. First HTTPS session may need `npx portless trust`.
+The current portless dependency requires Node.js 24 or newer. With Node.js 22,
+use `npm run dev:vite` instead.
 
 When using the Vite dev server with a separately running backend, Comicarr
 defaults to port **8090**. The Vite proxy targets `http://localhost:8090`
@@ -114,7 +119,8 @@ npm run test:run
 - React 19 with TypeScript
 - Tailwind CSS 4 for styling
 - TanStack Query for data fetching
-- Radix UI for accessible components
+- Base UI for accessible components, with Radix UI packages retained where the
+  frontend still uses them
 - **Lint**: `cd frontend && npm run lint` (ESLint)
 - **Format**: `cd frontend && npm run format` / `npm run format:check` (Prettier; enforced in CI and pre-commit)
 

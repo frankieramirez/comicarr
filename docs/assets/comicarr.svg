@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="235.2" viewBox="0 0 1000 280" role="img" aria-labelledby="title desc">
+  <title id="title">Comicarr</title>
+  <desc id="desc">A pixel-art comic book with a lightning-bolt cover beside orange COMICARR lettering, cream highlights, and burnt-orange shadows.</desc>
+  <defs>
+    <linearGradient id="letter-face" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff0cc"/>
+      <stop offset=".27" stop-color="#ffd48a"/>
+      <stop offset=".28" stop-color="#ffb054"/>
+      <stop offset=".58" stop-color="#ff8b36"/>
+      <stop offset=".59" stop-color="#ff6a1f"/>
+      <stop offset="1" stop-color="#d64a12"/>
+    </linearGradient>
+    <pattern id="dither" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0 0h4v4H0zM4 4h4v4H4z" fill="#8b321b"/>
+    </pattern>
+    <g id="letters" fill-rule="evenodd">
+      <path d="M12 0H76V24H28V88H76V112H12V100H0V12H12Z"/>
+      <path transform="translate(86)" d="M12 0H64V12H76V100H64V112H12V100H0V12H12ZM28 24V88H48V24Z"/>
+      <path transform="translate(172)" d="M0 112V0H24V12H36V24H60V12H72V0H96V112H72V48H60V60H36V48H24V112Z"/>
+      <path transform="translate(278)" d="M0 0H40V24H32V88H40V112H0V88H8V24H0Z"/>
+      <path transform="translate(328)" d="M12 0H76V24H28V88H76V112H12V100H0V12H12Z"/>
+      <path transform="translate(414)" d="M0 112V24H12V12H24V0H52V12H64V24H76V112H48V76H28V112ZM28 28V52H48V28Z"/>
+      <path transform="translate(500)" d="M0 0H64V12H76V52H64V64H52V76H64V88H76V112H48V88H36V76H28V112H0ZM28 24V48H48V24Z"/>
+      <path transform="translate(586)" d="M0 0H64V12H76V52H64V64H52V76H64V88H76V112H48V88H36V76H28V112H0ZM28 24V48H48V24Z"/>
+    </g>
+    <mask id="letter-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="662" height="112">
+      <use href="#letters" fill="#ffffff"/>
+    </mask>
+  </defs>
+  <g shape-rendering="crispEdges">
+    <!-- Stacked page edges and the stepped silhouette of a comic book. -->
+    <path d="M64 54H204V66H216V226H204V238H64V226H52V66H64Z" fill="#452b2b"/>
+    <path d="M64 66H200V218H192V226H64Z" fill="#c68b51"/>
+    <path d="M68 70H200V206H192V218H68Z" fill="#fff0cc"/>
+    <path d="M76 206H188V210H76ZM80 214H180V218H80Z" fill="#c68b51"/>
+    <path d="M48 40H188V52H200V196H188V208H48V196H36V52H48Z" fill="#452b2b"/>
+    <path d="M48 52H188V196H48Z" fill="#e04a0a"/>
+    <path d="M48 52H60V196H48Z" fill="#a3371b"/>
+    <path d="M60 52H188V64H60Z" fill="#ffb054"/>
+    <path d="M72 72H176V84H72Z" fill="#fff0cc"/>
+    <path d="M72 92H176V164H72Z" fill="#713627"/>
+    <path d="M80 100H168V156H80Z" fill="#ff8b36"/>
+    <path d="M80 100H168V116H80Z" fill="#ffb054"/>
+    <path d="M136 92H156V104H144V116H132V128H148V140H136V152H124V164H112V176H100V152H112V136H96V124H108V112H120V100H136Z" fill="#452b2b"/>
+    <path d="M132 88H152V100H140V112H128V124H144V136H132V148H120V160H108V168H104V148H116V132H100V120H112V108H124V96H132Z" fill="#fff0cc"/>
+    <path d="M72 176H92V184H72ZM132 176H176V184H132Z" fill="#ffb054"/>
+    <!-- Reusable outlined glyphs keep the wordmark independent of fonts. -->
+    <g transform="translate(276 82)">
+      <use href="#letters" transform="translate(10 12)" fill="#452b2b" stroke="#452b2b" stroke-width="6"/>
+      <use href="#letters" transform="translate(4 6)" fill="#a33d20" stroke="#452b2b" stroke-width="6"/>
+      <use href="#letters" fill="url(#letter-face)"/>
+      <g mask="url(#letter-mask)">
+        <path d="M0 80H662V104H0Z" fill="url(#dither)" opacity=".2"/>
+      </g>
+    </g>
+    <path d="M222 48h8v8h8v8h-8v8h-8v-8h-8v-8h8Z" fill="#ffb054"/>
+    <path d="M22 216h6v6h-6ZM964 210h6v6h-6Z" fill="#ff6a1f"/>
+  </g>
+</svg>
