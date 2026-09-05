@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.38.9
+
+### Patch Changes
+
+- b4e34c4: Manga imports no longer leave an empty folder behind in the download directory. With file handling set to move, the volume was taken into the library but its now-empty release folder stayed in the completed directory, one per imported volume. That folder is now removed once the import has emptied it, on the same terms as comics: only under move, never for a Manual Run, and never when a file is still sitting in it.
+- f8fc9b4: Manual post-processing now reports when another import is busy, while queued downloads retry and folder monitoring waits. Imports and restart recovery share execution ownership so overlapping requests cannot release each other's processing lock. Completion preserves download records belonging to other story arcs.
+
 ## 0.38.8
 
 ### Patch Changes
