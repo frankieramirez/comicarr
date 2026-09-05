@@ -40,7 +40,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import journal, service
+from comicarr.app.downloads import journal, postprocessing, service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import metadata, pipeline_journal
@@ -121,18 +121,15 @@ def _run_postprocess_main(items):
     received (i.e. the items that WON the claim and reached process.Process)."""
     processed_keys = []
 
-    def _fake_process_factory(*args, **kwargs):
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        processed_keys.append(kwargs.get("journal_release_key"))
-        return inst
+    def _fake_execute(item, _ownership):
+        processed_keys.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
     for it in items:
         q.put(it)
     q.put("exit")
 
-    with patch.object(service.process, "Process", side_effect=_fake_process_factory):
+    with patch.object(postprocessing, "_execute", side_effect=_fake_execute):
         service.postprocess_main(q)
 
     return processed_keys
@@ -169,11 +166,8 @@ def test_claim_is_cas_not_read_then_process():
     results = []
     barrier = threading.Barrier(2)
 
-    def _fake_factory(*a, **k):
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        results.append(k.get("journal_release_key"))
-        return inst
+    def _fake_factory(item, _ownership):
+        results.append(item.get("journal_release_key"))
 
     def worker():
         q = queuelib.Queue()
@@ -182,7 +176,7 @@ def test_claim_is_cas_not_read_then_process():
         barrier.wait()
         service.postprocess_main(q)
 
-    with patch.object(service.process, "Process", side_effect=_fake_factory):
+    with patch.object(postprocessing, "_execute", side_effect=_fake_factory):
         t1 = threading.Thread(target=worker)
         t2 = threading.Thread(target=worker)
         t1.start()
@@ -278,16 +272,13 @@ def test_release_key_identical_on_8arg_and_2arg_paths():
     # ONCE (before either construction) and threaded into the 2-arg retry.
     captured = []
 
-    def _factory(*a, **k):
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        captured.append(k.get("journal_release_key"))
-        return inst
+    def _factory(item, _ownership):
+        captured.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
     q.put(two_arg_shape)
     q.put("exit")
-    with patch.object(service.process, "Process", side_effect=_factory):
+    with patch.object(postprocessing, "_execute", side_effect=_factory):
         service.postprocess_main(q)
 
     # The 2-arg fallback construction received the canonical key, identical
@@ -308,11 +299,8 @@ def test_journal_failure_in_guard_does_not_crash_falls_through():
     threaded key is None so PP markers fall back to re-derivation."""
     processed = []
 
-    def _factory(*a, **k):
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        processed.append(k.get("journal_release_key"))
-        return inst
+    def _factory(item, _ownership):
+        processed.append(item.get("journal_release_key"))
 
     q = queuelib.Queue()
     q.put(_pp_item(issueid="Ierr"))
@@ -320,7 +308,7 @@ def test_journal_failure_in_guard_does_not_crash_falls_through():
 
     with (
         patch.object(journal, "record_transition", side_effect=RuntimeError("journal down")),
-        patch.object(service.process, "Process", side_effect=_factory),
+        patch.object(postprocessing, "_execute", side_effect=_factory),
     ):
         service.postprocess_main(q)  # must not raise
 
@@ -361,9 +349,9 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
 
     captured_pp = {}
 
-    def _factory(*a, **k):
+    def _factory(item, ownership):
         # Build a real PostProcessor threaded with the canonical key, like
-        # process.Process does, and drive its U3 markers.
+        # the production execution adapter does, and drive its U3 markers.
         mock_apilock = MagicMock()
         mock_apilock.locked.return_value = False
         cfg = MagicMock()
@@ -376,20 +364,19 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
                 comicid="C1",
                 issueid="Ithr",
                 queue=MagicMock(spec=queuelib.Queue),
-                journal_release_key=k.get("journal_release_key"),
+                journal_release_key=item.get("journal_release_key"),
+                ownership=ownership,
             )
         captured_pp["pp"] = pp
         # The PP markers (moved/post_processed) advance the threaded row.
         pp._journal_pp("moved", issueid="Ithr")
         pp._journal_pp("post_processed", issueid="Ithr")
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        return inst
+        return None
 
     q = queuelib.Queue()
     q.put(_pp_item(issueid="Ithr"))
     q.put("exit")
-    with patch.object(service.process, "Process", side_effect=_factory):
+    with patch.object(postprocessing, "_execute", side_effect=_factory):
         service.postprocess_main(q)
 
     pp = captured_pp["pp"]
@@ -501,8 +488,8 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
 
     captured = {}
 
-    def _factory(*a, **k):
-        threaded = k.get("journal_release_key")
+    def _factory(item, ownership):
+        threaded = item.get("journal_release_key")
         captured["threaded"] = threaded
         # Build a real PostProcessor threaded with the propagated key (as
         # process.Process does) and drive its U3 moved/post_processed markers.
@@ -519,18 +506,17 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
                 issueid="Ie2e",
                 queue=MagicMock(spec=queuelib.Queue),
                 journal_release_key=threaded,
+                ownership=ownership,
             )
         captured["marker_key"] = pp._journal_release_key(issueid="Ie2e")
         pp._journal_pp("moved", issueid="Ie2e")
         pp._journal_pp("post_processed", issueid="Ie2e")
-        inst = MagicMock()
-        inst.post_process.return_value = None
-        return inst
+        return None
 
     q = queuelib.Queue()
     q.put(_stamped_pp_item(k1, issueid="Ie2e", nzb_name="Bone.012.cbz"))
     q.put("exit")
-    with patch.object(service.process, "Process", side_effect=_factory):
+    with patch.object(postprocessing, "_execute", side_effect=_factory):
         service.postprocess_main(q)
 
     # Every key in the lifecycle is byte-identical to K1.

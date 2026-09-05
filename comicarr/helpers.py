@@ -159,13 +159,7 @@ def issuedigits(issnum):
 
 
 def checkFolder(folderpath=None):
-    from comicarr import postprocessor
-
-    return _checkFolder_impl(
-        folderpath=folderpath,
-        check_folder=comicarr.CONFIG.CHECK_FOLDER,
-        postprocessor=postprocessor,
-    )
+    return _checkFolder_impl(folderpath=folderpath, check_folder=comicarr.CONFIG.CHECK_FOLDER)
 
 
 def weekly_info(week=None, year=None, current=None):

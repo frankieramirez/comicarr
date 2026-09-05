@@ -54,7 +54,7 @@ PASS_THROUGH_WRITERS = frozenset(
         ("comicarr/app/attention/_recording.py", "record"),
         ("comicarr/app/attention/_recording.py", "_record_on_connection"),
         ("comicarr/failed.py", "terminalize_failed_download"),
-        ("comicarr/app/downloads/service.py", "_quarantine_postprocess_item"),
+        ("comicarr/app/downloads/postprocessing.py", "_quarantine"),
     }
 )
 
@@ -315,6 +315,24 @@ def _scan_file(path: Path, const_map: dict[str, str]) -> tuple[set[str], list[st
             continue
         attr = _call_name(node)
         if attr is None:
+            continue
+        # ``postprocessing._quarantine`` is an allowlisted pass-through writer,
+        # but its callers still choose concrete reason bases. Scan the second
+        # positional argument at this seam so a new caller cannot silently
+        # reduce the registry's writable count. The wrapper body itself is
+        # dynamic by design and is handled by the existing pass-through skip.
+        if (rel, attr) == ("comicarr/app/downloads/postprocessing.py", "_quarantine"):
+            reason_node = node.args[1] if len(node.args) >= 2 else None
+            lineno = getattr(node, "lineno", "?")
+            if reason_node is None:
+                errors.append(_unresolvable_msg(rel, lineno))
+                continue
+            assigns = local_assigns.get(lineno, {}) if isinstance(lineno, int) else {}
+            tokens = _strings_from(reason_node, const_map, assigns)
+            if not tokens:
+                errors.append(_unresolvable_msg(rel, lineno))
+                continue
+            found |= tokens
             continue
         if (rel, attr) in PASS_THROUGH_WRITERS:
             continue

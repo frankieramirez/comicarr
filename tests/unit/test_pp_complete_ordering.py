@@ -162,6 +162,28 @@ def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issuei
     return pp
 
 
+def test_completion_with_null_arc_name_preserves_other_arc_anchors():
+    from comicarr.app.downloads._postprocess_completion import complete
+
+    key = "null-arc-release"
+    journal.record_transition(key, journal.MOVED, issueid="A1")
+    with get_engine().begin() as conn:
+        conn.execute(
+            insert(nzblog),
+            [
+                {"IssueID": "SA1", "SARC": None},
+                {"IssueID": "SA1", "SARC": "Other arc"},
+            ],
+        )
+    pp = _make_pp(issueid="A1", journal_release_key=key)
+    pp.issuearcid = "A1"
+
+    complete(pp._journal_context(), issue_arc_id="A1", anchor_ids=("SA1",), arc_scope=None)
+
+    assert [(row["IssueID"], row["SARC"]) for row in _rows(nzblog)] == [("SA1", "Other arc")]
+    assert _stage_of(key) == journal.POST_PROCESSED
+
+
 # ===========================================================================
 # CHARACTERIZATION (written FIRST) — pin the per-site ordering invariants
 # that MUST hold both before AND after the U9 reorder. These guard against an
@@ -204,11 +226,11 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
     pp = _make_pp(nzb_name="Chainsaw Man 165.cbz", nzb_folder=str(tmp_path), comicid="md-csm", issueid=None)
 
     seen = []
-    real_pp = pp._journal_pp
+    real_pp = journal.record_transition
 
-    def _spy(stage, **k):
+    def _spy(key, stage, **k):
         seen.append(stage)
-        return real_pp(stage, **k)
+        return real_pp(key, stage, **k)
 
     def _fake_fileop(s, d, *a, **k):
         seen.append("__fileop__")
@@ -218,7 +240,7 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-        patch.object(pp, "_journal_pp", side_effect=_spy),
+        patch.object(journal, "record_transition", side_effect=_spy),
     ):
         pp._process_manga()
 

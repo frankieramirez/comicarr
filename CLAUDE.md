@@ -20,6 +20,8 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 
 Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloads`, `system`, `dashboard`, `metadata`, `storyarcs`, `weekly`, `opds`, `ai`, plus `core` and `common`.
 
+Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` for new work and `recover(release_key)` for restart continuation. The module owns the processing lock, maintenance lease, journal claim, and atomic completion. Busy direct requests return HTTP 409; the queue retries and the folder monitor defers. Legacy processors remain behind this interface; `npm run lint:guards` checks for direct construction outside its implementation.
+
 Anything a user can see is governed by **`DESIGN.md`** — tokens, theming, typography,
 primitives, and the frontend anti-pattern list. Read it before touching
 `frontend/src/index.css` or adding a component.

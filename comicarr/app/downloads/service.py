@@ -18,18 +18,17 @@ import datetime
 import os
 import re
 import time
-import traceback
 import zipfile
 
 import rarfile
 
 import comicarr
-from comicarr import db, getcomics, logger, nzbget, process, sabnzbd
+from comicarr import db, getcomics, logger, nzbget, sabnzbd
 from comicarr.app.attention import BATCH_CAP, PROBLEM_STATUS, Failure, ManualReview, record
+from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
-from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
 from comicarr.app.manga.ledger import is_volume_target, volume_numbers_match
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
@@ -111,23 +110,16 @@ def force_process(
     ComicRN/APC compatibility runs the post-processor directly.
     """
     if apc_version is not None:
-        logger.info("[API] Api Call from ComicRN detected - initiating script post-processing.")
-        import queue as queue_mod
-        import threading
-
-        from comicarr import postprocessor
-
-        pp_queue = queue_mod.Queue()
-        if failed == "0":
-            failed = False
-        elif failed == "1":
-            failed = True
-
-        if not failed:
-            pp = postprocessor.PostProcessor(nzb_name, nzb_folder, queue=pp_queue)
-            thread_ = threading.Thread(target=pp.Process, name="Post-Processing")
-            thread_.start()
-            thread_.join()
+        outcome = postprocessing.run(
+            {
+                "nzb_name": nzb_name,
+                "nzb_folder": nzb_folder,
+                "failed": failed,
+                "source": "compat",
+            }
+        )
+        if outcome.status in {"busy", "failed"}:
+            return {"success": False, "error": outcome.detail, "status_code": 409 if outcome.status == "busy" else 500}
         return {"success": True}
 
     logger.info("Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder))
@@ -147,16 +139,19 @@ def force_process(
 
 
 def process_issue(comicid, folder, issueid=None):
-    """Post-process a specific issue."""
-    from comicarr import process
-
-    try:
-        fp = process.Process(nzb_name=comicid, nzb_folder=folder, issueid=issueid)
-        result = fp.post_process()
-        return {"success": True, "data": result}
-    except Exception as e:
-        logger.error("[DOWNLOADS] Error processing issue: %s" % e)
-        return {"success": False, "error": str(e)}
+    """Post-process a specific issue through the shared ownership seam."""
+    outcome = postprocessing.run(
+        {
+            "nzb_name": comicid,
+            "nzb_folder": folder,
+            "issueid": issueid,
+            "source": "manual",
+            "apicall": False,
+        }
+    )
+    if outcome.status in {"busy", "failed"}:
+        return {"success": False, "error": outcome.detail, "status_code": 409 if outcome.status == "busy" else 500}
+    return {"success": True, "data": outcome.value}
 
 
 BAND_BATCH_CAP = BATCH_CAP
@@ -1734,179 +1729,10 @@ def postprocess_main(queue):
         if item == "exit":
             logger.info("Cleaning up workers for shutdown")
             break
-        if comicarr.APILOCK.locked():
+        outcome = postprocessing.run(item)
+        if outcome.status == "busy":
             queue.put(item)
             time.sleep(1)
-            continue
-        logger.info(
-            "Now loading post-processing command name=%s issueid=%s"
-            % (
-                item.get("nzb_name") if isinstance(item, dict) else "unknown",
-                item.get("issueid") if isinstance(item, dict) else None,
-            )
-        )
-
-        try:
-            item = validate_postprocess_item(item, roots=_configured_postprocess_roots())
-        except PostProcessCommandError as e:
-            _quarantine_postprocess_item(item, "invalid_postprocess_command:%s" % type(e).__name__)
-            logger.error("[DOWNLOADS-PP] Rejected unsafe post-processing command: %s" % e)
-            continue
-
-        outcome, pp = _run_owned_postprocess(item)
-        if outcome == "requeue":
-            queue.put(item)
-            time.sleep(1)
-            continue
-        if outcome in {"drop", "failed"}:
-            continue
-        if pp is not None:
-            try:
-                if pp["mode"] == "stop" and comicarr.APILOCK.locked():
-                    comicarr.APILOCK.release()
-            except (KeyError, TypeError):
-                pass
-        if comicarr.APILOCK.locked():
-            logger.info("Another item is post-processing still...")
-            time.sleep(15)
-
-
-def _run_owned_postprocess(item):
-    """Acquire the maintenance lease before the CAS and hold it through PP."""
-    from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController
-    from comicarr.app.downloads import journal
-
-    propagated_key = item.get("journal_release_key")
-    claim_ident = {
-        "issueid": item.get("issueid"),
-        "comicid": item.get("comicid"),
-        "nzbname": item.get("nzb_name"),
-    }
-    intended_key = propagated_key or journal.derive_release_key(claim_ident)
-    controller = MaintenanceController()
-    try:
-        lease = controller.acquire_lease(
-            "postprocess-worker",
-            "postprocess",
-            entity_type="release",
-            entity_id=intended_key,
-        )
-    except MaintenanceBlocked:
-        return "requeue", None
-
-    canonical_release_key = intended_key
-    try:
-        controller.assert_lease_current(lease)
-        item = validate_postprocess_item(item, roots=_configured_postprocess_roots())
-        try:
-            won = journal.record_transition(
-                canonical_release_key,
-                journal.POST_PROCESSING,
-                payload={
-                    "nzb_name": item.get("nzb_name"),
-                    "nzb_folder": item.get("nzb_folder"),
-                    "failed": item.get("failed"),
-                    "issueid": item.get("issueid"),
-                    "comicid": item.get("comicid"),
-                    "apicall": item.get("apicall"),
-                },
-                issueid=item.get("issueid"),
-            )
-        except Exception as e:
-            if propagated_key:
-                logger.error(
-                    "[DOWNLOADS-PP] Durable claim failed for journaled item %s; retaining without side effect: %s"
-                    % (canonical_release_key, type(e).__name__)
-                )
-                return "requeue", None
-            logger.error(
-                "[DOWNLOADS-PP] Journal unavailable for explicit legacy/manual PP; using legacy status guard: %s"
-                % type(e).__name__
-            )
-            canonical_release_key = None
-            won = True
-
-        if won is False:
-            logger.info("[DOWNLOADS-PP] Idempotency claim lost for %s; dropping duplicate." % canonical_release_key)
-            return "drop", None
-
-        try:
-            pprocess = process.Process(
-                item["nzb_name"],
-                item["nzb_folder"],
-                item["failed"],
-                item["issueid"],
-                item["comicid"],
-                item["apicall"],
-                item["ddl"],
-                item["download_info"],
-                journal_release_key=canonical_release_key,
-            )
-        except (KeyError, TypeError):
-            pprocess = process.Process(
-                item["nzb_name"],
-                item["nzb_folder"],
-                item.get("failed", False),
-                item.get("issueid"),
-                item.get("comicid"),
-                item.get("apicall", False),
-                journal_release_key=canonical_release_key,
-            )
-        return "processed", pprocess.post_process()
-    except PostProcessCommandError as e:
-        _quarantine_postprocess_item(
-            item,
-            "invalid_postprocess_command:%s" % type(e).__name__,
-            release_key=canonical_release_key,
-        )
-        logger.error("[DOWNLOADS-PP] Command changed after validation; quarantined: %s" % e)
-        return "failed", None
-    except MaintenanceBlocked:
-        return "requeue", None
-    except Exception as e:
-        _quarantine_postprocess_item(
-            item,
-            "postprocess_error:%s" % type(e).__name__,
-            release_key=canonical_release_key,
-        )
-        if comicarr.APILOCK.locked():
-            try:
-                comicarr.APILOCK.release()
-            except RuntimeError:
-                pass
-        logger.error(
-            "[DOWNLOADS-PP] Owned post-processing failed; item quarantined: %s: %s\n%s"
-            % (type(e).__name__, e, traceback.format_exc())
-        )
-        return "failed", None
-    finally:
-        controller.release_lease(lease.lease_id)
-
-
-def _configured_postprocess_roots():
-    return configured_roots()
-
-
-def _quarantine_postprocess_item(item, reason, release_key=None):
-    from comicarr.app.downloads import journal
-
-    if not isinstance(item, dict):
-        return False
-    key = release_key or item.get("journal_release_key")
-    if not key:
-        key = journal.derive_release_key(item)
-    try:
-        return record(
-            ManualReview(
-                release_key=key,
-                reason=reason,
-                payload=item,
-                issue_id=item.get("issueid"),
-            )
-        ).transition_won
-    except Exception as e:
-        logger.error("[DOWNLOADS-PP] Unable to persist quarantine for %s: %s" % (key, type(e).__name__))
-        return False
 
 
 def worker_main(queue):

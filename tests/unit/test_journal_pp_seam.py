@@ -37,7 +37,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import journal, service
+from comicarr.app.downloads import journal, postprocessing, service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
@@ -534,11 +534,10 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
         pp._process_manga()
 
     # post_processing strictly before the destructive fileop; moved strictly
-    # after it; post_processed last.
+    # after it. Terminal completion is now owned by the post-processing module.
     assert seen[0] == "post_processing"
     assert seen.index("post_processing") < seen.index("__fileop__")
     assert seen.index("__fileop__") < seen.index("moved")
-    assert seen[-1] == "post_processed"
     assert moved_calls  # the move actually happened
 
     rkey = pp._journal_release_key(issueid="md-csm-ch165")
@@ -737,11 +736,10 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
     assert seen.count("moved") == 1
     last_fileop = max(i for i, s in enumerate(seen) if s == "__fileop__")
     assert seen.index("moved") > last_fileop
-    # Lifecycle order on the shared row: post_processing -> moved ->
-    # post_processed, and never `moved` before the final fileop.
+    # Lifecycle order on the shared row: post_processing -> moved, and never
+    # `moved` before the final fileop. Terminal completion is owned by the
+    # post-processing module after the legacy processor returns.
     assert seen[0] == "post_processing"
-    assert seen.index("moved") < seen.index("post_processed")
-    assert seen[-1] == "post_processed"
     assert _stage_of(rkey) == "post_processed"
 
 
@@ -751,7 +749,6 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     FULL. Chapter 1's source file is already gone (moved on the first pass) so
     it does not re-match/double-import; only the unmoved chapters get
     processed, and the run then terminalizes the shared row exactly once."""
-    from comicarr.app.downloads import recovery
     from comicarr.tables import nzblog
 
     comicid = "mc4"
@@ -827,19 +824,20 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     #     by the integration AE suite). -------------------------------------
     row = journal.read_one(rkey)
     assert row["stage"] == "post_processing"
-    fake_proc = MagicMock()
+    executed = []
     with (
         patch.object(comicarr, "CONFIG", types.SimpleNamespace(DDL_LOCATION=str(src))),
-        patch("comicarr.process.Process", return_value=fake_proc) as mk,
+        patch.object(
+            postprocessing, "_execute", side_effect=lambda item, ownership: executed.append((item, ownership))
+        ),
     ):
-        action = recovery.finalize_post_processing(row)
+        outcome = postprocessing.recover(rkey)
 
-    assert action == "post_processing-redrive"
-    # Finalizer constructed a real PP and drove it (full re-import path),
-    # threading the authoritative release_key so the markers advance THIS row.
-    assert mk.called
-    assert mk.call_args.kwargs.get("journal_release_key") == rkey
-    fake_proc.post_process.assert_called_once()
+    assert outcome.action == "post_processing-redrive"
+    assert outcome.redriven is True
+    assert len(executed) == 1
+    assert executed[0][0]["journal_release_key"] == rkey
+    assert executed[0][1]
     # It did NOT take the `moved` finish-only path (nzblog untouched here —
     # that happens in the real PP terminal block, not the finalizer).
     assert len(_rows(nzblog)) == 2

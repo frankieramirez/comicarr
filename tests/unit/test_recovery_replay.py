@@ -1862,7 +1862,9 @@ def test_unanswerable_story_arc_clears_the_S_anchor_from_nzb_name(queues, tmp_pa
         conn.execute(nzblog.insert().values(IssueID="902", PROVIDER="nzb.su", NZBName="Arc.v01.cbz"))
         conn.execute(nzblog.insert().values(IssueID="S902", PROVIDER="nzb.su", NZBName="Arc.v01.cbz"))
     # the discriminator's own unanswerable case: no issueid, or the lookup raised
-    monkeypatch.setattr(recovery, "_is_story_arc_obligation", lambda issueid: None)
+    from comicarr.app.downloads import _postprocess_completion
+
+    monkeypatch.setattr(_postprocess_completion, "_is_story_arc_obligation", lambda issueid: None)
     _forbid_reimport(monkeypatch)
 
     summary = recovery.replay_pipeline(probes=_probe("complete"))

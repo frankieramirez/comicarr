@@ -8,6 +8,10 @@ The review queue of discovered files that are not yet durably associated with a 
 
 The operator-confirmed workflow that binds pending Import Inbox records to a Series, places or archives their files, rescans the library, and marks the records imported only after those steps succeed.
 
+## Post-processing
+
+The workflow that incorporates downloaded or manually supplied comic and manga files into their intended library destinations and records the resulting holdings. Download completion means the files have arrived; post-processing completion means their placement and library records are complete.
+
 ## Series
 
 A monitored comic or manga title and its library directory, issues or chapters, metadata, and acquisition state.

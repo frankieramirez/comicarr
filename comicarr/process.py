@@ -37,6 +37,7 @@ class Process(object):
         ddl=False,
         download_info=None,
         journal_release_key=None,
+        ownership=None,
     ):
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
@@ -47,6 +48,7 @@ class Process(object):
         self.ddl = ddl
         self.download_info = download_info
         self.journal_release_key = journal_release_key
+        self.ownership = ownership
 
     def _terminalize_handling_disabled(self):
         """Mark the journal failed when failed-download handling is off.
@@ -111,6 +113,7 @@ class Process(object):
                 apicall=self.apicall,
                 ddl=self.ddl,
                 journal_release_key=self.journal_release_key,
+                ownership=self.ownership,
             )
             PostProcess.Process()
             if not ppqueue.empty():
@@ -160,7 +163,13 @@ class Process(object):
                 self._terminalize_handling_disabled()
 
         if retry_outside:
-            PostProcess = comicarr.postprocessor.PostProcessor("Manual Run", self.nzb_folder, queue=ppqueue)
+            PostProcess = comicarr.postprocessor.PostProcessor(
+                "Manual Run",
+                self.nzb_folder,
+                queue=ppqueue,
+                ownership=self.ownership,
+                journal_release_key=self.journal_release_key,
+            )
             PostProcess.Process()
             chk = ppqueue.get()
             while True:
