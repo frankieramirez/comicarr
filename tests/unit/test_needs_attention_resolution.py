@@ -724,8 +724,8 @@ def test_reason_to_stage_is_a_function():
             "FAIL_REASON_GONE",
         ),
         (
-            "comicarr/app/downloads/service.py",
-            "_quarantine_postprocess_item",
+            "comicarr/app/downloads/postprocessing.py",
+            "_quarantine",
             "ManualReview",
             journal.MANUAL_REVIEW,
             "reason",

@@ -28,12 +28,13 @@ import subprocess
 import sys
 import time
 
-from sqlalchemy import Integer, and_, delete, func, inspect, or_, select
+from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
+from comicarr.app.downloads._postprocess_completion import complete as _complete_postprocess
 from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessContext,
     PostProcessInputContext,
@@ -86,8 +87,9 @@ def summarize_scan_matches(normal_items, arc_items):
 
 
 class PostProcessor(object):
-    """
-    A class which will process a media file according to the post processing settings in the config.
+    """File matching and placement behind downloads.postprocessing.run/recover.
+
+    The post-processing module owns the lock across this work and any retries.
     """
 
     EXISTS_LARGER = 1
@@ -127,14 +129,7 @@ class PostProcessor(object):
         if queue:
             self.queue = queue
 
-        if comicarr.APILOCK.locked():
-            return {"status": "IN PROGRESS"}
-
-        if apicall is True:
-            self.apicall = True
-            comicarr.APILOCK.acquire()
-        else:
-            self.apicall = False
+        self.apicall = apicall is True
 
         if ddl is True:
             self.ddl = True
@@ -157,7 +152,6 @@ class PostProcessor(object):
             self.comicid = comicid
         else:
             self.comicid = None
-
         self.issuearcid = None
 
         self.journal_release_key = journal_release_key
@@ -165,7 +159,7 @@ class PostProcessor(object):
     def _journal_release_key(self, issueid=None, issuearcid=None):
         """Derive the journal release_key for this PP item.
 
-        A canonical release_key threaded from postprocess_main's atomic claim
+        A canonical release_key threaded from postprocessing.run's atomic claim
         (self.journal_release_key) is PREFERRED over re-derivation so these
         markers advance the SAME journal row the PP-consumer claim advanced
         (single-derivation invariant). The PostProcessor does not receive
@@ -3035,20 +3029,13 @@ class PostProcessor(object):
                                     "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
                                     % os.path.basename(orig_filename)
                                 )
-                        with db.get_engine().begin() as conn:
-                            conn.execute(
-                                delete(nzblog).where(
-                                    and_(
-                                        nzblog.c.IssueID == "S" + str(ml["IssueArcID"]), nzblog.c.SARC == ml["StoryArc"]
-                                    )
-                                )
-                            )
-                            conn.execute(
-                                delete(nzblog).where(
-                                    and_(nzblog.c.IssueID == str(ml["IssueArcID"]), nzblog.c.SARC == ml["StoryArc"])
-                                )
-                            )
-                            self._journal_pp("post_processed", issuearcid=ml["IssueArcID"], conn=conn)
+                        _complete_postprocess(
+                            self._journal_context(),
+                            issue_arc_id=ml["IssueArcID"],
+                            anchor_ids=("S" + str(ml["IssueArcID"]), str(ml["IssueArcID"])),
+                            arc_scope=ml["StoryArc"],
+                            database=db,
+                        )
 
                         logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
                         newVal = {"Status": "Downloaded", "Location": grab_dst}
@@ -3311,8 +3298,6 @@ class PostProcessor(object):
             if len(manual_list) == 0 and len(manual_arclist) == 0:
                 if self.nzb_name == "Manual Run":
                     logger.info("%s No matches for Manual Run ... exiting." % module)
-                if comicarr.APILOCK.locked():
-                    comicarr.APILOCK.release()
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
             elif len(manual_arclist) > 0:
@@ -3449,8 +3434,6 @@ class PostProcessor(object):
 
             logger.fdebug("%s %s" % (module, global_line))
 
-            if comicarr.APILOCK.locked():
-                comicarr.APILOCK.release()
             self.valreturn.append({"self.log": self.log, "mode": "stop"})
             return self.queue.put(self.valreturn)
         else:
@@ -3830,9 +3813,13 @@ class PostProcessor(object):
                     if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                         self.tidyup(src_location, True, filename=os.path.basename(orig_filename))
 
-                    with db.get_engine().begin() as conn:
-                        conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
-                        self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid, conn=conn)
+                    _complete_postprocess(
+                        self._journal_context(),
+                        issue_id=issueid,
+                        issue_arc_id=issuearcid,
+                        anchor_ids=(issueid,),
+                        database=db,
+                    )
 
                     if (sandwich is not None and "S" in sandwich) or "_" in issueid:
                         logger.info("%s IssueArcID is : %s" % (module, issuearcid))
@@ -4022,61 +4009,11 @@ class PostProcessor(object):
                 return self.queue.put(self.valreturn)
 
     def _process_manga(self):
-        """Post-process a downloaded manga file, always releasing APILOCK.
-
-        The real work is in _process_manga_body(); this wrapper exists solely
-        to guarantee the lock this Process acquired is released on EVERY exit.
-
-        Why a finally rather than a release at each return: the body has six
-        early returns that all precede its success-path release, and every one
-        of them leaked the lock. The caller cannot clean up after them either
-        -- downloads/service.py gates its safety net on `if pp is not None`,
-        and every exit here is `return self.queue.put(...)`, which is None.
-
-        A leak is not confined to the failing series. APILOCK is global and the
-        post-processing worker takes it per item, so one leak stops ALL
-        imports, and the Folder Monitor that exists to rescue them bails on the
-        same lock ("Unable to initiate folder monitor as another process is
-        currently using it"). A single misplaced manga series froze the whole
-        pipeline for 85 minutes.
-
-        Releasing here is safe: the worker loop refuses to start an item while
-        the lock is held, so if it is still held when this returns, it is ours.
-
-        This is the ONLY release site, deliberately. The body used to release
-        itself on the success path and then carry on -- journal "moved", the
-        nzblog deletes, journal "post_processed" -- with the lock already
-        given up. Keeping that release alongside this finally would leave two
-        sites and a real window between them: PostProcessor.__init__ gates
-        only on APILOCK.locked(), and startup recovery re-drives items inline
-        on the main thread with apicall=True (app/downloads/recovery.py) while
-        the PPPOOL worker is running. An acquirer landing in that window would
-        then have its lock released by this finally, and the two would overlap.
-        With one site the lock also covers the journal write, which is where
-        it belonged in the first place.
-
-        self.apicall is part of the guard, not redundant with locked(): an
-        apicall=False Process never acquired, so a held lock there is someone
-        else's and must not be released.
-        """
-        try:
-            return self._process_manga_body()
-        finally:
-            if self.apicall is True and comicarr.APILOCK.locked():
-                try:
-                    comicarr.APILOCK.release()
-                except Exception:
-                    pass
-
-    def _process_manga_body(self):
         """Post-process a downloaded manga file.
 
         Routes manga downloads to the manga destination directory,
         matches files to chapters using the manga filename parser,
         and updates chapter status to Downloaded.
-
-        Call _process_manga() instead -- that wrapper owns the APILOCK
-        guarantee for every exit path below.
         """
         module = self.module
 
@@ -4275,10 +4212,12 @@ class PostProcessor(object):
 
         if processed > 0:
             self._journal_pp("moved", issueid=last_matched_issueid)
-            with db.get_engine().begin() as conn:
-                for mid in matched_issueids:
-                    conn.execute(delete(nzblog).where(nzblog.c.IssueID == mid))
-                self._journal_pp("post_processed", issueid=last_matched_issueid, conn=conn)
+            _complete_postprocess(
+                self._journal_context(),
+                issue_id=last_matched_issueid,
+                anchor_ids=tuple(matched_issueids),
+                database=db,
+            )
 
         result = {"self.log": self.log, "mode": "stop", "comicid": self.comicid}
         if last_matched_issueid:
@@ -4958,9 +4897,12 @@ class PostProcessor(object):
                         "%s Continuing post-processing but unable to change file permissions in %s" % (module, dst)
                     )
 
-        with db.get_engine().begin() as conn:
-            conn.execute(delete(nzblog).where(nzblog.c.IssueID == issueid))
-            self._journal_pp("post_processed", issueid=issueid, conn=conn)
+        _complete_postprocess(
+            self._journal_context(),
+            issue_id=issueid,
+            anchor_ids=(issueid,),
+            database=db,
+        )
 
         updater.totals(comicid, havefiles="+1", issueid=issueid, file=dst)
 
@@ -5072,13 +5014,13 @@ class PostProcessor(object):
                         grab_dst = dst
 
                     IssArcID = "S" + str(arcinfo["IssueArcID"])
-                    with db.get_engine().begin() as conn:
-                        conn.execute(
-                            delete(nzblog).where(
-                                and_(nzblog.c.IssueID == IssArcID, nzblog.c.SARC == arcinfo["StoryArc"])
-                            )
-                        )
-                        self._journal_pp("post_processed", issuearcid=arcinfo["IssueArcID"], conn=conn)
+                    _complete_postprocess(
+                        self._journal_context(),
+                        issue_arc_id=arcinfo["IssueArcID"],
+                        anchor_ids=(IssArcID,),
+                        arc_scope=arcinfo["StoryArc"],
+                        database=db,
+                    )
 
                     logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
                     ctrlVal = {"IssueArcID": arcinfo["IssueArcID"]}
@@ -5247,12 +5189,6 @@ class FolderCheck:
             comicarr.MONITOR_STATUS = "Paused"
             helpers.job_management(write=True)
         else:
-            if comicarr.APILOCK.locked():
-                logger.info(
-                    "%s Unable to initiate folder monitor as another process is currently using it or using post-processing."
-                    % self.module
-                )
-                return {"status": "IN PROGRESS"}
             helpers.job_management(
                 write=True, job="Folder Monitor", current_run=helpers.utctimestamp(), status="Running"
             )
@@ -5260,8 +5196,15 @@ class FolderCheck:
             logger.info(
                 "%s Checking folder %s for newly snatched downloads" % (self.module, comicarr.CONFIG.CHECK_FOLDER)
             )
-            PostProcess = PostProcessor("Manual Run", comicarr.CONFIG.CHECK_FOLDER, queue=self.queue)
-            PostProcess.Process()
+            from comicarr.app.downloads import postprocessing
+
+            outcome = postprocessing.run(
+                {"nzb_name": "Manual Run", "nzb_folder": comicarr.CONFIG.CHECK_FOLDER, "source": "monitor"}
+            )
+            if outcome.status == "busy":
+                comicarr.MONITOR_STATUS = "Waiting"
+                helpers.job_management(write=True, job="Folder Monitor", status="Waiting")
+                return {"status": "IN PROGRESS"}
             logger.info("%s Finished checking for newly snatched downloads" % self.module)
             helpers.job_management(
                 write=True, job="Folder Monitor", last_run_completed=helpers.utctimestamp(), status="Waiting"

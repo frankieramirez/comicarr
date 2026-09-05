@@ -14,7 +14,6 @@ is_path_within_allowed_dirs requires config access — takes allowed_dirs
 as a parameter to stay free of global state.
 """
 
-import logging
 import os
 
 
@@ -48,23 +47,9 @@ def is_path_within_allowed_dirs(path, allowed_dirs, *, strict=False):
     return False
 
 
-def checkFolder(folderpath=None, check_folder=None, postprocessor=None, queue_cls=None):
-    """Validate/create directory and run post-processing on snatched files.
+def checkFolder(folderpath=None, check_folder=None):
+    """Run a manual folder scan through the post-processing module."""
+    from comicarr.app.downloads import postprocessing
 
-    Takes dependencies as parameters to stay free of global state.
-    The wrapper in helpers.py passes in the comicarr globals.
-    """
-    import queue as queue_module
-
-    log = logging.getLogger("comicarr")
-    q = queue_module.Queue()
-    if folderpath is None:
-        log.info("Checking folder " + check_folder + " for newly snatched downloads")
-        path = check_folder
-    else:
-        log.info("Submitted folder " + folderpath + " for direct folder post-processing")
-        path = folderpath
-
-    PostProcess = postprocessor.PostProcessor("Manual Run", path, queue=q)
-    PostProcess.Process()
-    return
+    path = check_folder if folderpath is None else folderpath
+    return postprocessing.run({"nzb_name": "Manual Run", "nzb_folder": path, "source": "monitor"})

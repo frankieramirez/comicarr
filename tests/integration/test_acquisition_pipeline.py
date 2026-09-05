@@ -21,7 +21,7 @@ from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import handoff, journal, recovery
+from comicarr.app.downloads import handoff, journal, postprocessing, recovery
 from comicarr.app.series import service as series_service
 from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal
 
@@ -207,7 +207,7 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
         conn.execute(
             issues.update().where(issues.c.IssueID == "issue-1").values(Status="Downloaded", Location=str(artifact))
         )
-    assert recovery.finalize_post_processing(journal.read_one(release_key), payload=payload) == "moved-finish-dbfacts"
+    assert postprocessing.recover(release_key).action == "moved-finish-dbfacts"
     assert journal.read_one(release_key)["stage"] == journal.POST_PROCESSED
 
     # Complete the durable search item only after its physical ownership

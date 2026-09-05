@@ -7,7 +7,10 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
+import json
 import queue
+import threading
+import types
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -18,7 +21,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr import db, getcomics
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import pp_commands, recovery, router, service
+from comicarr.app.downloads import postprocessing, pp_commands, recovery, router, service
 from comicarr.app.downloads.ddl_commands import DDLCommand
 from comicarr.downloaders import mediafire
 from comicarr.tables import ddl_info, metadata
@@ -78,18 +81,99 @@ def sqlite_ddl_db(tmp_path, monkeypatch):
 
 
 def test_process_issue_passes_issueid_by_keyword(monkeypatch):
-    process_instance = MagicMock()
-    process_class = MagicMock(return_value=process_instance)
-    monkeypatch.setattr(service.process, "Process", process_class)
+    outcome = types.SimpleNamespace(status="processed", value={"mode": "stop"}, detail=None)
+    run = MagicMock(return_value=outcome)
+    monkeypatch.setattr(service.postprocessing, "run", run)
 
     result = service.process_issue("comic-1", "/downloads/Saga", issueid="issue-1")
 
     assert result["success"] is True
-    process_class.assert_called_once_with(
-        nzb_name="comic-1",
-        nzb_folder="/downloads/Saga",
-        issueid="issue-1",
+    run.assert_called_once_with(
+        {
+            "nzb_name": "comic-1",
+            "nzb_folder": "/downloads/Saga",
+            "issueid": "issue-1",
+            "source": "manual",
+            "apicall": False,
+        }
     )
+
+
+def test_process_issue_maps_busy_to_retryable_response(monkeypatch):
+    monkeypatch.setattr(
+        service.postprocessing,
+        "run",
+        lambda _request: types.SimpleNamespace(status="busy", value=None, detail="retry later"),
+    )
+
+    result = service.process_issue("comic-1", "/downloads/Saga", issueid="issue-1")
+
+    assert result == {"success": False, "error": "retry later", "status_code": 409}
+
+
+@pytest.mark.parametrize("compat", [False, True])
+def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypatch, compat):
+    lock = threading.Lock()
+    lock.acquire()
+    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path)))
+
+    if compat:
+        response = router.force_process({"nzb_name": "Saga.cbz", "nzb_folder": str(tmp_path), "apc_version": "1"})
+    else:
+        response = router.process_issue({"comicid": "comic-1", "folder": str(tmp_path)})
+
+    assert response.status_code == 409
+    assert "retry later" in json.loads(response.body)["detail"]
+    assert lock.locked()
+    lock.release()
+
+
+def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
+    from comicarr.postprocessor import FolderCheck
+
+    monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
+    lock = threading.Lock()
+    lock.acquire()
+    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
+    monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
+    updates = []
+    monkeypatch.setattr("comicarr.helpers.job_management", lambda **kw: updates.append(kw))
+
+    result = FolderCheck().run()
+
+    assert result == {"status": "IN PROGRESS"}
+    assert comicarr.MONITOR_STATUS == "Waiting"
+    assert updates[-1]["status"] == "Waiting"
+    assert all("last_run_completed" not in update for update in updates)
+    assert lock.locked()
+    lock.release()
+
+
+def test_maintenance_controller_failure_releases_processing_lock(sqlite_ddl_db, monkeypatch, tmp_path):
+    from comicarr.app.acquisition import maintenance
+
+    lock = threading.Lock()
+    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    folder = tmp_path / "downloads"
+    folder.mkdir()
+    monkeypatch.setattr(maintenance, "MaintenanceController", MagicMock(side_effect=RuntimeError("unavailable")))
+
+    result = postprocessing.run({"nzb_name": "Saga.cbz", "nzb_folder": str(folder), "source": "manual"})
+
+    assert result.status == "failed"
+    assert not lock.locked()
+
+
+def test_malformed_command_cannot_escape_through_quarantine(tmp_path, monkeypatch):
+    lock = threading.Lock()
+    monkeypatch.setattr(comicarr, "APILOCK", lock)
+
+    result = postprocessing.run({"nzb_name": ["../invalid"], "nzb_folder": str(tmp_path)})
+
+    assert result.status == "failed"
+    assert not lock.locked()
 
 
 def test_postprocess_command_rejects_traversal_prefix_collision_and_symlink_escape(tmp_path):
@@ -210,16 +294,13 @@ def test_postprocess_worker_quarantines_owned_failure_and_continues(sqlite_ddl_d
     q.put("exit")
     calls = []
 
-    class FakeProcess:
-        def __init__(self, *args, **kwargs):
-            calls.append(args[0])
+    def execute(item):
+        calls.append(item["nzb_name"])
+        if calls[-1] == "First.cbz":
+            raise RuntimeError("secret=/very/private/path")
 
-        def post_process(self):
-            if calls[-1] == "First.cbz":
-                raise RuntimeError("secret=/very/private/path")
-
-    monkeypatch.setattr(service.process, "Process", FakeProcess)
-    monkeypatch.setattr(service, "_configured_postprocess_roots", lambda: [tmp_path])
+    monkeypatch.setattr(service.postprocessing, "_execute", execute)
+    monkeypatch.setattr(service.postprocessing, "validate_postprocess_item", lambda item: dict(item))
 
     service.postprocess_main(q)
 
@@ -255,7 +336,7 @@ def test_postprocess_maintenance_block_happens_before_claim(sqlite_ddl_db, monke
     q.put(item)
     q.put("exit")
     process_class = MagicMock()
-    monkeypatch.setattr(service.process, "Process", process_class)
+    monkeypatch.setattr(postprocessing, "_execute", process_class)
     monkeypatch.setattr(
         maintenance.MaintenanceController,
         "acquire_lease",

@@ -56,6 +56,8 @@ When using Vite with a separate backend process, the proxy targets `http://local
 
 Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloads`, `system`, `dashboard`, `metadata`, `storyarcs`, `weekly`, `opds`, `ai`, plus `core` and `common`.
 
+Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` for new work and `recover(release_key)` for restart continuation. The module owns the processing lock, maintenance lease, journal claim, and atomic completion. Busy direct requests return HTTP 409; the queue retries and the folder monitor defers. Legacy processors remain behind this interface.
+
 ## Tests
 
 - Backend: `tests/unit/`, `tests/integration/` via pytest

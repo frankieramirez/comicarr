@@ -160,7 +160,12 @@ class Process(object):
                 self._terminalize_handling_disabled()
 
         if retry_outside:
-            PostProcess = comicarr.postprocessor.PostProcessor("Manual Run", self.nzb_folder, queue=ppqueue)
+            PostProcess = comicarr.postprocessor.PostProcessor(
+                "Manual Run",
+                self.nzb_folder,
+                queue=ppqueue,
+                journal_release_key=self.journal_release_key,
+            )
             PostProcess.Process()
             chk = ppqueue.get()
             while True:

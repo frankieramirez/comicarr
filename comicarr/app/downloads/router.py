@@ -85,7 +85,7 @@ def force_process(
     )
 
     if not result["success"]:
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+        return JSONResponse(status_code=result.get("status_code", 500), content={"detail": result.get("error")})
     return result
 
 
@@ -107,7 +107,7 @@ def process_issue(
 
     result = dl_service.process_issue(comicid, folder, issueid=request_body.get("issueid"))
     if not result["success"]:
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+        return JSONResponse(status_code=result.get("status_code", 500), content={"detail": result.get("error")})
     return result
 
 

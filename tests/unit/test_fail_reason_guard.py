@@ -138,3 +138,52 @@ def test_dynamic_reason_attr_seam_is_the_narrow_entry_reason_seam(guard):
         "_record_on_connection",
         "entry",
     )
+
+
+def test_quarantine_wrapper_callers_contribute_known_reason(guard, tmp_path, monkeypatch):
+    """The wrapper may forward a dynamic reason, but callers remain registry-visible."""
+    _write_fake_registry(tmp_path)
+    module = tmp_path / "comicarr" / "app" / "downloads" / "postprocessing.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text(
+        "def _quarantine(item, reason, release_key=None):\n"
+        "    return ManualReview(reason=reason)\n"
+        "\n"
+        "def caller(item):\n"
+        "    return _quarantine(item, 'known_reason', 'key')\n"
+    )
+    _point_at_fake_tree(guard, monkeypatch, tmp_path)
+
+    assert guard.main() == 0
+
+
+def test_quarantine_wrapper_callers_cannot_hide_unknown_reason(guard, tmp_path, monkeypatch):
+    _write_fake_registry(tmp_path)
+    module = tmp_path / "comicarr" / "app" / "downloads" / "postprocessing.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text(
+        "def _quarantine(item, reason, release_key=None):\n"
+        "    return ManualReview(reason=reason)\n"
+        "\n"
+        "def caller(item):\n"
+        "    return _quarantine(item, 'new_unregistered_reason', 'key')\n"
+    )
+    _point_at_fake_tree(guard, monkeypatch, tmp_path)
+
+    assert guard.main() == 1
+
+
+def test_quarantine_wrapper_dynamic_caller_fails_closed(guard, tmp_path, monkeypatch):
+    _write_fake_registry(tmp_path)
+    module = tmp_path / "comicarr" / "app" / "downloads" / "postprocessing.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text(
+        "def _quarantine(item, reason, release_key=None):\n"
+        "    return ManualReview(reason=reason)\n"
+        "\n"
+        "def caller(item, reason):\n"
+        "    return _quarantine(item, reason, 'key')\n"
+    )
+    _point_at_fake_tree(guard, monkeypatch, tmp_path)
+
+    assert guard.main() == 1

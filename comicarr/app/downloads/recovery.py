@@ -32,22 +32,20 @@ never aborting the loop.
 """
 
 import time
-import traceback
 
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, or_, select
 
 import comicarr
 from comicarr import db, logger
-from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.attention import ManualReview, record
-from comicarr.app.downloads import journal, recovery_classify
+from comicarr.app.downloads import journal, postprocessing, recovery_classify
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
-from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
-from comicarr.tables import comics, ddl_info, issues, nzblog, pipeline_journal, snatched, storyarcs
+from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
+from comicarr.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
 
 _ENQUEUE_THROTTLE_SECONDS = 0.05
 
-_MAX_INLINE_PP_REDRIVE_PER_PASS = 5
+_MAX_INLINE_PP_REDRIVE_PER_PASS = postprocessing._MAX_INLINE_PP_REDRIVE_PER_PASS
 
 
 def _reconcile_legacy_ddl_downloading():
@@ -470,237 +468,14 @@ def _resume_item_from_row(row, payload):
     return "nzb", item
 
 
-def _finish_db_facts_only(rkey, row, payload):
-    """Close an obligation whose physical move already committed: delete its
-    nzblog anchor and advance the journal to `post_processed`, in ONE atomic
-    begin(). Touches DB facts only — never re-imports or re-moves."""
-    issueid = row.get("issueid")
-    provider = row.get("provider")
-    story_arc = None
-    if isinstance(payload, dict) and "mode" in payload:
-        story_arc = payload.get("mode") == "story_arc"
-    if story_arc is None:
-        story_arc = _is_story_arc_obligation(issueid)
-    # Journal payloads persist the release name under EITHER spelling --
-    # `_PAYLOAD_KEYS` carries both `nzbname` and `nzb_name`, and the PP seam
-    # writes `nzb_name`. Reading only one of them leaves the unknown-story-arc
-    # fallback below without a name, which narrows the delete to the unprefixed
-    # IssueID and strands the `S<issueid>` anchor while the row still advances
-    # to `post_processed`.
-    nzbname = None
-    if isinstance(payload, dict):
-        nzbname = payload.get("nzbname") or payload.get("nzb_name")
-    with db.get_engine().begin() as conn:
-        if story_arc is False:
-            id_pred = nzblog.c.IssueID == str(issueid)
-        elif story_arc is True:
-            id_pred = or_(
-                nzblog.c.IssueID == str(issueid),
-                nzblog.c.IssueID == "S" + str(issueid),
-            )
-        else:
-            if nzbname:
-                id_pred = and_(
-                    or_(
-                        nzblog.c.IssueID == str(issueid),
-                        nzblog.c.IssueID == "S" + str(issueid),
-                    ),
-                    nzblog.c.NZBName == nzbname,
-                )
-            else:
-                id_pred = nzblog.c.IssueID == str(issueid)
-        stmt = delete(nzblog).where(id_pred)
-        if provider:
-            stmt = stmt.where(nzblog.c.PROVIDER == provider)
-        conn.execute(stmt)
-        journal.record_transition(
-            rkey,
-            journal.POST_PROCESSED,
-            payload=payload,
-            conn=conn,
-            issueid=issueid,
-            provider=provider,
-        )
-
-
-def _obligation_already_fulfilled(row):
-    """Return whether this obligation's work is provably ALREADY DONE.
-
-    True only when the obligation's own issue row is `Downloaded` AND its
-    `Location` resolves to an existing file beneath its series root — the
-    shared `has_verified_library_file` evidence gate.
-
-    This is a DESTINATION probe, which is decidable, and is deliberately not
-    the source probe `finalize_post_processing` forbids: a surviving source is
-    undecidable under copy/hardlink/softlink FILE_OPTS, but a verified file in
-    the library proves the move committed in EVERY mode. Fails CLOSED — any
-    missing id, unreadable row, or unresolvable path returns False and the
-    caller re-drives exactly as before.
-    """
-    issueid = row.get("issueid")
-    if not issueid:
-        return False
-    try:
-        issue = db.select_one(
-            select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(issues.c.IssueID == str(issueid))
-        )
-    except Exception as e:
-        logger.warn("[RECOVERY] fulfillment lookup failed for issue %s: %s" % (issueid, e))
-        return False
-    if not issue or issue.get("Status") != "Downloaded":
-        return False
-    try:
-        series = db.select_one(select(comics.c.ComicLocation).where(comics.c.ComicID == str(issue.get("ComicID"))))
-    except Exception as e:
-        logger.warn("[RECOVERY] fulfillment series lookup failed for issue %s: %s" % (issueid, e))
-        return False
-    if not series:
-        return False
-    return has_verified_library_file(series.get("ComicLocation"), issue.get("Location"))
-
-
-def finalize_post_processing(row, payload=None, already_fulfilled=None):
-    """Resolve a row already inside post-processing. The `moved` marker is the
-    discriminator for whether the destructive move committed — there is NO
-    SOURCE probe anywhere on this path (a surviving source is undecidable in
-    copy/hardlink/softlink FILE_OPTS modes, where it is never deleted):
-
-      * stage `moved`           -> the destructive move physically committed
-        (source may already be gone). Finish the DB facts ONLY — mirror the
-        U9 atomic block (single begin(): nzblog-delete + journal
-        post_processed). NEVER re-import / re-move.
-      * stage `post_processing` -> the move did not record a marker. Before
-        re-driving, check `_obligation_already_fulfilled`: a DESTINATION probe
-        (issue `Downloaded` + verified file under the series root) proves the
-        move committed and only the marker write was lost, so finish the DB
-        facts exactly like `moved`. Without that proof, re-drive PP in FULL by
-        invoking process.Process DIRECTLY, threading the authoritative
-        release_key so the postprocessor markers advance THIS row. NOT via
-        PP_QUEUE: the U4 claim is a downloaded -> post_processing advance and a
-        row already at post_processing would LOSE that claim and be dropped —
-        so the finalizer bypasses it.
-
-    Returns a short string describing the action taken (for logging/tests).
-    """
-    rkey = row.get("release_key")
-    stage = row.get("stage")
-    if payload is None:
-        payload = journal.load_payload(row.get("payload_json"))
-
-    if stage == journal.MOVED:
-        _finish_db_facts_only(rkey, row, payload)
-        logger.info(
-            "[RECOVERY] %s was `moved` (physical move committed) — finished DB "
-            "facts only (nzblog-delete + journal post_processed); did NOT "
-            "re-import." % rkey
-        )
-        return "moved-finish-dbfacts"
-
-    if stage == journal.POST_PROCESSING:
-        if already_fulfilled is None:
-            already_fulfilled = _obligation_already_fulfilled(row)
-        if already_fulfilled:
-            _finish_db_facts_only(rkey, row, payload)
-            logger.info(
-                "[RECOVERY] %s was `post_processing`, but its issue is already "
-                "`Downloaded` with a verified file under the series root — the "
-                "move committed and only the marker was lost. Finished DB facts "
-                "only (nzblog-delete + journal post_processed); did NOT "
-                "re-drive." % rkey
-            )
-            return "post_processing-already-fulfilled"
-
-        item = _pp_item_from_row(row, payload or {})
-        from comicarr.app.downloads.service import _configured_postprocess_roots
-
-        try:
-            item = validate_postprocess_item(
-                item,
-                roots=_configured_postprocess_roots(),
-            )
-        except PostProcessCommandError as e:
-            record(
-                ManualReview(
-                    release_key=rkey,
-                    reason="invalid_recovered_postprocess_command:%s" % type(e).__name__,
-                    payload=payload,
-                    issue_id=row.get("issueid"),
-                    provider=row.get("provider"),
-                )
-            )
-            logger.error("[RECOVERY] %s PP command is unsafe; quarantined: %s" % (rkey, e))
-            return "post_processing-manual-review"
-        logger.info(
-            "[RECOVERY] %s was `post_processing` (no `moved` — move did NOT "
-            "commit, source intact) — re-driving PP in full." % rkey
-        )
-        from comicarr import process
-        from comicarr.app.acquisition.maintenance import MaintenanceController
-
-        controller = MaintenanceController()
-        try:
-            with controller.lease(
-                "startup-recovery",
-                "postprocess-redrive",
-                entity_type="release",
-                entity_id=rkey,
-            ) as lease:
-                controller.assert_lease_current(lease)
-                try:
-                    pprocess = process.Process(
-                        item["nzb_name"],
-                        item["nzb_folder"],
-                        item["failed"],
-                        item["issueid"],
-                        item["comicid"],
-                        item["apicall"],
-                        item["ddl"],
-                        item["download_info"],
-                        journal_release_key=rkey,
-                    )
-                except (KeyError, TypeError) as e:
-                    logger.fdebug("[RECOVERY] extended process.Process construction failed, using fallback: %s" % e)
-                    pprocess = process.Process(
-                        item["nzb_name"],
-                        item["nzb_folder"],
-                        item["failed"],
-                        item["issueid"],
-                        item["comicid"],
-                        item["apicall"],
-                        journal_release_key=rkey,
-                    )
-                pprocess.post_process()
-        except Exception as e:
-            record(
-                ManualReview(
-                    release_key=rkey,
-                    reason="recovered_postprocess_error:%s" % type(e).__name__,
-                    payload=payload,
-                    issue_id=row.get("issueid"),
-                    provider=row.get("provider"),
-                )
-            )
-            logger.error(
-                "[RECOVERY] %s PP redrive failed and was quarantined: %s: %s\n%s"
-                % (rkey, type(e).__name__, e, traceback.format_exc())
-            )
-            return "post_processing-manual-review"
-        return "post_processing-redrive"
-
-    logger.warn("[RECOVERY] finalize_post_processing called for %s with non-PP stage=%s — ignored." % (rkey, stage))
-    return "ignored"
-
-
-def _resolve_row(snapshot_row, probes=None, pp_cap=None):
+def _resolve_row(snapshot_row, probes=None):
     """Resolve ONE open obligation. RECHECKS the row's current stage with a
     cheap point lookup before acting (workers are live; skip if it advanced
     past the snapshot). Returns a short action string for logging/tests.
 
-    `pp_cap` (startup availability cap): a mutable {"count": int} threaded by
-    replay_pipeline. Each INLINE `post_processing` re-drive increments it; once
-    it reaches _MAX_INLINE_PP_REDRIVE_PER_PASS the remaining post_processing
-    rows are SKIPPED this pass (loud log) and resume next startup. `moved`
-    (cheap DB-facts only) and all other paths are NOT capped."""
+    Post-processing owns its recovery budget and checks fulfillment before
+    charging expensive re-drives to that budget.
+    """
     rkey = snapshot_row.get("release_key")
 
     current = journal.read_one(rkey)
@@ -736,32 +511,13 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
         )
         return "reserved-manual-review"
 
-    if cur_stage == journal.MOVED:
-        return finalize_post_processing(row, payload=payload)
-    if cur_stage == journal.POST_PROCESSING:
-        # A provably-fulfilled obligation costs only the same DB facts as
-        # `moved`, so — per this cap's own contract — it is NOT charged to the
-        # INLINE re-drive budget. Otherwise a backlog of already-done rows
-        # would need one restart per five to drain.
-        already_fulfilled = _obligation_already_fulfilled(row)
-        if not already_fulfilled:
-            if pp_cap is not None and pp_cap.get("count", 0) >= _MAX_INLINE_PP_REDRIVE_PER_PASS:
-                logger.warn(
-                    "[RECOVERY] %s is `post_processing` but the inline PP re-drive "
-                    "cap (%d) for this replay pass is reached — DEFERRING; it "
-                    "resumes next startup (replay is idempotent/re-runnable)." % (rkey, _MAX_INLINE_PP_REDRIVE_PER_PASS)
-                )
-                return "skip-pp-cap-deferred"
-            if pp_cap is not None:
-                pp_cap["count"] = pp_cap.get("count", 0) + 1
-        return finalize_post_processing(row, payload=payload, already_fulfilled=already_fulfilled)
+    if cur_stage in {journal.MOVED, journal.POST_PROCESSING}:
+        return postprocessing.recover(rkey).action
 
     if cur_stage == journal.DOWNLOADED:
         item = _pp_item_from_row(row, payload)
-        from comicarr.app.downloads.service import _configured_postprocess_roots
-
         try:
-            item = validate_postprocess_item(item, roots=_configured_postprocess_roots())
+            item = validate_postprocess_item(item, roots=configured_roots())
         except PostProcessCommandError as e:
             record(
                 ManualReview(
@@ -895,6 +651,7 @@ def _resolve_row(snapshot_row, probes=None, pp_cap=None):
     return "unknown-unchanged"
 
 
+@postprocessing._recovery_pass
 def replay_pipeline(probes=None):
     """Idempotent, re-runnable startup recovery replay. Invoked from
     Comicarr.py AFTER comicarr.start() returns (INIT_LOCK released) and AFTER
@@ -963,12 +720,10 @@ def replay_pipeline(probes=None):
     summary["open"] = len(snapshot)
     logger.info("[RECOVERY] %d open obligation(s) to resolve." % len(snapshot))
 
-    pp_cap = {"count": 0}
-
     for snapshot_row in snapshot:
         rkey = snapshot_row.get("release_key")
         try:
-            action = _resolve_row(snapshot_row, probes=probes, pp_cap=pp_cap)
+            action = _resolve_row(snapshot_row, probes=probes)
         except Exception as e:
             logger.error(
                 "[RECOVERY] row %s raised during replay — SKIPPED (resumable "
