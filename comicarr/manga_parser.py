@@ -183,6 +183,14 @@ def parse_manga_filename(
         return None
 
     chapter_only = _parse_chapter_only_stem(stem)
+    if chapter_only is None:
+        # A chapter-only name carries release tags too, and the tags are the
+        # only reason the stem stops looking chapter-only.  Retry on the
+        # stripped stem, or "chapter 1 (Digital).cbz" falls through to the
+        # bare-number pattern and reports "chapter" as the series.
+        stripped = strip_trailing_tags(stem)
+        if stripped and stripped != stem:
+            chapter_only = _parse_chapter_only_stem(stripped)
     if chapter_only is not None:
         if not series_name:
             return None

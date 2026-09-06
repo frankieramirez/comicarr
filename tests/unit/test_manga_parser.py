@@ -6,7 +6,6 @@ and edge cases like decimal chapters, chapter ranges, and invalid inputs.
 """
 
 
-
 class TestUserFilenames:
     """Tests for the user's actual manga filenames from their NAS."""
 
@@ -157,6 +156,43 @@ class TestFolderContextChapterOnly:
 
         result = parse_manga_filename("chapter 1.cbz")
         assert result is None
+
+    def test_tagged_chapter_only_keeps_the_folder_series(self):
+        """Release tags must not turn the chapter label into the series name.
+
+        Stripping the tags is what lets the general patterns see the number,
+        but it also makes a chapter-only stem look like `<series> <number>`.
+        Without a chapter-only retry on the stripped stem, these parse as the
+        series "chapter" and the caller's real series name is discarded.
+        """
+        from comicarr.manga_parser import parse_manga_filename
+
+        for filename in (
+            "chapter 1 (Digital).cbz",
+            "Chapter 1 (Digital) (LuCaZ).cbz",
+            "Ch. 1 [HQ].cbz",
+            "001 (Digital).cbz",
+        ):
+            result = parse_manga_filename(filename, series_name="Manga A")
+            assert result is not None, filename
+            assert result["series_name"] == "Manga A", filename
+            assert result["chapter_number"] == 1.0, filename
+            assert result["volume_number"] is None, filename
+
+    def test_tagged_chapter_only_without_folder_series_stays_unparseable(self):
+        """The tagged form follows the untagged contract above, not its own."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        assert parse_manga_filename("chapter 1 (Digital).cbz") is None
+
+    def test_a_real_series_with_tags_is_not_read_as_chapter_only(self):
+        """The retry must not fire for a stem that has a series in front."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("Chainsaw Man 165 (Digital).cbz", series_name="Manga A")
+        assert result is not None
+        assert result["series_name"] == "Chainsaw Man"
+        assert result["chapter_number"] == 165.0
 
     def test_parse_chapter_number_without_series(self):
         from comicarr.manga_parser import parse_manga_chapter_number
