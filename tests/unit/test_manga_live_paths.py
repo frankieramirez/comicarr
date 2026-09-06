@@ -447,3 +447,135 @@ def test_a_fractional_volume_search_term_round_trips():
     assert volume_numbers_match("v01.25", "1.25") is True
     # the number the old rounding would have searched must NOT satisfy it
     assert volume_numbers_match("v01.2", "1.25") is False
+
+
+def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
+    """The folder scan must ask whether a series is numbered by volume.
+
+    Deriving the number inline meant a manga series fell through to the issue
+    branch, so a volume file yielded no number and matched no issue.
+    """
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    called = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert "volume_identifies_file" in called, "the folder scan no longer consults the volume predicate"
+    assert "numbered_by_volume" in called, "the scan's issue-number checks no longer consult the exemption"
+    # the year gate must actually be reached, and must be reached through the
+    # composed helper -- not handed a flag the scan computed for another purpose
+    assert "volume_settles_year_for_match" in called, "the scan no longer consults the volume year gate"
+    assert "chapter_named_file" in called, (
+        "the scan no longer distinguishes a chapter file from a volume file, so a "
+        "defaulted v1 will locate c181 as issue 1 again"
+    )
+    assert "manga_volume_rows" in called, (
+        "the scan no longer resolves a manga volume on VolumeNumber, so v20 will attach to chapter 20 on MangaDex again"
+    )
+    assert "volume_match_settles_year" in called, "the volume year gate is defined but never called"
+
+    settles_year_args = [
+        node.args
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "volume_match_settles_year"
+    ]
+    assert settles_year_args, "volume_match_settles_year is never called"
+    for args in settles_year_args:
+        names = {arg.id for arg in args if isinstance(arg, ast.Name)}
+        assert "lonevol" not in names, (
+            "the year gate is keyed off lonevol again -- manga has no ComicVersion, "
+            "so that defaults to 1 and only v01 would pass"
+        )
+
+    watch_value_keys = [
+        key.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Dict)
+        for key in node.keys
+        if isinstance(key, ast.Constant) and isinstance(key.value, str)
+    ]
+    assert watch_value_keys.count("IsManga") == watch_value_keys.count("IsArc"), (
+        "every WatchValues row must carry the manga signal, not just the watchlist one"
+    )
+
+
+def test_every_volume_predicate_is_guarded_against_a_chapter_named_file():
+    """EVERY volume branch must exclude a chapter-named file, not just one.
+
+    The check above only asserts `chapter_named_file` is called somewhere in
+    the module, so a branch that reads `series_volume` without it stays green
+    on the strength of a different branch that has it. That is exactly how the
+    arc scan and the one-off scan ended up taking the FileChecker-defaulted
+    "v1" and filing c181 as issue 1.
+
+    `volume_identifies_file` is what widens these branches to cover all manga,
+    so wherever it decides a branch, the chapter exclusion has to decide it
+    too.
+    """
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    def calls(node, name):
+        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name
+
+    def is_chapter_guard(node):
+        return (
+            isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not) and calls(node.operand, "chapter_named_file")
+        )
+
+    total = sum(1 for node in ast.walk(tree) if calls(node, "volume_identifies_file"))
+    assert total, "the volume predicate is never called"
+
+    guarded = 0
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)):
+            continue
+        here = sum(1 for value in node.values if calls(value, "volume_identifies_file"))
+        if not here:
+            continue
+        assert any(is_chapter_guard(value) for value in node.values), (
+            "a volume branch on line %d consults volume_identifies_file without "
+            "excluding a chapter-named file, so a defaulted v1 will file c181 as issue 1" % node.lineno
+        )
+        guarded += here
+
+    assert guarded == total, (
+        "%d of %d volume_identifies_file calls stand alone rather than in an `and not "
+        "chapter_named_file(...)` conjunction" % (total - guarded, total)
+    )
+
+
+def test_the_volume_numbered_type_list_has_a_single_owner():
+    """The scan tested a hardcoded TPB/GN/HC/One-Shot list in eight places.
+
+    Each copy silently omitted manga, so a manga volume file failed a different
+    check depending on which copy it reached. The list now lives in one tuple.
+
+    Asserted over the AST rather than the raw source: a source-text count is
+    blind to a duplicate written with single quotes, and fails on a mere
+    mention of TPB in a comment or docstring.
+    """
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    definitions = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_COLLECTED_TYPES" for target in node.targets)
+    ]
+    assert len(definitions) == 1, "_COLLECTED_TYPES must be defined exactly once"
+
+    value = definitions[0].value
+    assert isinstance(value, ast.Tuple), "_COLLECTED_TYPES must stay a literal tuple"
+    assert [element.value for element in value.elts] == ["TPB", "HC", "GN"]
+
+    # and no other literal "TPB" may exist -- quote style is irrelevant to the
+    # AST, and a comment or docstring mentioning TPB is not a Constant of it
+    literals = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value == "TPB"
+    ]
+    assert len(literals) == 1, "the volume-numbered type list has been duplicated again"

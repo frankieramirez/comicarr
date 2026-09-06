@@ -6,7 +6,6 @@ and edge cases like decimal chapters, chapter ranges, and invalid inputs.
 """
 
 
-
 class TestUserFilenames:
     """Tests for the user's actual manga filenames from their NAS."""
 
@@ -157,6 +156,43 @@ class TestFolderContextChapterOnly:
 
         result = parse_manga_filename("chapter 1.cbz")
         assert result is None
+
+    def test_tagged_chapter_only_keeps_the_folder_series(self):
+        """Release tags must not turn the chapter label into the series name.
+
+        Stripping the tags is what lets the general patterns see the number,
+        but it also makes a chapter-only stem look like `<series> <number>`.
+        Without a chapter-only retry on the stripped stem, these parse as the
+        series "chapter" and the caller's real series name is discarded.
+        """
+        from comicarr.manga_parser import parse_manga_filename
+
+        for filename in (
+            "chapter 1 (Digital).cbz",
+            "Chapter 1 (Digital) (LuCaZ).cbz",
+            "Ch. 1 [HQ].cbz",
+            "001 (Digital).cbz",
+        ):
+            result = parse_manga_filename(filename, series_name="Manga A")
+            assert result is not None, filename
+            assert result["series_name"] == "Manga A", filename
+            assert result["chapter_number"] == 1.0, filename
+            assert result["volume_number"] is None, filename
+
+    def test_tagged_chapter_only_without_folder_series_stays_unparseable(self):
+        """The tagged form follows the untagged contract above, not its own."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        assert parse_manga_filename("chapter 1 (Digital).cbz") is None
+
+    def test_a_real_series_with_tags_is_not_read_as_chapter_only(self):
+        """The retry must not fire for a stem that has a series in front."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("Chainsaw Man 165 (Digital).cbz", series_name="Manga A")
+        assert result is not None
+        assert result["series_name"] == "Chainsaw Man"
+        assert result["chapter_number"] == 165.0
 
     def test_parse_chapter_number_without_series(self):
         from comicarr.manga_parser import parse_manga_chapter_number
@@ -409,3 +445,73 @@ class TestResultStructure:
         # When absent, volume_number should be None
         result = parse_manga_filename("Bleach 100.cbz")
         assert result["volume_number"] is None
+
+
+class TestTrailingReleaseTags:
+    """Scene releases append metadata groups after the volume/chapter token.
+
+    Every pattern anchors its number at the end of the stem, so a name like
+    "Series v20 (2020) (Digital) (Group)" parsed as None and post-processing
+    could not match the file to any ledger row.
+    """
+
+    def test_volume_with_trailing_tags(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("One-Punch Man v20 (2020) (Digital) (LuCaZ).cbz")
+        assert result is not None
+        assert result["series_name"] == "One-Punch Man"
+        assert result["volume_number"] == 20
+        assert result["chapter_number"] is None
+
+    def test_volume_with_many_trailing_tags(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("One-Punch Man v16 (2019) (F) (digital) (aKraa).cbz")
+        assert result is not None
+        assert result["series_name"] == "One-Punch Man"
+        assert result["volume_number"] == 16
+
+    def test_trailing_bracket_group_is_stripped(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("Bleach v7 [Digital] [Group].cbz")
+        assert result is not None
+        assert result["series_name"] == "Bleach"
+        assert result["volume_number"] == 7
+
+    def test_chapter_with_trailing_tags(self):
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("Chainsaw Man c181 (2023) (Digital).cbz")
+        assert result is not None
+        assert result["series_name"] == "Chainsaw Man"
+        assert result["chapter_number"] == 181.0
+
+    def test_chapter_number_helper_also_sees_tagged_names(self):
+        """parse_manga_chapter_number shares the pattern loop and must agree."""
+        from comicarr.manga_parser import parse_manga_chapter_number
+
+        assert parse_manga_chapter_number("Chainsaw Man c181 (2023) (Digital).cbz") == 181.0
+
+    def test_full_stem_match_wins_over_stripping(self):
+        """A name that already parses keeps its trailing (vNN)/[quality] captures."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        result = parse_manga_filename("[Group] Series - c001 (v03) [HQ].cbz")
+        assert result is not None
+        assert result["volume_number"] == 3
+        assert result["quality"] == "HQ"
+        assert result["group"] == "Group"
+
+    def test_tags_without_a_number_stay_unparseable(self):
+        """Stripping must not invent a match where there is no volume/chapter."""
+        from comicarr.manga_parser import parse_manga_filename
+
+        assert parse_manga_filename("One-Punch Man (2014) (Digital).cbz") is None
+
+    def test_strip_trailing_tags_leaves_untagged_stems_alone(self):
+        from comicarr.manga_parser import strip_trailing_tags
+
+        assert strip_trailing_tags("One-Punch Man v20") == "One-Punch Man v20"
+        assert strip_trailing_tags("One-Punch Man v20 (2020) (LuCaZ)") == "One-Punch Man v20"

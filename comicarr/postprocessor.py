@@ -42,6 +42,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessJournalStage,
 )
 from comicarr.app.downloads.pp_commands import safe_walk
+from comicarr.app.manga.ledger import normalize_volume_number
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -76,6 +77,130 @@ def log_scan_summary(module, filename, candidate_count, selected_items, annual_c
     logger.fdebug(
         "%s%s" % (module, format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc))
     )
+
+
+_COLLECTED_TYPES = ("TPB", "HC", "GN")
+
+
+def numbered_by_volume(watch_values):
+    """Return whether this series names its files by volume rather than issue.
+
+    Collected editions and One-Shots have always been named this way, which is
+    why the scan exempts them from every check that assumes a file carries an
+    issue number: the weekly-pull cross-check, the "no issue number" rejection,
+    and the fallback that defaults a missing number to 1.
+
+    Manga belongs with them. In a periodical ``vNN`` names *which run* of the
+    series a release belongs to; in manga it names *which book*. A manga volume
+    file therefore carries no issue number at all, so applying the periodical
+    checks to it rejects a perfectly good file.
+
+    Rows built without the manga flag -- story arcs and one-offs assembled from
+    tables that do not carry it -- read as comics, which is the prior behaviour.
+    """
+    if watch_values.get("IsManga"):
+        return True
+    return watch_values["Type"] in _COLLECTED_TYPES + ("One-Shot",)
+
+
+def volume_match_settles_year(watch_values, volume_matched):
+    """Return whether a matched volume makes the filename's year irrelevant.
+
+    The year check exists because periodical issue numbers repeat across runs,
+    so ``Batman 1`` needs a year to say *which* Batman 1. A manga volume number
+    does not repeat -- there is one volume 1 -- so once it matches, the year
+    cannot be evidence of a wrong file.
+
+    It is routinely a mismatch, too: a provider dates the licensed English
+    printing while the release is labelled with the volume's original year. For
+    One-Punch Man v01 those are 2015 and 2014, and the file was rejected for it.
+
+    Deliberately manga-only. A collected edition's year mismatch can still mean
+    the wrong edition, so periodical and TPB behaviour is untouched.
+    """
+    return bool(volume_matched) and bool(watch_values.get("IsManga"))
+
+
+def volume_settles_year_for_match(watch_values, match):
+    """Return whether a volume match lets this file through a year mismatch.
+
+    Deliberately NOT keyed off ``lonevol``. That flag means "the filename's
+    volume digits equal ComicVersion", and manga has no ComicVersion -- the
+    scan defaults it to 1. So v01 slipped through by coincidence while v20
+    died on ``20 != 1``, which is the opposite of the intended rule.
+
+    The only question that matters here is whether the file was located by its
+    own volume: a real volume, not the "v1" FileChecker defaults onto a
+    chapter file.
+    """
+    volume_located = (
+        volume_identifies_file(watch_values)
+        and not chapter_named_file(match)
+        and (match or {}).get("series_volume") is not None
+    )
+    return volume_match_settles_year(watch_values, volume_located)
+
+
+def chapter_named_file(match):
+    """Return whether a scanned file is named by CHAPTER rather than volume.
+
+    FileChecker sets ``booktype`` to "manga" only when it actually found a
+    c/ch/chapter token, and then defaults a *missing* volume to "v1". So a
+    chapter file arrives carrying a volume it never stated, and locating it by
+    that volume files "Chainsaw Man c181 (2023).cbz" as issue 1.
+
+    A volume-named file keeps ``booktype`` "issue", so this reads the
+    distinction FileChecker already drew rather than re-deriving it.
+    """
+    return str((match or {}).get("booktype") or "").strip().lower() == "manga"
+
+
+def manga_volume_rows(comicid, series_volume):
+    """Resolve a manga VOLUME file to its rows via VolumeNumber.
+
+    MangaDex and MyAnimeList series store the CHAPTER in ``Int_IssueNumber``,
+    so looking a volume up in that column files "v20" against chapter 20 --
+    ticking Have on a row the file has nothing to do with. Volume rows carry
+    the volume in its own column, which is where rescan already matches them.
+
+    Returns ``None`` when the series has no volume rows at all -- the
+    ComicVine volumes-as-issues case, where ``Int_IssueNumber`` *is* the
+    volume and the caller's existing query is already correct.
+    """
+    digits = re.sub("[^0-9.]", "", str(series_volume or "")).strip()
+    wanted = normalize_volume_number(digits) if digits else None
+    if wanted is None:
+        return None
+    rows = db.select_all(
+        select(issues).where(
+            and_(
+                issues.c.ComicID == comicid,
+                issues.c.VolumeNumber.isnot(None),
+                issues.c.VolumeNumber != "",
+            )
+        )
+    )
+    if not rows:
+        return None
+    return [row for row in rows if normalize_volume_number(row.get("VolumeNumber")) == wanted]
+
+
+def volume_identifies_file(watch_values):
+    """Return whether a scanned file is located by volume rather than issue.
+
+    This is :func:`numbered_by_volume` qualified by the run length, because a
+    collected edition only numbers *files* by volume when the run actually has
+    volumes to distinguish: TPB/HC/GN spanning more than one entry, or a
+    One-Shot standing alone.
+
+    Manga is not qualified that way. Volume 1 of a one-volume manga is still
+    identified by its volume, so the run length says nothing useful here.
+    """
+    if watch_values.get("IsManga"):
+        return True
+    series_type = watch_values["Type"]
+    total = watch_values["Total"]
+    return (series_type in _COLLECTED_TYPES and total > 1) or (series_type == "One-Shot" and total == 1)
 
 
 def summarize_scan_matches(normal_items, arc_items):
@@ -1169,6 +1294,7 @@ class PostProcessor(object):
                     wv_seriesyear = wv["ComicYear"]
                     wv_comicversion = wv["ComicVersion"]
                     wv_publisher = wv["ComicPublisher"]
+                    wv_is_manga = series_kind.is_manga(wv)
                     wv_total = int(wv["Total"])
                     wv_agerating = wv["AgeRating"]
                     wv_latestissue = wv["LatestIssue"]
@@ -1318,6 +1444,7 @@ class PostProcessor(object):
                                 "Publisher": wv_publisher,
                                 "Total": wv_total,
                                 "ComicID": wv_comicid,
+                                "IsManga": wv_is_manga,
                                 "IsArc": False,
                             },
                         }
@@ -1337,16 +1464,10 @@ class PostProcessor(object):
                         continue
                     else:
                         try:
-                            if (
-                                any(
-                                    [
-                                        cs["WatchValues"]["Type"] == "TPB",
-                                        cs["WatchValues"]["Type"] == "HC",
-                                        cs["WatchValues"]["Type"] == "GN",
-                                    ]
-                                )
-                                and cs["WatchValues"]["Total"] > 1
-                            ) or all([cs["WatchValues"]["Type"] == "One-Shot", cs["WatchValues"]["Total"] == 1]):
+                            # A chapter-named file is excluded even for manga:
+                            # FileChecker handed it a defaulted "v1" it never
+                            # stated, and locating by that files c181 as issue 1.
+                            if volume_identifies_file(cs["WatchValues"]) and not chapter_named_file(watchmatch):
                                 if watchmatch["series_volume"] is not None:
                                     just_the_digits = re.sub("[^0-9]", "", watchmatch["series_volume"]).strip()
                                 else:
@@ -1365,27 +1486,13 @@ class PostProcessor(object):
                             temploc = just_the_digits.replace("_", " ")
                             temploc = re.sub("[\\#']", "", temploc)
                         else:
-                            if any(
-                                [
-                                    cs["WatchValues"]["Type"] == "TPB",
-                                    cs["WatchValues"]["Type"] == "GN",
-                                    cs["WatchValues"]["Type"] == "HC",
-                                    cs["WatchValues"]["Type"] == "One-Shot",
-                                ]
-                            ):
+                            if numbered_by_volume(cs["WatchValues"]):
                                 temploc = "1"
                             else:
                                 temploc = None
                         datematch = "False"
 
-                        if temploc is None and all(
-                            [
-                                cs["WatchValues"]["Type"] != "TPB",
-                                cs["WatchValues"]["Type"] != "GN",
-                                cs["WatchValues"]["Type"] != "HC",
-                                cs["WatchValues"]["Type"] != "One-Shot",
-                            ]
-                        ):
+                        if temploc is None and not numbered_by_volume(cs["WatchValues"]):
                             logger.info(
                                 "this should have an issue number to match to this particular series: %s"
                                 % cs["ComicID"]
@@ -1429,11 +1536,25 @@ class PostProcessor(object):
                             annchk = "no"
                             if temploc is not None:
                                 fcdigit = helpers.issuedigits(temploc)
-                                issuechk = db.select_all(
-                                    select(issues).where(
-                                        and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
+                                issuechk = None
+                                # A manga VOLUME resolves on VolumeNumber. On
+                                # MangaDex/MAL Int_IssueNumber holds the
+                                # chapter, so querying it here would file v20
+                                # against chapter 20. Returns None when the
+                                # series has no volume rows (ComicVine stores
+                                # volumes AS issues), and the query below is
+                                # then already the right one.
+                                if cs["WatchValues"].get("IsManga") and not chapter_named_file(watchmatch):
+                                    issuechk = manga_volume_rows(cs["ComicID"], watchmatch["series_volume"])
+                                if issuechk is None:
+                                    issuechk = db.select_all(
+                                        select(issues).where(
+                                            and_(
+                                                issues.c.ComicID == cs["ComicID"],
+                                                issues.c.Int_IssueNumber == fcdigit,
+                                            )
+                                        )
                                     )
-                                )
                             else:
                                 fcdigit = None
                                 issuechk = db.select_all(select(issues).where(issues.c.ComicID == cs["ComicID"]))
@@ -1485,11 +1606,20 @@ class PostProcessor(object):
                                     )
                                 )
                             else:
-                                issuechk = db.select_all(
-                                    select(issues).where(
-                                        and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
+                                issuechk = None
+                                # The refresh is often exactly what added the
+                                # volume rows, so re-apply the volume lookup
+                                # here too. Retrying Int_IssueNumber alone
+                                # would file the v20 we just fetched against
+                                # chapter 20.
+                                if cs["WatchValues"].get("IsManga") and not chapter_named_file(watchmatch):
+                                    issuechk = manga_volume_rows(cs["ComicID"], watchmatch["series_volume"])
+                                if issuechk is None:
+                                    issuechk = db.select_all(
+                                        select(issues).where(
+                                            and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
+                                        )
                                     )
-                                )
                             if not issuechk:
                                 logger.fdebug(
                                     "%s No corresponding issue #%s found for %s even after refreshing. It might not have the information available as of yet..."
@@ -1643,14 +1773,9 @@ class PostProcessor(object):
                                             alts = x["AS_Alt"]
                                     alt_listing = [True if x.lower() == dynamic_seriesname else False for x in alts]
 
-                                    if any([cs["DynamicName"] == dynamic_seriesname, alt_listing]) and all(
-                                        [
-                                            cs["WatchValues"]["Type"] != "TPB",
-                                            cs["WatchValues"]["Type"] != "GN",
-                                            cs["WatchValues"]["Type"] != "HC",
-                                            cs["WatchValues"]["Type"] != "One-Shot",
-                                        ]
-                                    ):
+                                    if any(
+                                        [cs["DynamicName"] == dynamic_seriesname, alt_listing]
+                                    ) and not numbered_by_volume(cs["WatchValues"]):
                                         logger.fdebug(
                                             "name match exact : %s - %s" % (cs["DynamicName"], dynamic_seriesname)
                                         )
@@ -1779,15 +1904,7 @@ class PostProcessor(object):
                                 else:
                                     logger.fdebug("not a match")
 
-                                if all(
-                                    [
-                                        second_check is False,
-                                        cs["WatchValues"]["Type"] != "TPB",
-                                        cs["WatchValues"]["Type"] != "GN",
-                                        cs["WatchValues"]["Type"] != "HC",
-                                        cs["WatchValues"]["Type"] != "One-Shot",
-                                    ]
-                                ):
+                                if second_check is False and not numbered_by_volume(cs["WatchValues"]):
                                     logger.fdebug(
                                         "%s %s in filename don't match up to what's in the dB for %s [%s]. This is a wrong match. Continuing..."
                                         % (
@@ -1908,6 +2025,15 @@ class PostProcessor(object):
                                     logger.fdebug(
                                         "%s[LONE-VOLUME/NO YEAR][MATCH] Only Volume on watchlist matches, no year present in filename. Assuming match based on volume and title."
                                         % module
+                                    )
+                                    datematch = "True"
+
+                                if datematch == "False" and volume_settles_year_for_match(
+                                    cs["WatchValues"], watchmatch
+                                ):
+                                    logger.fdebug(
+                                        "%s[MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file. Assuming match based on volume and title."
+                                        % (module, watchmatch["series_volume"], watchmatch["issue_year"])
                                     )
                                     datematch = "True"
 
@@ -2061,6 +2187,7 @@ class PostProcessor(object):
                                     "Publisher": av["IssuePublisher"],
                                     "Total": int(av["TotalIssues"]),
                                     "Type": av["Type"],
+                                    "IsManga": series_kind.is_manga(av),
                                     "IsArc": True,
                                 },
                             }
@@ -2100,18 +2227,10 @@ class PostProcessor(object):
                                 nm += 1
                             else:
                                 try:
-                                    if (
-                                        any(
-                                            [
-                                                v[i]["WatchValues"]["Type"] == "TPB",
-                                                v[i]["WatchValues"]["Type"] == "GN",
-                                                v[i]["WatchValues"]["Type"] == "HC",
-                                            ]
-                                        )
-                                        and v[i]["WatchValues"]["Total"] > 1
-                                    ) or all(
-                                        [v[i]["WatchValues"]["Type"] == "One-Shot", v[i]["WatchValues"]["Total"] == 1]
-                                    ):
+                                    # Same exclusion as the watchlist scan above: a
+                                    # chapter-named file carries a defaulted "v1" it
+                                    # never stated, and would file c181 as issue 1.
+                                    if volume_identifies_file(v[i]["WatchValues"]) and not chapter_named_file(arcmatch):
                                         if arcmatch["series_volume"] is not None:
                                             just_the_digits = re.sub("[^0-9]", "", arcmatch["series_volume"]).strip()
                                         else:
@@ -2130,14 +2249,7 @@ class PostProcessor(object):
                                     temploc = just_the_digits.replace("_", " ")
                                     temploc = re.sub("[\\#']", "", temploc)
                                 else:
-                                    if any(
-                                        [
-                                            v[i]["WatchValues"]["Type"] == "TPB",
-                                            v[i]["WatchValues"]["Type"] == "GN",
-                                            v[i]["WatchValues"]["Type"] == "HC",
-                                            v[i]["WatchValues"]["Type"] == "One-Shot",
-                                        ]
-                                    ):
+                                    if numbered_by_volume(v[i]["WatchValues"]):
                                         temploc = "1"
                                     else:
                                         temploc = None
@@ -2659,6 +2771,7 @@ class PostProcessor(object):
                                             "Total": 0,
                                             "Type": ofl["format"],
                                             "ComicID": ofl["ComicID"],
+                                            "IsManga": series_kind.is_manga(ofl),
                                             "IsArc": False,
                                         },
                                     }
@@ -2677,7 +2790,12 @@ class PostProcessor(object):
                                     continue
                                 else:
                                     try:
-                                        if ofv["WatchValues"]["Type"] is not None and ofv["WatchValues"]["Total"] > 1:
+                                        # Same exclusion as the watchlist scan above: a
+                                        # chapter-named file carries a defaulted "v1" it
+                                        # never stated, and would file c181 as issue 1.
+                                        if volume_identifies_file(ofv["WatchValues"]) and not chapter_named_file(
+                                            watchmatch
+                                        ):
                                             if watchmatch["series_volume"] is not None:
                                                 just_the_digits = re.sub(
                                                     "[^0-9]", "", watchmatch["series_volume"]
