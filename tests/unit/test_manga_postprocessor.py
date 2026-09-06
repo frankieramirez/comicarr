@@ -35,7 +35,14 @@ from tests.conftest import placement_result
 if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
-from comicarr.postprocessor import PostProcessor, log_scan_summary, summarize_scan_matches
+from comicarr.postprocessor import (
+    PostProcessor,
+    log_scan_summary,
+    numbered_by_volume,
+    summarize_scan_matches,
+    volume_identifies_file,
+    volume_match_settles_year,
+)
 
 
 def test_scan_summary_emits_one_bounded_line_without_candidate_chatter():
@@ -787,3 +794,154 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         assert release_dir.exists(), "nothing was filed, so the source must survive for a retry"
         result = mock_queue.put.call_args[0][0]
         assert "0 files matched" in result[0]["self.log"]
+
+
+class TestVolumeIdentifiesFile:
+    """Which series number their scanned files by volume rather than issue.
+
+    A manga volume file carries no issue number, so without a volume arm the
+    folder scan derives no number, compares the file against every issue in
+    the series and selects none of them.
+    """
+
+    def test_manga_volume_file_is_identified_by_volume(self):
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 33, "IsManga": True},
+                {"manga_volume": "33", "manga_chapter": None},
+            )
+            is True
+        )
+
+    def test_manga_arm_does_not_depend_on_the_series_length(self):
+        """A single-volume manga is still numbered by volume."""
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 1, "IsManga": True},
+                {"manga_volume": "1", "manga_chapter": None},
+            )
+            is True
+        )
+
+    def test_manga_chapter_file_is_not_identified_by_volume(self):
+        """A manga series holds both kinds; only the file says which is in hand.
+
+        `Chainsaw Man c181` went down the volume branch, where series_volume's
+        `v1` default was looked up as an issue number and marked chapter 1
+        Downloaded. `Series v33` landed on chapter 33 the same way.
+        """
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": None, "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_carrying_both_is_a_chapter(self):
+        """A MangaDex chapter file also names its containing volume."""
+        assert (
+            volume_identifies_file(
+                {"Type": "Digital", "Total": 200, "IsManga": True},
+                {"manga_volume": "18", "manga_chapter": "181"},
+            )
+            is False
+        )
+
+    def test_manga_file_with_no_tokens_claims_no_volume(self):
+        """Fails closed -- never falls back to the defaulted series_volume."""
+        assert (
+            volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, {"series_volume": "v1"}) is False
+        )
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": True}, None) is False
+
+    def test_comic_series_of_the_same_type_is_still_identified_by_issue(self):
+        assert volume_identifies_file({"Type": "Digital", "Total": 33, "IsManga": False}) is False
+
+    @pytest.mark.parametrize("series_type", ["TPB", "HC", "GN"])
+    def test_collected_editions_keep_their_volume_numbering(self, series_type):
+        assert volume_identifies_file({"Type": series_type, "Total": 5, "IsManga": False}) is True
+        assert volume_identifies_file({"Type": series_type, "Total": 1, "IsManga": False}) is False
+
+    def test_one_shots_keep_their_volume_numbering(self):
+        assert volume_identifies_file({"Type": "One-Shot", "Total": 1, "IsManga": False}) is True
+        assert volume_identifies_file({"Type": "One-Shot", "Total": 2, "IsManga": False}) is False
+
+    def test_a_row_without_the_manga_flag_is_read_as_a_comic(self):
+        """One-off rows build WatchValues without IsManga and must not raise."""
+        assert volume_identifies_file({"Type": "Digital", "Total": 0}) is False
+
+
+class TestNumberedByVolume:
+    """Which series are exempt from the checks that assume an issue number.
+
+    The weekly-pull cross-check, the "no issue number" rejection and the
+    default-to-1 fallback all skip series whose files are named by volume.
+    Manga must be exempt for the same reason collected editions are.
+    """
+
+    def test_manga_series_is_exempt(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 33, "IsManga": True}) is True
+
+    def test_comic_series_of_the_same_type_is_not_exempt(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 33, "IsManga": False}) is False
+
+    @pytest.mark.parametrize("series_type", ["TPB", "HC", "GN", "One-Shot"])
+    def test_collected_editions_stay_exempt_regardless_of_run_length(self, series_type):
+        """Exemption is a property of the type alone, unlike locating a file."""
+        assert numbered_by_volume({"Type": series_type, "Total": 1, "IsManga": False}) is True
+        assert numbered_by_volume({"Type": series_type, "Total": 9, "IsManga": False}) is True
+
+    def test_a_single_entry_tpb_is_exempt_but_is_not_located_by_volume(self):
+        """The two predicates deliberately disagree here; that split is the point."""
+        watch_values = {"Type": "TPB", "Total": 1, "IsManga": False}
+        assert numbered_by_volume(watch_values) is True
+        assert volume_identifies_file(watch_values) is False
+
+    def test_a_row_without_the_manga_flag_is_read_as_a_comic(self):
+        assert numbered_by_volume({"Type": "Digital", "Total": 0}) is False
+
+
+class TestVolumeMatchSettlesYear:
+    """A matched manga volume makes the filename's year irrelevant.
+
+    Providers date the licensed English printing while releases carry the
+    volume's original year, so the two routinely disagree by a year.
+    """
+
+    def test_matched_manga_volume_overrides_a_year_mismatch(self):
+        assert volume_match_settles_year({"IsManga": True}, True) is True
+
+    def test_an_unmatched_volume_never_overrides_the_year(self):
+        """Without a volume match there is no identity to trust instead."""
+        assert volume_match_settles_year({"IsManga": True}, False) is False
+
+    def test_a_comic_year_mismatch_still_decides(self):
+        assert volume_match_settles_year({"IsManga": False}, True) is False
+
+    def test_collected_editions_are_not_covered(self):
+        """A TPB year mismatch can still mean the wrong edition."""
+        assert volume_match_settles_year({"Type": "TPB", "Total": 5}, True) is False
+
+    @pytest.mark.parametrize("volume", ["1", "6", "20", "100"])
+    def test_every_volume_of_a_mangadex_series_settles_its_year(self, volume):
+        """Not just v01.
+
+        The scan used to feed this `lonevol`, which asks whether the
+        filename's volume equals the watchlist ComicVersion. MangaDex leaves
+        ComicVersion unset, so it reads as 1 -- true for v01 and false for
+        every later volume. One-Punch Man v06 dated 2014 against a 2015 ledger
+        year was still rejected. It is now fed the file-level volume match,
+        which does not depend on ComicVersion at all.
+        """
+        watch_values = {"IsManga": True, "Type": "Digital", "Total": 200, "ComicVersion": None}
+        parsed = {"manga_volume": volume, "manga_chapter": None}
+
+        assert volume_match_settles_year(watch_values, volume_identifies_file(watch_values, parsed)) is True
+
+    def test_a_chapter_file_does_not_settle_its_year(self):
+        """The widening must stop at volumes: a chapter still answers to its year."""
+        watch_values = {"IsManga": True, "Type": "Digital", "Total": 200, "ComicVersion": None}
+        parsed = {"manga_volume": None, "manga_chapter": "181"}
+
+        assert volume_match_settles_year(watch_values, volume_identifies_file(watch_values, parsed)) is False

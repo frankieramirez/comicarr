@@ -34,6 +34,45 @@ if "windows" not in platform.system().lower():
     from pwd import getpwnam
 
 
+# `\s*\.?\s*` rather than `\.?\s*`: the token walker splits `Vol.33` into
+# `Vol .33`, moving the separator dot AFTER the space, so a pattern that only
+# allowed the dot to come first matched the short form and missed the very
+# long form this exists to catch.
+_TRAILING_VOLUME_LABEL = re.compile(r"[\s._-]*\b(?:v|vol|vols|volume)\s*\.?\s*0*(\d+)\s*$", re.IGNORECASE)
+
+
+def strip_trailing_volume_label(series_name, volume_number):
+    """Drop a trailing volume label that was already read off as the volume.
+
+    A volume label belongs to the volume, not to the title: "Series v03" and
+    "Series Vol.3" name the same series. The token walker removes the short
+    form, so "One-Punch Man v33 ..." parses as "One-Punch Man" -- but the long
+    form can survive it, leaving "One-Punch Man Vol 33" as the series name,
+    which then matches no series at all.
+
+    Only a label whose number is the volume that was actually detected is
+    removed, so a series legitimately titled with a trailing number is left
+    alone, and so is any trailing text that is not a volume label.
+    """
+    if not series_name or volume_number is None:
+        return series_name
+
+    match = _TRAILING_VOLUME_LABEL.search(series_name)
+    if not match:
+        return series_name
+
+    try:
+        if int(match.group(1)) != int(str(volume_number).strip()):
+            return series_name
+    except (TypeError, ValueError):
+        return series_name
+
+    stripped = series_name[: match.start()].strip()
+    # Never strip the title away entirely: a file whose whole name is a volume
+    # label has no series to recover, and an empty name matches everything.
+    return stripped or series_name
+
+
 class FileChecker(object):
     def __init__(
         self,
@@ -1335,6 +1374,21 @@ class FileChecker(object):
             alt_series = re.sub("g11", "'", alt_series)
             alt_series = re.sub("h11", "@", alt_series)
 
+        # The token walker truncates the title at the volume position it found,
+        # but it does not always find the long form ("Vol.33"), and the manga
+        # volume regex that does find it only overrides series_volume. Without
+        # this the label stays in the title and the series matches nothing.
+        detected_volume = manga_volume
+        if detected_volume is None and len(volume_found) > 0:
+            detected_volume = volume_found.get("volume")
+        volume_label_stripped = strip_trailing_volume_label(series_name, detected_volume)
+        if volume_label_stripped != series_name:
+            logger.fdebug(
+                "[VOLUME-LABEL] volume %s is already the volume, removing it from the series title: %s -> %s"
+                % (detected_volume, series_name, volume_label_stripped)
+            )
+            series_name = volume_label_stripped
+
         if series_name.endswith("-"):
             series_name = series_name[:-1].strip()
         if r"\?" in series_name:
@@ -1696,6 +1750,12 @@ class FileChecker(object):
                 "annual_comicid": annual_comicid,
                 "scangroup": series_info["scangroup"],
                 "booktype": series_info["booktype"],
+                # Carried through so a caller can tell a volume file from a
+                # chapter file. series_volume cannot answer that: it defaults
+                # to v1 when the filename had no volume token, which makes a
+                # chapter file indistinguishable from a genuine volume 1.
+                "manga_chapter": series_info.get("manga_chapter"),
+                "manga_volume": series_info.get("manga_volume"),
             }
 
         else:
