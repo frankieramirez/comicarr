@@ -1696,6 +1696,12 @@ class FileChecker(object):
                 "annual_comicid": annual_comicid,
                 "scangroup": series_info["scangroup"],
                 "booktype": series_info["booktype"],
+                # Carried through so a caller can tell a volume file from a
+                # chapter file. series_volume cannot answer that: it defaults
+                # to v1 when the filename had no volume token, which makes a
+                # chapter file indistinguishable from a genuine volume 1.
+                "manga_chapter": series_info.get("manga_chapter"),
+                "manga_volume": series_info.get("manga_volume"),
             }
 
         else:

@@ -42,6 +42,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessJournalStage,
 )
 from comicarr.app.downloads.pp_commands import safe_walk
+from comicarr.app.manga.ledger import normalize_volume_number
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -76,6 +77,87 @@ def log_scan_summary(module, filename, candidate_count, selected_items, annual_c
     logger.fdebug(
         "%s%s" % (module, format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc))
     )
+
+
+_COLLECTED_TYPES = ("TPB", "HC", "GN")
+
+
+def numbered_by_volume(watch_values):
+    """Return whether this series names its files by volume rather than issue.
+
+    Collected editions and One-Shots have always been named this way, which is
+    why the scan exempts them from every check that assumes a file carries an
+    issue number: the weekly-pull cross-check, the "no issue number" rejection,
+    and the fallback that defaults a missing number to 1.
+
+    Manga belongs with them. In a periodical ``vNN`` names *which run* of the
+    series a release belongs to; in manga it names *which book*. A manga volume
+    file therefore carries no issue number at all, so applying the periodical
+    checks to it rejects a perfectly good file.
+
+    Rows built without the manga flag -- story arcs and one-offs assembled from
+    tables that do not carry it -- read as comics, which is the prior behaviour.
+    """
+    if watch_values.get("IsManga"):
+        return True
+    return watch_values["Type"] in _COLLECTED_TYPES + ("One-Shot",)
+
+
+def volume_match_settles_year(watch_values, volume_matched):
+    """Return whether a matched volume makes the filename's year irrelevant.
+
+    The year check exists because periodical issue numbers repeat across runs,
+    so ``Batman 1`` needs a year to say *which* Batman 1. A manga volume number
+    does not repeat -- there is one volume 1 -- so once it matches, the year
+    cannot be evidence of a wrong file.
+
+    It is routinely a mismatch, too: a provider dates the licensed English
+    printing while the release is labelled with the volume's original year. For
+    One-Punch Man v01 those are 2015 and 2014, and the file was rejected for it.
+
+    Deliberately manga-only. A collected edition's year mismatch can still mean
+    the wrong edition, so periodical and TPB behaviour is untouched.
+    """
+    return bool(volume_matched) and bool(watch_values.get("IsManga"))
+
+
+def volume_identifies_file(watch_values, parsed_file=None):
+    """Return whether THIS scanned file is located by volume rather than issue.
+
+    This is :func:`numbered_by_volume` qualified by the run length, because a
+    collected edition only numbers *files* by volume when the run actually has
+    volumes to distinguish: TPB/HC/GN spanning more than one entry, or a
+    One-Shot standing alone.
+
+    Manga is not qualified that way -- volume 1 of a one-volume manga is still
+    identified by its volume, so the run length says nothing useful. It is
+    qualified per FILE instead, because a manga series holds both kinds: a
+    volume file is located by its volume and a chapter file by its chapter,
+    and the series cannot say which one is in hand.
+
+    That has to be read off the parsed file's own volume/chapter tokens,
+    through the shared ``is_volume_target`` rule. It cannot be read off
+    ``series_volume``, which FileChecker defaults to ``v1`` whenever the
+    filename carried no volume token -- so answering the series-level question
+    for every manga file sent ``Chainsaw Man c181`` down the volume branch,
+    where the defaulted ``1`` was looked up as an issue number and marked
+    chapter 1 Downloaded. ``Series v33`` landed on chapter 33 the same way.
+
+    Callers pass the matchIT result. Omitting it answers the series-level
+    question only, and for manga that is never a safe default -- so it says
+    False rather than claiming a volume the file may not have.
+    """
+    if watch_values.get("IsManga"):
+        parsed = parsed_file or {}
+        # A volume has a volume number and no chapter number. (The sibling
+        # branch lifts this into ledger.is_volume_target; when these merge it
+        # should call that instead of restating the rule.)
+        has_chapter = normalize_volume_number(parsed.get("manga_chapter")) is not None
+        has_volume = normalize_volume_number(parsed.get("manga_volume")) is not None
+        return has_volume and not has_chapter
+    series_type = watch_values["Type"]
+    total = watch_values["Total"]
+    return (series_type in _COLLECTED_TYPES and total > 1) or (series_type == "One-Shot" and total == 1)
 
 
 def summarize_scan_matches(normal_items, arc_items):
@@ -1169,6 +1251,7 @@ class PostProcessor(object):
                     wv_seriesyear = wv["ComicYear"]
                     wv_comicversion = wv["ComicVersion"]
                     wv_publisher = wv["ComicPublisher"]
+                    wv_is_manga = series_kind.is_manga(wv)
                     wv_total = int(wv["Total"])
                     wv_agerating = wv["AgeRating"]
                     wv_latestissue = wv["LatestIssue"]
@@ -1318,6 +1401,7 @@ class PostProcessor(object):
                                 "Publisher": wv_publisher,
                                 "Total": wv_total,
                                 "ComicID": wv_comicid,
+                                "IsManga": wv_is_manga,
                                 "IsArc": False,
                             },
                         }
@@ -1337,16 +1421,7 @@ class PostProcessor(object):
                         continue
                     else:
                         try:
-                            if (
-                                any(
-                                    [
-                                        cs["WatchValues"]["Type"] == "TPB",
-                                        cs["WatchValues"]["Type"] == "HC",
-                                        cs["WatchValues"]["Type"] == "GN",
-                                    ]
-                                )
-                                and cs["WatchValues"]["Total"] > 1
-                            ) or all([cs["WatchValues"]["Type"] == "One-Shot", cs["WatchValues"]["Total"] == 1]):
+                            if volume_identifies_file(cs["WatchValues"], watchmatch):
                                 if watchmatch["series_volume"] is not None:
                                     just_the_digits = re.sub("[^0-9]", "", watchmatch["series_volume"]).strip()
                                 else:
@@ -1365,27 +1440,13 @@ class PostProcessor(object):
                             temploc = just_the_digits.replace("_", " ")
                             temploc = re.sub("[\\#']", "", temploc)
                         else:
-                            if any(
-                                [
-                                    cs["WatchValues"]["Type"] == "TPB",
-                                    cs["WatchValues"]["Type"] == "GN",
-                                    cs["WatchValues"]["Type"] == "HC",
-                                    cs["WatchValues"]["Type"] == "One-Shot",
-                                ]
-                            ):
+                            if numbered_by_volume(cs["WatchValues"]):
                                 temploc = "1"
                             else:
                                 temploc = None
                         datematch = "False"
 
-                        if temploc is None and all(
-                            [
-                                cs["WatchValues"]["Type"] != "TPB",
-                                cs["WatchValues"]["Type"] != "GN",
-                                cs["WatchValues"]["Type"] != "HC",
-                                cs["WatchValues"]["Type"] != "One-Shot",
-                            ]
-                        ):
+                        if temploc is None and not numbered_by_volume(cs["WatchValues"]):
                             logger.info(
                                 "this should have an issue number to match to this particular series: %s"
                                 % cs["ComicID"]
@@ -1615,6 +1676,15 @@ class PostProcessor(object):
                                 datematch = "False"
                                 lonevol = False
                                 watch_values = cs["WatchValues"]
+                                # Did the file's own BOOK VOLUME locate this row?
+                                # volume_identifies_file is what selected the volume
+                                # token as the lookup number, and reaching here means
+                                # that number matched an issue row. lonevol cannot
+                                # answer this: it asks whether the filename's volume
+                                # equals the watchlist ComicVersion, which MangaDex
+                                # leaves unset -- so it reads as 1, true for v01 and
+                                # false for every later volume of the same series.
+                                book_volume_matched = volume_identifies_file(watch_values, watchmatch)
                                 second_check = False
                                 if watch_values["LatestIssueInt"] >= fcdigit:
                                     logger.fdebug(
@@ -1643,14 +1713,9 @@ class PostProcessor(object):
                                             alts = x["AS_Alt"]
                                     alt_listing = [True if x.lower() == dynamic_seriesname else False for x in alts]
 
-                                    if any([cs["DynamicName"] == dynamic_seriesname, alt_listing]) and all(
-                                        [
-                                            cs["WatchValues"]["Type"] != "TPB",
-                                            cs["WatchValues"]["Type"] != "GN",
-                                            cs["WatchValues"]["Type"] != "HC",
-                                            cs["WatchValues"]["Type"] != "One-Shot",
-                                        ]
-                                    ):
+                                    if any(
+                                        [cs["DynamicName"] == dynamic_seriesname, alt_listing]
+                                    ) and not numbered_by_volume(cs["WatchValues"]):
                                         logger.fdebug(
                                             "name match exact : %s - %s" % (cs["DynamicName"], dynamic_seriesname)
                                         )
@@ -1779,15 +1844,7 @@ class PostProcessor(object):
                                 else:
                                     logger.fdebug("not a match")
 
-                                if all(
-                                    [
-                                        second_check is False,
-                                        cs["WatchValues"]["Type"] != "TPB",
-                                        cs["WatchValues"]["Type"] != "GN",
-                                        cs["WatchValues"]["Type"] != "HC",
-                                        cs["WatchValues"]["Type"] != "One-Shot",
-                                    ]
-                                ):
+                                if second_check is False and not numbered_by_volume(cs["WatchValues"]):
                                     logger.fdebug(
                                         "%s %s in filename don't match up to what's in the dB for %s [%s]. This is a wrong match. Continuing..."
                                         % (
@@ -1908,6 +1965,15 @@ class PostProcessor(object):
                                     logger.fdebug(
                                         "%s[LONE-VOLUME/NO YEAR][MATCH] Only Volume on watchlist matches, no year present in filename. Assuming match based on volume and title."
                                         % module
+                                    )
+                                    datematch = "True"
+
+                                if datematch == "False" and volume_match_settles_year(
+                                    cs["WatchValues"], book_volume_matched
+                                ):
+                                    logger.fdebug(
+                                        "%s[MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file. Assuming match based on volume and title."
+                                        % (module, watchmatch["series_volume"], watchmatch["issue_year"])
                                     )
                                     datematch = "True"
 
@@ -2061,6 +2127,7 @@ class PostProcessor(object):
                                     "Publisher": av["IssuePublisher"],
                                     "Total": int(av["TotalIssues"]),
                                     "Type": av["Type"],
+                                    "IsManga": series_kind.is_manga(av),
                                     "IsArc": True,
                                 },
                             }
@@ -2100,18 +2167,7 @@ class PostProcessor(object):
                                 nm += 1
                             else:
                                 try:
-                                    if (
-                                        any(
-                                            [
-                                                v[i]["WatchValues"]["Type"] == "TPB",
-                                                v[i]["WatchValues"]["Type"] == "GN",
-                                                v[i]["WatchValues"]["Type"] == "HC",
-                                            ]
-                                        )
-                                        and v[i]["WatchValues"]["Total"] > 1
-                                    ) or all(
-                                        [v[i]["WatchValues"]["Type"] == "One-Shot", v[i]["WatchValues"]["Total"] == 1]
-                                    ):
+                                    if volume_identifies_file(v[i]["WatchValues"], arcmatch):
                                         if arcmatch["series_volume"] is not None:
                                             just_the_digits = re.sub("[^0-9]", "", arcmatch["series_volume"]).strip()
                                         else:
@@ -2130,14 +2186,7 @@ class PostProcessor(object):
                                     temploc = just_the_digits.replace("_", " ")
                                     temploc = re.sub("[\\#']", "", temploc)
                                 else:
-                                    if any(
-                                        [
-                                            v[i]["WatchValues"]["Type"] == "TPB",
-                                            v[i]["WatchValues"]["Type"] == "GN",
-                                            v[i]["WatchValues"]["Type"] == "HC",
-                                            v[i]["WatchValues"]["Type"] == "One-Shot",
-                                        ]
-                                    ):
+                                    if numbered_by_volume(v[i]["WatchValues"]):
                                         temploc = "1"
                                     else:
                                         temploc = None
@@ -2342,6 +2391,9 @@ class PostProcessor(object):
                                             datematch = "False"
                                             lonevol = False
                                             arc_values = v[i]["WatchValues"]
+                                            # Same signal as the watchlist path: the
+                                            # file's own book volume located this row.
+                                            arc_book_volume_matched = volume_identifies_file(arc_values, arcmatch)
                                             if any(
                                                 [
                                                     arc_values["ComicVersion"] is None,
@@ -2476,6 +2528,21 @@ class PostProcessor(object):
                                                 logger.fdebug(
                                                     "%s[LONE-VOLUME/NO YEAR][MATCH] Only Volume on arc watchlist matches, no year present in filename. Assuming match based on volume and title."
                                                     % module
+                                                )
+                                                datematch = "True"
+
+                                            # The year-settle was added to the watchlist
+                                            # path and never copied here, so the same
+                                            # manga whose 2014-labelled file matched a
+                                            # 2015 ledger year was accepted on the
+                                            # watchlist and rejected when it arrived as
+                                            # part of a story arc.
+                                            if datematch == "False" and volume_match_settles_year(
+                                                arc_values, arc_book_volume_matched
+                                            ):
+                                                logger.fdebug(
+                                                    "%s[ARC][MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file."
+                                                    % (module, arcmatch["series_volume"], arcmatch["issue_year"])
                                                 )
                                                 datematch = "True"
 
@@ -2659,6 +2726,7 @@ class PostProcessor(object):
                                             "Total": 0,
                                             "Type": ofl["format"],
                                             "ComicID": ofl["ComicID"],
+                                            "IsManga": series_kind.is_manga(ofl),
                                             "IsArc": False,
                                         },
                                     }
@@ -2677,7 +2745,7 @@ class PostProcessor(object):
                                     continue
                                 else:
                                     try:
-                                        if ofv["WatchValues"]["Type"] is not None and ofv["WatchValues"]["Total"] > 1:
+                                        if volume_identifies_file(ofv["WatchValues"], watchmatch):
                                             if watchmatch["series_volume"] is not None:
                                                 just_the_digits = re.sub(
                                                     "[^0-9]", "", watchmatch["series_volume"]
@@ -4019,10 +4087,157 @@ class PostProcessor(object):
         The `move` / `Manual Run` guards are applied here so manga never asks
         `tidyup` to touch an operator-chosen folder. `tidyup` itself still
         refuses to delete a directory that is not empty.
+
+        The config is read through `getattr`, as the rest of this path does: a
+        tidy-up is the last thing `_process_manga` does, and it must never turn
+        an already-successful import into an exception.
         """
-        if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
+        if getattr(comicarr.CONFIG, "FILE_OPTS", None) != "move" or self.nzb_name == "Manual Run":
             return
         self.tidyup(nzb_dir, True)
+
+    def _match_manga_issue(self, parsed):
+        """Return the ledger row a parsed manga file belongs to, or None.
+
+        A pure lookup over `parsed` and this series' issue rows: it reads the
+        database and nothing else, so it can be answered before the file is
+        placed. That ordering matters -- tagging needs the IssueID, and tagging
+        has to happen while the file is still at its download location.
+
+        Chapter first, then volume: a chapter number is the more specific
+        claim, and a volume-numbered file has no chapter number to offer.
+        """
+        if parsed is None:
+            return None
+
+        matching = None
+
+        if parsed.get("chapter_number") is not None:
+            ch_num = parsed["chapter_number"]
+            ch_str = "%g" % ch_num
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.ChapterNumber == ch_str,
+                    )
+                )
+            )
+            if matching is None:
+                matching = db.select_one(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.Issue_Number == ch_str,
+                        )
+                    )
+                )
+                if matching is None and ch_str != str(ch_num):
+                    matching = db.select_one(
+                        select(issues).where(
+                            and_(
+                                issues.c.ComicID == self.comicid,
+                                issues.c.Issue_Number == str(ch_num),
+                            )
+                        )
+                    )
+
+        if matching is None and parsed.get("volume_number") is not None:
+            vol_str = str(parsed["volume_number"])
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.VolumeNumber == vol_str,
+                    )
+                )
+            )
+            if matching is None:
+                # The equality above is a string comparison between two sources
+                # that write the same volume differently: the parser turns `v01`
+                # into int 1, so it asks for '1', while MangaDex stores
+                # str(chapter.volume) and can hold '01'. The row then never
+                # matched and the file was placed untagged. Compare through the
+                # ledger rule, which already owns what a volume number means,
+                # rather than inventing a second padding convention here.
+                for row in db.select_all(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.VolumeNumber.isnot(None),
+                        )
+                    )
+                ):
+                    wanted = normalize_volume_number(vol_str)
+                    if wanted is not None and normalize_volume_number(row.get("VolumeNumber")) == wanted:
+                        matching = row
+                        break
+
+        return matching
+
+    def _metatag_manga_file(self, filepath, issueid):
+        """Write metadata into a manga file before it is placed.
+
+        The comic path tags at the download location and then places whatever
+        ComicTagger hands back, because tagging can rename the file: it cannot
+        write into an existing archive, so a .cbr is rebuilt as a .cbz. The
+        manga path placed files the same way but never tagged them at all, so a
+        manga volume arrived in the library with no ComicInfo.xml while every
+        comic beside it had one -- and the only way to fix that was a manual
+        bulk re-tag afterwards.
+
+        Returns the path to place: the tagged file on success, the original
+        path otherwise. Tagging is best effort; a metadata failure must not
+        cost the import, exactly as it does not on the comic path.
+        """
+        module = self.module
+
+        # Same condition the comic path uses (ENABLE_META or CBR2CBZ_ONLY), read
+        # defensively: tagging is an enhancement to the import, so a process
+        # without configuration loaded places the file untagged rather than
+        # failing the import over it.
+        config = comicarr.CONFIG
+        if config is None:
+            return filepath
+        if not (getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False)):
+            return filepath
+
+        try:
+            from . import cmtag
+
+            pcheck = cmtag.run(
+                self.nzb_folder,
+                issueid=issueid,
+                filename=filepath,
+            )
+        except ImportError:
+            logger.fdebug(
+                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                % module
+            )
+            return filepath
+        except Exception as e:
+            logger.error("%s [MANGA] Metatagging raised for %s [%s]" % (module, filepath, e))
+            return filepath
+
+        # cmtag.run returns a path on success and a sentinel string otherwise
+        # ("fail", "corrupt", "unrar error", "file not found||<path>"). Requiring
+        # an existing file rather than enumerating the sentinels means a new
+        # sentinel degrades to "not tagged" instead of placing a bogus path.
+        if not isinstance(pcheck, str) or not os.path.isfile(pcheck):
+            logger.warn(
+                "%s [MANGA] Unable to write metadata to %s [%s] - placing it untagged."
+                % (module, os.path.basename(filepath), pcheck)
+            )
+            return filepath
+
+        if pcheck != filepath:
+            logger.info(
+                "%s [MANGA] Wrote metadata: %s -> %s" % (module, os.path.basename(filepath), os.path.basename(pcheck))
+            )
+        else:
+            logger.info("%s [MANGA] Wrote metadata to %s" % (module, os.path.basename(pcheck)))
+        return pcheck
 
     def _process_manga(self):
         """Post-process a downloaded manga file.
@@ -4123,6 +4338,29 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
+            # Resolve the ledger row first: the lookup only reads `parsed` and
+            # the series' issue rows, and the tagger needs the IssueID to know
+            # which volume this file is. Tagging then happens here, at the
+            # download location, because it can rename the file -- so the name
+            # that gets placed and recorded has to be the tagged one.
+            matching = self._match_manga_issue(parsed)
+
+            # Kept so the download original can be tidied after placement:
+            # cmtag.run copies into CACHE_DIR and returns the CACHE path, so
+            # what place() consumes is the copy, not the download.
+            pre_tag_path = filepath
+
+            if matching is not None:
+                # Best effort: a row without an IssueID cannot be tagged, but it
+                # can still be placed and marked, so this must not raise.
+                try:
+                    tag_issueid = matching["IssueID"]
+                except (KeyError, TypeError, IndexError):
+                    tag_issueid = None
+                if tag_issueid is not None:
+                    filepath = self._metatag_manga_file(filepath, tag_issueid)
+                    filename = os.path.basename(filepath)
+
             dst = os.path.join(series_folder, filename)
 
             try:
@@ -4137,50 +4375,30 @@ class PostProcessor(object):
             else:
                 logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
 
+            # Under FILE_OPTS = move, place() consumed the TAGGED copy out of
+            # the cache, so the download original is still sitting there and
+            # the next pass picks it up again. The comic path tidies the
+            # pre-tag file after placement for the same reason; do it here per
+            # file rather than through tidyup(), which works on the whole
+            # folder and would take files this run has not placed yet.
+            #
+            # Skipped when tagging did not produce a new path: filepath is then
+            # the original, and place() has already dealt with it.
+            if (
+                filepath != pre_tag_path
+                and getattr(comicarr.CONFIG, "FILE_OPTS", None) == "move"
+                and os.path.isfile(pre_tag_path)
+            ):
+                try:
+                    os.remove(pre_tag_path)
+                    logger.fdebug("%s Removed the pre-tag download original: %s" % (module, pre_tag_path))
+                except OSError as e:
+                    logger.warn(
+                        "%s Unable to remove the pre-tag download original %s [%s] -- it will be re-processed"
+                        % (module, pre_tag_path, e)
+                    )
+
             self._journal_pp("post_processing")
-
-            matching = None
-
-            if parsed and parsed.get("chapter_number") is not None:
-                ch_num = parsed["chapter_number"]
-                ch_str = "%g" % ch_num
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.ChapterNumber == ch_str,
-                        )
-                    )
-                )
-                if matching is None:
-                    matching = db.select_one(
-                        select(issues).where(
-                            and_(
-                                issues.c.ComicID == self.comicid,
-                                issues.c.Issue_Number == ch_str,
-                            )
-                        )
-                    )
-                    if matching is None and ch_str != str(ch_num):
-                        matching = db.select_one(
-                            select(issues).where(
-                                and_(
-                                    issues.c.ComicID == self.comicid,
-                                    issues.c.Issue_Number == str(ch_num),
-                                )
-                            )
-                        )
-
-            if matching is None and parsed and parsed.get("volume_number") is not None:
-                vol_str = str(parsed["volume_number"])
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.VolumeNumber == vol_str,
-                        )
-                    )
-                )
 
             if matching:
                 issueid = matching["IssueID"]
