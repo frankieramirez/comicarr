@@ -1606,11 +1606,20 @@ class PostProcessor(object):
                                     )
                                 )
                             else:
-                                issuechk = db.select_all(
-                                    select(issues).where(
-                                        and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
+                                issuechk = None
+                                # The refresh is often exactly what added the
+                                # volume rows, so re-apply the volume lookup
+                                # here too. Retrying Int_IssueNumber alone
+                                # would file the v20 we just fetched against
+                                # chapter 20.
+                                if cs["WatchValues"].get("IsManga") and not chapter_named_file(watchmatch):
+                                    issuechk = manga_volume_rows(cs["ComicID"], watchmatch["series_volume"])
+                                if issuechk is None:
+                                    issuechk = db.select_all(
+                                        select(issues).where(
+                                            and_(issues.c.ComicID == cs["ComicID"], issues.c.Int_IssueNumber == fcdigit)
+                                        )
                                     )
-                                )
                             if not issuechk:
                                 logger.fdebug(
                                     "%s No corresponding issue #%s found for %s even after refreshing. It might not have the information available as of yet..."
