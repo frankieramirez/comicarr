@@ -458,11 +458,7 @@ def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
     pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
     tree = ast.parse(pp_path.read_text(encoding="utf-8"))
 
-    called = {
-        node.func.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-    }
+    called = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
     assert "volume_identifies_file" in called, "the folder scan no longer consults the volume predicate"
     assert "numbered_by_volume" in called, "the scan's issue-number checks no longer consult the exemption"
     # the year gate must actually be reached, and must be reached through the
@@ -473,8 +469,7 @@ def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
         "defaulted v1 will locate c181 as issue 1 again"
     )
     assert "manga_volume_rows" in called, (
-        "the scan no longer resolves a manga volume on VolumeNumber, so v20 will "
-        "attach to chapter 20 on MangaDex again"
+        "the scan no longer resolves a manga volume on VolumeNumber, so v20 will attach to chapter 20 on MangaDex again"
     )
     assert "volume_match_settles_year" in called, "the volume year gate is defined but never called"
 
@@ -502,6 +497,52 @@ def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
     ]
     assert watch_value_keys.count("IsManga") == watch_value_keys.count("IsArc"), (
         "every WatchValues row must carry the manga signal, not just the watchlist one"
+    )
+
+
+def test_every_volume_predicate_is_guarded_against_a_chapter_named_file():
+    """EVERY volume branch must exclude a chapter-named file, not just one.
+
+    The check above only asserts `chapter_named_file` is called somewhere in
+    the module, so a branch that reads `series_volume` without it stays green
+    on the strength of a different branch that has it. That is exactly how the
+    arc scan and the one-off scan ended up taking the FileChecker-defaulted
+    "v1" and filing c181 as issue 1.
+
+    `volume_identifies_file` is what widens these branches to cover all manga,
+    so wherever it decides a branch, the chapter exclusion has to decide it
+    too.
+    """
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    tree = ast.parse(pp_path.read_text(encoding="utf-8"))
+
+    def calls(node, name):
+        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name
+
+    def is_chapter_guard(node):
+        return (
+            isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not) and calls(node.operand, "chapter_named_file")
+        )
+
+    total = sum(1 for node in ast.walk(tree) if calls(node, "volume_identifies_file"))
+    assert total, "the volume predicate is never called"
+
+    guarded = 0
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)):
+            continue
+        here = sum(1 for value in node.values if calls(value, "volume_identifies_file"))
+        if not here:
+            continue
+        assert any(is_chapter_guard(value) for value in node.values), (
+            "a volume branch on line %d consults volume_identifies_file without "
+            "excluding a chapter-named file, so a defaulted v1 will file c181 as issue 1" % node.lineno
+        )
+        guarded += here
+
+    assert guarded == total, (
+        "%d of %d volume_identifies_file calls stand alone rather than in an `and not "
+        "chapter_named_file(...)` conjunction" % (total - guarded, total)
     )
 
 

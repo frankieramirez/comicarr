@@ -2218,7 +2218,10 @@ class PostProcessor(object):
                                 nm += 1
                             else:
                                 try:
-                                    if volume_identifies_file(v[i]["WatchValues"]):
+                                    # Same exclusion as the watchlist scan above: a
+                                    # chapter-named file carries a defaulted "v1" it
+                                    # never stated, and would file c181 as issue 1.
+                                    if volume_identifies_file(v[i]["WatchValues"]) and not chapter_named_file(arcmatch):
                                         if arcmatch["series_volume"] is not None:
                                             just_the_digits = re.sub("[^0-9]", "", arcmatch["series_volume"]).strip()
                                         else:
@@ -2778,7 +2781,12 @@ class PostProcessor(object):
                                     continue
                                 else:
                                     try:
-                                        if volume_identifies_file(ofv["WatchValues"]):
+                                        # Same exclusion as the watchlist scan above: a
+                                        # chapter-named file carries a defaulted "v1" it
+                                        # never stated, and would file c181 as issue 1.
+                                        if volume_identifies_file(ofv["WatchValues"]) and not chapter_named_file(
+                                            watchmatch
+                                        ):
                                             if watchmatch["series_volume"] is not None:
                                                 just_the_digits = re.sub(
                                                     "[^0-9]", "", watchmatch["series_volume"]
