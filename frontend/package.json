@@ -38,7 +38,7 @@
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-table": "^9.1.2",
     "@tanstack/react-virtual": "^3.13.23",
-    "ai": "^7.0.71",
+    "ai": "^7.0.92",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
