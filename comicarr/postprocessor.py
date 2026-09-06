@@ -4087,11 +4087,14 @@ class PostProcessor(object):
         The `move` / `Manual Run` guards are applied here so manga never asks
         `tidyup` to touch an operator-chosen folder. `tidyup` itself still
         refuses to delete a directory that is not empty.
+
+        The config is read through `getattr`, as the rest of this path does: a
+        tidy-up is the last thing `_process_manga` does, and it must never turn
+        an already-successful import into an exception.
         """
-        if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
+        if getattr(comicarr.CONFIG, "FILE_OPTS", None) != "move" or self.nzb_name == "Manual Run":
             return
         self.tidyup(nzb_dir, True)
-
 
     def _match_manga_issue(self, parsed):
         """Return the ledger row a parsed manga file belongs to, or None.

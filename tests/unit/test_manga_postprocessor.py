@@ -807,8 +807,12 @@ class TestMangaMetatagOnImport:
     """
 
     @staticmethod
-    def _meta_config(enable_meta=True, cbr2cbz_only=False):
-        return SimpleNamespace(ENABLE_META=enable_meta, CBR2CBZ_ONLY=cbr2cbz_only)
+    def _meta_config(enable_meta=True, cbr2cbz_only=False, file_opts="copy"):
+        # FILE_OPTS defaults to a non-`move` mode so the emptied-folder cleanup
+        # stays out of these tests: they are about what gets tagged and placed,
+        # and the cleanup has its own class above. `_process_manga` reads it
+        # directly, so it has to be present rather than merely absent.
+        return SimpleNamespace(ENABLE_META=enable_meta, CBR2CBZ_ONLY=cbr2cbz_only, FILE_OPTS=file_opts)
 
     def _run(self, tmp_path, cmtag_return, config, issue_row="default"):
         download = tmp_path / "download"
