@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.38.14
+
+### Patch Changes
+
+- 1a9ffa1: Interactive search no longer crashes when DDL(External) is enabled. That provider was still called as if a MegaNZ search client existed on the external-server module; the shipped placeholder did not, so the search raised AttributeError and the whole interactive run failed. The missing client is now present and returns no results instead of crashing, so other providers can finish the search. The Release Review sheet lists DDL(External) under provider failures with the reason, and the log says once per start that the client is not installed instead of on every search.
+- 9cb7adb: Manga volumes are now tagged as volumes rather than as issues of a series-named volume. An imported volume either carried no metadata at all or was written as issue N of a volume named after the series, which is not what a manga volume is. The file *is* volume N and has no issue number. The volume is now read from the ledger and written as the volume, with the issue number cleared. It is found whichever way the series is catalogued: ComicVine records a licensed manga's English volumes as the series' issues, while MangaDex writes a chapter's containing volume, and a chapter now keeps its own number instead of being tagged as the volume that contains it. A MangaDex issue id is also no longer sent to ComicVine, which had nothing to return for it and left the file untagged.
+  
+  The folder scan matches manga files correctly too. It decided volume-versus-chapter from the series rather than from the file, so a chapter was looked up as an issue number and marked the wrong chapter downloaded. A volume release whose filename year disagreed with the catalogue year was rejected outright, on the story-arc path as well as the watchlist. That disagreement is routine for manga, where the release carries the original year and the catalogue the licensed printing. And a volume label written in full, "Series Vol.33", is now read as the volume instead of being kept as part of the series title, where it matched no series at all.
+  
+  Periodical tagging is untouched: a non-manga series, a missing ledger row, or a ledger with no volume numbers all produce the same tag as before. Tagging also no longer leaves a file less readable than it found it. The pre-tagging permissions are restored afterwards, and a permissions failure no longer aborts post-processing after the tag has already succeeded.
+- 7e9af31: Trade paperbacks and album volumes such as Shepherdess Warriors Vol. 1 are no longer stored as a One-Shot with issue #1 when the metadata names a volume or collected edition. GetComics releases titled Vol. 1 now match that series instead of being found and then discarded.
+
 ## 0.38.13
 
 ### Patch Changes
