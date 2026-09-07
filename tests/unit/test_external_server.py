@@ -12,7 +12,7 @@
 from types import SimpleNamespace
 
 import comicarr
-from comicarr import search
+from comicarr import search, search_filer
 from comicarr.downloaders import external_server as exs
 
 
@@ -27,6 +27,42 @@ def test_ddl_external_search_constructor_matches_search_py():
     client = search.exs.MegaNZ(query="Batman", provider_stat=provider_stat)
 
     assert client.ddl_search(is_info={"chktpb": 0}) == "no results"
+
+
+def test_ddl_external_search_reports_unavailable_provider_to_interactive_collector():
+    failures = []
+
+    with search_filer.interactive_collection(
+        on_evaluations=lambda _values: None,
+        on_provider_complete=lambda _provider: None,
+        on_provider_failure=lambda provider, code, detail: failures.append((provider, code, detail)),
+    ):
+        result = exs.MegaNZ(query="Batman", provider_stat={"id": 201}).ddl_search(is_info={"chktpb": 0})
+
+    assert result == "no results"
+    assert failures == [("DDL(External)", "provider_unavailable", "External search server client is not installed")]
+
+
+def test_ddl_external_search_outside_interactive_collection_does_not_raise():
+    assert exs.MegaNZ(query="Batman").ddl_search() == "no results"
+
+
+def test_ddl_external_warns_once_per_process_then_debugs(monkeypatch):
+    calls = []
+    monkeypatch.setattr(exs, "_warned", False)
+    monkeypatch.setattr(
+        exs,
+        "logger",
+        SimpleNamespace(warn=lambda m: calls.append(("warn", m)), fdebug=lambda m: calls.append(("fdebug", m))),
+    )
+
+    client = exs.MegaNZ(query="Batman")
+    client.ddl_search()
+    client.ddl_search()
+    client.queue_the_download({"id": "nzb-1"})
+
+    assert [level for level, _ in calls] == ["warn", "fdebug", "fdebug"]
+    assert all("[DDL(External)]" in message for _, message in calls)
 
 
 def test_ddl_external_snatch_constructor_matches_search_py():

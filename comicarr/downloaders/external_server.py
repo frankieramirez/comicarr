@@ -33,6 +33,25 @@ from comicarr import logger
 
 EXT_SERVER = False
 
+_PROVIDER = "DDL(External)"
+_UNAVAILABLE = "External search server client is not installed"
+_warned = False
+
+
+def _note_unavailable(consequence):
+    """Say once per process, at warn, that the client is missing; fdebug after that.
+
+    The stub runs once per alternate name per Wanted issue on every search
+    cycle, so a warn on every call fills a quiet log with one static line.
+    """
+    global _warned
+    message = "[%s] %s; %s" % (_PROVIDER, _UNAVAILABLE, consequence)
+    if _warned:
+        logger.fdebug(message)
+        return
+    logger.warn(message)
+    _warned = True
+
 
 class MegaNZ(object):
     def __init__(self, query=None, provider_stat=None):
@@ -40,9 +59,13 @@ class MegaNZ(object):
         self.provider_stat = provider_stat
 
     def ddl_search(self, is_info=None):
-        logger.warn("[DDL(External)] External search server client is not available; returning no results.")
+        _note_unavailable("returning no results")
+        # search_filer imports search, which imports this module at load time.
+        from comicarr import search_filer
+
+        search_filer.report_provider_failure(_PROVIDER, "provider_unavailable", _UNAVAILABLE)
         return "no results"
 
     def queue_the_download(self, cinfo, comicinfo=None, pack_info=None):
-        logger.warn("[DDL(External)] External search server client is not available; cannot queue a download.")
+        _note_unavailable("cannot queue a download")
         return {"success": False}
