@@ -31,6 +31,7 @@ from xml.parsers.expat import ExpatError
 import comicarr
 from comicarr import cv, logger
 from comicarr.helpers import (
+    haveit_for_series_id,
     ignored_publisher_check,
     listLibrary,
     listStoryArcs,
@@ -566,14 +567,7 @@ def findComic(
                             xmlvol = None
                             xmlimprint = None
 
-                        if xmlid in comicLibrary:
-                            haveit = comicLibrary[xmlid]
-                        else:
-                            name_key = "name:" + xmlTag.lower().strip() + ":" + str(xmlYr).strip()
-                            if name_key in comicLibrary:
-                                haveit = comicLibrary[name_key]
-                            else:
-                                haveit = "No"
+                        haveit = haveit_for_series_id(comicLibrary, xmlid)
                         comiclist.append(
                             {
                                 "name": xmlTag,
@@ -744,10 +738,7 @@ def storyarcinfo(xmlid):
     except:
         xmldeck = "None"
 
-    if xmlid in comicLibrary:
-        haveit = comicLibrary[xmlid]
-    else:
-        haveit = "No"
+    haveit = haveit_for_series_id(comicLibrary, xmlid)
 
     arcinfo = {
         "comicyear": arcyear,

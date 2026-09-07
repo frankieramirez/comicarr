@@ -1048,3 +1048,37 @@ class TestDeleteComicDirectory:
         assert result["success"] is True
         assert outside_series.is_dir()
         delete_from_db.assert_called_once_with("123")
+
+
+class TestHaveitForSeriesId:
+    """Add Series must key 'already added' on ComicID, not title+year (#867)."""
+
+    def _library_with_absolute_superman(self):
+        added = {"comicid": "160860", "status": "Active"}
+        return {
+            "160860": added,
+            "name:absolute superman:2025": added,
+        }
+
+    def test_added_comicvine_id_is_in_library(self):
+        library = self._library_with_absolute_superman()
+        assert series_service.haveit_for_series_id(library, "160860") == library["160860"]
+
+    def test_same_title_different_comicvine_id_is_not_added(self):
+        library = self._library_with_absolute_superman()
+        for other_id in ("168589", "166388", "168339", "169086"):
+            assert series_service.haveit_for_series_id(library, other_id) == "No"
+
+    def test_missing_or_empty_id_is_not_added(self):
+        library = self._library_with_absolute_superman()
+        assert series_service.haveit_for_series_id(library, None) == "No"
+        assert series_service.haveit_for_series_id(library, "") == "No"
+
+    def test_comicvine_search_does_not_fallback_to_name_year(self):
+        import inspect
+
+        from comicarr import mb
+
+        source = inspect.getsource(mb.findComic)
+        assert "name_key" not in source
+        assert "haveit_for_series_id" in source
