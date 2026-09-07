@@ -115,6 +115,18 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
         return dom
 
 
+def haveit_for_comicvine(xmlid, comic_library):
+    """Return library membership for one ComicVine series ID.
+
+    Distinct ComicVine series can share a display title and year (collected
+    editions, translations, alternate publications). Add Series must treat
+    each ComicVine ID as its own library member; name/year is not identity.
+    """
+    if xmlid in comic_library:
+        return comic_library[xmlid]
+    return "No"
+
+
 def findComic(
     name,
     mode,
@@ -566,14 +578,7 @@ def findComic(
                             xmlvol = None
                             xmlimprint = None
 
-                        if xmlid in comicLibrary:
-                            haveit = comicLibrary[xmlid]
-                        else:
-                            name_key = "name:" + xmlTag.lower().strip() + ":" + str(xmlYr).strip()
-                            if name_key in comicLibrary:
-                                haveit = comicLibrary[name_key]
-                            else:
-                                haveit = "No"
+                        haveit = haveit_for_comicvine(xmlid, comicLibrary)
                         comiclist.append(
                             {
                                 "name": xmlTag,
@@ -744,10 +749,7 @@ def storyarcinfo(xmlid):
     except:
         xmldeck = "None"
 
-    if xmlid in comicLibrary:
-        haveit = comicLibrary[xmlid]
-    else:
-        haveit = "No"
+    haveit = haveit_for_comicvine(xmlid, comicLibrary)
 
     arcinfo = {
         "comicyear": arcyear,
