@@ -177,7 +177,9 @@ class metadata_Series(object):
                     issue_count=comic["Total"],
                     series_year=SeriesYear,
                     current_year=helpers.today()[:4],
-                    volume=comic.get("ComicVersion") or comicVol,
+                    # A configured default volume is an output convenience, not
+                    # evidence that the series is a collected edition.
+                    volume=comic.get("ComicVersion"),
                     description=cdes_removed,
                     series_name=comic.get("ComicName"),
                 )

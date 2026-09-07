@@ -77,3 +77,13 @@ def test_hash_issue_is_unchanged():
     assert parsed["issue_number"] == "1"
     assert parsed["booktype"] == "issue"
     assert matched["process_status"] == "match"
+
+
+def test_volume_word_in_series_title_does_not_capture_later_issue():
+    parsed, matched = _match("The Volume Of Things #1 (2024)", "The Volume Of Things")
+
+    assert parsed["series_name"] == "The Volume Of Things"
+    assert parsed["series_volume"] is None
+    assert parsed["issue_number"] == "1"
+    assert parsed["booktype"] == "issue"
+    assert matched["process_status"] == "match"

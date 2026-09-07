@@ -488,7 +488,14 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         comic_deck = "None"
 
     givb = get_imprint_volume_and_booktype(
-        series, comic["ComicYear"], comic["ComicPublisher"], comic["FirstIssueID"], comic_desc, comic_deck
+        series,
+        comic["ComicYear"],
+        comic["ComicPublisher"],
+        comic["FirstIssueID"],
+        comic_desc,
+        comic_deck,
+        issue_count=cntit,
+        series_name=comic.get("ComicName"),
     )
     if givb:
         comic["ComicPublisher"] = givb["ComicPublisher"]
@@ -1257,7 +1264,17 @@ def drophtml(html):
         return ""
 
 
-def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, description, deck, annual_check=False):
+def get_imprint_volume_and_booktype(
+    series,
+    comicyear,
+    publisher,
+    firstissueid,
+    description,
+    deck,
+    annual_check=False,
+    issue_count=None,
+    series_name=None,
+):
     comic = {}
 
     comic["ComicYear"] = comicyear
@@ -1603,13 +1620,13 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
 
     comic["Type"] = resolve_series_edition(
         series_type=comic.get("Type"),
-        issue_count=comic.get("ComicIssues"),
+        issue_count=issue_count,
         series_year=comic.get("ComicYear"),
         current_year=helpers.today()[:4],
         volume=comic.get("ComicVersion"),
         description=comic.get("ComicDescription") or comic_desc,
         deck=comic_deck,
-        series_name=comic.get("ComicName"),
+        series_name=series_name,
     )
 
     logger.info("comic_values: %s" % (comic,))

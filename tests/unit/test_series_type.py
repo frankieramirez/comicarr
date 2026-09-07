@@ -7,6 +7,8 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
+import pytest
+
 from comicarr.app.metadata.series_type import collected_edition_type, resolve_series_edition
 
 
@@ -107,4 +109,44 @@ def test_current_year_single_issue_is_not_forced_to_oneshot():
             current_year=2026,
         )
         == "Print"
+    )
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "A paperback version can be found elsewhere.",
+        "Hardcover editions can be found elsewhere.",
+        "The trade paperback can be found here.",
+        "A graphic novel edition can be found here.",
+        "The TPB can be found in Book 2 of the collected series.",
+    ],
+)
+def test_references_to_other_editions_do_not_classify_this_series(reference):
+    description = "Print edition. " + "A story about warriors. " * 4 + reference
+    assert (
+        resolve_series_edition(
+            series_type="Print",
+            issue_count=1,
+            series_year=2024,
+            current_year=2026,
+            description=description,
+        )
+        == "One-Shot"
+    )
+
+
+def test_reference_does_not_hide_affirmative_edition_metadata():
+    assert (
+        collected_edition_type(
+            description="A paperback version can be found elsewhere. This hardcover collects issues 1-4."
+        )
+        == "HC"
+    )
+    assert (
+        collected_edition_type(
+            description="A hardcover edition can be found elsewhere.",
+            deck="Trade paperback collecting the first four issues.",
+        )
+        == "TPB"
     )

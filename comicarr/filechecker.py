@@ -472,6 +472,7 @@ class FileChecker(object):
         possible_issuenumbers = []
         volumeprior = False
         volumeprior_label = None
+        volumeprior_position = None
         volume = None
         volume_found = {}
         datecheck = []
@@ -496,6 +497,15 @@ class FileChecker(object):
 
         for sf in split_file:
             current_pos += 1
+            # A separated volume label can only consume the immediately next
+            # token.  Without this guard, words in a series title (for
+            # example, ``The Volume Of Things``) leave ``volumeprior`` set
+            # until a later issue number is encountered.
+            if volumeprior and volumeprior_position is not None and current_pos != volumeprior_position + 1:
+                volumeprior = False
+                volumeprior_label = None
+                volumeprior_position = None
+                sep_volume = False
             if split_file.index(sf) >= 0 and not volumeprior:
                 dtcheck = re.sub(r"[\(\)\,]", "", sf).strip()
                 if (
@@ -792,6 +802,7 @@ class FileChecker(object):
                     volumeprior_label = None
                 elif all(["vol" in sf.lower(), len(sf) == 3]) or all(["vol." in sf.lower(), len(sf) == 4]):
                     volumeprior = True
+                    volumeprior_position = current_pos
                     sep_volume = True
                     volumeprior_label = sf
                     logger.fdebug(
@@ -804,6 +815,7 @@ class FileChecker(object):
                         volume_found["position"] = split_file.index(sf)
                     else:
                         volumeprior = True
+                        volumeprior_position = current_pos
                         sep_volume = True
                         volumeprior_label = sf
                 elif all(["part" in sf.lower(), len(sf) == 4]):
@@ -814,6 +826,7 @@ class FileChecker(object):
                             volume_found["position"] = split_file.index(sf)
                         else:
                             volumeprior = True
+                            volumeprior_position = current_pos
                             sep_volume = True
                             volumeprior_label = sf
 

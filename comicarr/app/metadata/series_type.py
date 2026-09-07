@@ -42,6 +42,11 @@ _VOLUME_OR_BOOK = re.compile(
     re.IGNORECASE,
 )
 _TPB_WORD = re.compile(r"\btpb\b", re.IGNORECASE)
+_EDITION_REFERENCE = re.compile(
+    r"[^.!?\n]*\b(?:trade\s+paperbacks?|paperbacks?|hardcovers?|graphic\s+novels?|tpbs?)"
+    r"(?:\s+(?:versions?|editions?))?\s+can\s+be\s+found\b[^.!?\n]*",
+    re.IGNORECASE,
+)
 _EMPTY = {"", "none", "null"}
 
 
@@ -71,7 +76,8 @@ def _clean_text(*parts):
         text = str(part).strip()
         if text.lower() in _EMPTY:
             continue
-        chunks.append(text)
+        # Links to a different edition describe that edition, not this series.
+        chunks.append(_EDITION_REFERENCE.sub("", text))
     return " ".join(chunks)
 
 
@@ -101,13 +107,13 @@ def collected_edition_type(
     if not blob:
         return None
 
-    if "hardcover" in blob and "hardcover can be found" not in blob:
+    if "hardcover" in blob:
         return "HC"
-    if "graphic novel" in blob and "graphic novel can be found" not in blob:
+    if "graphic novel" in blob:
         return "GN"
     if "trade paperback" in blob:
         return "TPB"
-    if "paperback" in blob and "paperback can be found" not in blob:
+    if "paperback" in blob:
         return "TPB"
     if _TPB_WORD.search(blob):
         return "TPB"
