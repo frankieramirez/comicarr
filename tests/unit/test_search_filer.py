@@ -314,6 +314,47 @@ def test_datetime_rejection_does_not_fall_through_to_disagreeing_integer_compari
     assert _reason(evaluation) == "rejected.before_reference_date"
 
 
+class TestStoreDateGateOnAMangaVolumePass:
+    """A volume number identifies the book; a street date cannot improve on it.
+
+    The store-date comparison is a periodical tiebreak: an issue NUMBER recycles
+    across runs, so the street date says which run a result belongs to. A volume
+    number does not recycle, and digital manga is routinely posted before the
+    street date ComicVine records -- so on a volume pass the gate only discards
+    correct files.
+    """
+
+    _EARLY = dict(
+        UseFuzzy="0",
+        StoreDate="2024-02-01",
+        IssueDate="2024-02-01",
+        digitaldate="2024-02-01",
+    )
+
+    @staticmethod
+    def _evaluate(**info):
+        return search_filer.search_check().evaluate_entry(
+            _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
+            _info(**info),
+        )
+
+    def test_a_volume_pass_survives_a_pubdate_before_the_store_date(self):
+        """The real rejection: OPM v06 posted 2016-04-13, store date 2016-04-27."""
+        evaluation = self._evaluate(manga_match_name="Example Series", **self._EARLY)
+        assert _reason(evaluation) != "rejected.before_reference_date"
+
+    def test_a_periodical_with_the_same_dates_is_STILL_rejected(self):
+        """Control: this must stay a rejection, or the gate is disabled, not scoped."""
+        evaluation = self._evaluate(**self._EARLY)
+        assert _reason(evaluation) == "rejected.before_reference_date"
+
+    def test_the_exemption_needs_the_volume_pass_not_merely_a_manga_series(self):
+        """manga_match_name is set only by the volume pass; a chapter pass keeps
+        normal issue-number handling and so keeps the date tiebreak."""
+        evaluation = self._evaluate(manga_match_name=None, booktype="Manga", **self._EARLY)
+        assert _reason(evaluation) == "rejected.before_reference_date"
+
+
 @pytest.mark.parametrize(
     ("parsed", "matched", "match_error", "info", "reason_code"),
     [
@@ -492,9 +533,7 @@ def test_numberless_series_pack_is_not_detected_for_print_series(monkeypatch):
 
 
 def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
-    monkeypatch.setattr(
-        search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
-    )
+    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
     info = _info(allow_packs=True)
     entry = _entry(title="Example Series #1-10 (2024)")
 
@@ -629,3 +668,58 @@ def test_first_result_preserves_preference_and_last_fallback(monkeypatch):
     process.reset_mock(side_effect=True)
     process.side_effect = candidates[:2]
     assert checker.check_for_first_result([1, 2], {}, prefer_pack=False)["name"] == "last-pack"
+
+
+class TestMangaVolumeAcceptanceArm:
+    """The volume-number acceptance arm, driven through evaluate_entry.
+
+    The store-date tests above cannot reach it: they stub justthedigits as 1,
+    so they accept via `intIss == comintIss` and the arm never runs. A volume
+    release carries no issue digits at all, which is precisely the shape that
+    reaches this arm.
+    """
+
+    @staticmethod
+    def _evaluate(monkeypatch, *, volume, wanted, series_volume=None):
+        _install_parser(
+            monkeypatch,
+            parsed=_parsed(series_volume=series_volume or "v%s" % volume, issue_number=None, booktype="TPB"),
+            # No issue digits: a volume release has none, so pc_in is None,
+            # and the volume itself is what the arm compares against.
+            matched=_matched(
+                justthedigits=None,
+                booktype="TPB",
+                volume=series_volume or "v%s" % volume,
+                series_volume=series_volume or "v%s" % volume,
+            ),
+        )
+        return search_filer.search_check().evaluate_entry(
+            _entry(title="Example Series v%s (2024)" % volume),
+            _info(
+                manga_match_name="Example Series",
+                findcomiciss=wanted,
+                IssueNumber=wanted,
+                cmloopit=3,
+                UseFuzzy="0",
+                booktype="TPB",
+            ),
+        )
+
+    def test_the_wanted_volume_is_accepted(self, monkeypatch):
+        evaluation = self._evaluate(monkeypatch, volume="06", wanted="6")
+        assert _reason(evaluation) is None or "rejected" not in str(_reason(evaluation))
+
+    def test_a_different_volume_is_rejected(self, monkeypatch):
+        """The arm must discriminate, not wave every volume through."""
+        evaluation = self._evaluate(monkeypatch, volume="07", wanted="6")
+        assert "rejected" in str(_reason(evaluation))
+
+    def test_a_three_digit_volume_is_still_read_as_a_volume(self, monkeypatch):
+        """v100 is 3 digits after the v, so it is a volume and not a year.
+
+        The version arm measured the whole `v100` string against `< 4`, so it
+        matched no arm, left fndcomicversion None and lost the year bypass --
+        One Piece v100 labelled 2021 against a 1997 series year was rejected.
+        """
+        evaluation = self._evaluate(monkeypatch, volume="100", wanted="100")
+        assert _reason(evaluation) is None or "rejected" not in str(_reason(evaluation))

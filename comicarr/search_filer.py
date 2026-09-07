@@ -484,8 +484,25 @@ class search_check(object):
                     logger.fdebug("Invalid date found. Unable to continue - skipping result. Error returned: %s" % e)
                     _reject("invalid.pubdate_missing", cause=e)
 
-        if UseFuzzy == "1":
-            logger.fdebug("Year has been fuzzied for this series, ignoring store date comparison entirely.")
+        if UseFuzzy == "1" or manga_volume_pass:
+            if manga_volume_pass:
+                # The store-date comparison exists because a periodical's issue
+                # NUMBER recycles across runs -- #6 of a 2016 run and #6 of a
+                # 1998 one are both "6" -- so the street date is the tiebreak.
+                # A volume number does not recycle, and manga_volume_satisfies()
+                # below still has to match it, so here the date adds no
+                # disambiguation and only subtracts: digital manga is routinely
+                # posted BEFORE the street date ComicVine records (which for a
+                # manga volume is often weeks late), and the gate then throws
+                # away the one correct file. Observed: "One-Punch Man v06 (2015)
+                # (Digital) (BlackManta-Empire)", posted 2016-04-13, rejected
+                # against a store date of 2016-04-27.
+                logger.fdebug(
+                    "[MANGA] Volume pass - the volume number identifies the book,"
+                    " ignoring store date comparison entirely."
+                )
+            else:
+                logger.fdebug("Year has been fuzzied for this series, ignoring store date comparison entirely.")
             postdate_int = None
             issuedate_int = None
         else:
@@ -762,7 +779,14 @@ class search_check(object):
                 logger.fdebug("[Vx] Version detected as %s" % parsed_comic["series_volume"])
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]
-            elif parsed_comic["series_volume"][1:].isdigit() and len(parsed_comic["series_volume"]) < 4:
+            # Digits AFTER the v, matching the two arms above. Measuring the
+            # whole string here made `v100` 4 characters, so it failed `< 4`
+            # although its 3 digits are plainly a volume and not a year. It
+            # then matched no arm at all, left fndcomicversion None and lost
+            # the year bypass -- One Piece v100, labelled 2021 against a 1997
+            # series year, was rejected for it. Four digits after the v is
+            # still a year, and is still claimed by the [Vxxxx] arm above.
+            elif parsed_comic["series_volume"][1:].isdigit() and len(parsed_comic["series_volume"][1:]) < 4:
                 logger.fdebug("[Vxxx] Version detected as %s" % parsed_comic["series_volume"])
                 vers4vol = parsed_comic["series_volume"]
                 fndcomicversion = parsed_comic["series_volume"]

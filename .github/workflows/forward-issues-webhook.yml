@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Forward issue payload
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           COMICARR_WEBHOOK_URL: ${{ secrets.COMICARR_WEBHOOK_URL }}
           COMICARR_WEBHOOK_KEY: ${{ secrets.COMICARR_WEBHOOK_KEY }}
