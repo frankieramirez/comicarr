@@ -2591,6 +2591,21 @@ class PostProcessor(object):
                                                 )
                                                 datematch = "True"
 
+                                            # The year-settle was added to the watchlist
+                                            # path and never copied here, so the same
+                                            # manga whose 2014-labelled file matched a
+                                            # 2015 ledger year was accepted on the
+                                            # watchlist and rejected when it arrived as
+                                            # part of a story arc.
+                                            if datematch == "False" and volume_settles_year_for_match(
+                                                arc_values, arcmatch
+                                            ):
+                                                logger.fdebug(
+                                                    "%s[ARC][MANGA][VOLUME MATCH] Volume %s matched, so the year in the filename (%s) does not decide this file."
+                                                    % (module, arcmatch["series_volume"], arcmatch["issue_year"])
+                                                )
+                                                datematch = "True"
+
                                             if datematch == "True":
                                                 passit = False
                                                 if len(manual_list) > 0:
@@ -4137,10 +4152,157 @@ class PostProcessor(object):
         The `move` / `Manual Run` guards are applied here so manga never asks
         `tidyup` to touch an operator-chosen folder. `tidyup` itself still
         refuses to delete a directory that is not empty.
+
+        The config is read through `getattr`, as the rest of this path does: a
+        tidy-up is the last thing `_process_manga` does, and it must never turn
+        an already-successful import into an exception.
         """
-        if comicarr.CONFIG.FILE_OPTS != "move" or self.nzb_name == "Manual Run":
+        if getattr(comicarr.CONFIG, "FILE_OPTS", None) != "move" or self.nzb_name == "Manual Run":
             return
         self.tidyup(nzb_dir, True)
+
+    def _match_manga_issue(self, parsed):
+        """Return the ledger row a parsed manga file belongs to, or None.
+
+        A pure lookup over `parsed` and this series' issue rows: it reads the
+        database and nothing else, so it can be answered before the file is
+        placed. That ordering matters -- tagging needs the IssueID, and tagging
+        has to happen while the file is still at its download location.
+
+        Chapter first, then volume: a chapter number is the more specific
+        claim, and a volume-numbered file has no chapter number to offer.
+        """
+        if parsed is None:
+            return None
+
+        matching = None
+
+        if parsed.get("chapter_number") is not None:
+            ch_num = parsed["chapter_number"]
+            ch_str = "%g" % ch_num
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.ChapterNumber == ch_str,
+                    )
+                )
+            )
+            if matching is None:
+                matching = db.select_one(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.Issue_Number == ch_str,
+                        )
+                    )
+                )
+                if matching is None and ch_str != str(ch_num):
+                    matching = db.select_one(
+                        select(issues).where(
+                            and_(
+                                issues.c.ComicID == self.comicid,
+                                issues.c.Issue_Number == str(ch_num),
+                            )
+                        )
+                    )
+
+        if matching is None and parsed.get("volume_number") is not None:
+            vol_str = str(parsed["volume_number"])
+            matching = db.select_one(
+                select(issues).where(
+                    and_(
+                        issues.c.ComicID == self.comicid,
+                        issues.c.VolumeNumber == vol_str,
+                    )
+                )
+            )
+            if matching is None:
+                # The equality above is a string comparison between two sources
+                # that write the same volume differently: the parser turns `v01`
+                # into int 1, so it asks for '1', while MangaDex stores
+                # str(chapter.volume) and can hold '01'. The row then never
+                # matched and the file was placed untagged. Compare through the
+                # ledger rule, which already owns what a volume number means,
+                # rather than inventing a second padding convention here.
+                for row in db.select_all(
+                    select(issues).where(
+                        and_(
+                            issues.c.ComicID == self.comicid,
+                            issues.c.VolumeNumber.isnot(None),
+                        )
+                    )
+                ):
+                    wanted = normalize_volume_number(vol_str)
+                    if wanted is not None and normalize_volume_number(row.get("VolumeNumber")) == wanted:
+                        matching = row
+                        break
+
+        return matching
+
+    def _metatag_manga_file(self, filepath, issueid):
+        """Write metadata into a manga file before it is placed.
+
+        The comic path tags at the download location and then places whatever
+        ComicTagger hands back, because tagging can rename the file: it cannot
+        write into an existing archive, so a .cbr is rebuilt as a .cbz. The
+        manga path placed files the same way but never tagged them at all, so a
+        manga volume arrived in the library with no ComicInfo.xml while every
+        comic beside it had one -- and the only way to fix that was a manual
+        bulk re-tag afterwards.
+
+        Returns the path to place: the tagged file on success, the original
+        path otherwise. Tagging is best effort; a metadata failure must not
+        cost the import, exactly as it does not on the comic path.
+        """
+        module = self.module
+
+        # Same condition the comic path uses (ENABLE_META or CBR2CBZ_ONLY), read
+        # defensively: tagging is an enhancement to the import, so a process
+        # without configuration loaded places the file untagged rather than
+        # failing the import over it.
+        config = comicarr.CONFIG
+        if config is None:
+            return filepath
+        if not (getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False)):
+            return filepath
+
+        try:
+            from . import cmtag
+
+            pcheck = cmtag.run(
+                self.nzb_folder,
+                issueid=issueid,
+                filename=filepath,
+            )
+        except ImportError:
+            logger.fdebug(
+                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                % module
+            )
+            return filepath
+        except Exception as e:
+            logger.error("%s [MANGA] Metatagging raised for %s [%s]" % (module, filepath, e))
+            return filepath
+
+        # cmtag.run returns a path on success and a sentinel string otherwise
+        # ("fail", "corrupt", "unrar error", "file not found||<path>"). Requiring
+        # an existing file rather than enumerating the sentinels means a new
+        # sentinel degrades to "not tagged" instead of placing a bogus path.
+        if not isinstance(pcheck, str) or not os.path.isfile(pcheck):
+            logger.warn(
+                "%s [MANGA] Unable to write metadata to %s [%s] - placing it untagged."
+                % (module, os.path.basename(filepath), pcheck)
+            )
+            return filepath
+
+        if pcheck != filepath:
+            logger.info(
+                "%s [MANGA] Wrote metadata: %s -> %s" % (module, os.path.basename(filepath), os.path.basename(pcheck))
+            )
+        else:
+            logger.info("%s [MANGA] Wrote metadata to %s" % (module, os.path.basename(pcheck)))
+        return pcheck
 
     def _process_manga(self):
         """Post-process a downloaded manga file.
@@ -4241,6 +4403,29 @@ class PostProcessor(object):
                 logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
                 continue
 
+            # Resolve the ledger row first: the lookup only reads `parsed` and
+            # the series' issue rows, and the tagger needs the IssueID to know
+            # which volume this file is. Tagging then happens here, at the
+            # download location, because it can rename the file -- so the name
+            # that gets placed and recorded has to be the tagged one.
+            matching = self._match_manga_issue(parsed)
+
+            # Kept so the download original can be tidied after placement:
+            # cmtag.run copies into CACHE_DIR and returns the CACHE path, so
+            # what place() consumes is the copy, not the download.
+            pre_tag_path = filepath
+
+            if matching is not None:
+                # Best effort: a row without an IssueID cannot be tagged, but it
+                # can still be placed and marked, so this must not raise.
+                try:
+                    tag_issueid = matching["IssueID"]
+                except (KeyError, TypeError, IndexError):
+                    tag_issueid = None
+                if tag_issueid is not None:
+                    filepath = self._metatag_manga_file(filepath, tag_issueid)
+                    filename = os.path.basename(filepath)
+
             dst = os.path.join(series_folder, filename)
 
             try:
@@ -4255,50 +4440,39 @@ class PostProcessor(object):
             else:
                 logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
 
+            # Under FILE_OPTS = move, place() consumed the TAGGED copy out of
+            # the cache, so the download original is still sitting there and
+            # the next pass picks it up again. The comic path tidies the
+            # pre-tag file after placement for the same reason; do it here per
+            # file rather than through tidyup(), which works on the whole
+            # folder and would take files this run has not placed yet.
+            #
+            # Skipped when tagging did not produce a new path: filepath is then
+            # the original, and place() has already dealt with it.
+            #
+            # Also skipped when the series folder resolves back to the download
+            # folder and tagging did not rename the file, because then the file
+            # sitting at pre_tag_path is the one place() just wrote to dst.
+            # place() cannot catch this itself: it compares its own source, the
+            # cache copy, against dst, so the same-file short circuit misses.
+            # realpath rather than samefile, because dst need not exist here and
+            # samefile raises on a missing path.
+            if (
+                filepath != pre_tag_path
+                and getattr(comicarr.CONFIG, "FILE_OPTS", None) == "move"
+                and os.path.realpath(pre_tag_path) != os.path.realpath(dst)
+                and os.path.isfile(pre_tag_path)
+            ):
+                try:
+                    os.remove(pre_tag_path)
+                    logger.fdebug("%s Removed the pre-tag download original: %s" % (module, pre_tag_path))
+                except OSError as e:
+                    logger.warn(
+                        "%s Unable to remove the pre-tag download original %s [%s] -- it will be re-processed"
+                        % (module, pre_tag_path, e)
+                    )
+
             self._journal_pp("post_processing")
-
-            matching = None
-
-            if parsed and parsed.get("chapter_number") is not None:
-                ch_num = parsed["chapter_number"]
-                ch_str = "%g" % ch_num
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.ChapterNumber == ch_str,
-                        )
-                    )
-                )
-                if matching is None:
-                    matching = db.select_one(
-                        select(issues).where(
-                            and_(
-                                issues.c.ComicID == self.comicid,
-                                issues.c.Issue_Number == ch_str,
-                            )
-                        )
-                    )
-                    if matching is None and ch_str != str(ch_num):
-                        matching = db.select_one(
-                            select(issues).where(
-                                and_(
-                                    issues.c.ComicID == self.comicid,
-                                    issues.c.Issue_Number == str(ch_num),
-                                )
-                            )
-                        )
-
-            if matching is None and parsed and parsed.get("volume_number") is not None:
-                vol_str = str(parsed["volume_number"])
-                matching = db.select_one(
-                    select(issues).where(
-                        and_(
-                            issues.c.ComicID == self.comicid,
-                            issues.c.VolumeNumber == vol_str,
-                        )
-                    )
-                )
 
             if matching:
                 issueid = matching["IssueID"]
