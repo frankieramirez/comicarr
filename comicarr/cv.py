@@ -27,6 +27,7 @@ from bs4 import BeautifulSoup as Soup
 
 import comicarr
 from comicarr import helpers, logger
+from comicarr.app.metadata.series_type import resolve_series_edition
 
 
 def get_cache_ttl_for_rtype(rtype):
@@ -487,7 +488,14 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
         comic_deck = "None"
 
     givb = get_imprint_volume_and_booktype(
-        series, comic["ComicYear"], comic["ComicPublisher"], comic["FirstIssueID"], comic_desc, comic_deck
+        series,
+        comic["ComicYear"],
+        comic["ComicPublisher"],
+        comic["FirstIssueID"],
+        comic_desc,
+        comic_deck,
+        issue_count=cntit,
+        series_name=comic.get("ComicName"),
     )
     if givb:
         comic["ComicPublisher"] = givb["ComicPublisher"]
@@ -1106,19 +1114,16 @@ def GetSeriesYears(dom):
             else:
                 break
 
-        if all(
-            [
-                int(number_issues) == 1,
-                tempseries["SeriesYear"] < helpers.today()[:4],
-                tempseries["Type"] != "One-Shot",
-                tempseries["Type"] != "TPB",
-                tempseries["Type"] != "HC",
-                tempseries["Type"] != "GN",
-            ]
-        ):
-            booktype = "One-Shot"
-        else:
-            booktype = tempseries["Type"]
+        booktype = resolve_series_edition(
+            series_type=tempseries["Type"],
+            issue_count=number_issues,
+            series_year=tempseries["SeriesYear"],
+            current_year=helpers.today()[:4],
+            volume=tempseries.get("Volume"),
+            description=comic_desc,
+            deck=comic_deck,
+            series_name=tempseries.get("Series"),
+        )
 
         serieslist.append(
             {
@@ -1259,7 +1264,17 @@ def drophtml(html):
         return ""
 
 
-def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, description, deck, annual_check=False):
+def get_imprint_volume_and_booktype(
+    series,
+    comicyear,
+    publisher,
+    firstissueid,
+    description,
+    deck,
+    annual_check=False,
+    issue_count=None,
+    series_name=None,
+):
     comic = {}
 
     comic["ComicYear"] = comicyear
@@ -1602,6 +1617,17 @@ def get_imprint_volume_and_booktype(series, comicyear, publisher, firstissueid, 
             desdeck -= 1
         else:
             break
+
+    comic["Type"] = resolve_series_edition(
+        series_type=comic.get("Type"),
+        issue_count=issue_count,
+        series_year=comic.get("ComicYear"),
+        current_year=helpers.today()[:4],
+        volume=comic.get("ComicVersion"),
+        description=comic.get("ComicDescription") or comic_desc,
+        deck=comic_deck,
+        series_name=series_name,
+    )
 
     logger.info("comic_values: %s" % (comic,))
 

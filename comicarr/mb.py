@@ -544,7 +544,15 @@ def findComic(
                         IMPRINT_PUBLISHERS = ["Marvel", "DC Comics", "Image Comics"]
                         if not comicarr.CONFIG.CV_SKIP_IMPRINT_VALIDATION and xmlpub in IMPRINT_PUBLISHERS:
                             givb = cv.get_imprint_volume_and_booktype(
-                                True, xmlYr, xmlpub, xml_firstissueid, xmldesc, xmldeck, annual_check
+                                True,
+                                xmlYr,
+                                xmlpub,
+                                xml_firstissueid,
+                                xmldesc,
+                                xmldeck,
+                                annual_check,
+                                issue_count=xmlcnt,
+                                series_name=xmlTag,
                             )
                             logger.fdebug("givb: %s" % (givb,))
                         else:

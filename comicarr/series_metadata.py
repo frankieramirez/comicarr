@@ -27,6 +27,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db, filechecker, helpers, logger, updater
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics
 
 
@@ -171,18 +172,19 @@ class metadata_Series(object):
                     )
                     SeriesYear = int(csyear)
 
-                if all(
-                    [
-                        int(comic["Total"]) == 1,
-                        SeriesYear < int(helpers.today()[:4]),
-                        comic["Type"] != "One-Shot",
-                        comic["Type"] != "TPB",
-                    ]
-                ):
+                booktype = resolve_series_edition(
+                    series_type=comic["Type"],
+                    issue_count=comic["Total"],
+                    series_year=SeriesYear,
+                    current_year=helpers.today()[:4],
+                    # A configured default volume is an output convenience, not
+                    # evidence that the series is a collected edition.
+                    volume=comic.get("ComicVersion"),
+                    description=cdes_removed,
+                    series_name=comic.get("ComicName"),
+                )
+                if booktype == "One-Shot" and comic["Type"] not in ("One-Shot", "TPB", "HC", "GN"):
                     logger.info("Determined to be a one-shot issue. Forcing Edition to One-Shot")
-                    booktype = "One-Shot"
-                else:
-                    booktype = comic["Type"]
 
                 if comic["Corrected_Type"] and comic["Corrected_Type"] != booktype:
                     booktype = comic["Corrected_Type"]

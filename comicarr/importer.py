@@ -52,6 +52,7 @@ from comicarr import (
     updater,
 )
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import annuals, comics, issues
 
 
@@ -485,23 +486,19 @@ def addComictoDB(
     logger.fdebug("comicIssues: %s" % comicIssues)
     logger.fdebug("seriesyear: %s / currentyear: %s" % (SeriesYear, helpers.today()[:4]))
     logger.fdebug("comicType: %s" % comic["Type"])
-    if all(
-        [
-            int(comicIssues) == 1,
-            SeriesYear < helpers.today()[:4],
-            comic["Type"] != "One-Shot",
-            comic["Type"] != "TPB",
-            comic["Type"] != "HC",
-            comic["Type"] != "GN",
-        ]
-    ):
+    booktype = resolve_series_edition(
+        series_type=comic["Type"],
+        issue_count=comicIssues,
+        series_year=SeriesYear,
+        current_year=helpers.today()[:4],
+        volume=comic.get("ComicVersion"),
+        description=comic.get("ComicDescription"),
+        series_name=comic.get("ComicName"),
+    )
+    if booktype == "One-Shot" and comic["Type"] not in ("One-Shot", "TPB", "HC", "GN"):
         logger.info("Determined to be a one-shot issue. Forcing Edition to One-Shot")
-        booktype = "One-Shot"
-    else:
-        if comic["Type"] == "None":
-            booktype = None
-        else:
-            booktype = comic["Type"]
+    elif booktype in ("TPB", "HC", "GN") and comic["Type"] not in ("TPB", "HC", "GN", "One-Shot"):
+        logger.info("Determined to be a collected volume. Setting Edition to %s" % booktype)
 
     u_comicnm = comic["ComicName"]
     comicname_filesafe = helpers.filesafe(u_comicnm)

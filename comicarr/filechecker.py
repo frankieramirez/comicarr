@@ -510,6 +510,8 @@ class FileChecker(object):
 
         possible_issuenumbers = []
         volumeprior = False
+        volumeprior_label = None
+        volumeprior_position = None
         volume = None
         volume_found = {}
         datecheck = []
@@ -534,6 +536,15 @@ class FileChecker(object):
 
         for sf in split_file:
             current_pos += 1
+            # A separated volume label can only consume the immediately next
+            # token.  Without this guard, words in a series title (for
+            # example, ``The Volume Of Things``) leave ``volumeprior`` set
+            # until a later issue number is encountered.
+            if volumeprior and volumeprior_position is not None and current_pos != volumeprior_position + 1:
+                volumeprior = False
+                volumeprior_label = None
+                volumeprior_position = None
+                sep_volume = False
             if split_file.index(sf) >= 0 and not volumeprior:
                 dtcheck = re.sub(r"[\(\)\,]", "", sf).strip()
                 if (
@@ -799,15 +810,25 @@ class FileChecker(object):
                         volume = re.sub("[^0-9]", "", sf)
                     if volumeprior:
                         try:
-                            volume_found["position"] = split_file.index(volumeprior_label, current_pos - 1)
+                            label = volumeprior_label if volumeprior_label is not None else sf
+                            volume_found["position"] = split_file.index(label, max(current_pos - 1, 0))
                             logger.fdebug("volume_found: %s" % volume_found["position"])
                             split_file.pop(volume_found["position"])
-                            split_file.pop(split_file.index(sf, current_pos - 1))
-                            split_file.insert(volume_found["position"], volumeprior_label + volume)
+                            split_file.pop(split_file.index(sf, max(current_pos - 1, 0)))
+                            split_file.insert(volume_found["position"], "%s%s" % (label, volume))
                             split_file.insert(volume_found["position"] + 1, "")
-                        except:
-                            volumeprior = False
+                            # Label + number are now one token, so the series
+                            # title must stop at that token, not one before it.
                             sep_volume = False
+                        except Exception:
+                            volume_found["position"] = split_file.index(sf, current_pos)
+                            volumeprior = False
+                            sep_volume = True
+                            volume_found["volume"] = volume
+                            logger.fdebug(
+                                "volume label detected as : Volume %s @ position: %s"
+                                % (volume, volume_found["position"])
+                            )
                             continue
                     else:
                         volume_found["position"] = split_file.index(sf, current_pos)
@@ -817,9 +838,12 @@ class FileChecker(object):
                         "volume label detected as : Volume %s @ position: %s" % (volume, volume_found["position"])
                     )
                     volumeprior = False
+                    volumeprior_label = None
                 elif all(["vol" in sf.lower(), len(sf) == 3]) or all(["vol." in sf.lower(), len(sf) == 4]):
                     volumeprior = True
+                    volumeprior_position = current_pos
                     sep_volume = True
+                    volumeprior_label = sf
                     logger.fdebug(
                         "volume label detected, but vol. number is not adjacent, adjusting scope to include number."
                     )
@@ -830,7 +854,9 @@ class FileChecker(object):
                         volume_found["position"] = split_file.index(sf)
                     else:
                         volumeprior = True
+                        volumeprior_position = current_pos
                         sep_volume = True
+                        volumeprior_label = sf
                 elif all(["part" in sf.lower(), len(sf) == 4]):
                     if self.watchcomic is not None and "part" not in self.watchcomic.lower():
                         volume = re.sub("[^0-9]", "", sf)
@@ -839,7 +865,9 @@ class FileChecker(object):
                             volume_found["position"] = split_file.index(sf)
                         else:
                             volumeprior = True
+                            volumeprior_position = current_pos
                             sep_volume = True
+                            volumeprior_label = sf
 
                 elif any([sf == "I", sf == "II", sf == "III", sf == "IV"]) and volumeprior:
                     volumeprior = False
