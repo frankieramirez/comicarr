@@ -18,8 +18,6 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
 |Tests:{tests/unit,tests/integration,frontend/tests}
 
-Domain packages under `comicarr/app/`: `series`, `search`, `attention`, `downloads`, `system`, `dashboard`, `metadata`, `storyarcs`, `weekly`, `opds`, `ai`, plus `core` and `common`.
-
 Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` for new work and `recover(release_key)` for restart continuation. The module owns the processing lock, maintenance lease, journal claim, and atomic completion. Busy direct requests return HTTP 409; the queue retries and the folder monitor defers. Legacy processors remain behind this interface.
 
 Anything a user can see is governed by **`DESIGN.md`** — tokens, theming, typography,
@@ -34,7 +32,7 @@ primitives, and the frontend anti-pattern list. Read it before touching
 | Run app | `python3 Comicarr.py --nolaunch` |
 | Test backend | `pytest tests/unit -v` |
 | Lint modern backend | `npm run lint:modern` (`comicarr/app` + `Comicarr.py`) |
-| Run every contributor gate | `npm run lint:guards` (`scripts/check_retired_globals.py`, `scripts/check_fail_reason_registry.py`, `scripts/check_upsert_tables.py`, `scripts/check_attention_seam.py`, `scripts/check_support_bundle_terms.py`, `scripts/check_design_tokens.py`, `scripts/check_palette_classes.py`) |
+| Run every contributor gate | `npm run lint:guards` |
 | Lint all (CI parity) | `npm run lint` |
 | Regenerate settings types | `npm run lint:fix:generated` (after editing the config registry) |
 
@@ -45,10 +43,6 @@ Default HTTP port is **8090**. Vite dev proxy targets `http://localhost:8090` (o
 ## Releases
 
 Releases are automated via Changesets. See the `releases` skill (`.claude/skills/releases/SKILL.md`) for the full workflow. Human-facing prose rules live in `CONTRIBUTING.md` → *Writing a changeset (operator-facing)*.
-
-**When a refactor earns a changeset:** when it changes something an *operator* could observe. Pure internal restructuring with verified-identical behaviour does not get one, and neither does tooling/CI-only work — `changeset-status.yml` treats a missing changeset as an allowed warning for exactly that. A change only a *contributor* can observe (a new lint gate, a type that now rejects a bad key) is documented here, not in the changelog.
-
-**How to write the summary:** Changeset text is **operator-facing** by default — outcome-first prose naming what the operator can see or do. Avoid ticket-only, filename-only, or internals-as-headline bullets. In-app What's New / update notes render `CHANGELOG.md` with only a mechanical transform (no editorial filter). Never land a changeset whose whole body is "No user-visible behaviour changes." — omit the changeset instead and let the next operator-visible change carry the version bump.
 
 ## Branch & PR Conventions
 
@@ -95,3 +89,9 @@ Conventional PR titles keep history readable, but they do not control releases. 
 - Frontend uses `npm` only — `bun` is not supported
 - Auth uses JWT session cookies (`comicarr_session`); changing auth secrets invalidates sessions
 - `GITHUB_TOKEN` tags don't trigger downstream workflows — Docker build is in the Changesets release workflow, not separate
+
+## Agent skills
+
+Issue tracker: GitHub frankieramirez/comicarr. See `docs/agents/issue-tracker.md`.
+Triage labels: mapped. See `docs/agents/triage-labels.md`.
+Validation: `npm run lint`
