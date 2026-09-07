@@ -1654,6 +1654,21 @@ def listPull(weeknumber, year):
     return library
 
 
+def haveit_for_series_id(library, series_id):
+    """Return library membership for this exact series ID, or ``"No"``.
+
+    Add Series marks a ComicVine result as already added only when this
+    ComicID is in the library. A ``name:title:year`` alias must not mark a
+    different ComicVine series as added (#867).
+    """
+    if not series_id:
+        return "No"
+    entry = library.get(series_id)
+    if entry is None:
+        return "No"
+    return entry
+
+
 def listLibrary(comicid=None):
     from sqlalchemy import select
 
@@ -1725,6 +1740,8 @@ def listLibrary(comicid=None):
             name = row["ComicName"]
             year = row["ComicYear"]
             if name and year:
+                # Provider-crosswalk alias for Metron / manga search. ComicVine
+                # Add Series must not use this key — same-title series collide (#867).
                 name_key = "name:" + name.lower().strip() + ":" + str(year).strip()
                 library[name_key] = {"comicid": row["ComicID"], "status": row["Status"]}
         except Exception:

@@ -31,6 +31,7 @@ from xml.parsers.expat import ExpatError
 import comicarr
 from comicarr import cv, logger
 from comicarr.helpers import (
+    haveit_for_series_id,
     ignored_publisher_check,
     listLibrary,
     listStoryArcs,
@@ -122,9 +123,7 @@ def haveit_for_comicvine(xmlid, comic_library):
     editions, translations, alternate publications). Add Series must treat
     each ComicVine ID as its own library member; name/year is not identity.
     """
-    if xmlid in comic_library:
-        return comic_library[xmlid]
-    return "No"
+    return haveit_for_series_id(comic_library, xmlid)
 
 
 def findComic(

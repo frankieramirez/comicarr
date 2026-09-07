@@ -119,6 +119,7 @@ from comicarr.app.series.service import (  # noqa: F401
     annual_update,
     checkthepub,
     get_issue_title,
+    haveit_for_series_id,
     havetotals,
     incr_snatched,
     issue_status,

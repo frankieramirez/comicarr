@@ -1048,3 +1048,78 @@ class TestDeleteComicDirectory:
         assert result["success"] is True
         assert outside_series.is_dir()
         delete_from_db.assert_called_once_with("123")
+
+
+class TestHaveitForSeriesId:
+    """Add Series must key 'already added' on ComicID, not title+year (#867)."""
+
+    def _library_with_absolute_superman(self):
+        added = {"comicid": "160860", "status": "Active"}
+        return {
+            "160860": added,
+            "name:absolute superman:2025": added,
+        }
+
+    def test_added_comicvine_id_is_in_library(self):
+        library = self._library_with_absolute_superman()
+        assert series_service.haveit_for_series_id(library, "160860") == library["160860"]
+
+    def test_same_title_different_comicvine_id_is_not_added(self):
+        library = self._library_with_absolute_superman()
+        for other_id in ("168589", "166388", "168339", "169086"):
+            assert series_service.haveit_for_series_id(library, other_id) == "No"
+
+    def test_missing_or_empty_id_is_not_added(self):
+        library = self._library_with_absolute_superman()
+        assert series_service.haveit_for_series_id(library, None) == "No"
+        assert series_service.haveit_for_series_id(library, "") == "No"
+
+    @pytest.mark.parametrize("limit", [None, 5], ids=["all-results", "paginated"])
+    def test_comicvine_search_does_not_fallback_to_name_year(self, limit):
+        from comicarr import mb
+
+        library = self._library_with_absolute_superman()
+        series_ids = ("160860", "168589", "166388", "168339", "169086")
+        volumes = "".join(
+            f"""<volume>
+                <id>{series_id}</id>
+                <name>Absolute Superman</name>
+                <start_year>2025</start_year>
+                <count_of_issues>2</count_of_issues>
+                <site_detail_url>https://comicvine.gamespot.com/absolute-superman/4050-{series_id}/</site_detail_url>
+                <publisher><name>DC Comics</name></publisher>
+            </volume>"""
+            for series_id in series_ids
+        )
+        response = SimpleNamespace(
+            content=(
+                f"<response><number_of_total_results>5</number_of_total_results><results>{volumes}</results></response>"
+            ).encode()
+        )
+        config = SimpleNamespace(
+            USE_METRON_SEARCH=False,
+            COMICVINE_API="test-key",
+            CV_VERIFY=True,
+            CV_PARALLEL_PAGINATION=False,
+            CV_SKIP_IMPRINT_VALIDATION=True,
+        )
+        with (
+            patch.object(comicarr, "CONFIG", config),
+            patch.object(comicarr, "CVURL", "https://comicvine.gamespot.com/api/"),
+            patch.object(comicarr, "CV_SESSION") as session,
+            patch.object(comicarr, "CV_RATE_LIMITER"),
+            patch.object(mb, "listLibrary", return_value=library),
+            patch.object(mb, "ignored_publisher_check", return_value=False),
+        ):
+            session.get.return_value = response
+            result = mb.findComic("Absolute Superman", "series", issue=None, limit=limit)
+
+        results = result["results"] if limit is not None else result
+        assert len(results) == len(series_ids)
+        assert {comic["comicid"]: comic["haveit"] for comic in results} == {
+            "160860": library["160860"],
+            "168589": "No",
+            "166388": "No",
+            "168339": "No",
+            "169086": "No",
+        }
