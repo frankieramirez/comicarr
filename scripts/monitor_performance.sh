@@ -6,8 +6,8 @@
 LOG_FILE=$(ls -t /tmp/comicarr*.log 2>/dev/null | head -1)
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then
     # Fallback to find the actual log file
-    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-    LOG_FILE=$(find "$SCRIPT_DIR" -name "comicarr.log" -type f 2>/dev/null | head -1)
+    REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+    LOG_FILE=$(find "$REPO_DIR" -name "comicarr.log" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then

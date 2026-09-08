@@ -17,5 +17,8 @@ config.ini
 cache/
 logs/
 .DS_Store
+*.egg-info/
+backup/
+config.ini-v*.backup*
 Dockerfile
 docker-compose.yml
