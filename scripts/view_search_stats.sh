@@ -7,8 +7,8 @@ echo ""
 # Find the log file
 LOG_FILE=$(ls -t /tmp/comicarr*.log 2>/dev/null | head -1)
 if [ -z "$LOG_FILE" ]; then
-    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-    LOG_FILE=$(find "$SCRIPT_DIR" -name "comicarr.log" -type f 2>/dev/null | head -1)
+    REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+    LOG_FILE=$(find "$REPO_DIR" -name "comicarr.log" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then
@@ -46,5 +46,5 @@ lazy_loads=$(grep -c "LAZY LOAD" "$LOG_FILE" 2>/dev/null || echo "0")
 echo "  Story arcs lazy loaded: $lazy_loads"
 
 echo ""
-echo "To monitor in real-time, run: ./monitor_performance.sh"
+echo "To monitor in real-time, run from the repository root: bash scripts/monitor_performance.sh"
 echo ""

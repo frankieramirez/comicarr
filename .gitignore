@@ -21,6 +21,11 @@ venv/
 .nova/
 *.swp
 
+# Generated Python packaging metadata and runtime backups
+*.egg-info/
+/backup/
+config.ini-v*.backup*
+
 # Runtime database files
 cv_cache.db
 .comicarr_maintenance.db

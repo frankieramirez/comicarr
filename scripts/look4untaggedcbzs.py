@@ -1,8 +1,5 @@
-from lib2to3.pgen2.token import NEWLINE
-import sys
 import zipfile
 import os
-import subprocess
 from zipfile import BadZipFile
 from pathlib import Path
 

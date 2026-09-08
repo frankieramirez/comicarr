@@ -1,0 +1,18 @@
+[Unit]
+Description=Comicarr service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=comicarr
+Group=comicarr
+WorkingDirectory=/opt/comicarr
+# Adjust the paths and data directory for the local installation.
+ExecStart=/opt/comicarr/.venv/bin/python /opt/comicarr/Comicarr.py --nolaunch --datadir=/var/lib/comicarr
+Type=simple
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -35,7 +35,7 @@
 ## COMICARR_HOME=         #$APP_PATH, the location of Comicarr.py, the default is /opt/comicarr
 ## COMICARR_DATA=         #$DATA_DIR, the location of comicarr.db, cache, logs, the default is /opt/comicarr
 ## COMICARR_PIDFILE=      #$PID_FILE, the location of comicarr.pid, the default is /var/run/comicarr/comicarr.pid
-## PYTHON_BIN=         #$DAEMON, the location of the python binary, the default is /usr/bin/python
+## PYTHON_BIN=         #$DAEMON, the location of the python binary, the default is /usr/bin/python3
 ## COMICARR_OPTS=         #$EXTRA_DAEMON_OPTS, extra cli option for comicarr, i.e. " --config=/home/comicarr/config.ini"
 ## SSD_OPTS=           #$EXTRA_SSD_OPTS, extra start-stop-daemon option like " --group=users"
 ## COMICARR_PORT=         #$PORT_OPTS, hardcoded port for the webserver, overrides value in config.ini
@@ -101,7 +101,7 @@ load_settings() {
         PID_FILE=${COMICARR_PIDFILE-/var/run/comicarr/comicarr.pid}
 
         # Path to python bin
-        DAEMON=${PYTHON_BIN-/usr/bin/python}
+        DAEMON=${PYTHON_BIN-/usr/bin/python3}
 
         # Extra daemon option like: COMICARR_OPTS=" --config=/home/comicarr/config.ini"
         EXTRA_DAEMON_OPTS=${COMICARR_OPTS-}
@@ -114,7 +114,7 @@ load_settings() {
             PORT_OPTS=" --port=${COMICARR_PORT} "
         }
 
-        DAEMON_OPTS=" Comicarr.py --quiet --daemon --nolaunch --pidfile=${PID_FILE} --datadir=${DATA_DIR} ${PORT_OPTS}${EXTRA_DAEMON_OPTS}"
+        DAEMON_OPTS=" Comicarr.py --log-level warning --daemon --nolaunch --pidfile=${PID_FILE} --datadir=${DATA_DIR} ${PORT_OPTS}${EXTRA_DAEMON_OPTS}"
 
         SETTINGS_LOADED=TRUE
     fi
