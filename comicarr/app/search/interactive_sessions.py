@@ -129,38 +129,16 @@ def _safe_identifier(value):
     return candidate
 
 
-def _entry_value(entry, key):
-    try:
-        return entry.get(key)
-    except AttributeError:
-        try:
-            return entry[key]
-        except Exception:
-            return None
-
-
 def _candidate_reconstruction(evaluation, public):
     """Build the credential-free server reconstruction allowlist."""
 
-    legacy = getattr(evaluation, "legacy_match", None) or {}
     hint = getattr(evaluation, "reconstruction_hint", None) or {}
     hint = hint if isinstance(hint, dict) else {}
-    provider_stat = legacy.get("provider_stat") if isinstance(legacy, dict) else None
-    provider_stat = provider_stat if isinstance(provider_stat, dict) else {}
-    entry = legacy.get("entry") if isinstance(legacy, dict) else None
     raw_identity = hint.get("provider_item_id")
-    if raw_identity in (None, ""):
-        raw_identity = _entry_value(entry, "id")
-    if raw_identity in (None, "") and isinstance(legacy, dict):
-        raw_identity = legacy.get("nzbid")
-    if raw_identity in (None, "") and isinstance(legacy, dict):
-        raw_identity = legacy.get("link")
-    provider_type = str(provider_stat.get("type") or hint.get("provider_type") or "").lower()
+    provider_type = str(hint.get("provider_type") or "").lower()
     if not _SAFE_PROVIDER_TYPE.fullmatch(provider_type):
         provider_type = "unknown"
-    provider_config_id = provider_stat.get("id")
-    if provider_config_id is None:
-        provider_config_id = hint.get("provider_config_id")
+    provider_config_id = hint.get("provider_config_id")
     if not isinstance(provider_config_id, int):
         provider_config_id = _safe_identifier(provider_config_id)
 

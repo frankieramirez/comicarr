@@ -84,7 +84,6 @@ from comicarr.app.downloads.service import (  # noqa: F401
     ddl_downloader,
     ddl_health_check,
     duplicate_filecheck,
-    issue_find_ids,
     lookupthebitches,
     nzb_monitor,
     postprocess_main,

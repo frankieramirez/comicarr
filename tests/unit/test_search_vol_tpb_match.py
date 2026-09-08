@@ -14,7 +14,8 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import search_filer
+from comicarr.app.search import evaluation
+from comicarr.app.search.evaluation import EvaluationSession
 
 
 @pytest.fixture(autouse=True)
@@ -34,8 +35,7 @@ def _search_environment(monkeypatch):
             ENABLE_TORRENTS=False,
         ),
     )
-    monkeypatch.setattr(comicarr, "COMICINFO", [])
-    monkeypatch.setattr(search_filer.search, "generate_id", lambda _provider, identity, _name: str(identity))
+    monkeypatch.setattr(evaluation, "generate_id", lambda _provider, identity, _name: str(identity))
 
 
 def _info(**overrides):
@@ -96,24 +96,28 @@ def _entry(**overrides):
 
 
 def test_getcomics_vol_1_matches_misclassified_oneshot():
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info())
+    evaluation = EvaluationSession().evaluate([_entry()], _info()).evaluations[0]
 
     assert evaluation.verdict["accepted"] is True
     assert evaluation.verdict["reason_code"] == "accepted.issue"
 
 
 def test_getcomics_vol_1_matches_tpb_volume():
-    evaluation = search_filer.search_check().evaluate_entry(
-        _entry(),
-        _info(
-            booktype="TPB",
-            cmloopit=1,
-            findcomiciss="1",
-            intIss=1000,
-            IssueNumber="1",
-            chktpb=1,
-            ComicVersion=None,
-        ),
+    evaluation = (
+        EvaluationSession()
+        .evaluate(
+            [_entry()],
+            _info(
+                booktype="TPB",
+                cmloopit=1,
+                findcomiciss="1",
+                intIss=1000,
+                IssueNumber="1",
+                chktpb=1,
+                ComicVersion=None,
+            ),
+        )
+        .evaluations[0]
     )
 
     assert evaluation.verdict["accepted"] is True

@@ -22,22 +22,26 @@ import types
 import pytest
 
 import comicarr
-from comicarr import search, search_filer
+from comicarr import search
+from comicarr.app.search import progress
+from comicarr.app.search.evaluation import EvaluationSession
 
 
 def _noop_collection():
-    return search_filer.interactive_collection(
-        on_evaluations=lambda values: None,
+    return progress.report_progress(
         on_provider_complete=lambda provider: None,
         on_provider_failure=lambda provider, code, detail: None,
     )
 
 
 def test_interactive_collection_active_only_inside_context():
-    assert search_filer.interactive_collection_active() is False
+    completed = []
+    progress.report_provider_complete("outside")
     with _noop_collection():
-        assert search_filer.interactive_collection_active() is True
-    assert search_filer.interactive_collection_active() is False
+        with progress.report_progress(on_provider_complete=completed.append):
+            progress.report_provider_complete("inside")
+    progress.report_provider_complete("outside-again")
+    assert completed == ["inside"]
 
 
 @pytest.fixture
@@ -59,7 +63,6 @@ def search_env(monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "COMICINFO", [], raising=False)
     monkeypatch.setattr(search, "search_the_matrix", fake_matrix)
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
     monkeypatch.setattr(
@@ -77,7 +80,7 @@ def search_env(monkeypatch):
     return calls
 
 
-def _run_search_init(allow_packs=1, alternate_search=None):
+def _run_search_init(allow_packs=1, alternate_search=None, *, review=False):
     return search.search_init(
         "Example Series",
         "2",
@@ -93,6 +96,7 @@ def _run_search_init(allow_packs=1, alternate_search=None):
         allow_packs=allow_packs,
         manual=True,
         booktype=None,
+        evaluator=EvaluationSession(review=review),
     )
 
 
@@ -107,7 +111,7 @@ def test_automatic_search_keeps_rss_and_variant_passes(search_env):
 
 def test_interactive_search_runs_single_query_plus_pack_pass(search_env):
     with _noop_collection():
-        _run_search_init()
+        _run_search_init(review=True)
 
     assert all(call["RSS"] == "no" for call in search_env), "interactive search must not run the RSS pass"
     assert [call["cmloopit"] for call in search_env] == [3, 0]
@@ -115,7 +119,7 @@ def test_interactive_search_runs_single_query_plus_pack_pass(search_env):
 
 def test_interactive_search_without_packs_runs_exactly_one_query(search_env):
     with _noop_collection():
-        _run_search_init(allow_packs=0)
+        _run_search_init(allow_packs=0, review=True)
 
     assert [call["cmloopit"] for call in search_env] == [3]
 
@@ -125,7 +129,7 @@ def test_interactive_search_keeps_alternate_names_but_stays_bounded(search_env):
     # padding retries: each still gets its own query, so total interactive
     # queries per provider are bounded at names x passes (at most two passes).
     with _noop_collection():
-        _run_search_init(alternate_search="Alias One##Alias Two")
+        _run_search_init(alternate_search="Alias One##Alias Two", review=True)
 
     assert [call["cmloopit"] for call in search_env] == [3, 3, 3, 0, 0, 0]
     names = [call["ComicName"] for call in search_env]
@@ -146,8 +150,7 @@ def test_search_delay_never_sleeps_for_interactive_search(monkeypatch):
     slept = []
     monkeypatch.setattr(search.time, "sleep", lambda seconds: slept.append(seconds))
 
-    with _noop_collection():
-        search._honour_search_delay("nyaa", 30, time.time())
+    search._honour_search_delay("nyaa", 30, time.time(), review=True)
 
     assert slept == []
 

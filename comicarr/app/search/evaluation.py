@@ -18,17 +18,19 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import contextvars
 import datetime
 import email.utils
 import re
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
 import comicarr
-from comicarr import filechecker, helpers, logger, search
+from comicarr import filechecker, helpers, logger
+from comicarr.app.search import _pack_membership
+from comicarr.app.search._release_identity import generate_id
+
+__all__ = ["EvaluationSession", "EvaluationBatch", "ReleaseCandidateEvaluation"]
 
 _REASON_DEFINITIONS = {
     "accepted.issue": ("Accepted issue match", False, "accepted"),
@@ -64,7 +66,7 @@ class _EntryRejected(Exception):
 
 @dataclass(frozen=True)
 class _AcceptedMatch:
-    legacy_match: dict
+    _handoff: dict
     match_kind: str
 
 
@@ -72,13 +74,13 @@ class _AcceptedMatch:
 class ReleaseCandidateEvaluation:
     """One sanitized provider candidate plus its structured match verdict.
 
-    ``legacy_match`` and ``exception`` stay server-side. ``as_dict`` is the
-    credential-safe representation intended for later interactive-search APIs.
+    ``_handoff`` and ``exception`` stay server-side. ``as_dict`` is the
+    credential-safe representation used by Interactive release search.
     """
 
     candidate: dict
     verdict: dict
-    legacy_match: dict | None = field(default=None, repr=False)
+    _handoff: dict | None = field(default=None, repr=False)
     exception: Exception | None = field(default=None, repr=False)
     reconstruction_hint: dict | None = field(default=None, repr=False)
     satisfies: list | None = None
@@ -90,76 +92,18 @@ class ReleaseCandidateEvaluation:
         return payload
 
 
-_INTERACTIVE_COLLECTOR = contextvars.ContextVar("interactive_release_collector", default=None)
-_INTERACTIVE_OVERRIDE = contextvars.ContextVar("interactive_release_override", default=None)
+@dataclass(frozen=True)
+class EvaluationBatch:
+    evaluations: tuple
+    _selected: tuple
+    _error: Exception | None = field(default=None, repr=False)
 
-
-@contextmanager
-def interactive_candidate_override(reason_code):
-    """Override exactly one matcher rejection during server-side revalidation.
-
-    Only reasons already classified as overrideable may enter this context.
-    Every other matcher guard continues to fail closed, so selecting a rejected
-    candidate never bypasses unrelated safety checks.
-    """
-
-    definition = _REASON_DEFINITIONS.get(str(reason_code))
-    if definition is None or not definition[1]:
-        raise ValueError("release candidate rejection is not overrideable")
-    token = _INTERACTIVE_OVERRIDE.set(str(reason_code))
-    try:
-        yield
-    finally:
-        _INTERACTIVE_OVERRIDE.reset(token)
-
-
-def _reject(reason_code, *, cause=None):
-    if _INTERACTIVE_OVERRIDE.get() == reason_code:
-        return
-    rejection = _EntryRejected(reason_code)
-    if cause is not None:
-        raise rejection from cause
-    raise rejection
-
-
-@contextmanager
-def interactive_collection(*, on_evaluations, on_provider_complete, on_provider_failure):
-    """Scope collection callbacks to one manual-search worker context."""
-
-    token = _INTERACTIVE_COLLECTOR.set(
-        {
-            "evaluations": on_evaluations,
-            "complete": on_provider_complete,
-            "failure": on_provider_failure,
-        }
-    )
-    try:
-        yield
-    finally:
-        _INTERACTIVE_COLLECTOR.reset(token)
-
-
-def interactive_collection_active():
-    """True while an Interactive-search worker is collecting in this context.
-
-    The legacy search pipeline consults this to drop the retry layers built
-    for unattended search — RSS pass, issue-number variants, backoff sleeps —
-    when an operator is watching the results arrive (#768).
-    """
-
-    return _INTERACTIVE_COLLECTOR.get() is not None
-
-
-def report_provider_complete(provider):
-    collector = _INTERACTIVE_COLLECTOR.get()
-    if collector:
-        collector["complete"](str(provider))
-
-
-def report_provider_failure(provider, code, detail):
-    collector = _INTERACTIVE_COLLECTOR.get()
-    if collector:
-        collector["failure"](str(provider), str(code), str(detail))
+    @property
+    def selected(self):
+        """Candidates for selection/handoff, or the original collection error."""
+        if self._error is not None:
+            raise self._error
+        return list(self._selected)
 
 
 def manga_volume_satisfies(found_volume, wanted_number):
@@ -178,9 +122,120 @@ def manga_volume_satisfies(found_volume, wanted_number):
     return volume_numbers_match(found_volume, wanted_number)
 
 
-class search_check(object):
-    def __init__(self):
-        pass
+class EvaluationSession:
+    """Evaluate one search's candidates without shared match state.
+
+    Batch evaluation resets duplicate history. Preferred selection retains
+    the preceding batch's history, as GetComics did, and only consumes as
+    much of a provider iterator as its search mode requires.
+    """
+
+    def __init__(self, *, review=False, override_reason=None, searched_item=None, eligible=None):
+        if override_reason is not None:
+            definition = _REASON_DEFINITIONS.get(str(override_reason))
+            if definition is None or not definition[1]:
+                raise ValueError("release candidate rejection is not overrideable")
+        self.review = review
+        self._override_reason = override_reason
+        self._accepted = []
+        self.matches = []
+        self.evaluations = []
+        self._searched_item = searched_item
+        self._eligible = eligible
+
+    def _reject(self, reason_code, *, cause=None):
+        if self._override_reason == reason_code:
+            return
+        rejection = _EntryRejected(reason_code)
+        if cause is not None:
+            raise rejection from cause
+        raise rejection
+
+    def start_search(self):
+        """Start a new provider search while retaining collected review results."""
+        self._accepted = []
+        self.matches = []
+
+    def evaluate(self, entries, is_info=None, *, prefer_pack=None):
+        """Return ordered verdicts and selected candidates for one collection.
+
+        With no preference, select every accepted candidate and reset batch
+        duplicate history. A preference selects one candidate, consuming the
+        complete iterator only in review mode. Selection raises the original
+        evaluator exception in the same modes as the historical callers.
+        """
+        batch = prefer_pack is None
+        if batch:
+            self._accepted = []
+            self.matches = []
+        elif self.review:
+            # GetComics materialized its iterator before evaluating entries.
+            entries = list(entries)
+        outcomes = []
+        selected = []
+        error = None
+        fallback = None
+        for entry in entries:
+            evaluation = self._evaluate_entry(entry, is_info)
+            if self._searched_item is not None:
+                evaluation.satisfies = self._satisfies(evaluation)
+            outcomes.append(evaluation)
+            if evaluation.exception is not None and (batch or not self.review):
+                error = evaluation.exception
+                break
+            if evaluation._handoff is None:
+                continue
+            if batch:
+                self._accepted.append(evaluation._handoff)
+                self.matches.append(evaluation)
+                selected.append(evaluation)
+            elif self.review:
+                selected.append(evaluation)
+            elif bool(evaluation._handoff["pack"]) is bool(prefer_pack):
+                selected = [evaluation]
+                break
+            else:
+                fallback = evaluation
+        if not batch:
+            if self.review:
+                preferred = [e for e in selected if bool(e._handoff["pack"]) is bool(prefer_pack)]
+                selected = (preferred or selected)[:1]
+            elif not selected and fallback is not None:
+                selected = [fallback]
+        if self.review and error is None:
+            self.evaluations.extend(outcomes)
+        return EvaluationBatch(tuple(outcomes), tuple(selected), error)
+
+    def _satisfies(self, evaluation):
+        match_data = evaluation._handoff or {}
+        pack_info = match_data.get("pack_issuelist")
+        found = []
+        eligible = self._eligible or {}
+        if match_data.get("pack") and isinstance(pack_info, dict):
+            for issue in pack_info.get("issues") or []:
+                issue_id = str(issue.get("issueid") or issue.get("IssueID") or "")
+                match = eligible.get(("issue", issue_id))
+                if match is not None:
+                    found.append(
+                        {
+                            "entity_type": "issue",
+                            "entity_id": issue_id,
+                            "issue_number": match.get("issue_number") or issue.get("issuenumber"),
+                        }
+                    )
+            if found:
+                return found
+        searched = self._searched_item
+        match = eligible.get((searched["entity_type"], str(searched["entity_id"])))
+        if match is None:
+            return []
+        return [
+            {
+                "entity_type": match["entity_type"],
+                "entity_id": match["entity_id"],
+                "issue_number": match.get("issue_number"),
+            }
+        ]
 
     @staticmethod
     def _entry_value(entry, key, default=None):
@@ -269,7 +324,7 @@ class search_check(object):
     def _reconstruction_hint(self, entry, is_info):
         """Retain only the raw identity inputs needed for safe persistence.
 
-        The persistence service still validates and hashes these values before
+        The persistence module still validates and hashes these values before
         writing them. Keeping this hint private lets overrideable rejections be
         found again even though they never produce an accepted legacy match.
         """
@@ -287,7 +342,7 @@ class search_check(object):
             "provider_item_id": raw_identity,
         }
 
-    def evaluate_entry(self, entry, is_info=None):
+    def _evaluate_entry(self, entry, is_info=None):
         """Evaluate one raw provider entry without exposing provider secrets."""
 
         candidate = self._normalized_candidate(entry, is_info)
@@ -308,26 +363,22 @@ class search_check(object):
                 reconstruction_hint=reconstruction_hint,
             )
 
+        match = accepted._handoff
+        identity_entry = match.get("entry") or {}
+        raw_identity = self._entry_value(identity_entry, "id")
+        if reconstruction_hint.get("provider_item_id") in (None, ""):
+            reconstruction_hint["provider_item_id"] = raw_identity or match.get("nzbid") or match.get("link")
+        provider_stat = match.get("provider_stat") or {}
+        reconstruction_hint["provider_type"] = provider_stat.get("type") or reconstruction_hint.get("provider_type")
+        if provider_stat.get("id") is not None:
+            reconstruction_hint["provider_config_id"] = provider_stat["id"]
         reason_code = "accepted.pack" if accepted.match_kind == "pack" else "accepted.issue"
         return ReleaseCandidateEvaluation(
             candidate,
             self._verdict(reason_code, match_kind=accepted.match_kind),
-            legacy_match=accepted.legacy_match,
+            _handoff=accepted._handoff,
             reconstruction_hint=reconstruction_hint,
         )
-
-    def evaluate_entries(self, entries, is_info=None):
-        """Return one evaluation per raw provider entry, in provider order."""
-
-        return [self.evaluate_entry(entry, is_info) for entry in entries]
-
-    def _process_entry(self, entry, is_info):
-        """Compatibility adapter for existing automatic-search callers."""
-
-        evaluation = self.evaluate_entry(entry, is_info)
-        if evaluation.exception is not None:
-            raise evaluation.exception
-        return evaluation.legacy_match
 
     def _match_entry(self, entry, is_info):
         if is_info:
@@ -419,7 +470,7 @@ class search_check(object):
                 "[IGNORE_SEARCH_WORDS] %s exists within the search result (%s). Ignoring this result."
                 % (ignored, ComicTitle)
             )
-            _reject("ignored.search_word")
+            self._reject("ignored.search_word")
 
         comsize_m = 0
         if nzbprov != "dognzb":
@@ -458,19 +509,19 @@ class search_check(object):
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
                         if int(conv_minsize) > int(comsize_b):
                             logger.fdebug("Failure to meet the Minimum size threshold - skipping")
-                            _reject("rejected.size_below_min")
+                            self._reject("rejected.size_below_min")
                     if comicarr.CONFIG.USE_MAXSIZE:
                         conv_maxsize = helpers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
                         logger.fdebug("comparing Max threshold %s .. to .. nzb %s" % (conv_maxsize, comsize_b))
                         if int(comsize_b) > int(conv_maxsize):
                             logger.fdebug("Failure to meet the Maximium size threshold - skipping")
-                            _reject("rejected.size_above_max")
+                            self._reject("rejected.size_above_max")
 
         if comicarr.CONFIG.IGNORE_COVERS is True:
             cvrchk = re.sub(r"[\s\s+\_\.]", "", entry["title"]).lower()
             if any(["coversonly" in cvrchk, "coveronly" in cvrchk]):
                 logger.fdebug("Cover(s) only detected. Ignoring result.")
-                _reject("rejected.cover_only")
+                self._reject("rejected.cover_only")
 
         if nzbprov == "experimental":
             pubdate = entry["pubdate"]
@@ -482,7 +533,7 @@ class search_check(object):
                     pubdate = entry["pubdate"]
                 except Exception as e:
                     logger.fdebug("Invalid date found. Unable to continue - skipping result. Error returned: %s" % e)
-                    _reject("invalid.pubdate_missing", cause=e)
+                    self._reject("invalid.pubdate_missing", cause=e)
 
         if UseFuzzy == "1" or manga_volume_pass:
             if manga_volume_pass:
@@ -513,7 +564,7 @@ class search_check(object):
                         " probably should refresh the series or wait for CV"
                         " to correct the data"
                     )
-                    _reject("invalid.reference_date_missing")
+                    self._reject("invalid.reference_date_missing")
                 else:
                     stdate = IssueDate
                 logger.fdebug("issue date used is : %s" % stdate)
@@ -543,7 +594,7 @@ class search_check(object):
                         "Unable to parse posting date from provider result set"
                         " for : %s. Error returned: %s" % (entry["title"], e)
                     )
-                    _reject("invalid.pubdate_unparseable", cause=e)
+                    self._reject("invalid.pubdate_unparseable", cause=e)
 
             if all([digitaldate != "0000-00-00", digitaldate is not None]):
                 i = 0
@@ -602,7 +653,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    _reject("rejected.before_reference_date")
+                    self._reject("rejected.before_reference_date")
                 else:
                     logger.fdebug("[CONV] %s is after store date of %s" % (pubdate, stdate))
             except _EntryRejected:
@@ -616,7 +667,7 @@ class search_check(object):
                         "%s is before store date of %s. Ignoring search result"
                         " as this is not the right issue." % (pubdate, stdate)
                     )
-                    _reject("rejected.before_reference_date")
+                    self._reject("rejected.before_reference_date")
                 else:
                     logger.fdebug("[INT] %s is after store date of %s" % (pubdate, stdate))
         if "(digital first)" in ComicTitle.lower():
@@ -734,12 +785,12 @@ class search_check(object):
                 filecomic = fcomic.matchIT(parsed_comic)
             except Exception as e:
                 logger.error("[PARSE-ERROR]: %s" % e)
-                _reject("error.matcher_exception", cause=e)
+                self._reject("error.matcher_exception", cause=e)
             else:
                 logger.fdebug("match_check: %s" % filecomic)
                 if filecomic["process_status"] == "fail":
                     logger.fdebug("%s was not a match to %s (%s)" % (cleantitle, ComicName, SeriesYear))
-                    _reject("rejected.series_mismatch")
+                    self._reject("rejected.series_mismatch")
                 elif filecomic["process_status"] == "alt_match":
                     logger.fdebug(
                         "%s was a match due to alternate matching.  Continuing"
@@ -751,10 +802,10 @@ class search_check(object):
                 "Booktypes do not match. Looking for %s, this is a %s."
                 " Ignoring this result." % (booktype, parsed_comic["booktype"])
             )
-            _reject("rejected.book_type")
+            self._reject("rejected.book_type")
         else:
             logger.fdebug("Unable to parse name properly: %s. Ignoring this result" % parsed_comic)
-            _reject("rejected.unparseable_title")
+            self._reject("rejected.unparseable_title")
 
         vers4year = "no"
         vers4vol = "no"
@@ -874,7 +925,7 @@ class search_check(object):
             yearmatch = True
 
         if yearmatch is False and pack is False:
-            _reject("rejected.year_mismatch")
+            self._reject("rejected.year_mismatch")
 
         annualize = False
         if "annual" in ComicName.lower():
@@ -998,7 +1049,7 @@ class search_check(object):
                     )
                 else:
                     logger.fdebug("Versions wrong. Ignoring possible match.")
-                    _reject("rejected.volume_mismatch")
+                    self._reject("rejected.volume_mismatch")
 
         downloadit = False
 
@@ -1012,7 +1063,7 @@ class search_check(object):
                     pack_issuelist = entry["issues"]
                     pack_kind = detected_pack["kind"] if detected_pack is not None else "issue"
                     pack_ref = entry["id"] if "id" in entry else entry["link"]
-                    issueid_info = helpers.issue_find_ids(
+                    issueid_info = _pack_membership.issue_find_ids(
                         ComicName,
                         ComicID,
                         pack_issuelist,
@@ -1025,12 +1076,12 @@ class search_check(object):
                         logger.info("Issue Number %s exists within pack. Continuing." % IssueNumber)
                     else:
                         logger.fdebug("Issue Number %s does NOT exist within this pack. Skipping" % IssueNumber)
-                        _reject("rejected.pack_issue_absent")
+                        self._reject("rejected.pack_issue_absent")
             except _EntryRejected:
                 raise
             except Exception as e:
                 logger.error("Unable to identify pack range for %s. Error returned: %s" % (entry["title"], e))
-                _reject("error.pack_lookup_exception", cause=e)
+                self._reject("error.pack_lookup_exception", cause=e)
             nowrite = False
             if "DDL" in nzbprov:
                 if "GetComics" in nzbprov and RSS == "yes":
@@ -1039,11 +1090,11 @@ class search_check(object):
                     entry["filename"] = entry["title"]
                 nzbid = entry["id"]
             else:
-                nzbid = search.generate_id(provider_stat, entry["link"], ComicName)
+                nzbid = generate_id(provider_stat, entry["link"], ComicName)
             if all([manual is not True, alt_match is False]):
                 downloadit = True
             else:
-                for x in comicarr.COMICINFO:
+                for x in self._accepted:
                     if (
                         all(
                             [
@@ -1109,7 +1160,7 @@ class search_check(object):
                     },
                     "pack",
                 )
-            _reject("blocked.duplicate")
+            self._reject("blocked.duplicate")
         else:
             if filecomic["process_status"] == "match":
                 if cmloopit != 4:
@@ -1207,7 +1258,7 @@ class search_check(object):
                         )
                     )
                     if nzbprov == "torznab" or provider_stat["type"] == "torznab":
-                        nzbid = search.generate_id(provider_stat, entry["id"], ComicName)
+                        nzbid = generate_id(provider_stat, entry["id"], ComicName)
                     elif "DDL" in nzbprov:
                         if "GetComics" in nzbprov:
                             if RSS == "yes":
@@ -1224,15 +1275,15 @@ class search_check(object):
                         try:
                             logger.fdebug("title_id: %s" % (entry["id"],))
                             if "details" in entry["id"]:
-                                nzbid = search.generate_id(provider_stat, entry["id"], ComicName)
+                                nzbid = generate_id(provider_stat, entry["id"], ComicName)
                             else:
-                                nzbid = search.generate_id(provider_stat, entry["link"], ComicName)
+                                nzbid = generate_id(provider_stat, entry["link"], ComicName)
                         except Exception:
-                            nzbid = search.generate_id(provider_stat, entry["link"], ComicName)
+                            nzbid = generate_id(provider_stat, entry["link"], ComicName)
                     if all([manual is not True, alt_match is False]):
                         downloadit = True
                     else:
-                        for x in comicarr.COMICINFO:
+                        for x in self._accepted:
                             if (
                                 all(
                                     [
@@ -1319,53 +1370,9 @@ class search_check(object):
                             },
                             "standard",
                         )
-                    _reject("blocked.duplicate")
+                    self._reject("blocked.duplicate")
                 else:
                     downloadit = False
         if alt_match:
-            _reject("rejected.alternate_series")
-        _reject("rejected.issue_mismatch")
-
-    def checker(self, entries, is_info=None):
-        comicarr.COMICINFO = []
-        hold_the_matches = []
-
-        collector = _INTERACTIVE_COLLECTOR.get()
-        if collector:
-            evaluations = []
-            for entry in entries:
-                evaluation = self.evaluate_entry(entry, is_info)
-                evaluations.append(evaluation)
-                if evaluation.exception is not None:
-                    raise evaluation.exception
-                maybe_value = evaluation.legacy_match
-                if maybe_value is not None:
-                    comicarr.COMICINFO.append(maybe_value)
-                    hold_the_matches.append(maybe_value)
-            collector["evaluations"](evaluations)
-        else:
-            for entry in entries:
-                maybe_value = self._process_entry(entry, is_info)
-                if maybe_value is not None:
-                    comicarr.COMICINFO.append(maybe_value)
-                    hold_the_matches.append(maybe_value)
-
-        return hold_the_matches
-
-    def check_for_first_result(self, entries, is_info, prefer_pack=False):
-        collector = _INTERACTIVE_COLLECTOR.get()
-        if collector:
-            evaluations = self.evaluate_entries(list(entries), is_info)
-            collector["evaluations"](evaluations)
-            matches = [evaluation.legacy_match for evaluation in evaluations if evaluation.legacy_match is not None]
-            preferred = [match for match in matches if bool(match["pack"]) is bool(prefer_pack)]
-            return (preferred or matches or [None])[0]
-        candidate = None
-        for entry in entries:
-            maybe_value = self._process_entry(entry, is_info)
-            if maybe_value is not None:
-                is_pack = maybe_value["pack"]
-                if (prefer_pack and is_pack) or (not prefer_pack and not is_pack):
-                    return maybe_value
-                candidate = maybe_value
-        return candidate
+            self._reject("rejected.alternate_series")
+        self._reject("rejected.issue_mismatch")

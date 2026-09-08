@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from sqlalchemy import create_engine, func, select
 
+from comicarr.app.search.evaluation import ReleaseCandidateEvaluation
 from comicarr.app.search.interactive_sessions import (
     CLAIM_LEASE_SECONDS,
     JOB_ID,
@@ -33,7 +34,6 @@ from comicarr.app.search.interactive_sessions import (
     read_session,
 )
 from comicarr.app.system import service as system_service
-from comicarr.search_filer import ReleaseCandidateEvaluation
 from comicarr.tables import interactive_search_candidates, interactive_search_sessions, metadata
 
 NOW = datetime.datetime(2026, 8, 11, 15, 0, tzinfo=datetime.timezone.utc)
@@ -44,7 +44,7 @@ def _evaluation(
     *,
     accepted=True,
     overrideable=False,
-    legacy_match=None,
+    handoff=None,
     reconstruction_hint=None,
 ):
     return ReleaseCandidateEvaluation(
@@ -65,8 +65,17 @@ def _evaluation(
             "reasons": [{"code": "test", "message": "Stable test verdict"}],
             "match_kind": "issue" if accepted else "none",
         },
-        legacy_match=legacy_match,
-        reconstruction_hint=reconstruction_hint,
+        _handoff=handoff,
+        reconstruction_hint=reconstruction_hint
+        or (
+            {
+                "provider_type": handoff.get("provider_stat", {}).get("type"),
+                "provider_config_id": handoff.get("provider_stat", {}).get("id"),
+                "provider_item_id": handoff.get("entry", {}).get("id") or handoff.get("nzbid") or handoff.get("link"),
+            }
+            if handoff
+            else None
+        ),
     )
 
 
@@ -145,7 +154,7 @@ def test_persisted_rows_never_contain_credentials_urls_or_raw_cookie(engine):
     raw_url = "https://user:password@example.invalid/download?apikey=%s" % secret
     evaluation = _evaluation(
         raw_url,
-        legacy_match={
+        handoff={
             "link": raw_url,
             "nzbid": raw_url,
             "entry": {"id": raw_url, "download": raw_url},

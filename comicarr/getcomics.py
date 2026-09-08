@@ -27,13 +27,12 @@ import sys
 import time
 import traceback
 import urllib.parse
-from operator import itemgetter
 
 import requests
 from bs4 import BeautifulSoup
 
 import comicarr
-from comicarr import db, helpers, logger, search_filer
+from comicarr import db, helpers, logger
 from comicarr.app.common.remote_artifacts import (
     ensure_path_within_directory,
     extract_zip_atomically,
@@ -42,6 +41,7 @@ from comicarr.app.common.remote_artifacts import (
     write_chunks_atomically,
 )
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
+from comicarr.app.search.evaluation import EvaluationSession
 
 
 class GC(object):
@@ -146,7 +146,8 @@ class GC(object):
 
         self.provider_stat = provider_stat
 
-    def search(self, is_info=None):
+    def search(self, is_info=None, *, evaluator=None):
+        evaluator = evaluator or EvaluationSession()
 
         self.cookie_receipt()
 
@@ -205,10 +206,11 @@ class GC(object):
                 logger.fdebug("[DDL-QUERY] Query set to: %s" % queryline)
 
                 result_generator = self.perform_search_queries(queryline)
-                sfs = search_filer.search_check()
-                match = sfs.check_for_first_result(result_generator, is_info, prefer_pack=comicarr.CONFIG.PACK_PRIORITY)
-                if match is not None:
-                    verified_matches = [match]
+                selected = evaluator.evaluate(
+                    result_generator, is_info, prefer_pack=bool(comicarr.CONFIG.PACK_PRIORITY)
+                ).selected
+                if selected:
+                    verified_matches = selected
                     logger.fdebug("verified_matches: %s" % (verified_matches,))
                     break
                 logger.fdebug("sleep...%s%s" % (comicarr.CONFIG.DDL_QUERY_DELAY, "s"))
@@ -254,10 +256,7 @@ class GC(object):
 
             return "no results"
         else:
-            if comicarr.CONFIG.PACK_PRIORITY is True:
-                return sorted(verified_matches, key=itemgetter("pack"), reverse=True)
-            else:
-                return sorted(verified_matches, key=itemgetter("pack"), reverse=False)
+            return verified_matches
 
     def loadsite(self, id, link):
 

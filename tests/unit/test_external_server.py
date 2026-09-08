@@ -12,7 +12,8 @@
 from types import SimpleNamespace
 
 import comicarr
-from comicarr import search, search_filer
+from comicarr import search
+from comicarr.app.search import progress
 from comicarr.downloaders import external_server as exs
 
 
@@ -32,8 +33,7 @@ def test_ddl_external_search_constructor_matches_search_py():
 def test_ddl_external_search_reports_unavailable_provider_to_interactive_collector():
     failures = []
 
-    with search_filer.interactive_collection(
-        on_evaluations=lambda _values: None,
+    with progress.report_progress(
         on_provider_complete=lambda _provider: None,
         on_provider_failure=lambda provider, code, detail: failures.append((provider, code, detail)),
     ):

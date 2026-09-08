@@ -10,7 +10,7 @@
 """Detect multi-issue/volume pack releases from provider result titles.
 
 DDL providers detect packs upstream (``getcomics.check_for_pack`` /
-``rsscheck.ddlrss_pack_detect``) and hand ``search_filer`` a pre-parsed
+``rsscheck.ddlrss_pack_detect``) and hand ``release evaluation`` a pre-parsed
 entry. Every other provider only supplies a raw title, so pack-shaped
 releases like ``Solo Leveling v01-14 (2021-2025)`` used to die in the
 single-issue parser (#730). This module is the title-only detector for
@@ -76,7 +76,7 @@ def _series_before(text, match_start):
 def parse_pack_title(title):
     """Return pack info parsed from a release title, or None.
 
-    The result mirrors what the DDL pack detectors feed ``search_filer``:
+    The result mirrors what the DDL pack detectors feed ``release evaluation``:
     ``{"series", "issues", "kind", "year", "booktype"}`` where ``issues``
     is a normalized ``"start-end"`` range string and ``kind`` is one of
     ``"volume"``, ``"chapter"``, or ``"issue"``.

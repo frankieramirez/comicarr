@@ -20,11 +20,18 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
-from comicarr.app.search import interactive
+from comicarr.app.search import interactive, progress
+from comicarr.app.search.evaluation import ReleaseCandidateEvaluation
 from comicarr.app.search.interactive_sessions import create_session, read_server_candidate, read_session
 from comicarr.app.search.router import router
-from comicarr.search_filer import ReleaseCandidateEvaluation
 from comicarr.tables import interactive_search_sessions, metadata
+
+
+def _collect_evaluations(monkeypatch, session, evaluations):
+    values = iter(evaluations)
+    with monkeypatch.context() as patch:
+        patch.setattr(session, "_evaluate_entry", lambda *_args: next(values))
+        session.evaluate([None] * len(evaluations), {}).selected
 
 
 def _config(**overrides):
@@ -87,7 +94,7 @@ def _evaluation(title="Candidate"):
 
 def _handoff_evaluation(title="Candidate"):
     evaluation = _evaluation(title)
-    evaluation.legacy_match = {
+    evaluation._handoff = {
         "ComicName": "Example",
         "ComicID": "series-1",
         "IssueID": "tracked-1",
@@ -389,14 +396,14 @@ def test_worker_collects_every_evaluation_without_auto_snatch(engine, monkeypatc
 
     def manual_search(**kwargs):
         calls.append(kwargs)
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_evaluation("First")])
-        interactive.search_filer.report_provider_complete("DDL(GetComics)")
-        interactive.search_filer.report_provider_failure(
+        kwargs["evaluator"].evaluations.extend([_evaluation("First")])
+        progress.report_provider_complete("DDL(GetComics)")
+        progress.report_provider_failure(
             "Indexer",
             "request_error",
             "https://user:pass@example.invalid/api?apikey=secret",
         )
-        interactive.search_filer.report_provider_complete("Indexer")
+        progress.report_provider_complete("Indexer")
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -414,6 +421,7 @@ def test_worker_collects_every_evaluation_without_auto_snatch(engine, monkeypatc
         actor="alice",
         browser_session="browser-cookie",
     )
+    assert calls[0].pop("evaluator").review is True
     assert calls == [{"issueid": "tracked-1", "manual": True, "entity_type": "issue"}]
     assert result["state"] == "complete"
     assert result["progress"]["provider_completed"] == 2
@@ -476,7 +484,7 @@ def test_grab_refinds_exact_candidate_handoffs_once_and_replays(engine, monkeypa
 
     def manual_search(**kwargs):
         searches.append(kwargs)
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_handoff_evaluation()])
+        kwargs["evaluator"].evaluations.extend([_handoff_evaluation()])
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -537,9 +545,9 @@ def test_grab_fails_closed_when_candidate_identity_changes(engine, monkeypatch):
 
     def changed_search(**_kwargs):
         changed = _handoff_evaluation()
-        changed.legacy_match["nzbid"] = "different-item"
+        changed._handoff["nzbid"] = "different-item"
         changed.reconstruction_hint["provider_item_id"] = "different-item"
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([changed])
+        _kwargs["evaluator"].evaluations.extend([changed])
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", changed_search)
@@ -632,7 +640,7 @@ def _pack_evaluation(title="Example 001-010"):
             "match_kind": "pack",
         }
     )
-    evaluation.legacy_match = {
+    evaluation._handoff = {
         "ComicName": "Example",
         "ComicID": "series-1",
         "IssueID": "i1",
@@ -778,8 +786,8 @@ def test_series_worker_searches_gap_starts_and_annotates_pack_coverage(engine, m
         evaluations = [_pack_evaluation(), _single("Example 001", "item-1")]
         if kwargs["issueid"] == "i10":
             evaluations = [_single("Example 010", "item-10")]
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"](evaluations)
-        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        _collect_evaluations(monkeypatch, kwargs["evaluator"], evaluations)
+        progress.report_provider_complete("DDL(GetComics)")
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -835,7 +843,7 @@ def test_series_worker_keeps_the_accepted_verdict_when_a_target_rejected_the_sam
 
     def _rejected_pack():
         evaluation = _pack_evaluation()
-        evaluation.legacy_match = None
+        evaluation._handoff = None
         evaluation.verdict = {
             "status": "rejected",
             "accepted": False,
@@ -848,8 +856,8 @@ def test_series_worker_keeps_the_accepted_verdict_when_a_target_rejected_the_sam
 
     def manual_search(**kwargs):
         evaluations = [_rejected_pack()] if kwargs["issueid"] == "i10" else [_pack_evaluation()]
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"](evaluations)
-        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        _collect_evaluations(monkeypatch, kwargs["evaluator"], evaluations)
+        progress.report_provider_complete("DDL(GetComics)")
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -917,7 +925,7 @@ def test_series_grab_revalidates_against_the_pack_anchor_issue(engine, monkeypat
 
     def manual_search(**kwargs):
         searches.append(kwargs)
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_pack_evaluation()])
+        kwargs["evaluator"].evaluations.extend([_pack_evaluation()])
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -940,6 +948,7 @@ def test_series_grab_revalidates_against_the_pack_anchor_issue(engine, monkeypat
     assert result["status"] == "submitted"
     assert ("issue", "i1") in resolved
     assert ("series", "series-1") not in resolved
+    assert searches[0].pop("evaluator").review is True
     assert searches == [{"issueid": "i1", "manual": True, "entity_type": "issue"}]
 
 
@@ -973,8 +982,8 @@ def test_series_worker_scales_the_blocked_provider_offset_across_targets(engine,
             "provider_type": "ddl",
             "provider_item_id": "item-%s" % kwargs["issueid"],
         }
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([evaluation])
-        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        kwargs["evaluator"].evaluations.extend([evaluation])
+        progress.report_provider_complete("DDL(GetComics)")
         reported.append(
             read_session(
                 engine,
@@ -1188,9 +1197,7 @@ def test_start_unfiltered_series_targets_one_anchor_and_flags_unsupported_provid
     assert [item["entity_id"] for item in entity["targets"]] == ["i1"]
     assert worker["kwargs"]["provider_total"] == result["progress"]["provider_total"] == 2
     # The DDL provider has no bare-query seam; it is surfaced, never silent.
-    unsupported = [
-        failure for failure in result["provider_failures"] if failure["code"] == "unsupported_provider"
-    ]
+    unsupported = [failure for failure in result["provider_failures"] if failure["code"] == "unsupported_provider"]
     assert [failure["provider"] for failure in unsupported] == ["DDL(GetComics)"]
 
 
@@ -1209,8 +1216,8 @@ def test_unfiltered_worker_runs_the_bare_pass_and_tags_reconstruction(engine, mo
     def manual_search(**kwargs):
         observed["unfiltered"] = interactive.search.unfiltered_pass_active()
         observed["issueid"] = kwargs["issueid"]
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([_evaluation("Example 001")])
-        interactive.search_filer.report_provider_complete("DDL(GetComics)")
+        kwargs["evaluator"].evaluations.extend([_evaluation("Example 001")])
+        progress.report_provider_complete("DDL(GetComics)")
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)
@@ -1276,7 +1283,7 @@ def test_unfiltered_grab_revalidates_under_the_unfiltered_pass(engine, monkeypat
         observed["unfiltered"] = interactive.search.unfiltered_pass_active()
         revalidated = _handoff_evaluation("Example 001")
         revalidated.reconstruction_hint["search_mode"] = "unfiltered"
-        interactive.search_filer._INTERACTIVE_COLLECTOR.get()["evaluations"]([revalidated])
+        kwargs["evaluator"].evaluations.extend([revalidated])
         return []
 
     monkeypatch.setattr(interactive.search, "searchforissue", manual_search)

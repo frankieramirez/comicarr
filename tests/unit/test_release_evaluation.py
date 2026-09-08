@@ -13,7 +13,13 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
-from comicarr import search_filer
+from comicarr.app.search import evaluation as evaluation_module
+from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.search.evaluation_handoff import handoff_matches
+
+
+def _evaluate(entry, info, **session_kwargs):
+    return EvaluationSession(**session_kwargs).evaluate([entry], info).evaluations[0]
 
 
 def _config(**overrides):
@@ -105,8 +111,7 @@ def _matched(**overrides):
 @pytest.fixture(autouse=True)
 def _matcher_environment(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config())
-    monkeypatch.setattr(comicarr, "COMICINFO", [])
-    monkeypatch.setattr(search_filer.search, "generate_id", lambda _provider, identity, _name: str(identity))
+    monkeypatch.setattr(evaluation_module, "generate_id", lambda _provider, identity, _name: str(identity))
     _install_parser(monkeypatch)
 
 
@@ -129,7 +134,12 @@ def _install_parser(monkeypatch, *, parsed=None, matched=None, match_error=None)
         def dynamic_replace(self, _series):
             return {"mod_seriesname": "Example Series"}
 
-    monkeypatch.setattr(search_filer.filechecker, "FileChecker", FakeFileChecker)
+    monkeypatch.setattr(evaluation_module.filechecker, "FileChecker", FakeFileChecker)
+
+
+def _handoff(evaluation):
+    matches = handoff_matches([evaluation])
+    return matches[0] if matches else None
 
 
 def _reason(evaluation):
@@ -137,7 +147,7 @@ def _reason(evaluation):
 
 
 def test_accepted_candidate_is_normalized_and_credential_safe():
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info())
+    evaluation = _evaluate(_entry(), _info())
 
     assert evaluation.verdict == {
         "status": "accepted",
@@ -156,7 +166,7 @@ def test_accepted_candidate_is_normalized_and_credential_safe():
         "pack": False,
         "metrics": {"seeders": 7, "peers": 2},
     }
-    assert evaluation.legacy_match["link"].endswith("super-secret")
+    assert _handoff(evaluation)["link"].endswith("super-secret")
     assert "super-secret" not in str(evaluation.as_dict())
     assert "link" not in evaluation.as_dict()["candidate"]
     assert "provider_stat" not in evaluation.as_dict()["candidate"]
@@ -165,7 +175,7 @@ def test_accepted_candidate_is_normalized_and_credential_safe():
 
 def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
-    evaluation = search_filer.search_check().evaluate_entry(
+    evaluation = _evaluate(
         _entry(title="Example Series 001 REPACK"),
         _info(provider_stat={"type": "newznab", "id": 19, "api_key": "secret"}),
     )
@@ -182,36 +192,29 @@ def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypat
 
 def test_candidate_override_revalidates_exactly_one_overrideable_reason(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
-    checker = search_filer.search_check()
+    checker = EvaluationSession(override_reason="ignored.search_word")
     entry = _entry(title="Example Series 001 REPACK")
 
-    with search_filer.interactive_candidate_override("ignored.search_word"):
-        evaluation = checker.evaluate_entry(entry, _info())
+    evaluation = checker.evaluate([entry], _info()).evaluations[0]
 
     assert evaluation.verdict["accepted"] is True
-    assert evaluation.legacy_match["ComicTitle"] == "Example Series 001 REPACK"
+    assert _handoff(evaluation)["ComicTitle"] == "Example Series 001 REPACK"
 
     with pytest.raises(ValueError, match="not overrideable"):
-        with search_filer.interactive_candidate_override("blocked.duplicate"):
-            pass
+        EvaluationSession(override_reason="blocked.duplicate")
 
 
 def test_interactive_collection_disables_first_result_shortcut(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
-    collected = []
+    session = EvaluationSession(review=True)
+    batch = session.evaluate(
+        [_entry(), _entry(title="Example Series 001 REPACK", id="provider-item-2")],
+        _info(),
+        prefer_pack=False,
+    )
 
-    with search_filer.interactive_collection(
-        on_evaluations=collected.extend,
-        on_provider_complete=lambda _provider: None,
-        on_provider_failure=lambda _provider, _code, _detail: None,
-    ):
-        match = search_filer.search_check().check_for_first_result(
-            [_entry(), _entry(title="Example Series 001 REPACK", id="provider-item-2")],
-            _info(),
-        )
-
-    assert match["ComicTitle"] == "Example Series 001 (2024)"
-    assert [evaluation.verdict["reason_code"] for evaluation in collected] == [
+    assert batch.selected[0]._handoff["ComicTitle"] == "Example Series 001 (2024)"
+    assert [item.verdict["reason_code"] for item in session.evaluations] == [
         "accepted.issue",
         "ignored.search_word",
     ]
@@ -225,7 +228,7 @@ def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
         provider_stat={"type": "newznab", "api_key": secret},
     )
 
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), info)
+    evaluation = _evaluate(_entry(), info)
     public = evaluation.as_dict()
 
     assert public["candidate"]["provider"] == "Usenet provider"
@@ -289,19 +292,19 @@ def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
 def test_early_rejection_reasons_are_stable(monkeypatch, config, entry, info, reason_code, overrideable):
     monkeypatch.setattr(comicarr, "CONFIG", config)
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
     assert _reason(evaluation) == reason_code
     assert evaluation.verdict["accepted"] is False
     assert evaluation.verdict["overrideable"] is overrideable
-    assert evaluation.legacy_match is None
+    assert _handoff(evaluation) is None
 
 
 def test_datetime_rejection_does_not_fall_through_to_disagreeing_integer_comparison(monkeypatch):
     integer_times = iter([300, 1706659200, 100, 1706659200, 100])
-    monkeypatch.setattr(search_filer.time, "mktime", lambda _value: next(integer_times))
+    monkeypatch.setattr(evaluation_module.time, "mktime", lambda _value: next(integer_times))
 
-    evaluation = search_filer.search_check().evaluate_entry(
+    evaluation = _evaluate(
         _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
         _info(
             UseFuzzy="0",
@@ -333,7 +336,7 @@ class TestStoreDateGateOnAMangaVolumePass:
 
     @staticmethod
     def _evaluate(**info):
-        return search_filer.search_check().evaluate_entry(
+        return _evaluate(
             _entry(pubdate="Wed, 10 Jan 2024 12:00:00 +0000"),
             _info(**info),
         )
@@ -383,7 +386,7 @@ def test_matcher_rejection_reasons_are_stable(
 ):
     _install_parser(monkeypatch, parsed=parsed, matched=matched, match_error=match_error)
 
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), info)
+    evaluation = _evaluate(_entry(), info)
 
     assert _reason(evaluation) == reason_code
     assert evaluation.verdict["status"] == ("error" if reason_code.startswith("error.") else "rejected")
@@ -392,7 +395,7 @@ def test_matcher_rejection_reasons_are_stable(
 def test_manga_booktype_does_not_trip_tpb_format_gate(monkeypatch):
     _install_parser(monkeypatch, parsed=_parsed(booktype="issue"), matched=_matched())
 
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info(booktype="manga"))
+    evaluation = _evaluate(_entry(), _info(booktype="manga"))
 
     assert _reason(evaluation) != "rejected.book_type"
 
@@ -415,20 +418,26 @@ def _pack_entry(**overrides):
 
 
 def test_pack_candidate_and_pack_failure_reasons(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
+    )
     info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)")
 
-    accepted = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    accepted = _evaluate(_pack_entry(), info)
     assert _reason(accepted) == "accepted.pack"
     assert accepted.verdict["match_kind"] == "pack"
     assert accepted.candidate["source_kind"] == "ddl"
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False})
-    absent = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False}
+    )
+    absent = _evaluate(_pack_entry(), info)
     assert _reason(absent) == "rejected.pack_issue_absent"
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", MagicMock(side_effect=RuntimeError("lookup failed")))
-    failed = search_filer.search_check().evaluate_entry(_pack_entry(), info)
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", MagicMock(side_effect=RuntimeError("lookup failed"))
+    )
+    failed = _evaluate(_pack_entry(), info)
     assert _reason(failed) == "error.pack_lookup_exception"
 
 
@@ -440,7 +449,7 @@ def test_non_ddl_volume_pack_is_detected_and_accepted(monkeypatch):
         calls["kwargs"] = kwargs
         return {"valid": True, "issues": [{"issueid": "id-1"}]}
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", fake_issue_find_ids)
+    monkeypatch.setattr(evaluation_module._pack_membership, "issue_find_ids", fake_issue_find_ids)
     info = _info(
         nzbprov="torznab",
         tmpprov="nyaa [api]",
@@ -451,13 +460,13 @@ def test_non_ddl_volume_pack_is_detected_and_accepted(monkeypatch):
     )
     entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)", site="torznab")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
     assert _reason(evaluation) == "accepted.pack"
     assert evaluation.verdict["match_kind"] == "pack"
-    assert evaluation.legacy_match["pack"] is True
-    assert evaluation.legacy_match["pack_numbers"] == "1-14"
-    assert evaluation.legacy_match["kind"] == "torrent"
+    assert _handoff(evaluation)["pack"] is True
+    assert _handoff(evaluation)["pack_numbers"] == "1-14"
+    assert _handoff(evaluation)["kind"] == "torrent"
     # the entry is enriched so the downstream pack snatch/notify path works
     assert entry["pack"] is True
     assert entry["issues"] == "1-14"
@@ -476,7 +485,7 @@ def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
         calls["kwargs"] = kwargs
         return {"valid": True, "issues": [{"issueid": "id-1"}]}
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", fake_issue_find_ids)
+    monkeypatch.setattr(evaluation_module._pack_membership, "issue_find_ids", fake_issue_find_ids)
     info = _info(
         nzbprov="torznab",
         tmpprov="nyaa [api]",
@@ -487,12 +496,12 @@ def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
     )
     entry = _entry(title="Example Series (2021-2026) (Digital) (1r0n)", site="torznab")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
     assert _reason(evaluation) == "accepted.pack"
     assert evaluation.verdict["match_kind"] == "pack"
-    assert evaluation.legacy_match["pack"] is True
-    assert evaluation.legacy_match["pack_numbers"] == "all"
+    assert _handoff(evaluation)["pack"] is True
+    assert _handoff(evaluation)["pack_numbers"] == "all"
     assert entry["pack"] is True
     assert entry["issues"] == "all"
     assert entry["series"] == "Example Series"
@@ -503,9 +512,9 @@ def test_non_ddl_numberless_series_pack_is_detected_and_accepted(monkeypatch):
 def test_numberless_series_pack_without_allow_packs_is_not_detected():
     entry = _entry(title="Example Series (2021-2026) (Digital)")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, _info(booktype="manga"))
+    evaluation = _evaluate(entry, _info(booktype="manga"))
 
-    assert evaluation.legacy_match["pack"] is False
+    assert _handoff(evaluation)["pack"] is False
 
 
 def test_numberless_series_pack_is_not_detected_for_print_series(monkeypatch):
@@ -515,7 +524,7 @@ def test_numberless_series_pack_is_not_detected_for_print_series(monkeypatch):
     def fail_issue_find_ids(*_args, **_kwargs):
         raise AssertionError("a print series must never claim a numberless series pack")
 
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", fail_issue_find_ids)
+    monkeypatch.setattr(evaluation_module._pack_membership, "issue_find_ids", fail_issue_find_ids)
     info = _info(
         nzbprov="torznab",
         tmpprov="nyaa [api]",
@@ -526,18 +535,20 @@ def test_numberless_series_pack_is_not_detected_for_print_series(monkeypatch):
     )
     entry = _entry(title="Example Series (2021-2026) (Digital) (1r0n)", site="torznab")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
-    assert evaluation.legacy_match["pack"] is False
+    assert _handoff(evaluation)["pack"] is False
     assert entry["pack"] is False
 
 
 def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
+    )
     info = _info(allow_packs=True)
     entry = _entry(title="Example Series #1-10 (2024)")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
     assert _reason(evaluation) == "accepted.pack"
 
@@ -545,11 +556,11 @@ def test_non_ddl_issue_range_pack_is_accepted_for_print_series(monkeypatch):
 def test_pack_title_without_allow_packs_uses_single_issue_path():
     entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, _info(booktype="manga"))
+    evaluation = _evaluate(entry, _info(booktype="manga"))
 
     # the stub parser matches, proving the legacy single-issue path ran
     assert _reason(evaluation) == "accepted.issue"
-    assert evaluation.legacy_match["pack"] is False
+    assert _handoff(evaluation)["pack"] is False
 
 
 def test_volume_pack_is_not_matched_against_issue_tracked_series():
@@ -557,62 +568,63 @@ def test_volume_pack_is_not_matched_against_issue_tracked_series():
     # series, so detection must not trigger for issue-tracked booktypes.
     entry = _entry(title="Example Series v01-14 (2021-2025) (Digital)")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, _info(allow_packs=True, booktype="Print"))
+    evaluation = _evaluate(entry, _info(allow_packs=True, booktype="Print"))
 
-    assert evaluation.legacy_match["pack"] is False
+    assert _handoff(evaluation)["pack"] is False
 
 
 def test_non_ddl_pack_missing_wanted_issue_is_rejected(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False})
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", lambda *_args, **_kwargs: {"valid": False}
+    )
     info = _info(allow_packs=True)
     entry = _entry(title="Example Series #1-10 (2024)")
 
-    evaluation = search_filer.search_check().evaluate_entry(entry, info)
+    evaluation = _evaluate(entry, info)
 
     assert _reason(evaluation) == "rejected.pack_issue_absent"
 
 
 def test_rss_getcomics_pack_uses_post_id_as_nzbid(monkeypatch):
-    monkeypatch.setattr(search_filer.helpers, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []})
+    monkeypatch.setattr(
+        evaluation_module._pack_membership, "issue_find_ids", lambda *_args, **_kwargs: {"valid": True, "issues": []}
+    )
     info = _info(nzbprov="DDL(GetComics)", tmpprov="DDL(GetComics)", RSS="yes")
 
-    evaluation = search_filer.search_check().evaluate_entry(_pack_entry(link=123), info)
+    evaluation = _evaluate(_pack_entry(link=123), info)
 
-    assert evaluation.legacy_match["nzbid"] == 123
-    assert evaluation.legacy_match["link"] == "https://getcomics.info/?p=123"
+    assert _handoff(evaluation)["nzbid"] == 123
+    assert _handoff(evaluation)["link"] == "https://getcomics.info/?p=123"
 
 
 def test_alternate_match_is_explainable_and_remains_filtered(monkeypatch):
     _install_parser(monkeypatch, matched=_matched(process_status="alt_match"))
-    evaluation = search_filer.search_check().evaluate_entry(_entry(), _info(manual=False))
+    evaluation = _evaluate(_entry(), _info(manual=False))
 
     assert _reason(evaluation) == "rejected.alternate_series"
     assert evaluation.verdict["overrideable"] is True
-    assert evaluation.legacy_match is None
+    assert _handoff(evaluation) is None
 
 
 def test_duplicate_candidate_is_blocked(monkeypatch):
-    checker = search_filer.search_check()
     info = _info(manual=True)
-    first = checker._process_entry(_entry(), info)
-    comicarr.COMICINFO.append(first)
-
-    duplicate = checker.evaluate_entry(_entry(), info)
+    batch = EvaluationSession().evaluate([_entry(), _entry()], info)
+    duplicate = batch.evaluations[1]
 
     assert _reason(duplicate) == "blocked.duplicate"
     assert duplicate.verdict["overrideable"] is False
 
 
-def test_unexpected_evaluator_error_is_structured_but_legacy_adapter_reraises():
-    checker = search_filer.search_check()
+def test_unexpected_evaluator_error_is_structured_but_selection_reraises():
     malformed = {"title": "Example Series 001"}
 
-    evaluation = checker.evaluate_entry(malformed, _info())
+    batch = EvaluationSession().evaluate([malformed], _info())
+    evaluation = batch.evaluations[0]
     assert _reason(evaluation) == "error.evaluation_exception"
     assert evaluation.exception is not None
 
     with pytest.raises(type(evaluation.exception)):
-        checker._process_entry(malformed, _info())
+        EvaluationSession().evaluate([malformed], _info(), prefer_pack=False).selected
 
 
 def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypatch):
@@ -623,7 +635,7 @@ def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypat
         {"title": "Malformed provider entry"},
     ]
 
-    evaluations = search_filer.search_check().evaluate_entries(entries, _info())
+    evaluations = EvaluationSession().evaluate(entries, _info()).evaluations
 
     assert [_reason(evaluation) for evaluation in evaluations] == [
         "accepted.issue",
@@ -632,46 +644,17 @@ def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypat
     ]
 
 
-def test_automatic_adapter_preserves_legacy_shape_and_download_flag():
-    match = search_filer.search_check()._process_entry(_entry(), _info(manual=False))
-
-    assert match["downloadit"] is True
-    assert match["pack"] is False
-    assert "verdict" not in match
-    assert "candidate" not in match
-
-
-def test_checker_keeps_only_legacy_matches_and_populates_global(monkeypatch):
-    checker = search_filer.search_check()
+def test_evaluation_selection_exposes_private_handoff_without_global_state(monkeypatch):
     entries = [_entry(id="one"), _entry(id="ignored", title="Example Series REPACK"), _entry(id="two", link="two")]
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
 
-    matches = checker.checker(entries, _info())
+    batch = EvaluationSession().evaluate(entries, _info())
 
-    assert [match["entry"]["id"] for match in matches] == ["one", "two"]
-    assert comicarr.COMICINFO == matches
-
-
-def test_first_result_preserves_preference_and_last_fallback(monkeypatch):
-    checker = search_filer.search_check()
-    candidates = [
-        {"pack": True, "name": "first-pack"},
-        {"pack": True, "name": "last-pack"},
-        {"pack": False, "name": "preferred-issue"},
-    ]
-    process = MagicMock(side_effect=candidates)
-    monkeypatch.setattr(checker, "_process_entry", process)
-
-    assert checker.check_for_first_result([1, 2, 3], {}, prefer_pack=False)["name"] == "preferred-issue"
-    assert process.call_count == 3
-
-    process.reset_mock(side_effect=True)
-    process.side_effect = candidates[:2]
-    assert checker.check_for_first_result([1, 2], {}, prefer_pack=False)["name"] == "last-pack"
+    assert [match._handoff["entry"]["id"] for match in batch.selected] == ["one", "two"]
 
 
 class TestMangaVolumeAcceptanceArm:
-    """The volume-number acceptance arm, driven through evaluate_entry.
+    """The volume-number acceptance arm, driven through the evaluation interface.
 
     The store-date tests above cannot reach it: they stub justthedigits as 1,
     so they accept via `intIss == comintIss` and the arm never runs. A volume
@@ -693,7 +676,7 @@ class TestMangaVolumeAcceptanceArm:
                 series_volume=series_volume or "v%s" % volume,
             ),
         )
-        return search_filer.search_check().evaluate_entry(
+        return _evaluate(
             _entry(title="Example Series v%s (2024)" % volume),
             _info(
                 manga_match_name="Example Series",

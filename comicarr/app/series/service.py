@@ -403,7 +403,7 @@ def update_search_settings(
     """Update the per-series search flags (#633, #689, #691).
 
     ``allow_packs`` gates pack/bundle release matching; ``ignore_type`` lets
-    results through the booktype-mismatch check in search_filer.
+    results through the booktype-mismatch check in release evaluation.
     ``bare_number_mode`` is volumes/chapters/auto; ``monitor_mode`` is
     blended/volumes/chapters. Omitted fields are left untouched.
     """

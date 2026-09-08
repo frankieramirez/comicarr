@@ -20,9 +20,9 @@ from comicarr.app.manga.acquisition import search_plan_for_series, search_terms_
 from comicarr.app.manga.ledger import volume_numbers_match
 from comicarr.app.manga.parse import parse_in_series_context, parse_kwargs_for_series
 from comicarr.app.manga.sync import arm_manga_sync_job, next_interval_run
+from comicarr.app.search.evaluation import manga_volume_satisfies
 from comicarr.rsscheck import mangaCheck
 from comicarr.search import _build_manga_search_terms, manga_volume_search_terms
-from comicarr.search_filer import manga_volume_satisfies
 
 _INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
 _SEARCH_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "search.py"
@@ -247,33 +247,6 @@ def test_manga_volume_satisfies_defers_to_the_ledger_comparison():
     assert manga_volume_satisfies("v01", "1") is volume_numbers_match("v01", "1")
     assert manga_volume_satisfies("v02", "1") is volume_numbers_match("v02", "1")
     assert manga_volume_satisfies(None, "1") is False
-
-
-def test_manga_volume_arm_precedes_the_comic_version_comparison():
-    """The manga reading of "vNN" must win before the comic-version arms run.
-
-    Those arms compare the release's vNN to the series' ComicVersion/year,
-    which is the comic meaning (which RUN this is). For manga it is which BOOK,
-    so a later volume is otherwise discarded as "Versions wrong" -- only volume
-    1 of a v1 series would ever slip through.
-    """
-    filer_path = Path(__file__).resolve().parents[2] / "comicarr" / "search_filer.py"
-    source = filer_path.read_text(encoding="utf-8")
-    manga_arm = source.index("if manga_volume_pass and manga_volume_satisfies(")
-    versions_wrong = source.index('logger.fdebug("Versions wrong. Ignoring possible match.")')
-    assert manga_arm < versions_wrong
-    # It must be the opening `if`, not an `elif` reached after a comic arm.
-    assert "\n            if manga_volume_pass and manga_volume_satisfies(" in source
-
-
-def test_match_entry_prefers_the_manga_match_name():
-    """search_filer must compare against manga_match_name when it is set."""
-    filer_path = Path(__file__).resolve().parents[2] / "comicarr" / "search_filer.py"
-    source = filer_path.read_text(encoding="utf-8")
-    assert 'is_info.get("manga_match_name")' in source
-    # Both the parse and the match must use it, or the series comparison fails.
-    assert source.count("watchcomic=match_name") == 2
-    assert "watchcomic=ComicName" not in source
 
 
 def test_nzb_search_accepts_and_receives_manga_volume_terms():

@@ -21,7 +21,6 @@
 import contextvars
 import datetime
 import os
-import pathlib
 import re
 import shutil
 import sys
@@ -33,7 +32,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from operator import itemgetter
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import urljoin
 
 import feedparser
 import requests
@@ -54,7 +53,6 @@ from comicarr import (
     nzbget,
     rsscheck,
     sabnzbd,
-    search_filer,
     series_kind,
     updater,
 )
@@ -66,6 +64,9 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
+from comicarr.app.search import progress
+from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.search.evaluation_handoff import handoff_matches
 from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
 from comicarr.downloaders import external_server as exs
 from comicarr.tables import (
@@ -281,9 +282,11 @@ def search_init(
     content_type=None,
     chapter_number=None,
     volume_number=None,
+    evaluator=None,
 ):
 
-    comicarr.COMICINFO = []
+    evaluator = evaluator or EvaluationSession()
+    evaluator.start_search()
 
     if ComicYear is None:
         ComicYear = str(datetime.datetime.now().year)
@@ -378,7 +381,7 @@ def search_init(
     searchcnt = 0
     srchloop = 1
 
-    interactive = search_filer.interactive_collection_active()
+    interactive = evaluator.review
 
     if rsschecker:
         if comicarr.CONFIG.ENABLE_RSS:
@@ -678,6 +681,7 @@ def search_init(
                     "smode": smode,
                     "allow_packs": allow_packs,
                     "manga_volume_terms": manga_volume_terms,
+                    "evaluator": evaluator,
                     "findit": findit,
                 }
 
@@ -789,7 +793,7 @@ def search_init(
                 else:
                     tmp_cmloopit -= 1
 
-            search_filer.report_provider_complete(progress_provider)
+            progress.report_provider_complete(progress_provider)
             prov_count += 1
             logger.info("attempting to set %s to not being the active provider." % (list(current_prov.keys())[0]))
             if findit["lastrun"] != 0:
@@ -811,8 +815,8 @@ def search_init(
         srchloop += 1
 
     if manual is True:
-        logger.info("I have matched %s files: %s" % (len(comicarr.COMICINFO), comicarr.COMICINFO))
-        return comicarr.COMICINFO, "None"
+        logger.info("[SEARCH] I have matched %s files" % len(evaluator.matches))
+        return evaluator.matches, "None"
 
     if findit["status"] is True:
         if comicarr.CONFIG.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
@@ -993,7 +997,9 @@ def NZB_SEARCH(
     ignore_booktype=False,
     smode=None,
     manga_volume_terms=None,
+    evaluator=None,
 ):
+    evaluator = evaluator or EvaluationSession()
 
     if _allow_packs_enabled(allow_packs) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
         allow_packs = True
@@ -1220,7 +1226,7 @@ def NZB_SEARCH(
                     pass
                 fline = {"comicname": findcomic, "issue": isssearch, "year": comyear}
                 b = getcomics.GC(query=fline, provider_stat=provider_stat)
-                verified_matches = b.search(is_info=is_info)
+                verified_matches = b.search(is_info=is_info, evaluator=evaluator)
             elif nzbprov == "DDL(External)":
                 b = exs.MegaNZ(query="%s" % ComicName, provider_stat=provider_stat)
                 verified_matches = b.ddl_search(is_info=is_info)
@@ -1275,8 +1281,7 @@ def NZB_SEARCH(
                 verified_matches = "no results"
             else:
                 if len(bb["entries"]) > 0:
-                    sfs = search_filer.search_check()
-                    verified_matches = sfs.checker(bb["entries"], is_info)
+                    verified_matches = evaluator.evaluate(bb["entries"], is_info).selected
                 else:
                     verified_matches = "no results"
 
@@ -1364,7 +1369,7 @@ def NZB_SEARCH(
                     logger.fdebug("[SSL: %s] Search URL: %s" % (verify, logsearch))
 
                     if localbypass is False:
-                        _honour_search_delay(nzbprov, pause_the_search, foundc["lastrun"])
+                        _honour_search_delay(nzbprov, pause_the_search, foundc["lastrun"], review=evaluator.review)
 
                     try:
                         r = get_http_session().get(findurl, params=payload, verify=verify, headers=headers, timeout=30)
@@ -1375,7 +1380,7 @@ def NZB_SEARCH(
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
                         is_info["foundc"]["status"] = False
-                        search_filer.report_provider_failure(
+                        progress.report_provider_failure(
                             nzbprov,
                             "timeout",
                             redact_sensitive_text(e, secrets=(apikey,)),
@@ -1389,7 +1394,7 @@ def NZB_SEARCH(
                         if helpers.provider_unreachable(e):
                             helpers.disable_provider(tmpprov, "Connection Refused.")
                         is_info["foundc"]["status"] = False
-                        search_filer.report_provider_failure(
+                        progress.report_provider_failure(
                             nzbprov,
                             "connection_error",
                             redact_sensitive_text(e, secrets=(apikey,)),
@@ -1409,7 +1414,7 @@ def NZB_SEARCH(
                                 "but leaving it enabled." % nzbprov
                             )
                         is_info["foundc"]["status"] = False
-                        search_filer.report_provider_failure(
+                        progress.report_provider_failure(
                             nzbprov,
                             "request_error",
                             redact_sensitive_text(e, secrets=(apikey,)),
@@ -1496,8 +1501,7 @@ def NZB_SEARCH(
                                     % (len(kept), len(entries))
                                 )
                             entries = kept
-                        sfs = search_filer.search_check()
-                        verified_matches = sfs.checker(entries, is_info)
+                        verified_matches = evaluator.evaluate(entries, is_info).selected
 
             elif nzbprov == "experimental":
                 logger.info("sending %s to experimental search" % findcomic)
@@ -1508,8 +1512,7 @@ def NZB_SEARCH(
                     is_info["foundc"]["status"] = False
                     done = True
                 else:
-                    sfs = search_filer.search_check()
-                    verified_matches = sfs.checker(bb, is_info)
+                    verified_matches = evaluator.evaluate(bb, is_info).selected
                 is_info["foundc"]["lastrun"] = time.time()
                 logger.fdebug(
                     "setting lastrun for %s to %s"
@@ -1550,12 +1553,14 @@ def NZB_SEARCH(
 
 
 def verification(verified_matches, is_info):
+    if verified_matches != "no results":
+        verified_matches = handoff_matches(verified_matches)
     done = False
     verified_index = 0
     if verified_matches != "no results":
         # verified_index has to track the candidate actually in hand: the post-loop
         # block reads verified_matches[verified_index] for the pack check, the nzbid
-        # it hands nzblog(), and the snatch notification. search_filer also emits
+        # it hands nzblog(), and the snatch notification. Evaluation also emits
         # alt_match entries with downloadit=False into this same list, and those were
         # skipped without advancing the index -- so any candidate sent after one of
         # them was logged under an earlier entry's nzbid.
@@ -1794,6 +1799,7 @@ def searchforissue(
     acquisition_run_id=None,
     acquisition_trigger=None,
     entity_type=None,
+    evaluator=None,
 ):
     """Queue or run searches while preserving an optional outer run identity.
 
@@ -1801,6 +1807,7 @@ def searchforissue(
     now supply one durable run ID so all accepted Wanted rows become visible as
     a single operation without changing the per-issue worker contract.
     """
+    evaluator = evaluator or EvaluationSession()
     if rsschecker == "yes":
         while comicarr.SEARCHLOCK.locked():
             time.sleep(5)
@@ -2459,8 +2466,7 @@ def searchforissue(
                             }
                         ]
 
-                        sfs = search_filer.search_check()
-                        verified_matches = sfs.checker(entries, is_info)
+                        verified_matches = evaluator.evaluate(entries, is_info).selected
                         logger.info("verified_matches_returned: %s" % (verified_matches,))
                         if len(verified_matches) > 0:
                             response = verification(verified_matches, is_info)
@@ -2667,6 +2673,7 @@ def searchforissue(
                     content_type=content_type,
                     chapter_number=(None if manga_chapter_number in (None, "") else str(manga_chapter_number)),
                     volume_number=(None if manga_volume_number in (None, "") else str(manga_volume_number)),
+                    evaluator=evaluator,
                 )
                 if manual is True:
                     comicarr.SEARCHLOCK.release()
@@ -3986,69 +3993,6 @@ def IssueTitleCheck(
     return
 
 
-def generate_id(nzbprov, link, comicname):
-    if type(nzbprov) != str:
-        nzbprov = nzbprov["type"]
-        logger.fdebug("nzbprov setting to : %s" % nzbprov)
-    if nzbprov == "experimental":
-        url_parts = urlparse(link)
-        path_parts = url_parts[2].rpartition("/")
-        nzbtempid = path_parts[0].rpartition("/")
-        nzblen = len(nzbtempid)
-        nzbid = nzbtempid[nzblen - 1]
-    elif nzbprov == "32P":
-        nzbid = link
-    elif any([nzbprov == "WWT", nzbprov == "DEM"]):
-        if "http" not in link and any([nzbprov == "WWT", nzbprov == "DEM"]):
-            nzbid = link
-        else:
-            url_parts = urlparse(link)
-            path_parts = url_parts[2].rpartition("/")
-            nzbtempid = path_parts[2]
-            nzbid = re.sub(".torrent", "", nzbtempid).rstrip()
-    elif "newznab" in nzbprov:
-        tmpid = urlparse(link)[4]
-        if "searchresultid" in tmpid:
-            nzbid = os.path.splitext(link)[0].rsplit("searchresultid=", 1)[1]
-        elif tmpid == "" or tmpid is None:
-            nzbid = os.path.splitext(link)[0].rsplit("/", 1)[1]
-        else:
-            nzbinfo = urllib.parse.parse_qs(link)
-            nzbid = nzbinfo.get("id", None)
-            if nzbid is not None:
-                nzbid = "".join(nzbid)
-        if nzbid is None:
-            findend = tmpid.find("&")
-            if findend == -1:
-                findend = len(tmpid)
-                nzbid = tmpid[findend + 1 :].strip()
-            else:
-                findend = tmpid.find("apikey=", findend)
-                nzbid = tmpid[findend + 1 :].strip()
-            if "&id" not in tmpid or nzbid == "":
-                tmpid = urlparse(link)[2]
-                nzbid = tmpid.rsplit("/", 1)[1]
-    elif nzbprov == "torznab":
-        idtmp = urlparse(link)[4]
-        if idtmp == "":
-            idtmp = pathlib.PurePosixPath(unquote(urlparse(link).path))
-            for im in idtmp.parts:
-                if all(
-                    [
-                        comicname.lower() not in im.lower(),
-                        im != "/",
-                        ".cbz" not in im.lower(),
-                        ".cbr" not in im.lower(),
-                    ]
-                ):
-                    nzbid = im
-                    break
-        else:
-            idpos = idtmp.find("&")
-            nzbid = re.sub("id=", "", idtmp[:idpos]).strip()
-    return nzbid
-
-
 def check_time(last_run):
     rd = datetime.datetime.utcfromtimestamp(last_run)
     rd_now = datetime.datetime.utcfromtimestamp(time.time())
@@ -4121,7 +4065,7 @@ def check_the_search_delay(manual=False):
     return pause_the_search
 
 
-def _honour_search_delay(nzbprov, pause_the_search, lastrun):
+def _honour_search_delay(nzbprov, pause_the_search, lastrun, *, review=False):
     """Sleep out the remainder of a provider's backoff window.
 
     Interactive review never blocks on the window (#768): the operator is
@@ -4137,7 +4081,7 @@ def _honour_search_delay(nzbprov, pause_the_search, lastrun):
             "[PROVIDER-SEARCH-DELAY][%s] Last search took place %s seconds ago. We're clear..." % (nzbprov, int(diff))
         )
         return
-    if search_filer.interactive_collection_active():
+    if review:
         logger.fdebug(
             "[PROVIDER-SEARCH-DELAY][%s] Interactive search - skipping the remaining %s second backoff."
             % (nzbprov, (pause_the_search - int(diff)))
@@ -4183,6 +4127,7 @@ def search_the_matrix(scarios):
         smode=scarios["smode"],
         allow_packs=scarios.get("allow_packs"),
         manga_volume_terms=scarios.get("manga_volume_terms"),
+        evaluator=scarios.get("evaluator"),
     )
 
 

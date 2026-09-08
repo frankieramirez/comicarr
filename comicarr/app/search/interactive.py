@@ -16,10 +16,13 @@ from contextlib import nullcontext
 
 from sqlalchemy import select
 
-from comicarr import db, helpers, logger, search, search_filer
+from comicarr import db, helpers, logger, search
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search import progress
 from comicarr.app.search import routes as search_routes
+from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.search.evaluation_handoff import handoff_matches
 from comicarr.app.search.interactive_sessions import (
     InteractiveCandidateConflict,
     claim_server_candidate,
@@ -283,37 +286,6 @@ def _evaluation_identity(evaluation):
     )
 
 
-def _satisfies_for_evaluation(evaluation, searched_item, eligible):
-    legacy = evaluation.legacy_match or {}
-    pack_info = legacy.get("pack_issuelist")
-    found = []
-    if legacy.get("pack") and isinstance(pack_info, dict):
-        for issue in pack_info.get("issues") or []:
-            issue_id = str(issue.get("issueid") or issue.get("IssueID") or "")
-            match = eligible.get(("issue", issue_id))
-            if match is None:
-                continue
-            found.append(
-                {
-                    "entity_type": "issue",
-                    "entity_id": issue_id,
-                    "issue_number": match.get("issue_number") or issue.get("issuenumber"),
-                }
-            )
-        if found:
-            return found
-    match = eligible.get((searched_item["entity_type"], str(searched_item["entity_id"])))
-    if match is None:
-        return []
-    return [
-        {
-            "entity_type": match["entity_type"],
-            "entity_id": match["entity_id"],
-            "issue_number": match.get("issue_number"),
-        }
-    ]
-
-
 def _union_satisfies(existing, incoming):
     merged = list(existing.satisfies or [])
     seen = {(item["entity_type"], str(item["entity_id"])) for item in merged}
@@ -369,7 +341,7 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
             provider_total=provider_total,
         )
         return
-    evaluations = []
+    evaluator = EvaluationSession(review=True)
     failures = list(initial_failures)
     completed = set()
     engine = db.get_engine()
@@ -383,9 +355,6 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
             current_provider=provider,
             provider_failures=failures,
         )
-
-    def on_evaluations(values):
-        evaluations.extend(values)
 
     def on_complete(provider):
         completed.add(provider.casefold())
@@ -405,14 +374,14 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
     try:
         with (
             _WORKER_LOCK,
-            search_filer.interactive_collection(
-                on_evaluations=on_evaluations,
+            progress.report_progress(
                 on_provider_complete=on_complete,
                 on_provider_failure=on_failure,
             ),
         ):
             result = search.searchforissue(
                 issueid=entity["entity_id"],
+                evaluator=evaluator,
                 manual=True,
                 entity_type=entity["entity_type"] if entity["entity_type"] != "story_arc_issue" else None,
             )
@@ -434,7 +403,7 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
     complete_search_session(
         engine,
         session_id=session_id,
-        evaluations=evaluations,
+        evaluations=evaluator.evaluations,
         provider_completed=provider_total,
         provider_failures=failures,
     )
@@ -479,15 +448,7 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
 
     target_failures = 0
     for target in targets:
-
-        def on_evaluations(values, searched=target):
-            for evaluation in values:
-                if unfiltered:
-                    evaluation.reconstruction_hint = dict(
-                        evaluation.reconstruction_hint or {}, search_mode="unfiltered"
-                    )
-                evaluation.satisfies = _satisfies_for_evaluation(evaluation, searched, eligible)
-                _merge_series_evaluation(collected, evaluation)
+        evaluator = EvaluationSession(review=True, searched_item=target, eligible=eligible)
 
         def on_failure(provider, code, detail):
             failures.append(
@@ -505,14 +466,14 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
             with (
                 _WORKER_LOCK,
                 search.unfiltered_series_pass() if unfiltered else nullcontext(),
-                search_filer.interactive_collection(
-                    on_evaluations=on_evaluations,
+                progress.report_progress(
                     on_provider_complete=on_complete,
                     on_provider_failure=on_failure,
                 ),
             ):
                 result = search.searchforissue(
                     issueid=target["entity_id"],
+                    evaluator=evaluator,
                     manual=True,
                     entity_type=target["entity_type"] if target["entity_type"] != "story_arc_issue" else None,
                 )
@@ -525,6 +486,10 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
             logger.error("[INTERACTIVE-SEARCH] Series collection failed: %s" % redact_sensitive_text(e))
             failures.append({"provider": "Search", "code": "collection_failed", "detail": redact_sensitive_text(e)})
             target_failures += 1
+        for evaluation in evaluator.evaluations:
+            if unfiltered:
+                evaluation.reconstruction_hint = dict(evaluation.reconstruction_hint or {}, search_mode="unfiltered")
+            _merge_series_evaluation(collected, evaluation)
 
     if target_failures == len(targets) and not collected:
         update_search_progress(
@@ -569,28 +534,18 @@ def _same_candidate_identity(stored, current):
 
 
 def _revalidate_candidate(entity, *, override_reason=None, unfiltered=False):
-    evaluations = []
-
-    def on_evaluations(values):
-        evaluations.extend(values)
-
-    override = search_filer.interactive_candidate_override(override_reason) if override_reason else nullcontext()
+    evaluator = EvaluationSession(review=True, override_reason=override_reason)
     with (
         _WORKER_LOCK,
-        override,
         search.unfiltered_series_pass() if unfiltered else nullcontext(),
-        search_filer.interactive_collection(
-            on_evaluations=on_evaluations,
-            on_provider_complete=lambda _provider: None,
-            on_provider_failure=lambda _provider, _code, _detail: None,
-        ),
     ):
         result = search.searchforissue(
             issueid=entity["entity_id"],
+            evaluator=evaluator,
             manual=True,
             entity_type=entity["entity_type"] if entity["entity_type"] != "story_arc_issue" else None,
         )
-    return evaluations, result
+    return evaluator.evaluations, result
 
 
 def _verification_info(match, entity_type):
@@ -758,7 +713,8 @@ def grab_candidate(
                 evaluation_reconstruction(evaluation),
             )
         ]
-        if len(matches) != 1 or matches[0].legacy_match is None:
+        handoff_candidates = handoff_matches(matches, manual_grab=True) if len(matches) == 1 else []
+        if not handoff_candidates:
             return _release_with_error(
                 engine,
                 candidate,
@@ -766,8 +722,7 @@ def grab_candidate(
                 code="candidate_changed",
             )
 
-        match = dict(matches[0].legacy_match)
-        match["downloadit"] = True
+        match = handoff_candidates[0]
         info = _verification_info(match, entity["entity_type"])
         try:
             result = search.verification([match], info)

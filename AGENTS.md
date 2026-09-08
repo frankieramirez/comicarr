@@ -48,7 +48,7 @@ When using Vite with a separate backend process, the proxy targets `http://local
 
 [Comicarr Code Index]|root: ./comicarr
 |Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
-|Business Logic:{search.py:provider search,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,myanimelist.py:MyAnimeList,mangasync.py:manga library scan,manga_parser.py:manga filenames,series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
+|Business Logic:{search.py:provider search,app/search/evaluation.py:release-candidate evaluation,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,myanimelist.py:MyAnimeList,mangasync.py:manga library scan,manga_parser.py:manga filenames,series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
 |Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
 |Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
@@ -121,3 +121,11 @@ Frontend design system — tokens, theming, typography, primitives, and the
 visual anti-pattern list — is `DESIGN.md`.
 
 Keep this file aligned with `CLAUDE.md` when architecture changes.
+
+Release candidate matching is owned by `app/search/evaluation.py`. Automatic
+search, GetComics, and Interactive release search pass an `EvaluationSession`
+explicitly; matching never uses shared candidate globals or collection callbacks.
+The module owns verdicts, candidate identity, duplicate history, pack membership,
+and item satisfaction. `evaluation_handoff.py` alone translates its private
+accepted data for legacy handoff. See `docs/architecture/release-evaluation.md`
+for preserved selection and pack-claim timing rules.
