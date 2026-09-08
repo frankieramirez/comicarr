@@ -10,7 +10,7 @@
 import pytest
 
 import comicarr
-from comicarr.app.downloads import service as downloads_service
+from comicarr.app.search import _pack_membership as pack_membership
 from comicarr.helpers import issuedigits
 
 
@@ -34,14 +34,14 @@ def _pack_state(monkeypatch):
 
 
 def _install_rows(monkeypatch, rows):
-    monkeypatch.setattr(downloads_service.db, "select_all", lambda _query: rows)
+    monkeypatch.setattr(pack_membership.db, "select_all", lambda _query: rows)
 
 
 def test_default_kind_matches_issue_numbers_and_registers_pack_ids(monkeypatch):
     rows = [_row("id-1", 1), _row("id-2", 2), _row("id-3", 3, status="Downloaded")]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-3", "2", "pack-1")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-3", "2", "pack-1")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["id-1", "id-2"]
@@ -56,7 +56,7 @@ def test_volume_kind_skips_chapter_rows_of_unknown_volume(monkeypatch):
     ]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-14", "7", "pack-2", kind="volume")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-14", "7", "pack-2", kind="volume")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["vol-7", "vol-8"]
@@ -74,7 +74,7 @@ def test_volume_pack_covers_every_chapter_row_in_its_volumes(monkeypatch):
     ]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-14", "2", "pack-5", kind="volume")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-14", "2", "pack-5", kind="volume")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["c-1", "c-2", "c-3"]
@@ -85,7 +85,7 @@ def test_chapter_kind_does_not_claim_volume_rows(monkeypatch):
     rows = [_row("vol-2", 2, volume="2"), _row("c-2", 2, chapter="2", volume="1")]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-10", "2", "pack-6", kind="chapter")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-10", "2", "pack-6", kind="chapter")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["c-2"]
@@ -97,7 +97,7 @@ def test_volume_kind_falls_back_to_issue_numbers_for_plain_rows(monkeypatch):
     rows = [_row("tpb-1", 1), _row("tpb-2", 2)]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-2", "1", "pack-3", kind="volume")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-2", "1", "pack-3", kind="volume")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["tpb-1", "tpb-2"]
@@ -115,7 +115,7 @@ def test_series_kind_claims_every_undownloaded_row(monkeypatch):
     ]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-7", kind="series")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "all", "2", "pack-7", kind="series")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["vol-1", "c-2", "c-3"]
@@ -134,7 +134,7 @@ def test_series_kind_excludes_rows_released_after_the_pack_span(monkeypatch):
     ]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-9", kind="series", span_end="2023")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "all", "2", "pack-9", kind="series", span_end="2023")
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["c-1", "c-2", "c-4"]
@@ -145,7 +145,7 @@ def test_series_kind_invalid_when_searched_issue_is_past_the_span(monkeypatch):
     rows = [_row("c-1", 1, released="2021-05-01"), _row("c-9", 9, released="2026-01-01")]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "9", "pack-10", kind="series", span_end="2023")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "all", "9", "pack-10", kind="series", span_end="2023")
 
     assert result["valid"] is False
     assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
@@ -155,7 +155,7 @@ def test_series_kind_invalid_when_searched_issue_already_downloaded(monkeypatch)
     rows = [_row("done-2", 2, status="Downloaded"), _row("id-3", 3)]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "all", "2", "pack-8", kind="series")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "all", "2", "pack-8", kind="series")
 
     assert result["valid"] is False
     assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
@@ -165,7 +165,7 @@ def test_volume_kind_invalid_when_searched_number_outside_pack(monkeypatch):
     rows = [_row("vol-1", 1, volume="1")]
     _install_rows(monkeypatch, rows)
 
-    result = downloads_service.issue_find_ids("Example", "comic-1", "1-2", "9", "pack-4", kind="volume")
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-2", "9", "pack-4", kind="volume")
 
     assert result["valid"] is False
     assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}

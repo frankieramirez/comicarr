@@ -304,7 +304,6 @@ ISSUE_EXCEPTIONS = [
 ]
 SAB_PARAMS = None
 PROVIDER_START_ID = 0
-COMICINFO = ()
 CHECK_FOLDER_CACHE = None
 FOLDER_CACHE = None
 SSE_KEY = None
@@ -458,7 +457,6 @@ def initialize(config_file):
             SCHED_VERSION_LAST, \
             SCHED_DBUPDATE_LAST, \
             SCHED_MANGA_SYNC_LAST, \
-            COMICINFO, \
             SEARCH_TIER_DATE, \
             BACKENDSTATUS_CV, \
             BACKENDSTATUS_WS, \

@@ -105,7 +105,7 @@ def test_fallback_candidate_can_still_be_taken(monkeypatch):
 def test_skipped_candidate_does_not_misname_the_snatch(monkeypatch):
     """A leading downloadit=False entry must not shift what gets logged.
 
-    search_filer emits alt_match entries with downloadit=False into the same
+    release evaluation emits alt_match entries with downloadit=False into the same
     list. They are skipped without ever reaching searcher(), so the index used
     by the post-loop block has to advance past them anyway -- otherwise the
     accepted release is recorded under the skipped entry's nzbid and year, and

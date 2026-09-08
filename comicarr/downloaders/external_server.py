@@ -30,6 +30,7 @@ Mega.nz links (GetComics GC-Mega) and is not a search client.
 """
 
 from comicarr import logger
+from comicarr.app.search import progress
 
 EXT_SERVER = False
 
@@ -60,10 +61,7 @@ class MegaNZ(object):
 
     def ddl_search(self, is_info=None):
         _note_unavailable("returning no results")
-        # search_filer imports search, which imports this module at load time.
-        from comicarr import search_filer
-
-        search_filer.report_provider_failure(_PROVIDER, "provider_unavailable", _UNAVAILABLE)
+        progress.report_provider_failure(_PROVIDER, "provider_unavailable", _UNAVAILABLE)
         return "no results"
 
     def queue_the_download(self, cinfo, comicinfo=None, pack_info=None):
