@@ -111,7 +111,6 @@ def _matched(**overrides):
 @pytest.fixture(autouse=True)
 def _matcher_environment(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config())
-    monkeypatch.setattr(comicarr, "COMICINFO", [], raising=False)
     monkeypatch.setattr(evaluation_module, "generate_id", lambda _provider, identity, _name: str(identity))
     _install_parser(monkeypatch)
 
@@ -652,7 +651,6 @@ def test_evaluation_selection_exposes_private_handoff_without_global_state(monke
     batch = EvaluationSession().evaluate(entries, _info())
 
     assert [match._handoff["entry"]["id"] for match in batch.selected] == ["one", "two"]
-    assert comicarr.COMICINFO == []
 
 
 class TestMangaVolumeAcceptanceArm:
