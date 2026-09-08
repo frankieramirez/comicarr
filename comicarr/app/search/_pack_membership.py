@@ -108,7 +108,7 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
         for pl in packlist:
             pl = re.sub("#", "", pl).strip()
             if "-" in pl:
-                le_range = list(range(int(pack[: pack.find("-")]), int(pack[pack.find("-") + 1 :]) + 1))
+                le_range = list(range(int(pl[: pl.find("-")]), int(pl[pl.find("-") + 1 :]) + 1))
                 for x in le_range:
                     if not [y for y in plist if y == x]:
                         plist.append(int(x))
@@ -155,7 +155,8 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
 
     if len(iss["issues"]) == len(pack_issues):
         logger.fdebug(
-            "Complete issue count of %s issues are available within this pack for %s" % (len(pack_issues), ComicName)
+            "[PACK-MEMBERSHIP] Complete issue count of %s issues are available within this pack for %s"
+            % (len(pack_issues), ComicName)
         )
 
     iss["issue_range"] = pack_issues

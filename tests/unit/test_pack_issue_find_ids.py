@@ -48,6 +48,28 @@ def test_default_kind_matches_issue_numbers_and_registers_pack_ids(monkeypatch):
     assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"id-1": "pack-1", "id-2": "pack-1"}
 
 
+def test_comma_separated_ranges_expand_each_token(monkeypatch):
+    # "1-3,5" used to slice the whole pack string, so int("3,5") raised and the
+    # pack was rejected as unparseable. Each token is its own range.
+    rows = [_row("id-%s" % n, n) for n in (1, 2, 3, 4, 5)]
+    _install_rows(monkeypatch, rows)
+
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-3,5", "2", "pack-11")
+
+    assert result["valid"] is True
+    assert [x["issueid"] for x in result["issues"]] == ["id-1", "id-2", "id-3", "id-5"]
+
+
+def test_space_separated_ranges_expand_each_token(monkeypatch):
+    rows = [_row("id-%s" % n, n) for n in (1, 2, 3, 5, 6, 7)]
+    _install_rows(monkeypatch, rows)
+
+    result = pack_membership.issue_find_ids("Example", "comic-1", "1-3 5-7", "6", "pack-12")
+
+    assert result["valid"] is True
+    assert [x["issueid"] for x in result["issues"]] == ["id-1", "id-2", "id-3", "id-5", "id-6", "id-7"]
+
+
 def test_volume_kind_skips_chapter_rows_of_unknown_volume(monkeypatch):
     rows = [
         _row("chap-7", 7, chapter="7"),

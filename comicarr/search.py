@@ -815,7 +815,7 @@ def search_init(
         srchloop += 1
 
     if manual is True:
-        logger.info("I have matched %s files" % len(evaluator.matches))
+        logger.info("[SEARCH] I have matched %s files" % len(evaluator.matches))
         return evaluator.matches, "None"
 
     if findit["status"] is True:

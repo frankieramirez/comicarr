@@ -30,7 +30,7 @@ def generate_id(nzbprov, link, comicname):
     nzbid = missing
     if type(nzbprov) != str:
         nzbprov = nzbprov["type"]
-        logger.fdebug("nzbprov setting to : %s" % nzbprov)
+        logger.fdebug("[RELEASE-IDENTITY] nzbprov setting to : %s" % nzbprov)
     if nzbprov == "experimental":
         url_parts = urlparse(link)
         path_parts = url_parts[2].rpartition("/")
@@ -54,7 +54,7 @@ def generate_id(nzbprov, link, comicname):
         elif tmpid == "" or tmpid is None:
             nzbid = os.path.splitext(link)[0].rsplit("/", 1)[1]
         else:
-            nzbinfo = urllib.parse.parse_qs(link)
+            nzbinfo = urllib.parse.parse_qs(tmpid)
             nzbid = nzbinfo.get("id", None)
             if nzbid is not None:
                 nzbid = "".join(nzbid)
@@ -86,7 +86,8 @@ def generate_id(nzbprov, link, comicname):
                     break
         else:
             idpos = idtmp.find("&")
-            nzbid = re.sub("id=", "", idtmp[:idpos]).strip()
+            token = idtmp if idpos == -1 else idtmp[:idpos]
+            nzbid = re.sub("id=", "", token).strip()
     if nzbid is missing:
         raise UnboundLocalError("cannot access local variable 'nzbid' where it is not associated with a value")
     return nzbid

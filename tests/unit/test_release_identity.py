@@ -30,6 +30,17 @@ def test_torznab_query_id_is_preserved():
     assert generate_id("torznab", "https://indexer.test/api?id=456&cat= comics", "Series") == "456"
 
 
+def test_newznab_query_id_is_read_when_it_is_the_first_parameter():
+    # parse_qs on the whole URL keyed the first pair as "https://provider/api?id",
+    # so the id was missed and the endpoint path stood in for the release identity.
+    assert generate_id("newznab", "https://provider.test/api?id=abc", "Series") == "abc"
+
+
+def test_torznab_query_id_keeps_its_last_character_without_a_delimiter():
+    # find("&") returns -1 with no delimiter, and idtmp[:-1] dropped the last character.
+    assert generate_id("torznab", "https://indexer.test/api?id=456", "Series") == "456"
+
+
 @pytest.mark.parametrize("provider,link", [("unknown", "id"), ("torznab", "https://example.test/")])
 def test_unresolvable_identity_keeps_the_existing_failure(provider, link):
     with pytest.raises(UnboundLocalError):
