@@ -44,6 +44,8 @@ frontend/dist/
 .coverage.*
 htmlcov/
 coverage.xml
+frontend/coverage/
+frontend/.vitest/
 
 # Playwright e2e artifacts
 frontend/playwright-report/
