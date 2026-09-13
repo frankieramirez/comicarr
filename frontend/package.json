@@ -79,7 +79,7 @@
     "globals": "^17.11.0",
     "happy-dom": "^20.13.2",
     "msw": "^2.15.0",
-    "portless": "^0.15.5",
+    "portless": "^0.15.6",
     "postcss": "^8.5.25",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.1.18",
