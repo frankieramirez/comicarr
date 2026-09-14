@@ -143,11 +143,17 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                 )
                 comicarr.PULLNEW = "no"
                 new_pullcheck(chk_locg["weeknumber"], chk_locg["year"])
+                retry_hint = None
+                origin_error = False
+                cause = None
             elif chk_locg["status"] == "success":
                 logger.info(
                     "[PULL-LIST] Weekly Pull List successfully loaded with " + str(chk_locg["count"]) + " issues."
                 )
                 new_pullcheck(chk_locg["weeknumber"], chk_locg["year"])
+                retry_hint = None
+                origin_error = False
+                cause = None
             elif chk_locg["status"] == "update_required":
                 logger.warn("[PULL-LIST] Your version of Comicarr is not up-to-date. You MUST update before this works")
                 return {"status": "failure"}
@@ -156,9 +162,14 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     "[PULL-LIST] Unable to retrieve weekly pull-list. Pull list for week %s, %s may be stale."
                     % (weeknumber_mod, year_mod)
                 )
-                retry_hint = chk_locg.get("retry_after") or retry_hint
-                origin_error = origin_error or bool(chk_locg.get("origin_error"))
-                cause = chk_locg.get("cause") or cause
+                if chk_locg.get("origin_error"):
+                    retry_hint = chk_locg.get("retry_after") or retry_hint
+                    origin_error = True
+                    cause = chk_locg.get("cause") or cause
+                else:
+                    retry_hint = None
+                    origin_error = False
+                    cause = None
                 if _weekly_pull_has_data(weeknumber_mod, year_mod):
                     logger.info(
                         "[PULL-LIST] Falling back to the cached pull-list already stored for week %s, %s."

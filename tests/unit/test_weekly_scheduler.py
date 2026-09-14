@@ -191,6 +191,27 @@ def test_live_success_resets_origin_error_streak_so_retry_after_can_be_honored_a
     job.modify.assert_called_once()
 
 
+def test_generic_failure_resets_origin_error_streak_so_retry_after_can_be_honored_again(monkeypatch):
+    job = _scheduler_job(monkeypatch)
+    weeklypullit.origin_error_streak = 0
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value=_origin_outage_failure()))
+
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+    job.modify.reset_mock()
+
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value={"status": "failure"}))
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+    assert weeklypullit.origin_error_streak == 0
+
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value=_origin_outage_failure()))
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+
+    job.modify.assert_called_once()
+
+
 def test_weekly_run_projects_running_state_before_refresh_cannot_enqueue_again(monkeypatch):
     """A manual refresh must observe the canonical Running state, not stale Queued state."""
     scheduler = MagicMock()

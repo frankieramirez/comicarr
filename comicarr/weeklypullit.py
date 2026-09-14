@@ -80,8 +80,7 @@ def _should_honor_origin_retry(pull_result):
     if isinstance(pull_result, dict) and pull_result.get("origin_error"):
         origin_error_streak += 1
         return origin_error_streak == 1
-    if not (isinstance(pull_result, dict) and pull_result.get("status") == "failure"):
-        origin_error_streak = 0
+    origin_error_streak = 0
     return True
 
 
