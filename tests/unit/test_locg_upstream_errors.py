@@ -45,7 +45,9 @@ def upstream(monkeypatch):
 def test_origin_errors_are_reported_as_a_transient_outage(upstream, status_code):
     result = upstream(int(status_code))
 
-    assert result == {"status": "failure"}
+    assert result["status"] == "failure"
+    assert result["origin_error"] is True
+    assert result["cause"] == locg.ORIGIN_OUTAGE_CAUSE
     assert comicarr.BACKENDSTATUS_WS == "down"
 
     message = upstream.warnings[-1]
@@ -67,6 +69,17 @@ def test_retry_after_is_surfaced_when_upstream_supplies_one(upstream):
     upstream(523, headers={"Retry-After": "120"})
 
     assert "retry in 120 seconds" in upstream.warnings[-1]
+
+
+def test_origin_errors_carry_an_operator_facing_upstream_cause(upstream):
+    result = upstream(523, headers={"Retry-After": "120"})
+
+    assert result["status"] == "failure"
+    assert result["retry_after"] == 120
+    assert result["origin_error"] is True
+    assert "Walksoftly" in result["cause"]
+    assert "upstream" in result["cause"].lower()
+    assert "connection" not in result["cause"].lower()
 
 
 def test_date_form_retry_after_is_not_reported_as_seconds(upstream):

@@ -55,6 +55,72 @@ describe("ReleasesPage", () => {
     ).toBeNull();
   });
 
+  it("still asks the operator to fix the connection on a generic pull failure", async () => {
+    server.use(
+      http.get("/api/system/jobs", () =>
+        HttpResponse.json({
+          jobs: [
+            {
+              id: "weekly",
+              name: "Weekly Pullist",
+              next_run_time: "2026-07-12T00:00:00Z",
+              trigger: "interval",
+              status: "Error",
+              last_success_timestamp: null,
+              last_failure_timestamp: Date.now() / 1_000,
+              last_error: "Weekly pull source reported a failure",
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Refresh releases" }),
+    );
+
+    expect(
+      await screen.findByText(/fixing the pull source connection/i),
+    ).toBeTruthy();
+  });
+
+  it("names an upstream Walksoftly outage instead of a local connection to fix", async () => {
+    server.use(
+      http.get("/api/system/jobs", () =>
+        HttpResponse.json({
+          jobs: [
+            {
+              id: "weekly",
+              name: "Weekly Pullist",
+              next_run_time: "2026-07-12T00:00:00Z",
+              trigger: "interval",
+              status: "Error",
+              last_success_timestamp: null,
+              last_failure_timestamp: Date.now() / 1_000,
+              last_error:
+                "Walksoftly is unreachable. The pull-list source is down upstream.",
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Refresh releases" }),
+    );
+
+    expect(
+      await screen.findByText(/Walksoftly is unreachable/i),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(/fixing the pull source connection/i),
+    ).toBeNull();
+  });
+
   it("reports a refresh that finishes before the accepted response is rendered", async () => {
     server.use(
       http.get("/api/system/jobs", () =>

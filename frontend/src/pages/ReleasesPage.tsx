@@ -242,6 +242,9 @@ export default function ReleasesPage() {
         >
           {refreshMessage}
           {weeklyStatus === "error" &&
+            !/Walksoftly is unreachable|down upstream/i.test(
+              weeklyJob?.last_error || "",
+            ) &&
             " Retry after fixing the pull source connection."}
         </div>
       )}
