@@ -71,6 +71,20 @@ def _restore_manual_next_run():
         logger.error("[WEEKLY] Could not restore scheduled refresh time: %s" % e)
 
 
+origin_error_streak = 0
+
+
+def _should_honor_origin_retry(pull_result):
+    """Honor Retry-After only on the first origin-error in a consecutive streak."""
+    global origin_error_streak
+    if isinstance(pull_result, dict) and pull_result.get("origin_error"):
+        origin_error_streak += 1
+        return origin_error_streak == 1
+    if not (isinstance(pull_result, dict) and pull_result.get("status") == "failure"):
+        origin_error_streak = 0
+    return True
+
+
 def _honor_upstream_retry(retry_after):
     """Move the weekly job's next run earlier when upstream asked for a sooner retry.
 
@@ -121,17 +135,19 @@ class Weekly:
             )
             _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Running")
             retry_hint = None
+            pull_result = None
             try:
                 pull_result = weeklypull.pullit()
                 if isinstance(pull_result, dict):
                     retry_hint = pull_result.get("retry_after")
                     if pull_result.get("status") == "failure":
-                        raise RuntimeError("Weekly pull source reported a failure")
+                        raise RuntimeError(pull_result.get("cause") or "Weekly pull source reported a failure")
                 weeklypull.future_check()
             except Exception as e:
                 logger.error("[WEEKLY] Pull-list refresh failed: %s" % e)
                 _restore_manual_next_run()
-                _honor_upstream_retry(retry_hint)
+                if _should_honor_origin_retry(pull_result):
+                    _honor_upstream_retry(retry_hint)
                 helpers.job_management(
                     write=True,
                     job="Weekly Pullist",
@@ -144,7 +160,8 @@ class Weekly:
                 raise
 
             _restore_manual_next_run()
-            _honor_upstream_retry(retry_hint)
+            if _should_honor_origin_retry(pull_result):
+                _honor_upstream_retry(retry_hint)
             helpers.job_management(
                 write=True, job="Weekly Pullist", last_run_completed=helpers.utctimestamp(), status="Waiting"
             )

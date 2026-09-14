@@ -37,6 +37,8 @@ CLOUDFLARE_ORIGIN_ERRORS = {
     "524": "timed out while responding",
 }
 
+ORIGIN_OUTAGE_CAUSE = "Walksoftly is unreachable. The pull-list source is down upstream."
+
 
 def _retry_advice(retry_after):
     """Phrase a Retry-After value, which is either delta-seconds or an HTTP date."""
@@ -122,7 +124,11 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
         )
         comicarr.BACKENDSTATUS_WS = "down"
-        failure = {"status": "failure"}
+        failure = {
+            "status": "failure",
+            "origin_error": True,
+            "cause": ORIGIN_OUTAGE_CAUSE,
+        }
         retry_after = _retry_after_seconds(r.headers.get("Retry-After"))
         if retry_after is not None:
             failure["retry_after"] = retry_after

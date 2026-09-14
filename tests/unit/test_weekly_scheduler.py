@@ -55,6 +55,35 @@ def test_weekly_run_records_failure_and_recovers_status(monkeypatch):
     assert str(failure_call["failure_message"]) == "upstream down"
 
 
+def test_weekly_run_records_origin_outage_cause(monkeypatch):
+    job_management = MagicMock()
+    monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
+    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(
+        weeklypullit.weeklypull,
+        "pullit",
+        MagicMock(
+            return_value={
+                "status": "failure",
+                "retry_after": 120,
+                "origin_error": True,
+                "cause": "Walksoftly is unreachable. The pull-list source is down upstream.",
+            }
+        ),
+    )
+    future_check = MagicMock()
+    monkeypatch.setattr(weeklypullit.weeklypull, "future_check", future_check)
+
+    with pytest.raises(RuntimeError, match="Walksoftly is unreachable"):
+        weeklypullit.Weekly().run()
+
+    future_check.assert_not_called()
+    failure_message = str(job_management.call_args_list[-1].kwargs["failure_message"])
+    assert "Walksoftly" in failure_message
+    assert "upstream" in failure_message.lower()
+    assert "connection" not in failure_message.lower()
+
+
 def test_weekly_run_records_returned_pull_failure(monkeypatch):
     job_management = MagicMock()
     monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
@@ -69,6 +98,97 @@ def test_weekly_run_records_returned_pull_failure(monkeypatch):
     future_check.assert_not_called()
     assert job_management.call_args_list[-1].kwargs["status"] == "Error"
     assert job_management.call_args_list[-1].kwargs["failure"] is True
+
+
+def _origin_outage_failure():
+    return {
+        "status": "failure",
+        "retry_after": 120,
+        "origin_error": True,
+        "cause": "Walksoftly is unreachable. The pull-list source is down upstream.",
+    }
+
+
+def _scheduler_job(monkeypatch, hours_ahead=4):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    job = MagicMock()
+    job.next_run_time = now + datetime.timedelta(hours=hours_ahead)
+    scheduler = MagicMock()
+    scheduler.get_job.return_value = job
+
+    def runtime_value(field, _legacy):
+        if field == "scheduler":
+            return scheduler
+        return None
+
+    monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", runtime_value)
+    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
+    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
+    return job
+
+
+def test_first_origin_error_may_pull_schedule_forward(monkeypatch):
+    job = _scheduler_job(monkeypatch)
+    weeklypullit.origin_error_streak = 0
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value=_origin_outage_failure()))
+
+    with pytest.raises(RuntimeError, match="Walksoftly is unreachable"):
+        weeklypullit.Weekly().run()
+
+    job.modify.assert_called_once()
+    new_time = job.modify.call_args.kwargs["next_run_time"]
+    assert new_time < datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)
+
+
+def test_second_consecutive_origin_error_does_not_pull_schedule_forward(monkeypatch):
+    job = _scheduler_job(monkeypatch)
+    weeklypullit.origin_error_streak = 0
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value=_origin_outage_failure()))
+
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+    job.modify.reset_mock()
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+
+    job.modify.assert_not_called()
+
+
+def test_cache_fallback_origin_error_stops_pulling_forward_once_streak_is_active(monkeypatch):
+    job = _scheduler_job(monkeypatch)
+    weeklypullit.origin_error_streak = 1
+    monkeypatch.setattr(
+        weeklypullit.weeklypull,
+        "pullit",
+        MagicMock(
+            return_value={
+                "status": "success",
+                "retry_after": 120,
+                "origin_error": True,
+                "cause": "Walksoftly is unreachable. The pull-list source is down upstream.",
+            }
+        ),
+    )
+
+    weeklypullit.Weekly().run()
+
+    job.modify.assert_not_called()
+
+
+def test_live_success_resets_origin_error_streak_so_retry_after_can_be_honored_again(monkeypatch):
+    job = _scheduler_job(monkeypatch)
+    weeklypullit.origin_error_streak = 3
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value={"status": "success"}))
+
+    weeklypullit.Weekly().run()
+
+    assert weeklypullit.origin_error_streak == 0
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value=_origin_outage_failure()))
+    with pytest.raises(RuntimeError):
+        weeklypullit.Weekly().run()
+
+    job.modify.assert_called_once()
 
 
 def test_weekly_run_projects_running_state_before_refresh_cannot_enqueue_again(monkeypatch):

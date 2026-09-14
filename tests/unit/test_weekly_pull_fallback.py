@@ -98,6 +98,39 @@ def test_pullit_still_fails_without_cached_week(monkeypatch):
     assert result == {"status": "failure"}
 
 
+def test_pullit_forwards_origin_outage_on_cached_week(monkeypatch):
+    config = MagicMock()
+    config.ALT_PULL = 2
+    config.CACHE_DIR = "/tmp"
+    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(
+        weeklypull.helpers,
+        "weekly_info",
+        lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
+    )
+    monkeypatch.setattr(weeklypull, "_weekly_pull_has_data", lambda week, year: week == 33 and year == 2026)
+    monkeypatch.setattr(
+        weeklypull.locg,
+        "locg",
+        lambda **kwargs: {
+            "status": "failure",
+            "retry_after": 120,
+            "origin_error": True,
+            "cause": "Walksoftly is unreachable. The pull-list source is down upstream.",
+        },
+    )
+    monkeypatch.setattr(weeklypull, "new_pullcheck", MagicMock())
+    monkeypatch.setattr(weeklypull.time, "sleep", lambda *_args: None)
+
+    with patch.object(weeklypull.db, "select_one", return_value={"SHIPDATE": "20260827"}):
+        result = weeklypull.pullit()
+
+    assert result["status"] == "success"
+    assert result["retry_after"] == 120
+    assert result["origin_error"] is True
+    assert "Walksoftly" in result["cause"]
+
+
 def test_pullit_surfaces_retry_hint_when_serving_cached_week(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
@@ -117,6 +150,40 @@ def test_pullit_surfaces_retry_hint_when_serving_cached_week(monkeypatch):
         result = weeklypull.pullit()
 
     assert result == {"status": "success", "retry_after": 120}
+
+
+def test_pullit_forwards_origin_outage_cause_on_failure(monkeypatch):
+    config = MagicMock()
+    config.ALT_PULL = 2
+    config.CACHE_DIR = "/tmp"
+    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(
+        weeklypull.helpers,
+        "weekly_info",
+        lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
+    )
+    monkeypatch.setattr(weeklypull, "_weekly_pull_has_data", lambda *_args: False)
+    monkeypatch.setattr(
+        weeklypull.locg,
+        "locg",
+        lambda **kwargs: {
+            "status": "failure",
+            "retry_after": 120,
+            "origin_error": True,
+            "cause": "Walksoftly is unreachable. The pull-list source is down upstream.",
+        },
+    )
+    monkeypatch.setattr(weeklypull, "new_pullcheck", MagicMock())
+    monkeypatch.setattr(weeklypull.time, "sleep", lambda *_args: None)
+
+    with patch.object(weeklypull.db, "select_one", return_value={"SHIPDATE": "20260827"}):
+        result = weeklypull.pullit()
+
+    assert result["status"] == "failure"
+    assert result["retry_after"] == 120
+    assert result["origin_error"] is True
+    assert "Walksoftly" in result["cause"]
+    assert "upstream" in result["cause"].lower()
 
 
 def test_pullit_surfaces_retry_hint_on_failure(monkeypatch):
