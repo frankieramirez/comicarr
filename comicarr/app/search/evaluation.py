@@ -778,6 +778,7 @@ class EvaluationSession:
             )
             or manga_booktype
             or all([booktype != parsed_comic["booktype"], ignore_booktype is True])
+            or self._override_reason == "rejected.book_type"
             or re.sub("None", "issue", str(booktype)) in parsed_comic["booktype"]
         ):
             try:
@@ -791,6 +792,10 @@ class EvaluationSession:
                 if filecomic["process_status"] == "fail":
                     logger.fdebug("%s was not a match to %s (%s)" % (cleantitle, ComicName, SeriesYear))
                     self._reject("rejected.series_mismatch")
+                    filecomic = dict(filecomic)
+                    filecomic["process_status"] = "match"
+                    if not filecomic.get("justthedigits"):
+                        filecomic["justthedigits"] = filecomic.get("issue_number") or parsed_comic.get("issue_number")
                 elif filecomic["process_status"] == "alt_match":
                     logger.fdebug(
                         "%s was a match due to alternate matching.  Continuing"
@@ -803,6 +808,7 @@ class EvaluationSession:
                 " Ignoring this result." % (booktype, parsed_comic["booktype"])
             )
             self._reject("rejected.book_type")
+            self._reject("rejected.unparseable_title")
         else:
             logger.fdebug("Unable to parse name properly: %s. Ignoring this result" % parsed_comic)
             self._reject("rejected.unparseable_title")

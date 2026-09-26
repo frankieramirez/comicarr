@@ -204,6 +204,71 @@ def test_candidate_override_revalidates_exactly_one_overrideable_reason(monkeypa
         EvaluationSession(override_reason="blocked.duplicate")
 
 
+def test_book_type_override_accepts_when_the_issue_still_matches(monkeypatch):
+    _install_parser(monkeypatch, parsed=_parsed(booktype="TPB"), matched=_matched())
+
+    rejected = _evaluate(_entry(), _info())
+    accepted = _evaluate(_entry(), _info(), override_reason="rejected.book_type")
+
+    assert _reason(rejected) == "rejected.book_type"
+    assert _handoff(rejected) is None
+    assert accepted.verdict["reason_code"] == "accepted.issue"
+    assert accepted.verdict["accepted"] is True
+    assert _handoff(accepted)["IssueNumber"] == "1"
+
+
+def test_series_mismatch_override_accepts_when_the_issue_number_matches(monkeypatch):
+    _install_parser(
+        monkeypatch,
+        parsed=_parsed(),
+        matched=_matched(process_status="fail", justthedigits=None, issue_number="1"),
+    )
+
+    rejected = _evaluate(_entry(), _info())
+    accepted = _evaluate(_entry(), _info(), override_reason="rejected.series_mismatch")
+
+    assert _reason(rejected) == "rejected.series_mismatch"
+    assert _handoff(rejected) is None
+    assert accepted.verdict["reason_code"] == "accepted.issue"
+    assert accepted.verdict["accepted"] is True
+    assert _handoff(accepted)["IssueNumber"] == "1"
+
+
+def test_book_type_override_does_not_bypass_a_series_mismatch(monkeypatch):
+    _install_parser(
+        monkeypatch,
+        parsed=_parsed(booktype="TPB"),
+        matched=_matched(process_status="fail", issue_number="1"),
+    )
+
+    evaluation = _evaluate(_entry(), _info(), override_reason="rejected.book_type")
+
+    assert _reason(evaluation) == "rejected.series_mismatch"
+    assert _handoff(evaluation) is None
+
+
+def test_series_mismatch_override_does_not_bypass_a_different_issue(monkeypatch):
+    _install_parser(
+        monkeypatch,
+        parsed=_parsed(),
+        matched=_matched(process_status="fail", justthedigits=None, issue_number="2"),
+    )
+
+    evaluation = _evaluate(_entry(), _info(), override_reason="rejected.series_mismatch")
+
+    assert _reason(evaluation) == "rejected.issue_mismatch"
+    assert _handoff(evaluation) is None
+
+
+def test_book_type_override_on_an_unparsed_title_stays_unparsed(monkeypatch):
+    _install_parser(monkeypatch, parsed=_parsed(parse_status="fail", booktype="TPB"), matched=_matched())
+
+    evaluation = _evaluate(_entry(), _info(), override_reason="rejected.book_type")
+
+    assert _reason(evaluation) == "rejected.unparseable_title"
+    assert _handoff(evaluation) is None
+
+
 def test_interactive_collection_disables_first_result_shortcut(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
     session = EvaluationSession(review=True)
