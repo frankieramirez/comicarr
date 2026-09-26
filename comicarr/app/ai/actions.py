@@ -19,7 +19,7 @@ live row state and applies through the same services the UI uses.
 
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 import comicarr
 from comicarr import db, logger
@@ -255,7 +255,6 @@ def _current_row(kind, issue_id):
 def _apply_mark(item, target_status, actor, comic_id=None) -> Literal["applied", "stale", "failed"]:
     from comicarr.app.acquisition.models import AcquisitionIntent
     from comicarr.app.acquisition.policy import explicit_intent_values
-    from comicarr.app.series import queries as series_queries
 
     issue_id = item["issue_id"]
     kind = item["kind"]
@@ -263,11 +262,23 @@ def _apply_mark(item, target_status, actor, comic_id=None) -> Literal["applied",
     if row is None or not _markable(row, target_status):
         return "stale"
 
+    table = annuals if kind == "annual" else issues
+    intent = AcquisitionIntent.WANTED if target_status == "Wanted" else AcquisitionIntent.SKIPPED
+    # Compare the live state in the write itself: a downloader or another user
+    # may have changed it after _current_row returned. Never upsert a deleted row.
+    conditions = [
+        table.c.IssueID == issue_id,
+        table.c.Status == row["Status"],
+        table.c.AcquisitionIntent == row["AcquisitionIntent"],
+    ]
+    if kind == "annual":
+        conditions.append((table.c.Deleted.is_(None)) | (table.c.Deleted != 1))
+    with db._db_lock, db.get_engine().begin() as conn:
+        changed = conn.execute(update(table).where(*conditions).values(**explicit_intent_values(intent, actor)))
+        if changed.rowcount != 1:
+            return "stale"
+
     if target_status == "Wanted":
-        if kind == "annual":
-            db.upsert("annuals", explicit_intent_values(AcquisitionIntent.WANTED, actor), {"IssueID": issue_id})
-        else:
-            series_queries.queue_issue(issue_id, actor)
         try:
             from comicarr.app.search.commands import enqueue_search_command
 
@@ -282,10 +293,6 @@ def _apply_mark(item, target_status, actor, comic_id=None) -> Literal["applied",
             )
         except Exception as e:
             logger.warn("[AI-ACTIONS] Issue %s marked Wanted but search handoff failed: %s" % (issue_id, e))
-    elif kind == "annual":
-        db.upsert("annuals", explicit_intent_values(AcquisitionIntent.SKIPPED, actor), {"IssueID": issue_id})
-    else:
-        series_queries.unqueue_issue(issue_id, actor)
     return "applied"
 
 

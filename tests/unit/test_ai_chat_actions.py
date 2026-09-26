@@ -408,3 +408,106 @@ def test_dismiss_marks_pending_proposal(chat_db):
         )
         assert confirmed.status_code == 200
         assert confirmed.json()["action"]["status"] == "dismissed"
+
+
+def test_concurrent_confirm_and_dismiss_cannot_reexecute_claim(chat_db, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    thread, _, _ = chat_store.create_user_turn("alice", chat_store.new_id(), "add", [], "add", create_thread=True)
+    assistant = chat_store.add_assistant_message("alice", thread["id"], "Choose")
+    chat_store.update_assistant_message(
+        "alice",
+        assistant["id"],
+        "Choose",
+        action_data={
+            "action_id": "add_series",
+            "status": "pending",
+            "preview": {
+                "candidates": [{"comicid": "1", "name": "One"}, {"comicid": "2", "name": "Two"}],
+            },
+        },
+    )
+    entered, release = Event(), Event()
+    added = []
+
+    def add(ctx, comicid):
+        added.append(comicid)
+        entered.set()
+        assert release.wait(timeout=5)
+        return {"success": True, "comicid": comicid}
+
+    monkeypatch.setattr("comicarr.app.search.service.add_comic", add)
+    monkeypatch.setattr("comicarr.app.ai.service.log_activity", lambda **kwargs: None)
+    pointer = {"thread_id": thread["id"], "message_id": assistant["id"]}
+    with _client() as client, ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(
+            client.post, "/api/ai/chat/actions/confirm", json={**pointer, "selection": {"comicid": "1"}}
+        )
+        try:
+            assert entered.wait(timeout=5)
+            second = client.post("/api/ai/chat/actions/confirm", json={**pointer, "selection": {"comicid": "2"}})
+            dismissed = client.post("/api/ai/chat/actions/dismiss", json=pointer)
+            assert second.json()["action"]["status"] == "processing"
+            assert dismissed.json()["action"]["status"] == "processing"
+        finally:
+            release.set()
+        assert first.result(timeout=5).json()["action"]["status"] == "confirmed"
+        replay = client.post("/api/ai/chat/actions/confirm", json={**pointer, "selection": {"comicid": "2"}})
+        assert replay.json()["action"]["result"]["comicid"] == "1"
+    assert added == ["1"]
+
+
+@pytest.mark.parametrize("kind", ["issue", "annual"])
+@pytest.mark.parametrize("target", ["Wanted", "Skipped"])
+@pytest.mark.parametrize("change", ["Downloaded", "Ignored", "deleted"])
+def test_mark_rechecks_state_atomically(chat_db, monkeypatch, kind, target, change):
+    from sqlalchemy import delete
+
+    _add_series_row()
+    initial = "Skipped" if target == "Wanted" else "Wanted"
+    if kind == "annual":
+        _add_annual("i1", status=initial)
+    else:
+        _add_issue("i1", status=initial)
+    table = annuals if kind == "annual" else issues
+    original = chat_actions._current_row
+
+    def interleaved_change(entity_kind, issue_id):
+        row = original(entity_kind, issue_id)
+        if change == "deleted":
+            with db.get_engine().begin() as conn:
+                conn.execute(delete(table).where(table.c.IssueID == issue_id))
+        else:
+            db.upsert(table.name, {"Status": change}, {"IssueID": issue_id})
+        return row
+
+    monkeypatch.setattr(chat_actions, "_current_row", interleaved_change)
+    queued = []
+    monkeypatch.setattr("comicarr.app.search.commands.enqueue_search_command", lambda *a, **k: queued.append(a))
+    assert chat_actions._apply_mark({"issue_id": "i1", "kind": kind}, target, "alice") == "stale"
+    row = db.select_one(select(table.c.Status).where(table.c.IssueID == "i1"))
+    assert row is None if change == "deleted" else row["Status"] == change
+    assert queued == []
+
+
+def test_unexpected_execution_error_is_not_replayed(chat_db, monkeypatch):
+    thread, _, _ = chat_store.create_user_turn("alice", chat_store.new_id(), "add", [], "add", create_thread=True)
+    assistant = chat_store.add_assistant_message("alice", thread["id"], "Choose")
+    chat_store.update_assistant_message(
+        "alice", assistant["id"], "Choose", action_data={"action_id": "add_series", "status": "pending"}
+    )
+    calls = []
+
+    def fail(*args):
+        calls.append(args)
+        raise RuntimeError("interrupted")
+
+    monkeypatch.setattr(chat_actions, "confirm_action", fail)
+    with _client() as client:
+        for _ in range(2):
+            response = client.post(
+                "/api/ai/chat/actions/confirm", json={"thread_id": thread["id"], "message_id": assistant["id"]}
+            )
+            assert response.json()["action"]["status"] == "error"
+    assert len(calls) == 1

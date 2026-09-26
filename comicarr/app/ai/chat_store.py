@@ -383,11 +383,11 @@ def get_message_action(username, thread_id, message_id):
     return action if isinstance(action, dict) else None
 
 
-def resolve_message_action(username, thread_id, message_id, status, result=None):
+def resolve_message_action(username, thread_id, message_id, status, result=None, *, expected_status="pending"):
     """Transition a pending action proposal to ``status``.
 
     Returns ``(action, transitioned)``: the stored action dict (or None when no
-    owned proposal exists) and whether this call moved it out of "pending". A
+    owned proposal exists) and whether this call moved it out of ``expected_status``. A
     repeat call returns the stored action unchanged so confirm retries are
     idempotent.
     """
@@ -401,13 +401,21 @@ def resolve_message_action(username, thread_id, message_id, status, result=None)
             return None, False
         if not isinstance(action, dict):
             return None, False
-        if action.get("status") != "pending":
+        if action.get("status") != expected_status:
             return action, False
         action["status"] = status
         if result is not None:
             action["result"] = result
-        conn.execute(update(messages).where(messages.c.id == message_id).values(action=json.dumps(action)))
-        conn.execute(update(threads).where(threads.c.id == thread_id).values(updated_at=_now()))
+        changed = conn.execute(
+            update(messages)
+            .where(messages.c.id == message_id, messages.c.action == row[0])
+            .values(action=json.dumps(action))
+        )
+        transitioned = changed.rowcount == 1
+        if transitioned:
+            conn.execute(update(threads).where(threads.c.id == thread_id).values(updated_at=_now()))
+    if not transitioned:
+        return get_message_action(username, thread_id, message_id), False
     return action, True
 
 

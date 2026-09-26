@@ -59,6 +59,7 @@ export interface ChatActionPreview {
 }
 
 export interface ChatActionResult {
+  error?: string;
   message?: string;
   applied?: number;
   stale?: number;
@@ -67,7 +68,8 @@ export interface ChatActionResult {
   name?: string;
 }
 
-export type ChatActionStatus = "pending" | "confirmed" | "dismissed" | "error";
+export type ChatActionStatus =
+  "pending" | "processing" | "confirmed" | "dismissed" | "error";
 
 /**
  * A write the model proposed. Nothing ran yet when status is "pending" —

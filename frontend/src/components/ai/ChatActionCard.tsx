@@ -140,7 +140,9 @@ export function ChatActionCard({
 
       {action.status === "error" && (
         <p className="mt-2 text-sm text-muted-foreground" role="alert">
-          {action.error || "This action could not be prepared."}
+          {action.error ||
+            action.result?.error ||
+            "This action could not be prepared."}
         </p>
       )}
 
@@ -182,6 +184,13 @@ export function ChatActionCard({
             )}
           </div>
         </div>
+      )}
+
+      {action.status === "processing" && (
+        <p className="mt-2 text-sm text-muted-foreground" role="status">
+          Confirmation is in progress. Reload to check the result. If the server
+          restarted, check your library before proposing this action again.
+        </p>
       )}
 
       {action.status === "confirmed" && (
