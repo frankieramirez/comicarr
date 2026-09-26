@@ -96,8 +96,13 @@ export default function SeriesTable({
   const progressFilter: ProgressFilter = params.progress ?? "all";
   const statusFilter: StatusFilter = params.status ?? "all";
 
-  const savedView =
-    localStorage.getItem(LIBRARY_VIEW_KEY) === "grid" ? "grid" : "list";
+  let savedView: "grid" | "list" = "list";
+  try {
+    savedView =
+      localStorage.getItem(LIBRARY_VIEW_KEY) === "grid" ? "grid" : "list";
+  } catch {
+    // Blocked storage falls back to list.
+  }
   const isGridView = (params.view ?? savedView) === "grid";
   const pageSize = isGridView ? 24 : 20;
 
@@ -291,7 +296,11 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
-              localStorage.setItem(LIBRARY_VIEW_KEY, "list");
+              try {
+                localStorage.setItem(LIBRARY_VIEW_KEY, "list");
+              } catch {
+                // Blocked storage must not stop the view change.
+              }
               setParams({ view: null });
               clearSelection();
             }}
@@ -307,7 +316,11 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
-              localStorage.setItem(LIBRARY_VIEW_KEY, "grid");
+              try {
+                localStorage.setItem(LIBRARY_VIEW_KEY, "grid");
+              } catch {
+                // Blocked storage must not stop the view change.
+              }
               setParams({ view: "grid" });
               clearSelection();
             }}
