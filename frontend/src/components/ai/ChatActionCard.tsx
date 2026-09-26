@@ -234,7 +234,14 @@ export function ChatActionCard({
         <p className="mt-2 text-sm text-[var(--status-paused)]" role="alert">
           {action.result?.message ||
             action.error ||
+            action.result?.error ||
             "Some changes could not be completed."}
+          {action.result?.error &&
+            (action.result.message || action.error) &&
+            action.result.error !== action.result.message &&
+            action.result.error !== action.error && (
+              <span className="block">{action.result.error}</span>
+            )}
         </p>
       )}
 

@@ -95,6 +95,25 @@ describe("ChatActionCard", () => {
     ).toBe(false);
     expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
   });
+  it("shows a failed retry's error alongside its partial result message", async () => {
+    vi.mocked(confirmChatAction).mockResolvedValue({
+      action: {
+        ...partial,
+        result: {
+          ...partial.result,
+          message: "One issue still needs a search.",
+          error: "Search provider is unavailable.",
+        },
+      },
+    });
+    renderMinimal(<Card initial={partial} />);
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Retry unfinished" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("One issue still needs a search.");
+    expect(alert.textContent).toContain("Search provider is unavailable.");
+  });
   it("shows which issues still need a status update or search handoff", () => {
     renderMinimal(<Card initial={partial} />);
     expect(screen.getByText("#1 · Search not queued")).toBeTruthy();
