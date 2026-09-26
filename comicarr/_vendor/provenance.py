@@ -94,8 +94,8 @@ VENDOR_PROVENANCE = {
         "partial_attributions": (),
         "redistribution_status": "evidence-recorded",
         "unresolved_reasons": (),
-        "local_modifications": "Bundled historical fork; retain per-file notices",
-        "packaged_snapshot_sha256": "30ecae7ee68e334fc2af567f033569071b2dc09faaaca065353765cc00bb42c0",
+        "local_modifications": "Bundled historical fork; retain per-file notices; invalid escape sequences converted to raw strings",
+        "packaged_snapshot_sha256": "cc37dc781ebcc2dbb5981468e3f587f474d780f64dfe8281e7cec2bf2dd5e37d",
     },
     "deluge_client": {
         "integration_owner": "Comicarr",

@@ -70,6 +70,16 @@ def test_space_separated_ranges_expand_each_token(monkeypatch):
     assert [x["issueid"] for x in result["issues"]] == ["id-1", "id-2", "id-3", "id-5", "id-6", "id-7"]
 
 
+def test_space_padded_dash_range_expands(monkeypatch):
+    rows = [_row("id-%s" % n, n) for n in range(1, 15)]
+    _install_rows(monkeypatch, rows)
+
+    result = pack_membership.issue_find_ids("Example", "comic-1", "#1 - 14", "7", "pack-13")
+
+    assert result["valid"] is True
+    assert [x["issueid"] for x in result["issues"]] == ["id-%s" % n for n in range(1, 15)]
+
+
 def test_volume_kind_skips_chapter_rows_of_unknown_volume(monkeypatch):
     rows = [
         _row("chap-7", 7, chapter="7"),
