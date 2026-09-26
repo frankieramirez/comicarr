@@ -93,7 +93,7 @@ class ConfigKey:
 
 
 _KEYS: tuple[ConfigKey, ...] = (
-    ConfigKey("CONFIG_VERSION", int, "General", 18),
+    ConfigKey("CONFIG_VERSION", int, "General", 19),
     ConfigKey("MINIMAL_INI", bool, "General", False),
     ConfigKey("CACHE_DIR", str, "General", None, readable=True),
     ConfigKey("DYNAMIC_UPDATE", int, "General", 0),
@@ -103,7 +103,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("LAUNCH_BROWSER", bool, "General", False, readable=True, writable=True),
     ConfigKey("WANTED_TAB_OFF", bool, "General", False),
     ConfigKey("ENABLE_RSS", bool, "General", False),
-    ConfigKey("SEARCH_DELAY", int, "General", 1, readable=True, writable=True),
+    ConfigKey("SEARCH_DELAY", int, "General", 60, readable=True, writable=True),
     ConfigKey("GRABBAG_DIR", str, "General", None),
     ConfigKey("HIGHCOUNT", int, "General", 0),
     ConfigKey("MAINTAINSERIESFOLDER", bool, "General", False),

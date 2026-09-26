@@ -133,6 +133,22 @@ export function SearchTab({
 
   return (
     <div className="space-y-6">
+      <SettingGroup
+        title="Search pace"
+        description="How long Comicarr waits before asking the same indexer again"
+      >
+        <SettingField
+          label="Search delay (seconds)"
+          type="number"
+          min={5}
+          value={formData.search_delay}
+          onChange={(value) =>
+            onChange("search_delay", parseInt(value as string) || 5)
+          }
+          helpText="Pause between provider searches during a backlog run. Default 60. Minimum 5."
+        />
+      </SettingGroup>
+
       <SearchProviderSettings onDirtyChange={onProviderDirtyChange} />
 
       <SettingGroup

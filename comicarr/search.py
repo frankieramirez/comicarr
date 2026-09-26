@@ -4058,7 +4058,7 @@ def check_the_search_delay(manual=False):
     if comicarr.CONFIG.SEARCH_DELAY == "None" or comicarr.CONFIG.SEARCH_DELAY is None or manual:
         pause_the_search = 30
     elif str(comicarr.CONFIG.SEARCH_DELAY).isdigit() and manual is False:
-        pause_the_search = int(comicarr.CONFIG.SEARCH_DELAY) * 60
+        pause_the_search = int(comicarr.CONFIG.SEARCH_DELAY)
     else:
         logger.warn("Check Search Delay - invalid numerical given. Force-setting to 30 seconds.")
         pause_the_search = 30

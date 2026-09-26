@@ -390,7 +390,7 @@ def migrate_mylar3_config(source_path):
     source_config = configparser.RawConfigParser()
     source_config.read(config_path)
 
-    from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
+    from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS, minutes_to_search_delay_seconds
 
     values = {}
     for key, definition in _CONFIG_DEFINITIONS.items():
@@ -444,6 +444,9 @@ def migrate_mylar3_config(source_path):
                 else:
                     logger.warn("[MIGRATION] Failed to encrypt %s, skipping" % key)
                     del values[key]
+
+    if "SEARCH_DELAY" in values:
+        values["SEARCH_DELAY"] = str(minutes_to_search_delay_seconds(values["SEARCH_DELAY"]))
 
     undefined = [key for key in values if key not in _CONFIG_DEFINITIONS]
     for key in undefined:
