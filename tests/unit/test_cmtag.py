@@ -46,5 +46,9 @@ class TestExportedFilename:
         out = "ComicTagger: Archive exported successfully to: My Comic 001.cbz (Original deleted) \n"
         assert cmtag.exported_filename(out) == "My Comic 001.cbz"
 
+    def test_preserves_marker_text_inside_filename(self):
+        out = "ComicTagger: Archive exported successfully to: My (Original deleted) Comic.cbz\n"
+        assert cmtag.exported_filename(out) == "My (Original deleted) Comic.cbz"
+
     def test_returns_none_without_export_line(self):
         assert cmtag.exported_filename("Archive failed to export!") is None

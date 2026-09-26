@@ -227,7 +227,7 @@ def exported_filename(out):
     for line in reversed(out.splitlines()):
         if "exported successfully to: " in line:
             name = line.split("exported successfully to: ", 1)[1]
-            return re.sub(r"\(Original deleted\)", "", name).strip()
+            return name.strip().removesuffix(" (Original deleted)")
     return None
 
 
