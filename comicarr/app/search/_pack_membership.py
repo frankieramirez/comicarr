@@ -64,6 +64,8 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
 
     from comicarr.helpers import issuedigits
 
+    pack = re.sub(r"\s*-\s*", "-", pack)
+
     issuelist = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
 
     if kind == "series":
@@ -99,7 +101,7 @@ def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue",
 
     if "Annual" not in pack:
         if "," not in pack:
-            packlist = pack.split(" ")
+            packlist = pack.split()
             pack = re.sub("#", "", pack).strip()
         else:
             packlist = [x.strip() for x in pack.split(",")]
