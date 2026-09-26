@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen, waitFor } from "../test-utils";
@@ -153,6 +154,47 @@ describe("IssueDetailPage", () => {
     expect(
       await screen.findByText("Issue not found for this series"),
     ).toBeTruthy();
+  });
+
+  it("sets the issue status from the badge menu", async () => {
+    const calls: { issueId: string; body: unknown }[] = [];
+    server.use(
+      http.put(
+        "/api/series/issues/:issueId/status",
+        async ({ params, request }) => {
+          calls.push({
+            issueId: String(params.issueId),
+            body: await request.json(),
+          });
+          return HttpResponse.json({ success: true, entity_type: "issue" });
+        },
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <Routes>
+        <Route
+          path="/library/:comicId/issue/:issueId"
+          element={<IssueDetailPage />}
+        />
+      </Routes>,
+      {
+        route: "/library/series-9/issue/issue-23",
+        useMemoryRouter: true,
+      },
+    );
+
+    await screen.findByTestId("issue-detail-title");
+    await user.click(
+      screen.getByRole("button", { name: "Change status for Issue 23" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Skipped" }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({
+      issueId: "issue-23",
+      body: { status: "Skipped" },
+    });
   });
 });
 

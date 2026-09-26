@@ -14,6 +14,7 @@ export type {
 export type {
   SeriesStatus,
   IssueStatus,
+  SettableIssueStatus,
   IssueDisplayState,
   AcquisitionIntent,
   FulfillmentState,

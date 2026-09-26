@@ -16,6 +16,9 @@ export type IssueStatus =
   | "Archived"
   | "Failed";
 
+/** Statuses an operator can set on an issue (PUT /api/series/issues/{id}/status). */
+export type SettableIssueStatus = "Wanted" | "Skipped" | "Ignored" | "Archived";
+
 /** User or policy intent, independent of the acquisition evidence. */
 export type AcquisitionIntent = "policy" | "wanted" | "skipped" | "ignored";
 
