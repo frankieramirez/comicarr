@@ -78,7 +78,7 @@ def get_arc_detail(arc_id):
     arc_summary = _build_arc_summary(arc_row)
     issues = arc_queries.get_arc_issues(arc_id)
 
-    return {"arc": arc_summary, "issues": issues}
+    return {"arc": arc_summary, "issues": issues, "missing": _missing_series_groups(arc_id)}
 
 
 def delete_arc(arc_id, arc_name=None, delete_type=None):
@@ -112,6 +112,245 @@ def want_all_issues(arc_id):
         start_background_thread(_read_get_wanted, args=(arc_id,), name="StoryArcWantedSearch")
 
     return {"success": True, "data": {"queued": queued, "skipped": skipped}}
+
+
+def get_missing_series(arc_id):
+    """Series in the arc that are not in the library, with needed-issue counts."""
+    if arc_queries.get_arc_stats(arc_id) is None:
+        return None
+    return _missing_series_groups(arc_id)
+
+
+def _missing_series_groups(arc_id):
+    groups = {}
+    ordered = []
+    for row in arc_queries.get_missing_series_rows(arc_id):
+        comic_id = (row["ComicID"] or "").strip()
+        key = comic_id or (row["ComicName"] or "").strip().lower()
+        if not key:
+            continue
+        group = groups.get(key)
+        if group is None:
+            group = {
+                "series_name": row["ComicName"] or "Unknown series",
+                "comic_id": comic_id,
+                "series_year": row["SeriesYear"],
+                "publisher": row["Publisher"],
+                "issue_count": 0,
+                "issue_numbers": [],
+            }
+            groups[key] = group
+            ordered.append(group)
+        group["issue_count"] += 1
+        group["issue_numbers"].append(row["IssueNumber"])
+        if not group["series_year"] and row["SeriesYear"]:
+            group["series_year"] = row["SeriesYear"]
+        if not group["publisher"] and row["Publisher"]:
+            group["publisher"] = row["Publisher"]
+    return ordered
+
+
+def resolve_missing_series(arc_id):
+    """Attach a ComicVine volume match to each missing arc series."""
+    groups = get_missing_series(arc_id)
+    if groups is None:
+        return None
+
+    from comicarr import mb
+
+    for group in groups:
+        match = None
+        if group["comic_id"]:
+            match = {
+                "comic_id": group["comic_id"],
+                "name": group["series_name"],
+                "year": group["series_year"],
+                "publisher": group["publisher"],
+                "image": None,
+            }
+        else:
+            try:
+                found = mb.findComic(group["series_name"], None, None, limit=5)
+            except Exception as e:
+                logger.error("[STORYARC] ComicVine lookup failed for '%s': %s" % (group["series_name"], e))
+                found = None
+            results = found.get("results") if isinstance(found, dict) else found
+            if results:
+                top = results[0]
+                comic_id = _normalize_comic_id(top.get("comicid"))
+                if comic_id:
+                    match = {
+                        "comic_id": comic_id,
+                        "name": top.get("name"),
+                        "year": top.get("comicyear"),
+                        "publisher": top.get("publisher"),
+                        "image": top.get("comicimage"),
+                    }
+        group["match"] = match
+    return groups
+
+
+def _normalize_comic_id(comic_id):
+    if comic_id in (None, ""):
+        return None
+    comic_id = str(comic_id).strip()
+    if comic_id.startswith("4050-"):
+        comic_id = re.sub("4050-", "", comic_id).strip()
+    try:
+        from comicarr import metron
+
+        if metron.is_metron_id(comic_id):
+            cv_id = metron.get_cv_id(comic_id)
+            if not cv_id:
+                return None
+            comic_id = str(cv_id).strip()
+    except Exception as e:
+        logger.error("[STORYARC] Metron resolution failed for %s: %s" % (comic_id, e))
+        return None
+    return comic_id or None
+
+
+def add_missing_series(arc_id, additions):
+    """Queue confirmed missing series for import and spawn the want worker."""
+    arc_row = arc_queries.get_arc_stats(arc_id)
+    if arc_row is None:
+        return {"success": False, "error": "Story arc not found"}
+
+    comic_ids = []
+    for addition in additions or []:
+        if not isinstance(addition, dict):
+            continue
+        series_name = str(addition.get("series_name") or "").strip()
+        comic_id = _normalize_comic_id(addition.get("comic_id"))
+        if not series_name or not comic_id or comic_id in comic_ids:
+            continue
+        arc_queries.link_unlinked_series_rows(arc_id, series_name, comic_id)
+        comic_ids.append(comic_id)
+
+    if not comic_ids:
+        return {"success": False, "error": "No valid series to add"}
+
+    from comicarr import importer
+
+    importer.importer_thread([{"comicid": comic_id, "comicname": None, "seriesyear": None} for comic_id in comic_ids])
+
+    start_background_thread(
+        _want_issues_after_imports,
+        args=(arc_id, comic_ids, arc_row["StoryArc"]),
+        name="ArcAddMissing",
+    )
+
+    logger.info("[STORYARC] Queued %d missing series for arc %s" % (len(comic_ids), arc_id))
+    return {"success": True, "queued": len(comic_ids)}
+
+
+_SERIES_ADD_TIMEOUT = 900
+_SERIES_ADD_POLL = 5
+
+
+def _wait_for_series_added(comic_id):
+    """Block until a queued import leaves the Loading state."""
+    deadline = time.time() + _SERIES_ADD_TIMEOUT
+    while time.time() < deadline:
+        row = arc_queries.get_comic_status(comic_id)
+        if row is not None and row["Status"] != "Loading":
+            return True
+        time.sleep(_SERIES_ADD_POLL)
+    return False
+
+
+def _want_issues_after_imports(arc_id, comic_ids, arc_name):
+    try:
+        for comic_id in comic_ids:
+            if not _wait_for_series_added(comic_id):
+                logger.warn("[STORYARC] Timed out waiting for series %s to finish adding" % comic_id)
+        summary = _want_arc_issues(arc_id)
+        logger.info(
+            "[STORYARC] Add-missing for %s: %d wanted, %d unresolved"
+            % (arc_name, summary["wanted"], summary["unresolved"])
+        )
+        try:
+            from comicarr.app.activity.producers import emit_arc_activity
+
+            emit_arc_activity("add", "succeeded", arc_id, arc_name)
+        except Exception as e:
+            logger.fdebug("[ACTIVITY] add.succeeded @arc emit skipped: %s" % e)
+    except Exception as e:
+        logger.error("[STORYARC] Add-missing worker failed for %s: %s" % (arc_id, e))
+        try:
+            from comicarr.app.activity.producers import emit_arc_activity
+
+            emit_arc_activity(
+                "add",
+                "failed",
+                arc_id,
+                arc_name,
+                reason_code="import_failed",
+                reason_detail=str(e)[:200],
+            )
+        except Exception as emit_error:
+            logger.fdebug("[ACTIVITY] add.failed @arc emit skipped: %s" % emit_error)
+
+
+def _want_arc_issues(arc_id):
+    """Mark every acquirable arc issue Wanted, linking real IssueIDs.
+
+    Rows whose issue exists in the library take that issue's identity; newly
+    wanted issues get a search queued. Rows still without a library issue are
+    only marked Wanted in the arc.
+    """
+    wanted = 0
+    unresolved = 0
+    for row in arc_queries.get_arc_rows(arc_id):
+        if row["Status"] in ("Downloaded", "Archived", "Snatched"):
+            continue
+
+        issue = None
+        if row["IssueID"]:
+            issue = arc_queries.find_library_issue(issue_id=row["IssueID"])
+        if issue is None and row["ComicID"]:
+            issue = arc_queries.find_library_issue(
+                comic_id=row["ComicID"],
+                int_issue_number=helpers.issuedigits(row["IssueNumber"]),
+            )
+
+        if issue is None:
+            unresolved += 1
+            arc_queries.set_arc_issue_fields(row["IssueArcID"], {"Status": "Wanted"})
+            continue
+
+        fields = {"IssueID": issue["IssueID"], "ComicID": issue["ComicID"]}
+        if issue["Status"] in ("Downloaded", "Archived", "Snatched"):
+            fields["Status"] = issue["Status"]
+        else:
+            fields["Status"] = "Wanted"
+            if issue["Status"] != "Wanted":
+                arc_queries.mark_issue_wanted(issue["IssueID"])
+                wanted += 1
+                _enqueue_arc_search(issue)
+        if row["IssueNumber"]:
+            fields["Int_IssueNumber"] = helpers.issuedigits(row["IssueNumber"])
+        arc_queries.set_arc_issue_fields(row["IssueArcID"], fields)
+    return {"wanted": wanted, "unresolved": unresolved}
+
+
+def _enqueue_arc_search(issue):
+    from comicarr.app.search.commands import enqueue_search_command
+
+    try:
+        enqueue_search_command(
+            {
+                "issueid": issue["IssueID"],
+                "comicid": issue["ComicID"],
+                "comicname": issue["ComicName"],
+                "seriesyear": issue["ComicYear"],
+                "issuenumber": issue["Issue_Number"],
+                "booktype": issue["Type"],
+            },
+            trigger="storyarc_wanted",
+        )
+    except Exception as e:
+        logger.error("[STORYARC] Failed to queue search for %s: %s" % (issue["IssueID"], e))
 
 
 def refresh_arc(arc_id):

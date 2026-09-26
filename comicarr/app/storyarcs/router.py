@@ -133,6 +133,35 @@ def want_all_arc_issues(arc_id: str):
     return arc_service.want_all_issues(arc_id)
 
 
+@router.get("/storyarcs/{arc_id}/missing", dependencies=[Depends(require_session)])
+def get_missing_arc_series(arc_id: str):
+    """List arc series absent from the library, each resolved to a ComicVine match."""
+    result = arc_service.resolve_missing_series(arc_id)
+    if result is None:
+        raise NotFoundError("Story arc not found")
+    return {"success": True, "series": result}
+
+
+@router.post("/storyarcs/{arc_id}/add-missing", dependencies=[Depends(require_session)])
+def add_missing_arc_series(
+    arc_id: str,
+    request_body: dict = None,
+):
+    """Add confirmed missing series and mark the arc's issues Wanted."""
+    if request_body is None:
+        request_body = {}
+
+    additions = request_body.get("additions")
+    if not isinstance(additions, list) or not additions:
+        return JSONResponse(status_code=400, content={"detail": "additions must be a non-empty list"})
+
+    result = arc_service.add_missing_series(arc_id, additions)
+    if not result["success"]:
+        status = 404 if "not found" in result.get("error", "").lower() else 400
+        return JSONResponse(status_code=status, content={"detail": result.get("error")})
+    return result
+
+
 @router.post("/storyarcs/{arc_id}/refresh", dependencies=[Depends(require_session)])
 def refresh_story_arc(arc_id: str):
     """Refresh a story arc from ComicVine."""
