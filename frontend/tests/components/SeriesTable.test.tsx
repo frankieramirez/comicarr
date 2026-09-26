@@ -349,4 +349,180 @@ describe("SeriesTable", () => {
     const desktopOnly = container.querySelectorAll(".max-md\\:hidden");
     expect(desktopOnly.length).toBeGreaterThan(0);
   });
+
+  it("opens in the last chosen grid view when the url names none", () => {
+    localStorage.setItem("comicarr-library-view", "grid");
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
+    expect(
+      screen.queryByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeNull();
+  });
+
+  it("keeps an explicit list link when the saved view is grid", () => {
+    localStorage.setItem("comicarr-library-view", "grid");
+    window.history.pushState({}, "", "/library?view=list");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+    expect(localStorage.getItem("comicarr-library-view")).toBe("grid");
+  });
+
+  it("remembers a chosen grid view the next time library opens", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/library");
+
+    const { unmount } = render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Grid view" }));
+
+    expect(localStorage.getItem("comicarr-library-view")).toBe("grid");
+
+    unmount();
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
+  });
+
+  it("remembers a chosen list view the next time library opens", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("comicarr-library-view", "grid");
+    window.history.pushState({}, "", "/library");
+
+    const { unmount } = render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "List view" }));
+
+    expect(localStorage.getItem("comicarr-library-view")).toBe("list");
+
+    unmount();
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+  });
+
+  it("switches to list immediately when grid was only the saved choice", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("comicarr-library-view", "grid");
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "List view" }));
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+  });
+
+  it("shows list when reading the saved view throws and the url names none", () => {
+    vi.spyOn(localStorage, "getItem").mockImplementation((key: string) => {
+      if (key === "comicarr-library-view") {
+        throw new Error("storage unavailable");
+      }
+      return null;
+    });
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+  });
+
+  it("keeps an explicit grid link when reading the saved view throws", () => {
+    vi.spyOn(localStorage, "getItem").mockImplementation((key: string) => {
+      if (key === "comicarr-library-view") {
+        throw new Error("storage unavailable");
+      }
+      return null;
+    });
+    window.history.pushState({}, "", "/library?view=grid");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
+    expect(
+      screen.queryByRole("checkbox", { name: "Select all series on page" }),
+    ).toBeNull();
+  });
+
+  it("still opens grid when saving the chosen view throws", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(localStorage, "setItem").mockImplementation((key: string) => {
+      if (key === "comicarr-library-view") {
+        throw new Error("storage unavailable");
+      }
+    });
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(21)} />
+      </NuqsAdapter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Grid view" }));
+    await settle();
+
+    expect(new URLSearchParams(window.location.search).get("view")).toBe(
+      "grid",
+    );
+    expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
+  });
 });
