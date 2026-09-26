@@ -60,6 +60,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0006_interactive_search_sessions": frozenset({"interactive_search_sessions", "interactive_search_candidates"}),
     "0007_interactive_search_progress": frozenset(),
     "0008_manga_series_modes": frozenset(),
+    "0009_chat_actions": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",

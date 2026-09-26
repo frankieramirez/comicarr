@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/api";
 import type {
+  ChatAction,
   ChatStreamEvent,
   ChatThread,
   ChatThreadSummary,
@@ -30,6 +31,32 @@ export function renameChatThread(
 
 export async function deleteChatThread(threadId: string): Promise<void> {
   await apiRequest("DELETE", `${CHAT_BASE}/threads/${threadId}`);
+}
+
+export interface ChatActionSelection {
+  comicid?: string;
+}
+
+export function confirmChatAction(
+  threadId: string,
+  messageId: string,
+  selection: ChatActionSelection = {},
+): Promise<{ action: ChatAction }> {
+  return apiRequest("POST", `${CHAT_BASE}/actions/confirm`, {
+    thread_id: threadId,
+    message_id: messageId,
+    selection,
+  });
+}
+
+export function dismissChatAction(
+  threadId: string,
+  messageId: string,
+): Promise<{ action: ChatAction }> {
+  return apiRequest("POST", `${CHAT_BASE}/actions/dismiss`, {
+    thread_id: threadId,
+    message_id: messageId,
+  });
 }
 
 interface StreamChatTurnOptions {

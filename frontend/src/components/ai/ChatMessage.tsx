@@ -1,4 +1,4 @@
-import type { LibraryChatMessage } from "@/types/chat";
+import type { ChatAction, LibraryChatMessage } from "@/types/chat";
 import {
   Attachment,
   AttachmentPreview,
@@ -8,10 +8,12 @@ import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
 import { AlertCircle, CircleStop } from "lucide-react";
+import { ChatActionCard } from "./ChatActionCard";
 import { ChatResultCard } from "./ChatResultCard";
 
 interface ChatMessageProps {
   message: LibraryChatMessage;
+  onActionChange?: (messageId: string, action: ChatAction) => void;
 }
 
 /** The assistant's mark: an accent, not an avatar. */
@@ -40,7 +42,7 @@ function ThinkingDots() {
   );
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -107,6 +109,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
               </p>
             )}
           </div>
+        )}
+
+        {message.action && !isUser && (
+          <ChatActionCard
+            action={message.action}
+            threadId={message.thread_id}
+            messageId={message.id}
+            onActionChange={(action) => onActionChange?.(message.id, action)}
+          />
         )}
 
         {message.status === "streaming" && !message.content && (

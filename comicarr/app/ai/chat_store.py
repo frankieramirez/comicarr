@@ -72,6 +72,12 @@ def _message_dict(row, message_attachments=None):
             result["results"] = json.loads(row["results"])
         except (TypeError, ValueError):
             result["results"] = None
+    if row.get("action"):
+        try:
+            action = json.loads(row["action"])
+            result["action"] = action if isinstance(action, dict) else None
+        except (TypeError, ValueError):
+            result["action"] = None
     return result
 
 
@@ -319,6 +325,7 @@ def update_assistant_message(
     status="complete",
     prompt_tokens=0,
     completion_tokens=0,
+    action_data=None,
 ):
     """Finalize an owned provisional assistant message in place."""
     now = _now()
@@ -341,6 +348,7 @@ def update_assistant_message(
                 content=content,
                 status=status,
                 results=json.dumps(result_data) if result_data is not None else None,
+                action=json.dumps(action_data) if action_data is not None else None,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
             )
@@ -348,6 +356,59 @@ def update_assistant_message(
         conn.execute(update(threads).where(threads.c.id == owned[0]).values(updated_at=now))
     row = db.select_one(select(messages).where(messages.c.id == message_id))
     return _message_dict(row)
+
+
+def _owned_action_row(conn, username, thread_id, message_id):
+    return conn.execute(
+        select(messages.c.action)
+        .join(threads, threads.c.id == messages.c.thread_id)
+        .where(
+            messages.c.id == message_id,
+            messages.c.thread_id == thread_id,
+            messages.c.role == "assistant",
+            threads.c.username == username,
+        )
+    ).first()
+
+
+def get_message_action(username, thread_id, message_id):
+    with db.get_engine().connect() as conn:
+        row = _owned_action_row(conn, username, thread_id, message_id)
+    if row is None or not row[0]:
+        return None
+    try:
+        action = json.loads(row[0])
+    except (TypeError, ValueError):
+        return None
+    return action if isinstance(action, dict) else None
+
+
+def resolve_message_action(username, thread_id, message_id, status, result=None):
+    """Transition a pending action proposal to ``status``.
+
+    Returns ``(action, transitioned)``: the stored action dict (or None when no
+    owned proposal exists) and whether this call moved it out of "pending". A
+    repeat call returns the stored action unchanged so confirm retries are
+    idempotent.
+    """
+    with db._db_lock, db.get_engine().begin() as conn:
+        row = _owned_action_row(conn, username, thread_id, message_id)
+        if row is None or not row[0]:
+            return None, False
+        try:
+            action = json.loads(row[0])
+        except (TypeError, ValueError):
+            return None, False
+        if not isinstance(action, dict):
+            return None, False
+        if action.get("status") != "pending":
+            return action, False
+        action["status"] = status
+        if result is not None:
+            action["result"] = result
+        conn.execute(update(messages).where(messages.c.id == message_id).values(action=json.dumps(action)))
+        conn.execute(update(threads).where(threads.c.id == thread_id).values(updated_at=_now()))
+    return action, True
 
 
 def get_context_messages(username, thread_id):
