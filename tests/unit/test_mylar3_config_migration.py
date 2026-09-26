@@ -135,6 +135,7 @@ class TestUndefinedKeysAreSkippedNotFatal:
         assert captured["COMIC_DIR"] == "/comics"
         assert captured["ANNUALS_ON"] == "True"
         assert captured["ENABLE_PUBLIC"] == "True", "the enable_tpse remapping must survive"
+        assert captured["SEARCH_DELAY"] == "240", "Mylar stores search_delay in minutes; 4 minutes is 240 seconds"
         assert all(key in _CONFIG_DEFINITIONS for key in captured)
 
 

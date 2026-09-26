@@ -7,8 +7,6 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""CONFIG_VERSION migrations: 15 → 16 → 17 → 18."""
-
 import configparser
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -64,10 +62,10 @@ check_github_on_startup = True
 
     assert cfg.read(startup=False) is cfg
 
-    assert cfg.CONFIG_VERSION == 18
+    assert cfg.CONFIG_VERSION == 19
     assert cfg.CHECK_GITHUB is True
     assert REGISTRY["CHECK_GITHUB"].default is True
-    assert REGISTRY["CONFIG_VERSION"].default == 18
+    assert REGISTRY["CONFIG_VERSION"].default == 19
     assert "AUTO_UPDATE" not in REGISTRY
     assert "CHECK_GITHUB_ON_STARTUP" not in REGISTRY
 
@@ -94,7 +92,7 @@ check_github = False
 
     assert cfg.read(startup=False) is cfg
 
-    assert cfg.CONFIG_VERSION == 18
+    assert cfg.CONFIG_VERSION == 19
     assert cfg.CHECK_GITHUB is False
 
 
@@ -121,7 +119,7 @@ host_return = http://comicarr.example:8090/
 
     assert cfg.read(startup=False) is cfg
 
-    assert cfg.CONFIG_VERSION == 18
+    assert cfg.CONFIG_VERSION == 19
     assert "HOST_RETURN" not in REGISTRY
     assert not hasattr(cfg, "HOST_RETURN")
 
@@ -147,8 +145,8 @@ folder_scan_log_verbose = True
 
     assert cfg.read(startup=False) is cfg
 
-    assert cfg.CONFIG_VERSION == 18
-    assert REGISTRY["CONFIG_VERSION"].default == 18
+    assert cfg.CONFIG_VERSION == 19
+    assert REGISTRY["CONFIG_VERSION"].default == 19
     assert "FOLDER_SCAN_LOG_VERBOSE" not in REGISTRY
     assert not hasattr(cfg, "FOLDER_SCAN_LOG_VERBOSE")
     assert "folder_scan_log_verbose" not in ini.read_text(encoding="utf-8").lower()
@@ -379,3 +377,61 @@ extra_torznabs =
     uid, _, categories = cfg.EXTRA_NEWZNABS[0][4].partition("#")
     assert uid == "1"
     assert categories.replace("#", ",") == "7030,7020"
+
+
+def test_migration_converts_search_delay_minutes_to_seconds(tmp_path, monkeypatch):
+    cfg, ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        """[General]
+config_version = 18
+minimal_ini = False
+search_delay = 1
+""",
+    )
+
+    assert cfg.read(startup=False) is cfg
+
+    assert cfg.CONFIG_VERSION == 19
+    assert cfg.SEARCH_DELAY == 60
+    saved = configparser.ConfigParser()
+    saved.read(ini)
+    assert saved.getint("General", "search_delay") == 60
+    assert saved.getint("General", "config_version") == 19
+
+
+def test_migration_does_not_scale_a_missing_search_delay(tmp_path, monkeypatch):
+    cfg, ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        """[General]
+config_version = 18
+minimal_ini = False
+""",
+    )
+
+    assert cfg.read(startup=False) is cfg
+
+    assert cfg.SEARCH_DELAY == 60
+    saved = configparser.ConfigParser()
+    saved.read(ini)
+    assert saved.getint("General", "search_delay") == 60
+
+
+def test_version_19_search_delay_stays_in_seconds(tmp_path, monkeypatch):
+    cfg, ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        """[General]
+config_version = 19
+minimal_ini = False
+search_delay = 10
+""",
+    )
+
+    assert cfg.read(startup=False) is cfg
+
+    assert cfg.SEARCH_DELAY == 10
+    saved = configparser.ConfigParser()
+    saved.read(ini)
+    assert saved.getint("General", "search_delay") == 10

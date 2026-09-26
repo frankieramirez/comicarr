@@ -130,6 +130,33 @@ ENCRYPTED_CONFIG_ITEMS = OrderedDict(
     }
 )
 
+SEARCH_DELAY_DEFAULT_SECONDS = 60
+SEARCH_DELAY_FLOOR_SECONDS = 5
+
+
+def minutes_to_search_delay_seconds(raw):
+    try:
+        minutes = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return SEARCH_DELAY_DEFAULT_SECONDS
+    if minutes < 1:
+        minutes = 1
+    return minutes * 60
+
+
+def clamp_search_delay(cfg):
+    """Raise a provider search pause that sits below the floor.
+
+    Returns True when the value was raised. Called from Config.configure(),
+    which apply_transaction() runs on every settings save.
+    """
+    if cfg.SEARCH_DELAY < SEARCH_DELAY_FLOOR_SECONDS:
+        logger.fdebug("Minimum search delay set for %s seconds to avoid hammering." % SEARCH_DELAY_FLOOR_SECONDS)
+        cfg.SEARCH_DELAY = SEARCH_DELAY_FLOOR_SECONDS
+        return True
+    return False
+
+
 SCHEDULER_INTERVAL_MINIMUMS = {
     "SEARCH_INTERVAL": (360, "Search interval too low. Resetting to 6 hour minimum"),
     "RSS_CHECKINTERVAL": (20, "Minimum RSS Interval Check delay set for 20 minutes to avoid hammering."),
@@ -171,7 +198,7 @@ class Config(object):
             else:
                 count = 0
 
-            self.newconfig = 18
+            self.newconfig = 19
 
             OLDCONFIG_VERSION = 0
             if count == 0:
@@ -192,6 +219,10 @@ class Config(object):
         self.CONFIG_VERSION = CONFIG_VERSION
         self.OLDCONFIG_VERSION = OLDCONFIG_VERSION
         self.MINIMAL_INI = MINIMALINI
+
+        self._search_delay_minutes_on_disk = None
+        if config.has_option("General", "search_delay"):
+            self._search_delay_minutes_on_disk = config.get("General", "search_delay")
 
         for k, v in _CONFIG_DEFINITIONS.items():
             xv = []
@@ -389,6 +420,14 @@ class Config(object):
                     logger.info(
                         "[CONFIG] Removed folder_scan_log_verbose: folder-scan diagnostics now follow LOG_LEVEL=debug."
                     )
+            stored_minutes = getattr(self, "_search_delay_minutes_on_disk", None)
+            if 0 < self.CONFIG_VERSION < 19 and stored_minutes is not None:
+                seconds = minutes_to_search_delay_seconds(stored_minutes)
+                self.SEARCH_DELAY = seconds
+                config.set("General", "search_delay", str(seconds))
+                logger.info(
+                    "[CONFIG] Search delay is now seconds: %s minute(s) is now %s seconds." % (stored_minutes, seconds)
+                )
             self.OLDCONFIG_VERSION = str(self.CONFIG_VERSION)
             self.CONFIG_VERSION = self.newconfig
             config.set("General", "CONFIG_VERSION", str(self.newconfig))
@@ -1136,6 +1175,9 @@ class Config(object):
             else:
                 pass
 
+        if hasattr(self, "SEARCH_DELAY") and clamp_search_delay(self) and config.has_section("General"):
+            config.set("General", "search_delay", str(self.SEARCH_DELAY))
+
     def apply_transaction(self, values, configure=True):
         """Apply, encrypt, and persist config values as one recoverable update."""
         with _CONFIG_TRANSACTION_LOCK:
@@ -1855,9 +1897,10 @@ class Config(object):
 
         clamp_scheduler_intervals(self)
 
-        if self.SEARCH_DELAY < 1:
-            logger.fdebug("Minimum search delay set for 1 minute to avoid hammering.")
-            self.SEARCH_DELAY = 1
+        if clamp_search_delay(self):
+            if not config.has_section("General"):
+                config.add_section("General")
+            config.set("General", "search_delay", str(self.SEARCH_DELAY))
 
         if self.ENABLE_RSS is True and comicarr.RSS_STATUS == "Paused":
             comicarr.RSS_STATUS = "Waiting"
