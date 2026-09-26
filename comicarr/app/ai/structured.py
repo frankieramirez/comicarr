@@ -18,7 +18,9 @@ import re
 from comicarr import logger
 
 
-def request_structured(client, model, system_prompt, user_prompt, schema_class, temperature=0.1, timeout=30):
+def request_structured(
+    client, model, system_prompt, user_prompt, schema_class, temperature=0.1, timeout=30, on_response=None
+):
     """Send a structured output request and return a validated Pydantic model.
 
     Embeds the JSON schema from *schema_class* in the user prompt so the
@@ -43,6 +45,9 @@ def request_structured(client, model, system_prompt, user_prompt, schema_class, 
         temperature=temperature,
         timeout=timeout,
     )
+
+    if on_response is not None:
+        on_response(response, full_user_prompt)
 
     raw = response.choices[0].message.content
 

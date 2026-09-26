@@ -8,15 +8,17 @@ import { Button } from "@/components/ui/button";
 
 interface RecommendationCardProps {
   recommendation: SeriesRecommendation;
+  onQueued: (recommendation: SeriesRecommendation, comicId: string) => void;
 }
 
 export function RecommendationCard({
   recommendation,
+  onQueued,
 }: RecommendationCardProps) {
   const navigate = useNavigate();
   const addComicMutation = useAddComic();
   const { addToast } = useToast();
-  const [isAdded, setIsAdded] = useState(false);
+  const [isQueued, setIsQueued] = useState(false);
 
   const meta = [
     recommendation.comicyear,
@@ -35,8 +37,11 @@ export function RecommendationCard({
     }
 
     try {
-      await addComicMutation.mutateAsync(recommendation.comicid);
-      setIsAdded(true);
+      const response = (await addComicMutation.mutateAsync(
+        recommendation.comicid,
+      )) as { comicid?: string };
+      setIsQueued(true);
+      onQueued(recommendation, response?.comicid ?? recommendation.comicid);
       addToast({
         type: "success",
         title: "Adding Comic...",
@@ -73,7 +78,7 @@ export function RecommendationCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
         {recommendation.because_of && (
           <div className="absolute bottom-2 left-2 right-2">
-            <span className="inline-flex max-w-full items-center rounded-full bg-black/60 px-2 py-0.5 font-mono text-[10px] tracking-wider uppercase text-white truncate">
+            <span className="mono-label inline-flex max-w-full items-center rounded-full bg-black/60 px-2 py-0.5 text-white truncate">
               Because you read {recommendation.because_of}
             </span>
           </div>
@@ -84,11 +89,7 @@ export function RecommendationCard({
         <h3 className="text-sm font-semibold text-foreground leading-tight line-clamp-2">
           {recommendation.comic_name}
         </h3>
-        {meta && (
-          <p className="mt-1 font-mono text-[10px] text-muted-foreground truncate">
-            {meta}
-          </p>
-        )}
+        {meta && <p className="mono-meta mt-1 truncate">{meta}</p>}
         <p className="mt-2 text-xs text-muted-foreground line-clamp-3 flex-1">
           {recommendation.reason}
         </p>
@@ -96,13 +97,13 @@ export function RecommendationCard({
           <Button
             variant="outline"
             size="sm"
-            disabled={isAdded || addComicMutation.isPending}
+            disabled={isQueued || addComicMutation.isPending}
             onClick={() => void handleAdd()}
           >
-            {isAdded ? (
+            {isQueued ? (
               <>
                 <Check className="w-3.5 h-3.5 mr-1" />
-                Added
+                Queued
               </>
             ) : addComicMutation.isPending ? (
               <>

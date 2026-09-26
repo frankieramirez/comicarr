@@ -41,6 +41,23 @@ class AIRateLimiter:
                 return False
             return True
 
+    def reserve_request(self):
+        """Atomically claim an RPM slot before sending a provider request."""
+        with self._lock:
+            self._maybe_reset_daily()
+            self._prune_rpm_window()
+            if len(self._request_timestamps) >= self._rpm_limit or self._today_tokens >= self._daily_token_limit:
+                return False
+            self._request_timestamps.append(time.time())
+            self._today_requests += 1
+            return True
+
+    def record_usage(self, tokens):
+        """Charge response tokens for a previously reserved request."""
+        with self._lock:
+            self._maybe_reset_daily()
+            self._today_tokens += max(0, int(tokens or 0))
+
     def record_request(self, tokens):
         with self._lock:
             self._maybe_reset_daily()

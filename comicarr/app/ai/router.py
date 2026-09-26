@@ -282,7 +282,10 @@ async def ai_recommendations():
 @router.post("/recommendations/refresh", dependencies=[Depends(require_session)])
 async def ai_recommendations_refresh():
     """Regenerate series recommendations on demand."""
-    from comicarr.app.ai.recommendations import generate_recommendations
+    from comicarr.app.ai.recommendations import RecommendationGenerationError, generate_recommendations
 
-    recommendations = await asyncio.to_thread(generate_recommendations, force=True)
+    try:
+        recommendations = await asyncio.to_thread(generate_recommendations, force=True)
+    except RecommendationGenerationError as e:
+        return JSONResponse(status_code=e.status_code, content={"error": str(e)})
     return JSONResponse(content={"recommendations": recommendations})

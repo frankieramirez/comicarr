@@ -19,9 +19,11 @@
 
 
 import datetime
+import threading
 
 import comicarr
 from comicarr import helpers, logger, weeklypull
+from comicarr.app.core.workers import start_background_thread
 
 
 def _weekly_runtime_context():
@@ -72,6 +74,49 @@ def _restore_manual_next_run():
 
 
 origin_error_streak = 0
+_recommendation_lock = threading.Lock()
+_recommendation_active = False
+_recommendation_pending = False
+
+
+def _run_recommendations_after_pull():
+    """Run at most one extra refresh when another pull finishes during generation."""
+    global _recommendation_active, _recommendation_pending
+
+    while True:
+        try:
+            from comicarr.app.ai.recommendations import generate_recommendations
+
+            generate_recommendations()
+        except Exception as e:
+            logger.error("[AI-RECS] Failed to generate recommendations after pull: %s" % e)
+
+        with _recommendation_lock:
+            if not _recommendation_pending:
+                _recommendation_active = False
+                return
+            _recommendation_pending = False
+
+
+def _queue_recommendations_after_pull():
+    """Hand off recommendation I/O after the weekly lock and status are released."""
+    global _recommendation_active, _recommendation_pending
+
+    if comicarr.AI_CLIENT is None:
+        return
+    with _recommendation_lock:
+        if _recommendation_active:
+            _recommendation_pending = True
+            return
+        _recommendation_active = True
+
+    try:
+        start_background_thread(_run_recommendations_after_pull, name="AI-Recommendations")
+    except Exception as e:
+        with _recommendation_lock:
+            _recommendation_active = False
+            _recommendation_pending = False
+        logger.error("[AI-RECS] Could not start recommendation generation after pull: %s" % e)
 
 
 def _should_honor_origin_retry(pull_result):
@@ -165,3 +210,5 @@ class Weekly:
                 write=True, job="Weekly Pullist", last_run_completed=helpers.utctimestamp(), status="Waiting"
             )
             _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Waiting")
+
+        _queue_recommendations_after_pull()

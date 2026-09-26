@@ -119,6 +119,18 @@ def get_cache_entry(cache_key, cache_type):
     return db.select_one(stmt)
 
 
+def delete_cache_entry(cache_key, cache_type):
+    """Discard a stale cache entry after a failed generation."""
+    stmt = delete(t_ai_cache).where(t_ai_cache.c.cache_key == cache_key, t_ai_cache.c.cache_type == cache_type)
+    _run_write(lambda conn: conn.execute(stmt))
+
+
+def get_library_comic_ids(candidate_ids):
+    """Return tracked IDs among the small recommendation candidate set."""
+    stmt = select(t_comics.c.ComicID).where(t_comics.c.ComicID.in_(candidate_ids))
+    return {str(row["ComicID"]) for row in db.select_all(stmt) if row.get("ComicID")}
+
+
 def upsert_cache_entry(cache_key, cache_type, data, created_at, expires_at):
     """Atomically replace an AI cache entry using its declared unique key."""
     values = {

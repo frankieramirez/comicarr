@@ -12,6 +12,7 @@ import comicarr
 from comicarr import weeklypullit
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.workers import BackgroundWorkerRegistry, start_background_thread
 from comicarr.app.system import service as system_service
 
 
@@ -32,6 +33,90 @@ def test_weekly_run_records_success_and_returns_to_waiting(monkeypatch):
         "last_run_completed": 123.0,
         "status": "Waiting",
     }
+
+
+def test_recommendations_run_after_weekly_lock_and_status_are_released(monkeypatch):
+    from comicarr.app.ai import recommendations
+
+    refresh_lock = threading.Lock()
+    registry = BackgroundWorkerRegistry()
+    generation_started = threading.Event()
+    release_generation = threading.Event()
+    observations = []
+
+    monkeypatch.setattr(system_service, "get_weekly_refresh_lock", lambda: refresh_lock)
+    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
+    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value={"status": "success"}))
+    monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
+    monkeypatch.setattr(comicarr, "AI_CLIENT", object())
+    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(weeklypullit, "_recommendation_active", False)
+    monkeypatch.setattr(weeklypullit, "_recommendation_pending", False)
+    monkeypatch.setattr(
+        weeklypullit,
+        "start_background_thread",
+        lambda target, *, name: start_background_thread(target, name=name, registry=registry),
+    )
+
+    def generate():
+        acquired = refresh_lock.acquire(blocking=False)
+        if acquired:
+            refresh_lock.release()
+        observations.append((comicarr.WEEKLY_STATUS, acquired))
+        generation_started.set()
+        assert release_generation.wait(timeout=3)
+
+    monkeypatch.setattr(recommendations, "generate_recommendations", generate)
+
+    weekly_thread = threading.Thread(target=weeklypullit.Weekly().run)
+    weekly_thread.start()
+    try:
+        assert generation_started.wait(timeout=2)
+        weekly_thread.join(timeout=1)
+        assert not weekly_thread.is_alive()
+        assert observations == [("Waiting", True)]
+    finally:
+        release_generation.set()
+        weekly_thread.join(timeout=3)
+        for worker in registry.close():
+            worker.join(timeout=3)
+
+
+def test_recommendation_refreshes_coalesce_while_worker_is_busy(monkeypatch):
+    from comicarr.app.ai import recommendations
+
+    registry = BackgroundWorkerRegistry()
+    generation_started = threading.Event()
+    release_generation = threading.Event()
+    calls = []
+    monkeypatch.setattr(comicarr, "AI_CLIENT", object())
+    monkeypatch.setattr(weeklypullit, "_recommendation_active", False)
+    monkeypatch.setattr(weeklypullit, "_recommendation_pending", False)
+    monkeypatch.setattr(
+        weeklypullit,
+        "start_background_thread",
+        lambda target, *, name: start_background_thread(target, name=name, registry=registry),
+    )
+
+    def generate():
+        calls.append(1)
+        generation_started.set()
+        if len(calls) == 1:
+            assert release_generation.wait(timeout=3)
+
+    monkeypatch.setattr(recommendations, "generate_recommendations", generate)
+    try:
+        weeklypullit._queue_recommendations_after_pull()
+        assert generation_started.wait(timeout=2)
+        weeklypullit._queue_recommendations_after_pull()
+        weeklypullit._queue_recommendations_after_pull()
+        assert len(registry.snapshot()) == 1
+    finally:
+        release_generation.set()
+        for worker in registry.close():
+            worker.join(timeout=3)
+    assert calls == [1, 1]
 
 
 def test_weekly_run_records_failure_and_recovers_status(monkeypatch):

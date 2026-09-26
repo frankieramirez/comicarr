@@ -64,6 +64,7 @@ class PullSuggestions(BaseModel):
 class SeriesRecommendation(BaseModel):
     comic_name: str
     publisher: Optional[str] = None
+    comicyear: Optional[int | str] = None
     reason: str
     because_of: Optional[str] = None
 
