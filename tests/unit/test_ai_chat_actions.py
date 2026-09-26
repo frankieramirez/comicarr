@@ -511,3 +511,197 @@ def test_unexpected_execution_error_is_not_replayed(chat_db, monkeypatch):
             )
             assert response.json()["action"]["status"] == "error"
     assert len(calls) == 1
+
+
+def _stored_mark_action(target="Skipped"):
+    ctx = SimpleNamespace(config=SimpleNamespace(ANNUALS_ON=False))
+    proposal = chat_actions.prepare_action("mark_issues", {"series_name": "Injustice", "status": target}, ctx)
+    thread, _, _ = chat_store.create_user_turn("alice", chat_store.new_id(), "mark", [], "mark", create_thread=True)
+    message = chat_store.add_assistant_message("alice", thread["id"], "Confirm")
+    chat_store.update_assistant_message("alice", message["id"], "Confirm", action_data=proposal)
+    return {"thread_id": thread["id"], "message_id": message["id"]}
+
+
+def test_partial_action_reload_and_retry_only_unfinished(chat_db, monkeypatch):
+    _add_series_row()
+    _add_issue("i1", status="Wanted")
+    _add_issue("i2", status="Wanted")
+    pointer = _stored_mark_action()
+    original = chat_actions._apply_mark
+    calls = []
+
+    def fail_second(item, *args, **kwargs):
+        calls.append(item["issue_id"])
+        if item["issue_id"] == "i2":
+            raise RuntimeError("database unavailable")
+        return original(item, *args, **kwargs)
+
+    monkeypatch.setattr(chat_actions, "_apply_mark", fail_second)
+    with _client() as client:
+        first = client.post("/api/ai/chat/actions/confirm", json=pointer)
+        assert first.status_code == 200
+        partial = first.json()["action"]
+        assert partial["status"] == "partial"
+        assert partial["result"]["applied"] == 1
+        assert partial["result"]["failed"] == 1
+        assert chat_store.get_thread("alice", pointer["thread_id"])["messages"][-1]["action"] == partial
+        _set_issue_status("i1", "Wanted")
+
+        def retry(item, *args, **kwargs):
+            calls.append(item["issue_id"])
+            return original(item, *args, **kwargs)
+
+        monkeypatch.setattr(chat_actions, "_apply_mark", retry)
+        result = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert result["status"] == "confirmed"
+        assert result["result"]["applied"] == 2
+        assert result["result"]["failed"] == 0
+        assert _issue_status("i1")[0] == "Wanted"
+    assert calls == ["i1", "i2", "i2"]
+
+
+@pytest.mark.parametrize("change", [None, "Downloaded", "Ignored", "Skipped"])
+def test_missing_search_handoff_retry_rechecks_intent(chat_db, monkeypatch, change):
+    _add_series_row()
+    _add_issue("i1", status="Skipped")
+    pointer = _stored_mark_action("Wanted")
+    calls = []
+
+    def fail(values, **kwargs):
+        calls.append(kwargs["run_id"])
+        raise RuntimeError("not accepted")
+
+    monkeypatch.setattr("comicarr.app.search.commands.enqueue_search_command", fail)
+    with _client() as client:
+        first = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert first["status"] == "partial"
+        assert first["result"]["applied"] == 1
+        assert first["result"]["search_failed"] == 1
+        if change:
+            _set_issue_status("i1", change, change.lower())
+        monkeypatch.setattr(
+            "comicarr.app.search.commands.enqueue_search_command",
+            lambda values, **kwargs: calls.append(kwargs["run_id"]),
+        )
+        second = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert second["status"] == "confirmed"
+        assert second["result"]["applied"] == 1
+        assert second["result"]["search_failed"] == 0
+        assert len(calls) == (1 if change else 2)
+        assert len(set(calls)) == 1
+
+
+def test_accepted_search_handoff_failure_belongs_to_ledger_recovery(chat_db, monkeypatch):
+    from comicarr.app.acquisition.runs import RunLedger
+
+    _add_series_row()
+    _add_issue("i1", status="Skipped")
+    pointer = _stored_mark_action("Wanted")
+    calls = []
+
+    def fail_dispatch(*args, **kwargs):
+        calls.append(args)
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr("comicarr.app.search.commands.dispatch_persisted_search_command", fail_dispatch)
+    with _client() as client:
+        action = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert action["status"] == "confirmed"
+        outcome = action["result"]["items"][0]
+        assert outcome["search_handoff"] == "accepted"
+        item = RunLedger().get_item(outcome["run_id"], "issue", "i1")
+        assert item["dispatch_state"] == "error"
+        assert item["state"] == "accepted"
+        client.post("/api/ai/chat/actions/confirm", json=pointer)
+    assert len(calls) == 1
+
+
+def test_add_series_service_failure_is_terminal(chat_db, monkeypatch):
+    thread, _, _ = chat_store.create_user_turn("alice", chat_store.new_id(), "add", [], "add", create_thread=True)
+    message = chat_store.add_assistant_message("alice", thread["id"], "Confirm")
+    chat_store.update_assistant_message(
+        "alice",
+        message["id"],
+        "Confirm",
+        action_data={
+            "action_id": "add_series",
+            "status": "pending",
+            "preview": {"candidates": [{"comicid": "1", "name": "One"}]},
+        },
+    )
+    calls = []
+    monkeypatch.setattr(
+        "comicarr.app.search.service.add_comic",
+        lambda *args: calls.append(args) or {"success": False, "error": "failed"},
+    )
+    pointer = {"thread_id": thread["id"], "message_id": message["id"], "selection": {"comicid": "1"}}
+    with _client() as client:
+        for _ in range(2):
+            response = client.post("/api/ai/chat/actions/confirm", json=pointer)
+            assert response.status_code == 200
+            assert response.json()["action"]["status"] == "error"
+    assert len(calls) == 1
+
+
+def test_ledger_read_failure_preserves_applied_result_for_retry(chat_db, monkeypatch):
+    from comicarr.app.acquisition.runs import RunLedger
+
+    _add_series_row()
+    _add_issue("i1", status="Skipped")
+    pointer = _stored_mark_action("Wanted")
+    original = RunLedger.get_run
+    enqueued = []
+
+    def unavailable(*args):
+        raise RuntimeError("ledger unavailable")
+
+    monkeypatch.setattr(RunLedger, "get_run", unavailable)
+    monkeypatch.setattr(
+        "comicarr.app.search.commands.enqueue_search_command", lambda *args, **kwargs: enqueued.append(kwargs)
+    )
+    with _client() as client:
+        partial = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert partial["status"] == "partial"
+        assert partial["result"]["applied"] == 1
+        assert partial["result"]["search_failed"] == 1
+        assert enqueued == []
+        monkeypatch.setattr(RunLedger, "get_run", original)
+        result = client.post("/api/ai/chat/actions/confirm", json=pointer).json()["action"]
+        assert result["status"] == "confirmed"
+        assert result["result"]["applied"] == 1
+        assert len(enqueued) == 1
+
+
+def test_overlapping_pending_confirmation_does_not_retry_partial(chat_db, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    _add_series_row()
+    _add_issue("i1", status="Wanted")
+    pointer = _stored_mark_action()
+    observed, release = Event(), Event()
+    original = chat_store.resolve_message_action
+    calls = []
+
+    def delayed_claim(*args, **kwargs):
+        if args[3] == "processing" and not observed.is_set():
+            observed.set()
+            assert release.wait(timeout=5)
+        return original(*args, **kwargs)
+
+    def fail(*args, **kwargs):
+        calls.append(args)
+        raise RuntimeError("write failed")
+
+    monkeypatch.setattr(chat_store, "resolve_message_action", delayed_claim)
+    monkeypatch.setattr(chat_actions, "_apply_mark", fail)
+    with _client() as client, ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(client.post, "/api/ai/chat/actions/confirm", json=pointer)
+        try:
+            assert observed.wait(timeout=5)
+            second = client.post("/api/ai/chat/actions/confirm", json=pointer)
+            assert second.json()["action"]["status"] == "partial"
+        finally:
+            release.set()
+        assert first.result(timeout=5).json()["action"]["status"] == "partial"
+    assert len(calls) == 1

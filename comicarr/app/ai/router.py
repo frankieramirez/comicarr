@@ -282,7 +282,7 @@ def _log_action_outcome(username, proposal, result, latency_ms, model):
         completion_tokens=0,
         latency_ms=latency_ms,
         success=success,
-        error_message=None if success else result.get("error"),
+        error_message=None if success else result.get("error") or result.get("message"),
         entity_type=entity_type,
         entity_id=entity_id,
     )
@@ -312,41 +312,41 @@ async def chat_action_confirm(
     if not thread_id or not message_id:
         return JSONResponse(status_code=400, content={"error": "thread_id and message_id are required"})
 
-    proposal, claimed = await asyncio.to_thread(
-        chat_store.resolve_message_action, username, thread_id, message_id, "processing"
-    )
-    if proposal is None:
+    original = await asyncio.to_thread(chat_store.get_message_action, username, thread_id, message_id)
+    if original is None:
         return JSONResponse(status_code=404, content={"error": "Action not found"})
+    expected_status = original.get("status")
+    if expected_status not in {"pending", "partial"}:
+        return JSONResponse(content={"action": original})
+    proposal, claimed = await asyncio.to_thread(
+        chat_store.resolve_message_action,
+        username,
+        thread_id,
+        message_id,
+        "processing",
+        expected_status=expected_status,
+    )
     if not claimed:
         return JSONResponse(content={"action": proposal})
 
     start = time.time()
     try:
-        result = await asyncio.to_thread(chat_actions.confirm_action, proposal, selection, ctx, username)
+        result = await asyncio.to_thread(chat_actions.confirm_action, proposal, selection, ctx, username, message_id)
     except Exception as e:
         logger.error("[AI-ACTIONS] Confirmation interrupted: %s" % e)
         # Execution may already have had side effects. Never release an uncertain
         # claim for replay; retain a terminal error so the user can inspect it.
         result = {"success": False, "error": "Action interrupted. Check your library before proposing it again."}
-        action, _ = chat_store.resolve_message_action(
-            username, thread_id, message_id, "error", result, expected_status="processing"
-        )
-        return JSONResponse(content={"action": action})
     latency_ms = int((time.time() - start) * 1000)
     model = getattr(getattr(ctx, "config", None), "AI_MODEL", None)
 
-    if not result.get("success"):
-        proposal, _ = chat_store.resolve_message_action(
-            username, thread_id, message_id, "pending", result, expected_status="processing"
-        )
-        _log_action_outcome(username, proposal, result, latency_ms, model)
-        return JSONResponse(
-            status_code=409,
-            content={"error": result.get("error") or "The action could not be applied.", "action": proposal},
-        )
-
+    status = "confirmed" if result.get("success") else "error"
+    if result.get("validation_error"):
+        status = "pending"
+    elif result.get("retryable"):
+        status = "partial"
     action, _ = chat_store.resolve_message_action(
-        username, thread_id, message_id, "confirmed", result, expected_status="processing"
+        username, thread_id, message_id, status, result, expected_status="processing"
     )
     _log_action_outcome(username, proposal, result, latency_ms, model)
     return JSONResponse(content={"action": action or proposal})

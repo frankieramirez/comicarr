@@ -18,6 +18,7 @@ live row state and applies through the same services the UI uses.
 """
 
 from typing import Literal
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from sqlalchemy import select, update
 
@@ -278,29 +279,54 @@ def _apply_mark(item, target_status, actor, comic_id=None) -> Literal["applied",
         if changed.rowcount != 1:
             return "stale"
 
-    if target_status == "Wanted":
-        try:
-            from comicarr.app.search.commands import enqueue_search_command
-
-            enqueue_search_command(
-                {
-                    "issueid": issue_id,
-                    "comicid": comic_id,
-                    "issuenumber": item.get("number"),
-                    "entity_type": kind,
-                },
-                trigger="issue_wanted",
-            )
-        except Exception as e:
-            logger.warn("[AI-ACTIONS] Issue %s marked Wanted but search handoff failed: %s" % (issue_id, e))
     return "applied"
+
+
+def _handoff_search(item, comic_id, run_id):
+    from comicarr.app.acquisition.runs import RunLedger
+    from comicarr.app.search.commands import enqueue_search_command
+
+    ledger = RunLedger()
+    try:
+        if ledger.get_run(run_id) is not None and ledger.get_item(run_id, item["kind"], item["issue_id"]) is not None:
+            return "accepted"
+    except Exception as e:
+        logger.warn("[AI-ACTIONS] Could not check search handoff for %s: %s" % (item["issue_id"], e))
+        return "failed"
+    row = _current_row(item["kind"], item["issue_id"])
+    if row is None or row["Status"] != "Wanted" or row["AcquisitionIntent"] != "wanted":
+        return "stale"
+    try:
+        enqueue_search_command(
+            {
+                "issueid": item["issue_id"],
+                "comicid": comic_id,
+                "issuenumber": item.get("number"),
+                "entity_type": item["kind"],
+            },
+            trigger="issue_wanted",
+            run_id=run_id,
+        )
+    except Exception as e:
+        logger.warn("[AI-ACTIONS] Issue %s marked Wanted but search handoff failed: %s" % (item["issue_id"], e))
+        try:
+            accepted = (
+                ledger.get_run(run_id) is not None
+                and ledger.get_item(run_id, item["kind"], item["issue_id"]) is not None
+            )
+        except Exception as lookup_error:
+            logger.warn("[AI-ACTIONS] Could not check failed search handoff: %s" % lookup_error)
+            return "failed"
+        if not accepted:
+            return "failed"
+    return "accepted"
 
 
 def _confirm_add_series(proposal, selection, ctx):
     comicid = str((selection or {}).get("comicid") or "").strip()
     allowed = {str(c["comicid"]) for c in (proposal.get("preview") or {}).get("candidates") or []}
     if not comicid or comicid not in allowed:
-        return {"success": False, "error": "Pick one of the listed series matches."}
+        return {"success": False, "validation_error": True, "error": "Pick one of the listed series matches."}
 
     from comicarr.app.search import service as search_service
 
@@ -316,48 +342,71 @@ def _confirm_add_series(proposal, selection, ctx):
     }
 
 
-def _confirm_mark_issues(proposal, actor):
+def _confirm_mark_issues(proposal, actor, execution_key):
     preview = proposal.get("preview") or {}
     target = preview.get("target_status")
     items = preview.get("issues") or []
     if target not in _MARK_TARGET_STATUSES.values() or not items:
         return {"success": False, "error": "This proposal can no longer be applied."}
 
-    applied = stale = failed = 0
+    previous = {(i["kind"], i["issue_id"]): i for i in (proposal.get("result") or {}).get("items", [])}
+    outcomes = []
     for item in items:
-        try:
-            outcome = _apply_mark(item, target, actor, comic_id=preview.get("comic_id"))
-        except Exception as e:
-            logger.error("[AI-ACTIONS] Failed to mark %s %s: %s" % (item["kind"], item["issue_id"], e))
-            outcome = "failed"
-        applied += outcome == "applied"
-        stale += outcome == "stale"
-        failed += outcome == "failed"
+        saved = previous.get((item["kind"], item["issue_id"]))
+        outcome = (
+            dict(saved)
+            if saved
+            else {
+                "issue_id": item["issue_id"],
+                "kind": item["kind"],
+                "outcome": "failed",
+                "search_handoff": None,
+                "run_id": str(uuid5(NAMESPACE_URL, "%s/%s/%s" % (execution_key, item["kind"], item["issue_id"]))),
+            }
+        )
+        if outcome["outcome"] == "failed":
+            try:
+                outcome["outcome"] = _apply_mark(item, target, actor, comic_id=preview.get("comic_id"))
+            except Exception as e:
+                logger.error("[AI-ACTIONS] Failed to mark %s %s: %s" % (item["kind"], item["issue_id"], e))
+        if target == "Wanted" and outcome["outcome"] == "applied" and outcome["search_handoff"] in (None, "failed"):
+            try:
+                outcome["search_handoff"] = _handoff_search(item, preview.get("comic_id"), outcome["run_id"])
+            except Exception as e:
+                logger.warn("[AI-ACTIONS] Could not hand off search for %s: %s" % (item["issue_id"], e))
+                outcome["search_handoff"] = "failed"
+        outcomes.append(outcome)
 
-    if applied == 0 and failed == 0:
-        return {"success": False, "error": "Those issues no longer need this change."}
-
+    applied = sum(i["outcome"] == "applied" for i in outcomes)
+    stale = sum(i["outcome"] == "stale" for i in outcomes)
+    failed = sum(i["outcome"] == "failed" for i in outcomes)
+    search_failed = sum(i["search_handoff"] == "failed" for i in outcomes)
     summary = "Marked %d issue%s %s" % (applied, "" if applied == 1 else "s", target)
     if stale:
         summary += " (%d no longer needed it)" % stale
     if failed:
         summary += " (%d failed)" % failed
+    if search_failed:
+        summary += " (%d searches could not be scheduled)" % search_failed
     return {
-        "success": failed == 0,
+        "success": failed == 0 and search_failed == 0,
         "message": summary,
         "applied": applied,
         "stale": stale,
         "failed": failed,
+        "search_failed": search_failed,
+        "retryable": bool(failed or search_failed),
+        "items": outcomes,
         "comicid": preview.get("comic_id"),
     }
 
 
-def confirm_action(proposal, selection, ctx, actor):
+def confirm_action(proposal, selection, ctx, actor, execution_key=None):
     """Execute a pending proposal. Only the persisted proposal's action and
     preview decide what may change; ``selection`` carries the user's pick."""
     action_id = proposal.get("action_id")
     if action_id == "add_series":
         return _confirm_add_series(proposal, selection, ctx)
     if action_id == "mark_issues":
-        return _confirm_mark_issues(proposal, actor)
+        return _confirm_mark_issues(proposal, actor, execution_key or str(uuid4()))
     return {"success": False, "error": "Unknown action."}

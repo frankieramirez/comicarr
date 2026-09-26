@@ -86,9 +86,30 @@ export function ChatActionCard({
   const preview = action.preview;
   const candidates = preview?.candidates ?? [];
   const affected = preview?.issues ?? [];
+  const outcomes = new Map(
+    action.result?.items?.map((item) => [
+      `${item.kind}:${item.issue_id}`,
+      item,
+    ]),
+  );
+  const displayIssues =
+    action.status === "partial"
+      ? [...affected].sort((a, b) => {
+          const needsRetry = (item: typeof a) => {
+            const outcome = outcomes.get(`${item.kind}:${item.issue_id}`);
+            return outcome?.outcome === "failed" ||
+              outcome?.search_handoff === "failed"
+              ? 1
+              : 0;
+          };
+          return needsRetry(b) - needsRetry(a);
+        })
+      : affected;
   const isAddSeries = action.action_id === "add_series";
+  const retryable =
+    action.status === "partial" && action.result?.retryable === true;
   const confirmable =
-    action.status === "pending" &&
+    (action.status === "pending" || retryable) &&
     !busy &&
     !messageId.startsWith("local-") &&
     (!isAddSeries || Boolean(selectedId));
@@ -141,6 +162,7 @@ export function ChatActionCard({
       {action.status === "error" && (
         <p className="mt-2 text-sm text-muted-foreground" role="alert">
           {action.error ||
+            action.result?.message ||
             action.result?.error ||
             "This action could not be prepared."}
         </p>
@@ -160,36 +182,59 @@ export function ChatActionCard({
         </div>
       )}
 
-      {action.status === "pending" && action.action_id === "mark_issues" && (
-        <div className="mt-3">
-          <p className="mono-meta">
-            {preview?.comic_name}
-            {preview?.comic_year ? ` (${preview.comic_year})` : ""} ·{" "}
-            {preview?.scope === "annuals" ? "annuals" : "issues"}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {affected.slice(0, 40).map((item) => (
-              <span
-                key={item.issue_id}
-                className="mono-meta rounded border bg-secondary/40 px-1.5 py-0.5"
-              >
-                {item.kind === "annual" ? "Annual " : "#"}
-                {item.number ?? item.issue_id}
-              </span>
-            ))}
-            {affected.length > 40 && (
-              <span className="mono-meta px-1.5 py-0.5">
-                +{affected.length - 40} more
-              </span>
-            )}
+      {(action.status === "pending" || action.status === "partial") &&
+        action.action_id === "mark_issues" && (
+          <div className="mt-3">
+            <p className="mono-meta">
+              {preview?.comic_name}
+              {preview?.comic_year ? ` (${preview.comic_year})` : ""} ·{" "}
+              {preview?.scope === "annuals" ? "annuals" : "issues"}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {displayIssues.slice(0, 40).map((item) => (
+                <span
+                  key={item.issue_id}
+                  className="mono-meta rounded border bg-secondary/40 px-1.5 py-0.5"
+                >
+                  {item.kind === "annual" ? "Annual " : "#"}
+                  {item.number ?? item.issue_id}
+                  {action.status === "partial" &&
+                    (() => {
+                      const outcome = outcomes.get(
+                        `${item.kind}:${item.issue_id}`,
+                      );
+                      if (outcome?.search_handoff === "failed")
+                        return " · Search not queued";
+                      if (outcome?.outcome === "failed")
+                        return " · Update failed";
+                      if (outcome?.outcome === "applied") return " · Applied";
+                      if (outcome?.outcome === "stale")
+                        return " · Skipped (changed since preview)";
+                      return null;
+                    })()}
+                </span>
+              ))}
+              {affected.length > 40 && (
+                <span className="mono-meta px-1.5 py-0.5">
+                  +{affected.length - 40} more
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {action.status === "processing" && (
         <p className="mt-2 text-sm text-muted-foreground" role="status">
           Confirmation is in progress. Reload to check the result. If the server
           restarted, check your library before proposing this action again.
+        </p>
+      )}
+
+      {action.status === "partial" && (
+        <p className="mt-2 text-sm text-[var(--status-paused)]" role="alert">
+          {action.result?.message ||
+            action.error ||
+            "Some changes could not be completed."}
         </p>
       )}
 
@@ -210,19 +255,21 @@ export function ChatActionCard({
         </div>
       )}
 
-      {(localError || (action.status === "pending" && action.error)) && (
+      {(localError ||
+        (action.status === "pending" &&
+          (action.error || action.result?.error))) && (
         <div
           role="alert"
           className="mt-2 flex items-center gap-2 text-sm"
           style={{ color: "var(--status-error)" }}
         >
           <XCircle className="size-4 shrink-0" />
-          <span>{localError || action.error}</span>
+          <span>{localError || action.error || action.result?.error}</span>
         </div>
       )}
 
       <div className="mt-3 flex items-center gap-2">
-        {action.status === "pending" && (
+        {(action.status === "pending" || retryable) && (
           <>
             <Button
               size="sm"
@@ -232,16 +279,18 @@ export function ChatActionCard({
               {busy && (
                 <LoaderCircle className="animate-spin motion-reduce:animate-none" />
               )}
-              Confirm
+              {retryable ? "Retry unfinished" : "Confirm"}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void dismiss()}
-              disabled={busy || messageId.startsWith("local-")}
-            >
-              Dismiss
-            </Button>
+            {action.status === "pending" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void dismiss()}
+                disabled={busy || messageId.startsWith("local-")}
+              >
+                Dismiss
+              </Button>
+            )}
           </>
         )}
         {action.status === "confirmed" && resultComicId && (

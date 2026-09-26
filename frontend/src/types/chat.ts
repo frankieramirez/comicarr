@@ -59,6 +59,16 @@ export interface ChatActionPreview {
 }
 
 export interface ChatActionResult {
+  success?: boolean;
+  retryable?: boolean;
+  search_failed?: number;
+  items?: {
+    issue_id: string;
+    kind: "issue" | "annual";
+    outcome: "applied" | "stale" | "failed";
+    search_handoff: "accepted" | "failed" | "stale" | null;
+    run_id?: string | null;
+  }[];
   error?: string;
   message?: string;
   applied?: number;
@@ -69,7 +79,7 @@ export interface ChatActionResult {
 }
 
 export type ChatActionStatus =
-  "pending" | "processing" | "confirmed" | "dismissed" | "error";
+  "pending" | "processing" | "partial" | "confirmed" | "dismissed" | "error";
 
 /**
  * A write the model proposed. Nothing ran yet when status is "pending" —
