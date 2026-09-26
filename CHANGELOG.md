@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.39.0
+
+### Minor Changes
+
+- 60c11ce: Settings → Search has a search delay in seconds. The default stays 60 seconds, and the shortest delay is 5 seconds. An existing one-minute delay still waits 60 seconds.
+
+### Patch Changes
+
+- b9f2a32: Library opens in the last list or grid view you chose, including when you open it from the sidebar. A Library address that already names the view still opens that view.
+
 ## 0.38.17
 
 ### Patch Changes
