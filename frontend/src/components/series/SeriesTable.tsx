@@ -54,11 +54,13 @@ import type { Comic } from "@/types";
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, Comic>();
 
+const LIBRARY_VIEW_KEY = "comicarr-library-view";
+
 const seriesParams = {
   type: parseAsStringLiteral(["comic", "manga"] as const),
   progress: parseAsStringLiteral(["0", "partial", "100"] as const),
   status: parseAsStringLiteral(["Active", "Paused", "Ended"] as const),
-  view: parseAsStringLiteral(["list", "grid"] as const).withDefault("list"),
+  view: parseAsStringLiteral(["list", "grid"] as const),
 };
 
 const LIST_ROW_COLS =
@@ -94,7 +96,9 @@ export default function SeriesTable({
   const progressFilter: ProgressFilter = params.progress ?? "all";
   const statusFilter: StatusFilter = params.status ?? "all";
 
-  const isGridView = params.view === "grid";
+  const savedView =
+    localStorage.getItem(LIBRARY_VIEW_KEY) === "grid" ? "grid" : "list";
+  const isGridView = (params.view ?? savedView) === "grid";
   const pageSize = isGridView ? 24 : 20;
 
   const filteredData = useMemo(() => {
@@ -287,6 +291,7 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
+              localStorage.setItem(LIBRARY_VIEW_KEY, "list");
               setParams({ view: null });
               clearSelection();
             }}
@@ -302,6 +307,7 @@ export default function SeriesTable({
           <button
             type="button"
             onClick={() => {
+              localStorage.setItem(LIBRARY_VIEW_KEY, "grid");
               setParams({ view: "grid" });
               clearSelection();
             }}
