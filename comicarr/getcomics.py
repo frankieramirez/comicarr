@@ -20,6 +20,7 @@
 
 
 import datetime
+import html
 import json
 import os
 import re
@@ -273,9 +274,10 @@ class GC(object):
                     f.flush()
 
     def perform_search_queries(self, queryline):
-        next_url = self.url
+        page_no = 1
+        total_pages = 1
         seen_urls = set()
-        while next_url is not None:
+        while page_no <= total_pages:
             pause_the_search = comicarr.CONFIG.DDL_QUERY_DELAY
             diff = comicarr.search.check_time(self.provider_stat["lastrun"])
             if diff < pause_the_search:
@@ -291,7 +293,17 @@ class GC(object):
                 )
 
             gc_page = self.session.get(
-                next_url + "/", params={"s": queryline}, verify=True, headers=self.headers, timeout=(30, 30)
+                self.url + "/wp-json/wp/v2/posts",
+                params={
+                    "search": queryline,
+                    "orderby": "relevance",
+                    "per_page": 20,
+                    "page": page_no,
+                    "_fields": "id,date,link,title,excerpt",
+                },
+                verify=True,
+                headers=self.headers,
+                timeout=(30, 30),
             )
 
             if gc_page.status_code != 200:
@@ -300,7 +312,19 @@ class GC(object):
                 )
                 break
 
-            page_html = gc_page.text
+            try:
+                posts = gc_page.json()
+            except ValueError:
+                logger.warn("GetComics search did not return JSON. The WP API may be unavailable.")
+                break
+            if not isinstance(posts, list):
+                logger.warn("GetComics search returned an unexpected payload. Aborting.")
+                break
+
+            try:
+                total_pages = int(gc_page.headers.get("X-WP-TotalPages", 1))
+            except (TypeError, ValueError):
+                total_pages = 1
 
             write_time = time.time()
             comicarr.search.last_run_check(
@@ -315,7 +339,25 @@ class GC(object):
                 }
             )
             self.provider_stat["lastrun"] = write_time
-            page_results, next_url = self.parse_search_result(page_html, gc_page.status_code)
+
+            page_html = "".join(
+                '<article id="post-%s"><a href="%s"></a><h1 class="post-title">%s</h1>'
+                '<div class="post-excerpt">%s</div><time datetime="%s"></time></article>'
+                % (
+                    post.get("id", ""),
+                    html.escape(str(post.get("link", "")), quote=True),
+                    (post.get("title") or {}).get("rendered", ""),
+                    (post.get("excerpt") or {}).get("rendered", ""),
+                    str(post.get("date", ""))[:10],
+                )
+                for post in posts
+            )
+            page_html += '<ul class="page-numbers"><li><span class="current">%d</span></li><li>%d</li></ul>' % (
+                page_no,
+                total_pages,
+            )
+            page_results, _next_page = self.parse_search_result(page_html, gc_page.status_code)
+            page_no += 1
 
             for result in page_results:
                 if "Weekly" not in self.query.get("comicname", "") and "Weekly" in result.get("title", ""):
