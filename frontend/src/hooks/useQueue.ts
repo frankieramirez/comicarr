@@ -41,8 +41,8 @@ export interface BulkIssueResult {
  */
 export function describeBulkResult(
   { succeeded, failed }: BulkIssueResult,
-  verb: "queued" | "skipped",
-  failureVerb: "queue" | "skip",
+  verb: string,
+  failureVerb: string,
 ): { type: "success" | "info" | "error"; message: string; keep: string[] } {
   const total = succeeded.length + failed.length;
   if (failed.length === 0) {

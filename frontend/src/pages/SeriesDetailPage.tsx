@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
+  ChevronDown,
   ExternalLink,
-  MoreHorizontal,
   Pause,
   Play,
   RefreshCw,
@@ -11,7 +11,7 @@ import {
   TextSearch,
   Trash2,
 } from "lucide-react";
-import StatusBadge from "@/components/StatusBadge";
+import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,7 @@ import { useToast } from "@/components/ui/toast";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import {
+  useBulkSetIssueStatus,
   useConfirmSearchMissing,
   useDeleteSeries,
   usePauseSeries,
@@ -37,9 +38,11 @@ import {
   useSearchMissingPreview,
   useSearchRun,
   useSeriesDetail,
+  useSetIssueStatus,
   useUpdateSeriesSearchSettings,
   useUpdateSeriesContentKind,
 } from "@/hooks/useSeries";
+import { describeBulkResult } from "@/hooks/useQueue";
 import type {
   ComicOrManga,
   Issue,
@@ -47,6 +50,7 @@ import type {
   SearchMissingPreview,
   SearchMissingResult,
   ContentType,
+  SettableIssueStatus,
 } from "@/types";
 import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
@@ -193,7 +197,11 @@ function pluralize(count: number, singular: string): string {
 }
 
 const ISSUE_GRID_COLS =
-  "grid-cols-[72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
+  "grid-cols-[28px_72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
+
+function issueRowKey(issue: Issue): string {
+  return `${issue.annual ? "annual" : "issue"}:${issue.id ?? issue.IssueID}`;
+}
 
 function toReleaseReviewIssue(
   issue: Issue,
@@ -228,6 +236,7 @@ export default function SeriesDetailPage() {
     useState<SearchMissingResult | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchRunId, setSearchRunId] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const { data: seriesData, isLoading, error } = useSeriesDetail(comicId);
   const pauseMutation = usePauseSeries();
@@ -240,6 +249,8 @@ export default function SeriesDetailPage() {
   const retrySearchRun = useRetrySearchRun();
   const searchSettingsMutation = useUpdateSeriesSearchSettings();
   const contentKindMutation = useUpdateSeriesContentKind();
+  const setIssueStatus = useSetIssueStatus();
+  const bulkSetIssueStatus = useBulkSetIssueStatus();
   const { startReview, reviewSheetProps } = useInteractiveReview();
 
   const fetchSearchPreview = async () => {
@@ -554,6 +565,77 @@ export default function SeriesDetailPage() {
     }
   };
 
+  const toggleRowSelected = (key: string) => {
+    setSelectedRows((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllFiltered = (checked: boolean) => {
+    setSelectedRows((current) => {
+      const next = new Set(current);
+      for (const issue of filteredIssues) {
+        if (checked) next.add(issueRowKey(issue));
+        else next.delete(issueRowKey(issue));
+      }
+      return next;
+    });
+  };
+
+  const selectedTargets = allIssues
+    .filter((issue) => selectedRows.has(issueRowKey(issue)))
+    .map((issue) => ({
+      issueId: String(issue.id ?? issue.IssueID),
+      annual: Boolean(issue.annual),
+    }));
+  const visibleKeys = filteredIssues.map(issueRowKey);
+  const allFilteredSelected =
+    visibleKeys.length > 0 && visibleKeys.every((key) => selectedRows.has(key));
+  const someFilteredSelected = visibleKeys.some((key) => selectedRows.has(key));
+
+  const handleIssueStatusSelect = (
+    issue: Issue,
+    status: SettableIssueStatus,
+  ) => {
+    const issueId = issue.id ?? issue.IssueID;
+    if (!issueId) return;
+    setIssueStatus.mutate(
+      { issueId: String(issueId), annual: Boolean(issue.annual), status },
+      {
+        onError: (statusError) =>
+          addToast({
+            type: "error",
+            title: "Error",
+            description: `Failed to update status: ${statusError.message}`,
+          }),
+      },
+    );
+  };
+
+  const handleBulkSetStatus = async (status: SettableIssueStatus) => {
+    try {
+      const { type, message, keep } = describeBulkResult(
+        await bulkSetIssueStatus.mutateAsync({
+          targets: selectedTargets,
+          status,
+        }),
+        `marked ${status.toLowerCase()}`,
+        "update",
+      );
+      addToast({ type, message });
+      setSelectedRows(new Set(keep));
+    } catch (bulkError) {
+      addToast({
+        type: "error",
+        title: "Error",
+        description: `Failed to update statuses: ${bulkError instanceof Error ? bulkError.message : "Unknown error"}`,
+      });
+    }
+  };
+
   const ghostBtn =
     "inline-flex items-center gap-1.5 rounded-[5px] border px-3 py-1.5 text-[12px] transition-colors hover:bg-secondary/50";
 
@@ -800,9 +882,9 @@ export default function SeriesDetailPage() {
                   borderColor: "var(--border)",
                   color: "var(--muted-foreground)",
                 }}
-                aria-label="More actions"
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
               </button>
             ) : (
               <>
@@ -1038,8 +1120,46 @@ export default function SeriesDetailPage() {
         </div>
       </div>
 
+      {selectedTargets.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-3 border-b px-5 py-2"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <span
+            className="font-mono text-[10px] uppercase tracking-[0.08em]"
+            style={{ color: "var(--muted-foreground)" }}
+            data-testid="issue-selection-count"
+          >
+            {selectedTargets.length} selected
+          </span>
+          <IssueStatusMenu
+            disabled={bulkSetIssueStatus.isPending}
+            trigger={
+              <button
+                type="button"
+                className={ghostBtn}
+                style={{ borderColor: "var(--border)" }}
+                aria-label="Set status on selected issues"
+              >
+                Set status
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            }
+            onSelect={(status) => void handleBulkSetStatus(status)}
+          />
+          <button
+            type="button"
+            onClick={() => setSelectedRows(new Set())}
+            className="font-mono text-[10px] uppercase tracking-[0.08em] transition-colors hover:text-foreground"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto">
-        <div className="min-w-[720px]">
+        <div className="min-w-[920px]">
           <div
             className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
             style={{
@@ -1048,6 +1168,19 @@ export default function SeriesDetailPage() {
               background: "var(--card)",
             }}
           >
+            <div className="flex items-center">
+              <Checkbox
+                checked={
+                  allFilteredSelected
+                    ? true
+                    : someFilteredSelected
+                      ? "indeterminate"
+                      : false
+                }
+                onCheckedChange={toggleAllFiltered}
+                aria-label="Select all visible issues"
+              />
+            </div>
             <div>type</div>
             <div>#</div>
             <div>title</div>
@@ -1078,12 +1211,24 @@ export default function SeriesDetailPage() {
               const status = getIssueStatus(issue);
               const separateIntent = getSeparateIntent(issue);
               const ledgerKind = getLedgerKind(issue, isManga);
+              const rowKey = issueRowKey(issue);
+              const rowLabel =
+                issueName ||
+                `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
               return (
                 <div
                   key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
                   className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
                   style={{ borderColor: "var(--border)" }}
                 >
+                  <div className="flex items-center">
+                    <Checkbox
+                      checked={selectedRows.has(rowKey)}
+                      onCheckedChange={() => toggleRowSelected(rowKey)}
+                      aria-label={`Select ${rowLabel}`}
+                      disabled={!issueId}
+                    />
+                  </div>
                   <div>
                     {ledgerKind && (
                       <span
@@ -1126,7 +1271,12 @@ export default function SeriesDetailPage() {
                     {displayComicDate(issueDate)}
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <StatusBadge status={status} />
+                    <IssueStatusMenu
+                      current={status}
+                      label={`Change status for ${rowLabel}`}
+                      disabled={!issueId || setIssueStatus.isPending}
+                      onSelect={(next) => handleIssueStatusSelect(issue, next)}
+                    />
                     {separateIntent && (
                       <span
                         className="font-mono text-[9px] lowercase"

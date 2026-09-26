@@ -328,6 +328,10 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
+  http.put("/api/series/issues/:issueId/status", () => {
+    return HttpResponse.json({ success: true, entity_type: "issue" });
+  }),
+
   // -------------------------------------------------------------------------
   // Search endpoints
   // -------------------------------------------------------------------------

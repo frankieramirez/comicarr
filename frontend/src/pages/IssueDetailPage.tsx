@@ -1,8 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { Activity, ChevronRight, Library } from "lucide-react";
-import StatusBadge from "@/components/StatusBadge";
+import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { useIssueDetail } from "@/hooks/useIssueDetail";
+import { useSetIssueStatus } from "@/hooks/useSeries";
 import type { IssueMetadata } from "@/hooks/useIssueDetail";
 
 function issueNumber(issue: IssueMetadata): string {
@@ -31,6 +33,8 @@ export default function IssueDetailPage() {
     issueId: string;
   }>();
   const { data, isLoading, error, isError } = useIssueDetail(comicId, issueId);
+  const setIssueStatus = useSetIssueStatus();
+  const { addToast } = useToast();
 
   if (isLoading) {
     return (
@@ -146,7 +150,25 @@ export default function IssueDetailPage() {
                   Issue {number}
                 </span>
               ) : null}
-              <StatusBadge status={status} />
+              <IssueStatusMenu
+                current={status}
+                label={`Change status for ${title}`}
+                disabled={!issueId || setIssueStatus.isPending}
+                onSelect={(next) => {
+                  if (!issueId) return;
+                  setIssueStatus.mutate(
+                    { issueId, status: next },
+                    {
+                      onError: (statusError) =>
+                        addToast({
+                          type: "error",
+                          title: "Error",
+                          description: `Failed to update status: ${statusError.message}`,
+                        }),
+                    },
+                  );
+                }}
+              />
             </div>
 
             <h1

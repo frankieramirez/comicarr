@@ -676,6 +676,37 @@ def unqueue_issue(ctx, issue_id, audit_identity):
     return {"success": True}
 
 
+_SETTABLE_ISSUE_STATUSES = {"wanted": "Wanted", "skipped": "Skipped", "ignored": "Ignored", "archived": "Archived"}
+
+
+def set_issue_status(ctx, issue_id, status, audit_identity, entity_type=None):
+    """Set one issue/annual's operator status without any search side-effects."""
+    canonical = _SETTABLE_ISSUE_STATUSES.get(str(status or "").strip().lower())
+    if canonical is None:
+        return {
+            "success": False,
+            "status_code": 400,
+            "error": "status must be one of: %s" % ", ".join(sorted(_SETTABLE_ISSUE_STATUSES)),
+        }
+    normalized_type = str(entity_type or "").strip().lower()
+    if normalized_type not in ("", "issue", "annual"):
+        return {
+            "success": False,
+            "status_code": 400,
+            "error": "entity_type must be 'issue' or 'annual'",
+        }
+    table = series_queries.find_issue_status_target(issue_id, normalized_type or None)
+    if table is None:
+        return {"success": False, "status_code": 404, "error": "Issue not found: %s" % issue_id}
+    series_queries.set_issue_status(issue_id, canonical, audit_identity, table=table)
+    return {
+        "success": True,
+        "issue_id": str(issue_id),
+        "status": canonical,
+        "entity_type": "annual" if table == "annuals" else "issue",
+    }
+
+
 def _wanted_issue_selection(issue_id):
     row = db.select_one(sqlalchemy.select(issues).where(issues.c.IssueID == issue_id))
     if row is None or row.get("Status") != "Wanted":

@@ -307,6 +307,34 @@ def unqueue_issue(
     return series_service.unqueue_issue(ctx, issue_id, audit_identity=username)
 
 
+@router.put("/series/issues/{issue_id}/status")
+def set_issue_status(
+    issue_id: str,
+    request_body: dict = None,
+    username: str = Depends(require_session),
+    ctx: AppContext = Depends(get_context),
+):
+    """Set an issue/annual's status (wanted, skipped, ignored, archived)."""
+    if request_body is None:
+        request_body = {}
+    status = request_body.get("status")
+    if not status or not isinstance(status, str):
+        return JSONResponse(status_code=400, content={"detail": "Missing status"})
+    result = series_service.set_issue_status(
+        ctx,
+        issue_id,
+        status,
+        audit_identity=username,
+        entity_type=request_body.get("entity_type"),
+    )
+    if result.get("success") is False:
+        return JSONResponse(
+            status_code=int(result.get("status_code") or 400),
+            content={"detail": result.get("error")},
+        )
+    return result
+
+
 @router.get("/series/issues/{issue_id}/search-preview", dependencies=[Depends(require_session)])
 def preview_wanted_issue_search(
     issue_id: str,

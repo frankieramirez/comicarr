@@ -392,7 +392,9 @@ describe("SeriesDetailPage", () => {
     await waitFor(() => expect(detailReads).toBeGreaterThan(1));
     expect(await screen.findByText("Content kind updated")).toBeTruthy();
     expect(
-      screen.getByText(/Files already at the previous comics path were not moved/),
+      screen.getByText(
+        /Files already at the previous comics path were not moved/,
+      ),
     ).toBeTruthy();
     expect(
       screen.getByRole("radio", { name: "Manga" }).getAttribute("aria-checked"),
@@ -1039,5 +1041,129 @@ describe("SeriesDetailPage", () => {
       await screen.findByRole("heading", { name: "Review releases" }),
     ).toBeTruthy();
     expect(screen.getByText(/Unfiltered ·/)).toBeTruthy();
+  });
+
+  describe("issue status menu", () => {
+    function captureStatusCalls() {
+      const calls: { issueId: string; body: unknown }[] = [];
+      server.use(
+        http.put(
+          "/api/series/issues/:issueId/status",
+          async ({ params, request }) => {
+            calls.push({
+              issueId: String(params.issueId),
+              body: await request.json(),
+            });
+            return HttpResponse.json({ success: true, entity_type: "issue" });
+          },
+        ),
+      );
+      return calls;
+    }
+
+    it("sets one row's status from its badge menu", async () => {
+      const calls = captureStatusCalls();
+      const user = userEvent.setup();
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Change status for Explicitly skipped",
+        }),
+      );
+      await user.click(await screen.findByRole("menuitem", { name: "Wanted" }));
+
+      await waitFor(() => expect(calls).toHaveLength(1));
+      expect(calls[0]).toEqual({
+        issueId: "skipped",
+        body: { status: "Wanted", entity_type: "issue" },
+      });
+    });
+
+    it("targets the annuals table for an annual row", async () => {
+      const calls = captureStatusCalls();
+      const user = userEvent.setup();
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+
+      await user.click(
+        screen.getByRole("button", { name: "Change status for Annual event" }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Archived" }),
+      );
+
+      await waitFor(() => expect(calls).toHaveLength(1));
+      expect(calls[0]).toEqual({
+        issueId: "annual-1",
+        body: { status: "Archived", entity_type: "annual" },
+      });
+    });
+
+    it("applies a bulk status to selected rows and clears the selection", async () => {
+      const calls = captureStatusCalls();
+      const user = userEvent.setup();
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select Explicitly skipped" }),
+      );
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select Annual event" }),
+      );
+      expect(screen.getByTestId("issue-selection-count").textContent).toBe(
+        "2 selected",
+      );
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Set status on selected issues",
+        }),
+      );
+      await user.click(await screen.findByRole("menuitem", { name: "Wanted" }));
+
+      await waitFor(() => expect(calls).toHaveLength(2));
+      expect(calls).toEqual([
+        {
+          issueId: "skipped",
+          body: { status: "Wanted", entity_type: "issue" },
+        },
+        {
+          issueId: "annual-1",
+          body: { status: "Wanted", entity_type: "annual" },
+        },
+      ]);
+      await waitFor(() =>
+        expect(screen.queryByTestId("issue-selection-count")).toBeNull(),
+      );
+    });
+
+    it("selects only the filtered rows with the header checkbox", async () => {
+      const missingCount = [...canonicalIssues, annual].filter(
+        (row) => row.missing === true,
+      ).length;
+      const user = userEvent.setup();
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+
+      await user.click(
+        screen.getByRole("button", { name: `Missing ${missingCount}` }),
+      );
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select all visible issues" }),
+      );
+
+      expect(screen.getByTestId("issue-selection-count").textContent).toBe(
+        `${missingCount} selected`,
+      );
+    });
+
+    it("labels the delete control instead of an icon-only affordance", async () => {
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+      expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
+    });
   });
 });

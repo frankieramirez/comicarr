@@ -7,6 +7,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { applySequentially, type BulkIssueResult } from "@/hooks/useQueue";
 import type {
   Comic,
   ContentType,
@@ -17,6 +18,7 @@ import type {
   SearchRunResult,
   SearchRunRetryResult,
   SeriesDetail,
+  SettableIssueStatus,
 } from "@/types";
 
 const SEARCH_RUN_POLL_MS = 2_000;
@@ -367,6 +369,89 @@ export function useUnqueueIssue(): UseMutationResult<unknown, Error, string> {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
+    },
+  });
+}
+
+export interface IssueStatusTarget {
+  issueId: string;
+  /** Omit to let the backend resolve the row across issues and annuals. */
+  annual?: boolean;
+}
+
+function issueStatusBody(
+  target: IssueStatusTarget,
+  status: SettableIssueStatus,
+) {
+  return {
+    status,
+    ...(target.annual === undefined
+      ? {}
+      : { entity_type: target.annual ? "annual" : "issue" }),
+  };
+}
+
+/**
+ * Set one issue or annual's status (Wanted / Skipped / Ignored / Archived)
+ * without triggering a search.
+ */
+export function useSetIssueStatus(): UseMutationResult<
+  unknown,
+  Error,
+  IssueStatusTarget & { status: SettableIssueStatus }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ status, ...target }) =>
+      apiRequest(
+        "PUT",
+        `/api/series/issues/${target.issueId}/status`,
+        issueStatusBody(target, status),
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["issue-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+    },
+  });
+}
+
+/**
+ * Set the same status on a batch of issues/annuals. Sequential like the other
+ * bulk issue mutations, so partial failures report and keep their ids.
+ */
+export function useBulkSetIssueStatus(): UseMutationResult<
+  BulkIssueResult,
+  Error,
+  { targets: IssueStatusTarget[]; status: SettableIssueStatus }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ targets, status }) => {
+      const byKey = new Map(
+        targets.map((t) => [
+          `${t.annual ? "annual" : "issue"}:${t.issueId}`,
+          t,
+        ]),
+      );
+      return applySequentially([...byKey.keys()], (key) => {
+        const target = byKey.get(key);
+        if (!target) return Promise.reject(new Error("Unknown target"));
+        return apiRequest(
+          "PUT",
+          `/api/series/issues/${target.issueId}/status`,
+          issueStatusBody(target, status),
+        );
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["issue-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
     },
   });
 }
