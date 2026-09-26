@@ -40,6 +40,9 @@ const SearchPage = () => (
 const ReleasesPage = () => (
   <RouteLoader load={() => import("@/pages/ReleasesPage")} />
 );
+const DiscoverPage = () => (
+  <RouteLoader load={() => import("@/pages/DiscoverPage")} />
+);
 const WantedPage = () => (
   <RouteLoader load={() => import("@/pages/WantedPage")} />
 );
@@ -154,6 +157,7 @@ function AppContent() {
                       <Route path="/series" element={<SeriesListRedirect />} />
                       <Route path="/search" element={<SearchPage />} />
                       <Route path="/releases" element={<ReleasesPage />} />
+                      <Route path="/discover" element={<DiscoverPage />} />
                       <Route
                         path="/upcoming"
                         element={<Navigate to="/releases?view=mine" replace />}

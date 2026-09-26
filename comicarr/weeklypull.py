@@ -541,6 +541,14 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         except Exception as e:
             logger.error("[AI-PULLLIST] Failed to generate suggestions after pull: %s" % e)
 
+        try:
+            from comicarr.app.ai.recommendations import generate_recommendations
+
+            logger.fdebug("[AI-RECS] Triggering recommendation generation after pull list update")
+            generate_recommendations()
+        except Exception as e:
+            logger.error("[AI-RECS] Failed to generate recommendations after pull: %s" % e)
+
 
 def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurepull=None, issue=None):
     if futurepull is None:

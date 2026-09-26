@@ -27,6 +27,7 @@ import {
 import {
   LayoutDashboard,
   BookOpen,
+  Compass,
   Search,
   Calendar,
   ListTodo,
@@ -104,6 +105,7 @@ export default function AppSidebar() {
     { path: "/releases", label: "Releases", icon: Calendar, kbd: "G R" },
     { path: "/wanted", label: "Wanted", icon: ListTodo, kbd: "G W" },
     { path: "/story-arcs", label: "Story Arcs", icon: BookMarked, kbd: "G A" },
+    { path: "/discover", label: "Discover", icon: Compass, kbd: "G V" },
   ];
 
   const managementNav: NavItem[] = [

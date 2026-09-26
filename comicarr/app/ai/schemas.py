@@ -61,6 +61,17 @@ class PullSuggestions(BaseModel):
     suggestions: List[PullSuggestion]
 
 
+class SeriesRecommendation(BaseModel):
+    comic_name: str
+    publisher: Optional[str] = None
+    reason: str
+    because_of: Optional[str] = None
+
+
+class SeriesRecommendations(BaseModel):
+    recommendations: List[SeriesRecommendation]
+
+
 class ReconciliationChoice(BaseModel):
     choices: Dict[str, str]
 
