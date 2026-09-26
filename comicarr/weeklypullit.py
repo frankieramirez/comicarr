@@ -102,7 +102,7 @@ def _queue_recommendations_after_pull():
     """Hand off recommendation I/O after the weekly lock and status are released."""
     global _recommendation_active, _recommendation_pending
 
-    if comicarr.AI_CLIENT is None:
+    if _get_weekly_runtime_value("ai_client", "AI_CLIENT") is None:
         return
     with _recommendation_lock:
         if _recommendation_active:
