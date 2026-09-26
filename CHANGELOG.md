@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.40.0
+
+### Minor Changes
+
+- 67bac6b: New Discover page suggests series you might enjoy based on the library you already track. Each card shows the reason it was picked, the series it follows from, and provider metadata (year, publisher, issue count, cover), plus an Add button that uses the normal add flow. Requires a configured AI provider; recommendations refresh with the weekly pull list or on demand from the Discover page.
+- 62cabf7: Story arcs now show which series aren't in your library. The "Add what's missing" button lists the ComicVine match for each, and confirming adds the series and marks only the arc's issues Wanted.
+- bb9d8ba: Ask Comicarr can now act on the library, not just read it: asking it to add a series or to mark issues Wanted or Skipped produces a confirmation card in the chat, and nothing changes until you click Confirm.
+- 2f670c5: Issue statuses can be changed from the web UI. On a series page, each issue's status badge opens a menu to set Wanted, Skipped, Ignored, or Archived, and row checkboxes plus a bulk Set status action update several issues at once. The issue detail page has the same menu. Refreshing a series no longer leaves missing issues stuck at Archived with no way back to Wanted.
+
+### Patch Changes
+
+- 9c51535: Keep partial Ask Comicarr actions visible and retry only unfinished issue updates or search handoffs. Include confirmed action details in follow-up chat context.
+- 26bb305: GetComics searches find releases again. The site's search page stopped rendering results in the page itself, so every search returned zero; Comicarr now queries the site's WordPress API for the same results.
+- 5b39122: Metatagging no longer fails with "Can't mix strings and bytes in path components" when ComicTagger prints a warning (common on fresh Docker installs), so tagged issues land in the library instead of the untagged original.
+- d874e8d: GetComics packs whose issue range has spaces around the dash ("#1 - 14") now match and grab. Review releases no longer shows "Match failed" for them.
+
 ## 0.39.0
 
 ### Minor Changes
