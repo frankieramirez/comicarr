@@ -287,5 +287,8 @@ async def ai_recommendations_refresh():
     try:
         recommendations = await asyncio.to_thread(generate_recommendations, force=True)
     except RecommendationGenerationError as e:
-        return JSONResponse(status_code=e.status_code, content={"error": str(e)})
+        message = (
+            "AI request or token limit reached" if e.status_code == 429 else "Recommendation generation unavailable"
+        )
+        return JSONResponse(status_code=e.status_code, content={"error": message})
     return JSONResponse(content={"recommendations": recommendations})

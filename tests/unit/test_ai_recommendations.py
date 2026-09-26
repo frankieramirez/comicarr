@@ -242,21 +242,27 @@ def test_recommendations_routes_serve_cache_and_refresh():
     generate.assert_called_once_with(force=True)
 
 
-def test_refresh_reports_failure_without_replacing_cards():
+@pytest.mark.parametrize(
+    ("status_code", "expected_error"),
+    [(503, "Recommendation generation unavailable"), (429, "AI request or token limit reached")],
+)
+def test_refresh_reports_failure_without_replacing_cards(status_code, expected_error):
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[require_session] = lambda: "alice"
 
     with (
         patch.object(
-            recs, "generate_recommendations", side_effect=recs.RecommendationGenerationError("AI unavailable")
+            recs,
+            "generate_recommendations",
+            side_effect=recs.RecommendationGenerationError("private provider detail", status_code=status_code),
         ),
         TestClient(app) as client,
     ):
         response = client.post("/api/ai/recommendations/refresh")
 
-    assert response.status_code == 503
-    assert response.json() == {"error": "AI unavailable"}
+    assert response.status_code == status_code
+    assert response.json() == {"error": expected_error}
 
 
 def test_refresh_reserves_rpm_before_dispatch_sequentially(monkeypatch):
