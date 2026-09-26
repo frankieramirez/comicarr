@@ -231,6 +231,9 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
           JSON.parse(e.data);
           queryClient.invalidateQueries({ queryKey: ["ai", "activity"] });
           queryClient.invalidateQueries({ queryKey: ["ai", "status"] });
+          queryClient.invalidateQueries({
+            queryKey: ["ai", "recommendations"],
+          });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         } catch (error) {
           console.error("[SSE] Error parsing ai_activity event:", error);
