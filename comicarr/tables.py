@@ -604,6 +604,7 @@ ai_chat_messages = Table(
     Column("content", Text, nullable=False),
     Column("status", String(16), nullable=False),
     Column("results", Text),
+    Column("action", Text),
     Column("prompt_tokens", Integer, nullable=False, server_default="0"),
     Column("completion_tokens", Integer, nullable=False, server_default="0"),
     Column("created_at", String(40), nullable=False),

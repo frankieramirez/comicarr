@@ -105,6 +105,7 @@ async def _stream_turn(username, thread_id, content, uploads, ctx, retry_message
     data_urls = [chat_images.as_data_url(item["relative_path"]) for item in image_records]
     text_parts = []
     result_data = None
+    action_data = None
     provider_error = None
     query_error = None
     prompt_tokens = 0
@@ -120,6 +121,9 @@ async def _stream_turn(username, thread_id, content, uploads, ctx, retry_message
                 yield {**event, "message_id": assistant_message_id}
             elif event_type == "results":
                 result_data = event.get("data", [])
+                yield {**event, "message_id": assistant_message_id}
+            elif event_type == "action":
+                action_data = event.get("action")
                 yield {**event, "message_id": assistant_message_id}
             elif event_type == "error":
                 error_event = {
@@ -144,6 +148,7 @@ async def _stream_turn(username, thread_id, content, uploads, ctx, retry_message
             status="cancelled",
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            action_data=action_data,
         )
         raise
 
@@ -165,6 +170,7 @@ async def _stream_turn(username, thread_id, content, uploads, ctx, retry_message
                 status="error",
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
+                action_data=action_data,
             )
         yield {"type": "done", "message": None}
         return
@@ -180,5 +186,6 @@ async def _stream_turn(username, thread_id, content, uploads, ctx, retry_message
         status="error" if query_error else "complete",
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
+        action_data=action_data,
     )
     yield {"type": "done", "message": assistant_message}

@@ -37,6 +37,7 @@ import { confirmChatDelete, promptChatTitle } from "@/lib/chatDialogs";
 import { createLocalId } from "@/lib/ids";
 import { isEditableTarget } from "@/lib/keyboard";
 import type {
+  ChatAction,
   ChatStreamEvent,
   LibraryChatMessage,
   PendingChatImage,
@@ -246,6 +247,14 @@ export default function ChatPage() {
               : message,
           ),
         );
+      } else if (event.type === "action") {
+        updateTurnMessages((current) =>
+          current.map((message) =>
+            message.id === optimisticAssistant.id
+              ? { ...message, action: event.action }
+              : message,
+          ),
+        );
       } else if (event.type === "error") {
         failed = true;
         setComposerError(event.content);
@@ -398,6 +407,23 @@ export default function ChatPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const handleActionChange = (messageId: string, action: ChatAction) => {
+    setLocalMessages((current) => ({
+      threadKey: current.threadKey,
+      messages: current.messages.map((message) =>
+        message.id === messageId ? { ...message, action } : message,
+      ),
+    }));
+    if (threadId) {
+      void queryClient.invalidateQueries({
+        queryKey: chatQueryKeys.thread(threadId),
+      });
+    }
+    void queryClient.invalidateQueries({ queryKey: ["series"] });
+    void queryClient.invalidateQueries({ queryKey: ["wanted"] });
+    void queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+  };
 
   const handleRename = async (id: string, title: string) => {
     try {
@@ -618,7 +644,10 @@ export default function ChatPage() {
                         key={message.id}
                         scrollAnchor={message.role === "user"}
                       >
-                        <ChatMessage message={message} />
+                        <ChatMessage
+                          message={message}
+                          onActionChange={handleActionChange}
+                        />
                       </MessageScrollerItem>
                     ))}
                   </MessageScrollerContent>

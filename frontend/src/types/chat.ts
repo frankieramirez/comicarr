@@ -29,6 +29,60 @@ export interface ChatResult {
   [key: string]: unknown;
 }
 
+export interface ChatActionCandidate {
+  comicid: string;
+  name?: string | null;
+  year?: string | null;
+  publisher?: string | null;
+  issues?: number | null;
+  image?: string | null;
+  in_library?: boolean;
+}
+
+export interface ChatActionIssue {
+  issue_id: string;
+  number?: string | null;
+  kind: "issue" | "annual";
+  current_status?: string | null;
+}
+
+export interface ChatActionPreview {
+  query?: string;
+  candidates?: ChatActionCandidate[];
+  comic_id?: string;
+  comic_name?: string;
+  comic_year?: string;
+  target_status?: "Wanted" | "Skipped";
+  scope?: "all" | "issues" | "annuals";
+  count?: number;
+  issues?: ChatActionIssue[];
+}
+
+export interface ChatActionResult {
+  message?: string;
+  applied?: number;
+  stale?: number;
+  failed?: number;
+  comicid?: string;
+  name?: string;
+}
+
+export type ChatActionStatus = "pending" | "confirmed" | "dismissed" | "error";
+
+/**
+ * A write the model proposed. Nothing ran yet when status is "pending" —
+ * the confirm endpoint re-checks the stored proposal before applying it.
+ */
+export interface ChatAction {
+  action_id: "add_series" | "mark_issues" | string;
+  status: ChatActionStatus | string;
+  summary?: string;
+  parameters?: Record<string, unknown>;
+  preview?: ChatActionPreview;
+  result?: ChatActionResult;
+  error?: string;
+}
+
 export interface LibraryChatMessage {
   id: string;
   thread_id: string;
@@ -36,6 +90,7 @@ export interface LibraryChatMessage {
   content: string;
   status: "streaming" | "complete" | "error" | "cancelled";
   results?: ChatResult[];
+  action?: ChatAction | null;
   attachments: ChatAttachment[];
   created_at: string;
 }
@@ -67,6 +122,7 @@ export type ChatStreamEvent =
       data: ChatResult[];
       message_id?: string;
     }
+  | { type: "action"; action: ChatAction; message_id?: string }
   | {
       type: "error";
       code?: string;

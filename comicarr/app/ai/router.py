@@ -11,12 +11,15 @@
 AI domain router — status, connection testing, activity feed, library chat.
 """
 
+import asyncio
 import json
+import time
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
+from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.chat import stream_chat_response
@@ -258,6 +261,99 @@ async def chat_turn_stream(
             yield json.dumps({"type": "done", "message": None})
 
     return EventSourceResponse(generator(), media_type="text/event-stream")
+
+
+def _action_context(proposal, result):
+    preview = (proposal or {}).get("preview") or {}
+    comic_id = preview.get("comic_id") or (result or {}).get("comicid")
+    return ("series", str(comic_id)) if comic_id not in (None, "") else (None, None)
+
+
+def _log_action_outcome(username, proposal, result, latency_ms, model):
+    entity_type, entity_id = _action_context(proposal, result)
+    success = bool(result.get("success"))
+    ai_service.log_activity(
+        feature_type="chat",
+        action="Confirmed chat action: %s — %s"
+        % (proposal.get("action_id"), result.get("message") or result.get("error") or ""),
+        model=model or "unknown",
+        prompt_tokens=0,
+        completion_tokens=0,
+        latency_ms=latency_ms,
+        success=success,
+        error_message=None if success else result.get("error"),
+        entity_type=entity_type,
+        entity_id=entity_id,
+    )
+
+
+@router.post("/chat/actions/confirm")
+async def chat_action_confirm(
+    request: Request,
+    username: str = Depends(require_session),
+    ctx: AppContext = Depends(get_context),
+):
+    """Execute a pending action proposal after the user's explicit confirm.
+
+    The persisted proposal on the assistant message is the contract — the
+    client supplies only the message pointer and (for add_series) which of
+    the listed candidates to add.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    thread_id = str(body.get("thread_id") or "").strip()
+    message_id = str(body.get("message_id") or "").strip()
+    selection = body.get("selection") if isinstance(body.get("selection"), dict) else {}
+    if not thread_id or not message_id:
+        return JSONResponse(status_code=400, content={"error": "thread_id and message_id are required"})
+
+    proposal = await asyncio.to_thread(chat_store.get_message_action, username, thread_id, message_id)
+    if proposal is None:
+        return JSONResponse(status_code=404, content={"error": "Action not found"})
+    if proposal.get("status") != "pending":
+        return JSONResponse(content={"action": proposal})
+
+    start = time.time()
+    result = await asyncio.to_thread(chat_actions.confirm_action, proposal, selection, ctx, username)
+    latency_ms = int((time.time() - start) * 1000)
+    model = getattr(getattr(ctx, "config", None), "AI_MODEL", None)
+
+    if not result.get("success"):
+        _log_action_outcome(username, proposal, result, latency_ms, model)
+        return JSONResponse(
+            status_code=409,
+            content={"error": result.get("error") or "The action could not be applied.", "action": proposal},
+        )
+
+    action, _ = chat_store.resolve_message_action(username, thread_id, message_id, "confirmed", result)
+    _log_action_outcome(username, proposal, result, latency_ms, model)
+    return JSONResponse(content={"action": action or proposal})
+
+
+@router.post("/chat/actions/dismiss")
+async def chat_action_dismiss(
+    request: Request,
+    username: str = Depends(require_session),
+):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    thread_id = str(body.get("thread_id") or "").strip()
+    message_id = str(body.get("message_id") or "").strip()
+    if not thread_id or not message_id:
+        return JSONResponse(status_code=400, content={"error": "thread_id and message_id are required"})
+
+    action, _ = await asyncio.to_thread(chat_store.resolve_message_action, username, thread_id, message_id, "dismissed")
+    if action is None:
+        return JSONResponse(status_code=404, content={"error": "Action not found"})
+    return JSONResponse(content={"action": action})
 
 
 @router.get("/suggestions", dependencies=[Depends(require_session)])

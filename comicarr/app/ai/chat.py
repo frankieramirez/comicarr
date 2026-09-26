@@ -15,14 +15,17 @@ with a JSON block selecting a pattern + params, followed by conversational
 text. The backend executes the pattern, then yields SSE events:
   - {"type": "text", "content": "..."} for streaming text chunks
   - {"type": "results", "pattern_id": "...", "data": [...]} for query results
+  - {"type": "action", "action": {...}} for a proposed write the user confirms
   - {"type": "error", "content": "..."} for errors
   - {"type": "done"} to signal completion
 """
 
+import asyncio
 import json
 import time
 
 from comicarr import logger
+from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.query_patterns import (
     QUERY_PATTERNS,
@@ -53,19 +56,33 @@ Rules:
 - If the question is general chat (not library-related), skip the JSON and just respond conversationally
 - Keep responses concise and helpful
 - Do not mention SQL, databases, or query patterns to the user
-- Valid issue statuses: Wanted, Downloaded, Snatched, Skipped, Archived"""
+- Valid issue statuses: Wanted, Downloaded, Snatched, Skipped, Archived
+
+Available actions (these change the library — you only propose them, the user
+must confirm each one in the app before anything happens):
+{actions}
+
+When the user asks you to DO one of these things, respond with EXACTLY this
+JSON format on the FIRST line, followed by your conversational response:
+
+{{"action_id": "<action_name>", "parameters": {{"param1": "value1"}}}}
+
+Action rules:
+- NEVER claim an action already happened; the user confirms it after you reply
+- Only use the action_ids listed above; never invent new ones
+- For mark_issues, use status "Wanted" to watch/download an issue or "Skipped"
+  to stop tracking it; use scope "annuals" only when the user means annuals
+- If the user asks to delete or remove anything, decline — no such action exists"""
 
 
 def _build_system_prompt():
-    """Build the system prompt with current pattern descriptions."""
-    return _SYSTEM_PROMPT.format(patterns=get_pattern_descriptions())
+    return _SYSTEM_PROMPT.format(
+        patterns=get_pattern_descriptions(),
+        actions=chat_actions.get_action_descriptions(),
+    )
 
 
-def _extract_pattern_json(text):
-    """Extract the JSON pattern selection from the first line of LLM response.
-
-    Returns (pattern_dict, remaining_text) or (None, original_text).
-    """
+def _extract_response_json(text):
     if not text:
         return None, text
 
@@ -74,7 +91,7 @@ def _extract_pattern_json(text):
 
     try:
         data = json.loads(first_line)
-        if isinstance(data, dict) and "pattern_id" in data:
+        if isinstance(data, dict) and ("pattern_id" in data or "action_id" in data):
             remaining = lines[1].strip() if len(lines) > 1 else ""
             return data, remaining
     except (json.JSONDecodeError, ValueError):
@@ -82,10 +99,10 @@ def _extract_pattern_json(text):
 
     for i, line in enumerate(text.strip().split("\n")[:5]):
         line = line.strip()
-        if line.startswith("{") and "pattern_id" in line:
+        if line.startswith("{") and ("pattern_id" in line or "action_id" in line):
             try:
                 data = json.loads(line)
-                if isinstance(data, dict) and "pattern_id" in data:
+                if isinstance(data, dict) and ("pattern_id" in data or "action_id" in data):
                     remaining_lines = text.strip().split("\n")[i + 1 :]
                     remaining = "\n".join(remaining_lines).strip()
                     return data, remaining
@@ -215,13 +232,29 @@ async def stream_chat_response(messages, ctx, current_turn_images=None):
             "completion_tokens": completion_tokens,
         }
 
-        pattern_data, text_content = _extract_pattern_json(raw_content)
+        pattern_data, text_content = _extract_response_json(raw_content)
 
         if pattern_data:
+            action_id = str(pattern_data.get("action_id") or "").strip()
             pattern_id = pattern_data.get("pattern_id", "")
             parameters = pattern_data.get("parameters", {})
 
-            if pattern_id in QUERY_PATTERNS:
+            if action_id:
+                try:
+                    proposal = await asyncio.to_thread(chat_actions.prepare_action, action_id, parameters, ctx)
+                    yield {"type": "action", "action": proposal}
+                except Exception as e:
+                    logger.error("[AI-CHAT] Action preparation failed: %s" % e)
+                    yield {
+                        "type": "action",
+                        "action": {
+                            "action_id": action_id,
+                            "status": "error",
+                            "summary": "Could not prepare this action.",
+                            "error": "Something went wrong while preparing it.",
+                        },
+                    }
+            elif pattern_id in QUERY_PATTERNS:
                 try:
                     results = execute_pattern(pattern_id, parameters)
                     yield {"type": "results", "pattern_id": pattern_id, "data": results}
