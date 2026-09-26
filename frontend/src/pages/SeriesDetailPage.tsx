@@ -566,6 +566,7 @@ export default function SeriesDetailPage() {
   };
 
   const toggleRowSelected = (key: string) => {
+    if (bulkSetIssueStatus.isPending) return;
     setSelectedRows((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
@@ -575,6 +576,7 @@ export default function SeriesDetailPage() {
   };
 
   const toggleAllFiltered = (checked: boolean) => {
+    if (bulkSetIssueStatus.isPending) return;
     setSelectedRows((current) => {
       const next = new Set(current);
       for (const issue of filteredIssues) {
@@ -601,7 +603,7 @@ export default function SeriesDetailPage() {
     status: SettableIssueStatus,
   ) => {
     const issueId = issue.id ?? issue.IssueID;
-    if (!issueId) return;
+    if (!issueId || bulkSetIssueStatus.isPending) return;
     setIssueStatus.mutate(
       { issueId: String(issueId), annual: Boolean(issue.annual), status },
       {
@@ -616,6 +618,12 @@ export default function SeriesDetailPage() {
   };
 
   const handleBulkSetStatus = async (status: SettableIssueStatus) => {
+    if (
+      bulkSetIssueStatus.isPending ||
+      setIssueStatus.isPending ||
+      selectedTargets.length === 0
+    )
+      return;
     try {
       const { type, message, keep } = describeBulkResult(
         await bulkSetIssueStatus.mutateAsync({
@@ -1121,24 +1129,16 @@ export default function SeriesDetailPage() {
       </div>
 
       {selectedTargets.length > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-3 border-b px-5 py-2"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <span
-            className="font-mono text-[10px] uppercase tracking-[0.08em]"
-            style={{ color: "var(--muted-foreground)" }}
-            data-testid="issue-selection-count"
-          >
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2">
+          <span className="mono-label" data-testid="issue-selection-count">
             {selectedTargets.length} selected
           </span>
           <IssueStatusMenu
-            disabled={bulkSetIssueStatus.isPending}
+            disabled={bulkSetIssueStatus.isPending || setIssueStatus.isPending}
             trigger={
               <button
                 type="button"
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
+                className={`${ghostBtn} border-border`}
                 aria-label="Set status on selected issues"
               >
                 Set status
@@ -1150,8 +1150,8 @@ export default function SeriesDetailPage() {
           <button
             type="button"
             onClick={() => setSelectedRows(new Set())}
-            className="font-mono text-[10px] uppercase tracking-[0.08em] transition-colors hover:text-foreground"
-            style={{ color: "var(--muted-foreground)" }}
+            disabled={bulkSetIssueStatus.isPending}
+            className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
             Clear
           </button>
@@ -1179,6 +1179,7 @@ export default function SeriesDetailPage() {
                 }
                 onCheckedChange={toggleAllFiltered}
                 aria-label="Select all visible issues"
+                disabled={bulkSetIssueStatus.isPending}
               />
             </div>
             <div>type</div>
@@ -1226,7 +1227,7 @@ export default function SeriesDetailPage() {
                       checked={selectedRows.has(rowKey)}
                       onCheckedChange={() => toggleRowSelected(rowKey)}
                       aria-label={`Select ${rowLabel}`}
-                      disabled={!issueId}
+                      disabled={!issueId || bulkSetIssueStatus.isPending}
                     />
                   </div>
                   <div>
@@ -1274,7 +1275,11 @@ export default function SeriesDetailPage() {
                     <IssueStatusMenu
                       current={status}
                       label={`Change status for ${rowLabel}`}
-                      disabled={!issueId || setIssueStatus.isPending}
+                      disabled={
+                        !issueId ||
+                        setIssueStatus.isPending ||
+                        bulkSetIssueStatus.isPending
+                      }
                       onSelect={(next) => handleIssueStatusSelect(issue, next)}
                     />
                     {separateIntent && (

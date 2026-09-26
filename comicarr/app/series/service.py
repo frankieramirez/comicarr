@@ -698,7 +698,8 @@ def set_issue_status(ctx, issue_id, status, audit_identity, entity_type=None):
     table = series_queries.find_issue_status_target(issue_id, normalized_type or None)
     if table is None:
         return {"success": False, "status_code": 404, "error": "Issue not found: %s" % issue_id}
-    series_queries.set_issue_status(issue_id, canonical, audit_identity, table=table)
+    if not series_queries.set_issue_status(issue_id, canonical, audit_identity, table=table):
+        return {"success": False, "status_code": 404, "error": "Issue not found: %s" % issue_id}
     return {
         "success": True,
         "issue_id": str(issue_id),

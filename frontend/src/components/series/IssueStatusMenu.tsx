@@ -59,7 +59,7 @@ export default function IssueStatusMenu({
       )}
       <DropdownMenuContent align="start" sideOffset={4}>
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-[0.08em]">
+          <DropdownMenuLabel className="mono-label">
             Set status
           </DropdownMenuLabel>
           {SETTABLE_ISSUE_STATUSES.map((option) => (

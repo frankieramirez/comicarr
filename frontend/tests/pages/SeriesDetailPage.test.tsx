@@ -1140,6 +1140,57 @@ describe("SeriesDetailPage", () => {
       );
     });
 
+    it("blocks row edits and selection changes while bulk status is pending", async () => {
+      let finishFirstRequest: (() => void) | undefined;
+      const firstRequest = new Promise<void>((resolve) => {
+        finishFirstRequest = resolve;
+      });
+      const calls: string[] = [];
+      server.use(
+        http.put("/api/series/issues/:issueId/status", async ({ params }) => {
+          calls.push(String(params.issueId));
+          if (calls.length === 1) await firstRequest;
+          return HttpResponse.json({ success: true });
+        }),
+      );
+      const user = userEvent.setup();
+      renderDetail();
+      await screen.findByText("Absolute Batman");
+
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select Explicitly skipped" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Set status on selected issues" }),
+      );
+      await user.click(await screen.findByRole("menuitem", { name: "Wanted" }));
+      await waitFor(() => expect(calls).toEqual(["skipped"]));
+
+      expect(
+        screen
+          .getByRole("button", {
+            name: "Change status for Annual event",
+          })
+          .hasAttribute("disabled"),
+      ).toBe(true);
+      await user.click(screen.getByRole("checkbox", { name: "Select Annual event" }));
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select all visible issues" }),
+      );
+      expect(
+        screen.getByRole("button", { name: "Clear" }).hasAttribute("disabled"),
+      ).toBe(true);
+      expect(screen.getByTestId("issue-selection-count").textContent).toBe(
+        "1 selected",
+      );
+
+      finishFirstRequest?.();
+      await waitFor(() =>
+        expect(screen.queryByTestId("issue-selection-count")).toBeNull(),
+      );
+      expect(calls).toEqual(["skipped"]);
+    });
+
     it("selects only the filtered rows with the header checkbox", async () => {
       const missingCount = [...canonicalIssues, annual].filter(
         (row) => row.missing === true,

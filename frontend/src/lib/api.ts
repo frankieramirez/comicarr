@@ -369,6 +369,7 @@ export async function apiRequest<T = unknown>(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
   path: string,
   body?: object | null,
+  signal?: AbortSignal,
 ): Promise<T> {
   if (isMockEnabled()) {
     const mocked = mockApiResponse(method, path, body);
@@ -385,6 +386,7 @@ export async function apiRequest<T = unknown>(
       ...COMMON_HEADERS,
     },
     credentials: "include",
+    signal,
   };
 
   if (body && method !== "GET") {

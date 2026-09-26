@@ -16,12 +16,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr.app.core.context import AppContext
 from comicarr.app.search import commands as search_commands
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
+from comicarr.tables import annuals, issues
 
 
 def _state_row(**overrides):
@@ -326,22 +328,42 @@ def test_explicit_issue_actions_dual_write_canonical_intent(monkeypatch):
     ],
 )
 def test_set_issue_status_dual_writes_explicit_intent(monkeypatch, status, expected):
-    upsert = MagicMock()
-    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+    engine = create_engine("sqlite://")
+    issues.create(engine)
+    monkeypatch.setattr(series_queries.db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        conn.execute(issues.insert().values(IssueID="issue-1", Status="Old"))
 
-    series_queries.set_issue_status("issue-1", status, "frankie", table="issues")
+    assert series_queries.set_issue_status("issue-1", status, "frankie", table="issues") is True
+    with engine.connect() as conn:
+        row = conn.execute(select(issues.c.Status, issues.c.AcquisitionIntent)).one()._mapping
+    assert dict(row) == expected
 
-    upsert.assert_called_once_with("issues", expected, {"IssueID": "issue-1"})
+    with engine.begin() as conn:
+        conn.execute(issues.delete().where(issues.c.IssueID == "issue-1"))
+    assert series_queries.set_issue_status("issue-1", status, "frankie", table="issues") is False
+    with engine.connect() as conn:
+        assert conn.execute(select(issues.c.IssueID)).first() is None
 
 
 def test_set_issue_status_archived_writes_fulfillment_only(monkeypatch):
     """Archived is evidence, not intent: updater.py's own archival writes only Status."""
-    upsert = MagicMock()
-    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+    engine = create_engine("sqlite://")
+    annuals.create(engine)
+    monkeypatch.setattr(series_queries.db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        conn.execute(annuals.insert().values(IssueID="annual-1", Status="Wanted", AcquisitionIntent="wanted"))
+        conn.execute(annuals.insert().values(IssueID="deleted-1", Status="Wanted", Deleted=1))
 
-    series_queries.set_issue_status("annual-1", "Archived", "frankie", table="annuals")
-
-    upsert.assert_called_once_with("annuals", {"Status": "Archived"}, {"IssueID": "annual-1"})
+    assert series_queries.set_issue_status("annual-1", "Archived", "frankie", table="annuals") is True
+    assert series_queries.set_issue_status("deleted-1", "Archived", "frankie", table="annuals") is False
+    assert series_queries.set_issue_status("missing-1", "Archived", "frankie", table="annuals") is False
+    with engine.connect() as conn:
+        rows = conn.execute(select(annuals.c.IssueID, annuals.c.Status, annuals.c.AcquisitionIntent)).all()
+    assert [tuple(row) for row in rows] == [
+        ("annual-1", "Archived", "wanted"),
+        ("deleted-1", "Wanted", None),
+    ]
 
 
 def test_find_issue_status_target_prefers_issues_then_undeleted_annuals(monkeypatch):
@@ -387,6 +409,15 @@ def test_set_issue_status_service_reports_unknown_issue(monkeypatch):
     assert result["success"] is False
     assert result["status_code"] == 404
     write.assert_not_called()
+
+
+def test_set_issue_status_service_reports_row_deleted_after_lookup(monkeypatch):
+    monkeypatch.setattr(series_queries, "find_issue_status_target", lambda *_a, **_k: "issues")
+    monkeypatch.setattr(series_queries, "set_issue_status", lambda *_a, **_k: False)
+
+    result = series_service.set_issue_status(_make_ctx(), "issue-1", "Wanted", audit_identity="frankie")
+
+    assert result == {"success": False, "status_code": 404, "error": "Issue not found: issue-1"}
 
 
 def test_update_search_settings_stores_flag_columns_in_search_readable_form(monkeypatch):

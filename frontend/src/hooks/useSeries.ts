@@ -437,14 +437,21 @@ export function useBulkSetIssueStatus(): UseMutationResult<
           t,
         ]),
       );
-      return applySequentially([...byKey.keys()], (key) => {
+      return applySequentially([...byKey.keys()], async (key) => {
         const target = byKey.get(key);
-        if (!target) return Promise.reject(new Error("Unknown target"));
-        return apiRequest(
-          "PUT",
-          `/api/series/issues/${target.issueId}/status`,
-          issueStatusBody(target, status),
-        );
+        if (!target) throw new Error("Unknown target");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        try {
+          await apiRequest(
+            "PUT",
+            `/api/series/issues/${target.issueId}/status`,
+            issueStatusBody(target, status),
+            controller.signal,
+          );
+        } finally {
+          clearTimeout(timeout);
+        }
       });
     },
     onSuccess: () => {

@@ -13,7 +13,7 @@ Series domain queries — comics, issues, annuals, importresults tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import and_, case, delete, func, literal, or_, select
+from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 
 from comicarr import db
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
@@ -328,7 +328,12 @@ def set_issue_status(issue_id, status, audit_identity, *, table):
         from comicarr.app.acquisition.policy import explicit_intent_values
 
         values = explicit_intent_values(AcquisitionIntent(str(status).lower()), audit_identity)
-    db.upsert(table, values, {"IssueID": str(issue_id)})
+    target = {"issues": t_issues, "annuals": t_annuals}[table]
+    stmt = update(target).where(target.c.IssueID == str(issue_id))
+    if table == "annuals":
+        stmt = stmt.where(or_(target.c.Deleted.is_(None), target.c.Deleted != 1))
+    with db.get_engine().begin() as conn:
+        return conn.execute(stmt.values(**values)).rowcount == 1
 
 
 def get_wanted_issues(limit=None, offset=None, search=None):
