@@ -212,6 +212,25 @@ def online_tag_options(issueid, module=""):
     return []
 
 
+def exported_filename(out):
+    """The archive name on ComicTagger's export line, or None.
+
+    ComicTagger runs with stderr merged into stdout, so anything the
+    interpreter prints -- a SyntaxWarning from a vendored module compiled
+    without a cached .pyc, say -- lands in the same text. Deriving the
+    filename from the whole output let that warning text become part of
+    the name, after which the lookup failed and the encode fallback joined
+    a str path with bytes ("Can't mix strings and bytes in path
+    components"). Only the line carrying the marker reports the name, and
+    the "(Original deleted)" trailer ComicTagger appends is not part of it.
+    """
+    for line in reversed(out.splitlines()):
+        if "exported successfully to: " in line:
+            name = line.split("exported successfully to: ", 1)[1]
+            return re.sub(r"\(Original deleted\)", "", name).strip()
+    return None
+
+
 def clear_issue_number(comictagger_cmd, filepath, module=""):
     """Remove <Number> from a manga volume's tags, after the online overlay.
 
@@ -549,13 +568,14 @@ def run(
                 logger.warn("[ERROR RETURNED FROM COMIC-TAGGER] %s" % (err,))
             if initial_ctrun and "exported successfully" in out:
                 logger.fdebug("%s[COMIC-TAGGER] : %s" % (module, out))
-                if "Error deleting" in filepath:
-                    tf1 = out.find("exported successfully to: ")
-                    tmpfilename = out[tf1 + len("exported successfully to: ") :].strip()
-                else:
-                    tmpfilename = re.sub("Archive exported successfully to: ", "", out.rstrip())
-                if comicarr.CONFIG.FILE_OPTS == "move":
-                    tmpfilename = re.sub(r"\(Original deleted\)", "", tmpfilename).strip()
+                tmpfilename = exported_filename(out)
+                if tmpfilename is None:
+                    logger.warn(
+                        "%s[COMIC-TAGGER] Export reported success, but no exported filename was found in the output."
+                        % module
+                    )
+                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
+                    return "fail"
                 tmpf = tmpfilename
                 filepath = os.path.join(comicpath, tmpf)
                 if filename.lower() != tmpf.lower() and tmpf.endswith("(1).cbz"):
@@ -573,13 +593,11 @@ def run(
                             "%s unable to rename file to accomodate metatagging cbz to the same filename" % module
                         )
                 if not os.path.isfile(filepath):
-                    logger.fdebug("%s Trying utf-8 conversion." % module)
-                    tmpf = tmpfilename.encode("utf-8")
-                    filepath = os.path.join(comicpath, tmpf)
-                    if not os.path.isfile(filepath):
-                        logger.fdebug("%s Trying latin-1 conversion." % module)
-                        tmpf = tmpfilename.encode("Latin-1")
-                        filepath = os.path.join(comicpath, tmpf)
+                    logger.warn(
+                        "%s[COMIC-TAGGER] Export reported success, but no archive exists at %s" % (module, filepath)
+                    )
+                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
+                    return "fail"
 
                 logger.fdebug("%s[COMIC-TAGGER][CBR-TO-CBZ] New filename: %s" % (module, filepath))
                 initial_ctrun = False
