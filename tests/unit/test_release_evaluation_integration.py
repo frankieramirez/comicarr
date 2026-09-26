@@ -193,6 +193,55 @@ def test_getcomics_automatic_uses_last_fallback_review_uses_first():
     assert handoff_matches(review.selected)[0]["nzbid"] == "12"
 
 
+def test_reported_grab_overrides_accept_the_issue_and_keep_later_rejections():
+    smallville = entry(title="Smallville - Alien 002 (2013) (Digital) (JK-Empire)")
+    smallville_info = info(
+        ComicName="Smallville: Alien",
+        booktype="Digital",
+        SeriesYear="2013",
+        ComicYear="2013",
+        IssueNumber="2",
+        findcomiciss="2",
+        intIss=2000,
+        cmloopit=2,
+        StoreDate="2013-01-01",
+        IssueDate="2013-01-01",
+    )
+    rejected_format = EvaluationSession().evaluate([smallville], smallville_info).evaluations[0]
+    accepted_format = (
+        EvaluationSession(override_reason="rejected.book_type").evaluate([smallville], smallville_info).evaluations[0]
+    )
+    assert rejected_format.verdict["reason_code"] == "rejected.book_type"
+    assert accepted_format.verdict["reason_code"] == "accepted.issue"
+    assert handoff_matches([accepted_format])[0]["IssueNumber"] == "2"
+
+    saga = entry(title="Saga 01 (2012) (Image Firsts Variant Cover) (Chairmen-Novus-HD)")
+    saga_info = info(
+        ComicName="Image Firsts: Saga",
+        SeriesYear="2012",
+        ComicYear="2012",
+        IssueNumber="1",
+        findcomiciss="1",
+        intIss=1000,
+        StoreDate="2012-01-01",
+        IssueDate="2012-01-01",
+    )
+    rejected_series = EvaluationSession().evaluate([saga], saga_info).evaluations[0]
+    accepted_series = (
+        EvaluationSession(override_reason="rejected.series_mismatch").evaluate([saga], saga_info).evaluations[0]
+    )
+    assert rejected_series.verdict["reason_code"] == "rejected.series_mismatch"
+    assert accepted_series.verdict["reason_code"] == "accepted.issue"
+    assert handoff_matches([accepted_series])[0]["IssueNumber"] == "1"
+
+    wrong_issue = dict(saga_info, IssueNumber="9", findcomiciss="9", intIss=9000, cmloopit=1)
+    still_wrong = (
+        EvaluationSession(override_reason="rejected.series_mismatch").evaluate([saga], wrong_issue).evaluations[0]
+    )
+    assert still_wrong.verdict["reason_code"] == "rejected.issue_mismatch"
+    assert handoff_matches([still_wrong]) == []
+
+
 def test_override_stays_local_and_bypasses_only_the_requested_reason():
     comicarr.CONFIG.IGNORE_SEARCH_WORDS = ["REPACK"]
     comicarr.CONFIG.USE_MAXSIZE = True
