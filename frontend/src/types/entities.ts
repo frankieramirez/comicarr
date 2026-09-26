@@ -555,10 +555,31 @@ export interface ArcIssue {
   Location: string | null;
 }
 
+export interface MissingArcSeries {
+  series_name: string;
+  comic_id: string;
+  series_year: string | null;
+  publisher: string | null;
+  issue_count: number;
+  issue_numbers: string[];
+}
+
+/** Missing arc series resolved to a ComicVine volume for confirmation */
+export interface ResolvedArcSeries extends MissingArcSeries {
+  match: {
+    comic_id: string;
+    name: string | null;
+    year: string | null;
+    publisher: string | null;
+    image: string | null;
+  } | null;
+}
+
 /** Story Arc detail response */
 export interface StoryArcDetail {
   arc: StoryArc;
   issues: ArcIssue[];
+  missing: MissingArcSeries[];
 }
 
 /** Story Arc search result (from CV) */

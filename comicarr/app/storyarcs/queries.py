@@ -13,10 +13,11 @@ Story Arcs domain queries — storyarcs, readlist, weekly, upcoming tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import Integer, case, cast, func, literal, select
+from sqlalchemy import Integer, case, cast, func, literal, or_, select
 
 from comicarr import db
 from comicarr.tables import comics as t_comics
+from comicarr.tables import issues as t_issues
 from comicarr.tables import readlist as t_readlist
 from comicarr.tables import storyarcs as t_storyarcs
 from comicarr.tables import weekly as t_weekly
@@ -156,6 +157,82 @@ def want_all_issues(arc_id):
     queued = total_wanted - skipped
 
     return queued, skipped
+
+
+def get_missing_series_rows(arc_id):
+    """Arc rows whose needed issues belong to series not in the library."""
+    watched = select(t_comics.c.ComicID)
+    stmt = (
+        select(
+            t_storyarcs.c.IssueArcID,
+            t_storyarcs.c.ComicName,
+            t_storyarcs.c.ComicID,
+            t_storyarcs.c.IssueNumber,
+            t_storyarcs.c.SeriesYear,
+            t_storyarcs.c.Publisher,
+            t_storyarcs.c.ReadingOrder,
+        )
+        .where(t_storyarcs.c.StoryArcID == arc_id)
+        .where(t_storyarcs.c.Manual != "deleted")
+        .where(t_storyarcs.c.Status.notin_(["Downloaded", "Archived", "Snatched"]))
+        .where(
+            or_(
+                t_storyarcs.c.ComicID.is_(None),
+                t_storyarcs.c.ComicID == "",
+                t_storyarcs.c.ComicID.notin_(watched),
+            )
+        )
+        .order_by(t_storyarcs.c.ReadingOrder)
+    )
+    return db.select_all(stmt)
+
+
+def get_arc_rows(arc_id):
+    stmt = (
+        select(t_storyarcs)
+        .where(t_storyarcs.c.StoryArcID == arc_id)
+        .where(t_storyarcs.c.Manual != "deleted")
+        .order_by(t_storyarcs.c.ReadingOrder)
+    )
+    return db.select_all(stmt)
+
+
+def get_comic_status(comic_id):
+    stmt = select(t_comics.c.Status).where(t_comics.c.ComicID == comic_id).limit(1)
+    return db.select_one(stmt)
+
+
+def link_unlinked_series_rows(arc_id, series_name, comic_id):
+    db.raw_execute(
+        "UPDATE storyarcs SET ComicID=? WHERE StoryArcID=? "
+        "AND (ComicID IS NULL OR ComicID='') AND LOWER(ComicName)=LOWER(?)",
+        [comic_id, arc_id, series_name],
+    )
+
+
+def find_library_issue(issue_id=None, comic_id=None, int_issue_number=None):
+    stmt = select(
+        t_issues.c.IssueID,
+        t_issues.c.Issue_Number,
+        t_issues.c.Status,
+        t_comics.c.ComicID,
+        t_comics.c.ComicName,
+        t_comics.c.ComicYear,
+        t_comics.c.Type,
+    ).select_from(t_issues.join(t_comics, t_issues.c.ComicID == t_comics.c.ComicID))
+    if issue_id:
+        stmt = stmt.where(t_issues.c.IssueID == issue_id)
+    else:
+        stmt = stmt.where(t_issues.c.ComicID == comic_id, t_issues.c.Int_IssueNumber == int_issue_number)
+    return db.select_one(stmt.limit(1))
+
+
+def set_arc_issue_fields(issue_arc_id, values):
+    db.upsert("storyarcs", values, {"IssueArcID": issue_arc_id})
+
+
+def mark_issue_wanted(issue_id):
+    db.upsert("issues", {"Status": "Wanted"}, {"IssueID": issue_id})
 
 
 def get_readlist():

@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { Sparkles, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useStoryArcDetail } from "@/hooks/useStoryArcs";
 import ArcIssueRow from "./ArcIssueRow";
+import ArcMissingSeries from "./ArcMissingSeries";
 
 interface GeneratedIssue {
   series_name: string;
@@ -34,7 +37,9 @@ export default function ArcGenerator() {
   const [description, setDescription] = useState("");
   const [generatedIssues, setGeneratedIssues] = useState<GeneratedIssue[]>([]);
   const [arcDescription, setArcDescription] = useState("");
+  const [savedArcId, setSavedArcId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const savedArc = useStoryArcDetail(savedArcId ?? undefined);
 
   const generateMutation = useMutation({
     mutationFn: (desc: string) =>
@@ -57,6 +62,7 @@ export default function ArcGenerator() {
       }),
     onSuccess: (data) => {
       if (data.success) {
+        setSavedArcId(data.arc_id || null);
         setGeneratedIssues([]);
         setDescription("");
         setArcDescription("");
@@ -68,6 +74,7 @@ export default function ArcGenerator() {
   const handleGenerate = () => {
     const trimmed = description.trim();
     if (trimmed.length < 3) return;
+    setSavedArcId(null);
     generateMutation.mutate(trimmed);
   };
 
@@ -165,12 +172,6 @@ export default function ArcGenerator() {
             </p>
           )}
 
-          {saveMutation.isSuccess && (
-            <p className="text-sm text-green-600 dark:text-green-400">
-              Story arc saved successfully.
-            </p>
-          )}
-
           <div className="rounded-md border border-border divide-y divide-border">
             {generatedIssues.map((issue) => (
               <ArcIssueRow
@@ -179,6 +180,26 @@ export default function ArcGenerator() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {savedArcId && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Arc saved.{" "}
+            <Link
+              to={`/story-arcs/${savedArcId}`}
+              className="text-primary hover:underline"
+            >
+              Open it in Story Arcs
+            </Link>
+          </p>
+          {savedArc.data && savedArc.data.missing.length > 0 && (
+            <ArcMissingSeries
+              storyArcId={savedArcId}
+              missing={savedArc.data.missing}
+            />
+          )}
         </div>
       )}
     </div>

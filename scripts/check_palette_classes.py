@@ -77,7 +77,6 @@ BASELINE: dict[str, int] = {
     "components/import/MatchModal.tsx": 3,
     "components/queue/BulkActionBar.tsx": 2,
     "components/settings/AiTab.tsx": 2,
-    "components/storyarcs/ArcGenerator.tsx": 2,
     "components/storyarcs/ArcIssueRow.tsx": 7,
     "components/storyarcs/ArcIssueTable.tsx": 4,
     "pages/StoryArcDetailPage.tsx": 1,

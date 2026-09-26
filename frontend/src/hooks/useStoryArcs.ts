@@ -6,7 +6,12 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import type { StoryArc, StoryArcDetail, ArcIssueStatus } from "@/types";
+import type {
+  StoryArc,
+  StoryArcDetail,
+  ArcIssueStatus,
+  ResolvedArcSeries,
+} from "@/types";
 
 /**
  * Fetch all tracked story arcs
@@ -173,6 +178,61 @@ export function useWantAllArcIssues(): UseMutationResult<
     onSuccess: (_, storyArcId) => {
       queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
       queryClient.invalidateQueries({ queryKey: ["storyArcs", storyArcId] });
+    },
+  });
+}
+
+/**
+ * Resolve arc series missing from the library to ComicVine matches.
+ * Only fetched while the confirm dialog is open — it calls ComicVine.
+ */
+interface MissingSeriesResponse {
+  success: boolean;
+  series: ResolvedArcSeries[];
+}
+
+export function useArcMissingSeries(
+  storyArcId: string | undefined,
+  enabled: boolean,
+): UseQueryResult<MissingSeriesResponse> {
+  return useQuery({
+    queryKey: ["storyArcs", storyArcId, "missing"],
+    queryFn: () =>
+      apiRequest<MissingSeriesResponse>(
+        "GET",
+        `/api/storyarcs/${storyArcId}/missing`,
+      ),
+    enabled: !!storyArcId && enabled,
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Add confirmed missing series and mark the arc's issues Wanted
+ */
+interface AddMissingResponse {
+  success: boolean;
+  queued?: number;
+}
+
+export function useAddMissingArcSeries(): UseMutationResult<
+  AddMissingResponse,
+  Error,
+  { storyArcId: string; additions: { series_name: string; comic_id: string }[] }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyArcId, additions }) =>
+      apiRequest<AddMissingResponse>(
+        "POST",
+        `/api/storyarcs/${storyArcId}/add-missing`,
+        { additions },
+      ),
+    onSuccess: (_, { storyArcId }) => {
+      queryClient.invalidateQueries({ queryKey: ["storyArcs"] });
+      queryClient.invalidateQueries({ queryKey: ["storyArcs", storyArcId] });
+      queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
 }

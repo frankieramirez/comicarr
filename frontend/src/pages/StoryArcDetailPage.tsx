@@ -3,6 +3,7 @@ import { ChevronRight, BookMarked } from "lucide-react";
 import { useStoryArcDetail } from "@/hooks/useStoryArcs";
 import ArcHeader from "@/components/storyarcs/ArcHeader";
 import ArcIssueTable from "@/components/storyarcs/ArcIssueTable";
+import ArcMissingSeries from "@/components/storyarcs/ArcMissingSeries";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StoryArcDetailPage() {
@@ -53,6 +54,13 @@ export default function StoryArcDetailPage() {
 
       {/* Arc header with banner, stats, actions */}
       <ArcHeader arc={data.arc} />
+
+      {data.missing.length > 0 && (
+        <ArcMissingSeries
+          storyArcId={data.arc.StoryArcID}
+          missing={data.missing}
+        />
+      )}
 
       {/* Issues table */}
       {data.issues.length > 0 ? (
