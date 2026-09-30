@@ -774,6 +774,36 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
         offset += limit
 
+    # A chapter number can arrive once per translated language. Collapse those
+    # duplicates to a single entry, preferring the earliest language in the
+    # configured priority order (config order is the priority order). Without
+    # this the importer keys issues by chapter number alone and upserts
+    # last-wins, so an enabled fallback language silently overwrites the
+    # preferred one and the chapter surfaces in the UI in a language the
+    # operator never chose to read.
+    priority = languages if languages is not None else _get_languages()
+
+    def _language_rank(chapter):
+        language = (chapter.get("language") or "").lower()
+        try:
+            return priority.index(language)
+        except ValueError:
+            return len(priority)
+
+    preferred_by_number = {}
+    unnumbered = []
+    for ch in available_chapters:
+        ch_num = ch.get("chapter")
+        if ch_num is None:
+            unnumbered.append(ch)
+            continue
+        key = str(ch_num)
+        incumbent = preferred_by_number.get(key)
+        if incumbent is None or _language_rank(ch) < _language_rank(incumbent):
+            preferred_by_number[key] = ch
+
+    available_chapters = list(preferred_by_number.values()) + unnumbered
+
     available_map = {}
     for ch in available_chapters:
         ch_num = ch.get("chapter")
