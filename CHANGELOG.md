@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.40.1
+
+### Patch Changes
+
+- 5758047: Finishing the onboarding dialog on a new install now sticks. Before, the "Let's get your library set up" dialog came back on every page reload until the library had a series in it, because closing it was never saved.
+- 87d9476: Snatching an issue that is on this week's pull list no longer stops partway with an error. The pull list now shows it as Snatched, and then Downloaded once post-processing finishes, including one-off downloads.
+- 8c5f8b7: Comicarr no longer removes a SABnzbd download that is still unpacking or repairing when it stops waiting for it, so the job isn't cancelled and its files aren't deleted. "Remove failed" in SABnzbd settings now asks SABnzbd to delete files only for downloads that actually failed.
+- b1d7ff1: The weekly pull list no longer fails when a series you follow has an issue out that week. Those issues are matched to your series again, and with auto-want on they are marked Wanted.
+
 ## 0.40.0
 
 ### Minor Changes
