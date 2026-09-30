@@ -733,11 +733,55 @@ def get_total_chapter_count(manga_id):
     return total
 
 
+def _prefer_chapter_uploads(chapters, preferred_languages=None):
+    """Collapse numbered chapters to one upload per chapter number.
+
+    Config language order is priority, matching ``_get_localized_string``:
+    keep the earliest configured language that has an upload, and fall
+    back only when that language is missing. Unnumbered chapters
+    (oneshots) pass through unchanged.
+    """
+    if preferred_languages is None:
+        preferred_languages = _get_languages()
+
+    rank = {}
+    for index, lang in enumerate(preferred_languages):
+        key = str(lang or "").strip().lower()
+        if key and key not in rank:
+            rank[key] = index
+    unknown = len(rank)
+
+    selected = {}
+    oneshots = []
+    for chapter in chapters:
+        chapter_num = chapter.get("chapter")
+        if chapter_num is None:
+            oneshots.append(chapter)
+            continue
+
+        key = str(chapter_num)
+        existing = selected.get(key)
+        if existing is None:
+            selected[key] = chapter
+            continue
+
+        new_lang = str(chapter.get("language") or "").strip().lower()
+        old_lang = str(existing.get("language") or "").strip().lower()
+        if rank.get(new_lang, unknown) < rank.get(old_lang, unknown):
+            selected[key] = chapter
+
+    preferred = list(selected.values())
+    preferred.extend(oneshots)
+    return preferred
+
+
 def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     """
     Get all chapters for a manga (handles pagination automatically).
 
-    When include_unavailable=True, generates entries for ALL chapters up to
+    Numbered chapters that exist in more than one configured language are
+    collapsed to a single entry using config order as priority. When
+    include_unavailable=True, generates entries for ALL chapters up to
     lastChapter from manga metadata, even if they don't have uploads.
 
     Args:
@@ -750,7 +794,10 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     """
     manga_id = series_kind.strip_prefix(manga_id)
 
-    cache_key = f"{manga_id}:{','.join(languages or _get_languages())}:{include_unavailable}"
+    if languages is None:
+        languages = _get_languages()
+
+    cache_key = f"{manga_id}:{','.join(languages)}:{include_unavailable}"
     if cache_key in _CHAPTER_CACHE:
         cache_entry = _CHAPTER_CACHE[cache_key]
         if time.time() - cache_entry["timestamp"] < CACHE_TTL:
@@ -774,13 +821,17 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
         offset += limit
 
+    # Importer/RSS key issues by chapter number alone, so returning every
+    # language variant last-wins overwrites the operator's preferred upload.
+    preferred_chapters = _prefer_chapter_uploads(available_chapters, languages)
+
     available_map = {}
-    for ch in available_chapters:
+    for ch in preferred_chapters:
         ch_num = ch.get("chapter")
         if ch_num is not None:
             available_map[str(ch_num)] = ch
 
-    all_chapters = list(available_chapters)
+    all_chapters = list(preferred_chapters)
 
     if include_unavailable:
         manga_details = get_manga_details(manga_id)
@@ -830,7 +881,7 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
 
     logger.info(
         "[MANGADEX] Retrieved total of %d chapters (%d available, %d unavailable) for manga %s"
-        % (len(all_chapters), len(available_chapters), len(all_chapters) - len(available_chapters), manga_id)
+        % (len(all_chapters), len(preferred_chapters), len(all_chapters) - len(preferred_chapters), manga_id)
     )
     return all_chapters
 
