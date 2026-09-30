@@ -1393,7 +1393,7 @@ def foundsearch(
             issue = chkit["ISSUE"]
 
             ctlVal = {"ComicID": ComicID, "IssueID": IssueID}
-            db.upsert("weekly", newValue, ctlVal)
+            db.upsert("weekly", {"STATUS": "Snatched"}, ctlVal)
 
             newValue["IssueNumber"] = issue
             newValue["ComicName"] = comicname
@@ -1503,7 +1503,7 @@ def foundsearch(
 
             ctlVal = {"ComicID": ComicID, "IssueID": IssueID}
             newVal = {"Status": "Downloaded"}
-            db.upsert("weekly", newVal, ctlVal)
+            db.upsert("weekly", {"STATUS": "Downloaded"}, ctlVal)
 
             newVal["IssueNumber"] = issue
             newVal["ComicName"] = comicname

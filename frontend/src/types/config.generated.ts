@@ -152,6 +152,7 @@ export interface WritableConfig {
   use_maxsize?: boolean;
   maxsize?: string;
   nzb_startup_search?: boolean;
+  migration_dismissed?: boolean;
   rss_checkinterval?: number;
   search_interval?: number;
   download_scan_interval?: number;

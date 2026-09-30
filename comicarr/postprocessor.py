@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from sqlalchemy import Integer, and_, func, inspect, or_, select
+from sqlalchemy import Integer, and_, func, inspect, or_, select, update
 
 import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
@@ -57,6 +57,16 @@ from comicarr.tables import (
 
 _POSTPROCESS_JOURNAL_STAGE = PostProcessJournalStage()
 _POSTPROCESS_INPUT_STAGE = PostProcessInputStage()
+
+
+def mark_pull_row_downloaded(issueid):
+    """Mark a one-off's existing pull-list row as Downloaded.
+
+    An update rather than an upsert: weekly's upsert target is (ComicID,
+    IssueID), and a one-off only knows its IssueID.
+    """
+    with db.get_engine().begin() as conn:
+        conn.execute(update(weekly).where(weekly.c.IssueID == issueid).values(STATUS="Downloaded"))
 
 
 def format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc):
@@ -3976,7 +3986,7 @@ class PostProcessor(object):
                         ctrlVal = {"IssueID": issueid}
                         newVal = {"Status": "Downloaded"}
                         logger.info("%s Writing to db: %s -- %s" % (module, newVal, ctrlVal))
-                        db.upsert("weekly", newVal, ctrlVal)
+                        mark_pull_row_downloaded(issueid)
                         logger.info("%s Updated status to Downloaded" % module)
                         db.upsert("oneoffhistory", newVal, ctrlVal)
                         logger.info("%s Updated history for one-off's for tracking purposes" % module)

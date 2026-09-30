@@ -29,7 +29,7 @@ import time
 import traceback
 
 import sqlalchemy
-from sqlalchemy import and_, delete, select, text
+from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
 from comicarr import db, helpers, importer, locg, logger, mb, newpull, updater
@@ -1074,7 +1074,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 logger.warn(
                                     "[WEEKLY-PULL] %s #%s has an invalid annuallink value (%s): walksoftly data may be invalid; skipping",
                                     week["ComicName"],
-                                    week["ISSUE"],
+                                    week["issue"],
                                     week["annuallink"],
                                 )
                                 continue
@@ -1128,14 +1128,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             else:
                                 if week["annuallink"] is not None:
                                     comicid = week["annuallink"]
-                                    release_the_id = week["annualllink"]
+                                    release_the_id = week["annuallink"]
                                 else:
                                     comicid = week["comicid"]
                     else:
                         latestiss = namematch[0]["latestIssue"].strip()
                         lastupdated = namematch[0]["LastUpdated"]
                         try:
-                            diff = int(week["Issue"]) - int(latestiss)
+                            diff = int(week["issue"]) - int(latestiss)
                         except ValueError:
                             logger.warn(
                                 "[WEEKLY-PULL] Invalid issue number detected. Skipping this entry for the time being."
@@ -1154,7 +1154,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 + " not a match based on issue number comparison [LatestIssue:"
                                 + latestiss
                                 + "][MatchIssue:"
-                                + week["Issue"]
+                                + week["issue"]
                                 + "]"
                             )
                             continue
@@ -1301,8 +1301,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                         newValue["COMIC"] = comicname
                         newValue["ISSUE"] = week["issue"]
-                        newValue["WEEKNUMBER"] = int(weeknumber)
-                        newValue["YEAR"] = pullyear
+                        newValue["weeknumber"] = str(int(weeknumber))
+                        newValue["year"] = str(pullyear)
 
                         if issueid:
                             newValue["IssueID"] = issueid
@@ -1312,8 +1312,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             "ComicID": comicid,
                             "COMIC": week["ComicName"],
                             "ISSUE": week["issue"],
-                            "WEEKNUMBER": int(weeknumber),
-                            "YEAR": pullyear,
+                            "weeknumber": str(int(weeknumber)),
+                            "year": str(pullyear),
                         }
 
                     if not issueid:
@@ -1330,23 +1330,27 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             cst = date_downloaded
                         else:
                             cst = cstatus
-                        newValue["Status"] = cst
+                        newValue["STATUS"] = cst
                     elif mismatched is True:
                         if issueid is not None:
                             newValue["IssueID"] = issueid
                         if comicid is not None:
                             newValue["ComicID"] = comicid
                         if incomp_cv is True:
-                            newValue["Status"] = "Incomplete"
+                            newValue["STATUS"] = "Incomplete"
                         else:
-                            newValue["Status"] = "Mismatched"
+                            newValue["STATUS"] = "Mismatched"
                     else:
                         if comicarr.CONFIG.AUTOWANT_UPCOMING:
-                            newValue["Status"] = "Wanted"
+                            newValue["STATUS"] = "Wanted"
                         else:
-                            newValue["Status"] = "Skipped"
+                            newValue["STATUS"] = "Skipped"
 
-                    db.upsert("weekly", newValue, controlValue)
+                    # An update of this pull row, not an upsert: the row already
+                    # exists, and weekly's upsert target is (ComicID, IssueID),
+                    # not rowid.
+                    with db.get_engine().begin() as conn:
+                        conn.execute(update(weekly).where(weekly.c.rowid == controlValue["rowid"]).values(**newValue))
 
                     if mismatched is False and issueid:
                         logger.fdebug("issue id check passed.")
@@ -1427,7 +1431,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                         else:
                             logger.fdebug("issue exists in db already: " + str(issueid))
-                            if isschk["Status"] == newValue["Status"]:
+                            if isschk["Status"] == newValue["STATUS"]:
                                 pass
                             else:
                                 if (
@@ -1439,7 +1443,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                             isschk["Status"] != "Ignored",
                                         ]
                                     )
-                                    and newValue["Status"] == "Wanted"
+                                    and newValue["STATUS"] == "Wanted"
                                 ):
                                     newStat = {"Status": "Wanted"}
                                     ctrlStat = {"IssueID": issueid}
@@ -1466,7 +1470,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     "err_text": err_text,
                     "traceback": tracebackline,
                     "comicname": comicname,
-                    "issuenumber": week["ISSUE"],
+                    "issuenumber": week.get("issue"),
                     "seriesyear": None,
                     "issueid": issueid,
                     "comicid": comicid,

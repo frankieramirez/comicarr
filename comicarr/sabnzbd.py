@@ -387,7 +387,12 @@ class SABnzbd(object):
                                 return self.historycheck(nzbinfo, roundtwo=False, extract_counter=extract_counter)
                         return self.historycheck(nzbinfo, roundtwo=True)
                     else:
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        # Leave the job in SABnzbd: removing one that is still being
+                        # processed cancels it, and with del_files deletes its data.
+                        logger.warn(
+                            "[SABNZBD] %s is still %s in SABnzbd; leaving it there instead of removing it."
+                            % (hq["nzo_id"], hq["status"])
+                        )
                         return {"failed": False, "status": "unhandled status of: %s" % (hq["status"])}
 
             if not nzo_exists:
@@ -419,7 +424,7 @@ class SABnzbd(object):
                 "apikey": comicarr.CONFIG.SAB_APIKEY,
             }
 
-            if comicarr.CONFIG.SAB_REMOVE_FAILED:
+            if status == "Failed" and comicarr.CONFIG.SAB_REMOVE_FAILED:
                 hist_params["del_files"] = 1
 
             try:

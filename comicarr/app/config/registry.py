@@ -161,7 +161,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("BACKUP_ON_START", bool, "General", False),
     ConfigKey("BACKUP_LOCATION", str, "General", None),
     ConfigKey("BACKUP_RETENTION", int, "General", 4),
-    ConfigKey("MIGRATION_DISMISSED", bool, "General", False),
+    ConfigKey("MIGRATION_DISMISSED", bool, "General", False, writable=True),
     ConfigKey("ACQUISITION_MAINTENANCE", bool, "General", False),
     ConfigKey("BACKFILL_LENGTH", int, "General", 8),
     ConfigKey("BACKFILL_TIMESPAN", int, "General", 10),

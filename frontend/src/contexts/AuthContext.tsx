@@ -109,7 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const dismissMigration = () => {
     setNeedsMigration(false);
-    apiRequest("PUT", "/api/config", { MIGRATION_DISMISSED: "true" }).catch(
+    apiRequest("PUT", "/api/config", { migration_dismissed: true }).catch(
       (err) => {
         console.warn("Failed to persist migration dismissal:", err);
       },
