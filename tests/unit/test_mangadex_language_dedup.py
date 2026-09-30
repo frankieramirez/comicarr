@@ -25,6 +25,7 @@ MANGA_ID = "15edb207-8ef9-4392-81b1-4ac92b31496b"
 
 
 def _chapter(num, language, title):
+    """Build a minimal MangaDex chapter dict as get_manga_chapters would return it."""
     return {
         "id": f"{language}-{num}",
         "chapter": num,
@@ -43,6 +44,7 @@ def _chapter(num, language, title):
 class TestLanguageDedup:
     @patch("comicarr.mangadex.get_manga_chapters")
     def test_preferred_language_wins_and_fallback_fills_gaps(self, mock_chapters):
+        """Each chapter keeps its highest-priority language; lower ones fill only gaps."""
         from comicarr import mangadex
 
         mangadex.clear_cache()
@@ -67,6 +69,7 @@ class TestLanguageDedup:
 
     @patch("comicarr.mangadex.get_manga_chapters")
     def test_unnumbered_chapters_are_preserved(self, mock_chapters):
+        """Chapters without a number (oneshots) survive de-duplication."""
         from comicarr import mangadex
 
         mangadex.clear_cache()

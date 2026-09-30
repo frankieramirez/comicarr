@@ -784,6 +784,7 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
     priority = languages if languages is not None else _get_languages()
 
     def _language_rank(chapter):
+        """Rank a chapter by its language's position in the priority list (lower wins)."""
         language = (chapter.get("language") or "").lower()
         try:
             return priority.index(language)
