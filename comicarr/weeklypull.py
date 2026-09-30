@@ -29,14 +29,14 @@ import time
 import traceback
 
 import sqlalchemy
-from sqlalchemy import and_, delete, select, text
+from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
 from comicarr import db, helpers, importer, locg, logger, mb, newpull, updater
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
-def _weekly_pull_result(status, retry_hint=None, origin_error=False, cause=None):
+def _weekly_pull_result(status, retry_hint=None, origin_error=False, cause=None, source=None):
     result = {"status": status}
     if retry_hint:
         result["retry_after"] = retry_hint
@@ -44,6 +44,34 @@ def _weekly_pull_result(status, retry_hint=None, origin_error=False, cause=None)
         result["origin_error"] = True
     if cause:
         result["cause"] = cause
+    if source:
+        result["source"] = source
+    return result
+
+
+def _pull_from_comicvine(weeknumber, year):
+    """Fill one week from ComicVine after Walksoftly failed for it (#919)."""
+    from comicarr.app.weekly import cv_source
+
+    if not cv_source.is_available():
+        logger.info("[PULL-LIST] No ComicVine API key is configured, so there is no fallback pull-list source.")
+        return {"status": "failure"}
+    try:
+        midweek = helpers.weekly_info(weeknumber, year)["midweek"]
+        result = cv_source.pull_week(weeknumber, year, midweek)
+    except Exception as e:
+        logger.warn("[PULL-LIST] ComicVine fallback for week %s, %s failed: %s" % (weeknumber, year, e))
+        return {"status": "failure"}
+    if result["status"] == "success":
+        logger.info(
+            "[PULL-LIST] Walksoftly is unavailable, so the pull list for week %s, %s was filled from ComicVine (%s issues)."
+            % (weeknumber, year, result["count"])
+        )
+    else:
+        logger.warn(
+            "[PULL-LIST] ComicVine fallback for week %s, %s did not fill the pull list: %s"
+            % (weeknumber, year, result.get("cause"))
+        )
     return result
 
 
@@ -113,6 +141,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         retry_hint = None
         origin_error = False
         cause = None
+        source = None
         for x in [1, 2]:
             if x == 1:
                 if pulldate is not None:
@@ -170,7 +199,17 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     retry_hint = None
                     origin_error = False
                     cause = None
-                if _weekly_pull_has_data(weeknumber_mod, year_mod):
+                # The previous week has settled, so rows already saved for it
+                # beat a fresh ComicVine query. The current week is still
+                # gaining store dates, so ComicVine is asked first (#919).
+                has_saved_rows = _weekly_pull_has_data(weeknumber_mod, year_mod)
+                if not (x == 1 and has_saved_rows):
+                    fallback = _pull_from_comicvine(weeknumber_mod, year_mod)
+                    if fallback["status"] == "success":
+                        source = fallback["source"]
+                        new_pullcheck(weeknumber_mod, year_mod)
+                        continue
+                if has_saved_rows:
                     logger.info(
                         "[PULL-LIST] Falling back to the cached pull-list already stored for week %s, %s."
                         % (weeknumber_mod, year_mod)
@@ -185,7 +224,9 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     )
                     continue
                 return _weekly_pull_result("failure", retry_hint=retry_hint, origin_error=origin_error, cause=cause)
-        return _weekly_pull_result("success", retry_hint=retry_hint, origin_error=origin_error, cause=cause)
+        return _weekly_pull_result(
+            "success", retry_hint=retry_hint, origin_error=origin_error, cause=cause, source=source
+        )
 
     else:
         logger.info("[PULL-LIST] Populating & Loading pull-list data from file")
@@ -1074,7 +1115,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 logger.warn(
                                     "[WEEKLY-PULL] %s #%s has an invalid annuallink value (%s): walksoftly data may be invalid; skipping",
                                     week["ComicName"],
-                                    week["ISSUE"],
+                                    week["issue"],
                                     week["annuallink"],
                                 )
                                 continue
@@ -1128,14 +1169,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             else:
                                 if week["annuallink"] is not None:
                                     comicid = week["annuallink"]
-                                    release_the_id = week["annualllink"]
+                                    release_the_id = week["annuallink"]
                                 else:
                                     comicid = week["comicid"]
                     else:
                         latestiss = namematch[0]["latestIssue"].strip()
                         lastupdated = namematch[0]["LastUpdated"]
                         try:
-                            diff = int(week["Issue"]) - int(latestiss)
+                            diff = int(week["issue"]) - int(latestiss)
                         except ValueError:
                             logger.warn(
                                 "[WEEKLY-PULL] Invalid issue number detected. Skipping this entry for the time being."
@@ -1154,7 +1195,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 + " not a match based on issue number comparison [LatestIssue:"
                                 + latestiss
                                 + "][MatchIssue:"
-                                + week["Issue"]
+                                + week["issue"]
                                 + "]"
                             )
                             continue
@@ -1301,8 +1342,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                         newValue["COMIC"] = comicname
                         newValue["ISSUE"] = week["issue"]
-                        newValue["WEEKNUMBER"] = int(weeknumber)
-                        newValue["YEAR"] = pullyear
+                        newValue["weeknumber"] = str(int(weeknumber))
+                        newValue["year"] = str(pullyear)
 
                         if issueid:
                             newValue["IssueID"] = issueid
@@ -1312,8 +1353,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             "ComicID": comicid,
                             "COMIC": week["ComicName"],
                             "ISSUE": week["issue"],
-                            "WEEKNUMBER": int(weeknumber),
-                            "YEAR": pullyear,
+                            "weeknumber": str(int(weeknumber)),
+                            "year": str(pullyear),
                         }
 
                     if not issueid:
@@ -1330,23 +1371,27 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             cst = date_downloaded
                         else:
                             cst = cstatus
-                        newValue["Status"] = cst
+                        newValue["STATUS"] = cst
                     elif mismatched is True:
                         if issueid is not None:
                             newValue["IssueID"] = issueid
                         if comicid is not None:
                             newValue["ComicID"] = comicid
                         if incomp_cv is True:
-                            newValue["Status"] = "Incomplete"
+                            newValue["STATUS"] = "Incomplete"
                         else:
-                            newValue["Status"] = "Mismatched"
+                            newValue["STATUS"] = "Mismatched"
                     else:
                         if comicarr.CONFIG.AUTOWANT_UPCOMING:
-                            newValue["Status"] = "Wanted"
+                            newValue["STATUS"] = "Wanted"
                         else:
-                            newValue["Status"] = "Skipped"
+                            newValue["STATUS"] = "Skipped"
 
-                    db.upsert("weekly", newValue, controlValue)
+                    # An update of this pull row, not an upsert: the row already
+                    # exists, and weekly's upsert target is (ComicID, IssueID),
+                    # not rowid.
+                    with db.get_engine().begin() as conn:
+                        conn.execute(update(weekly).where(weekly.c.rowid == controlValue["rowid"]).values(**newValue))
 
                     if mismatched is False and issueid:
                         logger.fdebug("issue id check passed.")
@@ -1427,7 +1472,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                         else:
                             logger.fdebug("issue exists in db already: " + str(issueid))
-                            if isschk["Status"] == newValue["Status"]:
+                            if isschk["Status"] == newValue["STATUS"]:
                                 pass
                             else:
                                 if (
@@ -1439,7 +1484,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                             isschk["Status"] != "Ignored",
                                         ]
                                     )
-                                    and newValue["Status"] == "Wanted"
+                                    and newValue["STATUS"] == "Wanted"
                                 ):
                                     newStat = {"Status": "Wanted"}
                                     ctrlStat = {"IssueID": issueid}
@@ -1466,7 +1511,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     "err_text": err_text,
                     "traceback": tracebackline,
                     "comicname": comicname,
-                    "issuenumber": week["ISSUE"],
+                    "issuenumber": week.get("issue"),
                     "seriesyear": None,
                     "issueid": issueid,
                     "comicid": comicid,
