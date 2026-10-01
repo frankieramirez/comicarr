@@ -648,9 +648,9 @@ export default function SeriesDetailPage() {
     "inline-flex items-center gap-1.5 rounded-[5px] border px-3 py-1.5 text-[12px] transition-colors hover:bg-secondary/50";
 
   return (
-    <div className="flex h-full flex-col page-transition">
+    <div className="flex h-full min-h-0 min-w-0 flex-col page-transition">
       <div
-        className="flex items-center gap-2.5 border-b px-5 py-3.5 font-mono text-[11px]"
+        className="flex shrink-0 items-center gap-2.5 border-b px-5 py-3.5 font-mono text-[11px]"
         style={{
           borderColor: "var(--border)",
           color: "var(--muted-foreground)",
@@ -670,652 +670,681 @@ export default function SeriesDetailPage() {
         </span>
       </div>
 
+      {/*
+        Full-bleed Layout clips this page. Below md the stacked hero can be
+        taller than the leftover viewport, so the issue list shares this
+        overflow-y-auto instead of living in a sibling that collapses to 0.
+        md+ keeps the split: hero locked, table is the inner scroller.
+      */}
       <div
-        className="grid gap-7 border-b px-5 py-6 md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(0,1fr)_260px]"
-        style={{ borderColor: "var(--border)" }}
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden md:flex md:flex-col md:overflow-hidden"
+        data-testid="series-body-scroll"
       >
         <div
-          className="aspect-[2/3] w-[112px] overflow-hidden rounded-[5px] border md:w-[140px]"
+          className="grid shrink-0 gap-7 border-b px-5 py-6 md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(0,1fr)_260px]"
           style={{ borderColor: "var(--border)" }}
         >
-          {coverSrc && (
-            <img
-              src={coverSrc}
-              alt={comic.ComicName}
-              className="h-full w-full object-cover"
-              onError={(event) => {
-                event.currentTarget.style.display = "none";
-              }}
-            />
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.08em]">
-            <span
-              className="rounded-[3px] px-1.5 py-0.5"
-              style={{
-                background:
-                  "color-mix(in oklab, var(--primary) 14%, transparent)",
-                color: "var(--primary)",
-              }}
-            >
-              {isManga ? "MANGA" : "COMIC"}
-            </span>
-            {comic.ComicPublisher && (
-              <span style={{ color: "var(--muted-foreground)" }}>
-                {comic.ComicPublisher}
-              </span>
+          <div
+            className="aspect-[2/3] w-[112px] overflow-hidden rounded-[5px] border md:w-[140px]"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {coverSrc && (
+              <img
+                src={coverSrc}
+                alt={comic.ComicName}
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
             )}
-            {comic.ComicYear && (
-              <>
-                <span style={{ color: "var(--text-muted)" }}>·</span>
-                <span style={{ color: "var(--muted-foreground)" }}>
-                  {comic.ComicYear}
-                </span>
-              </>
-            )}
-            <span style={{ color: "var(--text-muted)" }}>·</span>
-            <span
-              style={{
-                color: isPaused
-                  ? "var(--status-paused)"
-                  : "var(--status-active)",
-              }}
-            >
-              ● {isPaused ? "paused" : "ongoing"}
-            </span>
-            <span style={{ color: "var(--text-muted)" }}>·</span>
-            <span style={{ color: "var(--muted-foreground)" }}>monitored</span>
           </div>
 
-          <h1 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.02em]">
-            {comic.ComicName}
-          </h1>
-
-          {seriesData.providerLinks && seriesData.providerLinks.length > 0 ? (
-            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {seriesData.providerLinks.map((link) => (
-                <a
-                  key={`${link.provider}-${link.url}`}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline"
-                  style={{ color: "var(--primary)" }}
-                >
-                  View on {link.label}
-                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                </a>
-              ))}
-            </div>
-          ) : null}
-
-          {comic.Description && (
-            <p
-              className="mb-3.5 max-w-[640px] text-[13px] leading-relaxed"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              {comic.Description}
-            </p>
-          )}
-
-          <SeriesContentKind
-            value={contentKind}
-            provider={provider}
-            pending={contentKindMutation.isPending}
-            onChange={(nextKind) => void handleContentKindChange(nextKind)}
-          />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenSearch}
-              disabled={!comicId || searchPreview.isFetching}
-              className="inline-flex items-center gap-1.5 rounded-[5px] px-3.5 py-1.5 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-            >
-              <Search className="h-3.5 w-3.5" />
-              Search all missing
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                comicId
-                  ? void startReview(
-                      {
-                        ComicName: comic.ComicName,
-                        Status: comic.Status,
-                        scope: "series",
-                        missingCount: reviewableMissing,
-                      },
-                      {
-                        entityType: "series",
-                        entityId: String(comicId),
-                      },
-                    )
-                  : undefined
-              }
-              disabled={
-                !comicId ||
-                reviewableMissing === 0 ||
-                reviewSheetProps.startPending
-              }
-              className={ghostBtn}
-              style={{ borderColor: "var(--border)" }}
-              aria-label="Interactive Search for missing issues"
-            >
-              <Search className="h-3.5 w-3.5" />
-              Review missing
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                comicId
-                  ? void startReview(
-                      {
-                        ComicName: comic.ComicName,
-                        Status: comic.Status,
-                        scope: "series",
-                        missingCount: reviewableMissing,
-                        unfiltered: true,
-                      },
-                      {
-                        entityType: "series",
-                        entityId: String(comicId),
-                        mode: "unfiltered",
-                      },
-                    )
-                  : undefined
-              }
-              disabled={
-                !comicId ||
-                reviewableMissing === 0 ||
-                reviewSheetProps.startPending
-              }
-              className={ghostBtn}
-              style={{ borderColor: "var(--border)" }}
-              aria-label="Browse every indexer's releases for this series"
-              title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
-            >
-              <TextSearch className="h-3.5 w-3.5" />
-              Browse releases
-            </button>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshMutation.isPending}
-              className={ghostBtn}
-              style={{ borderColor: "var(--border)" }}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
-            {comicId ? (
-              <Link
-                to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
-                aria-label="View activity for this series"
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.08em]">
+              <span
+                className="rounded-[3px] px-1.5 py-0.5"
+                style={{
+                  background:
+                    "color-mix(in oklab, var(--primary) 14%, transparent)",
+                  color: "var(--primary)",
+                }}
               >
-                <Activity className="h-3.5 w-3.5" />
-                Activity
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={handlePauseResume}
-              disabled={pauseMutation.isPending || resumeMutation.isPending}
-              className={ghostBtn}
-              style={{ borderColor: "var(--border)" }}
-            >
-              {isPaused ? (
-                <Play className="h-3.5 w-3.5" />
-              ) : (
-                <Pause className="h-3.5 w-3.5" />
+                {isManga ? "MANGA" : "COMIC"}
+              </span>
+              {comic.ComicPublisher && (
+                <span style={{ color: "var(--muted-foreground)" }}>
+                  {comic.ComicPublisher}
+                </span>
               )}
-              {isPaused ? "Resume" : "Pause"}
-            </button>
-            {!showDeleteConfirm ? (
+              {comic.ComicYear && (
+                <>
+                  <span style={{ color: "var(--text-muted)" }}>·</span>
+                  <span style={{ color: "var(--muted-foreground)" }}>
+                    {comic.ComicYear}
+                  </span>
+                </>
+              )}
+              <span style={{ color: "var(--text-muted)" }}>·</span>
+              <span
+                style={{
+                  color: isPaused
+                    ? "var(--status-paused)"
+                    : "var(--status-active)",
+                }}
+              >
+                ● {isPaused ? "paused" : "ongoing"}
+              </span>
+              <span style={{ color: "var(--text-muted)" }}>·</span>
+              <span style={{ color: "var(--muted-foreground)" }}>
+                monitored
+              </span>
+            </div>
+
+            <h1 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.02em]">
+              {comic.ComicName}
+            </h1>
+
+            {seriesData.providerLinks && seriesData.providerLinks.length > 0 ? (
+              <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                {seriesData.providerLinks.map((link) => (
+                  <a
+                    key={`${link.provider}-${link.url}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    View on {link.label}
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+
+            {comic.Description && (
+              <p
+                className="mb-3.5 max-h-40 max-w-[640px] overflow-y-auto text-[13px] leading-relaxed"
+                style={{ color: "var(--muted-foreground)" }}
+                data-testid="series-description"
+              >
+                {comic.Description}
+              </p>
+            )}
+
+            <SeriesContentKind
+              value={contentKind}
+              provider={provider}
+              pending={contentKindMutation.isPending}
+              onChange={(nextKind) => void handleContentKindChange(nextKind)}
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className={ghostBtn}
+                onClick={handleOpenSearch}
+                disabled={!comicId || searchPreview.isFetching}
+                className="inline-flex items-center gap-1.5 rounded-[5px] px-3.5 py-1.5 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 style={{
-                  borderColor: "var(--border)",
-                  color: "var(--muted-foreground)",
+                  background: "var(--primary)",
+                  color: "var(--primary-foreground)",
                 }}
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
+                <Search className="h-3.5 w-3.5" />
+                Search all missing
               </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-semibold"
-                  style={{ background: "var(--status-error)", color: "white" }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Confirm delete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(false)}
+              <button
+                type="button"
+                onClick={() =>
+                  comicId
+                    ? void startReview(
+                        {
+                          ComicName: comic.ComicName,
+                          Status: comic.Status,
+                          scope: "series",
+                          missingCount: reviewableMissing,
+                        },
+                        {
+                          entityType: "series",
+                          entityId: String(comicId),
+                        },
+                      )
+                    : undefined
+                }
+                disabled={
+                  !comicId ||
+                  reviewableMissing === 0 ||
+                  reviewSheetProps.startPending
+                }
+                className={ghostBtn}
+                style={{ borderColor: "var(--border)" }}
+                aria-label="Interactive Search for missing issues"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Review missing
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  comicId
+                    ? void startReview(
+                        {
+                          ComicName: comic.ComicName,
+                          Status: comic.Status,
+                          scope: "series",
+                          missingCount: reviewableMissing,
+                          unfiltered: true,
+                        },
+                        {
+                          entityType: "series",
+                          entityId: String(comicId),
+                          mode: "unfiltered",
+                        },
+                      )
+                    : undefined
+                }
+                disabled={
+                  !comicId ||
+                  reviewableMissing === 0 ||
+                  reviewSheetProps.startPending
+                }
+                className={ghostBtn}
+                style={{ borderColor: "var(--border)" }}
+                aria-label="Browse every indexer's releases for this series"
+                title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
+              >
+                <TextSearch className="h-3.5 w-3.5" />
+                Browse releases
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshMutation.isPending}
+                className={ghostBtn}
+                style={{ borderColor: "var(--border)" }}
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
+              {comicId ? (
+                <Link
+                  to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
                   className={ghostBtn}
                   style={{ borderColor: "var(--border)" }}
+                  aria-label="View activity for this series"
                 >
-                  Cancel
+                  <Activity className="h-3.5 w-3.5" />
+                  Activity
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={handlePauseResume}
+                disabled={pauseMutation.isPending || resumeMutation.isPending}
+                className={ghostBtn}
+                style={{ borderColor: "var(--border)" }}
+              >
+                {isPaused ? (
+                  <Play className="h-3.5 w-3.5" />
+                ) : (
+                  <Pause className="h-3.5 w-3.5" />
+                )}
+                {isPaused ? "Resume" : "Pause"}
+              </button>
+              {!showDeleteConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className={ghostBtn}
+                  style={{
+                    borderColor: "var(--border)",
+                    color: "var(--muted-foreground)",
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
                 </button>
-              </>
-            )}
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-semibold"
+                    style={{
+                      background: "var(--status-error)",
+                      color: "white",
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Confirm delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className={ghostBtn}
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div
-          className="rounded-[6px] border md:col-span-2 xl:col-span-1"
-          style={{ borderColor: "var(--border)", background: "var(--card)" }}
-        >
           <div
-            className="border-b px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+            className="rounded-[6px] border md:col-span-2 xl:col-span-1"
+            style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
-            Status
-          </div>
-          <div className="px-3 py-2.5">
-            <div className="mb-1.5 flex items-baseline gap-2">
-              <div className="text-[28px] font-bold leading-none tracking-[-0.02em]">
-                {completionPct}%
+            <div
+              className="border-b px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em]"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--text-muted)",
+              }}
+            >
+              Status
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="mb-1.5 flex items-baseline gap-2">
+                <div className="text-[28px] font-bold leading-none tracking-[-0.02em]">
+                  {completionPct}%
+                </div>
+                <div
+                  className="font-mono text-[10px]"
+                  style={{
+                    color:
+                      completionPct === 100
+                        ? "var(--status-active)"
+                        : "var(--muted-foreground)",
+                  }}
+                >
+                  {completionPct === 100 ? "complete" : "in progress"}
+                </div>
               </div>
               <div
-                className="font-mono text-[10px]"
-                style={{
-                  color:
-                    completionPct === 100
-                      ? "var(--status-active)"
-                      : "var(--muted-foreground)",
-                }}
+                className="mb-2.5 h-1 overflow-hidden rounded-full"
+                style={{ background: "var(--border)" }}
               >
-                {completionPct === 100 ? "complete" : "in progress"}
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${completionPct}%`,
+                    background:
+                      completionPct === 100
+                        ? "var(--status-active)"
+                        : "var(--primary)",
+                  }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 font-mono text-[10px]">
+                {(
+                  [
+                    ["have", String(have)],
+                    ["total", String(total)],
+                    ["missing", String(missing)],
+                    ["in flight", String(inFlight)],
+                  ] as const
+                ).map(([label, value], index) => (
+                  <div
+                    key={label}
+                    className="flex justify-between py-1"
+                    style={{
+                      borderTop: index > 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <span style={{ color: "var(--muted-foreground)" }}>
+                      {label}
+                    </span>
+                    <span>{value}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <div
-              className="mb-2.5 h-1 overflow-hidden rounded-full"
-              style={{ background: "var(--border)" }}
+              className="border-t px-3 py-2.5"
+              style={{ borderColor: "var(--border)" }}
             >
               <div
-                className="h-full"
-                style={{
-                  width: `${completionPct}%`,
-                  background:
-                    completionPct === 100
-                      ? "var(--status-active)"
-                      : "var(--primary)",
-                }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-x-3 font-mono text-[10px]">
-              {(
-                [
-                  ["have", String(have)],
-                  ["total", String(total)],
-                  ["missing", String(missing)],
-                  ["in flight", String(inFlight)],
-                ] as const
-              ).map(([label, value], index) => (
-                <div
-                  key={label}
-                  className="flex justify-between py-1"
-                  style={{
-                    borderTop: index > 1 ? "1px solid var(--border)" : "none",
-                  }}
+                className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em]"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                Search options
+              </div>
+              {[
+                {
+                  key: "allowPacks" as const,
+                  label: "Allow packs",
+                  title:
+                    "Accept pack/bundle releases (multi-issue or volume torrents) when searching",
+                  checked: allowPacks,
+                },
+                {
+                  key: "ignoreType" as const,
+                  label: "Ignore book type",
+                  title:
+                    "Match results even when the release's book type (TPB, GN…) differs from this series",
+                  checked: ignoreType,
+                },
+              ].map(({ key, label, title, checked }) => (
+                <label
+                  key={key}
+                  title={title}
+                  className="flex cursor-pointer items-center justify-between gap-2 py-1 font-mono text-[10px]"
                 >
                   <span style={{ color: "var(--muted-foreground)" }}>
                     {label}
                   </span>
-                  <span>{value}</span>
-                </div>
+                  <Checkbox
+                    checked={checked}
+                    disabled={searchSettingsMutation.isPending}
+                    onCheckedChange={(value) =>
+                      void handleSearchSettingChange(key, value)
+                    }
+                    aria-label={label}
+                  />
+                </label>
               ))}
-            </div>
-          </div>
-          <div
-            className="border-t px-3 py-2.5"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <div
-              className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Search options
-            </div>
-            {[
-              {
-                key: "allowPacks" as const,
-                label: "Allow packs",
-                title:
-                  "Accept pack/bundle releases (multi-issue or volume torrents) when searching",
-                checked: allowPacks,
-              },
-              {
-                key: "ignoreType" as const,
-                label: "Ignore book type",
-                title:
-                  "Match results even when the release's book type (TPB, GN…) differs from this series",
-                checked: ignoreType,
-              },
-            ].map(({ key, label, title, checked }) => (
-              <label
-                key={key}
-                title={title}
-                className="flex cursor-pointer items-center justify-between gap-2 py-1 font-mono text-[10px]"
-              >
-                <span style={{ color: "var(--muted-foreground)" }}>
-                  {label}
-                </span>
-                <Checkbox
-                  checked={checked}
-                  disabled={searchSettingsMutation.isPending}
-                  onCheckedChange={(value) =>
-                    void handleSearchSettingChange(key, value)
-                  }
-                  aria-label={label}
-                />
-              </label>
-            ))}
-            {isManga ? (
-              <div className="mt-2 grid gap-2">
-                <label className="grid gap-1 font-mono text-[10px]">
-                  <span style={{ color: "var(--muted-foreground)" }}>
-                    Bare numbers
-                  </span>
-                  <select
-                    aria-label="Bare numbers"
-                    className="h-7 rounded-[5px] border bg-background px-2"
-                    style={{ borderColor: "var(--border)" }}
-                    disabled={searchSettingsMutation.isPending}
-                    value={comic.BareNumberMode || "auto"}
-                    onChange={(event) =>
-                      void handleMangaModeChange(
-                        "bareNumberMode",
-                        event.target.value,
-                      )
-                    }
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="volumes">Volumes</option>
-                    <option value="chapters">Chapters</option>
-                  </select>
-                </label>
-                <label className="grid gap-1 font-mono text-[10px]">
-                  <span style={{ color: "var(--muted-foreground)" }}>
-                    Monitor
-                  </span>
-                  <select
-                    aria-label="Monitor"
-                    className="h-7 rounded-[5px] border bg-background px-2"
-                    style={{ borderColor: "var(--border)" }}
-                    disabled={searchSettingsMutation.isPending}
-                    value={comic.MonitorMode || "blended"}
-                    onChange={(event) =>
-                      void handleMangaModeChange(
-                        "monitorMode",
-                        event.target.value,
-                      )
-                    }
-                  >
-                    <option value="blended">Blended frontier</option>
-                    <option value="volumes">Volumes only</option>
-                    <option value="chapters">Chapters only</option>
-                  </select>
-                </label>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="flex flex-wrap items-center gap-3 border-b px-5 py-2.5"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="text-[13px] font-semibold" data-testid="ledger-label">
-          {ledgerLabel}
-        </div>
-        <div
-          className="font-mono text-[10px] uppercase tracking-[0.08em]"
-          style={{ color: "var(--muted-foreground)" }}
-          data-testid="ledger-facets"
-        >
-          {ledgerFacets.length
-            ? `${total} · ${ledgerFacets.join(" · ")}`
-            : total}
-        </div>
-        <div className="ml-auto flex flex-wrap gap-1.5 font-mono text-[10px]">
-          {(
-            [
-              ["all", `All ${total}`],
-              ["have", `Have ${have}`],
-              ["missing", `Missing ${missing}`],
-              ["monitored", `Monitored ${monitored}`],
-            ] as const
-          ).map(([key, label]) => {
-            const active = filter === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilter(key)}
-                className="rounded-full border px-2 py-0.5 transition-colors"
-                style={{
-                  borderColor: active ? "var(--primary)" : "var(--border)",
-                  color: active ? "var(--primary)" : "var(--muted-foreground)",
-                  background: active
-                    ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                    : "transparent",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {selectedTargets.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2">
-          <span className="mono-label" data-testid="issue-selection-count">
-            {selectedTargets.length} selected
-          </span>
-          <IssueStatusMenu
-            disabled={bulkSetIssueStatus.isPending || setIssueStatus.isPending}
-            trigger={
-              <button
-                type="button"
-                className={`${ghostBtn} border-border`}
-                aria-label="Set status on selected issues"
-              >
-                Set status
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            }
-            onSelect={(status) => void handleBulkSetStatus(status)}
-          />
-          <button
-            type="button"
-            onClick={() => setSelectedRows(new Set())}
-            disabled={bulkSetIssueStatus.isPending}
-            className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
-      <div className="flex-1 min-h-0 overflow-auto">
-        <div className="min-w-[920px]">
-          <div
-            className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--text-muted)",
-              background: "var(--card)",
-            }}
-          >
-            <div className="flex items-center">
-              <Checkbox
-                checked={
-                  allFilteredSelected
-                    ? true
-                    : someFilteredSelected
-                      ? "indeterminate"
-                      : false
-                }
-                onCheckedChange={toggleAllFiltered}
-                aria-label="Select all visible issues"
-                disabled={bulkSetIssueStatus.isPending}
-              />
-            </div>
-            <div>type</div>
-            <div>#</div>
-            <div>title</div>
-            <div>arc</div>
-            <div>date</div>
-            <div>state</div>
-            <div className="sr-only">search</div>
-          </div>
-
-          {filteredIssues.length === 0 ? (
-            <div
-              className="px-5 py-8 text-center font-mono text-[11px]"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              no issues to display
-            </div>
-          ) : (
-            filteredIssues.map((issue) => {
-              const issueId = issue.id ?? issue.IssueID;
-              const issueNumber = issue.number ?? issue.Issue_Number;
-              const issueName = issue.name ?? issue.IssueName;
-              const issueDate = pickComicDate(
-                issue.releaseDate,
-                issue.ReleaseDate,
-                issue.issueDate,
-                issue.IssueDate,
-              );
-              const status = getIssueStatus(issue);
-              const separateIntent = getSeparateIntent(issue);
-              const ledgerKind = getLedgerKind(issue, isManga);
-              const rowKey = issueRowKey(issue);
-              const rowLabel =
-                issueName ||
-                `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
-              return (
-                <div
-                  key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
-                  className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <div className="flex items-center">
-                    <Checkbox
-                      checked={selectedRows.has(rowKey)}
-                      onCheckedChange={() => toggleRowSelected(rowKey)}
-                      aria-label={`Select ${rowLabel}`}
-                      disabled={!issueId || bulkSetIssueStatus.isPending}
-                    />
-                  </div>
-                  <div>
-                    {ledgerKind && (
-                      <span
-                        className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
-                        style={{
-                          background:
-                            "color-mix(in oklab, var(--primary) 12%, transparent)",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        {LEDGER_KIND_LABEL[ledgerKind]}
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className="font-mono"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
-                    #{String(issueNumber ?? "").padStart(2, "0")}
-                  </div>
-                  <div className="min-w-0 truncate">
-                    <Link
-                      to={`/library/${comicId}/issue/${issueId}`}
-                      className="transition-colors hover:text-primary"
-                    >
-                      {issueName ||
-                        `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`}
-                    </Link>
-                  </div>
-                  <div
-                    className="truncate text-[11px]"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
-                    {issue.Arc || "—"}
-                  </div>
-                  <div
-                    className="font-mono text-[10px]"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
-                    {displayComicDate(issueDate)}
-                  </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <IssueStatusMenu
-                      current={status}
-                      label={`Change status for ${rowLabel}`}
-                      disabled={
-                        !issueId ||
-                        setIssueStatus.isPending ||
-                        bulkSetIssueStatus.isPending
-                      }
-                      onSelect={(next) => handleIssueStatusSelect(issue, next)}
-                    />
-                    {separateIntent && (
-                      <span
-                        className="font-mono text-[9px] lowercase"
-                        style={{ color: "var(--muted-foreground)" }}
-                      >
-                        intent: {separateIntent}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      className="inline-flex size-7 items-center justify-center rounded-[5px] transition-colors hover:bg-secondary/50"
-                      style={{ color: "var(--muted-foreground)" }}
-                      aria-label={interactiveSearchLabel(issue)}
-                      title="Interactive Search"
-                      disabled={!issueId}
-                      onClick={() =>
-                        void startReview(
-                          toReleaseReviewIssue(issue, comic.ComicName),
-                          {
-                            entityType: issue.annual ? "annual" : "issue",
-                            entityId: String(issueId ?? ""),
-                          },
+              {isManga ? (
+                <div className="mt-2 grid gap-2">
+                  <label className="grid gap-1 font-mono text-[10px]">
+                    <span style={{ color: "var(--muted-foreground)" }}>
+                      Bare numbers
+                    </span>
+                    <select
+                      aria-label="Bare numbers"
+                      className="h-7 rounded-[5px] border bg-background px-2"
+                      style={{ borderColor: "var(--border)" }}
+                      disabled={searchSettingsMutation.isPending}
+                      value={comic.BareNumberMode || "auto"}
+                      onChange={(event) =>
+                        void handleMangaModeChange(
+                          "bareNumberMode",
+                          event.target.value,
                         )
                       }
                     >
-                      <Search className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
+                      <option value="auto">Auto</option>
+                      <option value="volumes">Volumes</option>
+                      <option value="chapters">Chapters</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 font-mono text-[10px]">
+                    <span style={{ color: "var(--muted-foreground)" }}>
+                      Monitor
+                    </span>
+                    <select
+                      aria-label="Monitor"
+                      className="h-7 rounded-[5px] border bg-background px-2"
+                      style={{ borderColor: "var(--border)" }}
+                      disabled={searchSettingsMutation.isPending}
+                      value={comic.MonitorMode || "blended"}
+                      onChange={(event) =>
+                        void handleMangaModeChange(
+                          "monitorMode",
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="blended">Blended frontier</option>
+                      <option value="volumes">Volumes only</option>
+                      <option value="chapters">Chapters only</option>
+                    </select>
+                  </label>
                 </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-2.5"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="text-[13px] font-semibold" data-testid="ledger-label">
+            {ledgerLabel}
+          </div>
+          <div
+            className="font-mono text-[10px] uppercase tracking-[0.08em]"
+            style={{ color: "var(--muted-foreground)" }}
+            data-testid="ledger-facets"
+          >
+            {ledgerFacets.length
+              ? `${total} · ${ledgerFacets.join(" · ")}`
+              : total}
+          </div>
+          <div className="ml-auto flex flex-wrap gap-1.5 font-mono text-[10px]">
+            {(
+              [
+                ["all", `All ${total}`],
+                ["have", `Have ${have}`],
+                ["missing", `Missing ${missing}`],
+                ["monitored", `Monitored ${monitored}`],
+              ] as const
+            ).map(([key, label]) => {
+              const active = filter === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFilter(key)}
+                  className="rounded-full border px-2 py-0.5 transition-colors"
+                  style={{
+                    borderColor: active ? "var(--primary)" : "var(--border)",
+                    color: active
+                      ? "var(--primary)"
+                      : "var(--muted-foreground)",
+                    background: active
+                      ? "color-mix(in oklab, var(--primary) 12%, transparent)"
+                      : "transparent",
+                  }}
+                >
+                  {label}
+                </button>
               );
-            })
-          )}
+            })}
+          </div>
+        </div>
+
+        {selectedTargets.length > 0 && (
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-5 py-2">
+            <span className="mono-label" data-testid="issue-selection-count">
+              {selectedTargets.length} selected
+            </span>
+            <IssueStatusMenu
+              disabled={
+                bulkSetIssueStatus.isPending || setIssueStatus.isPending
+              }
+              trigger={
+                <button
+                  type="button"
+                  className={`${ghostBtn} border-border`}
+                  aria-label="Set status on selected issues"
+                >
+                  Set status
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              }
+              onSelect={(status) => void handleBulkSetStatus(status)}
+            />
+            <button
+              type="button"
+              onClick={() => setSelectedRows(new Set())}
+              disabled={bulkSetIssueStatus.isPending}
+              className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        <div
+          className="min-w-0 overflow-x-auto md:min-h-0 md:flex-1 md:overflow-auto"
+          data-testid="series-issue-list"
+        >
+          <div className="min-w-[920px]">
+            <div
+              className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--text-muted)",
+                background: "var(--card)",
+              }}
+            >
+              <div className="flex items-center">
+                <Checkbox
+                  checked={
+                    allFilteredSelected
+                      ? true
+                      : someFilteredSelected
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={toggleAllFiltered}
+                  aria-label="Select all visible issues"
+                  disabled={bulkSetIssueStatus.isPending}
+                />
+              </div>
+              <div>type</div>
+              <div>#</div>
+              <div>title</div>
+              <div>arc</div>
+              <div>date</div>
+              <div>state</div>
+              <div className="sr-only">search</div>
+            </div>
+
+            {filteredIssues.length === 0 ? (
+              <div
+                className="px-5 py-8 text-center font-mono text-[11px]"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                no issues to display
+              </div>
+            ) : (
+              filteredIssues.map((issue) => {
+                const issueId = issue.id ?? issue.IssueID;
+                const issueNumber = issue.number ?? issue.Issue_Number;
+                const issueName = issue.name ?? issue.IssueName;
+                const issueDate = pickComicDate(
+                  issue.releaseDate,
+                  issue.ReleaseDate,
+                  issue.issueDate,
+                  issue.IssueDate,
+                );
+                const status = getIssueStatus(issue);
+                const separateIntent = getSeparateIntent(issue);
+                const ledgerKind = getLedgerKind(issue, isManga);
+                const rowKey = issueRowKey(issue);
+                const rowLabel =
+                  issueName ||
+                  `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
+                return (
+                  <div
+                    key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
+                    className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <div className="flex items-center">
+                      <Checkbox
+                        checked={selectedRows.has(rowKey)}
+                        onCheckedChange={() => toggleRowSelected(rowKey)}
+                        aria-label={`Select ${rowLabel}`}
+                        disabled={!issueId || bulkSetIssueStatus.isPending}
+                      />
+                    </div>
+                    <div>
+                      {ledgerKind && (
+                        <span
+                          className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
+                          style={{
+                            background:
+                              "color-mix(in oklab, var(--primary) 12%, transparent)",
+                            color: "var(--primary)",
+                          }}
+                        >
+                          {LEDGER_KIND_LABEL[ledgerKind]}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="font-mono"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      #{String(issueNumber ?? "").padStart(2, "0")}
+                    </div>
+                    <div className="min-w-0 truncate">
+                      <Link
+                        to={`/library/${comicId}/issue/${issueId}`}
+                        className="transition-colors hover:text-primary"
+                      >
+                        {issueName ||
+                          `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`}
+                      </Link>
+                    </div>
+                    <div
+                      className="truncate text-[11px]"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {issue.Arc || "—"}
+                    </div>
+                    <div
+                      className="font-mono text-[10px]"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {displayComicDate(issueDate)}
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <IssueStatusMenu
+                        current={status}
+                        label={`Change status for ${rowLabel}`}
+                        disabled={
+                          !issueId ||
+                          setIssueStatus.isPending ||
+                          bulkSetIssueStatus.isPending
+                        }
+                        onSelect={(next) =>
+                          handleIssueStatusSelect(issue, next)
+                        }
+                      />
+                      {separateIntent && (
+                        <span
+                          className="font-mono text-[9px] lowercase"
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          intent: {separateIntent}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="inline-flex size-7 items-center justify-center rounded-[5px] transition-colors hover:bg-secondary/50"
+                        style={{ color: "var(--muted-foreground)" }}
+                        aria-label={interactiveSearchLabel(issue)}
+                        title="Interactive Search"
+                        disabled={!issueId}
+                        onClick={() =>
+                          void startReview(
+                            toReleaseReviewIssue(issue, comic.ComicName),
+                            {
+                              entityType: issue.annual ? "annual" : "issue",
+                              entityId: String(issueId ?? ""),
+                            },
+                          )
+                        }
+                      >
+                        <Search className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 

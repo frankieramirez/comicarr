@@ -232,6 +232,108 @@ describe("SeriesDetailPage", () => {
     ).toBeTruthy();
     expect(screen.getByText("Pirates hunt the One Piece.")).toBeTruthy();
     expect(screen.queryByText("unsynced")).toBeNull();
+    const description = screen.getByTestId("series-description");
+    expect(description.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["max-h-40", "overflow-y-auto"]),
+    );
+  });
+
+  it("keeps a long overview from expanding past the issue list", async () => {
+    const overview = Array.from(
+      { length: 80 },
+      (_, index) => `Al Simmons biography paragraph ${index + 1}.`,
+    ).join(" ");
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Spawn",
+            Status: "Active",
+            Description: overview,
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 10, owned: 2, missing: 6 },
+        }),
+      ),
+    );
+    const { container } = renderDetail();
+    const description = await screen.findByTestId("series-description");
+    const page = container.querySelector(".page-transition");
+    expect(page?.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["h-full", "min-h-0", "flex-col"]),
+    );
+    expect(description.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["max-h-40", "overflow-y-auto"]),
+    );
+    expect(description.textContent).toContain(
+      "Al Simmons biography paragraph 80.",
+    );
+    expect(await screen.findByText("Unverified copy")).toBeTruthy();
+  });
+
+  it("keeps the issue list in the same scroller as stacked mobile chrome", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Ultimate Wolverine",
+            ComicYear: "2025",
+            ComicPublisher: "Marvel",
+            Status: "Active",
+            Description: "Logan is the Ultimate Universe's deadliest assassin.",
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 10, owned: 2, missing: 6 },
+        }),
+      ),
+    );
+    const { container } = renderDetail();
+    const body = await screen.findByTestId("series-body-scroll");
+    const issues = screen.getByTestId("series-issue-list");
+    const page = container.querySelector(".page-transition");
+
+    expect(page?.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["h-full", "min-h-0", "min-w-0", "flex-col"]),
+    );
+    expect(body.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        "flex-1",
+        "min-h-0",
+        "overflow-y-auto",
+        "overflow-x-hidden",
+        "md:flex",
+        "md:flex-col",
+        "md:overflow-hidden",
+      ]),
+    );
+    expect(issues.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        "overflow-x-auto",
+        "md:min-h-0",
+        "md:flex-1",
+        "md:overflow-auto",
+      ]),
+    );
+    expect(issues.className.split(/\s+/)).not.toContain("flex-1");
+
+    expect(body.contains(screen.getByTestId("series-description"))).toBe(true);
+    expect(
+      body.contains(screen.getByRole("button", { name: "Search all missing" })),
+    ).toBe(true);
+    expect(
+      body.contains(
+        screen.getByRole("button", {
+          name: "Interactive Search for missing issues",
+        }),
+      ),
+    ).toBe(true);
+    expect(body.contains(issues)).toBe(true);
+    expect(screen.getByText("Unverified copy")).toBeTruthy();
+    expect(screen.getByText("Downloaded despite skip")).toBeTruthy();
   });
 
   it("still reads unsynced when no refresh timestamp exists", async () => {
@@ -1173,7 +1275,9 @@ describe("SeriesDetailPage", () => {
           })
           .hasAttribute("disabled"),
       ).toBe(true);
-      await user.click(screen.getByRole("checkbox", { name: "Select Annual event" }));
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select Annual event" }),
+      );
       await user.click(
         screen.getByRole("checkbox", { name: "Select all visible issues" }),
       );
