@@ -259,11 +259,11 @@ describe("SeriesDetailPage", () => {
       ),
     );
     const { container } = renderDetail();
+    const description = await screen.findByTestId("series-description");
     const page = container.querySelector(".page-transition");
     expect(page?.className.split(/\s+/)).toEqual(
       expect.arrayContaining(["h-full", "min-h-0", "flex-col"]),
     );
-    const description = await screen.findByTestId("series-description");
     expect(description.className.split(/\s+/)).toEqual(
       expect.arrayContaining(["max-h-40", "overflow-y-auto"]),
     );
@@ -1212,7 +1212,9 @@ describe("SeriesDetailPage", () => {
           })
           .hasAttribute("disabled"),
       ).toBe(true);
-      await user.click(screen.getByRole("checkbox", { name: "Select Annual event" }));
+      await user.click(
+        screen.getByRole("checkbox", { name: "Select Annual event" }),
+      );
       await user.click(
         screen.getByRole("checkbox", { name: "Select all visible issues" }),
       );
