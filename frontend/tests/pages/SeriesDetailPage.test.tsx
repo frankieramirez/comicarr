@@ -232,6 +232,45 @@ describe("SeriesDetailPage", () => {
     ).toBeTruthy();
     expect(screen.getByText("Pirates hunt the One Piece.")).toBeTruthy();
     expect(screen.queryByText("unsynced")).toBeNull();
+    const description = screen.getByTestId("series-description");
+    expect(description.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["max-h-40", "overflow-y-auto"]),
+    );
+  });
+
+  it("keeps a long overview from expanding past the issue list", async () => {
+    const overview = Array.from(
+      { length: 80 },
+      (_, index) => `Al Simmons biography paragraph ${index + 1}.`,
+    ).join(" ");
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Spawn",
+            Status: "Active",
+            Description: overview,
+          },
+          issues: canonicalIssues,
+          annuals: [],
+          summary: { total: 10, owned: 2, missing: 6 },
+        }),
+      ),
+    );
+    const { container } = renderDetail();
+    const page = container.querySelector(".page-transition");
+    expect(page?.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["h-full", "min-h-0", "flex-col"]),
+    );
+    const description = await screen.findByTestId("series-description");
+    expect(description.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["max-h-40", "overflow-y-auto"]),
+    );
+    expect(description.textContent).toContain(
+      "Al Simmons biography paragraph 80.",
+    );
+    expect(await screen.findByText("Unverified copy")).toBeTruthy();
   });
 
   it("still reads unsynced when no refresh timestamp exists", async () => {

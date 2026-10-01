@@ -648,9 +648,9 @@ export default function SeriesDetailPage() {
     "inline-flex items-center gap-1.5 rounded-[5px] border px-3 py-1.5 text-[12px] transition-colors hover:bg-secondary/50";
 
   return (
-    <div className="flex h-full flex-col page-transition">
+    <div className="flex h-full min-h-0 flex-col page-transition">
       <div
-        className="flex items-center gap-2.5 border-b px-5 py-3.5 font-mono text-[11px]"
+        className="flex shrink-0 items-center gap-2.5 border-b px-5 py-3.5 font-mono text-[11px]"
         style={{
           borderColor: "var(--border)",
           color: "var(--muted-foreground)",
@@ -753,8 +753,9 @@ export default function SeriesDetailPage() {
 
           {comic.Description && (
             <p
-              className="mb-3.5 max-w-[640px] text-[13px] leading-relaxed"
+              className="mb-3.5 max-h-40 max-w-[640px] overflow-y-auto text-[13px] leading-relaxed"
               style={{ color: "var(--muted-foreground)" }}
+              data-testid="series-description"
             >
               {comic.Description}
             </p>
@@ -1082,7 +1083,7 @@ export default function SeriesDetailPage() {
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-3 border-b px-5 py-2.5"
+        className="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-2.5"
         style={{ borderColor: "var(--border)" }}
       >
         <div className="text-[13px] font-semibold" data-testid="ledger-label">
@@ -1129,7 +1130,7 @@ export default function SeriesDetailPage() {
       </div>
 
       {selectedTargets.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-5 py-2">
           <span className="mono-label" data-testid="issue-selection-count">
             {selectedTargets.length} selected
           </span>
