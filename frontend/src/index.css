@@ -4,6 +4,8 @@
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
+/* Wide and tall enough for a locked header region above an inner scroller. */
+@custom-variant split (@media (width >= 48rem) and (height >= 720px));
 
 :root {
   font-family:

@@ -671,13 +671,15 @@ export default function SeriesDetailPage() {
       </div>
 
       {/*
-        Full-bleed Layout clips this page. Below md the stacked hero can be
-        taller than the leftover viewport, so the issue list shares this
-        overflow-y-auto instead of living in a sibling that collapses to 0.
-        md+ keeps the split: hero locked, table is the inner scroller.
+        Full-bleed Layout clips this page. On narrow or short viewports
+        (phones in either orientation) the hero can be taller than the
+        leftover height, so the issue list shares this overflow-y-auto
+        instead of living in a sibling that collapses to 0. The split
+        variant (wide and tall, see index.css) locks the hero and makes the
+        table the inner scroller.
       */}
       <div
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden md:flex md:flex-col md:overflow-hidden"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden split:flex split:flex-col split:overflow-hidden"
         data-testid="series-body-scroll"
       >
         <div
@@ -1182,7 +1184,7 @@ export default function SeriesDetailPage() {
         )}
 
         <div
-          className="min-w-0 overflow-x-auto md:min-h-0 md:flex-1 md:overflow-auto"
+          className="min-w-0 overflow-x-auto split:min-h-0 split:flex-1 split:overflow-auto"
           data-testid="series-issue-list"
         >
           <div className="min-w-[920px]">

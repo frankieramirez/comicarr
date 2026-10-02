@@ -305,17 +305,17 @@ describe("SeriesDetailPage", () => {
         "min-h-0",
         "overflow-y-auto",
         "overflow-x-hidden",
-        "md:flex",
-        "md:flex-col",
-        "md:overflow-hidden",
+        "split:flex",
+        "split:flex-col",
+        "split:overflow-hidden",
       ]),
     );
     expect(issues.className.split(/\s+/)).toEqual(
       expect.arrayContaining([
         "overflow-x-auto",
-        "md:min-h-0",
-        "md:flex-1",
-        "md:overflow-auto",
+        "split:min-h-0",
+        "split:flex-1",
+        "split:overflow-auto",
       ]),
     );
     expect(issues.className.split(/\s+/)).not.toContain("flex-1");
