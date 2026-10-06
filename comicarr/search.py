@@ -170,29 +170,28 @@ def _rss_result_log_summary(result):
     )
 
 
-_GEN_ALTNAMES_LOGGED = set()
-
-
-def reset_gen_altnames_log():
-    """Forget which series have announced their alternate-name list this pass."""
-    _GEN_ALTNAMES_LOGGED.clear()
-
-
-def _issue_search_summary(comic_name, issue_number, series_year, providers_tried, modes):
-    """One INFO line for an issue search: outcome plus which providers ran."""
+def _issue_search_summary(
+    comic_name, issue_number, series_year, providers_tried, modes, names_tried=(), found_via=None
+):
+    """One INFO line for an issue search: outcome, modes, providers, and the alternate names searched."""
     year_bit = " (%s)" % series_year if series_year else ""
     if issue_number is not None:
         target = "%s%s #%s" % (comic_name, year_bit, issue_number)
     else:
         target = "%s%s" % (comic_name, year_bit)
     mode_bit = "+".join(modes) if modes else "search"
+    alternates = [name for name in names_tried if name != comic_name]
+    names_bit = "; names: %s" % ", ".join(alternates) if alternates else ""
+    if found_via is not None:
+        return "[SEARCH] %s: found via %s after %s%s" % (target, found_via, mode_bit, names_bit)
     if not providers_tried:
-        return "[SEARCH] %s: no match after %s (no providers tried)" % (target, mode_bit)
-    return "[SEARCH] %s: no match after %s across %s provider(s) (%s)" % (
+        return "[SEARCH] %s: no match after %s (no providers tried)%s" % (target, mode_bit, names_bit)
+    return "[SEARCH] %s: no match after %s across %s provider(s) (%s)%s" % (
         target,
         mode_bit,
         len(providers_tried),
         ", ".join(providers_tried),
+        names_bit,
     )
 
 
@@ -432,6 +431,7 @@ def search_init(
 
     providers_tried = []
     search_modes_used = []
+    names_tried = []
 
     while srchloop <= searchcnt:
         """searchmodes:
@@ -738,6 +738,8 @@ def search_init(
                 for xx in altnames:
                     logger.fdebug("comicname searched for: %s" % xx["ComicName"])
                     if all([findit["status"] is False, not provider_blocked]):
+                        if xx["ComicName"] not in names_tried:
+                            names_tried.append(xx["ComicName"])
                         scarios["ComicName"] = xx["ComicName"]
                         scarios["unaltered_ComicName"] = xx["unaltered_ComicName"]
                         findit = search_the_matrix(scarios)
@@ -840,11 +842,28 @@ def search_init(
         if comicarr.CONFIG.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
             logger.fdebug("Adding this to the HAVE total for the series.")
             helpers.incr_snatched(ComicID)
-        return findit, list(current_prov.keys())[0]
+        found_prov = list(current_prov.keys())[0]
+        if manualsearch is None:
+            logger.info(
+                _issue_search_summary(
+                    ComicName,
+                    IssueNumber,
+                    SeriesYear,
+                    providers_tried,
+                    search_modes_used,
+                    names_tried,
+                    found_via=found_prov,
+                )
+            )
+        return findit, found_prov
     else:
         logger.fdebug("findit: %s" % findit)
         if manualsearch is None:
-            logger.info(_issue_search_summary(ComicName, IssueNumber, SeriesYear, providers_tried, search_modes_used))
+            logger.info(
+                _issue_search_summary(
+                    ComicName, IssueNumber, SeriesYear, providers_tried, search_modes_used, names_tried
+                )
+            )
         else:
             logger.fdebug("Could not find issue doing a manual search via : %s" % searchmode)
         if current_prov.get("32P"):
@@ -1880,8 +1899,6 @@ def searchforissue(
                 comicarr.SEARCHLOCK.acquire()
             else:
                 logger.info("Initiating check to add Wanted items to Search Queue....")
-
-            reset_gen_altnames_log()
 
             stloop = 2
             results = []
@@ -4152,22 +4169,18 @@ def search_the_matrix(scarios):
 
 
 def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
-    log_key = (ComicName, AlternateSearch, filesafe, smode)
-    announce = log_key not in _GEN_ALTNAMES_LOGGED
-    if announce:
-        _GEN_ALTNAMES_LOGGED.add(log_key)
-    alt_log = logger.info if announce else logger.fdebug
-
     if filesafe:
         if filesafe != ComicName and smode != "want_ann":
-            alt_log("[SEARCH] Special Characters exist within Series Title. Enabling search-safe Name : %s" % filesafe)
+            logger.fdebug(
+                "[SEARCH] Special Characters exist within Series Title. Enabling search-safe Name : %s" % filesafe
+            )
             if AlternateSearch is None or AlternateSearch == "None":
                 AlternateSearch = filesafe
             else:
                 AlternateSearch += "##" + filesafe
 
     if smode == "want_ann":
-        alt_log("Annual/Special issue search detected. Appending to issue #")
+        logger.fdebug("Annual/Special issue search detected. Appending to issue #")
 
         if all(
             [
@@ -4189,23 +4202,25 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
     searchlist = []
     Altname = None
     ignore_previous = False
-    alt_log("AlternateSearch: %s" % AlternateSearch)
+    logger.fdebug("AlternateSearch: %s" % AlternateSearch)
     if AlternateSearch is not None and AlternateSearch != "None":
         altpriority = AlternateSearch.find("!!")
-        alt_log("altpriority: %s" % altpriority)
+        logger.fdebug("altpriority: %s" % altpriority)
         if altpriority != -1:
             altsplit = AlternateSearch.find("##", altpriority)
-            alt_log("altsplit: %s" % altsplit)
+            logger.fdebug("altsplit: %s" % altsplit)
             if altsplit == -1:
                 Altname = AlternateSearch[altpriority + 2 :]
             else:
                 Altname = AlternateSearch[altpriority + 2 : altsplit]
-            alt_log("Altname: %s" % Altname)
+            logger.fdebug("Altname: %s" % Altname)
             if helpers.filesafe(Altname).lower() == helpers.filesafe(ComicName).lower():
-                alt_log("Alternate search pattern is an exact match to previous query. Not recreating")
+                logger.fdebug("Alternate search pattern is an exact match to previous query. Not recreating")
                 ignore_previous = True
             else:
-                alt_log("Alternate Search Priority enabled. Using %s before %s during queries" % (Altname, ComicName))
+                logger.fdebug(
+                    "Alternate Search Priority enabled. Using %s before %s during queries" % (Altname, ComicName)
+                )
                 searchlist.append({"ComicName": Altname, "unaltered_ComicName": Altname})
 
     if ignore_previous is False:
@@ -4215,13 +4230,13 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
         chkthealt = list(filter(None, re.split(r"[\!\!]+|[\#\#]+", AlternateSearch)))
         for AS_Alternate in chkthealt:
             if helpers.filesafe(AS_Alternate).lower() == helpers.filesafe(ComicName).lower():
-                alt_log("Alternate search pattern is an exact match to previous query. Not recreating")
+                logger.fdebug("Alternate search pattern is an exact match to previous query. Not recreating")
                 continue
             if Altname != AS_Alternate:
-                alt_log("Alternate Search pattern detected...re-adjusting to : %s" % AS_Alternate)
+                logger.fdebug("Alternate Search pattern detected...re-adjusting to : %s" % AS_Alternate)
                 searchlist.append({"ComicName": AS_Alternate, "unaltered_ComicName": AS_Alternate})
 
-    alt_log("searchlist: %s" % (searchlist,))
+    logger.fdebug("searchlist: %s" % (searchlist,))
     return searchlist
 
 

@@ -27,14 +27,19 @@ def _capture_logs(monkeypatch):
     return info, debug
 
 
-@pytest.fixture
-def search_env(monkeypatch):
-    calls = []
+def _torznab_providers(count):
+    names = ["nyaa%s" % n for n in range(count)]
+    return {
+        "prov_order": ["torznab"] * count,
+        "torznab_info": [
+            {"provider": "torznab", "info": (name, "https://%s.test" % name, "0", "key", "8020")} for name in names
+        ],
+        "newznab_info": [],
+        "totalproviders": count,
+    }
 
-    def fake_matrix(scarios):
-        calls.append({"cmloopit": scarios["cmloopit"], "RSS": scarios["RSS"], "ComicName": scarios["ComicName"]})
-        return {"status": False, "lastrun": 0}
 
+def _patch_search_env(monkeypatch, providers):
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
@@ -43,27 +48,30 @@ def search_env(monkeypatch):
             ENABLE_TORRENT_SEARCH=True,
             SEARCH_DELAY=None,
             USENET_RETENTION=None,
+            SNATCHED_HAVETOTAL=False,
         ),
         raising=False,
     )
-    monkeypatch.setattr(search, "search_the_matrix", fake_matrix)
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
-    monkeypatch.setattr(
-        search,
-        "provider_order",
-        lambda initial_run=False: {
-            "prov_order": ["torznab"],
-            "torznab_info": [{"provider": "torznab", "info": ("nyaa", "https://nyaa.test", "0", "key", "8020")}],
-            "newznab_info": [],
-            "totalproviders": 1,
-        },
-    )
+    monkeypatch.setattr(search, "provider_order", lambda initial_run=False: _torznab_providers(providers))
     monkeypatch.setattr(search.helpers, "get_issue_title", lambda *args, **kwargs: None)
     monkeypatch.setattr(search.helpers, "block_provider_check", lambda *args, **kwargs: False)
+
+
+@pytest.fixture
+def search_env(monkeypatch):
+    calls = []
+
+    def fake_matrix(scarios):
+        calls.append({"cmloopit": scarios["cmloopit"], "RSS": scarios["RSS"], "ComicName": scarios["ComicName"]})
+        return {"status": False, "lastrun": 0}
+
+    _patch_search_env(monkeypatch, providers=1)
+    monkeypatch.setattr(search, "search_the_matrix", fake_matrix)
     return calls
 
 
-def _run_search_init(alternate_search=None, *, review=False):
+def _run_search_init(alternate_search=None, *, review=False, rsschecker=None):
     return search.search_init(
         "Example Series",
         "2",
@@ -75,10 +83,12 @@ def _run_search_init(alternate_search=None, *, review=False):
         "issue-1",
         AlternateSearch=alternate_search,
         smode=None,
+        rsschecker=rsschecker,
         ComicID="comic-1",
         allow_packs=1,
         manual=False,
         booktype=None,
+        _ai_expanded=True,
         evaluator=EvaluationSession(review=review),
     )
 
@@ -94,59 +104,90 @@ def test_issue_search_summary_names_providers_and_modes():
     assert line == "[SEARCH] Batman (2016) #42: no match after rss+api across 2 provider(s) (nyaa, NZBGeek)"
 
 
+def test_issue_search_summary_names_alternates_and_found_provider():
+    line = search._issue_search_summary(
+        "Batman",
+        "42",
+        "2016",
+        ["nyaa"],
+        ["rss"],
+        ["Batman", "Dark Knight"],
+        found_via="nyaa",
+    )
+    assert line == "[SEARCH] Batman (2016) #42: found via nyaa after rss; names: Dark Knight"
+
+
 def test_default_log_file_is_50mb():
     assert REGISTRY["MAX_LOGSIZE"].default == 50_000_000
     assert REGISTRY["MAX_LOGFILES"].default == 5
 
 
-def test_gen_altnames_logs_details_once_per_series(monkeypatch):
+def test_gen_altnames_emits_no_info(monkeypatch):
     info, debug = _capture_logs(monkeypatch)
-    search.reset_gen_altnames_log()
 
-    first = search.gen_altnames("Batman", "Dark Knight##Caped Crusader", None, "want")
-    assert [x["ComicName"] for x in first] == ["Batman", "Dark Knight", "Caped Crusader"]
-    assert sum("re-adjusting to : Dark Knight" in line for line in info) == 1
-    assert sum("re-adjusting to : Caped Crusader" in line for line in info) == 1
-    assert any("searchlist:" in line for line in info)
-    assert not any("re-adjusting" in line for line in debug)
+    names = search.gen_altnames("Batman", "Dark Knight##Caped Crusader", None, "want")
 
-    info.clear()
-    second = search.gen_altnames("Batman", "Dark Knight##Caped Crusader", None, "want")
-    assert first == second
-    assert not any("re-adjusting" in line for line in info)
+    assert [x["ComicName"] for x in names] == ["Batman", "Dark Knight", "Caped Crusader"]
+    assert info == []
     assert any("re-adjusting to : Dark Knight" in line for line in debug)
-
-    search.gen_altnames("Superman", "Man of Steel", None, "want")
-    assert any("re-adjusting to : Man of Steel" in line for line in info)
+    assert any("re-adjusting to : Caped Crusader" in line for line in debug)
 
 
-def test_reset_gen_altnames_log_reannounces_the_series(monkeypatch):
-    info, _debug = _capture_logs(monkeypatch)
-    search.reset_gen_altnames_log()
-    search.gen_altnames("Batman", "Dark Knight", None, "want")
-    info.clear()
-    search.reset_gen_altnames_log()
-    search.gen_altnames("Batman", "Dark Knight", None, "want")
-    assert any("re-adjusting to : Dark Knight" in line for line in info)
+@pytest.mark.parametrize(
+    ("providers", "alternate_search"),
+    [(2, "Alias One##Alias Two"), (3, "Alias One##Alias Two##Alias Three")],
+)
+def test_rss_search_init_logs_one_info_line_per_issue(monkeypatch, providers, alternate_search):
+    _patch_search_env(monkeypatch, providers)
+    rss_lookups = []
 
+    def no_results(findcomic, *args, **kwargs):
+        rss_lookups.append(findcomic)
+        return "no results"
 
-def test_search_init_does_not_info_log_per_iteration(search_env, monkeypatch):
-    search.reset_gen_altnames_log()
+    monkeypatch.setattr(search.rsscheck, "nzbdbsearch", no_results)
     info, debug = _capture_logs(monkeypatch)
 
-    _run_search_init(alternate_search="Alias One##Alias Two")
+    _run_search_init(alternate_search=alternate_search, rsschecker="yes")
 
-    assert not any("comicname searched for" in line for line in info)
-    assert not any("searchmode enabled" in line.lower() for line in info)
-    assert not any("Could not find" in line for line in info)
-    assert not any(line.startswith("bb:") for line in info)
-    assert not any("Shhh be very quiet" in line for line in info)
+    aliases = alternate_search.split("##")
+    assert len(rss_lookups) >= providers * (len(aliases) + 1)
+    assert len(info) == 1
+    assert info[0].startswith("[SEARCH] Example Series (2024) #2: no match after rss across")
+    assert "names: %s" % ", ".join(aliases) in info[0]
+    for alias in aliases:
+        assert any("comicname searched for: %s" % alias in line for line in debug)
+    assert any(line.startswith("bb: ") for line in debug)
+    assert any("Shhh be very quiet" in line for line in debug)
+
+
+def test_search_init_found_exit_logs_summary(search_env, monkeypatch):
+    monkeypatch.setattr(search, "search_the_matrix", lambda scarios: {"status": True, "lastrun": 0})
+    info, _debug = _capture_logs(monkeypatch)
+
+    findit, provider = _run_search_init(alternate_search="Alias One")
+
+    assert findit["status"] is True
+    summaries = [line for line in info if line.startswith("[SEARCH] Example Series")]
+    assert summaries == ["[SEARCH] Example Series (2024) #2: found via %s after rss" % provider]
+
+
+def test_search_init_blocked_provider_still_summarizes(search_env, monkeypatch):
+    monkeypatch.setattr(search, "provider_order", lambda initial_run=False: _torznab_providers(2))
+    checks = []
+
+    def block_after_first(*args, **kwargs):
+        checks.append(1)
+        return len(checks) > 1
+
+    monkeypatch.setattr(search.helpers, "block_provider_check", block_after_first)
+    info, _debug = _capture_logs(monkeypatch)
+
+    _run_search_init(alternate_search="Alias One")
+
     summaries = [line for line in info if line.startswith("[SEARCH] Example Series")]
     assert len(summaries) == 1
-    assert "no match after rss+api" in summaries[0]
-    assert "nyaa" in summaries[0]
-    assert any("comicname searched for: Alias One" in line for line in debug)
-    assert any("comicname searched for: Alias Two" in line for line in debug)
+    assert "no match" in summaries[0]
 
 
 def test_search_init_calls_gen_altnames_once_per_searchmode(search_env, monkeypatch):
