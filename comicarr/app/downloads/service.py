@@ -1523,52 +1523,175 @@ def ddl_cleanup(id):
         logger.fdebug("[HTML-cleanup] Unable to remove html used for item from html_cache folder.")
 
 
-def ddl_health_check():
+FAIL_REASON_DDL_STUCK = "ddl_stuck"
+DEFAULT_DDL_STUCK_EXPIRY_MINUTES = 1440
+
+
+def _parse_ddl_updated_date(value):
+    if value in (None, ""):
+        return None
+    try:
+        return datetime.datetime.strptime(str(value), "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return None
+
+
+def _stuck_expiry_minutes(threshold_minutes):
+    try:
+        expiry = int(getattr(comicarr.CONFIG, "DDL_STUCK_EXPIRY", DEFAULT_DDL_STUCK_EXPIRY_MINUTES))
+    except (TypeError, ValueError):
+        expiry = DEFAULT_DDL_STUCK_EXPIRY_MINUTES
+    if expiry <= 0:
+        expiry = DEFAULT_DDL_STUCK_EXPIRY_MINUTES
+    try:
+        threshold = int(threshold_minutes)
+    except (TypeError, ValueError):
+        threshold = 0
+    return max(expiry, threshold)
+
+
+def _notify_ddl_health(item, age_minutes):
     if not comicarr.CONFIG.DDL_STUCK_NOTIFY:
         return
+    try:
+        from comicarr.app.system.service import notify_ddl_stuck
+
+        notify_ddl_stuck(item, int(age_minutes))
+    except Exception as e:
+        logger.error("[DDL-HEALTH] notification failed for %s: %s" % (item.get("ID"), e))
+
+
+def _fail_stuck_ddl(item, *, gone, age_minutes):
+    """Mark a stuck Downloading row Failed and close the journal obligation."""
+
+    item_id = item["ID"]
+    if not dl_queries.claim_downloading_ddl(item_id, "Failed"):
+        return False
+
+    comicarr.DDL_QUEUED.discard(item_id)
+    comicarr.DDL_STUCK_NOTIFIED.add(item_id)
+
+    from comicarr.app.downloads import journal
+
+    issueid = item.get("issueid")
+    filename = item.get("filename")
+    fail_reason = (
+        "download_failed_no_auto_handling"
+        if not comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING
+        else ("download_gone" if gone else FAIL_REASON_DDL_STUCK)
+    )
+    payload = dict(item)
+    payload.update({"provider": "DDL", "ddl": True, "ddl_id": item_id})
+    try:
+        record(
+            Failure(
+                release_key=journal.release_key(
+                    issueid,
+                    "DDL",
+                    nzbname=filename,
+                    hash=None,
+                    discriminant=item_id,
+                ),
+                reason=fail_reason,
+                payload=payload,
+                issue_id=issueid,
+                provider="DDL",
+                downloader_type="ddl",
+                nzb_name=filename,
+                release_id=item_id,
+                comic_id=item.get("comicid"),
+                comic_name=item.get("series"),
+                issue_number=item.get("issues"),
+            )
+        )
+    except Exception as e:
+        logger.error("[DDL-HEALTH] journal terminalize failed for %s: %s" % (item_id, e))
+
+    logger.warn(
+        "[DDL-HEALTH] Marked stuck download Failed after %d minutes: %s (%s) reason=%s"
+        % (int(age_minutes), item.get("series"), item_id, fail_reason)
+    )
+    _notify_ddl_health(item, age_minutes)
+    return True
+
+
+def _resume_stuck_ddl(item, age_minutes):
+    """Requeue an abandoned Downloading row whose source link is still valid."""
+
+    item_id = item["ID"]
+    try:
+        command = DDLCommand.from_mapping(item)
+    except DDLCommandError as e:
+        logger.error("[DDL-HEALTH] Cannot resume invalid DDL item %s: %s" % (item_id, e))
+        return False
+
+    if not dl_queries.claim_downloading_ddl(item_id, "Queued"):
+        return False
+
+    comicarr.DDL_QUEUED.discard(item_id)
+    comicarr.DDL_STUCK_NOTIFIED.discard(item_id)
+    try:
+        if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+            logger.info("[DDL-HEALTH] Resume of %s left as Queued; worker already owns it" % item_id)
+    except Exception as e:
+        logger.error("[DDL-HEALTH] Resume enqueue failed for %s; row remains Queued: %s" % (item_id, e))
+
+    logger.warn(
+        "[DDL-HEALTH] Resumed stuck download after %d minutes: %s (%s)"
+        % (int(age_minutes), item.get("series"), item_id)
+    )
+    _notify_ddl_health(item, age_minutes)
+    return True
+
+
+def ddl_health_check():
+    """Fail or resume Downloading rows that have not progressed past the stuck threshold.
+
+    Live worker-owned rows are left alone until the hard expiry. Abandoned rows
+    are resumed when auto-resume is on and the source link still works; otherwise
+    they are marked Failed. Status change is the durable notified signal, so a
+    restart does not re-notify the same row.
+    """
     if not comicarr.CONFIG.ENABLE_DDL:
         return
 
     from sqlalchemy import select
 
-    from comicarr.app.system.service import notify_ddl_stuck
+    from comicarr.app.downloads.recovery_classify import _ddl_link_alive
 
     stuck_items = db.select_all(select(ddl_info).where(ddl_info.c.status == "Downloading"))
     if not stuck_items:
         return
 
     threshold_minutes = comicarr.CONFIG.DDL_STUCK_THRESHOLD
+    expiry_minutes = _stuck_expiry_minutes(threshold_minutes)
     now = datetime.datetime.now()
 
     for item in stuck_items:
-        if item["updated_date"] is None:
-            continue
-        try:
-            updated = datetime.datetime.strptime(item["updated_date"], "%Y-%m-%d %H:%M")
-        except ValueError:
+        updated = _parse_ddl_updated_date(item.get("updated_date"))
+        if updated is None:
             continue
         age_minutes = (now - updated).total_seconds() / 60
-        if age_minutes > threshold_minutes:
-            if item["ID"] in comicarr.DDL_STUCK_NOTIFIED:
-                continue
-            try:
-                from comicarr.app.downloads import journal
-                from comicarr.tables import pipeline_journal
+        if age_minutes <= threshold_minutes:
+            continue
 
-                stmt = select(pipeline_journal).where(
-                    pipeline_journal.c.stage == journal.FAILED,
-                    pipeline_journal.c.issueid == str(item["issueid"]),
-                )
-                if db.select_one(stmt) is not None:
-                    comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
-                    continue
-            except Exception as e:
-                logger.fdebug("[DDL-HEALTH] journal reconciliation skipped (non-fatal): %s" % e)
-            logger.warn(
-                "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["ID"])
-            )
-            notify_ddl_stuck(item, int(age_minutes))
-            comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
+        item_id = item["ID"]
+        owned = item_id in comicarr.DDL_QUEUED
+        expired = age_minutes > expiry_minutes
+        if owned and not expired:
+            continue
+
+        if expired or not comicarr.CONFIG.DDL_AUTORESUME:
+            _fail_stuck_ddl(item, gone=False, age_minutes=age_minutes)
+            continue
+
+        alive = _ddl_link_alive(item.get("link") or item.get("mainlink"))
+        if alive is True:
+            if not _resume_stuck_ddl(item, age_minutes):
+                _fail_stuck_ddl(item, gone=False, age_minutes=age_minutes)
+            continue
+        if alive is False:
+            _fail_stuck_ddl(item, gone=True, age_minutes=age_minutes)
 
 
 def postprocess_main(queue):

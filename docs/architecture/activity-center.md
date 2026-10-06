@@ -68,7 +68,8 @@ SELECT * FROM pipeline_journal
          -- excluded base reasons from Attention's private reason registry
          'download_gone', 'download_failed_researching',
          'ddl_download_or_artifact_validation_failed', 'ddl-worker-rejected',
-         'torrent_hash_not_in_client', 'legacy_downloading_without_correlation',
+         'ddl_stuck', 'torrent_hash_not_in_client',
+         'legacy_downloading_without_correlation',
          'ambiguous_ddl_acceptance_after_restart'
        ))
    AND (fail_reason IS NULL OR fail_reason NOT LIKE 'immutable_payload_conflict:%')
