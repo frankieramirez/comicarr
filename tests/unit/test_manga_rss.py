@@ -14,6 +14,7 @@ Tests cover mangaCheck() and mangadexNewChapterCheck() — the two additive
 functions for manga series monitoring.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck
@@ -145,6 +146,33 @@ class TestMangaCheck:
         mangaCheck()
 
         mock_search_init.assert_not_called()
+
+    @patch(
+        "comicarr.CONFIG",
+        SimpleNamespace(
+            FAILED_DOWNLOAD_HANDLING=False,
+            FAILED_AUTO=False,
+            WANTED_SEARCH_PASS_ITEMS=1,
+            WANTED_SEARCH_PASS_SECONDS=0,
+        ),
+    )
+    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.search.search_init")
+    def test_respects_item_budget_and_leaves_the_rest_for_the_next_pass(self, mock_search_init, mock_db, mock_helpers):
+        series = _make_series()
+        ch1 = _make_chapter(ch_num="100", issue_id="md-abc123-ch100")
+        ch2 = _make_chapter(ch_num="101", issue_id="md-abc123-ch101")
+
+        mock_db.select_all.side_effect = [
+            [series],
+            [ch1, ch2],
+        ]
+        mock_helpers.issue_status.return_value = False
+
+        mangaCheck()
+
+        assert mock_search_init.call_count == 1
 
 
 # ---------------------------------------------------------------------------

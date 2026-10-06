@@ -134,6 +134,9 @@ class tehMain:
             logger.info("[RSS-FEEDS] RSS Feed Check/Update Complete")
             logger.info("[RSS-FEEDS] Watchlist Check for new Releases")
             rss_start = datetime.datetime.now()
+            from comicarr.app.search.backlog import mark_rssdb_refreshed
+
+            mark_rssdb_refreshed()
             comicarr.search.searchforissue(rsschecker="yes")
             logger.fdebug("[RSS-FEEDS] RSS dbsearch/matching took: %s" % (datetime.datetime.now() - rss_start))
             logger.info("[RSS-FEEDS] Watchlist Check complete.")

@@ -34,6 +34,15 @@ from sqlalchemy.exc import OperationalError
 
 import comicarr
 from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr.app.search.backlog import (
+    PASS_MANGA_RSS,
+    PassBudget,
+    get_rss_provider_lookup,
+    put_rss_provider_lookup,
+    release_pass,
+    rss_provider_lookup_key,
+    try_acquire_pass,
+)
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.tables import comics, rssdb
@@ -708,6 +717,11 @@ def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
         else:
             seriesname = snm["ComicName"]
 
+    cache_key = rss_provider_lookup_key(seriesname, comicid, "DDL(GetComics)", oneoff)
+    cached = get_rss_provider_lookup(cache_key)
+    if cached is not None:
+        return cached
+
     dsearch_rem1 = re.sub("\\band\\b", "%", seriesname.lower())
     dsearch_rem2 = re.sub("\\bthe\\b", "%", dsearch_rem1.lower())
     dsearch_removed = re.sub(r"\s+", " ", dsearch_rem2)
@@ -724,6 +738,7 @@ def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
     ddltheinfo = []
     ddlinfo = {}
     if not dresults:
+        put_rss_provider_lookup(cache_key, "no results")
         return "no results"
     else:
         for dl in dresults:
@@ -738,6 +753,7 @@ def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
             )
     logger.fdebug("[DDL][RSS][DB-QUERY] results: %s" % (ddltheinfo,))
     ddlinfo["entries"] = ddltheinfo
+    put_rss_provider_lookup(cache_key, ddlinfo)
     return ddlinfo
 
 
@@ -1146,6 +1162,12 @@ def nzbdbsearch(
                 % (len(rsslist), totalcnt, len(nzbtheinfo))
             )
     else:
+        cache_key = rss_provider_lookup_key(seriesname, comicid, nzbprov, oneoff)
+        cached = get_rss_provider_lookup(cache_key)
+        if cached is not None:
+            logger.fdebug("[RSS-CACHE] hit for %s / %s" % (cache_key[1], nzbprov))
+            return cached
+
         nsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.\\-\\s]", "%", seriesname)
         formatrem_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.]", "", seriesname)
 
@@ -1162,6 +1184,7 @@ def nzbdbsearch(
             logger.fdebug("nzb search returned no results for " + seriesname)
             if seriesname_alt is None:
                 logger.fdebug("no nzb Alternate name given. Aborting search.")
+                put_rss_provider_lookup(cache_key, "no results")
                 return "no results"
             else:
                 chkthealt = seriesname_alt.split("##")
@@ -1178,6 +1201,7 @@ def nzbdbsearch(
                         nresults += [dict(row) for row in conn.execute(stmt).mappings()]
                 if not nresults:
                     logger.fdebug("nzb alternate name search returned no results.")
+                    put_rss_provider_lookup(cache_key, "no results")
                     return "no results"
 
         nzbtheinfo = []
@@ -1262,6 +1286,8 @@ def nzbdbsearch(
                 )
 
     nzbinfo["entries"] = nzbtheinfo
+    if rsslist is None:
+        put_rss_provider_lookup(rss_provider_lookup_key(seriesname, comicid, nzbprov, oneoff), nzbinfo)
     return nzbinfo
 
 
@@ -1696,7 +1722,8 @@ def mangaCheck():
 
     Uses the persisted per-series MonitorMode (default blended): missing
     released volumes plus chapters beyond the last released volume. Paused
-    series are skipped. Callable from the scheduler or manually.
+    series are skipped. Callable from the scheduler or manually. Each pass is
+    item- and time-bounded and resumes from a persisted seen-set.
     """
     from comicarr import search
     from comicarr.app.manga.acquisition import search_plan_for_series
@@ -1718,76 +1745,104 @@ def mangaCheck():
         logger.info("[MANGA-RSS] No active manga series found")
         return
 
-    logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
+    if not try_acquire_pass():
+        logger.info("[MANGA-RSS] A scheduled Wanted/RSS backlog pass is already running; skipping")
+        return
 
-    total_searched = 0
-    issues_by_series = {}
+    try:
+        logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
 
-    for series in manga_series:
-        comic_id = series["ComicID"]
-        issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
+        issues_by_series = {}
+        for series in manga_series:
+            comic_id = series["ComicID"]
+            issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
 
-    for series in manga_series:
-        comic_id = series["ComicID"]
-        comic_name = series["ComicName"]
-        series_year = series.get("ComicYear") or str(datetime.now().year)
-        issues = issues_by_series.get(comic_id) or []
-        targets = search_plan_for_series(series, issues)
-        if not targets:
-            continue
-
-        logger.info("[MANGA-RSS] %s has %d blended-frontier target(s)" % (comic_name, len(targets)))
-        issue_by_id = {row.get("IssueID"): row for row in issues}
-
-        for target in targets:
-            if target.get("kind") == "volume":
-                issue_id = volume_id(comic_id, target.get("number"))
-                issue_number = target.get("number")
-                chapter_number = None
-                volume_number = target.get("number")
-            else:
-                issue_id = target.get("id")
-                issue_number = target.get("number")
-                chapter_number = target.get("number")
-                volume_number = None
-            issue_row = issue_by_id.get(issue_id) or {}
-            issue_date = issue_row.get("IssueDate") or "0000-00-00"
-            store_date = issue_row.get("ReleaseDate") or "0000-00-00"
-            digital_date = issue_row.get("DigitalDate") or "0000-00-00"
-
-            if issue_id and helpers.issue_status(issue_id) is True:
+        pending = []
+        for series in manga_series:
+            comic_id = series["ComicID"]
+            comic_name = series["ComicName"]
+            series_year = series.get("ComicYear") or str(datetime.now().year)
+            issues = issues_by_series.get(comic_id) or []
+            targets = search_plan_for_series(series, issues)
+            if not targets:
                 continue
 
+            logger.info("[MANGA-RSS] %s has %d blended-frontier target(s)" % (comic_name, len(targets)))
+            issue_by_id = {row.get("IssueID"): row for row in issues}
+
+            for target in targets:
+                if target.get("kind") == "volume":
+                    issue_id = volume_id(comic_id, target.get("number"))
+                    issue_number = target.get("number")
+                    chapter_number = None
+                    volume_number = target.get("number")
+                else:
+                    issue_id = target.get("id")
+                    issue_number = target.get("number")
+                    chapter_number = target.get("number")
+                    volume_number = None
+                issue_row = issue_by_id.get(issue_id) or {}
+                if issue_id and helpers.issue_status(issue_id) is True:
+                    continue
+                pending.append(
+                    {
+                        "issue_id": issue_id,
+                        "comic_id": comic_id,
+                        "comic_name": comic_name,
+                        "series": series,
+                        "series_year": series_year,
+                        "issue_number": issue_number,
+                        "chapter_number": chapter_number,
+                        "volume_number": volume_number,
+                        "issue_date": issue_row.get("IssueDate") or "0000-00-00",
+                        "store_date": issue_row.get("ReleaseDate") or "0000-00-00",
+                        "digital_date": issue_row.get("DigitalDate") or "0000-00-00",
+                        "kind": target.get("kind"),
+                    }
+                )
+
+        budget = PassBudget(PASS_MANGA_RSS)
+        selected = budget.select_candidates(pending, lambda row: row.get("issue_id"))
+        total_searched = 0
+        for work in selected:
+            if not budget.remaining():
+                logger.info("[MANGA-RSS] Pass budget reached; remaining targets resume next run")
+                break
             try:
                 search.search_init(
-                    comic_name,
-                    str(issue_number or "1"),
-                    str(series_year)[:4],
-                    str(series_year)[:4],
-                    series.get("ComicPublisher", ""),
-                    issue_date,
-                    store_date,
-                    issue_id,
-                    AlternateSearch=series.get("AlternateSearch"),
-                    UseFuzzy=series.get("UseFuzzy"),
-                    ComicVersion=series.get("ComicVersion"),
+                    work["comic_name"],
+                    str(work["issue_number"] or "1"),
+                    str(work["series_year"])[:4],
+                    str(work["series_year"])[:4],
+                    work["series"].get("ComicPublisher", ""),
+                    work["issue_date"],
+                    work["store_date"],
+                    work["issue_id"],
+                    AlternateSearch=work["series"].get("AlternateSearch"),
+                    UseFuzzy=work["series"].get("UseFuzzy"),
+                    ComicVersion=work["series"].get("ComicVersion"),
                     smode="want",
                     rsschecker="yes",
-                    ComicID=comic_id,
-                    filesafe=series.get("ComicName_Filesafe"),
+                    ComicID=work["comic_id"],
+                    filesafe=work["series"].get("ComicName_Filesafe"),
                     booktype="manga",
-                    digitaldate=digital_date,
+                    digitaldate=work["digital_date"],
                     content_type="manga",
-                    chapter_number=None if chapter_number is None else str(chapter_number),
-                    volume_number=None if volume_number is None else str(volume_number),
+                    chapter_number=(None if work["chapter_number"] is None else str(work["chapter_number"])),
+                    volume_number=(None if work["volume_number"] is None else str(work["volume_number"])),
                 )
+                budget.consume(work["issue_id"])
                 total_searched += 1
             except Exception as e:
                 logger.error(
-                    "[MANGA-RSS] Error searching for %s %s %s: %s" % (comic_name, target.get("kind"), issue_number, e)
+                    "[MANGA-RSS] Error searching for %s %s %s: %s"
+                    % (work["comic_name"], work.get("kind"), work["issue_number"], e)
                 )
 
-    logger.info("[MANGA-RSS] Manga search complete — searched %d target(s)" % total_searched)
+        budget.log_summary()
+        logger.info("[MANGA-RSS] Manga search complete — searched %d target(s)" % total_searched)
+    finally:
+        release_pass()
 
 
 def mangadexNewChapterCheck():
