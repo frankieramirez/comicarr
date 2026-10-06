@@ -48,56 +48,65 @@ _ENQUEUE_THROTTLE_SECONDS = 0.05
 _MAX_INLINE_PP_REDRIVE_PER_PASS = postprocessing._MAX_INLINE_PP_REDRIVE_PER_PASS
 
 
+def ddl_journal_anchors(ddl_row):
+    """Return the journal rows whose payload names this ``ddl_info`` row's ID."""
+    ddl_id = ddl_row.get("ID")
+    candidates = db.select_all(
+        select(pipeline_journal).where(
+            pipeline_journal.c.issueid == str(ddl_row.get("issueid")),
+            pipeline_journal.c.downloader_type == "ddl",
+        )
+    )
+    anchors = []
+    for candidate in candidates or []:
+        payload = journal.load_payload(candidate.get("payload_json")) or {}
+        di = payload.get("download_info") or {}
+        if str(payload.get("ddl_id") or payload.get("id") or di.get("id") or "") == str(ddl_id):
+            anchors.append(candidate)
+    return anchors
+
+
+def quarantine_unanchored_ddl_row(ddl_row):
+    """Send one Downloading row that has no journal anchor to Manual Review."""
+    ddl_id = ddl_row.get("ID")
+    rkey = journal.release_key(
+        ddl_row.get("issueid"),
+        "DDL",
+        nzbname=ddl_row.get("filename"),
+        discriminant=ddl_id,
+    )
+    legacy_payload = {
+        "issueid": ddl_row.get("issueid"),
+        "comicid": ddl_row.get("comicid"),
+        "provider": "DDL",
+        "ddl_id": ddl_id,
+        "filename": ddl_row.get("filename"),
+        "ddl": True,
+    }
+    record(
+        ManualReview(
+            release_key=rkey,
+            reason="legacy_downloading_without_correlation",
+            payload=legacy_payload,
+            issue_id=ddl_row.get("issueid"),
+            provider="DDL",
+            downloader_type="ddl",
+            nzb_name=ddl_row.get("filename"),
+            release_id=ddl_id,
+            comic_id=ddl_row.get("comicid"),
+        )
+    )
+    db.upsert("ddl_info", {"status": "Manual Review"}, {"ID": ddl_id})
+
+
 def _reconcile_legacy_ddl_downloading():
     """Quarantine legacy Downloading rows that have no exact journal anchor."""
     rows = db.select_all(select(ddl_info).where(ddl_info.c.status == "Downloading")) or []
     reviewed = 0
     for ddl_row in rows:
-        ddl_id = ddl_row.get("ID")
-        candidates = db.select_all(
-            select(pipeline_journal).where(
-                pipeline_journal.c.issueid == str(ddl_row.get("issueid")),
-                pipeline_journal.c.downloader_type == "ddl",
-            )
-        )
-        anchored = False
-        for candidate in candidates or []:
-            payload = journal.load_payload(candidate.get("payload_json")) or {}
-            di = payload.get("download_info") or {}
-            if str(payload.get("ddl_id") or payload.get("id") or di.get("id") or "") == str(ddl_id):
-                anchored = True
-                break
-        if anchored:
+        if ddl_journal_anchors(ddl_row):
             continue
-
-        rkey = journal.release_key(
-            ddl_row.get("issueid"),
-            "DDL",
-            nzbname=ddl_row.get("filename"),
-            discriminant=ddl_id,
-        )
-        legacy_payload = {
-            "issueid": ddl_row.get("issueid"),
-            "comicid": ddl_row.get("comicid"),
-            "provider": "DDL",
-            "ddl_id": ddl_id,
-            "filename": ddl_row.get("filename"),
-            "ddl": True,
-        }
-        record(
-            ManualReview(
-                release_key=rkey,
-                reason="legacy_downloading_without_correlation",
-                payload=legacy_payload,
-                issue_id=ddl_row.get("issueid"),
-                provider="DDL",
-                downloader_type="ddl",
-                nzb_name=ddl_row.get("filename"),
-                release_id=ddl_id,
-                comic_id=ddl_row.get("comicid"),
-            )
-        )
-        db.upsert("ddl_info", {"status": "Manual Review"}, {"ID": ddl_id})
+        quarantine_unanchored_ddl_row(ddl_row)
         reviewed += 1
     return reviewed
 

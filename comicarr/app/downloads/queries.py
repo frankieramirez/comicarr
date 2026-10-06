@@ -173,7 +173,7 @@ def update_ddl_status(item_id, status):
 
 
 def claim_downloading_ddl(item_id, status):
-    """Atomically move one Downloading row to ``status`` (Queued or Failed)."""
+    """Atomically move one Downloading row to ``status``; False if it already moved."""
 
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     with db.get_engine().begin() as conn:

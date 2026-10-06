@@ -426,7 +426,6 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("DDL_STUCK_NOTIFY", bool, "DDL", True),
     ConfigKey("DDL_STUCK_THRESHOLD", int, "DDL", 30),
     ConfigKey("DDL_STUCK_CHECK_INTERVAL", int, "DDL", 10, interval_for="ddl_health"),
-    ConfigKey("DDL_STUCK_EXPIRY", int, "DDL", 1440),
     ConfigKey("ENABLE_FLARESOLVERR", bool, "DDL", False),
     ConfigKey("FLARESOLVERR_URL", str, "DDL", None),
     ConfigKey("ENABLE_PROXY", bool, "DDL", False),

@@ -346,9 +346,7 @@ def test_apply_verdict_noop_for_non_gone_verdicts():
 
 def test_apply_verdict_gone_reconciles_ddl_stuck_notified():
     """When U5 marks a DDL row GONE it registers the DDL id into
-    comicarr.DDL_STUCK_NOTIFIED. The health check now derives notified state
-    from the Failed row, so this is belt-and-suspenders against a same-cycle
-    double report."""
+    comicarr.DDL_STUCK_NOTIFIED so ddl_health_check does not double-report."""
     payload = {"ddl": True, "download_info": {"provider": "DDL", "id": "ddl-99"}}
     row = _insert_journal(
         "DG|DDL|n", journal.SNATCHED, issueid="DG", provider="DDL", downloader_type="ddl", payload=payload

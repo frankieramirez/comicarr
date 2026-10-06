@@ -70,7 +70,7 @@ def test_is_actionable_fail_open_and_exclusions():
     assert reasons.is_actionable("postprocess_error:ValueError") is True
     assert reasons.is_actionable("download_gone") is False
     assert reasons.is_actionable("ddl-worker-rejected") is False
-    assert reasons.is_actionable("ddl_stuck") is False
+    assert reasons.is_actionable("ddl_stalled") is False
     assert reasons.is_actionable("immutable_payload_conflict:issueid") is False
     assert reasons.is_actionable("immutable_payload_conflict") is False
 
