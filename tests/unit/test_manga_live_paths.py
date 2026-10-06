@@ -378,9 +378,16 @@ def test_search_init_wires_volume_queries_instead_of_alternatesearch():
     """
     source = _SEARCH_PATH.read_text(encoding="utf-8")
 
-    # both search loops (rss and api) rewrite the finished name list
+    # both rss and api rewrite the finished name list once per searchmode,
+    # before the provider × padding loops iterate it (#957 hoisted the call).
     rewrite = "altnames, manga_volume_terms = manga_volume_altnames(altnames, volume_number)"
-    assert source.count(rewrite) == 2, "a search loop still iterates un-rewritten altnames"
+    assert source.count(rewrite) == 1, "search_init no longer rewrites altnames for volume targets"
+    rewrite_at = source.index(rewrite)
+    mode_loop = source.index("while srchloop <= searchcnt:")
+    provider_loop = source.index("while tmp_prov_count > prov_count:")
+    assert mode_loop < rewrite_at < provider_loop, (
+        "volume altnames must be rewritten once per rss/api pass, before providers iterate them"
+    )
 
     # the AlternateSearch injection is reachable only for a NON-volume target
     guard = source.index("if not manga_volume_target:")
