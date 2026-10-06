@@ -2,4 +2,4 @@
 "comicarr": patch
 ---
 
-Scheduled Wanted and RSS backlog searches now run in bounded passes and resume where they left off, so a large Wanted list can no longer pin a CPU core for days or block a manual search. RSS lookups for the same series are reused until the feed cache refreshes. Optional INI knobs `wanted_search_pass_items` (default 250) and `wanted_search_pass_seconds` (default 120) cap each pass; `0` disables that cap.
+Scheduled manga RSS searches no longer pin a CPU core on large libraries. A manga series with no matching RSS entries is now skipped outright, and repeated RSS lookups for the same series run once per pass instead of once per chapter. The scheduled RSS watchlist scan now checks the Wanted list in bounded passes that resume where they left off, re-checks recent releases on every pass, and no longer blocks a manual search while it runs. Optional INI knobs `wanted_search_pass_items` (default 250) and `wanted_search_pass_seconds` (default 120) cap each watchlist pass; `0` disables that cap.

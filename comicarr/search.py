@@ -65,7 +65,13 @@ from comicarr.app.common.remote_artifacts import (
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
 from comicarr.app.search import progress
-from comicarr.app.search.backlog import PASS_RSS_WANTED, PassBudget, release_pass, try_acquire_pass
+from comicarr.app.search.backlog import (
+    PASS_RSS_WANTED,
+    PassBudget,
+    is_recent_release,
+    release_pass,
+    try_acquire_pass,
+)
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
 from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
@@ -2070,16 +2076,24 @@ def searchforissue(
                 scan_results = sorted(results, key=itemgetter("StoreDate"), reverse=True)
                 if rsschecker:
                     rss_budget = PassBudget(PASS_RSS_WANTED)
-                    scan_results = rss_budget.select_candidates(scan_results, lambda row: row.get("IssueID"))
+                    scan_results = rss_budget.select_candidates(
+                        scan_results, lambda row: row.get("IssueID"), recent=is_recent_release
+                    )
                     logger.info(
                         "RSS Search Scan considering %s Wanted item(s) this pass (%s already checked this cycle)"
                         % (len(scan_results), rss_budget.skipped)
                     )
 
                 for result in scan_results:
-                    if rss_budget is not None and not rss_budget.remaining():
-                        logger.info("RSS Search Scan reached its time budget; remaining Wanted items resume next pass")
-                        break
+                    if rss_budget is not None:
+                        if not rss_budget.remaining():
+                            logger.info(
+                                "RSS Search Scan reached its time budget; remaining Wanted items resume next pass"
+                            )
+                            break
+                        # Mark every handed-out row checked, including ones skipped below; an
+                        # unconsumed row would keep the cycle from ever completing.
+                        rss_budget.consume(result["IssueID"])
                     try:
                         OneOff = False
                         storyarc_watchlist = False
@@ -2238,7 +2252,6 @@ def searchforissue(
                         elif rsschecker:
                             if not [x for x in rss_queue if result["IssueID"] == x[8]]:
                                 sqlquery_name = re.sub(r"[\:\-]", "%", comic["ComicName"]).strip()
-                                rss_budget.consume(result["IssueID"])
                                 rss_queue.append(
                                     (
                                         comic["ComicName"],

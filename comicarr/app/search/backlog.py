@@ -7,19 +7,27 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Bounded Wanted/RSS backlog passes with a persisted resume cursor.
+"""Bounded Wanted/RSS watchlist passes and the manga RSS lookup memo.
 
-A scheduled pass over a large Wanted list used to run to completion while
-holding SEARCHLOCK, then start again because the trigger interval was shorter
-than the pass. This module gives each pass an item and wall-clock budget,
-remembers which issues were already checked against the current rssdb
-generation, and keeps that work off SEARCHLOCK so a manual search can proceed.
+A scheduled RSS watchlist pass over a large Wanted list used to run to
+completion while holding SEARCHLOCK, then start again because the trigger
+interval was shorter than the pass. ``PassBudget`` gives that pass an item and
+wall-clock budget, remembers which issues were already checked against the
+current rssdb generation, and keeps the work off SEARCHLOCK so a manual search
+can proceed.
+
+``rss_lookup_memo`` is a separate, pass-scoped cache for the manga RSS pass:
+identical rssdb lookups inside one ``mangaCheck()`` run once. It is off unless
+a caller opens it, and it never outlives the pass or crosses threads.
 """
 
 from __future__ import annotations
 
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import date, timedelta
 
 from sqlalchemy import delete, select
 
@@ -28,16 +36,14 @@ from comicarr import db, logger
 from comicarr.tables import rss_search_seen, search_backlog_state
 
 PASS_RSS_WANTED = "rss_wanted"
-PASS_MANGA_RSS = "manga_rss"
 PASS_RSSDB = "rssdb"
 
 DEFAULT_ITEM_BUDGET = 250
 DEFAULT_SECONDS_BUDGET = 120
+RECENT_RELEASE_DAYS = 14
 
 _PASS_LOCK = threading.Lock()
-_LOOKUP_LOCK = threading.Lock()
-_LOOKUP_CACHE: dict[tuple, object] = {}
-_LOOKUP_GENERATION: str | None = None
+_LOOKUP_MEMO: ContextVar[dict | None] = ContextVar("rss_lookup_memo", default=None)
 
 
 def _config_int(name: str, default: int) -> int:
@@ -64,7 +70,7 @@ def _now_iso() -> str:
 
 
 def try_acquire_pass() -> bool:
-    """Non-blocking lock so overlapping RSS/manga backlog jobs skip, not stack."""
+    """Non-blocking lock so overlapping RSS watchlist passes skip, not stack."""
     return _PASS_LOCK.acquire(blocking=False)
 
 
@@ -103,16 +109,26 @@ def mark_rssdb_refreshed(generation: str | None = None) -> str:
         )
     except Exception as e:
         logger.warn("[SEARCH-BACKLOG] Unable to persist rssdb generation: %s" % e)
-    clear_lookup_cache()
     logger.fdebug("[SEARCH-BACKLOG] rssdb generation is now %s" % new_generation)
     return new_generation
 
 
-def rss_provider_lookup_key(seriesname, comicid, nzbprov, oneoff=False) -> tuple:
-    provider = str(nzbprov or "")
+@contextmanager
+def rss_lookup_memo():
+    """Cache identical rssdb lookups for the duration of one pass on this thread."""
+    token = _LOOKUP_MEMO.set({})
+    try:
+        yield
+    finally:
+        _LOOKUP_MEMO.reset(token)
+
+
+def rss_provider_lookup_key(seriesname, comicid, nzbprov, searchYear=None, ComicVersion=None, oneoff=False) -> tuple:
     if comicid not in (None, "None", "") and oneoff is not True:
-        return ("id", str(comicid), provider)
-    return ("name", str(seriesname or "").lower(), provider)
+        series = ("id", str(comicid))
+    else:
+        series = ("name", str(seriesname or "").lower())
+    return series + (str(nzbprov or ""), str(searchYear or ""), str(ComicVersion or ""), bool(oneoff))
 
 
 def copy_lookup_result(result):
@@ -128,31 +144,33 @@ def copy_lookup_result(result):
 
 
 def get_rss_provider_lookup(key: tuple):
-    generation = current_rssdb_generation()
-    with _LOOKUP_LOCK:
-        global _LOOKUP_GENERATION
-        if _LOOKUP_GENERATION != generation:
-            _LOOKUP_CACHE.clear()
-            _LOOKUP_GENERATION = generation
-        cached = _LOOKUP_CACHE.get(key)
-    if cached is None:
+    """Return a memoised lookup, or None when no memo is open or the key is new."""
+    memo = _LOOKUP_MEMO.get()
+    if memo is None or key not in memo:
         return None
-    return copy_lookup_result(cached)
+    return copy_lookup_result(memo[key])
 
 
 def put_rss_provider_lookup(key: tuple, result) -> None:
-    generation = current_rssdb_generation()
-    with _LOOKUP_LOCK:
-        global _LOOKUP_GENERATION
-        if _LOOKUP_GENERATION != generation:
-            _LOOKUP_CACHE.clear()
-            _LOOKUP_GENERATION = generation
-        _LOOKUP_CACHE[key] = copy_lookup_result(result)
+    memo = _LOOKUP_MEMO.get()
+    if memo is not None and result is not None:
+        memo[key] = copy_lookup_result(result)
 
 
-def clear_lookup_cache() -> None:
-    with _LOOKUP_LOCK:
-        _LOOKUP_CACHE.clear()
+def is_recent_release(row, *, today: date | None = None, days: int = RECENT_RELEASE_DAYS) -> bool:
+    """True when any of the row's release dates falls within the last ``days``."""
+    cutoff = (today or date.today()) - timedelta(days=days)
+    for field in ("StoreDate", "IssueDate", "DigitalDate"):
+        raw = row.get(field)
+        if not raw or str(raw).startswith("0000"):
+            continue
+        try:
+            released = date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            continue
+        if released >= cutoff:
+            return True
+    return False
 
 
 def _load_state(pass_kind: str) -> dict | None:
@@ -183,12 +201,12 @@ class PassBudget:
 
     def __init__(self, pass_kind: str, *, item_budget=None, seconds_budget=None, monotonic=time.monotonic):
         self.pass_kind = pass_kind
-        self.item_budget = DEFAULT_ITEM_BUDGET if item_budget is None else item_budget
         if item_budget is None:
-            self.item_budget = _config_int("WANTED_SEARCH_PASS_ITEMS", DEFAULT_ITEM_BUDGET)
-        self.seconds_budget = DEFAULT_SECONDS_BUDGET if seconds_budget is None else seconds_budget
+            item_budget = _config_int("WANTED_SEARCH_PASS_ITEMS", DEFAULT_ITEM_BUDGET)
         if seconds_budget is None:
-            self.seconds_budget = _config_int("WANTED_SEARCH_PASS_SECONDS", DEFAULT_SECONDS_BUDGET)
+            seconds_budget = _config_int("WANTED_SEARCH_PASS_SECONDS", DEFAULT_SECONDS_BUDGET)
+        self.item_budget = max(0, item_budget)
+        self.seconds_budget = max(0, seconds_budget)
         self._monotonic = monotonic
         self.started_at = monotonic()
         self.processed = 0
@@ -210,15 +228,8 @@ class PassBudget:
             return set()
         return {str(row["issue_id"]) for row in rows if row.get("issue_id")}
 
-    def already_seen(self, issue_id: str | None) -> bool:
-        if not issue_id:
-            return False
-        return str(issue_id) in self.seen
-
     def remaining(self) -> bool:
-        if self.item_budget and self.processed >= self.item_budget:
-            self.stop_reason = "item_budget"
-            return False
+        """False once the wall-clock budget is spent. select_candidates enforces the item budget."""
         if self.seconds_budget and (self._monotonic() - self.started_at) >= self.seconds_budget:
             self.stop_reason = "time_budget"
             return False
@@ -256,13 +267,18 @@ class PassBudget:
             % (self.pass_kind, self.cycle_generation or "(none)")
         )
 
-    def select_candidates(self, items, issue_id_of):
+    def select_candidates(self, items, issue_id_of, recent=None):
         """Return the next budgeted slice of unseen items, newest-first order preserved.
 
         When every candidate has already been checked and rssdb has not changed
         since this cycle started, return an empty list so the pass idles.
         When rssdb *has* changed since the cycle completed, clear seen and start
-        over. An in-flight cycle is not reset by an rssdb refresh.
+        over. An in-flight cycle is not reset by an rssdb refresh, so items for
+        which ``recent(item)`` is true are re-checked on every pass on top of the
+        item budget; a new release is not left waiting for the cycle to wrap.
+
+        Callers must ``consume`` every item returned, whatever happens to it.
+        An item handed out and never consumed keeps the cycle from completing.
         """
         indexed = []
         for item in items:
@@ -293,7 +309,10 @@ class PassBudget:
         self.skipped = len(indexed) - len(unseen)
         if self.item_budget:
             unseen = unseen[: self.item_budget]
-        return [item for _issue_id, item in unseen]
+        chosen = {issue_id for issue_id, _item in unseen}
+        if recent is not None:
+            chosen.update(issue_id for issue_id, item in indexed if issue_id in self.seen and recent(item))
+        return [item for issue_id, item in indexed if issue_id in chosen]
 
     def log_summary(self, extra: str = "") -> None:
         elapsed = self._monotonic() - self.started_at
@@ -306,8 +325,3 @@ class PassBudget:
         if extra:
             parts.append(extra)
         logger.info("; ".join(parts))
-
-
-def take_pass_slice(items, issue_id_of, budget: PassBudget):
-    """Compatibility wrapper used by tests and callers that prefer a function."""
-    return budget.select_candidates(items, issue_id_of)

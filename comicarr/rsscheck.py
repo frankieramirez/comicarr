@@ -35,13 +35,10 @@ from sqlalchemy.exc import OperationalError
 import comicarr
 from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
 from comicarr.app.search.backlog import (
-    PASS_MANGA_RSS,
-    PassBudget,
     get_rss_provider_lookup,
     put_rss_provider_lookup,
-    release_pass,
+    rss_lookup_memo,
     rss_provider_lookup_key,
-    try_acquire_pass,
 )
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.cfscrape_compat import import_cfscrape
@@ -704,6 +701,48 @@ def rssdbupdate(feeddata, i, type):
     return
 
 
+def _ddl_name_pattern(seriesname):
+    """ILIKE pattern ddl_dbsearch matches against rssdb.ComicName."""
+    dsearch_rem1 = re.sub("\\band\\b", "%", seriesname.lower())
+    dsearch_rem2 = re.sub("\\bthe\\b", "%", dsearch_rem1.lower())
+    dsearch_removed = re.sub(r"\s+", " ", dsearch_rem2)
+    dsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\-\\;\\/\\=\\?\\&\\.\\s\\,]", "%", dsearch_removed)
+    return "%" + dsearch_seriesname + "%"
+
+
+def _nzb_name_pattern(seriesname):
+    """ILIKE pattern nzbdbsearch matches against rssdb.Title for the primary name."""
+    nsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.\\-\\s]", "%", seriesname)
+    return "%" + nsearch_seriesname + "%"
+
+
+def _nzb_alt_pattern(alternate):
+    """ILIKE pattern nzbdbsearch matches against rssdb.Title for one ##-separated alternate."""
+    return "%" + re.sub("##", "", alternate) + "%"
+
+
+def series_has_rss_match(seriesname, alternate_search=None):
+    """True when any rssdb row, on any site, matches the series the way RSS lookups do.
+
+    Covers the nzbdbsearch primary-name and alternate-name patterns and the
+    ddl_dbsearch ComicName pattern, without the per-site filter. A False result
+    therefore means every RSS-mode provider lookup for the series would return
+    "no results". Fails open: an error reports a match so nothing is skipped.
+    """
+    conditions = [
+        rssdb.c.Title.ilike(_nzb_name_pattern(seriesname)),
+        rssdb.c.ComicName.ilike(_ddl_name_pattern(seriesname)),
+    ]
+    if alternate_search is not None:
+        conditions.extend(rssdb.c.Title.ilike(_nzb_alt_pattern(alt)) for alt in alternate_search.split("##"))
+    try:
+        with db.get_engine().connect() as conn:
+            return conn.execute(select(rssdb.c.Title).where(or_(*conditions)).limit(1)).first() is not None
+    except Exception as e:
+        logger.fdebug("[MANGA-RSS] rssdb match probe failed for %s; searching anyway: %s" % (seriesname, e))
+        return True
+
+
 def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
     if any([comicid is None, comicid == "None", oneoff is True]):
         pass
@@ -717,16 +756,12 @@ def ddl_dbsearch(seriesname, issue, comicid=None, nzbprov=None, oneoff=False):
         else:
             seriesname = snm["ComicName"]
 
-    cache_key = rss_provider_lookup_key(seriesname, comicid, "DDL(GetComics)", oneoff)
+    cache_key = rss_provider_lookup_key(seriesname, comicid, "DDL(GetComics)", oneoff=oneoff)
     cached = get_rss_provider_lookup(cache_key)
     if cached is not None:
         return cached
 
-    dsearch_rem1 = re.sub("\\band\\b", "%", seriesname.lower())
-    dsearch_rem2 = re.sub("\\bthe\\b", "%", dsearch_rem1.lower())
-    dsearch_removed = re.sub(r"\s+", " ", dsearch_rem2)
-    dsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\-\\;\\/\\=\\?\\&\\.\\s\\,]", "%", dsearch_removed)
-    dsearch = "%" + dsearch_seriesname + "%"
+    dsearch = _ddl_name_pattern(seriesname)
 
     with db.get_engine().connect() as conn:
         stmt = select(rssdb).where(
@@ -940,6 +975,7 @@ def nzbdbsearch(
     nzbinfo = {}
 
     seriesname_alt = None
+    cache_key = None
     if any([comicid is None, comicid == "None", oneoff is True, rsslist is not None]):
         pass
     else:
@@ -1162,16 +1198,15 @@ def nzbdbsearch(
                 % (len(rsslist), totalcnt, len(nzbtheinfo))
             )
     else:
-        cache_key = rss_provider_lookup_key(seriesname, comicid, nzbprov, oneoff)
+        cache_key = rss_provider_lookup_key(seriesname, comicid, nzbprov, searchYear, ComicVersion, oneoff)
         cached = get_rss_provider_lookup(cache_key)
         if cached is not None:
             logger.fdebug("[RSS-CACHE] hit for %s / %s" % (cache_key[1], nzbprov))
             return cached
 
-        nsearch_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.\\-\\s]", "%", seriesname)
         formatrem_seriesname = re.sub("['\\!\\@\\#\\$\\%\\:\\;\\/\\=\\?\\.]", "", seriesname)
 
-        nsearch = "%" + nsearch_seriesname + "%"
+        nsearch = _nzb_name_pattern(seriesname)
 
         with db.get_engine().connect() as conn:
             stmt = select(rssdb).where(
@@ -1191,8 +1226,7 @@ def nzbdbsearch(
                 if chkthealt == 0:
                     AS_Alternate = AlternateSearch
                 for calt in chkthealt:
-                    AS_Alternate = re.sub("##", "", calt)
-                    AS_Alternate = "%" + AS_Alternate + "%"
+                    AS_Alternate = _nzb_alt_pattern(calt)
                     with db.get_engine().connect() as conn:
                         stmt = select(rssdb).where(
                             rssdb.c.Title.ilike(AS_Alternate),
@@ -1286,8 +1320,8 @@ def nzbdbsearch(
                 )
 
     nzbinfo["entries"] = nzbtheinfo
-    if rsslist is None:
-        put_rss_provider_lookup(rss_provider_lookup_key(seriesname, comicid, nzbprov, oneoff), nzbinfo)
+    if cache_key is not None:
+        put_rss_provider_lookup(cache_key, nzbinfo)
     return nzbinfo
 
 
@@ -1722,8 +1756,10 @@ def mangaCheck():
 
     Uses the persisted per-series MonitorMode (default blended): missing
     released volumes plus chapters beyond the last released volume. Paused
-    series are skipped. Callable from the scheduler or manually. Each pass is
-    item- and time-bounded and resumes from a persisted seen-set.
+    series are skipped. Callable from the scheduler or manually.
+
+    A series whose names match no rssdb row on any site is skipped without a
+    search_init call, and identical rssdb lookups inside the pass run once.
     """
     from comicarr import search
     from comicarr.app.manga.acquisition import search_plan_for_series
@@ -1745,19 +1781,18 @@ def mangaCheck():
         logger.info("[MANGA-RSS] No active manga series found")
         return
 
-    if not try_acquire_pass():
-        logger.info("[MANGA-RSS] A scheduled Wanted/RSS backlog pass is already running; skipping")
-        return
+    logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
 
-    try:
-        logger.info("[MANGA-RSS] Found %d active manga series to check" % len(manga_series))
+    total_searched = 0
+    searched_series = 0
+    skipped_series = 0
+    issues_by_series = {}
 
-        issues_by_series = {}
-        for series in manga_series:
-            comic_id = series["ComicID"]
-            issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
+    for series in manga_series:
+        comic_id = series["ComicID"]
+        issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
 
-        pending = []
+    with rss_lookup_memo():
         for series in manga_series:
             comic_id = series["ComicID"]
             comic_name = series["ComicName"]
@@ -1767,6 +1802,15 @@ def mangaCheck():
             if not targets:
                 continue
 
+            if not series_has_rss_match(comic_name, series.get("AlternateSearch")):
+                logger.fdebug(
+                    "[MANGA-RSS] %s matches no rssdb entries on any site; skipping its %d target(s)"
+                    % (comic_name, len(targets))
+                )
+                skipped_series += 1
+                continue
+
+            searched_series += 1
             logger.info("[MANGA-RSS] %s has %d blended-frontier target(s)" % (comic_name, len(targets)))
             issue_by_id = {row.get("IssueID"): row for row in issues}
 
@@ -1782,67 +1826,47 @@ def mangaCheck():
                     chapter_number = target.get("number")
                     volume_number = None
                 issue_row = issue_by_id.get(issue_id) or {}
+                issue_date = issue_row.get("IssueDate") or "0000-00-00"
+                store_date = issue_row.get("ReleaseDate") or "0000-00-00"
+                digital_date = issue_row.get("DigitalDate") or "0000-00-00"
+
                 if issue_id and helpers.issue_status(issue_id) is True:
                     continue
-                pending.append(
-                    {
-                        "issue_id": issue_id,
-                        "comic_id": comic_id,
-                        "comic_name": comic_name,
-                        "series": series,
-                        "series_year": series_year,
-                        "issue_number": issue_number,
-                        "chapter_number": chapter_number,
-                        "volume_number": volume_number,
-                        "issue_date": issue_row.get("IssueDate") or "0000-00-00",
-                        "store_date": issue_row.get("ReleaseDate") or "0000-00-00",
-                        "digital_date": issue_row.get("DigitalDate") or "0000-00-00",
-                        "kind": target.get("kind"),
-                    }
-                )
 
-        budget = PassBudget(PASS_MANGA_RSS)
-        selected = budget.select_candidates(pending, lambda row: row.get("issue_id"))
-        total_searched = 0
-        for work in selected:
-            if not budget.remaining():
-                logger.info("[MANGA-RSS] Pass budget reached; remaining targets resume next run")
-                break
-            try:
-                search.search_init(
-                    work["comic_name"],
-                    str(work["issue_number"] or "1"),
-                    str(work["series_year"])[:4],
-                    str(work["series_year"])[:4],
-                    work["series"].get("ComicPublisher", ""),
-                    work["issue_date"],
-                    work["store_date"],
-                    work["issue_id"],
-                    AlternateSearch=work["series"].get("AlternateSearch"),
-                    UseFuzzy=work["series"].get("UseFuzzy"),
-                    ComicVersion=work["series"].get("ComicVersion"),
-                    smode="want",
-                    rsschecker="yes",
-                    ComicID=work["comic_id"],
-                    filesafe=work["series"].get("ComicName_Filesafe"),
-                    booktype="manga",
-                    digitaldate=work["digital_date"],
-                    content_type="manga",
-                    chapter_number=(None if work["chapter_number"] is None else str(work["chapter_number"])),
-                    volume_number=(None if work["volume_number"] is None else str(work["volume_number"])),
-                )
-                budget.consume(work["issue_id"])
-                total_searched += 1
-            except Exception as e:
-                logger.error(
-                    "[MANGA-RSS] Error searching for %s %s %s: %s"
-                    % (work["comic_name"], work.get("kind"), work["issue_number"], e)
-                )
+                try:
+                    search.search_init(
+                        comic_name,
+                        str(issue_number or "1"),
+                        str(series_year)[:4],
+                        str(series_year)[:4],
+                        series.get("ComicPublisher", ""),
+                        issue_date,
+                        store_date,
+                        issue_id,
+                        AlternateSearch=series.get("AlternateSearch"),
+                        UseFuzzy=series.get("UseFuzzy"),
+                        ComicVersion=series.get("ComicVersion"),
+                        smode="want",
+                        rsschecker="yes",
+                        ComicID=comic_id,
+                        filesafe=series.get("ComicName_Filesafe"),
+                        booktype="manga",
+                        digitaldate=digital_date,
+                        content_type="manga",
+                        chapter_number=None if chapter_number is None else str(chapter_number),
+                        volume_number=None if volume_number is None else str(volume_number),
+                    )
+                    total_searched += 1
+                except Exception as e:
+                    logger.error(
+                        "[MANGA-RSS] Error searching for %s %s %s: %s"
+                        % (comic_name, target.get("kind"), issue_number, e)
+                    )
 
-        budget.log_summary()
-        logger.info("[MANGA-RSS] Manga search complete — searched %d target(s)" % total_searched)
-    finally:
-        release_pass()
+    logger.info(
+        "[MANGA-RSS] Manga search complete — searched %d target(s) across %d series; skipped %d series with no RSS matches"
+        % (total_searched, searched_series, skipped_series)
+    )
 
 
 def mangadexNewChapterCheck():

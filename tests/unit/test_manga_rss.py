@@ -17,7 +17,13 @@ functions for manga series monitoring.
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck
+import pytest
+from sqlalchemy import event
+
+import comicarr
+from comicarr.db import get_engine, shutdown_engine
+from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck, nzbdbsearch
+from comicarr.tables import comics, metadata, rssdb
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -147,32 +153,140 @@ class TestMangaCheck:
 
         mock_search_init.assert_not_called()
 
-    @patch(
-        "comicarr.CONFIG",
-        SimpleNamespace(
-            FAILED_DOWNLOAD_HANDLING=False,
-            FAILED_AUTO=False,
-            WANTED_SEARCH_PASS_ITEMS=1,
-            WANTED_SEARCH_PASS_SECONDS=0,
-        ),
-    )
-    @patch("comicarr.rsscheck.helpers")
-    @patch("comicarr.rsscheck.db")
-    @patch("comicarr.search.search_init")
-    def test_respects_item_budget_and_leaves_the_rest_for_the_next_pass(self, mock_search_init, mock_db, mock_helpers):
-        series = _make_series()
-        ch1 = _make_chapter(ch_num="100", issue_id="md-abc123-ch100")
-        ch2 = _make_chapter(ch_num="101", issue_id="md-abc123-ch101")
 
-        mock_db.select_all.side_effect = [
-            [series],
-            [ch1, ch2],
+class TestMangaCheckRssdb:
+    """mangaCheck() against a real rssdb: per-series skip and the pass-scoped lookup memo."""
+
+    PROVIDERS = ("nzb.one", "nzb.two", "nzb.three")
+    ALT_NAMES = ("op", "wan pisu")
+
+    @pytest.fixture
+    def rss_db(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(
+            comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False), raising=False
+        )
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        shutdown_engine()
+        engine = get_engine()
+        metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(comics.insert().values(ComicID="md-hit", ComicName="One Piece", AlternateSearch=None))
+            conn.execute(comics.insert().values(ComicID="md-miss", ComicName="Dandadan", AlternateSearch=None))
+        queries = []
+
+        def count_rssdb(_conn, _cursor, statement, _params, _context, _many):
+            if "FROM rssdb" in statement and "LIMIT" not in statement:
+                queries.append(statement)
+
+        event.listen(engine, "before_cursor_execute", count_rssdb)
+        yield SimpleNamespace(engine=engine, rssdb_queries=queries)
+        event.remove(engine, "before_cursor_execute", count_rssdb)
+        shutdown_engine()
+
+    @staticmethod
+    def _add_rss_row(engine, title, site):
+        with engine.begin() as conn:
+            conn.execute(
+                rssdb.insert().values(Title=title, Link="https://example/" + title, Pubdate="now", Site=site, Size="1")
+            )
+
+    def _run(self, mock_db, series_rows, chapters_by_series, search_init):
+        mock_db.get_engine = get_engine
+        mock_db.select_all.side_effect = [series_rows] + [chapters_by_series[row["ComicID"]] for row in series_rows]
+        with patch("comicarr.rsscheck.helpers") as mock_helpers, patch("comicarr.search.search_init", search_init):
+            mock_helpers.issue_status.return_value = False
+            mangaCheck()
+
+    def _series(self):
+        return [
+            _make_series(comic_id="md-hit", name="One Piece"),
+            _make_series(comic_id="md-miss", name="Dandadan"),
         ]
-        mock_helpers.issue_status.return_value = False
 
-        mangaCheck()
+    def _chapters(self):
+        return {
+            "md-hit": [
+                _make_chapter(comic_id="md-hit", issue_id="md-hit-ch%s" % n, ch_num=str(n)) for n in (100, 101, 102)
+            ],
+            "md-miss": [_make_chapter(comic_id="md-miss", issue_id="md-miss-ch1", ch_num="1")],
+        }
 
-        assert mock_search_init.call_count == 1
+    def _lookup_every_provider_and_alt(self, results):
+        def fake_search_init(*args, **kwargs):
+            comic_id = kwargs["ComicID"]
+            for provider in self.PROVIDERS:
+                for alt in (args[0],) + self.ALT_NAMES:
+                    results.append((comic_id, nzbdbsearch(alt, args[1], comic_id, provider, args[2], None, False)))
+
+        return MagicMock(side_effect=fake_search_init)
+
+    @patch("comicarr.rsscheck.db")
+    def test_series_with_no_rss_rows_is_skipped(self, mock_db, rss_db):
+        self._add_rss_row(rss_db.engine, "One Piece 100 (2026)", "nzb.one")
+        search_init = MagicMock()
+
+        self._run(mock_db, self._series(), self._chapters(), search_init)
+
+        searched = [call.kwargs["ComicID"] for call in search_init.call_args_list]
+        assert searched.count("md-miss") == 0
+        assert searched.count("md-hit") == 3
+
+    @patch("comicarr.rsscheck.db")
+    def test_alternate_name_or_ddl_match_keeps_the_series(self, mock_db, rss_db):
+        with rss_db.engine.begin() as conn:
+            conn.execute(comics.update().where(comics.c.ComicID == "md-miss").values(AlternateSearch="Dan Da Dan"))
+        self._add_rss_row(rss_db.engine, "Dan Da Dan 001", "nzb.one")
+        with rss_db.engine.begin() as conn:
+            conn.execute(rssdb.insert().values(Title="GC post", Link="l", Site="DDL(GetComics)", ComicName="One Piece"))
+        series = self._series()
+        series[1]["AlternateSearch"] = "Dan Da Dan"
+        search_init = MagicMock()
+
+        self._run(mock_db, series, self._chapters(), search_init)
+
+        assert {call.kwargs["ComicID"] for call in search_init.call_args_list} == {"md-hit", "md-miss"}
+
+    @patch("comicarr.rsscheck.db")
+    def test_repeat_lookups_in_one_pass_hit_rssdb_once_per_provider(self, mock_db, rss_db):
+        for provider in self.PROVIDERS:
+            self._add_rss_row(rss_db.engine, "One Piece 100 [%s]" % provider, provider)
+        results = []
+
+        self._run(mock_db, self._series(), self._chapters(), self._lookup_every_provider_and_alt(results))
+
+        assert len(results) == 3 * len(self.PROVIDERS) * (1 + len(self.ALT_NAMES))
+        assert len(rss_db.rssdb_queries) == len(self.PROVIDERS)
+        assert all(len(found["entries"]) == 1 for _comic_id, found in results)
+
+    @patch("comicarr.rsscheck.db")
+    def test_memo_is_dropped_between_passes(self, mock_db, rss_db):
+        self._add_rss_row(rss_db.engine, "One Piece 100 [one]", "nzb.one")
+        first = []
+        self._run(mock_db, self._series(), self._chapters(), self._lookup_every_provider_and_alt(first))
+        assert {comic_id for comic_id, _found in first} == {"md-hit"}
+
+        self._add_rss_row(rss_db.engine, "One Piece 101 [one]", "nzb.one")
+        self._add_rss_row(rss_db.engine, "Dandadan 001 [one]", "nzb.one")
+        second = []
+        self._run(mock_db, self._series(), self._chapters(), self._lookup_every_provider_and_alt(second))
+
+        hit_titles = {
+            entry["title"]
+            for comic_id, found in second
+            if comic_id == "md-hit" and found != "no results"
+            for entry in found["entries"]
+        }
+        assert hit_titles == {"One Piece 100 [one]", "One Piece 101 [one]"}
+        assert "md-miss" in {comic_id for comic_id, _found in second}
+
+    def test_lookups_outside_a_pass_are_not_memoised(self, rss_db):
+        self._add_rss_row(rss_db.engine, "One Piece 100 [one]", "nzb.one")
+
+        nzbdbsearch("One Piece", "100", "md-hit", "nzb.one", "1999", None, False)
+        nzbdbsearch("One Piece", "101", "md-hit", "nzb.one", "1999", None, False)
+
+        assert len(rss_db.rssdb_queries) == 2
 
 
 # ---------------------------------------------------------------------------
