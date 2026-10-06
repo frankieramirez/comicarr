@@ -50,10 +50,10 @@ def _journal(**overrides):
     return base
 
 
-def test_registry_covers_exactly_twenty_three_bases():
-    assert len(reasons.KNOWN_BASE_TOKENS) == 23
+def test_registry_covers_exactly_twenty_four_bases():
+    assert len(reasons.KNOWN_BASE_TOKENS) == 24
     assert len(reasons.REASON_PHRASES) == 15
-    assert len(reasons.NON_ACTIONABLE_FLAT) == 7
+    assert len(reasons.NON_ACTIONABLE_FLAT) == 8
     assert len(reasons.NON_ACTIONABLE_COMPOSITE) == 1
     # Every exclusion has a reconciliation obligation; no admitted token is excluded.
     for token in reasons.NON_ACTIONABLE_FLAT | reasons.NON_ACTIONABLE_COMPOSITE:
@@ -70,6 +70,7 @@ def test_is_actionable_fail_open_and_exclusions():
     assert reasons.is_actionable("postprocess_error:ValueError") is True
     assert reasons.is_actionable("download_gone") is False
     assert reasons.is_actionable("ddl-worker-rejected") is False
+    assert reasons.is_actionable("ddl_stalled") is False
     assert reasons.is_actionable("immutable_payload_conflict:issueid") is False
     assert reasons.is_actionable("immutable_payload_conflict") is False
 

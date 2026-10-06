@@ -1181,17 +1181,15 @@ def start(ctx):
 
             if CONFIG.ENABLE_DDL is True:
                 queue_schedule("ddl_queue", "start", ctx=ctx)
-                if CONFIG.DDL_STUCK_NOTIFY is True:
-                    _add_recurring_job(
-                        func=helpers.ddl_health_check,
-                        id="ddl_health",
-                        name="DDL Health Check",
-                        trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DDL_STUCK_CHECK_INTERVAL), timezone="UTC"),
-                    )
-                    logger.info(
-                        "[DDL-HEALTH] DDL health check enabled, running every %s minutes"
-                        % CONFIG.DDL_STUCK_CHECK_INTERVAL
-                    )
+                _add_recurring_job(
+                    func=helpers.ddl_health_check,
+                    id="ddl_health",
+                    name="DDL Health Check",
+                    trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DDL_STUCK_CHECK_INTERVAL), timezone="UTC"),
+                )
+                logger.info(
+                    "[DDL-HEALTH] DDL health check enabled, running every %s minutes" % CONFIG.DDL_STUCK_CHECK_INTERVAL
+                )
 
             helpers.latestdate_fix()
 

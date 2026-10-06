@@ -61,7 +61,7 @@ def production_chat_db(tmp_path, monkeypatch):
         conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0002_legacy_adoption')"))
-    assert upgrade_database(engine) == "0009_chat_actions"
+    assert upgrade_database(engine) == "0010_search_backlog_budget"
     yield tmp_path
     db.shutdown_engine()
 

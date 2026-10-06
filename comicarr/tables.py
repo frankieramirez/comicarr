@@ -786,6 +786,23 @@ interactive_search_candidates = Table(
     ),
 )
 
+search_backlog_state = Table(
+    "search_backlog_state",
+    metadata,
+    Column("pass_kind", String(32), primary_key=True, unique=True),
+    Column("cursor_key", String(255)),
+    Column("rssdb_generation", String(40), nullable=False, server_default=""),
+    Column("updated_at", String(40), nullable=False),
+)
+
+rss_search_seen = Table(
+    "rss_search_seen",
+    metadata,
+    Column("pass_kind", String(32), primary_key=True),
+    Column("issue_id", String(255), primary_key=True),
+    Column("checked_at", String(40), nullable=False),
+)
+
 acquisition_reconciliation = Table(
     "acquisition_reconciliation",
     metadata,
@@ -1129,6 +1146,8 @@ TABLE_MAP = {
     "acquisition_search_previews": acquisition_search_previews,
     "interactive_search_sessions": interactive_search_sessions,
     "interactive_search_candidates": interactive_search_candidates,
+    "search_backlog_state": search_backlog_state,
+    "rss_search_seen": rss_search_seen,
     "acquisition_reconciliation": acquisition_reconciliation,
     "acquisition_canary_permits": acquisition_canary_permits,
     "acquisition_maintenance": acquisition_maintenance,

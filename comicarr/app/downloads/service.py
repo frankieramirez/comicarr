@@ -1093,6 +1093,14 @@ def _finalize_ddl_download(item, ddzstat, release_key):
     return True
 
 
+_ACTIVE_DDL_ITEM = {"id": None}
+
+
+def active_ddl_item_id():
+    """Return the ID of the item the DDL worker is processing, or None."""
+    return _ACTIVE_DDL_ITEM["id"]
+
+
 def ddl_downloader(queue):
     """Run the DDL worker without allowing one poison item to stop it."""
     active_item = {"value": None}
@@ -1162,6 +1170,8 @@ def ddl_downloader(queue):
                 link_type_failure.pop(item_id, None)
                 ddl_cleanup(item_id)
             active_item["value"] = None
+        finally:
+            _ACTIVE_DDL_ITEM["id"] = None
 
 
 def _ddl_downloader_loop(queue, link_type_failure, active_item):
@@ -1170,6 +1180,8 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
     from comicarr.helpers import check_file_condition
 
     while True:
+        # Every path out of the previous item comes back here.
+        _ACTIVE_DDL_ITEM["id"] = None
         if comicarr.DDL_LOCK.locked():
             time.sleep(5)
         elif not comicarr.DDL_LOCK.locked() and queue.qsize() >= 1:
@@ -1185,6 +1197,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     canonical_item[internal_key] = item[internal_key]
             item = canonical_item
             active_item["value"] = item
+            _ACTIVE_DDL_ITEM["id"] = item["id"]
             if item["id"] not in comicarr.DDL_QUEUED:
                 comicarr.DDL_QUEUED.add(item["id"])
             try:
@@ -1523,15 +1536,119 @@ def ddl_cleanup(id):
         logger.fdebug("[HTML-cleanup] Unable to remove html used for item from html_cache folder.")
 
 
-def ddl_health_check():
+# ddl_info status that matches a terminal journal stage.
+_DDL_STATUS_FOR_TERMINAL_STAGE = {
+    "failed": "Failed",
+    "cancelled": "Failed",
+    "manual_review": "Manual Review",
+    "post_processed": "Completed",
+}
+
+
+def _parse_ddl_updated_date(value):
+    if value in (None, ""):
+        return None
+    try:
+        return datetime.datetime.strptime(str(value), "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return None
+
+
+def _notify_ddl_stuck_once(item, age_minutes):
+    """Log and notify a stuck row once per process."""
+
+    item_id = item["ID"]
+    if item_id in comicarr.DDL_STUCK_NOTIFIED:
+        return
+    comicarr.DDL_STUCK_NOTIFIED.add(item_id)
+    logger.warn("[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item.get("series"), item_id))
     if not comicarr.CONFIG.DDL_STUCK_NOTIFY:
         return
+    try:
+        from comicarr.app.system.service import notify_ddl_stuck
+
+        notify_ddl_stuck(item, int(age_minutes))
+    except Exception as e:
+        logger.error("[DDL-HEALTH] notification failed for %s: %s" % (item_id, e))
+
+
+def _fail_stalled_ddl(ddl_row, journal_row):
+    """Fail a live-link orphan through Attention, then move its row to Failed."""
+
+    from comicarr.app.downloads import journal
+
+    ddl_id = ddl_row["ID"]
+    record(
+        Failure(
+            release_key=journal_row["release_key"],
+            reason="ddl_stalled",
+            payload=journal.load_payload(journal_row.get("payload_json")),
+            issue_id=journal_row.get("issueid"),
+            provider=journal_row.get("provider"),
+            downloader_type=journal_row.get("downloader_type"),
+            nzb_name=journal_row.get("nzbname") or ddl_row.get("filename"),
+            release_id=ddl_id,
+            comic_id=ddl_row.get("comicid"),
+            comic_name=ddl_row.get("series"),
+            issue_number=ddl_row.get("issues"),
+        )
+    )
+    dl_queries.claim_downloading_ddl(ddl_id, "Failed")
+
+
+def _reconcile_stuck_ddl_row(ddl_row, age_minutes):
+    """Move one orphaned Downloading row out of Downloading.
+
+    Uses the same anchor lookup and link verdicts as startup recovery. A row
+    whose link cannot be checked is left alone and notified; the next check
+    retries it.
+    """
+
+    from comicarr.app.downloads import journal, recovery, recovery_classify
+
+    ddl_id = ddl_row["ID"]
+    label = "%s (%s)" % (ddl_row.get("series"), ddl_id)
+    anchors = recovery.ddl_journal_anchors(ddl_row)
+    if not anchors:
+        recovery.quarantine_unanchored_ddl_row(ddl_row)
+        logger.warn("[DDL-HEALTH] Stuck download has no journal anchor; sent to Manual Review: %s" % label)
+        return
+
+    open_rows = [row for row in anchors if not journal.is_terminal(row.get("stage"))]
+    if not open_rows:
+        latest = max(anchors, key=lambda row: row.get("updated_date") or "")
+        status = _DDL_STATUS_FOR_TERMINAL_STAGE.get(latest.get("stage"), "Failed")
+        if dl_queries.claim_downloading_ddl(ddl_id, status):
+            logger.warn("[DDL-HEALTH] Stuck download already closed in the journal; marked %s: %s" % (status, label))
+        return
+
+    journal_row = max(open_rows, key=lambda row: row.get("updated_date") or "")
+    verdict = recovery_classify.classify(journal_row)
+    if verdict == recovery_classify.GONE:
+        recovery_classify.apply_verdict(journal_row, verdict)
+        dl_queries.claim_downloading_ddl(ddl_id, "Failed")
+        logger.warn("[DDL-HEALTH] Stuck download's link is dead; marked Failed: %s" % label)
+    elif verdict == recovery_classify.STILL:
+        _fail_stalled_ddl(ddl_row, journal_row)
+        logger.warn(
+            "[DDL-HEALTH] Stuck download stalled after %d minutes; marked Failed: %s" % (int(age_minutes), label)
+        )
+    else:
+        _notify_ddl_stuck_once(ddl_row, age_minutes)
+
+
+def ddl_health_check():
+    """Reconcile orphaned Downloading rows past the stuck threshold.
+
+    The worker's active item, and anything queued for this process's worker,
+    is never status-changed here; it is notified once per process. Every other
+    Downloading row is an orphan and leaves Downloading, so it cannot be
+    re-notified after a restart.
+    """
     if not comicarr.CONFIG.ENABLE_DDL:
         return
 
     from sqlalchemy import select
-
-    from comicarr.app.system.service import notify_ddl_stuck
 
     stuck_items = db.select_all(select(ddl_info).where(ddl_info.c.status == "Downloading"))
     if not stuck_items:
@@ -1541,34 +1658,21 @@ def ddl_health_check():
     now = datetime.datetime.now()
 
     for item in stuck_items:
-        if item["updated_date"] is None:
-            continue
-        try:
-            updated = datetime.datetime.strptime(item["updated_date"], "%Y-%m-%d %H:%M")
-        except ValueError:
+        updated = _parse_ddl_updated_date(item.get("updated_date"))
+        if updated is None:
             continue
         age_minutes = (now - updated).total_seconds() / 60
-        if age_minutes > threshold_minutes:
-            if item["ID"] in comicarr.DDL_STUCK_NOTIFIED:
-                continue
-            try:
-                from comicarr.app.downloads import journal
-                from comicarr.tables import pipeline_journal
+        if age_minutes <= threshold_minutes:
+            continue
 
-                stmt = select(pipeline_journal).where(
-                    pipeline_journal.c.stage == journal.FAILED,
-                    pipeline_journal.c.issueid == str(item["issueid"]),
-                )
-                if db.select_one(stmt) is not None:
-                    comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
-                    continue
-            except Exception as e:
-                logger.fdebug("[DDL-HEALTH] journal reconciliation skipped (non-fatal): %s" % e)
-            logger.warn(
-                "[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item["series"], item["ID"])
-            )
-            notify_ddl_stuck(item, int(age_minutes))
-            comicarr.DDL_STUCK_NOTIFIED.add(item["ID"])
+        item_id = item["ID"]
+        if item_id == active_ddl_item_id() or item_id in comicarr.DDL_QUEUED:
+            _notify_ddl_stuck_once(item, age_minutes)
+            continue
+        try:
+            _reconcile_stuck_ddl_row(item, age_minutes)
+        except Exception as e:
+            logger.error("[DDL-HEALTH] Could not reconcile stuck download %s; retrying next check: %s" % (item_id, e))
 
 
 def postprocess_main(queue):

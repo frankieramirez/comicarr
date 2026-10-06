@@ -13,6 +13,8 @@ Downloads domain queries — snatched history, DDL queue, nzblog, failed.
 Uses SQLAlchemy Core via the existing db module.
 """
 
+import datetime
+
 from sqlalchemy import delete, func, or_, select, update
 
 from comicarr import db
@@ -168,6 +170,20 @@ def delete_ddl_item(item_id):
 def update_ddl_status(item_id, status):
     """Update DDL queue item status."""
     db.upsert("ddl_info", {"status": status}, {"ID": item_id})
+
+
+def claim_downloading_ddl(item_id, status):
+    """Atomically move one Downloading row to ``status``; False if it already moved."""
+
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    with db.get_engine().begin() as conn:
+        result = conn.execute(
+            update(t_ddl_info)
+            .where(t_ddl_info.c.ID == str(item_id))
+            .where(t_ddl_info.c.status == "Downloading")
+            .values(status=status, updated_date=now)
+        )
+    return result.rowcount == 1
 
 
 def claim_failed_ddl_retry(item_id):
