@@ -238,7 +238,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("MAL_ENABLED", bool, "MAL", False, readable=True, writable=True),
     ConfigKey("MAL_CLIENT_ID", str, "MAL", None, writable=True),
     ConfigKey("LOG_DIR", str, "Logs", None, readable=True),
-    ConfigKey("MAX_LOGSIZE", int, "Logs", 10000000, readable=True),
+    ConfigKey("MAX_LOGSIZE", int, "Logs", 50000000, readable=True),
     ConfigKey("MAX_LOGFILES", int, "Logs", 5, readable=True),
     ConfigKey("LOG_LEVEL", int, "Logs", 1, readable=True, writable=True),
     ConfigKey("GIT_PATH", str, "Git", None),

@@ -170,6 +170,32 @@ def _rss_result_log_summary(result):
     )
 
 
+_GEN_ALTNAMES_LOGGED = set()
+
+
+def reset_gen_altnames_log():
+    """Forget which series have announced their alternate-name list this pass."""
+    _GEN_ALTNAMES_LOGGED.clear()
+
+
+def _issue_search_summary(comic_name, issue_number, series_year, providers_tried, modes):
+    """One INFO line for an issue search: outcome plus which providers ran."""
+    year_bit = " (%s)" % series_year if series_year else ""
+    if issue_number is not None:
+        target = "%s%s #%s" % (comic_name, year_bit, issue_number)
+    else:
+        target = "%s%s" % (comic_name, year_bit)
+    mode_bit = "+".join(modes) if modes else "search"
+    if not providers_tried:
+        return "[SEARCH] %s: no match after %s (no providers tried)" % (target, mode_bit)
+    return "[SEARCH] %s: no match after %s across %s provider(s) (%s)" % (
+        target,
+        mode_bit,
+        len(providers_tried),
+        ", ".join(providers_tried),
+    )
+
+
 def get_http_session():
     """
     Get the module-level HTTP session with connection pooling.
@@ -404,6 +430,9 @@ def search_init(
 
     findcomiciss, c_number = get_findcomiciss(IssueNumber)
 
+    providers_tried = []
+    search_modes_used = []
+
     while srchloop <= searchcnt:
         """searchmodes:
         rss - will run through the built-cached db of entries
@@ -435,7 +464,7 @@ def search_init(
                     cmloopit = 2
                 else:
                     cmloopit = 1
-        logger.info("cmloopit: %s" % cmloopit)
+        logger.fdebug("cmloopit: %s" % cmloopit)
         chktpb = 0
         from comicarr.app.manga.acquisition import booktype_bypasses_format_gates
 
@@ -472,8 +501,24 @@ def search_init(
         checked_once = []
         prov_count = 0
 
+        if searchmode not in search_modes_used:
+            search_modes_used.append(searchmode)
+        if searchmode == "rss":
+            altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
+        elif unfiltered_pass_active():
+            altnames = [
+                {
+                    "ComicName": ComicName,
+                    "unaltered_ComicName": ComicName,
+                }
+            ]
+        else:
+            altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
+        if manga_volume_target:
+            altnames, manga_volume_terms = manga_volume_altnames(altnames, volume_number)
+
         while tmp_prov_count > prov_count:
-            logger.info("tmp_prov_count: %s / prov_count: %s" % (tmp_prov_count, prov_count))
+            logger.fdebug("tmp_prov_count: %s / prov_count: %s" % (tmp_prov_count, prov_count))
             tmp_cmloopit = cmloopit
             progress_provider = provider_list["prov_order"][prov_count]
             while tmp_cmloopit >= (0 if pack_title_pass else 1):
@@ -483,7 +528,7 @@ def search_init(
                     tmp_IssueNumber = IssueNumber
 
                 prov_order = provider_list["prov_order"]
-                logger.info("checked_once: %s" % (checked_once,))
+                logger.fdebug("checked_once: %s" % (checked_once,))
                 if checked_once:
                     if prov_order[prov_count] in checked_once:
                         break
@@ -494,7 +539,7 @@ def search_init(
                 send_prov_count = tmp_prov_count - prov_count
                 newznab_host = None
                 torznab_host = None
-                logger.info("prov_order[prov_count]: %s" % (prov_order[prov_count],))
+                logger.fdebug("prov_order[prov_count]: %s" % (prov_order[prov_count],))
 
                 searchprov = last_run_check(check=True)
 
@@ -537,7 +582,7 @@ def search_init(
                 ):
                     if all(["experimental" not in searchprov.keys(), "Experimental" not in searchprov.keys()]):
                         prov_order[prov_count] = "experimental"
-                        logger.info("resetting searchprov - last run here..")
+                        logger.fdebug("resetting searchprov - last run here..")
                         searchprov["experimental"] = {
                             "id": 101,
                             "type": "experimental",
@@ -625,7 +670,7 @@ def search_init(
                         if fnd is True:
                             break
                 else:
-                    logger.info("why here? resetting searchprov - last run here..")
+                    logger.fdebug("why here? resetting searchprov - last run here..")
                     newznab_host = None
                     torznab_host = None
                     if prov_order[prov_count].lower() not in searchprov.keys():
@@ -640,7 +685,7 @@ def search_init(
                         searchprov[prov_order[prov_count].lower()]["active"] = True
 
                 current_prov = get_current_prov(searchprov)
-                logger.info("current_prov: %s" % (current_prov))
+                logger.fdebug("current_prov: %s" % (current_prov))
 
                 if all(
                     [
@@ -650,7 +695,7 @@ def search_init(
                 ):
                     break
 
-                logger.info("tmp_cmloopit: %s [Issue #:%s]" % (tmp_cmloopit, tmp_IssueNumber))
+                logger.fdebug("tmp_cmloopit: %s [Issue #:%s]" % (tmp_cmloopit, tmp_IssueNumber))
 
                 scarios = {
                     "tmp_IssueNumber": tmp_IssueNumber,
@@ -685,48 +730,21 @@ def search_init(
                     "findit": findit,
                 }
 
-                if searchmode == "rss":
-                    logger.info("RSS searchmode enabled for %s" % ComicName)
-                    scarios["RSS"] = "yes"
-                    altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
-                    if manga_volume_target:
-                        altnames, manga_volume_terms = manga_volume_altnames(altnames, volume_number)
-                        scarios["manga_volume_terms"] = manga_volume_terms
-                    for xx in altnames:
-                        logger.info("comicname searched for: %s" % ComicName)
-                        if all([findit["status"] is False, not provider_blocked]):
-                            scarios["ComicName"] = xx["ComicName"]
-                            scarios["unaltered_ComicName"] = xx["unaltered_ComicName"]
-                            findit = search_the_matrix(scarios)
-                            if findit["status"] is True:
-                                logger.fdebug("findit = found!")
-                                break
-
-                else:
-                    logger.info("API searchmode enabled for %s" % ComicName)
-                    scarios["RSS"] = "no"
-                    if unfiltered_pass_active():
-                        altnames = [
-                            {
-                                "ComicName": ComicName,
-                                "unaltered_ComicName": ComicName,
-                            }
-                        ]
-                    else:
-                        altnames = gen_altnames(ComicName, AlternateSearch, filesafe, smode)
-                    if manga_volume_target:
-                        altnames, manga_volume_terms = manga_volume_altnames(altnames, volume_number)
-                        scarios["manga_volume_terms"] = manga_volume_terms
-                    for xx in altnames:
-                        logger.info("comicname searched for: %s" % ComicName)
-                        if all([findit["status"] is False, not provider_blocked]):
-                            scarios["ComicName"] = xx["ComicName"]
-                            scarios["unaltered_ComicName"] = xx["unaltered_ComicName"]
-                            findit = search_the_matrix(scarios)
-                            logger.info("findit: %s" % (findit,))
-                            if findit["status"] is True:
-                                logger.fdebug("findit = found!")
-                                break
+                scarios["RSS"] = "yes" if searchmode == "rss" else "no"
+                logger.fdebug("%s searchmode enabled for %s" % (searchmode.upper(), ComicName))
+                prov_label = "".join(current_prov.keys()) if current_prov else None
+                if prov_label and prov_label not in providers_tried:
+                    providers_tried.append(prov_label)
+                for xx in altnames:
+                    logger.fdebug("comicname searched for: %s" % xx["ComicName"])
+                    if all([findit["status"] is False, not provider_blocked]):
+                        scarios["ComicName"] = xx["ComicName"]
+                        scarios["unaltered_ComicName"] = xx["unaltered_ComicName"]
+                        findit = search_the_matrix(scarios)
+                        logger.fdebug("findit: %s" % (findit,))
+                        if findit["status"] is True:
+                            logger.fdebug("findit = found!")
+                            break
 
                 if findit["status"] is True:
                     break
@@ -743,7 +761,7 @@ def search_init(
                     "Public Torrents",
                     "experimental",
                 ):
-                    logger.info("check_once check.")
+                    logger.fdebug("check_once check.")
                     checked_once.append("".join(current_prov.keys()))
 
                 if current_prov.get("newznab"):
@@ -763,12 +781,12 @@ def search_init(
                                     issuedisplay = None
 
                     if issuedisplay is None:
-                        logger.info(
+                        logger.fdebug(
                             "Could not find %s (%s) using %s [%s]"
                             % (ComicName, SeriesYear, list(current_prov.keys())[0], searchmode)
                         )
                     else:
-                        logger.info(
+                        logger.fdebug(
                             "Could not find Issue %s of %s (%s) using %s [%s]"
                             % (
                                 issuedisplay,
@@ -795,9 +813,9 @@ def search_init(
 
             progress.report_provider_complete(progress_provider)
             prov_count += 1
-            logger.info("attempting to set %s to not being the active provider." % (list(current_prov.keys())[0]))
+            logger.fdebug("attempting to set %s to not being the active provider." % (list(current_prov.keys())[0]))
             if findit["lastrun"] != 0:
-                logger.info("setting last run to: %s" % (findit["lastrun"]))
+                logger.fdebug("setting last run to: %s" % (findit["lastrun"]))
                 last_run_check(
                     write={
                         "".join(current_prov.keys()): {
@@ -810,7 +828,7 @@ def search_init(
                     }
                 )
             current_prov[list(current_prov.keys())[0]]["active"] = False
-            logger.info("setting took. Current provider is: %s" % (current_prov,))
+            logger.fdebug("setting took. Current provider is: %s" % (current_prov,))
 
         srchloop += 1
 
@@ -826,7 +844,7 @@ def search_init(
     else:
         logger.fdebug("findit: %s" % findit)
         if manualsearch is None:
-            logger.info("Finished searching via : %s. Issue not found - status kept as Wanted." % searchmode)
+            logger.info(_issue_search_summary(ComicName, IssueNumber, SeriesYear, providers_tried, search_modes_used))
         else:
             logger.fdebug("Could not find issue doing a manual search via : %s" % searchmode)
         if current_prov.get("32P"):
@@ -1060,16 +1078,16 @@ def NZB_SEARCH(
             tmpprov = nzbprov
     if cmloopit == 4:
         issuedisplay = None
-        logger.info("Shhh be very quiet...I'm looking for %s (%s) using %s." % (ComicName, ComicYear, tmpprov))
+        logger.fdebug("Shhh be very quiet...I'm looking for %s (%s) using %s." % (ComicName, ComicYear, tmpprov))
     elif IssueNumber is not None:
         issuedisplay = IssueNumber
     else:
         issuedisplay = StoreDate[5:]
 
     if "0-Day Comics Pack" in ComicName:
-        logger.info("Shhh be very quiet...I'm looking for %s using %s." % (ComicName, tmpprov))
+        logger.fdebug("Shhh be very quiet...I'm looking for %s using %s." % (ComicName, tmpprov))
     elif cmloopit != 4:
-        logger.info(
+        logger.fdebug(
             "Shhh be very quiet...I'm looking for %s issue: %s (%s) using %s."
             % (ComicName, issuedisplay, ComicYear, tmpprov)
         )
@@ -1276,7 +1294,7 @@ def NZB_SEARCH(
                     ComicVersion,
                     oneoff,
                 )
-            logger.info("bb: %s" % (bb,))
+            logger.fdebug("bb: %s" % (bb,))
             if any([bb is None, bb == "no results"]):
                 verified_matches = "no results"
             else:
@@ -1421,7 +1439,7 @@ def NZB_SEARCH(
                         )
                         break
                     is_info["foundc"]["lastrun"] = time.time()
-                    logger.info(
+                    logger.fdebug(
                         "setting lastrun for %s to %s"
                         % (is_info["foundc"]["provider"], time.ctime(is_info["foundc"]["lastrun"]))
                     )
@@ -1504,7 +1522,7 @@ def NZB_SEARCH(
                         verified_matches = evaluator.evaluate(entries, is_info).selected
 
             elif nzbprov == "experimental":
-                logger.info("sending %s to experimental search" % findcomic)
+                logger.fdebug("sending %s to experimental search" % findcomic)
                 bb = findcomicfeed.Startit(findcomic, isssearch, comyear, ComicVersion, IssDateFix, booktype)
                 if any([bb == "disable", bb == "no results"]):
                     helpers.disable_provider("experimental", "unresponsive / down")
@@ -1862,6 +1880,8 @@ def searchforissue(
                 comicarr.SEARCHLOCK.acquire()
             else:
                 logger.info("Initiating check to add Wanted items to Search Queue....")
+
+            reset_gen_altnames_log()
 
             stloop = 2
             results = []
@@ -2334,15 +2354,15 @@ def searchforissue(
                         searchmode = xr["searchmode"]
 
                         current_prov = last_run_check(check=True, provider=x["site"])
-                        logger.info("current_prov: %s" % (current_prov,))
+                        logger.fdebug("current_prov: %s" % (current_prov,))
                         if len(current_prov) > 0:
                             nzbprov = list(current_prov.keys())[0]
                             provider_stat = current_prov.get(list(current_prov.keys())[0])
                         else:
                             nzbprov = x["site"]
                         foundc["lastrun"] = provider_stat["lastrun"]
-                        logger.info("nzbprov: %s" % nzbprov)
-                        logger.info("provider_stat: %s" % (provider_stat,))
+                        logger.fdebug("nzbprov: %s" % nzbprov)
+                        logger.fdebug("provider_stat: %s" % (provider_stat,))
 
                         newznab_info = None
                         torznab_info = None
@@ -2351,7 +2371,7 @@ def searchforissue(
                                 pni = provider_list["newznab_info"]
                                 for pl in pni:
                                     if pl["info"][0] == nzbprov:
-                                        logger.info("newznab match: %s" % nzbprov)
+                                        logger.fdebug("newznab match: %s" % nzbprov)
                                         newznab_info = pl["info"]
                                         break
 
@@ -2360,7 +2380,7 @@ def searchforissue(
                                 pni = provider_list["torznab_info"]
                                 for pl in pni:
                                     if pl["info"][0] == nzbprov:
-                                        logger.info("torznab match: %s" % nzbprov)
+                                        logger.fdebug("torznab match: %s" % nzbprov)
                                         torznab_info = pl["info"]
                                         break
 
@@ -2382,7 +2402,7 @@ def searchforissue(
                         if any([booktype == "TPB", booktype == "HC", booktype == "GN"]):
                             chktpb = 1
 
-                        logger.info("provider order: %s" % provider_list["prov_order"])
+                        logger.fdebug("provider order: %s" % provider_list["prov_order"])
 
                         intIss = helpers.issuedigits(xr["Issue_Number"])
 
@@ -2467,10 +2487,10 @@ def searchforissue(
                         ]
 
                         verified_matches = evaluator.evaluate(entries, is_info).selected
-                        logger.info("verified_matches_returned: %s" % (verified_matches,))
+                        logger.fdebug("verified_matches_returned: %s" % (verified_matches,))
                         if len(verified_matches) > 0:
                             response = verification(verified_matches, is_info)
-                            logger.info("response: %s" % (response,))
+                            logger.fdebug("response: %s" % (response,))
 
                     except Exception as err:
                         exc_type, exc_value, exc_tb = sys.exc_info()
@@ -4132,18 +4152,22 @@ def search_the_matrix(scarios):
 
 
 def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
+    log_key = (ComicName, AlternateSearch, filesafe, smode)
+    announce = log_key not in _GEN_ALTNAMES_LOGGED
+    if announce:
+        _GEN_ALTNAMES_LOGGED.add(log_key)
+    alt_log = logger.info if announce else logger.fdebug
+
     if filesafe:
         if filesafe != ComicName and smode != "want_ann":
-            logger.info(
-                "[SEARCH] Special Characters exist within Series Title. Enabling search-safe Name : %s" % filesafe
-            )
+            alt_log("[SEARCH] Special Characters exist within Series Title. Enabling search-safe Name : %s" % filesafe)
             if AlternateSearch is None or AlternateSearch == "None":
                 AlternateSearch = filesafe
             else:
                 AlternateSearch += "##" + filesafe
 
     if smode == "want_ann":
-        logger.info("Annual/Special issue search detected. Appending to issue #")
+        alt_log("Annual/Special issue search detected. Appending to issue #")
 
         if all(
             [
@@ -4165,25 +4189,23 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
     searchlist = []
     Altname = None
     ignore_previous = False
-    logger.info("AlternateSearch: %s" % AlternateSearch)
+    alt_log("AlternateSearch: %s" % AlternateSearch)
     if AlternateSearch is not None and AlternateSearch != "None":
         altpriority = AlternateSearch.find("!!")
-        logger.info("altpriority: %s" % altpriority)
+        alt_log("altpriority: %s" % altpriority)
         if altpriority != -1:
             altsplit = AlternateSearch.find("##", altpriority)
-            logger.info("altsplit: %s" % altsplit)
+            alt_log("altsplit: %s" % altsplit)
             if altsplit == -1:
                 Altname = AlternateSearch[altpriority + 2 :]
             else:
                 Altname = AlternateSearch[altpriority + 2 : altsplit]
-            logger.info("Altname: %s" % Altname)
+            alt_log("Altname: %s" % Altname)
             if helpers.filesafe(Altname).lower() == helpers.filesafe(ComicName).lower():
-                logger.info("Alternate search pattern is an exact match to previous query. Not recreating")
+                alt_log("Alternate search pattern is an exact match to previous query. Not recreating")
                 ignore_previous = True
             else:
-                logger.info(
-                    "Alternate Search Priority enabled. Using %s before %s during queries" % (Altname, ComicName)
-                )
+                alt_log("Alternate Search Priority enabled. Using %s before %s during queries" % (Altname, ComicName))
                 searchlist.append({"ComicName": Altname, "unaltered_ComicName": Altname})
 
     if ignore_previous is False:
@@ -4193,13 +4215,13 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
         chkthealt = list(filter(None, re.split(r"[\!\!]+|[\#\#]+", AlternateSearch)))
         for AS_Alternate in chkthealt:
             if helpers.filesafe(AS_Alternate).lower() == helpers.filesafe(ComicName).lower():
-                logger.info("Alternate search pattern is an exact match to previous query. Not recreating")
+                alt_log("Alternate search pattern is an exact match to previous query. Not recreating")
                 continue
             if Altname != AS_Alternate:
-                logger.info("Alternate Search pattern detected...re-adjusting to : %s" % AS_Alternate)
+                alt_log("Alternate Search pattern detected...re-adjusting to : %s" % AS_Alternate)
                 searchlist.append({"ComicName": AS_Alternate, "unaltered_ComicName": AS_Alternate})
 
-    logger.info("searchlist: %s" % (searchlist,))
+    alt_log("searchlist: %s" % (searchlist,))
     return searchlist
 
 
