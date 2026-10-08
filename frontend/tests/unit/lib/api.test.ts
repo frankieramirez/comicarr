@@ -17,6 +17,7 @@ import {
   ApiError,
   getErrorMessage,
   isRetryableError,
+  isNotFoundError,
 } from "@/lib/api";
 
 describe("API Client", () => {
@@ -122,6 +123,18 @@ describe("API Client", () => {
     it("should return false for unknown error types", () => {
       expect(isRetryableError("string error")).toBe(false);
       expect(isRetryableError(null)).toBe(false);
+    });
+  });
+
+  describe("isNotFoundError", () => {
+    it("detects ApiError 404", () => {
+      expect(isNotFoundError(new ApiError(404))).toBe(true);
+      expect(isNotFoundError(new ApiError(503))).toBe(false);
+    });
+
+    it("detects HTTP 404 messages", () => {
+      expect(isNotFoundError(new Error("HTTP error! status: 404"))).toBe(true);
+      expect(isNotFoundError(new Error("HTTP error! status: 500"))).toBe(false);
     });
   });
 

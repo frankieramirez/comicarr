@@ -5,11 +5,12 @@ import ArcSearch from "@/components/storyarcs/ArcSearch";
 import ArcGenerator from "@/components/storyarcs/ArcGenerator";
 import StoryArcCard from "@/components/storyarcs/StoryArcCard";
 import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "@/components/layout/PageHeader";
 
 export default function StoryArcsPage() {
-  const { data: arcs, isLoading, error } = useStoryArcs();
+  const { data: arcs, isLoading, error, refetch, isFetching } = useStoryArcs();
   const { data: aiStatus } = useAiStatus();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchFormRef = useRef<HTMLFormElement>(null);
@@ -54,17 +55,14 @@ export default function StoryArcsPage() {
             ))}
           </div>
         ) : error ? (
-          <div className="py-12 text-center">
-            <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-muted-foreground mb-2">
-              ARCS · ERROR
-            </div>
-            <div className="text-[15px] font-semibold">
-              Failed to load story arcs
-            </div>
-            <div className="font-mono text-[11px] text-muted-foreground mt-1">
-              {error.message}
-            </div>
-          </div>
+          <ErrorDisplay
+            error={error}
+            title="Unable to load story arcs"
+            onRetry={() => {
+              void refetch();
+            }}
+            isRetrying={isFetching}
+          />
         ) : arcs && arcs.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {arcs.map((arc) => (

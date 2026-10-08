@@ -144,6 +144,20 @@ export function isRetryableError(error: unknown): boolean {
   return false;
 }
 
+/** True when the failure is a missing record, not a transient load error. */
+export function isNotFoundError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.status === 404;
+  }
+  if (error instanceof Error) {
+    const httpMatch = error.message.match(/HTTP error! status: (\d+)/);
+    if (httpMatch) {
+      return parseInt(httpMatch[1], 10) === 404;
+    }
+  }
+  return false;
+}
+
 /**
  * Login with username and password
  */

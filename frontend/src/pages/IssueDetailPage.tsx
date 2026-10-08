@@ -1,11 +1,13 @@
 import { Link, useParams } from "react-router-dom";
 import { Activity, ChevronRight, Library } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { useIssueDetail } from "@/hooks/useIssueDetail";
 import { useSetIssueStatus } from "@/hooks/useSeries";
 import type { IssueMetadata } from "@/hooks/useIssueDetail";
+import { isNotFoundError } from "@/lib/api";
 
 function issueNumber(issue: IssueMetadata): string {
   return String(issue.Issue_Number ?? issue.number ?? "").trim();
@@ -32,9 +34,14 @@ export default function IssueDetailPage() {
     comicId: string;
     issueId: string;
   }>();
-  const { data, isLoading, error, isError } = useIssueDetail(comicId, issueId);
+  const { data, isLoading, error, isError, refetch, isFetching } =
+    useIssueDetail(comicId, issueId);
   const setIssueStatus = useSetIssueStatus();
   const { addToast } = useToast();
+  const missingIssue =
+    isNotFoundError(error) ||
+    (error instanceof Error &&
+      error.message === "Issue not found for this series");
 
   if (isLoading) {
     return (
@@ -42,6 +49,21 @@ export default function IssueDetailPage() {
         <Skeleton className="h-5 w-64" />
         <Skeleton className="h-10 w-1/2" />
         <Skeleton className="h-40 w-full rounded-lg" />
+      </div>
+    );
+  }
+
+  if (isError && !missingIssue) {
+    return (
+      <div className="p-5 page-transition">
+        <ErrorDisplay
+          error={error}
+          title="Unable to load issue"
+          onRetry={() => {
+            void refetch();
+          }}
+          isRetrying={isFetching}
+        />
       </div>
     );
   }
