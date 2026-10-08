@@ -104,13 +104,24 @@ def set_issue_status(issue_arc_id, status):
     return {"success": True}
 
 
-def want_all_issues(arc_id):
-    """Mark all eligible arc issues as Wanted and trigger search."""
+def want_all_issues(arc_id, audit_identity):
+    """Mark all eligible arc issues as Wanted and trigger search.
+
+    Restores the original ``want_all_issues`` → ``_read_get_wanted`` flow so
+    arc issues whose series is not in the library still get a one-off search
+    and the toast count includes those rows. Dual-write of library Status +
+    AcquisitionIntent happens in ``_read_get_wanted``.
+    """
+    mismatched = arc_queries.count_wanted_intent_divergence()
+    if mismatched:
+        logger.warn("[STORYARC] %s library issue(s) have Status=Wanted but skipped/ignored intent" % mismatched)
     queued, skipped = arc_queries.want_all_issues(arc_id)
-
     if queued > 0:
-        start_background_thread(_read_get_wanted, args=(arc_id,), name="StoryArcWantedSearch")
-
+        start_background_thread(
+            _read_get_wanted,
+            args=(arc_id, audit_identity),
+            name="StoryArcWantedSearch",
+        )
     return {"success": True, "data": {"queued": queued, "skipped": skipped}}
 
 
@@ -264,7 +275,7 @@ def _want_issues_after_imports(arc_id, comic_ids, arc_name):
         for comic_id in comic_ids:
             if not _wait_for_series_added(comic_id):
                 logger.warn("[STORYARC] Timed out waiting for series %s to finish adding" % comic_id)
-        summary = _want_arc_issues(arc_id)
+        summary = _want_arc_issues(arc_id, "storyarc-add-missing")
         logger.info(
             "[STORYARC] Add-missing for %s: %d wanted, %d unresolved"
             % (arc_name, summary["wanted"], summary["unresolved"])
@@ -292,17 +303,22 @@ def _want_issues_after_imports(arc_id, comic_ids, arc_name):
             logger.fdebug("[ACTIVITY] add.failed @arc emit skipped: %s" % emit_error)
 
 
-def _want_arc_issues(arc_id):
+def _want_arc_issues(arc_id, audit_identity):
     """Mark every acquirable arc issue Wanted, linking real IssueIDs.
 
     Rows whose issue exists in the library take that issue's identity; newly
     wanted issues get a search queued. Rows still without a library issue are
-    only marked Wanted in the arc.
+    only marked Wanted in the arc. Add-missing does not override an earlier
+    explicit Skip or Ignore on the library issue.
     """
+    from comicarr.app.series import queries as series_queries
+
     wanted = 0
     unresolved = 0
+    skipped = 0
     for row in arc_queries.get_arc_rows(arc_id):
         if row["Status"] in ("Downloaded", "Archived", "Snatched"):
+            skipped += 1
             continue
 
         issue = None
@@ -320,18 +336,27 @@ def _want_arc_issues(arc_id):
             continue
 
         fields = {"IssueID": issue["IssueID"], "ComicID": issue["ComicID"]}
+        intent = str(issue.get("AcquisitionIntent") or "").strip().lower()
+        declined = intent in ("skipped", "ignored") or str(issue["Status"]).strip().lower() in ("skipped", "ignored")
         if issue["Status"] in ("Downloaded", "Archived", "Snatched"):
             fields["Status"] = issue["Status"]
+            skipped += 1
+        elif declined:
+            fields["Status"] = issue["Status"]
+            skipped += 1
         else:
             fields["Status"] = "Wanted"
-            if issue["Status"] != "Wanted":
-                arc_queries.mark_issue_wanted(issue["IssueID"])
+            already_wanted = issue["Status"] == "Wanted"
+            if already_wanted:
+                skipped += 1
+            else:
+                series_queries.set_issue_status(issue["IssueID"], "Wanted", audit_identity, table="issues")
                 wanted += 1
                 _enqueue_arc_search(issue)
         if row["IssueNumber"]:
             fields["Int_IssueNumber"] = helpers.issuedigits(row["IssueNumber"])
         arc_queries.set_arc_issue_fields(row["IssueArcID"], fields)
-    return {"wanted": wanted, "unresolved": unresolved}
+    return {"wanted": wanted, "unresolved": unresolved, "skipped": skipped}
 
 
 def _enqueue_arc_search(issue):
@@ -375,10 +400,12 @@ def refresh_arc(arc_id):
     return {"success": True, "message": "Refreshing %s from ComicVine" % arc_row["StoryArc"]}
 
 
-def _read_get_wanted(StoryArcID):
+def _read_get_wanted(StoryArcID, audit_identity):
     """Queue story arc issues as Wanted and add to search queue.
 
     Extracted from WebInterface.ReadGetWanted — standalone, no CherryPy deps.
+    Library issues dual-write AcquisitionIntent with Status via
+    ``set_issue_status`` so Want all actually wants skipped/ignored rows.
     """
     stupdate = []
     add_to_search_queue = []
@@ -389,7 +416,7 @@ def _read_get_wanted(StoryArcID):
     if wantedlist is not None:
         for want in wantedlist:
             issuechk = db.raw_select_one(
-                "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
+                "SELECT a.Type, a.ComicYear as SeriesYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                 [want["IssueArcID"]],
             )
             SARC = want["StoryArc"]
@@ -457,7 +484,7 @@ def _read_get_wanted(StoryArcID):
         for watchchk in watchlistchk:
             logger.fdebug("Watchlist hit - %s" % watchchk["ComicName"])
             issuechk = db.raw_select_one(
-                "SELECT a.Type, a.ComicYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
+                "SELECT a.Type, a.ComicYear as SeriesYear, b.ComicName, b.Issue_Number, b.ComicID, b.IssueID FROM comics as a INNER JOIN issues as b on a.ComicID = b.ComicID WHERE b.IssueID=?",
                 [watchchk["IssueArcID"]],
             )
             SARC = watchchk["StoryArc"]
@@ -520,14 +547,15 @@ def _read_get_wanted(StoryArcID):
             stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
     if len(stupdate) > 0:
+        from comicarr.app.series import queries as series_queries
+
         logger.fdebug("%s issues need to get updated to Wanted Status" % len(stupdate))
         for st in stupdate:
             ctrlVal = {"IssueArcID": st["IssueArcID"]}
             newVal = {"Status": st["Status"]}
             db.upsert("storyarcs", newVal, ctrlVal)
             if st["IssueID"]:
-                ctrlVal = {"IssueID": st["IssueID"]}
-                db.upsert("issues", newVal, ctrlVal)
+                series_queries.set_issue_status(st["IssueID"], "Wanted", audit_identity, table="issues")
     for item in add_to_search_queue:
         from comicarr.app.search.commands import enqueue_search_command
 

@@ -215,10 +215,13 @@ def find_library_issue(issue_id=None, comic_id=None, int_issue_number=None):
         t_issues.c.IssueID,
         t_issues.c.Issue_Number,
         t_issues.c.Status,
+        t_issues.c.AcquisitionIntent,
+        t_issues.c.ReleaseDate,
         t_comics.c.ComicID,
         t_comics.c.ComicName,
         t_comics.c.ComicYear,
         t_comics.c.Type,
+        t_comics.c.Status.label("SeriesStatus"),
     ).select_from(t_issues.join(t_comics, t_issues.c.ComicID == t_comics.c.ComicID))
     if issue_id:
         stmt = stmt.where(t_issues.c.IssueID == issue_id)
@@ -233,6 +236,16 @@ def set_arc_issue_fields(issue_arc_id, values):
 
 def mark_issue_wanted(issue_id):
     db.upsert("issues", {"Status": "Wanted"}, {"IssueID": issue_id})
+
+
+def count_wanted_intent_divergence():
+    """Rows where Status says Wanted but explicit intent is skipped or ignored."""
+    stmt = select(func.count().label("mismatch_count")).where(
+        t_issues.c.Status == "Wanted",
+        t_issues.c.AcquisitionIntent.in_(("skipped", "ignored")),
+    )
+    row = db.select_one(stmt)
+    return int((row or {}).get("mismatch_count") or 0)
 
 
 def get_readlist():
