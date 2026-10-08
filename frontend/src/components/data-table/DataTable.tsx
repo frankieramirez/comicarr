@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type KeyboardEvent, type ReactNode } from "react";
 import { flexRender, type RowData } from "@tanstack/react-table";
 import type {
   ComicarrRow,
@@ -67,11 +67,22 @@ export function DataTable<TData extends RowData>({
                     data-state={row.getIsSelected() && "selected"}
                     className={cn(
                       "border-b border-border/50",
-                      onRowClick && "cursor-pointer",
+                      onRowClick &&
+                        "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     )}
                     onClick={
                       onRowClick ? () => onRowClick(row.original) : undefined
                     }
+                    {...(onRowClick && {
+                      role: "link",
+                      tabIndex: 0,
+                      onKeyDown: (event: KeyboardEvent) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onRowClick(row.original);
+                        }
+                      },
+                    })}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="px-5 py-2">

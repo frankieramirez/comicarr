@@ -379,7 +379,7 @@ describe("SeriesTable", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select all series on page" }),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+    expect(screen.getAllByTestId("series-row-title").length).toBeGreaterThan(0);
     expect(localStorage.getItem("comicarr-library-view")).toBe("grid");
   });
 
@@ -436,7 +436,7 @@ describe("SeriesTable", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select all series on page" }),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+    expect(screen.getAllByTestId("series-row-title").length).toBeGreaterThan(0);
   });
 
   it("switches to list immediately when grid was only the saved choice", async () => {
@@ -457,7 +457,7 @@ describe("SeriesTable", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select all series on page" }),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+    expect(screen.getAllByTestId("series-row-title").length).toBeGreaterThan(0);
   });
 
   it("shows list when reading the saved view throws and the url names none", () => {
@@ -478,7 +478,7 @@ describe("SeriesTable", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select all series on page" }),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Series 1/ })).toBeNull();
+    expect(screen.getAllByTestId("series-row-title").length).toBeGreaterThan(0);
   });
 
   it("keeps an explicit grid link when reading the saved view throws", () => {
