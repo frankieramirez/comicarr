@@ -127,10 +127,10 @@ def delete_arc_issue(
     return arc_service.delete_arc_issue(issue_arc_id)
 
 
-@router.post("/storyarcs/{arc_id}/want-all", dependencies=[Depends(require_session)])
-def want_all_arc_issues(arc_id: str):
+@router.post("/storyarcs/{arc_id}/want-all")
+def want_all_arc_issues(arc_id: str, username: str = Depends(require_session)):
     """Mark all non-downloaded arc issues as Wanted and trigger search."""
-    return arc_service.want_all_issues(arc_id)
+    return arc_service.want_all_issues(arc_id, audit_identity=username)
 
 
 @router.get("/storyarcs/{arc_id}/missing", dependencies=[Depends(require_session)])

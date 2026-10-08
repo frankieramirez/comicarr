@@ -80,7 +80,16 @@ def _insert_comic(comic_id, name, status="Active", year="2020"):
         )
 
 
-def _insert_issue(issue_id, comic_id, name, number, status="Skipped", int_number=None):
+def _insert_issue(
+    issue_id,
+    comic_id,
+    name,
+    number,
+    status="Skipped",
+    int_number=None,
+    acquisition_intent=None,
+    release_date="2020-01-01",
+):
     with get_engine().begin() as conn:
         conn.execute(
             insert(issues).values(
@@ -90,6 +99,8 @@ def _insert_issue(issue_id, comic_id, name, number, status="Skipped", int_number
                 Issue_Number=number,
                 Int_IssueNumber=int_number,
                 Status=status,
+                AcquisitionIntent=acquisition_intent,
+                ReleaseDate=release_date,
             )
         )
 
@@ -242,7 +253,7 @@ def test_want_arc_issues_links_marks_and_enqueues():
     enqueued = []
     with patch("comicarr.app.search.commands.enqueue_search_command") as enqueue:
         enqueue.side_effect = lambda payload, **kw: enqueued.append((payload, kw))
-        summary = service._want_arc_issues("ARC1")
+        summary = service._want_arc_issues("ARC1", "tester")
 
     arc_row = _storyarc_row("A1")
     assert arc_row["Status"] == "Wanted"
@@ -262,7 +273,7 @@ def test_want_arc_issues_mirrors_owned_status():
     _insert_arc_rows([_arc_row("A1", "Flashpoint", "1", comic_id="C9")])
 
     with patch("comicarr.app.search.commands.enqueue_search_command") as enqueue:
-        summary = service._want_arc_issues("ARC1")
+        summary = service._want_arc_issues("ARC1", "tester")
 
     assert _storyarc_row("A1")["Status"] == "Downloaded"
     assert _issue_row("I9")["Status"] == "Downloaded"
@@ -274,12 +285,47 @@ def test_want_arc_issues_marks_unmatched_rows_wanted_without_search():
     _insert_arc_rows([_arc_row("A1", "Nowhere", "1")])
 
     with patch("comicarr.app.search.commands.enqueue_search_command") as enqueue:
-        summary = service._want_arc_issues("ARC1")
+        summary = service._want_arc_issues("ARC1", "tester")
 
     arc_row = _storyarc_row("A1")
     assert arc_row["Status"] == "Wanted"
     assert summary["unresolved"] == 1
     enqueue.assert_not_called()
+
+
+def test_want_arc_issues_dual_writes_skipped_intent_to_wanted():
+    from comicarr.app.search.commands import evaluate_search_candidate
+
+    _insert_comic("C9", "Flashpoint")
+    _insert_issue(
+        "I9",
+        "C9",
+        "Flashpoint",
+        "1",
+        status="Skipped",
+        int_number=1000,
+        acquisition_intent="skipped",
+    )
+    _insert_arc_rows([_arc_row("A1", "Flashpoint", "1", comic_id="C9", issue_id="I9")])
+
+    with patch("comicarr.app.search.commands.enqueue_search_command"):
+        summary = service._want_arc_issues("ARC1", "frankie")
+
+    issue = _issue_row("I9")
+    assert issue["Status"] == "Wanted"
+    assert issue["AcquisitionIntent"] == "wanted"
+    assert summary["wanted"] == 1
+    result = evaluate_search_candidate(
+        {
+            "LegacyStatus": issue["Status"],
+            "AcquisitionIntent": issue["AcquisitionIntent"],
+            "SeriesStatus": "Active",
+        },
+        release_date=issue["ReleaseDate"],
+        digital_date=None,
+        issue_date=None,
+    )
+    assert result["status"] is True
 
 
 def test_want_arc_issues_does_not_requeue_already_wanted():
@@ -288,7 +334,7 @@ def test_want_arc_issues_does_not_requeue_already_wanted():
     _insert_arc_rows([_arc_row("A1", "Flashpoint", "1", comic_id="C9")])
 
     with patch("comicarr.app.search.commands.enqueue_search_command") as enqueue:
-        summary = service._want_arc_issues("ARC1")
+        summary = service._want_arc_issues("ARC1", "tester")
 
     assert _storyarc_row("A1")["Status"] == "Wanted"
     assert summary["wanted"] == 0
@@ -307,6 +353,6 @@ def test_want_issues_after_imports_waits_then_wants():
         service._want_issues_after_imports("ARC1", ["777"], "Big Event")
 
     assert calls == ["777"]
-    want.assert_called_once_with("ARC1")
+    want.assert_called_once_with("ARC1", "storyarc-add-missing")
     emit.assert_called_once()
     assert emit.call_args.args[:3] == ("add", "succeeded", "ARC1")

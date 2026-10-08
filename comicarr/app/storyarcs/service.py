@@ -104,14 +104,16 @@ def set_issue_status(issue_arc_id, status):
     return {"success": True}
 
 
-def want_all_issues(arc_id):
+def want_all_issues(arc_id, audit_identity):
     """Mark all eligible arc issues as Wanted and trigger search."""
-    queued, skipped = arc_queries.want_all_issues(arc_id)
-
-    if queued > 0:
-        start_background_thread(_read_get_wanted, args=(arc_id,), name="StoryArcWantedSearch")
-
-    return {"success": True, "data": {"queued": queued, "skipped": skipped}}
+    mismatched = arc_queries.count_wanted_intent_divergence()
+    if mismatched:
+        logger.warn(
+            "[STORYARC] %s library issue(s) have Status=Wanted but skipped/ignored intent"
+            % mismatched
+        )
+    summary = _want_arc_issues(arc_id, audit_identity)
+    return {"success": True, "data": {"queued": summary["wanted"], "skipped": summary.get("skipped", 0)}}
 
 
 def get_missing_series(arc_id):
@@ -264,7 +266,7 @@ def _want_issues_after_imports(arc_id, comic_ids, arc_name):
         for comic_id in comic_ids:
             if not _wait_for_series_added(comic_id):
                 logger.warn("[STORYARC] Timed out waiting for series %s to finish adding" % comic_id)
-        summary = _want_arc_issues(arc_id)
+        summary = _want_arc_issues(arc_id, "storyarc-add-missing")
         logger.info(
             "[STORYARC] Add-missing for %s: %d wanted, %d unresolved"
             % (arc_name, summary["wanted"], summary["unresolved"])
@@ -292,17 +294,22 @@ def _want_issues_after_imports(arc_id, comic_ids, arc_name):
             logger.fdebug("[ACTIVITY] add.failed @arc emit skipped: %s" % emit_error)
 
 
-def _want_arc_issues(arc_id):
+def _want_arc_issues(arc_id, audit_identity):
     """Mark every acquirable arc issue Wanted, linking real IssueIDs.
 
     Rows whose issue exists in the library take that issue's identity; newly
     wanted issues get a search queued. Rows still without a library issue are
-    only marked Wanted in the arc.
+    only marked Wanted in the arc. Library wants dual-write AcquisitionIntent
+    with Status so search eligibility matches the Wanted page.
     """
+    from comicarr.app.series import queries as series_queries
+
     wanted = 0
     unresolved = 0
+    skipped = 0
     for row in arc_queries.get_arc_rows(arc_id):
         if row["Status"] in ("Downloaded", "Archived", "Snatched"):
+            skipped += 1
             continue
 
         issue = None
@@ -322,16 +329,21 @@ def _want_arc_issues(arc_id):
         fields = {"IssueID": issue["IssueID"], "ComicID": issue["ComicID"]}
         if issue["Status"] in ("Downloaded", "Archived", "Snatched"):
             fields["Status"] = issue["Status"]
+            skipped += 1
         else:
             fields["Status"] = "Wanted"
-            if issue["Status"] != "Wanted":
-                arc_queries.mark_issue_wanted(issue["IssueID"])
+            intent = str(issue.get("AcquisitionIntent") or "").strip().lower()
+            already_wanted = issue["Status"] == "Wanted" and intent not in ("skipped", "ignored")
+            if already_wanted:
+                skipped += 1
+            else:
+                series_queries.set_issue_status(issue["IssueID"], "Wanted", audit_identity, table="issues")
                 wanted += 1
                 _enqueue_arc_search(issue)
         if row["IssueNumber"]:
             fields["Int_IssueNumber"] = helpers.issuedigits(row["IssueNumber"])
         arc_queries.set_arc_issue_fields(row["IssueArcID"], fields)
-    return {"wanted": wanted, "unresolved": unresolved}
+    return {"wanted": wanted, "unresolved": unresolved, "skipped": skipped}
 
 
 def _enqueue_arc_search(issue):
