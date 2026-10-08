@@ -172,6 +172,7 @@ export function useBulkQueueIssues(): UseMutationResult<
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
@@ -191,6 +192,7 @@ export function useBulkUnqueueIssues(): UseMutationResult<
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });

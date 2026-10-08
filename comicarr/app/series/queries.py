@@ -350,6 +350,11 @@ def get_annuals(comic_id):
     )
 
 
+def _issue_status_table(issue_id):
+    """Write Wanted/Skipped to the table that owns this id, else issues."""
+    return find_issue_status_target(issue_id) or "issues"
+
+
 def queue_issue(issue_id, audit_identity, *, conn=None):
     """Mark an issue as Wanted, optionally in a caller-owned transaction."""
     from comicarr.app.acquisition.models import AcquisitionIntent
@@ -357,10 +362,11 @@ def queue_issue(issue_id, audit_identity, *, conn=None):
 
     values = explicit_intent_values(AcquisitionIntent.WANTED, audit_identity)
     controls = {"IssueID": issue_id}
+    table = _issue_status_table(issue_id)
     if conn is not None:
-        db.upsert_conn(conn, "issues", values, controls)
+        db.upsert_conn(conn, table, values, controls)
     else:
-        db.upsert("issues", values, controls)
+        db.upsert(table, values, controls)
 
 
 def unqueue_issue(issue_id, audit_identity):
@@ -369,7 +375,7 @@ def unqueue_issue(issue_id, audit_identity):
     from comicarr.app.acquisition.policy import explicit_intent_values
 
     db.upsert(
-        "issues",
+        _issue_status_table(issue_id),
         explicit_intent_values(AcquisitionIntent.SKIPPED, audit_identity),
         {"IssueID": issue_id},
     )
