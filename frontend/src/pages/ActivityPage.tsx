@@ -34,85 +34,12 @@ import EmptyState from "@/components/ui/EmptyState";
 import FilterField from "@/components/ui/FilterField";
 import RelativeTime from "@/components/ui/RelativeTime";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
+import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import type { PaginationMeta } from "@/types";
 
 type ActivityView = "timeline" | "in_flight" | "queue" | "history";
 const PAGE_SIZE = 25;
-
-function statusPillMeta(status: string) {
-  const normalized = (status || "").trim().toLowerCase();
-  if (normalized.includes("fail") || normalized.includes("error")) {
-    return {
-      label: "Failed",
-      description: "Terminal download failure.",
-      color: "var(--status-error)",
-    };
-  }
-  if (normalized === "unknown") {
-    return {
-      label: "Unknown",
-      description: "Manual review required; it will not retry automatically.",
-      color: "var(--status-paused)",
-    };
-  }
-  if (normalized.includes("manual") || normalized.includes("review")) {
-    return {
-      label: "Manual review",
-      description: "Requires attention and will not retry automatically.",
-      color: "var(--status-paused)",
-    };
-  }
-  if (
-    normalized.includes("down") ||
-    normalized.includes("snatch") ||
-    normalized === "active" ||
-    normalized === "completed" ||
-    normalized === "done"
-  ) {
-    return {
-      label: status || "—",
-      description: "Active download.",
-      color: "var(--status-active)",
-    };
-  }
-  if (
-    normalized.includes("queue") ||
-    normalized.includes("pend") ||
-    normalized === "wanted"
-  ) {
-    return {
-      label: status || "—",
-      description: "Waiting for a worker.",
-      color: "var(--status-paused)",
-    };
-  }
-
-  return {
-    label: status || "—",
-    description: "Download state reported by the provider.",
-    color: "var(--muted-foreground)",
-  };
-}
-
-function StatusPill({ status }: { status: string }) {
-  const { label, description, color } = statusPillMeta(status);
-
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase"
-      style={{ color }}
-      aria-label={`${label}: ${description}`}
-      title={description}
-    >
-      <span
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ background: color }}
-      />
-      {label}
-    </span>
-  );
-}
 
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -668,7 +595,9 @@ function QueueView() {
           header: ({ column }) => (
             <DataTableSortHeader column={column} title="Status" />
           ),
-          cell: ({ getValue }) => <StatusPill status={getValue()} />,
+          cell: ({ getValue }) => (
+            <StatusBadge variant="dot" status={getValue()} />
+          ),
         }),
         queueColumnHelper.accessor("updated_date", {
           id: "updated",
@@ -811,7 +740,9 @@ function HistoryView() {
           header: ({ column }) => (
             <DataTableSortHeader column={column} title="Status" />
           ),
-          cell: ({ getValue }) => <StatusPill status={getValue()} />,
+          cell: ({ getValue }) => (
+            <StatusBadge variant="dot" status={getValue()} />
+          ),
         }),
         historyColumnHelper.accessor("DateAdded", {
           id: "date",

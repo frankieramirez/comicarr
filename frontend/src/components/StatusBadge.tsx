@@ -1,147 +1,70 @@
 import { Badge } from "@/components/ui/badge";
-
-type BadgeVariant =
-  | "default"
-  | "active"
-  | "paused"
-  | "ended"
-  | "error"
-  | "wanted"
-  | "downloaded"
-  | "skipped";
-
-interface StatusConfig {
-  variant: BadgeVariant;
-  label: string;
-  dotColor: string;
-  glowColor: string;
-}
+import { statusTone } from "@/lib/statusTone";
 
 interface StatusBadgeProps {
   status?: string | null;
   showIcon?: boolean;
+  variant?: "pill" | "dot";
+  /** Override the vocabulary label (health chips keep their own copy). */
+  label?: string;
+  title?: string;
+  className?: string;
 }
 
-/**
- * StatusBadge component with luminous dot indicators
- */
 export default function StatusBadge({
   status,
   showIcon = true,
+  variant = "pill",
+  label,
+  title,
+  className,
 }: StatusBadgeProps) {
-  if (!status) return null;
+  const tone = statusTone(status);
+  if (!tone) return null;
 
-  const normalizedStatus = status.toLowerCase();
+  const text = label ?? tone.label;
+  const caption = title ?? tone.description;
 
-  const statusMap: Record<string, StatusConfig> = {
-    active: {
-      variant: "active",
-      label: "Active",
-      dotColor: "var(--status-active)",
-      glowColor: "var(--status-active)",
-    },
-    paused: {
-      variant: "paused",
-      label: "Paused",
-      dotColor: "var(--status-paused)",
-      glowColor: "var(--status-paused)",
-    },
-    ended: {
-      variant: "ended",
-      label: "Ended",
-      dotColor: "var(--status-ended)",
-      glowColor: "var(--status-ended)",
-    },
-    loading: {
-      variant: "default",
-      label: "Loading",
-      dotColor: "var(--muted-foreground)",
-      glowColor: "var(--muted-foreground)",
-    },
-    downloaded: {
-      variant: "downloaded",
-      label: "Downloaded",
-      dotColor: "var(--status-downloaded)",
-      glowColor: "var(--status-downloaded)",
-    },
-    wanted: {
-      variant: "wanted",
-      label: "Wanted",
-      dotColor: "var(--status-wanted)",
-      glowColor: "var(--status-wanted)",
-    },
-    skipped: {
-      variant: "skipped",
-      label: "Skipped",
-      dotColor: "var(--status-skipped)",
-      glowColor: "var(--status-skipped)",
-    },
-    ignored: {
-      variant: "skipped",
-      label: "Ignored",
-      dotColor: "var(--status-skipped)",
-      glowColor: "var(--status-skipped)",
-    },
-    reserved: {
-      variant: "paused",
-      label: "Reserved",
-      dotColor: "var(--status-paused)",
-      glowColor: "var(--status-paused)",
-    },
-    snatched: {
-      variant: "active",
-      label: "Snatched",
-      dotColor: "var(--status-active)",
-      glowColor: "var(--status-active)",
-    },
-    archived: {
-      variant: "default",
-      label: "Archived",
-      dotColor: "var(--muted-foreground)",
-      glowColor: "var(--muted-foreground)",
-    },
-    failed: {
-      variant: "error",
-      label: "Failed",
-      dotColor: "var(--status-error)",
-      glowColor: "var(--status-error)",
-    },
-    unknown: {
-      variant: "default",
-      label: "Unknown",
-      dotColor: "var(--muted-foreground)",
-      glowColor: "var(--muted-foreground)",
-    },
-    missing: {
-      variant: "wanted",
-      label: "Missing",
-      dotColor: "var(--status-wanted)",
-      glowColor: "var(--status-wanted)",
-    },
-  };
-
-  const config = statusMap[normalizedStatus] || {
-    variant: "default" as BadgeVariant,
-    label: status,
-    dotColor: "var(--muted-foreground)",
-    glowColor: "var(--muted-foreground)",
-  };
+  if (variant === "dot") {
+    return (
+      <span
+        className={
+          className ??
+          "inline-flex items-center gap-1.5 font-mono text-[10px] uppercase"
+        }
+        style={{ color: tone.token }}
+        title={caption}
+        aria-label={caption ? `${text}: ${caption}` : text}
+      >
+        {showIcon && (
+          <span
+            data-testid="status-dot"
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: tone.token }}
+          />
+        )}
+        {text}
+      </span>
+    );
+  }
 
   return (
     <Badge
-      variant={config.variant}
-      className="gap-1.5 rounded-full px-2.5 py-1"
+      variant={tone.badgeVariant}
+      className={className ?? "gap-1.5 rounded-full px-2.5 py-1"}
+      title={caption}
     >
       {showIcon && (
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
+          data-testid="status-dot"
+          className="inline-block h-1.5 w-1.5 rounded-full"
           style={{
-            backgroundColor: config.dotColor,
-            boxShadow: `0 0 8px 2px color-mix(in srgb, ${config.glowColor} 50%, transparent)`,
+            backgroundColor: tone.token,
+            boxShadow: `0 0 8px 2px color-mix(in srgb, ${tone.glowColor} 50%, transparent)`,
           }}
         />
       )}
-      {config.label}
+      {text}
     </Badge>
   );
 }

@@ -19,6 +19,7 @@ import {
   ImageOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import StatusBadge from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
@@ -586,7 +587,6 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
   const total = parseInt(String(comic.Total)) || 0;
   const progress = getProgressPercentage(comic);
   const status = (comic.Status || "").toLowerCase();
-  const statusColor = statusTextColor(status);
   const isSelected = row.getIsSelected();
 
   const mobileMeta = [
@@ -648,15 +648,8 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         {comic.ComicPublisher || "—"}
       </div>
 
-      <div
-        className={`${DESKTOP_COL} inline-flex items-center gap-1.5 font-mono text-[10px]`}
-        style={{ color: statusColor }}
-      >
-        <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
-          style={{ background: statusColor }}
-        />
-        {status || "unknown"}
+      <div className={DESKTOP_COL}>
+        <StatusBadge variant="dot" status={status || "unknown"} />
       </div>
 
       <div className={`${DESKTOP_COL} font-mono text-[12px] tabular-nums`}>
@@ -689,19 +682,6 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
       </div>
     </div>
   );
-}
-
-function statusTextColor(status: string): string {
-  switch (status) {
-    case "active":
-      return "var(--status-active, #22c55e)";
-    case "paused":
-      return "var(--status-paused, #f59e0b)";
-    case "ended":
-      return "var(--status-ended, #6b7280)";
-    default:
-      return "var(--muted-foreground)";
-  }
 }
 
 interface CoverThumbProps {
