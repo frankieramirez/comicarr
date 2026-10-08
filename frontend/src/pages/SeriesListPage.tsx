@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
+import PageHeader from "@/components/layout/PageHeader";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Kbd } from "@/components/ui/kbd";
 
@@ -29,22 +30,16 @@ export default function SeriesListPage() {
 
   return (
     <div className="h-full flex flex-col page-transition">
-      {/* Page header */}
-      <div className="px-5 py-3.5 border-b border-border flex items-center gap-3">
-        <div>
-          <h1 className="text-[18px] font-semibold tracking-tight leading-none">
-            Library
-          </h1>
-          <div className="font-mono text-[11px] text-muted-foreground mt-1.5">
-            {isLoading
-              ? "loading…"
-              : total === 0
-                ? "0 series"
-                : `${total} series · ${comicCount} comic${comicCount === 1 ? "" : "s"} · ${mangaCount} manga`}
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
+      <PageHeader
+        title="Library"
+        meta={
+          isLoading
+            ? "loading…"
+            : total === 0
+              ? "0 series"
+              : `${total} series · ${comicCount} comic${comicCount === 1 ? "" : "s"} · ${mangaCount} manga`
+        }
+        actions={
           <Link
             to="/search"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-semibold"
@@ -62,8 +57,8 @@ export default function SeriesListPage() {
               N
             </Kbd>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table body */}
       <div className="flex-1 min-h-0 flex flex-col">

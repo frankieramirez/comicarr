@@ -262,4 +262,18 @@ describe("ReleasesPage", () => {
     await user.click(await screen.findByRole("button", { name: "Want" }));
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
+
+  it("exposes aria-pressed on view toggles and flips it when switching", async () => {
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+
+    const mine = await screen.findByRole("button", { name: "Mine" });
+    const industry = screen.getByRole("button", { name: "Industry" });
+    expect(mine.getAttribute("aria-pressed")).toBe("true");
+    expect(industry.getAttribute("aria-pressed")).toBe("false");
+
+    await user.click(industry);
+    expect(mine.getAttribute("aria-pressed")).toBe("false");
+    expect(industry.getAttribute("aria-pressed")).toBe("true");
+  });
 });

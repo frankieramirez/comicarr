@@ -61,6 +61,43 @@ describe("page headings", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
+  it("gives Dashboard, Library, and Releases the shared PageHeader padding", async () => {
+    function headerPadding(name: string) {
+      let el: HTMLElement | null = screen.getByRole("heading", {
+        level: 1,
+        name,
+      });
+      while (el) {
+        const pad = [...el.classList].find((cls) => cls.startsWith("py-"));
+        if (pad) return pad;
+        el = el.parentElement;
+      }
+      return undefined;
+    }
+
+    const dashboard = render(<DashboardPage />);
+    await waitFor(() => {
+      expect(headerPadding("Dashboard")).toBe("py-3.5");
+    });
+    dashboard.unmount();
+
+    const library = render(
+      <NuqsAdapter>
+        <SeriesListPage />
+      </NuqsAdapter>,
+    );
+    await waitFor(() => {
+      expect(headerPadding("Library")).toBe("py-3.5");
+    });
+    library.unmount();
+
+    const releases = render(<ReleasesPage />);
+    await waitFor(() => {
+      expect(headerPadding("Releases")).toBe("py-3.5");
+    });
+    releases.unmount();
+  });
+
   it.each(listPages)(
     "exposes exactly one h1 on $name",
     async ({ name, ui }) => {

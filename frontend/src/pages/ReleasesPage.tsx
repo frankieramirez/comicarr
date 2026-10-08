@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
+import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
@@ -45,42 +46,6 @@ type ReleasesView = "mine" | "all";
 
 const WEEKLY_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_80px_160px_100px]";
-
-function Tab({
-  active,
-  label,
-  count,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  count?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2"
-      style={{
-        color: active ? "var(--foreground)" : "var(--muted-foreground)",
-      }}
-    >
-      <span>{label}</span>
-      {count !== undefined && (
-        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-          {count}
-        </span>
-      )}
-      <span
-        className="absolute left-0 right-0 bottom-0 h-[2px]"
-        style={{
-          background: active ? "var(--primary)" : "transparent",
-        }}
-      />
-    </button>
-  );
-}
 
 function ToggleChip({
   active,
@@ -192,45 +157,42 @@ export default function ReleasesPage() {
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <div className="shrink-0 px-5 py-3.5 border-b border-border flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[18px] font-semibold tracking-tight leading-none">
-            Releases
-          </h1>
-          <div className="font-mono text-[11px] text-muted-foreground mt-1.5">
-            {currentView === "mine"
-              ? "this week · your library"
-              : "this week · industry-wide"}
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="toolbar"
-          onClick={() => void handleWeeklyRefresh()}
-          disabled={
-            weeklyRefresh.isPending ||
-            weeklyStatus === "running" ||
-            weeklyStatus === "queued"
-          }
-        >
-          <RefreshCw
-            className={
+      <PageHeader
+        title="Releases"
+        meta={
+          currentView === "mine"
+            ? "this week · your library"
+            : "this week · industry-wide"
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="toolbar"
+            onClick={() => void handleWeeklyRefresh()}
+            disabled={
               weeklyRefresh.isPending ||
               weeklyStatus === "running" ||
               weeklyStatus === "queued"
-                ? "animate-spin"
-                : ""
             }
-          />
-          {weeklyStatus === "running"
-            ? "Refreshing…"
-            : weeklyStatus === "queued"
-              ? "Queued…"
-              : "Refresh releases"}
-        </Button>
-      </div>
+          >
+            <RefreshCw
+              className={
+                weeklyRefresh.isPending ||
+                weeklyStatus === "running" ||
+                weeklyStatus === "queued"
+                  ? "animate-spin"
+                  : ""
+              }
+            />
+            {weeklyStatus === "running"
+              ? "Refreshing…"
+              : weeklyStatus === "queued"
+                ? "Queued…"
+                : "Refresh releases"}
+          </Button>
+        }
+      />
 
       {refreshMessage && (
         <div
@@ -255,8 +217,7 @@ export default function ReleasesPage() {
         </div>
       )}
 
-      {/* Tab row */}
-      <div className="shrink-0 px-5 pt-3 border-b border-border flex items-end gap-6">
+      <TabRow>
         <Tab
           active={currentView === "mine"}
           label="Mine"
@@ -267,7 +228,7 @@ export default function ReleasesPage() {
           label="Industry"
           onClick={() => setView("all")}
         />
-      </div>
+      </TabRow>
 
       <div className="flex-1 min-h-0 flex flex-col">
         {currentView === "mine" ? <MyReleasesView /> : <AllReleasesView />}
