@@ -61,9 +61,9 @@ describe("WhatsNewArchive", () => {
     expect((await screen.findByTestId("whats-new-unread")).textContent).toBe(
       "1 unread",
     );
-    expect(
-      screen.getByTestId("whats-new-archive-summary").textContent,
-    ).toMatch(/You upgraded from 0\.20\.12/);
+    expect(screen.getByTestId("whats-new-archive-summary").textContent).toMatch(
+      /You upgraded from 0\.20\.12/,
+    );
     await user.click(screen.getByRole("button", { name: "Mark as read" }));
     await waitFor(() => {
       expect(dismissCalls).toBe(1);
@@ -83,6 +83,37 @@ describe("WhatsNewArchive", () => {
     );
 
     render(createElement(WhatsNewArchive));
-    expect(await screen.findByRole("button", { name: /0\.21\.0/ })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: /0\.21\.0/ }),
+    ).toBeTruthy();
+  });
+
+  it("shows an alert when Mark as read fails", async () => {
+    server.use(
+      http.get("/api/system/whats-new/archive", () =>
+        HttpResponse.json({
+          sections: [{ version: "0.21.0", bullets: ["new thing"] }],
+          pending: { from: "0.20.12", to: "0.21.0" },
+          current: "0.21.0",
+          last_seen: "0.20.12",
+        }),
+      ),
+      http.post("/api/system/whats-new/dismiss", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+    );
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent) => {
+      rejections.push(event.reason);
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    const user = userEvent.setup();
+    render(createElement(WhatsNewArchive));
+    await user.click(
+      await screen.findByRole("button", { name: "Mark as read" }),
+    );
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(rejections).toEqual([]);
+    window.removeEventListener("unhandledrejection", onRejection);
   });
 });

@@ -317,4 +317,22 @@ describe("WantedPage", () => {
       expect(last?.searchParams.get("offset")).toBe("0");
     });
   });
+
+  it("toasts when Skip fails", async () => {
+    server.use(
+      http.get("/api/wanted", () =>
+        HttpResponse.json({
+          issues: [sagaIssue("saga-1", "1")],
+          pagination: { total: 1, limit: 50, offset: 0, has_more: false },
+        }),
+      ),
+      http.put("/api/series/issues/:issueId/unqueue", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<WantedPage />);
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
 });

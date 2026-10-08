@@ -155,4 +155,24 @@ describe("WhatsNewModal", () => {
       expect(dismissCalls).toBe(1);
     });
   });
+
+  it("shows an alert when Got it fails", async () => {
+    stubPending([{ version: "0.21.0", bullets: ["change"] }]);
+    const user = userEvent.setup();
+    server.use(
+      http.post("/api/system/whats-new/dismiss", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+    );
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent) => {
+      rejections.push(event.reason);
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    render(createElement(WhatsNewModal));
+    await user.click(await screen.findByRole("button", { name: "Got it" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(rejections).toEqual([]);
+    window.removeEventListener("unhandledrejection", onRejection);
+  });
 });

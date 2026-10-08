@@ -20,6 +20,7 @@ import { useReleaseNotes } from "@/hooks/useReleaseNotes";
 import { useDismissWhatsNew } from "@/hooks/useWhatsNew";
 import { useVersionInfo } from "@/hooks/useVersion";
 import { VersionSection } from "@/components/whats-new/ReleaseNotesList";
+import { getErrorMessage } from "@/lib/api";
 import { countBullets } from "@/lib/releaseNotes";
 import { panelState } from "@/lib/panelState";
 
@@ -66,8 +67,8 @@ export default function WhatsNewModal() {
     try {
       await dismiss.mutateAsync();
       setOpen(false);
-    } catch (ignored) {
-      void ignored;
+    } catch {
+      // Surface via dismiss.error; do not swallow the mutation error state.
     }
   };
 
@@ -146,13 +147,20 @@ export default function WhatsNewModal() {
           <span className="text-[11px] text-muted-foreground">
             Dismissing marks {to} as seen for every user of this install.
           </span>
-          <Button
-            size="sm"
-            onClick={() => void handleGotIt()}
-            disabled={dismiss.isPending}
-          >
-            {dismiss.isPending ? "Saving…" : "Got it"}
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            {dismiss.error ? (
+              <p role="alert" className="text-[11px] text-destructive">
+                {getErrorMessage(dismiss.error)}
+              </p>
+            ) : null}
+            <Button
+              size="sm"
+              onClick={() => void handleGotIt()}
+              disabled={dismiss.isPending}
+            >
+              {dismiss.isPending ? "Saving…" : "Got it"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
