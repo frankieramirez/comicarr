@@ -480,6 +480,9 @@ def run(
     tagcnt = 0
 
     if comicarr.CONFIG.CBR2CBZ_ONLY:
+        # One pass: the initial run below converts, then the loop breaks
+        # before any tagging type is written.
+        tagcnt = 1
         logger.fdebug(module + " CBR2CBZ Conversion only.")
     else:
         if comicarr.CONFIG.CT_TAG_CR:
