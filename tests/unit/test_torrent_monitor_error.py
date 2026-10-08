@@ -10,15 +10,15 @@
 """Torrent monitor treats client outages as transient and requeues with backoff."""
 
 import queue
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
 
 import comicarr
 from comicarr import db
-from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
-from comicarr.app.attention import ManualReview
+from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, maintenance_retry_delay
+from comicarr.app.attention import Failure, ManualReview
 from comicarr.app.downloads import journal, service
 from comicarr.tables import metadata
 
@@ -59,30 +59,140 @@ def _item(**overrides):
     return item
 
 
-def test_monitor_error_requeues_until_cap_then_records_manual_review(monkeypatch):
-    snatched = queue.Queue()
+def _unreachable():
+    return {"snatch_status": "MONITOR ERROR", "error": "connection refused", "client_unreachable": True}
+
+
+class _LeaseTracker:
+    def __init__(self):
+        self.held = False
+        self.held_during_sleep = []
+
+    def assert_lease_current(self, lease):
+        return None
+
+    @contextmanager
+    def lease(self, *_args, **_kwargs):
+        self.held = True
+        try:
+            yield SimpleNamespace(lease_id="lease")
+        finally:
+            self.held = False
+
+
+def test_worker_main_escalates_outage_backoff_and_releases_lease_before_sleep(monkeypatch):
+    """worker_main pops the fence counter every probe; outage delay must still grow.
+
+    Without this, every MONITOR ERROR used attempt 1 (5s) and hit Manual Review
+    in about 10s. The sleep must run after the maintenance lease is released.
+    """
+    import queue as queue_module
+
+    clock = {"now": 0.0}
+    sleeps = []
     recorded = []
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", snatched)
-    monkeypatch.setattr(service, "record", lambda entry, **_kwargs: recorded.append(entry))
-    monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
-
+    tracker = _LeaseTracker()
     item = _item()
-    service._handle_torrent_monitor_result(item, {"snatch_status": "MONITOR ERROR"})
-    assert snatched.qsize() == 1
-    assert recorded == []
+    q = queue_module.Queue()
+    q.put(item)
 
-    for _ in range(MAX_RECOVERY_ATTEMPTS - 2):
-        item = snatched.get_nowait()
-        service._handle_torrent_monitor_result(item, {"snatch_status": "MONITOR ERROR"})
-        assert snatched.qsize() == 1
-        assert recorded == []
+    def fake_sleep(seconds):
+        tracker.held_during_sleep.append(tracker.held)
+        sleeps.append(seconds)
+        clock["now"] += seconds
 
-    item = snatched.get_nowait()
-    service._handle_torrent_monitor_result(item, {"snatch_status": "MONITOR ERROR"})
-    assert snatched.empty()
+    def capturing_record(entry, **_kwargs):
+        recorded.append(entry)
+        q.put("exit")
+
+    monkeypatch.setattr(service.time, "sleep", fake_sleep)
+    monkeypatch.setattr(service.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(service, "record", capturing_record)
+    monkeypatch.setattr(
+        "comicarr.app.acquisition.maintenance.MaintenanceController",
+        lambda: tracker,
+    )
+    monkeypatch.setattr(
+        "comicarr.app.search.service.torrentinfo",
+        lambda **_kwargs: _unreachable(),
+    )
+
+    service.worker_main(q)
+
+    assert tracker.held is False
+    assert tracker.held_during_sleep
+    assert all(held is False for held in tracker.held_during_sleep)
+    assert sleeps[0] == maintenance_retry_delay(1)
+    assert sleeps[1] == maintenance_retry_delay(2)
+    assert sleeps[0] < sleeps[1] <= sleeps[2]
+    assert sum(sleeps) >= service.MONITOR_OUTAGE_BUDGET_SECONDS
     assert len(recorded) == 1
     assert isinstance(recorded[0], ManualReview)
     assert recorded[0].reason == "torrent_monitor_unreachable"
+    assert recorded[0].payload["error"] == "connection refused"
+
+
+def test_worker_main_invalid_hash_is_not_client_unreachable(monkeypatch):
+    import queue as queue_module
+
+    recorded = []
+    tracker = _LeaseTracker()
+    q = queue_module.Queue()
+    q.put(_item(hash="short"))
+    q.put("exit")
+    monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(service, "record", lambda entry, **_kwargs: recorded.append(entry))
+    monkeypatch.setattr(
+        "comicarr.app.acquisition.maintenance.MaintenanceController",
+        lambda: tracker,
+    )
+    monkeypatch.setattr(
+        "comicarr.app.search.service.torrentinfo",
+        lambda **_kwargs: {"snatch_status": "INVALID HASH", "error": "invalid hash"},
+    )
+
+    service.worker_main(q)
+
+    assert len(recorded) == 1
+    assert isinstance(recorded[0], Failure)
+    assert recorded[0].reason == "torrent_invalid_hash"
+    assert recorded[0].reason != "torrent_monitor_unreachable"
+
+
+def test_script_error_is_not_client_unreachable(monkeypatch):
+    recorded = []
+    monkeypatch.setattr(service, "record", lambda entry, **_kwargs: recorded.append(entry))
+
+    delay = service._handle_torrent_monitor_result(
+        _item(),
+        {"snatch_status": "SCRIPT ERROR", "error": "No such file"},
+    )
+
+    assert delay is None
+    assert len(recorded) == 1
+    assert isinstance(recorded[0], ManualReview)
+    assert recorded[0].reason == "torrent_autosnatch_script_error"
+    assert recorded[0].reason != "torrent_monitor_unreachable"
+
+
+def test_monitor_error_without_unreachable_flag_does_not_retry(monkeypatch):
+    recorded = []
+    monkeypatch.setattr(service, "record", lambda entry, **_kwargs: recorded.append(entry))
+
+    delay = service._handle_torrent_monitor_result(_item(), {"snatch_status": "MONITOR ERROR"})
+
+    assert delay is None
+    assert recorded == []
+
+
+def test_in_progress_returns_delay_without_sleeping(monkeypatch):
+    slept = []
+    monkeypatch.setattr(service.time, "sleep", lambda seconds: slept.append(seconds))
+
+    delay = service._handle_torrent_monitor_result(_item(), {"snatch_status": "IN PROGRESS"})
+
+    assert delay == service.IN_PROGRESS_POLL_SECONDS
+    assert slept == []
 
 
 def test_monitor_error_then_progress_then_complete_reaches_pp(sqlite_ddl_db, monkeypatch, tmp_path):
@@ -100,28 +210,23 @@ def test_monitor_error_then_progress_then_complete_reaches_pp(sqlite_ddl_db, mon
         hash="hash",
     )
 
-    snatched = queue.Queue()
     pp_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", snatched)
     monkeypatch.setattr(comicarr, "PP_QUEUE", pp_queue)
-    monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
 
     item = _item(journal_release_key=key)
-    service._handle_torrent_monitor_result(item, {"snatch_status": "MONITOR ERROR"})
-    assert snatched.qsize() == 1
-    item = snatched.get_nowait()
+    delay = service._handle_torrent_monitor_result(item, _unreachable())
+    assert delay == maintenance_retry_delay(1)
     assert item["_monitor_error_attempt"] == 1
 
-    service._handle_torrent_monitor_result(item, {"snatch_status": "IN PROGRESS"})
-    assert snatched.qsize() == 1
-    item = snatched.get_nowait()
+    delay = service._handle_torrent_monitor_result(item, {"snatch_status": "IN PROGRESS"})
+    assert delay == service.IN_PROGRESS_POLL_SECONDS
     assert "_monitor_error_attempt" not in item
 
-    service._handle_torrent_monitor_result(
+    delay = service._handle_torrent_monitor_result(
         item,
         {"snatch_status": "MONITOR COMPLETE", "copied_filepath": str(artifact)},
     )
-    assert snatched.empty()
+    assert delay is None
     assert journal.read_one(key)["stage"] == journal.DOWNLOADED
     assert pp_queue.qsize() == 1
     assert pp_queue.get_nowait()["journal_release_key"] == key

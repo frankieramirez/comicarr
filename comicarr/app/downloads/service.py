@@ -34,6 +34,10 @@ from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
 
+IN_PROGRESS_POLL_SECONDS = 5
+MONITOR_OUTAGE_BUDGET_SECONDS = 30 * 60
+
+
 def _maintenance_retry_delay(item):
     """Keep fenced monitor work durable without spinning a queue worker."""
 
@@ -115,6 +119,26 @@ def _record_poison_monitor_item(kind, item, error):
             record(Failure(reason="postprocess_error", downloader_type=item.get("clientmode"), **common))
     except Exception as e:
         logger.error("[DOWNLOADS] Unable to record poison monitor item: %s" % type(e).__name__)
+
+
+def _monitor_outage_delay(attempt):
+    """Escalate client-outage backoff independently of the maintenance-fence counter."""
+
+    from comicarr.app.acquisition.maintenance import maintenance_retry_delay
+
+    return maintenance_retry_delay(attempt)
+
+
+def _record_monitor_trouble(entry, release_key):
+    """Record a torrent-monitor terminal entry without killing the worker thread."""
+
+    try:
+        record(entry)
+    except Exception as e:
+        logger.error(
+            "[DOWNLOADS-WORKER] Unable to record %s for %s: %s"
+            % (getattr(entry, "reason", type(entry).__name__), release_key, type(e).__name__),
+        )
 
 
 def _paginated_activity_response(key, query, **options):
@@ -1789,6 +1813,7 @@ def worker_main(queue):
             logger.info("Cleaning up workers for shutdown")
             break
         controller = MaintenanceController()
+        delay = None
         try:
             with controller.lease(
                 "torrent-monitor",
@@ -1798,11 +1823,12 @@ def worker_main(queue):
             ) as lease:
                 controller.assert_lease_current(lease)
                 snstat = torrentinfo(torrent_hash=item["hash"], download=True)
-                _handle_torrent_monitor_result(item, snstat)
+                delay = _handle_torrent_monitor_result(item, snstat)
                 item.pop("_maintenance_retry_attempt", None)
         except MaintenanceBlocked:
             queue.put(item)
             time.sleep(_maintenance_retry_delay(item))
+            continue
         except Exception as e:
             item_id = _monitor_item_id(item)
             logger.error(
@@ -1814,25 +1840,21 @@ def worker_main(queue):
                 time.sleep(_maintenance_retry_delay(item))
             else:
                 _record_poison_monitor_item("torrent", item, e)
-
-
-def _requeue_torrent_monitor(item):
-    """Put the snatched torrent back on the monitor queue after a bounded delay."""
-
-    time.sleep(_maintenance_retry_delay(item))
-    comicarr.SNATCHED_QUEUE.put(item)
+            continue
+        if delay is not None:
+            queue.put(item)
+            time.sleep(delay)
 
 
 def _handle_torrent_monitor_result(item, snstat):
-    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
     from comicarr.app.downloads import journal
 
     status = snstat.get("snatch_status")
     if status == "IN PROGRESS":
         item.pop("_monitor_error_attempt", None)
+        item.pop("_monitor_error_started", None)
         logger.info("Torrent is still downloading; scheduling another monitor pass.")
-        _requeue_torrent_monitor(item)
-        return
+        return IN_PROGRESS_POLL_SECONDS
 
     payload = {
         "issueid": item.get("issueid"),
@@ -1843,6 +1865,8 @@ def _handle_torrent_monitor_result(item, snstat):
         "apicall": True,
         "ddl": False,
     }
+    if snstat.get("error"):
+        payload["error"] = snstat.get("error")
     rkey = item.get("journal_release_key") or journal.release_key(
         item.get("issueid"),
         item.get("provider"),
@@ -1851,43 +1875,92 @@ def _handle_torrent_monitor_result(item, snstat):
         discriminant=item.get("nzbname") or payload,
     )
 
+    if status == "INVALID HASH":
+        logger.error("[DOWNLOADS-WORKER] torrent hash is invalid for issueid=%s; marking failed." % item.get("issueid"))
+        _record_monitor_trouble(
+            Failure(
+                release_key=rkey,
+                reason="torrent_invalid_hash",
+                payload=payload,
+                issue_id=item.get("issueid"),
+                provider=item.get("provider"),
+                downloader_type="torrent",
+                nzb_name=item.get("nzbname"),
+                download_hash=item.get("hash"),
+                comic_id=item.get("comicid"),
+            ),
+            rkey,
+        )
+        return None
+
+    if status == "SCRIPT ERROR":
+        logger.error(
+            "[DOWNLOADS-WORKER] auto-snatch script failed for issueid=%s: %s"
+            % (item.get("issueid"), snstat.get("error"))
+        )
+        _record_monitor_trouble(
+            ManualReview(
+                release_key=rkey,
+                reason="torrent_autosnatch_script_error",
+                payload=payload,
+                issue_id=item.get("issueid"),
+                provider=item.get("provider"),
+                downloader_type="torrent",
+                nzb_name=item.get("nzbname"),
+                download_hash=item.get("hash"),
+                comic_id=item.get("comicid"),
+            ),
+            rkey,
+        )
+        return None
+
     if status == "MONITOR ERROR":
+        if not snstat.get("client_unreachable"):
+            logger.warn(
+                "[DOWNLOADS-WORKER] torrent monitor error for issueid=%s is not a client outage: %s"
+                % (item.get("issueid"), snstat.get("error"))
+            )
+            return None
         try:
             attempt = int(item.get("_monitor_error_attempt", 0)) + 1
         except (TypeError, ValueError):
             attempt = 1
         item["_monitor_error_attempt"] = attempt
-        if attempt >= MAX_RECOVERY_ATTEMPTS:
+        started = item.get("_monitor_error_started")
+        if started is None:
+            started = time.monotonic()
+            item["_monitor_error_started"] = started
+        try:
+            elapsed = time.monotonic() - float(started)
+        except (TypeError, ValueError):
+            elapsed = 0
+            item["_monitor_error_started"] = time.monotonic()
+        if elapsed >= MONITOR_OUTAGE_BUDGET_SECONDS:
             logger.error(
-                "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s after %s attempts; sending to Manual Review."
-                % (item.get("issueid"), attempt)
+                "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s for %.0fs; sending to Manual Review."
+                % (item.get("issueid"), elapsed)
             )
-            try:
-                record(
-                    ManualReview(
-                        release_key=rkey,
-                        reason="torrent_monitor_unreachable",
-                        payload=payload,
-                        issue_id=item.get("issueid"),
-                        provider=item.get("provider"),
-                        downloader_type="torrent",
-                        nzb_name=item.get("nzbname"),
-                        download_hash=item.get("hash"),
-                        comic_id=item.get("comicid"),
-                    )
-                )
-            except Exception as e:
-                logger.error(
-                    "[DOWNLOADS-WORKER] Unable to record unreachable-client review for %s: %s"
-                    % (rkey, type(e).__name__),
-                )
-            return
+            _record_monitor_trouble(
+                ManualReview(
+                    release_key=rkey,
+                    reason="torrent_monitor_unreachable",
+                    payload=payload,
+                    issue_id=item.get("issueid"),
+                    provider=item.get("provider"),
+                    downloader_type="torrent",
+                    nzb_name=item.get("nzbname"),
+                    download_hash=item.get("hash"),
+                    comic_id=item.get("comicid"),
+                ),
+                rkey,
+            )
+            return None
+        delay = _monitor_outage_delay(attempt)
         logger.warn(
-            "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s; retry %s/%s."
-            % (item.get("issueid"), attempt, MAX_RECOVERY_ATTEMPTS)
+            "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s; retry %s in %ss (%.0fs of %ss budget)."
+            % (item.get("issueid"), attempt, delay, elapsed, MONITOR_OUTAGE_BUDGET_SECONDS)
         )
-        _requeue_torrent_monitor(item)
-        return
+        return delay
 
     if status == "NOT FOUND":
         logger.error(

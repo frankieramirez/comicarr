@@ -670,14 +670,18 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
 
     if not len(torrent_hash) == 40:
         logger.error("Torrent hash is missing, or an invalid hash value has been passed")
-        return {"snatch_status": "MONITOR ERROR"}
+        return {"snatch_status": "INVALID HASH", "error": "invalid hash"}
 
     snapshot = torrent_monitor.probe(torrent_hash)
     logger.info("torrent_info: %s" % snapshot)
 
     if not snapshot.get("reachable"):
         logger.warn("torrent client unreachable for hash %s: %s" % (torrent_hash, snapshot.get("reason")))
-        return {"snatch_status": "MONITOR ERROR", "error": snapshot.get("reason")}
+        return {
+            "snatch_status": "MONITOR ERROR",
+            "error": snapshot.get("reason"),
+            "client_unreachable": True,
+        }
 
     if not snapshot.get("found"):
         logger.warn("torrent not present in client for hash %s (explicit NOT FOUND)." % torrent_hash)
@@ -745,7 +749,8 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 logger.fdebug("Script result: %s" % out)
             except OSError as e:
                 logger.warn("Unable to run extra_script: %s" % e)
-                torrent_info["snatch_status"] = "MONITOR ERROR"
+                torrent_info["snatch_status"] = "SCRIPT ERROR"
+                torrent_info["error"] = str(e)
             else:
                 if "Access failed: No such file" in str(out):
                     logger.fdebug(
