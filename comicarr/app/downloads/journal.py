@@ -442,26 +442,58 @@ def _supersedable_terminal_predicate(*, allow_post_processed=False):
 
 
 def _library_holds_issue(conn, issueid):
-    """True when Status is Downloaded/Archived and a verified library file exists."""
-    if issueid in (None, ""):
-        return False
-    from comicarr.app.acquisition.evidence import has_verified_library_file
-    from comicarr.tables import comics, issues
+    """True when the obligation's library row still holds a verified file.
 
-    issue = conn.execute(
-        select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(issues.c.IssueID == str(issueid))
-    ).fetchone()
-    if issue is None:
-        return False
-    mapping = issue._mapping
+    Resolves issues (with ComicID), then undeleted annuals, then story arcs,
+    then a leftover issues row. Unknown ids fail closed (still blocking).
+    Folders kept after a series move count via ``retained_locations``.
+    """
+    if issueid in (None, ""):
+        return True
+    from comicarr.app.acquisition.evidence import has_verified_library_file
+    from comicarr.app.series.location import retained_locations
+    from comicarr.tables import annuals, comics, issues, storyarcs
+
+    issue_id = str(issueid)
+
+    def _fetch(stmt):
+        return conn.execute(stmt).fetchone()
+
+    found = _fetch(
+        select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(
+            issues.c.IssueID == issue_id,
+            issues.c.ComicID.is_not(None),
+        )
+    )
+    if found is None:
+        found = _fetch(
+            select(annuals.c.Status, annuals.c.Location, annuals.c.ComicID).where(
+                annuals.c.IssueID == issue_id,
+                or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+            )
+        )
+    if found is None:
+        found = _fetch(
+            select(storyarcs.c.Status, storyarcs.c.Location, storyarcs.c.ComicID).where(
+                storyarcs.c.IssueArcID == issue_id
+            )
+        )
+    if found is None:
+        found = _fetch(select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(issues.c.IssueID == issue_id))
+    if found is None:
+        return True
+    mapping = found._mapping
     if str(mapping.get("Status") or "") not in {"Downloaded", "Archived"}:
         return False
-    series = conn.execute(
-        select(comics.c.ComicLocation).where(comics.c.ComicID == str(mapping.get("ComicID") or ""))
-    ).fetchone()
+    series = _fetch(select(comics).where(comics.c.ComicID == str(mapping.get("ComicID") or "")))
     if series is None:
-        return False
-    return has_verified_library_file(series._mapping.get("ComicLocation"), mapping.get("Location"))
+        return True
+    series_map = dict(series._mapping)
+    return has_verified_library_file(
+        series_map.get("ComicLocation"),
+        mapping.get("Location"),
+        retained_locations(series_map),
+    )
 
 
 def _is_supersedable_terminal(mapping, *, conn=None):

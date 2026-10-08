@@ -9,6 +9,7 @@
 
 #  Tests for comicarr.app.downloads.journal — the U1 forward-only journal facade.
 
+import json
 import threading
 from unittest.mock import patch
 
@@ -21,7 +22,7 @@ from comicarr import db
 from comicarr.app.downloads import journal
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.app.downloads import handoff
-from comicarr.tables import comics, issues, metadata, pipeline_journal
+from comicarr.tables import annuals, comics, issues, metadata, pipeline_journal, storyarcs
 
 
 @pytest.fixture(autouse=True)
@@ -295,6 +296,91 @@ def test_reserve_against_unheld_post_processed_wins(tmp_path):
     assert row["stage"] == "reserved"
     assert row["fail_reason"] is None
     assert row.get("status") is None
+
+
+def test_snatched_against_post_processed_annual_still_blocks_when_held(tmp_path):
+    series_dir = tmp_path / "library" / "Saga"
+    series_dir.mkdir(parents=True)
+    issue_file = series_dir / "A1.cbz"
+    issue_file.write_bytes(b"x")
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID="c1", ComicLocation=str(series_dir)))
+        conn.execute(
+            annuals.insert().values(
+                IssueID="A1",
+                ComicID="c1",
+                Status="Downloaded",
+                Location=str(issue_file),
+                Deleted=0,
+            )
+        )
+    key = journal.release_key("A1", "prov")
+    _complete_post_processed(key, "A1", "prov")
+
+    assert journal.record_transition(key, journal.SNATCHED) is False
+    assert _row(key)["stage"] == "post_processed"
+
+
+def test_snatched_against_post_processed_story_arc_still_blocks_when_held(tmp_path):
+    series_dir = tmp_path / "library" / "Saga"
+    series_dir.mkdir(parents=True)
+    issue_file = series_dir / "SA1.cbz"
+    issue_file.write_bytes(b"x")
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID="c1", ComicLocation=str(series_dir)))
+        conn.execute(
+            storyarcs.insert().values(
+                IssueArcID="SA1",
+                StoryArc="Arc",
+                ComicID="c1",
+                Status="Downloaded",
+                Location=str(issue_file),
+            )
+        )
+    key = journal.release_key("SA1", "prov")
+    _complete_post_processed(key, "SA1", "prov")
+
+    assert journal.record_transition(key, journal.SNATCHED) is False
+    assert _row(key)["stage"] == "post_processed"
+
+
+def test_snatched_against_post_processed_without_library_row_stays_blocked():
+    key = journal.release_key("ghost", "prov")
+    _complete_post_processed(key, "ghost", "prov")
+
+    assert journal.record_transition(key, journal.SNATCHED) is False
+    assert _row(key)["stage"] == "post_processed"
+
+
+def test_snatched_against_post_processed_honors_retained_locations(tmp_path):
+    old_root = tmp_path / "old"
+    new_root = tmp_path / "new"
+    old_root.mkdir()
+    new_root.mkdir()
+    issue_file = old_root / "401.cbz"
+    issue_file.write_bytes(b"x")
+    with get_engine().begin() as conn:
+        conn.execute(
+            comics.insert().values(
+                ComicID="c1",
+                ComicLocation=str(new_root),
+                RetainedLocations=json.dumps([str(old_root)]),
+            )
+        )
+        conn.execute(
+            issues.insert().values(
+                IssueID="401",
+                ComicID="c1",
+                ComicName="Saga",
+                Status="Downloaded",
+                Location=str(issue_file),
+            )
+        )
+    key = journal.release_key("401", "prov")
+    _complete_post_processed(key, "401", "prov")
+
+    assert journal.record_transition(key, journal.SNATCHED) is False
+    assert _row(key)["stage"] == "post_processed"
 
 
 def test_downloaded_against_failed_still_noop(capture_logs):
