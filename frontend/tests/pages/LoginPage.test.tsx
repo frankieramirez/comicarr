@@ -30,6 +30,9 @@ describe("LoginPage", () => {
       screen.getByPlaceholderText("from server logs if required"),
     ).toBeTruthy();
     expect(screen.getByText(formatAppVersion())).toBeTruthy();
+    const confirm = screen.getByLabelText("Confirm password");
+    expect(confirm).toBe(document.querySelectorAll("form input")[2]);
+    expect((confirm as HTMLInputElement).placeholder).toBe("confirm");
   });
 
   it("submits setup token with credentials", async () => {
@@ -107,5 +110,13 @@ describe("LoginPage", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Invalid username or password");
   });
-});
 
+  it("labels the login form fields from MonoLabel", async () => {
+    render(<LoginPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Username")).toBeTruthy();
+    });
+    expect(screen.getByLabelText("Password")).toBeTruthy();
+  });
+});

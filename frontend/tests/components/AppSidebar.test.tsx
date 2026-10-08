@@ -38,4 +38,17 @@ describe("AppSidebar", () => {
 
     expect(screen.getByText("ask about your library")).toBeTruthy();
   });
+
+  it("names the collapsed Search control", () => {
+    renderMinimal(
+      <SidebarProvider defaultOpen={false}>
+        <AppSidebar />
+      </SidebarProvider>,
+      { useMemoryRouter: true },
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Search", hidden: true }),
+    ).toBeTruthy();
+  });
 });

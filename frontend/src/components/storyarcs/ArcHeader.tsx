@@ -198,6 +198,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                 size="sm"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={anyPending}
+                aria-label="Delete story arc"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>

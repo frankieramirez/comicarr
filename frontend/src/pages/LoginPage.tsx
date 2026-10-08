@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2,
@@ -15,11 +15,20 @@ import GridShader from "@/components/login/GridShader";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
 
-function MonoLabel({ children }: { children: React.ReactNode }) {
+function MonoLabel({
+  children,
+  htmlFor,
+}: {
+  children: React.ReactNode;
+  htmlFor: string;
+}) {
   return (
-    <div className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted-foreground mb-1.5">
+    <label
+      htmlFor={htmlFor}
+      className="block font-mono text-[10px] tracking-[0.08em] uppercase text-muted-foreground mb-1.5"
+    >
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -52,6 +61,10 @@ function FieldShell({
 }
 
 function SetupForm() {
+  const usernameId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
+  const setupTokenId = useId();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -131,9 +144,10 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel>Username</MonoLabel>
+        <MonoLabel htmlFor={usernameId}>Username</MonoLabel>
         <FieldShell icon={User} focused={focus === "u"}>
           <input
+            id={usernameId}
             type="text"
             placeholder="Choose a username"
             value={username}
@@ -148,9 +162,10 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel>Password</MonoLabel>
+        <MonoLabel htmlFor={passwordId}>Password</MonoLabel>
         <FieldShell icon={Lock} focused={focus === "p"}>
           <input
+            id={passwordId}
             type="password"
             placeholder="min 8 characters"
             value={password}
@@ -165,9 +180,10 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel>Confirm password</MonoLabel>
+        <MonoLabel htmlFor={confirmPasswordId}>Confirm password</MonoLabel>
         <FieldShell icon={Lock} focused={focus === "c"}>
           <input
+            id={confirmPasswordId}
             type="password"
             placeholder="confirm"
             value={confirmPassword}
@@ -182,9 +198,10 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel>Setup token (optional)</MonoLabel>
+        <MonoLabel htmlFor={setupTokenId}>Setup token (optional)</MonoLabel>
         <FieldShell icon={ShieldCheck} focused={focus === "t"}>
           <input
+            id={setupTokenId}
             type="text"
             placeholder="from server logs if required"
             value={setupToken}
@@ -250,6 +267,8 @@ function SetupForm() {
 }
 
 function LoginForm() {
+  const usernameId = useId();
+  const passwordId = useId();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [focus, setFocus] = useState<string | null>(null);
@@ -276,9 +295,10 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <MonoLabel>Username</MonoLabel>
+        <MonoLabel htmlFor={usernameId}>Username</MonoLabel>
         <FieldShell icon={User} focused={focus === "u"}>
           <input
+            id={usernameId}
             type="text"
             placeholder="username"
             value={username}
@@ -293,9 +313,10 @@ function LoginForm() {
       </div>
 
       <div>
-        <MonoLabel>Password</MonoLabel>
+        <MonoLabel htmlFor={passwordId}>Password</MonoLabel>
         <FieldShell icon={Lock} focused={focus === "p"}>
           <input
+            id={passwordId}
             type={showPw ? "text" : "password"}
             placeholder="password"
             value={password}
