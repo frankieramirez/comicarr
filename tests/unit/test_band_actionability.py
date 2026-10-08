@@ -19,7 +19,17 @@ import comicarr
 from comicarr import db
 from comicarr.app.activity import queries, reasons
 from comicarr.app.activity import reconcile as band_reconcile
-from comicarr.tables import annuals, comics, failed, issues, metadata, nzblog, pipeline_journal, storyarcs
+from comicarr.tables import (
+    annuals,
+    comics,
+    failed,
+    issues,
+    metadata,
+    nzblog,
+    pipeline_journal,
+    snatched,
+    storyarcs,
+)
 
 
 @pytest.fixture
@@ -433,7 +443,7 @@ def test_cleanup_phantom_issue_rows_copies_then_deletes(activity_db):
     assert [row["IssueID"] for row in leftover] == ["A1", "SA1"]
 
 
-def test_reconcile_existing_excluded_rows_runs_phantom_cleanup(activity_db):
+def test_reconcile_existing_excluded_rows_does_not_run_phantom_cleanup(activity_db):
     with activity_db.begin() as conn:
         conn.execute(insert(annuals), [{"IssueID": "A9", "ComicID": "c1", "Status": "Snatched"}])
         conn.execute(
@@ -442,7 +452,28 @@ def test_reconcile_existing_excluded_rows_runs_phantom_cleanup(activity_db):
         )
 
     summary = band_reconcile.reconcile_existing_excluded_rows()
-    assert summary["phantom_cleanup"] == {"copied": 1, "deleted": 1}
-    assert db.select_one(select(issues).where(issues.c.IssueID == "A9")) is None
+    assert "phantom_cleanup" not in summary
+    assert db.select_one(select(issues).where(issues.c.IssueID == "A9")) is not None
     annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A9"))
     assert annual["Status"] == "Snatched"
+
+
+def test_cleanup_phantom_issue_rows_skips_referenced_ids(activity_db):
+    from comicarr.app.attention._reconciliation import cleanup_phantom_issue_rows
+
+    with activity_db.begin() as conn:
+        conn.execute(insert(annuals), [{"IssueID": "A1", "ComicID": "c1", "Status": "Snatched"}])
+        conn.execute(insert(storyarcs), [{"IssueArcID": "SA1", "StoryArc": "Arc", "Status": "Snatched"}])
+        conn.execute(
+            insert(issues),
+            [
+                {"IssueID": "A1", "ComicID": None, "Status": "Wanted"},
+                {"IssueID": "SA1", "ComicID": None, "Status": "Wanted"},
+            ],
+        )
+        conn.execute(insert(snatched), [{"IssueID": "A1", "Status": "Snatched", "Provider": "nzbgeek"}])
+
+    result = cleanup_phantom_issue_rows()
+    assert result == {"copied": 1, "deleted": 1}
+    assert db.select_one(select(issues).where(issues.c.IssueID == "A1")) is not None
+    assert db.select_one(select(issues).where(issues.c.IssueID == "SA1")) is None

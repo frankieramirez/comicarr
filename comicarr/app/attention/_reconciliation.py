@@ -22,7 +22,7 @@ Safe no-op for admitted reasons and for ``download_failed_researching``
 
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, not_, or_, select, text
 
 from comicarr import logger
 from comicarr.app.attention._policy import base_reason, is_actionable, reconciliation_for
@@ -284,16 +284,28 @@ def cleanup_phantom_issue_rows():
     """Copy-then-delete issues rows that are annual or story-arc phantoms (#969).
 
     Phantoms have NULL ComicID and an IssueID that also exists in annuals or
-    storyarcs.IssueArcID. A plain DELETE is irreversible, so rows are copied
-    into ``issues_phantom_backup_969`` first. Idempotent: a second pass finds
-    nothing to copy.
+    storyarcs.IssueArcID. Rows still referenced by snatched, nzblog, or
+    acquisition_run_items are left in place. A plain DELETE is irreversible,
+    so eligible rows are copied into ``issues_phantom_backup_969`` first.
+
+    This is a reviewed one-shot. Do not call it from startup reconcile —
+    invoke it only after an operator has inspected the candidate list.
     """
     from comicarr import db
-    from comicarr.tables import annuals, issues, storyarcs
+    from comicarr.tables import acquisition_run_items, annuals, issues, nzblog, snatched, storyarcs
 
-    phantom_filter = (issues.c.ComicID.is_(None)) & or_(
-        issues.c.IssueID.in_(select(annuals.c.IssueID)),
-        issues.c.IssueID.in_(select(storyarcs.c.IssueArcID)),
+    referenced = or_(
+        issues.c.IssueID.in_(select(snatched.c.IssueID)),
+        issues.c.IssueID.in_(select(nzblog.c.IssueID)),
+        issues.c.IssueID.in_(select(acquisition_run_items.c.entity_id)),
+    )
+    phantom_filter = (
+        (issues.c.ComicID.is_(None))
+        & or_(
+            issues.c.IssueID.in_(select(annuals.c.IssueID)),
+            issues.c.IssueID.in_(select(storyarcs.c.IssueArcID)),
+        )
+        & not_(referenced)
     )
     engine = db.get_engine()
     with engine.begin() as conn:
@@ -301,11 +313,17 @@ def cleanup_phantom_issue_rows():
         if not count:
             return {"copied": 0, "deleted": 0}
         _ensure_phantom_backup_table(conn)
+        columns = list(conn.execute(text("SELECT * FROM %s LIMIT 0" % PHANTOM_BACKUP_TABLE)).keys())
+        col_sql = ",".join(columns)
         conn.execute(
             text(
-                "INSERT INTO %s SELECT issues.* FROM issues WHERE issues.ComicID IS NULL AND ("
+                "INSERT INTO %s (%s) SELECT %s FROM issues WHERE issues.ComicID IS NULL AND ("
                 "EXISTS (SELECT 1 FROM annuals WHERE annuals.IssueID = issues.IssueID) OR "
-                "EXISTS (SELECT 1 FROM storyarcs WHERE storyarcs.IssueArcID = issues.IssueID))" % PHANTOM_BACKUP_TABLE
+                "EXISTS (SELECT 1 FROM storyarcs WHERE storyarcs.IssueArcID = issues.IssueID)) AND NOT ("
+                "EXISTS (SELECT 1 FROM snatched WHERE snatched.IssueID = issues.IssueID) OR "
+                "EXISTS (SELECT 1 FROM nzblog WHERE nzblog.IssueID = issues.IssueID) OR "
+                "EXISTS (SELECT 1 FROM acquisition_run_items WHERE acquisition_run_items.entity_id = issues.IssueID))"
+                % (PHANTOM_BACKUP_TABLE, col_sql, col_sql)
             )
         )
         deleted = conn.execute(issues.delete().where(phantom_filter)).rowcount
@@ -324,16 +342,14 @@ def reconcile_existing_excluded_rows():
     reason is now non-actionable and discharge their obligations.
 
     Idempotent: re-wanting an already-Wanted issue is a no-op UPDATE; blocklist
-    upserts the same failed-table key. Also copies then deletes phantom issues
-    rows left by pre-#969 re-wants of annuals and story arcs.
+    upserts the same failed-table key. Phantom issues cleanup is a separate
+    reviewed one-shot and is not run here.
     """
     from sqlalchemy import and_, or_, select
 
     from comicarr import db
     from comicarr.app.downloads.journal import FAILED, MANUAL_REVIEW, RESOLVED_STATUSES
     from comicarr.tables import pipeline_journal
-
-    phantom_cleanup = cleanup_phantom_issue_rows()
 
     pre_actionability = and_(
         pipeline_journal.c.stage.in_((FAILED, MANUAL_REVIEW)),
@@ -350,7 +366,6 @@ def reconcile_existing_excluded_rows():
         "closed_fulfilled": 0,
         "skipped_actionable": 0,
         "results": {},
-        "phantom_cleanup": phantom_cleanup,
     }
     for row in rows or []:
         summary["scanned"] += 1
@@ -371,16 +386,15 @@ def reconcile_existing_excluded_rows():
         )
         summary["acted"] += 1
         summary["results"][result] = summary["results"].get(result, 0) + 1
-    if summary["acted"] or summary["closed_fulfilled"] or phantom_cleanup.get("deleted"):
+    if summary["acted"] or summary["closed_fulfilled"]:
         logger.warn(
             "[BAND-RECONCILE] one-shot stranded-row pass: scanned=%s acted=%s "
-            "closed_fulfilled=%s results=%s phantom_cleanup=%s"
+            "closed_fulfilled=%s results=%s"
             % (
                 summary["scanned"],
                 summary["acted"],
                 summary["closed_fulfilled"],
                 summary["results"],
-                phantom_cleanup,
             )
         )
     return summary

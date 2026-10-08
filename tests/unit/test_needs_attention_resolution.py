@@ -370,6 +370,17 @@ def test_stop_wanting_failed_stamps_and_sets_intent():
     assert _journal_row(key)["stage"] == journal.FAILED
 
 
+def test_stop_wanting_without_library_row_still_dismisses():
+    key = _seed_failed_row()
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+    assert result["success"] is True
+    assert result["status"] == "ignored"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "1001")) is None
+    assert _journal_row(key)["status"] == journal.STATUS_IGNORED
+    assert key not in _attention_release_keys()
+
+
 def test_retired_ignore_action_id_is_rejected():
     _seed_issue(status="Failed")
     key = _seed_failed_row()

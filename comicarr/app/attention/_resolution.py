@@ -188,20 +188,16 @@ def _stop_wanting(row, key, *, actor, effects):
         return _failure(key, "missing_issue", "Journal row has no issueid")
     entity_type = _entity_type_from_row(row)
     ignored = effects.stop_wanting(issue_id, actor, entity_type=entity_type)
-    if not ignored.get("ok"):
-        return _failure(
-            key,
-            "missing_issue",
-            "No matching issue, annual, or story-arc row to stop wanting",
-            issue_id=issue_id,
-            stamp_written=False,
-        )
     stamped = journal.stamp_resolution(key, journal.STATUS_IGNORED)
+    if ignored.get("ok"):
+        message = "Issue will not be searched again until you want it back"
+    else:
+        message = "No library row to un-want; dismissed from Needs attention"
     return ResolutionItem(
         release_key=key,
         ok=True,
         status="ignored",
-        message="Issue will not be searched again until you want it back",
+        message=message,
         issue_id=issue_id,
         stamp_written=stamped,
     )
