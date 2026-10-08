@@ -143,6 +143,12 @@ test("series issue status stays in the phone viewport", async ({
     .locator("[data-grid-status]")
     .first();
   await expect(status).toBeVisible();
+  // Phone stacks the hero above the list (#948); the AC is no *horizontal*
+  // scroll to reach status, not that the first row is above the fold.
+  await status.scrollIntoViewIfNeeded();
   await expect(status).toBeInViewport();
+  const box = await status.boundingBox();
+  expect(box).toBeTruthy();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
   await assertNoHorizontalScroll(page.getByTestId("series-issue-list"));
 });
