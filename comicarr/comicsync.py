@@ -29,10 +29,10 @@ import re
 import threading
 import time
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger, updater
+from comicarr import db, logger, series_kind, updater
 from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.tables import comics
 
@@ -214,7 +214,7 @@ def _load_existing_series():
                 comics.c.DynamicComicName,
                 comics.c.ComicYear,
                 comics.c.ComicLocation,
-            ).where(or_(comics.c.ContentType.is_(None), comics.c.ContentType != "manga"))
+            ).where(series_kind.comic_sql_clause(comics.c.ComicID, comics.c.ContentType))
             for row in conn.execute(stmt):
                 row_dict = dict(row._mapping)
                 for name in (

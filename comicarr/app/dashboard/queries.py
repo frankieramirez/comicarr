@@ -9,9 +9,10 @@
 
 """SQLAlchemy Core projections owned by the dashboard domain."""
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 
 from comicarr import db
+from comicarr.series_kind import comic_sql_clause, manga_sql_clause
 from comicarr.tables import activity_events
 from comicarr.tables import comics as t_comics
 
@@ -44,7 +45,10 @@ def get_library_stats(content_type=None):
             func.coalesce(func.sum(t_comics.c.Have), 0).label("manga_have"),
             func.coalesce(func.sum(t_comics.c.Total), 0).label("manga_total"),
         )
-        conditions = (t_comics.c.Status != "Paused", t_comics.c.ContentType == "manga")
+        conditions = (
+            t_comics.c.Status != "Paused",
+            manga_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType),
+        )
     elif content_type == "comic":
         columns = (
             func.count().label("comic_series"),
@@ -53,7 +57,7 @@ def get_library_stats(content_type=None):
         )
         conditions = (
             t_comics.c.Status != "Paused",
-            or_(t_comics.c.ContentType.is_(None), t_comics.c.ContentType == "comic"),
+            comic_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType),
         )
     else:
         columns = (

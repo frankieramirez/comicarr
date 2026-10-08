@@ -36,6 +36,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from enum import Enum
 
+from sqlalchemy import and_, not_, or_
+
 
 class SeriesProvider(str, Enum):
     """Who issued a Series id."""
@@ -84,13 +86,53 @@ def is_manga(series: str | Mapping | None) -> bool:
     A stored ``ContentType`` is authoritative when a row is available. Provider
     identity is only the fallback for a bare id or a legacy row whose field is
     absent/null. This lets an operator classify any provider's Series while
-    retaining prefix inference for old data.
+    retaining prefix inference for old data. SQL callers must use
+    :func:`manga_sql_clause` rather than re-deriving the prefix-OR form.
     """
     if isinstance(series, Mapping):
         content_type = series.get("ContentType")
         if content_type is not None:
             return str(content_type).strip().casefold() == _MANGA_CONTENT_TYPE
     return provider_of(series) in MANGA_PROVIDERS
+
+
+def manga_sql_clause(comic_id_column, content_type_column):
+    """SQL form of :func:`is_manga` for a Series table.
+
+    Stored ``ContentType`` wins. ``md-``/``mal-`` prefixes are the fallback
+    only when ``ContentType`` is NULL, so an operator who classifies a
+    prefixed Series as comic is excluded from manga sync, RSS, dashboard
+    stats, and library scan. This is the #976 rule; #686 kept the prefix-OR
+    filter only because no live rows were mis-stamped, not because prefix
+    should override a deliberate reclassification.
+    """
+    prefixed = or_(
+        comic_id_column.like("md-%"),
+        comic_id_column.like("mal-%"),
+    )
+    return or_(
+        content_type_column == _MANGA_CONTENT_TYPE,
+        and_(content_type_column.is_(None), prefixed),
+    )
+
+
+def comic_sql_clause(comic_id_column, content_type_column):
+    """SQL form of ``not is_manga`` for a Series table.
+
+    Inverse of :func:`manga_sql_clause`, written without ``NOT (clause)`` so a
+    NULL ContentType does not become UNKNOWN and vanish from both buckets.
+    """
+    prefixed = or_(
+        comic_id_column.like("md-%"),
+        comic_id_column.like("mal-%"),
+    )
+    return or_(
+        and_(
+            content_type_column.isnot(None),
+            content_type_column != _MANGA_CONTENT_TYPE,
+        ),
+        and_(content_type_column.is_(None), not_(prefixed)),
+    )
 
 
 def chapter_source_id(series: str | Mapping | None) -> str | None:

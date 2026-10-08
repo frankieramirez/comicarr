@@ -33,7 +33,7 @@ def query_db(tmp_path, monkeypatch):
     db.shutdown_engine()
 
 
-def test_list_active_manga_includes_prefix_rows_stamped_comic(query_db):
+def test_list_active_manga_excludes_prefix_rows_stamped_comic(query_db):
     with query_db.begin() as conn:
         conn.execute(
             insert(comics),
@@ -51,6 +51,12 @@ def test_list_active_manga_includes_prefix_rows_stamped_comic(query_db):
                     "ContentType": "comic",
                 },
                 {
+                    "ComicID": "md-wanted",
+                    "ComicName": "Wanted",
+                    "Status": "Active",
+                    "ContentType": "manga",
+                },
+                {
                     "ComicID": "4050-1",
                     "ComicName": "A Comic",
                     "Status": "Active",
@@ -65,7 +71,7 @@ def test_list_active_manga_includes_prefix_rows_stamped_comic(query_db):
             ],
         )
     ids = {row["ComicID"] for row in list_active_manga_series()}
-    assert ids == {"md-onepiece", "mal-13"}
+    assert ids == {"md-wanted"}
 
 
 def test_empty_ledger_series_are_those_with_zero_issues(query_db):

@@ -251,7 +251,7 @@ def _check_existing_series(series_name, files):
     with db.get_engine().connect() as conn:
         stmt = select(comics).where(
             comics.c.ComicName == series_name,
-            comics.c.ContentType == "manga",
+            series_kind.manga_sql_clause(comics.c.ComicID, comics.c.ContentType),
         )
         existing = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
