@@ -2199,26 +2199,129 @@ def _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id):
     )
 
 
-def _cdh_monitor_owned(queue, item, nzstat, readd=False):
-    from comicarr.helpers import check_file_condition
+def _cdh_item_release_key(item, nzstat):
+    """Prefer a propagated journal key; else derive under existing release_key rules."""
+    from comicarr.app.downloads import journal
 
+    if item.get("journal_release_key"):
+        return item["journal_release_key"]
+    di = {}
+    if isinstance(nzstat, dict):
+        di = nzstat.get("download_info") or {}
+    if not di:
+        di = item.get("download_info") or {}
+    issueid = item.get("issueid") or (nzstat or {}).get("issueid") or di.get("issueid")
+    provider = item.get("provider") or di.get("provider")
+    nzbname = item.get("nzbname") or di.get("nzbname") or (nzstat or {}).get("name")
+    download_hash = item.get("hash") or di.get("hash")
+    return journal.release_key(
+        issueid,
+        provider,
+        nzbname=nzbname,
+        hash=download_hash,
+        discriminant=nzbname or di or item,
+    )
+
+
+def _cdh_record_entry(entry):
+    """Record a terminal CDH outcome; never raise back into the monitor loop."""
+    try:
+        record(entry)
+    except Exception as e:
+        logger.error(
+            "[DOWNLOADS-CDH] Unable to record %s for %s: %s"
+            % (type(entry).__name__, entry.release_key, type(e).__name__)
+        )
+
+
+def _cdh_record_terminal_outcome(item, nzstat, readd=False):
+    """Route non-success SAB/NZBGet statuses to attention, failure, or requeue.
+
+    ``double-pp`` is an explicit no-op (ComicRN owns post-processing). File-not-
+    found is ManualReview (path/storage). ``failed_in_sab`` terminalizes as
+    Failure with the same reason Process uses when auto handling is off.
+    Unhandled staging statuses requeue onto RETURN_THE_NZBQUEUE with backoff
+    even when ``readd`` is False. Returns True when the status was consumed.
+    """
+    from comicarr import failed as failed_mod
+
+    status = nzstat.get("status") if isinstance(nzstat, dict) else None
     known_nzb_id = item.get("nzo_id") or item.get("NZBID")
-    if any([nzstat["status"] == "file not found", nzstat["status"] == "double-pp"]):
+    if status == "double-pp":
+        logger.warn("ComicRN owns this download; skipping completed-download handling. [%s]" % known_nzb_id)
+        return True
+    if status == "file not found":
         logger.warn("Unable to complete post-processing call due to not finding file. [%s]" % item)
-    elif nzstat["status"] == "nzb removed" or "unhandled status" in str(nzstat["status"]).lower():
-        if readd is True:
-            logger.warn("NZB seems to have been in a staging process. Will requeue: %s." % known_nzb_id)
-            comicarr.RETURN_THE_NZBQUEUE.put(item)
-        else:
-            logger.warn("NZB seems to have been removed from queue: %s" % known_nzb_id)
-    elif nzstat["status"] == "failed_in_sab":
+        rkey = _cdh_item_release_key(item, nzstat)
+        if rkey:
+            di = (nzstat or {}).get("download_info") or item.get("download_info") or {}
+            _cdh_record_entry(
+                ManualReview(
+                    release_key=rkey,
+                    reason="sab_completed_file_not_found",
+                    payload={
+                        "issueid": item.get("issueid") or (nzstat or {}).get("issueid"),
+                        "comicid": item.get("comicid") or (nzstat or {}).get("comicid"),
+                        "nzo_id": known_nzb_id,
+                        "nzstat_status": status,
+                    },
+                    issue_id=item.get("issueid") or (nzstat or {}).get("issueid"),
+                    provider=item.get("provider") or di.get("provider"),
+                    downloader_type=item.get("clientmode") or "nzb",
+                    nzb_name=item.get("nzbname") or di.get("nzbname"),
+                    comic_id=item.get("comicid") or (nzstat or {}).get("comicid"),
+                )
+            )
+        return True
+    if status == "failed_in_sab":
         logger.warn("Failure returned from SAB for %s" % known_nzb_id)
-    elif nzstat["status"] == "failed_no_auto_handling":
+        rkey = _cdh_item_release_key(item, nzstat)
+        if rkey:
+            di = (nzstat or {}).get("download_info") or item.get("download_info") or {}
+            _cdh_record_entry(
+                Failure(
+                    release_key=rkey,
+                    reason=failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+                    payload={
+                        "issueid": item.get("issueid") or (nzstat or {}).get("issueid"),
+                        "comicid": item.get("comicid") or (nzstat or {}).get("comicid"),
+                        "nzo_id": known_nzb_id,
+                        "nzstat_status": status,
+                        "failed": True,
+                    },
+                    issue_id=item.get("issueid") or (nzstat or {}).get("issueid"),
+                    provider=item.get("provider") or di.get("provider"),
+                    downloader_type=item.get("clientmode") or "nzb",
+                    nzb_name=item.get("nzbname") or di.get("nzbname"),
+                    comic_id=item.get("comicid") or (nzstat or {}).get("comicid"),
+                )
+            )
+        return True
+    if status == "failed_no_auto_handling":
         logger.warn(
             "SAB reported failure for %s and failed-download handling is off; terminalizing journal." % known_nzb_id
         )
         _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id)
-    elif nzstat["status"] == "queue_paused":
+        return True
+    if status == "nzb removed" or "unhandled status" in str(status).lower():
+        delay = _maintenance_retry_delay(item) if isinstance(item, dict) else 5
+        logger.warn(
+            "NZB %s has unhandled status %s; requeueing with %ss backoff (readd=%s)."
+            % (known_nzb_id, status, delay, readd)
+        )
+        time.sleep(delay)
+        comicarr.RETURN_THE_NZBQUEUE.put(item)
+        return True
+    return False
+
+
+def _cdh_monitor_owned(queue, item, nzstat, readd=False):
+    from comicarr.helpers import check_file_condition
+
+    known_nzb_id = item.get("nzo_id") or item.get("NZBID")
+    if _cdh_record_terminal_outcome(item, nzstat, readd=readd):
+        return
+    if nzstat["status"] == "queue_paused":
         if comicarr.USE_SABNZBD is True:
             comicarr.RETURN_THE_NZBQUEUE.put(item)
     elif nzstat["status"] is False:

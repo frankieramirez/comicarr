@@ -34,6 +34,7 @@ REASON_PHRASES = {
     "ddl_artifact_state_persistence_error": "could not save download state (direct download)",
     "torrent_artifact_state_persistence_error": "could not save download state (torrent)",
     "nzb_artifact_state_persistence_error": "could not save download state (NZB)",
+    "sab_completed_file_not_found": "completed download file was not found (path or storage mapping)",
     "reserved_without_persisted_acceptance": "download reserved but never fully accepted",
     "done_signal_without_library_placement": "download finished but was never imported into the library",
     "route_acceptance_missing_identity": "the downloader accepted it without identifying it",
