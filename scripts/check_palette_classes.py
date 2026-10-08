@@ -27,7 +27,7 @@ why it accumulates without anyone filing a bug.
 Semantic colour belongs to the ``--status-*`` family; ``--destructive`` and
 ``--muted-foreground`` cover the generic cases. Both are theme-aware.
 
-This gate is a ratchet, not a cliff. 54 usages across 10 files predate it, so
+This gate is a ratchet, not a cliff. 42 usages across 7 files predate it, so
 the baseline below records the per-file count and the check fails when a count
 *rises* or a new file appears. It also fails when a count *falls* without the
 baseline being updated: a stale entry is a lie about the debt, and forcing the

@@ -265,16 +265,11 @@ export default function MatchModal({
 }: MatchModalProps) {
   const [keepMounted, setKeepMounted] = useState(isOpen);
   const [heldGroup, setHeldGroup] = useState(importGroup);
+  const [heldRowId, setHeldRowId] = useState<string | null>(
+    triggerRowId ?? null,
+  );
   const triggerRef = useRef<HTMLElement | null>(null);
-  const heldRowIdRef = useRef<string | null>(triggerRowId ?? null);
   const mounted = isOpen || keepMounted;
-
-  if (triggerElement) {
-    triggerRef.current = triggerElement;
-  }
-  if (triggerRowId) {
-    heldRowIdRef.current = triggerRowId;
-  }
 
   if (isOpen && !keepMounted) {
     setKeepMounted(true);
@@ -282,6 +277,15 @@ export default function MatchModal({
   if (importGroup && importGroup !== heldGroup) {
     setHeldGroup(importGroup);
   }
+  if (triggerRowId && triggerRowId !== heldRowId) {
+    setHeldRowId(triggerRowId);
+  }
+
+  useEffect(() => {
+    if (triggerElement) {
+      triggerRef.current = triggerElement;
+    }
+  }, [triggerElement]);
 
   useEffect(() => {
     if (isOpen) return undefined;
@@ -305,7 +309,7 @@ export default function MatchModal({
       onOpenChange={(open) => {
         if (!open) {
           const trigger = triggerRef.current;
-          const rowId = heldRowIdRef.current;
+          const rowId = heldRowId;
           onClose();
           requestAnimationFrame(() => {
             resolveFocusTarget(trigger, rowId)?.focus();
@@ -324,7 +328,7 @@ export default function MatchModal({
           onMatch={onMatch}
           isMatching={isMatching}
           finalFocus={triggerRef}
-          triggerRowId={heldRowIdRef.current}
+          triggerRowId={heldRowId}
         />
       ) : null}
     </Dialog>

@@ -116,7 +116,7 @@ utility must do the same.
   `border-yellow-500`. They are fixed sRGB values that ignore `.dark` entirely, so
   a component using them is legible in one theme and wrong in the other. Use a
   `--status-*` token, or `--destructive` / `--muted-foreground` for the generic
-  cases. 54 such usages predate the gate; `scripts/check_palette_classes.py` holds
+  cases. 42 such usages predate the gate; `scripts/check_palette_classes.py` holds
   a per-file baseline that only ever shrinks, so new ones fail CI and fixes must
   lower the number.
 
@@ -186,7 +186,7 @@ target state — the rules above are the target state.
 |-------|--------|--------|
 | Arbitrary `text-[Npx]` | 432 usages, 63 files | No typographic scale |
 | Inline `style={{ }}` | 288 attributes, 50 files | Tokens bypass the class layer |
-| Raw Tailwind palette classes | 54 usages, 10 files | Colors don't respond to theme — **gated, shrink-only** |
+| Raw Tailwind palette classes | 42 usages, 7 files | Colors don't respond to theme — **gated, shrink-only** |
 | Radix holdouts | `avatar.tsx`, `bubble.tsx`, `marker.tsx` + 3 deps | Two primitive libraries in one app |
 | Dead `components/custom/` | 6 files, 0 importers | Unlinted, unreachable code |
 | Dead `frontend/src/App.css` | 42 lines, imported nowhere | Vite scaffold leftover |
