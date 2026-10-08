@@ -17,7 +17,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db
 from comicarr.app.downloads import journal
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import issues, metadata, pipeline_journal
@@ -621,23 +620,24 @@ def _seed_conflict_row(issue_id, key):
 
 
 def _break_rewant(monkeypatch):
-    """Make the clause-2 re-want upsert raise, leaving other writes intact.
+    """Make the clause-2 re-want UPDATE raise, leaving other writes intact.
 
-    Returns the list of connections the failing ``issues`` upsert was called
-    with. Tests must assert it is non-empty: without that, a reconciliation
-    path that stopped writing ``issues`` (or stopped running) would make the
-    fault injection silently inert and the quarantine assertions vacuous.
+    Re-want now uses ``update_obligation_intent`` (guarded UPDATE, never
+    insert) instead of ``db.upsert_conn``. Returns the list of connections
+    that writer was called with. Tests must assert it is non-empty: without
+    that, a reconciliation path that stopped writing the obligation (or
+    stopped running) would make the fault injection silently inert and the
+    quarantine assertions vacuous.
     """
-    original_upsert_conn = db.upsert_conn
+    from comicarr.app.series import queries as series_queries
+
     rewant_conns = []
 
-    def fail_rewant(conn, table_name, values, controls):
-        if table_name == "issues":
-            rewant_conns.append(conn)
-            raise RuntimeError("rewant persistence failed")
-        return original_upsert_conn(conn, table_name, values, controls)
+    def fail_rewant(*_args, conn=None, **_kwargs):
+        rewant_conns.append(conn)
+        raise RuntimeError("rewant persistence failed")
 
-    monkeypatch.setattr(db, "upsert_conn", fail_rewant)
+    monkeypatch.setattr(series_queries, "update_obligation_intent", fail_rewant)
     return rewant_conns
 
 
@@ -660,7 +660,7 @@ def test_immutable_conflict_quarantine_survives_failing_reconciliation_hook(monk
         payload={"issueid": "different-issue", "route": "sabnzbd", "nzo_id": "sab-job-tx"},
     )
 
-    assert rewant_conns, "reconciliation never attempted the issues write — fault injection inert"
+    assert rewant_conns, "reconciliation never attempted the obligation write — fault injection inert"
     assert won is False
     row = _row(key)
     assert row["stage"] == journal.MANUAL_REVIEW
@@ -687,7 +687,7 @@ def test_immutable_conflict_quarantine_commits_in_caller_transaction(monkeypatch
             conn=conn,
         )
 
-    assert rewant_conns, "reconciliation never attempted the issues write — fault injection inert"
+    assert rewant_conns, "reconciliation never attempted the obligation write — fault injection inert"
     assert all(seen is conn for seen in rewant_conns), "reconciliation must run on the caller-supplied transaction"
     assert won is False
     row = _row(key)
