@@ -101,6 +101,7 @@ body {
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --radius-control: 5px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

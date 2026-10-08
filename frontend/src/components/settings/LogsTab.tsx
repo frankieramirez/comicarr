@@ -72,7 +72,7 @@ function OverrideCallout({ level }: { level: LogLevelContext }) {
   const appliedLive = level.effective !== level.restart_level;
   return (
     <div
-      className="rounded-[5px] border px-3 py-2.5 text-[12.5px] leading-relaxed"
+      className="rounded-control border px-3 py-2.5 text-[12.5px] leading-relaxed"
       style={{
         borderColor:
           "color-mix(in oklab, var(--status-paused) 40%, transparent)",
@@ -375,7 +375,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
         <Skeleton className="h-[min(62vh,640px)] w-full" />
       ) : hasError ? (
         <div
-          className="rounded-[5px] border px-3 py-2.5 text-[12.5px]"
+          className="rounded-control border px-3 py-2.5 text-[12.5px]"
           style={{
             borderColor:
               "color-mix(in oklab, var(--status-error) 30%, transparent)",

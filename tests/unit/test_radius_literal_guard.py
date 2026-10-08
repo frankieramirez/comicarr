@@ -51,11 +51,14 @@ def test_on_scale_literal_is_rejected(tmp_path, monkeypatch, capsys):
     assert "rounded-lg" in err
 
 
-def test_five_px_button_step_is_not_flagged(tmp_path, monkeypatch):
+def test_five_px_literal_must_use_rounded_control(tmp_path, monkeypatch, capsys):
     guard = _load()
     src = tmp_path / "frontend" / "src"
     src.mkdir(parents=True)
     (src / "Box.tsx").write_text('export const c = "rounded-[5px] rounded-lg";\n', encoding="utf-8")
     monkeypatch.setattr(guard, "ROOT", tmp_path)
     monkeypatch.setattr(guard, "SRC", src)
-    assert guard.main() == 0
+    assert guard.main() == 1
+    err = capsys.readouterr().err
+    assert "rounded-[5px]" in err
+    assert "rounded-control" in err

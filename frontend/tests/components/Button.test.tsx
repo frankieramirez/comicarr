@@ -10,7 +10,7 @@ describe("buttonVariants", () => {
       expect(classes).toContain("focus-visible:ring-ring");
       expect(classes).toContain("disabled:pointer-events-none");
       expect(classes).toContain("disabled:opacity-50");
-      expect(classes).toContain("rounded-[5px]");
+      expect(classes).toContain("rounded-control");
       expect(classes).toContain("text-[12px]");
     }
   });

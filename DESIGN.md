@@ -50,8 +50,8 @@ The app's dense control is a Button size, not a copied class string.
 
 | Size | Geometry |
 |------|----------|
-| `compact` | `h-7 px-2.5 rounded-[5px] text-[12px]` — inbox, scan, dense rows; icons 12px |
-| `toolbar` | `h-8 px-3 rounded-[5px] text-[12px]` — page-header and form actions; icons 14px |
+| `compact` | `h-7 px-2.5 rounded-control text-[12px]` — inbox, scan, dense rows; icons 12px |
+| `toolbar` | `h-8 px-3 rounded-control text-[12px]` — page-header and form actions; icons 14px |
 | `mono` | uppercase mono label on either size |
 
 `outline` on `compact`/`toolbar` keeps the old dense look: transparent fill,
@@ -125,9 +125,9 @@ source of style drift in the codebase (see *Known drift*).
 
 `--radius: 0.375rem` with a derived `sm`/`md`/`lg`/`xl`/`2xl`/`3xl`/`4xl` scale in
 `@theme inline`. Use `rounded-md` etc.; don't write `rounded-[6px]`.
-`rounded-[5px]` is the named compact/toolbar Button step only; leftover 5px
-literals on chips and callouts stay until those primitives land. `check_radius_literals.py`
-rejects on-scale `2/4/6/10/14px` literals.
+`--radius-control: 5px` is the sixth step (`rounded-control`) for dense
+controls, chips, and compact/toolbar Buttons. `check_radius_literals.py`
+rejects on-scale `2/4/6/10/14px` literals and leftover `rounded-[5px]`.
 
 ### Effects
 
@@ -249,7 +249,7 @@ Both gates run under `npm run lint:guards`:
 ```bash
 python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive; color utilities name a --color-* key
 python3 scripts/check_palette_classes.py  # no new palette literals
-python3 scripts/check_radius_literals.py  # no on-scale rounded-[2|4|6|10|14px]
+python3 scripts/check_radius_literals.py  # no on-scale rounded-[2|4|5|6|10|14px]
 ```
 
 The remaining rows have no gate. Arbitrary font sizes are the obvious next

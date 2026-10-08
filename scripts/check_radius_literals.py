@@ -19,11 +19,9 @@
 
 ``rounded-[6px]`` is ``rounded-lg``. ``rounded-[4px]`` is ``rounded-md``.
 ``rounded-[2px]`` is ``rounded-sm``. ``rounded-[10px]`` is ``rounded-xl``.
-``rounded-[14px]`` is ``rounded-2xl``. Pixel literals bypass ``--radius``, so
-turning the one dial in ``index.css`` leaves those surfaces behind.
-
-``rounded-[5px]`` is the named compact/toolbar Button step, not an on-scale
-duplicate, and is not in this scan.
+``rounded-[14px]`` is ``rounded-2xl``. ``rounded-[5px]`` is ``rounded-control``.
+Pixel literals bypass ``--radius``, so turning the one dial in ``index.css``
+leaves those surfaces behind.
 
 Contributor-facing only — no changeset (CLAUDE.md).
 
@@ -40,8 +38,15 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "frontend" / "src"
 
 # Same pattern as issue #994 acceptance grep (tsx only).
-RADIUS_RE = re.compile(r"rounded(?:-[a-z]{1,2})?-\[(?:2|4|6|10|14)px\]")
-SCALE = {"2": "sm", "4": "md", "6": "lg", "10": "xl", "14": "2xl"}
+RADIUS_RE = re.compile(r"rounded(?:-[a-z]{1,2})?-\[(?:2|4|5|6|10|14)px\]")
+SCALE = {
+    "2": "sm",
+    "4": "md",
+    "5": "control",
+    "6": "lg",
+    "10": "xl",
+    "14": "2xl",
+}
 
 
 def _hits() -> list[str]:

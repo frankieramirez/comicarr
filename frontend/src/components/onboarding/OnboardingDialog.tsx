@@ -94,7 +94,7 @@ function GhostButton({
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div
-      className="px-3 py-2 rounded-[5px] border"
+      className="px-3 py-2 rounded-control border"
       style={{ borderColor: "var(--border)", background: "var(--background)" }}
     >
       <MonoLabel>{label}</MonoLabel>
@@ -343,7 +343,7 @@ function MigrateStep({
       <div>
         <MonoLabel>Mylar3 path</MonoLabel>
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-[5px] border bg-background mt-1.5"
+          className="flex items-center gap-2 px-3 py-2 rounded-control border bg-background mt-1.5"
           style={{ borderColor: "var(--border)" }}
         >
           <FolderOpen

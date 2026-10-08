@@ -244,7 +244,7 @@ export default function AppSidebar() {
             onClick={openChat}
             className="flex h-9 w-full items-center gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 transition-colors hover:border-[color-mix(in_oklab,var(--primary)_50%,transparent)] hover:bg-sidebar-accent"
           >
-            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-[5px] bg-primary/15">
+            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-control bg-primary/15">
               <span className="size-[5px] rounded-[1px] bg-primary" />
             </span>
             <span className="flex-1 text-left text-[13px] font-medium">
@@ -269,7 +269,7 @@ export default function AppSidebar() {
                 aria-label="Ask Comicarr"
                 className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
-                <span className="flex size-4.5 items-center justify-center rounded-[5px] bg-primary/15">
+                <span className="flex size-4.5 items-center justify-center rounded-control bg-primary/15">
                   <span className="size-[5px] rounded-[1px] bg-primary" />
                 </span>
               </button>

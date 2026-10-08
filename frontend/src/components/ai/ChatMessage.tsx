@@ -21,7 +21,7 @@ function AssistantMark() {
   return (
     <span
       aria-hidden="true"
-      className="flex size-4 shrink-0 items-center justify-center rounded-[5px] bg-primary/15"
+      className="flex size-4 shrink-0 items-center justify-center rounded-control bg-primary/15"
     >
       <span className="size-[5px] rounded-[1px] bg-primary" />
     </span>

@@ -135,7 +135,7 @@ export default function SearchAddButton({
     }
   };
 
-  const base = `inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-[5px] border font-mono text-[11px] transition-colors ${className}`;
+  const base = `inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-control border font-mono text-[11px] transition-colors ${className}`;
 
   if (isAdded) {
     return (
@@ -203,7 +203,7 @@ export default function SearchAddButton({
         disabled={isPending}
         aria-label={`Add ${comic.name} to a chosen folder`}
         title="Add to a chosen folder"
-        className="inline-flex items-center justify-center rounded-[5px] border border-border px-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center justify-center rounded-control border border-border px-1.5 text-muted-foreground transition-colors hover:text-foreground"
       >
         <FolderPlus className="w-3 h-3" aria-hidden="true" />
       </button>

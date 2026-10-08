@@ -238,7 +238,7 @@ export default function AttentionPage() {
             actions={
               <Link
                 to="/activity"
-                className="inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-control border px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
                 style={{ borderColor: "var(--border)" }}
               >
                 <ArrowLeft className="h-3 w-3" /> Activity
@@ -305,7 +305,7 @@ export default function AttentionPage() {
               aria-label="Filter by age"
               value={age}
               onChange={(e) => setAge(e.target.value as AgeFilter)}
-              className="rounded-[5px] border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+              className="rounded-control border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
               style={{ borderColor: "var(--border)" }}
             >
               <option value="all">any age</option>
@@ -506,7 +506,7 @@ function GroupPanel({
 
   return (
     <li
-      className="rounded-[5px] border p-3"
+      className="rounded-control border p-3"
       style={{
         borderColor: focused ? accent : "var(--border)",
         background: focused

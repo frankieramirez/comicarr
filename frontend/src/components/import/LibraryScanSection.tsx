@@ -255,7 +255,7 @@ function ScanTile({
     >
       <div className="flex items-center gap-3">
         <div
-          className="w-7 h-7 rounded-[5px] grid place-items-center shrink-0"
+          className="w-7 h-7 rounded-control grid place-items-center shrink-0"
           style={{
             background: "var(--secondary)",
             color: "var(--muted-foreground)",

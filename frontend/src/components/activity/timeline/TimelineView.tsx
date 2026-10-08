@@ -279,7 +279,7 @@ export function TimelineView({
             setActivity(e.target.value);
             setPage(0);
           }}
-          className="rounded-[5px] border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+          className="rounded-control border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
           style={{ borderColor: "var(--border)" }}
         >
           {ACTIVITIES.map((a) => (

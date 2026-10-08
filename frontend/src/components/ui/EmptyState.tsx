@@ -112,7 +112,7 @@ export default function EmptyState({
   const isOutline = action?.variant === "outline";
   const cta = action && (
     <span
-      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-[5px] text-[12px] font-semibold ${
+      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-control text-[12px] font-semibold ${
         isOutline ? "border" : ""
       }`}
       style={
@@ -163,7 +163,7 @@ export default function EmptyState({
         (action.to ? (
           <Link
             to={action.to}
-            className="rounded-[5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             {cta}
           </Link>
@@ -171,7 +171,7 @@ export default function EmptyState({
           <button
             type="button"
             onClick={action.onClick}
-            className="rounded-[5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             {cta}
           </button>
