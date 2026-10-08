@@ -1816,13 +1816,22 @@ def worker_main(queue):
                 _record_poison_monitor_item("torrent", item, e)
 
 
+def _requeue_torrent_monitor(item):
+    """Put the snatched torrent back on the monitor queue after a bounded delay."""
+
+    time.sleep(_maintenance_retry_delay(item))
+    comicarr.SNATCHED_QUEUE.put(item)
+
+
 def _handle_torrent_monitor_result(item, snstat):
+    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
     from comicarr.app.downloads import journal
 
     status = snstat.get("snatch_status")
     if status == "IN PROGRESS":
+        item.pop("_monitor_error_attempt", None)
         logger.info("Torrent is still downloading; scheduling another monitor pass.")
-        comicarr.SNATCHED_QUEUE.put(item)
+        _requeue_torrent_monitor(item)
         return
 
     payload = {
@@ -1841,6 +1850,44 @@ def _handle_torrent_monitor_result(item, snstat):
         hash=item.get("hash"),
         discriminant=item.get("nzbname") or payload,
     )
+
+    if status == "MONITOR ERROR":
+        try:
+            attempt = int(item.get("_monitor_error_attempt", 0)) + 1
+        except (TypeError, ValueError):
+            attempt = 1
+        item["_monitor_error_attempt"] = attempt
+        if attempt >= MAX_RECOVERY_ATTEMPTS:
+            logger.error(
+                "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s after %s attempts; sending to Manual Review."
+                % (item.get("issueid"), attempt)
+            )
+            try:
+                record(
+                    ManualReview(
+                        release_key=rkey,
+                        reason="torrent_monitor_unreachable",
+                        payload=payload,
+                        issue_id=item.get("issueid"),
+                        provider=item.get("provider"),
+                        downloader_type="torrent",
+                        nzb_name=item.get("nzbname"),
+                        download_hash=item.get("hash"),
+                        comic_id=item.get("comicid"),
+                    )
+                )
+            except Exception as e:
+                logger.error(
+                    "[DOWNLOADS-WORKER] Unable to record unreachable-client review for %s: %s"
+                    % (rkey, type(e).__name__),
+                )
+            return
+        logger.warn(
+            "[DOWNLOADS-WORKER] torrent client unreachable for issueid=%s; retry %s/%s."
+            % (item.get("issueid"), attempt, MAX_RECOVERY_ATTEMPTS)
+        )
+        _requeue_torrent_monitor(item)
+        return
 
     if status == "NOT FOUND":
         logger.error(

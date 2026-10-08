@@ -44,6 +44,7 @@ REASON_PHRASES = {
     "recovery_attempts_exhausted": "post-processing could not finish after several restarts",
     "torrent_monitor_item_rejected": "torrent monitor hit an unexpected error on this download",
     "nzb_monitor_item_rejected": "NZB monitor hit an unexpected error on this download",
+    "torrent_monitor_unreachable": "torrent client was unreachable while the download was still in progress",
 }
 
 UNMAPPED_REASON_PHRASE = "something went wrong"
