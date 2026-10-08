@@ -494,6 +494,9 @@ export default function ChatPage() {
         </Button>
         <LoaderCircle className="animate-spin text-muted-foreground" />
         <h1 className="sr-only">Chat</h1>
+        <p className="sr-only" role="status" aria-label="Loading chat">
+          Loading chat
+        </p>
       </div>
     );
   }

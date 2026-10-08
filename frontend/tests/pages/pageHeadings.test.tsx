@@ -97,6 +97,28 @@ describe("page headings", () => {
     view.unmount();
   });
 
+  it("keeps the series-detail error title at body size", async () => {
+    server.use(
+      http.get("/api/series/:comicId", () =>
+        HttpResponse.json({ error: "gone" }, { status: 404 }),
+      ),
+    );
+    const view = render(
+      <Routes>
+        <Route path="/library/:comicId" element={<SeriesDetailPage />} />
+      </Routes>,
+      { route: "/library/missing", useMemoryRouter: true },
+    );
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Failed to load series",
+    });
+    expect(heading.className).toContain("text-sm");
+    expect(heading.className).not.toContain("text-3xl");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    view.unmount();
+  });
+
   it("exposes exactly one h1 on issue detail", async () => {
     server.use(
       http.get("/api/metadata/issue/:issueId", () =>
