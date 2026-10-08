@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,7 @@ export function SettingField({
   min,
 }: SettingFieldProps) {
   const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  const [checkboxFocused, setCheckboxFocused] = useState(false);
 
   if (type === "checkbox") {
     return (
@@ -70,14 +72,19 @@ export function SettingField({
           type="checkbox"
           checked={!!checked}
           onChange={(e) => onChange(e.target.checked)}
+          onFocus={() => setCheckboxFocused(true)}
+          onBlur={() => setCheckboxFocused(false)}
           disabled={readOnly}
           className="sr-only peer"
         />
         <span
-          className="mt-0.5 shrink-0 w-4 h-4 rounded-[3px] grid place-items-center border"
+          className="mt-0.5 shrink-0 w-4 h-4 rounded-[3px] grid place-items-center border peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
           style={{
             borderColor: checked ? "var(--primary)" : "var(--border)",
             background: checked ? "var(--primary)" : "transparent",
+            boxShadow: checkboxFocused
+              ? "0 0 0 2px var(--background), 0 0 0 4px var(--ring)"
+              : undefined,
           }}
         >
           {checked && (

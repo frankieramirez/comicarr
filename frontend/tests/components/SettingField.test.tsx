@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "../test-utils";
 import {
   SettingField,
@@ -35,6 +36,42 @@ describe("SettingField select", () => {
     const trigger = screen.getByRole("combobox", { name: "NZB client" });
     expect(trigger.textContent).toContain("Disabled");
     expect(trigger.textContent).not.toMatch(/(^|[^A-Za-z])3([^0-9]|$)/);
+  });
+});
+
+describe("SettingField checkbox", () => {
+  it("shows a visible offset ring on a checked toggle when focused", async () => {
+    document.documentElement.classList.add("dark");
+    document.documentElement.style.setProperty("--background", "#111111");
+    document.documentElement.style.setProperty("--ring", "#ff6a1f");
+    const user = userEvent.setup();
+    render(
+      <SettingField
+        label="Enable notifications"
+        type="checkbox"
+        checked={true}
+        onChange={vi.fn()}
+      />,
+    );
+
+    await user.tab();
+    const input = screen.getByRole("checkbox", {
+      name: "Enable notifications",
+    });
+    expect(document.activeElement).toBe(input);
+    const visual = input.nextElementSibling as HTMLElement;
+    expect(visual.className).toMatch(/peer-focus-visible:ring-2/);
+    expect(visual.className).toMatch(/peer-focus-visible:ring-offset-2/);
+    expect(visual.className).toMatch(
+      /peer-focus-visible:ring-offset-background/,
+    );
+    const shadow = getComputedStyle(visual).boxShadow;
+    expect(shadow).not.toBe("none");
+    expect(shadow).toMatch(/0px 0px 0px 2px|0 0 0 2px/);
+    expect(shadow).toMatch(/0px 0px 0px 4px|0 0 0 4px/);
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.removeProperty("--background");
+    document.documentElement.style.removeProperty("--ring");
   });
 });
 
