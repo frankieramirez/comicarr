@@ -108,10 +108,7 @@ def want_all_issues(arc_id, audit_identity):
     """Mark all eligible arc issues as Wanted and trigger search."""
     mismatched = arc_queries.count_wanted_intent_divergence()
     if mismatched:
-        logger.warn(
-            "[STORYARC] %s library issue(s) have Status=Wanted but skipped/ignored intent"
-            % mismatched
-        )
+        logger.warn("[STORYARC] %s library issue(s) have Status=Wanted but skipped/ignored intent" % mismatched)
     summary = _want_arc_issues(arc_id, audit_identity)
     return {"success": True, "data": {"queued": summary["wanted"], "skipped": summary.get("skipped", 0)}}
 
