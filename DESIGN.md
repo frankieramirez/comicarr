@@ -76,6 +76,7 @@ is a component that cannot be themed, and Comicarr ships both themes.
 |-------|-------|------|
 | `--primary` | `#e04a0a` | `#ff6a1f` |
 | `--primary-foreground` | `#ffffff` | `#ffffff` |
+| `--destructive-foreground` | `#ffffff` | `#0b0d12` |
 | `--gradient-brand` | 135° orange ramp | 135° orange ramp |
 
 Orange is the brand. Note that `--ring` tracks `--primary` in dark but is a
@@ -212,7 +213,6 @@ target state — the rules above are the target state.
 | Radix holdouts | `avatar.tsx`, `bubble.tsx`, `marker.tsx` + 3 deps | Two primitive libraries in one app |
 | Dead `components/custom/` | 6 files, 0 importers | Unlinted, unreachable code |
 | Dead `frontend/src/App.css` | 42 lines, imported nowhere | Vite scaffold leftover |
-| Dead `border-card-border` class | removed from 2 cards | `--color-card-border` was never registered, so the class never existed |
 | `--text-muted` contrast | 2.95:1 both themes | Decorative only; see below |
 
 `--text-muted` is for decorative separators (`/`, `·`) and 10px uppercase
@@ -234,6 +234,7 @@ design decision, not a bug fix.
 | 6 unused dark-only tokens | `--surface-*`, `--border-elevated`, `--text-tertiary`, `--text-disabled` | Deleted |
 | Undefined `--card-shadow` | 1 utility, 2 components | Utility and usages deleted |
 | Radix-era accordion keyframes | 2 keyframes, 2 registrations | Deleted; Base UI animates via `transition-[height]` |
+| Dead `border-card-border` / unregistered `text-destructive-foreground` | 12 leftover `border-card-border` classes; destructive buttons had no foreground rule | Repointed to `border-border`; `--destructive-foreground` registered in both themes. Color utilities whose stem is not a `--color-*` key now fail `check_design_tokens.py`. |
 
 `--border-soft` is deliberately undefined. Its three call sites all write
 `var(--border-soft, var(--border))`, which stays valid without it.
@@ -243,7 +244,7 @@ design decision, not a bug fix.
 Both gates run under `npm run lint:guards`:
 
 ```bash
-python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive
+python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive; color utilities name a --color-* key
 python3 scripts/check_palette_classes.py  # no new palette literals
 ```
 

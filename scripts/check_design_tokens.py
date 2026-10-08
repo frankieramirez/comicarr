@@ -33,7 +33,7 @@ codebase fails, and it is why every instance of this class shipped:
 * ``--card-shadow`` was undefined, so the ``.card-shadow`` utility applied to
   two card components had never drawn a shadow.
 
-Four checks, one class:
+Five checks, one class:
 
 1. Every custom property assigned in ``.dark`` is also assigned in ``:root``.
    A dark-only token is always a bug — it cannot resolve in light mode. The
@@ -45,6 +45,12 @@ Four checks, one class:
 4. Every ``--status-*`` assignment and ``var(--status-*)`` reference is in the
    documented exhaustive set. Defining ``--status-success`` in both theme blocks
    used to satisfy checks 1–3 and still ship a name that is not a token.
+5. Every color utility class (``text-*``, ``bg-*``, ``border-*``, …) names a
+   stem registered as ``--color-*`` in ``@theme inline``, a Tailwind palette
+   scale, or a builtin (``white`` / ``black`` / ``transparent`` / ``current`` /
+   ``inherit``). ``border-card-border`` and ``text-destructive-foreground``
+   compiled to nothing because the ``--color-*`` keys were missing; this check
+   is what ``var()`` coverage cannot see.
 
 Only the fallback-less form is checked. ``var(--x, var(--border))`` remains a
 valid declaration when ``--x`` is undefined, so it is the sanctioned way to
@@ -98,6 +104,107 @@ STATUS_STEMS = (
 )
 STATUS_TOKENS = frozenset(f"--status-{stem}{suffix}" for stem in STATUS_STEMS for suffix in ("", "-bg"))
 
+THEME_COLOR_RE = re.compile(r"--color-([A-Za-z0-9_-]+)\s*:")
+
+# Longer directional suffixes first so `border-ss-red-500` is not eaten as `border-s`.
+_COLOR_UTILS = (
+    r"(?:text|bg|from|to|via|decoration|outline|caret|fill|stroke|placeholder|accent)"
+    r"|border(?:-ss|-se|-es|-ee|-tl|-tr|-bl|-br|-s|-e|-[trblxy])?"
+    r"|divide(?:-[xy])?"
+    r"|ring(?:-offset)?"
+)
+COLOR_UTIL_RE = re.compile(
+    rf"(?:^|[^A-Za-z0-9_-])(?:[\w-]+:)*(?:{_COLOR_UTILS})-"
+    rf"([A-Za-z][A-Za-z0-9_-]*?)(?:/\d+)?!?(?![A-Za-z0-9_-])"
+)
+
+PALETTE_STEM_RE = re.compile(
+    r"^(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|"
+    r"teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|[1-9]00|950)$"
+)
+COLOR_BUILTINS = frozenset({"inherit", "current", "transparent", "black", "white"})
+# Stems that are widths, styles, or typography — not `--color-*` keys.
+NON_COLOR_STEMS = frozenset(
+    {
+        "xs",
+        "sm",
+        "md",
+        "lg",
+        "xl",
+        "2xl",
+        "3xl",
+        "4xl",
+        "5xl",
+        "6xl",
+        "7xl",
+        "8xl",
+        "9xl",
+        "base",
+        "left",
+        "right",
+        "center",
+        "start",
+        "end",
+        "justify",
+        "top",
+        "bottom",
+        "middle",
+        "wrap",
+        "nowrap",
+        "balance",
+        "pretty",
+        "ellipsis",
+        "clip",
+        "truncate",
+        "solid",
+        "dashed",
+        "dotted",
+        "double",
+        "none",
+        "hidden",
+        "collapse",
+        "separate",
+        "t",
+        "b",
+        "l",
+        "r",
+        "x",
+        "y",
+        "s",
+        "e",
+        "ss",
+        "se",
+        "es",
+        "ee",
+        "tl",
+        "tr",
+        "bl",
+        "br",
+        "cover",
+        "contain",
+        "fixed",
+        "local",
+        "scroll",
+        "auto",
+        "repeat",
+        "inset",
+        "inner",
+        "current",
+        "align",
+        "transform",
+        "radius",
+        "width",
+        "fill",
+        "stroke",
+        "color",
+        "opacity",
+        "spacing",
+        "size",
+        "shadow",
+        "blur",
+    }
+)
+
 
 def _line_at(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
@@ -114,6 +221,40 @@ def _block(css: str, selector: str) -> dict[str, int]:
         for name in ASSIGN_RE.findall(line):
             found.setdefault(name, base + line_offset + 1)
     return found
+
+
+def _theme_color_stems(css: str) -> set[str]:
+    """Stems registered as ``--color-*`` in the stylesheet (Tailwind v4 @theme)."""
+    return set(THEME_COLOR_RE.findall(css))
+
+
+_LAYOUT_STEM_RE = re.compile(r"^(?:gradient-to-|linear-to-|repeat-)|^(?:offset|[trblxyse]{1,2})-?\d*$")
+# Arbitrary values (`border-[var(--ring)]`, `bg-[#fff]`) are not token names.
+_ARBITRARY_RE = re.compile(r"\[[^\]\n]*\]")
+
+
+def _unregistered_color_utilities(text: str, stems: set[str]) -> list[tuple[int, str]]:
+    """Line + class stem for color utilities that would compile to nothing."""
+    hits: list[tuple[int, str]] = []
+    seen: set[tuple[int, str]] = set()
+    # Strip arbitrary brackets so `border-[var(--ring)]` and
+    # `transition-[box-shadow,border-color]` cannot look like token classes.
+    scan = _ARBITRARY_RE.sub(lambda m: " " * len(m.group(0)), text)
+    for match in COLOR_UTIL_RE.finditer(scan):
+        stem = match.group(1)
+        if stem.endswith("-"):
+            continue
+        if stem in stems or stem in COLOR_BUILTINS or stem in NON_COLOR_STEMS:
+            continue
+        if PALETTE_STEM_RE.match(stem) or _LAYOUT_STEM_RE.match(stem):
+            continue
+        lineno = _line_at(text, match.start())
+        key = (lineno, stem)
+        if key in seen:
+            continue
+        seen.add(key)
+        hits.append(key)
+    return hits
 
 
 def _iter_sources():
@@ -197,6 +338,27 @@ def main() -> int:
         for rel, lineno, name in dangling:
             near = _suggest(name, assigned)
             failures.append(f"  {rel}:{lineno}: {name}{near}")
+
+    theme_stems = _theme_color_stems(css)
+    unregistered: list[tuple[str, int, str]] = []
+    for path in _iter_sources():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        for lineno, stem in _unregistered_color_utilities(text, theme_stems):
+            unregistered.append((rel, lineno, stem))
+    if unregistered:
+        if failures:
+            failures.append("")
+        failures.append(
+            "Color utility naming a stem that is not a `--color-*` theme key "
+            "(class compiles to nothing in Tailwind v4):"
+        )
+        for rel, lineno, stem in unregistered:
+            near = _suggest(stem, theme_stems)
+            failures.append(f"  {rel}:{lineno}: {stem}{near}")
 
     if not failures:
         print(

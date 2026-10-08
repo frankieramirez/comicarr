@@ -48,7 +48,7 @@ export default function ArcSearchResultCard({
   };
 
   return (
-    <div className="rounded-lg border border-card-border bg-card overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       {/* Image */}
       <div className="h-24 bg-muted overflow-hidden">
         {result.image ? (

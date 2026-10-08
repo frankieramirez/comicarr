@@ -48,6 +48,12 @@ describe("buttonVariants", () => {
     }
   });
 
+  it("gives destructive buttons a registered contrasting foreground", () => {
+    const classes = buttonVariants({ variant: "destructive" });
+    expect(classes).toContain("bg-destructive");
+    expect(classes).toContain("text-destructive-foreground");
+  });
+
   it("adds the mono modifier without dropping the focus ring", () => {
     const classes = buttonVariants({ size: "compact", mono: true });
     expect(classes).toContain("font-mono");

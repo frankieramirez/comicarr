@@ -35,7 +35,7 @@ export default function ImportBulkActions({
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
-      <div className="bg-card border border-card-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
+      <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
         <span className="text-sm font-medium text-foreground">
           {selectedGroupCount} {groupLabel} · {selectedFileCount} {fileLabel}{" "}
           selected

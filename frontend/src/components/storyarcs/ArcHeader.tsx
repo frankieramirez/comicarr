@@ -98,7 +98,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
   };
 
   return (
-    <div className="relative rounded-lg border border-card-border bg-card overflow-hidden">
+    <div className="relative rounded-lg border border-border bg-card overflow-hidden">
       {/* Banner */}
       <div className="relative h-40 bg-muted">
         {bannerUrl ? (

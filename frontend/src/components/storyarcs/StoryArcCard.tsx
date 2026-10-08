@@ -12,7 +12,7 @@ export default function StoryArcCard({ arc }: StoryArcCardProps) {
   return (
     <Link
       to={`/story-arcs/${arc.StoryArcID}`}
-      className="group block rounded-lg border border-card-border bg-card overflow-hidden transition-all hover:shadow-md hover:border-primary/30"
+      className="group block rounded-lg border border-border bg-card overflow-hidden transition-all hover:shadow-md hover:border-primary/30"
     >
       {/* Banner image or placeholder */}
       <div className="relative h-32 bg-muted overflow-hidden">

@@ -366,10 +366,10 @@ export default function ImportPage() {
                 isMetadataSaving={updateImportMetadataMutation.isPending}
               />
             ) : (
-              <div className="rounded-md border border-dashed border-card-border bg-card/40 px-5 py-8">
+              <div className="rounded-md border border-dashed border-border bg-card/40 px-5 py-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-md border border-card-border bg-muted/40 p-2">
+                    <div className="mt-0.5 rounded-md border border-border bg-muted/40 p-2">
                       <Inbox className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>

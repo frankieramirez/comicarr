@@ -91,7 +91,7 @@ export default function ArcGenerator() {
   };
 
   return (
-    <div className="rounded-lg border border-card-border bg-card p-4 space-y-4">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-4">
       <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-medium text-foreground">
