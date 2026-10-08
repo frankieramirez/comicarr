@@ -97,7 +97,7 @@ describe("page headings", () => {
     view.unmount();
   });
 
-  it("keeps the series-detail error title at body size", async () => {
+  it("keeps the series-detail not-found title at body size", async () => {
     server.use(
       http.get("/api/series/:comicId", () =>
         HttpResponse.json({ error: "gone" }, { status: 404 }),
@@ -111,9 +111,9 @@ describe("page headings", () => {
     );
     const heading = await screen.findByRole("heading", {
       level: 1,
-      name: "Failed to load series",
+      name: "Series not found",
     });
-    expect(heading.className).toContain("text-sm");
+    expect(heading.className).toContain("text-lg");
     expect(heading.className).not.toContain("text-3xl");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     view.unmount();
