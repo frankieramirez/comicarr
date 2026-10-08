@@ -10,6 +10,7 @@ export interface ReadableConfig {
   search_delay?: number;
   destination_dir?: string;
   multiple_dest_dirs?: string;
+  additional_library_roots?: string;
   create_folders?: boolean;
   folder_format?: string;
   file_format?: string;
@@ -139,6 +140,7 @@ export interface WritableConfig {
   search_delay?: number;
   destination_dir?: string;
   multiple_dest_dirs?: string;
+  additional_library_roots?: string;
   create_folders?: boolean;
   folder_format?: string;
   file_format?: string;

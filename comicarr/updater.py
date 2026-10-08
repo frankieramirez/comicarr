@@ -1550,6 +1550,14 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
         rescan_manga_series(rescan, directory=archive or rescan.get("ComicLocation"))
         return
+    from comicarr.app.acquisition.evidence import has_verified_library_file
+    from comicarr.app.series.location import retained_locations
+
+    retained = retained_locations(rescan)
+
+    def left_behind(row):
+        return bool(retained) and has_verified_library_file(None, row["Location"], retained)
+
     if rescan["AlternateSearch"] is not None:
         altnames = rescan["AlternateSearch"] + "##"
     else:
@@ -2393,6 +2401,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
 
     update_iss = []
     update_ann = []
+    retainedfiles = 0
     cnt = 0
     u_start = datetime.datetime.now()
     for genlist in helpers.chunker(issID_to_ignore, 200):
@@ -2414,6 +2423,9 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                         % (issStatus, chk["Issue_Number"])
                     )
                 else:
+                    if old_status == "Downloaded" and left_behind(chk):
+                        retainedfiles += 1
+                        continue
                     if old_status == "Downloaded":
                         issStatus = "Archived"
                     else:
@@ -2441,6 +2453,9 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                         % (issStatus, chk["Issue_Number"])
                     )
                 else:
+                    if old_status == "Downloaded" and left_behind(chk):
+                        retainedfiles += 1
+                        continue
                     if old_status == "Downloaded":
                         issStatus = "Archived"
                     else:
@@ -2458,6 +2473,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
             "%s Updated the status of %s issues for %s (%s) that were not found."
             % (module, len(update_iss), rescan["ComicName"], rescan["ComicYear"])
         )
+    havefiles += retainedfiles
     logger.info("%s Total files located: %s" % (module, havefiles))
 
     foundcount = havefiles
@@ -2570,6 +2586,8 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
         dvalues = []
 
         for down in downchk:
+            if left_behind(down):
+                continue
             if down["type"] == 1:
                 dtable = "annuals"
             else:

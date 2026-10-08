@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import threading
 from collections.abc import Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import comicarr
@@ -354,6 +355,17 @@ def _finalize_locked(
         moved=moved,
         archived=archived,
     )
+
+
+@contextmanager
+def finalization_paused():
+    """Hold off finalization; yields False when one is already running."""
+    acquired = _FINALIZATION_LOCK.acquire(blocking=False)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            _FINALIZATION_LOCK.release()
 
 
 def finalize_manual_match(

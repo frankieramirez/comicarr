@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Check, Loader2 } from "lucide-react";
+import { Plus, Check, FolderPlus, Loader2 } from "lucide-react";
 import { useAddComic, useAddManga } from "@/hooks/useSearch";
 import { useToast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { ComicAddedDetail, SearchResult, ContentType } from "@/types";
 
 interface SearchAddButtonProps {
@@ -24,6 +35,9 @@ export default function SearchAddButton({
   const { addToast } = useToast();
   const navigate = useNavigate();
   const comicIdRef = useRef<string | null>(null);
+  const [folderOpen, setFolderOpen] = useState(false);
+  const [folder, setFolder] = useState("");
+  const [folderError, setFolderError] = useState<string | null>(null);
 
   const isManga = contentType === "manga";
   const itemLabel = isManga ? "Manga" : "Comic";
@@ -65,15 +79,16 @@ export default function SearchAddButton({
     };
   }, [isProcessing, navigate, addToast]);
 
-  const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const add = async (folder?: string) => {
+    const id = comic.comicid ?? comic.id;
+    comicIdRef.current = id ?? null;
+    setIsProcessing(true);
     try {
-      comicIdRef.current = comic.comicid ?? comic.id ?? null;
-      setIsProcessing(true);
+      const input = folder ? { id, folder } : id;
       const response = (
         isManga
-          ? await addMangaMutation.mutateAsync(comic.comicid ?? comic.id)
-          : await addComicMutation.mutateAsync(comic.comicid ?? comic.id)
+          ? await addMangaMutation.mutateAsync(input)
+          : await addComicMutation.mutateAsync(input)
       ) as {
         comicid?: string;
       };
@@ -84,18 +99,39 @@ export default function SearchAddButton({
       addToast({
         type: "success",
         title: `Adding ${itemLabel}...`,
-        description: `${comic.name} is being added to your library. Please wait...`,
+        description: folder
+          ? `${comic.name} is being added to ${folder}. Please wait...`
+          : `${comic.name} is being added to your library. Please wait...`,
         duration: 5000,
       });
     } catch (err) {
       setIsProcessing(false);
       setIsAdded(false);
       comicIdRef.current = null;
+      throw err;
+    }
+  };
+
+  const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    try {
+      await add();
+    } catch (err) {
       addToast({
         type: "error",
         title: `Failed to Add ${itemLabel}`,
         description: err instanceof Error ? err.message : "Unknown error",
       });
+    }
+  };
+
+  const handleFolderAdd = async () => {
+    setFolderError(null);
+    try {
+      await add(folder.trim());
+      setFolderOpen(false);
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : "Unknown error");
     }
   };
 
@@ -142,19 +178,93 @@ export default function SearchAddButton({
     : addComicMutation.isPending;
 
   return (
-    <button
-      type="button"
-      onClick={handleAdd}
-      disabled={isPending}
-      aria-label={`Add ${comic.name}`}
-      className={`${base} hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]`}
-      style={{
-        borderColor: "var(--primary)",
-        color: "var(--primary)",
-      }}
-    >
-      <Plus className="w-3 h-3" />
-      {isPending ? "adding…" : "add"}
-    </button>
+    <div className={`inline-flex gap-1 ${className}`}>
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={isPending}
+        aria-label={`Add ${comic.name}`}
+        className={`${base} flex-1 hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]`}
+        style={{
+          borderColor: "var(--primary)",
+          color: "var(--primary)",
+        }}
+      >
+        <Plus className="w-3 h-3" />
+        {isPending ? "adding…" : "add"}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setFolderError(null);
+          setFolderOpen(true);
+        }}
+        disabled={isPending}
+        aria-label={`Add ${comic.name} to a chosen folder`}
+        title="Add to a chosen folder"
+        className="inline-flex items-center justify-center rounded-[5px] border border-border px-1.5 text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <FolderPlus className="w-3 h-3" aria-hidden="true" />
+      </button>
+
+      <Dialog open={folderOpen} onOpenChange={setFolderOpen}>
+        <DialogContent
+          className="max-w-md"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Add {comic.name} to a folder</DialogTitle>
+            <DialogDescription>
+              Choose a folder on the server, inside one of your library roots.
+              Leave it empty to use the automatic folder.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="grid gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleFolderAdd();
+            }}
+          >
+            <div className="grid gap-1.5">
+              <Label htmlFor={`add-folder-${comic.comicid ?? comic.id}`}>
+                Folder
+              </Label>
+              <Input
+                id={`add-folder-${comic.comicid ?? comic.id}`}
+                value={folder}
+                onChange={(e) => setFolder(e.target.value)}
+                placeholder="/comics/Magazines/Wizard"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use the path Comicarr sees. In Docker, that is the path inside
+                the container. Extra roots are listed under Settings → Media.
+              </p>
+            </div>
+            {folderError ? (
+              <p role="alert" className="text-sm text-[var(--status-error)]">
+                {folderError}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFolderOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                Add {itemLabel.toLowerCase()}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

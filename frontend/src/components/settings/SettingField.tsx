@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ interface SettingFieldProps {
   label: string;
   value?: string | number;
   onChange?: (value: string | boolean) => void;
-  type?: "text" | "password" | "number" | "checkbox" | "select";
+  type?: "text" | "password" | "number" | "checkbox" | "select" | "textarea";
   readOnly?: boolean;
   helpText?: string;
   error?: string;
@@ -180,15 +181,26 @@ export function SettingField({
       <Label htmlFor={fieldId} className="text-[12.5px] font-medium">
         {label}
       </Label>
-      <Input
-        id={fieldId}
-        type={type}
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        min={type === "number" ? min : undefined}
-        className="mt-1.5"
-      />
+      {type === "textarea" ? (
+        <Textarea
+          id={fieldId}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          className="mt-1.5 font-mono"
+        />
+      ) : (
+        <Input
+          id={fieldId}
+          type={type}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          min={type === "number" ? min : undefined}
+          className="mt-1.5"
+        />
+      )}
       {helpText && (
         <p className="text-[11px] text-muted-foreground mt-1">{helpText}</p>
       )}

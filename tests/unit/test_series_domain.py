@@ -129,6 +129,42 @@ def test_explicit_skip_with_verified_file_keeps_intent_and_reports_owned(tmp_pat
     assert projected["physicalOwned"] is True
 
 
+def test_files_left_in_a_retained_folder_stay_owned_after_the_series_moves(tmp_path):
+    old_root = tmp_path / "Comics" / "Wizard"
+    old_root.mkdir(parents=True)
+    left_behind = old_root / "Wizard 001.cbz"
+    left_behind.write_text("comic")
+    new_root = tmp_path / "Magazines" / "Wizard"
+    new_root.mkdir(parents=True)
+    today = datetime.date(2026, 7, 10)
+
+    kept = series_service.project_issue_state(
+        _state_row(status="Downloaded", location=str(left_behind)),
+        series_status="Active",
+        series_location=str(new_root),
+        retained_locations=[str(old_root)],
+        today=today,
+    )
+    unretained = series_service.project_issue_state(
+        _state_row(status="Downloaded", location=str(left_behind)),
+        series_status="Active",
+        series_location=str(new_root),
+        today=today,
+    )
+    relative = series_service.project_issue_state(
+        _state_row(status="Downloaded", location=left_behind.name),
+        series_status="Active",
+        series_location=str(new_root),
+        retained_locations=[str(old_root)],
+        today=today,
+    )
+
+    assert kept["fulfillment"] == "downloaded"
+    assert kept["physicalOwned"] is True
+    assert unretained["physicalOwned"] is False
+    assert relative["physicalOwned"] is False
+
+
 def test_absolute_batman_projection_reconciles_18_owned_2_released_2_future(tmp_path):
     series_root = tmp_path / "Absolute Batman"
     series_root.mkdir()

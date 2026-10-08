@@ -37,12 +37,21 @@ def has_verified_file_under_root(root, issue_location):
         return False
 
 
-def has_verified_library_file(series_location, issue_location):
+def has_verified_library_file(series_location, issue_location, retained_locations=()):
     """Return whether an issue path is an existing file beneath its series root.
 
     A non-empty migrated path is not ownership evidence. Resolving both paths
     strictly rejects missing paths and symlink escapes before the canonical API
-    or repair manifest can label a row downloaded.
+    or repair manifest can label a row downloaded. An absolute path may instead
+    sit beneath a folder the Series retained when its location changed and the
+    operator left its files in place.
     """
 
-    return has_verified_file_under_root(resolve_library_root(series_location), issue_location)
+    if has_verified_file_under_root(resolve_library_root(series_location), issue_location):
+        return True
+    if not issue_location or not Path(str(issue_location)).expanduser().is_absolute():
+        return False
+    return any(
+        has_verified_file_under_root(resolve_library_root(retained), issue_location)
+        for retained in retained_locations or ()
+    )

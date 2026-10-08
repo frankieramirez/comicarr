@@ -56,6 +56,20 @@ export function MediaManagementTab({
         />
       </SettingGroup>
 
+      <SettingGroup
+        title="Series Folders"
+        description="A series can use its own folder inside any library root. The destination and manga destination directories are always roots."
+      >
+        <SettingField
+          label="Additional library roots"
+          type="textarea"
+          value={formData.additional_library_roots || ""}
+          onChange={(v) => onChange("additional_library_roots", v as string)}
+          helpText="One server path per line, such as /comics/Magazines. In Docker, use the path inside the container."
+          placeholder="/comics/Magazines"
+        />
+      </SettingGroup>
+
       {/* Import Behavior */}
       <SettingGroup
         title="Import Behavior"

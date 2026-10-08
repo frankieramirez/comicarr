@@ -131,15 +131,25 @@ export function useSearchManga(
   });
 }
 
+export type AddSeriesInput = string | { id: string; folder?: string };
+
+function addSeriesBody(input: AddSeriesInput) {
+  return typeof input === "string" ? { id: input } : input;
+}
+
 /**
  * Add a comic to the library
  */
-export function useAddComic(): UseMutationResult<unknown, Error, string> {
+export function useAddComic(): UseMutationResult<
+  unknown,
+  Error,
+  AddSeriesInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comicId: string) =>
-      apiRequest("POST", "/api/search/add", { id: comicId }),
+    mutationFn: (input: AddSeriesInput) =>
+      apiRequest("POST", "/api/search/add", addSeriesBody(input)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },
@@ -149,12 +159,16 @@ export function useAddComic(): UseMutationResult<unknown, Error, string> {
 /**
  * Add a manga to the library
  */
-export function useAddManga(): UseMutationResult<unknown, Error, string> {
+export function useAddManga(): UseMutationResult<
+  unknown,
+  Error,
+  AddSeriesInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (mangaId: string) =>
-      apiRequest("POST", "/api/search/add-manga", { id: mangaId }),
+    mutationFn: (input: AddSeriesInput) =>
+      apiRequest("POST", "/api/search/add-manga", addSeriesBody(input)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
     },

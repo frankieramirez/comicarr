@@ -107,6 +107,7 @@ comics = Table(
     Column("ExternalID", Text),
     Column("MangaDexID", Text),
     Column("MalID", Text),
+    Column("RetainedLocations", Text),
 )
 
 issues = Table(

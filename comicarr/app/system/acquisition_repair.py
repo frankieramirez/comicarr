@@ -33,13 +33,10 @@ import uuid
 from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.exc import OperationalError
 
-from comicarr.app.acquisition.evidence import (
-    has_verified_file_under_root,
-    has_verified_library_file,
-    resolve_library_root,
-)
+from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.maintenance import MaintenanceConflict, MaintenanceController
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
+from comicarr.app.series.location import retained_locations
 from comicarr.tables import (
     acquisition_canary_permits,
     acquisition_repair_canaries,
@@ -160,7 +157,7 @@ def _selected_date(row):
 
 
 def _safe_verified_file(series, row):
-    return has_verified_library_file(series.get("ComicLocation"), row.get("Location"))
+    return has_verified_library_file(series.get("ComicLocation"), row.get("Location"), retained_locations(series))
 
 
 def _source_before(row):
@@ -995,11 +992,14 @@ class RepairService:
 
     def _aggregate_counts(self, conn, series_id):
         series = (
-            conn.execute(select(comics.c.ComicLocation).where(comics.c.ComicID == str(series_id))).mappings().first()
+            conn.execute(
+                select(comics.c.ComicLocation, comics.c.RetainedLocations).where(comics.c.ComicID == str(series_id))
+            )
+            .mappings()
+            .first()
         )
         if series is None:
             raise RepairError("series disappeared during aggregate finalization")
-        root = resolve_library_root(series.get("ComicLocation"))
         annual_filter = (annuals.c.ComicID == str(series_id)) & or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1)
         source_rows = [
             *[
@@ -1013,10 +1013,7 @@ class RepairService:
                 for row in conn.execute(select(annuals.c.Status, annuals.c.Location).where(annual_filter)).mappings()
             ],
         ]
-        have = sum(
-            row.get("Status") == "Archived" or has_verified_file_under_root(root, row.get("Location"))
-            for row in source_rows
-        )
+        have = sum(row.get("Status") == "Archived" or _safe_verified_file(series, row) for row in source_rows)
         return int(have), len(source_rows)
 
     def _aggregate_conflict(self, conn, series, run_id, actor, reason, *, rollback, increment_run=True):

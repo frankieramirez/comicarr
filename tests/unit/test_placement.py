@@ -53,6 +53,19 @@ def paths(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("file_opts", MODES)
+def test_relocating_a_series_holding_always_moves_it(paths, file_opts):
+    # A copy would double the library; a link would tie the new folder to the old one.
+    source, destination = paths
+
+    result = place(source, destination, Purpose.RELOCATE, on_existing=OnExisting.REFUSE, config=FakeConfig(file_opts))
+
+    assert result.effective_mode == "move"
+    assert result.source_survived is False
+    assert not os.path.lexists(source)
+    assert open(destination, "rb").read() == b"payload"
+
+
 class TestModeIsReadAtCallTime:
     def test_series_and_import_read_file_opts(self, paths):
         source, destination = paths

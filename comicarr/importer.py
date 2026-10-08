@@ -139,10 +139,12 @@ def addvialist(seriesQueue, issueWantQueue):
                 logger.info("[MASS-ADD][1/%s] Now adding ComicID: %s " % (seriesQueue.qsize() + 1, item["comicid"]))
 
             try:
+                add_kwargs = {}
                 if "suppress_addall" in item.keys():
-                    addComictoDB(item["comicid"], suppress_addall=item["suppress_addall"])
-                else:
-                    addComictoDB(item["comicid"])
+                    add_kwargs["suppress_addall"] = item["suppress_addall"]
+                if item.get("location"):
+                    add_kwargs["location"] = item["location"]
+                addComictoDB(item["comicid"], **add_kwargs)
             except Exception as e:
                 logger.error("[MASS-ADD] Failed adding %s: %s" % (item["comicid"], e))
                 _emit_add_activity("failed", item["comicid"], comicname=item.get("comicname"), reason_detail=str(e))
@@ -242,13 +244,14 @@ def addComictoDB(
     csyear=None,
     fixed_type=None,
     suppress_addall=None,
+    location=None,
 ):
 
     provider = series_kind.provider_of(comicid)
     if provider is series_kind.SeriesProvider.MANGADEX:
-        return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom)
+        return addMangaToDB(comicid, imported=imported, calledfrom=calledfrom, location=location)
     if provider is series_kind.SeriesProvider.MYANIMELIST:
-        return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom)
+        return addMangaToDB_MAL(comicid, imported=imported, calledfrom=calledfrom, location=location)
 
     from comicarr import metron
 
@@ -316,7 +319,9 @@ def addComictoDB(
 
     if dbcomic is None or bypass is False:
         newValueDict = {"ComicName": "Comic ID: %s" % (comicid), "Status": "Loading"}
-        if all([imported is not None, imported != "None", comicarr.CONFIG.IMP_PATHS is True]):
+        if location:
+            comlocation = location
+        elif all([imported is not None, imported != "None", comicarr.CONFIG.IMP_PATHS is True]):
             try:
                 comlocation = os.path.dirname(imported["filelisting"][0]["comiclocation"])
             except Exception:
@@ -528,7 +533,7 @@ def addComictoDB(
     else:
         comlocation.replace(comicarr.CONFIG.DESTINATION_DIR, "").strip()
 
-        if comic["ComicYear"] == "2099" and SeriesYear:
+        if comic["ComicYear"] == "2099" and SeriesYear and not (dbcomic or {}).get("dirlocked"):
             badyears = [i.start() for i in re.finditer("2099", comlocation)]
             num_bad = len(badyears)
             if num_bad == 1:
@@ -697,6 +702,7 @@ def addComictoDB(
         "Total": comicIssues,
         "ComicVersion": comicVol,
         "ComicLocation": comlocation,
+        "dirlocked": 1 if location else (dbcomic or {}).get("dirlocked"),
         "ComicPublisher": comic["ComicPublisher"],
         "Description": cdes_removed,
         "DescriptionEdit": old_description,
@@ -1195,7 +1201,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     return {"total": total, "issue_count": issue_count, "latest_chapter": latest_chapter}
 
 
-def addMangaToDB(mangaid, imported=None, calledfrom=None):
+def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
     """
     Add a manga from MangaDex to the database.
 
@@ -1230,7 +1236,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         comlocation = dbmanga["ComicLocation"]
     else:
         series_status = "Loading"
-        comlocation = None
+        comlocation = location
 
     db.upsert("comics", {"Status": "Loading"}, controlValueDict)
 
@@ -1295,6 +1301,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
         "DetailURL": manga.get("url"),
         "DynamicComicName": dynamic_name,
         "ComicLocation": comlocation,
+        "dirlocked": 1 if location else (dbmanga or {}).get("dirlocked"),
         "Type": "Manga",
         "ContentType": (
             dbmanga["ContentType"]
@@ -1340,7 +1347,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None):
     return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
 
 
-def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
+def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
     """Add a manga from MyAnimeList to the database, with chapters from MangaDex.
 
     1. Fetch metadata from MAL (title, images, synopsis, status, authors)
@@ -1380,7 +1387,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
         comlocation = dbmanga["ComicLocation"]
     else:
         series_status = "Loading"
-        comlocation = None
+        comlocation = location
 
     db.upsert("comics", {"Status": "Loading"}, controlValueDict)
 
@@ -1451,6 +1458,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None):
         "DetailURL": manga.get("url"),
         "DynamicComicName": dynamic_name,
         "ComicLocation": comlocation,
+        "dirlocked": 1 if location else (dbmanga or {}).get("dirlocked"),
         "Type": "Manga",
         "ContentType": (
             dbmanga["ContentType"]

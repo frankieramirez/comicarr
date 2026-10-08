@@ -137,9 +137,10 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
     return {"error": "Search returned no results"}
 
 
-def add_comic(ctx, comic_id):
+def add_comic(ctx, comic_id, folder=None):
     """Add a comic to the watchlist via importer."""
     from comicarr import importer, metron
+    from comicarr.app.series import location as series_location
 
     try:
         if metron.is_metron_id(comic_id):
@@ -152,8 +153,16 @@ def add_comic(ctx, comic_id):
                     % metron.strip_metron_prefix(comic_id),
                 }
             comic_id = cv_comicid
-        watch = [{"comicid": comic_id, "comicname": None, "seriesyear": None}]
-        importer.importer_thread(watch)
+        try:
+            location = series_location.folder_for_new_series(
+                re.sub("^4050-", "", comic_id), folder, getattr(ctx, "config", None)
+            )
+        except series_location.SeriesLocationError as e:
+            return {"success": False, "error": str(e), "status": e.status}
+        watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
+        if location:
+            watch["location"] = location
+        importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))
         return {"success": False, "error": str(e)}
@@ -164,7 +173,7 @@ def add_comic(ctx, comic_id):
     }
 
 
-def add_manga(ctx, manga_id):
+def add_manga(ctx, manga_id, folder=None):
     """Queue a manga add on the mass-add thread (same contract as add_comic)."""
     mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
     mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
@@ -172,13 +181,21 @@ def add_manga(ctx, manga_id):
         return {"success": False, "error": "Manga integration is not enabled"}
 
     from comicarr import importer, series_kind
+    from comicarr.app.series import location as series_location
 
     try:
         if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
             comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MYANIMELIST)
         else:
             comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
-        importer.importer_thread([{"comicid": comic_id, "comicname": None, "seriesyear": None}])
+        try:
+            location = series_location.folder_for_new_series(comic_id, folder, ctx.config)
+        except series_location.SeriesLocationError as e:
+            return {"success": False, "error": str(e), "status": e.status}
+        watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
+        if location:
+            watch["location"] = location
+        importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SEARCH] Error queueing manga %s: %s" % (manga_id, e))
         return {"success": False, "error": "Error adding manga: %s" % str(e)}

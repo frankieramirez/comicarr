@@ -43,6 +43,7 @@ class Purpose(Enum):
     IMPORT = auto()
     ONE_OFF = auto()
     ARC = auto()
+    RELOCATE = auto()
 
 
 class OnExisting(Enum):
@@ -154,6 +155,8 @@ def _already_placed(destination, purpose, on_existing, mode) -> PlacementResult:
 
 def _resolve_mode(config, purpose, multiple):
     """Read the operative mode from config. Called once per `place()`, never cached."""
+    if purpose is Purpose.RELOCATE:
+        return "move"
     if purpose in (Purpose.ONE_OFF, Purpose.ARC):
         if multiple is True:
             return "copy"

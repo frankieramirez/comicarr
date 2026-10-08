@@ -37,3 +37,23 @@ describe("SettingField select", () => {
     expect(trigger.textContent).not.toMatch(/(^|[^A-Za-z])3([^0-9]|$)/);
   });
 });
+
+describe("SettingField textarea", () => {
+  it("edits a multi-line value such as one path per line", async () => {
+    const onChange = vi.fn();
+    render(
+      <SettingField
+        label="Additional library roots"
+        type="textarea"
+        value={"/comics/Magazines\n/comics/Kids"}
+        onChange={onChange}
+      />,
+    );
+
+    const field = screen.getByRole("textbox", {
+      name: "Additional library roots",
+    }) as HTMLTextAreaElement;
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field.value).toBe("/comics/Magazines\n/comics/Kids");
+  });
+});

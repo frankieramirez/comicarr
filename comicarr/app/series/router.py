@@ -23,6 +23,7 @@ from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session
 from comicarr.app.imports import finalization as import_finalization
+from comicarr.app.series import location as series_locations
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
 
@@ -61,9 +62,9 @@ def add_series(
     if not comic_id:
         return JSONResponse(status_code=400, content={"detail": "Missing comic id"})
 
-    result = series_service.add_comic(ctx, comic_id)
+    result = series_service.add_comic(ctx, comic_id, folder=request_body.get("folder"))
     if not result["success"]:
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+        return JSONResponse(status_code=result.get("status", 500), content={"detail": result.get("error")})
     return result
 
 
@@ -139,6 +140,34 @@ def update_series_content_kind(
     if not result["success"]:
         status = 404 if "not found" in result.get("error", "").lower() else 400
         return JSONResponse(status_code=status, content={"detail": result.get("error")})
+    return result
+
+
+@router.patch("/series/{comic_id}/location", dependencies=[Depends(require_session)])
+def update_series_location(
+    comic_id: str,
+    request_body: dict = None,
+    ctx: AppContext = Depends(get_context),
+):
+    """Choose a Series' library folder, or return it to the automatic one with null."""
+    if not request_body or "folder" not in request_body:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Provide folder: a server path, or null for the automatic folder"},
+        )
+    folder = request_body["folder"]
+    move_files = request_body.get("move_files", False)
+    if folder is not None and not isinstance(folder, str):
+        return JSONResponse(status_code=400, content={"detail": "folder must be a server path or null"})
+    if not isinstance(move_files, bool):
+        return JSONResponse(status_code=400, content={"detail": "move_files must be a boolean"})
+
+    try:
+        result = series_locations.change_series_location(ctx, comic_id, folder, move_files=move_files)
+    except series_locations.SeriesLocationError as e:
+        return JSONResponse(status_code=e.status, content={"detail": str(e)})
+    if not result["success"]:
+        return JSONResponse(status_code=500, content={"detail": result["error"], **result})
     return result
 
 

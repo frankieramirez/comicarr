@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
+import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -184,6 +185,18 @@ function formatRouteReason(reason?: string | null): string {
     ROUTE_REASON_COPY[reason] ??
     `Search is blocked: ${reason.replace(/_/g, " ")}.`
   );
+}
+
+function retainedLocations(raw?: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((folder): folder is string => typeof folder === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function errorMessage(error: unknown): string {
@@ -781,6 +794,15 @@ export default function SeriesDetailPage() {
               pending={contentKindMutation.isPending}
               onChange={(nextKind) => void handleContentKindChange(nextKind)}
             />
+
+            {comicId ? (
+              <SeriesFolder
+                comicId={comicId}
+                location={comic.ComicLocation}
+                override={comic.LocationOverride === 1}
+                retained={retainedLocations(comic.RetainedLocations)}
+              />
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-2">
               <button
