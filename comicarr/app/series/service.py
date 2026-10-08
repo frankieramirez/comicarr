@@ -302,7 +302,7 @@ def add_comic(ctx, comic_id, folder=None):
     try:
         location = series_locations.folder_for_new_series(comic_id, folder, ctx.config)
     except series_locations.SeriesLocationError as e:
-        return {"success": False, "error": str(e), "status": e.status}
+        return {"success": False, "error": e.detail, "status": e.status}
 
     try:
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
@@ -311,7 +311,7 @@ def add_comic(ctx, comic_id, folder=None):
         importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SERIES] Error adding comic %s: %s" % (comic_id, e))
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Could not queue this series. The log has the reason."}
 
     return {"success": True, "message": "Successfully queued up adding id: %s" % comic_id}
 

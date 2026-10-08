@@ -165,7 +165,7 @@ def update_series_location(
     try:
         result = series_locations.change_series_location(ctx, comic_id, folder, move_files=move_files)
     except series_locations.SeriesLocationError as e:
-        return JSONResponse(status_code=e.status, content={"detail": str(e)})
+        return JSONResponse(status_code=e.status, content={"detail": e.detail})
     if not result["success"]:
         return JSONResponse(status_code=500, content={"detail": result["error"], **result})
     return result

@@ -196,7 +196,8 @@ def test_a_partial_move_keeps_every_file_reachable_and_reports_failure(library, 
     result = series_location.change_series_location(library.ctx, WIZARD, str(new_folder), move_files=True)
 
     assert result["success"] is False
-    assert "disk full" in result["error"]
+    assert "Wizard 002.cbz" in result["error"]
+    assert "disk full" not in result["error"]
     assert result["files_moved"] == 1
     assert result["files_left"] == 1
     assert (new_folder / "Wizard 001.cbz").is_file()

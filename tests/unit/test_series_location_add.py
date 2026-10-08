@@ -102,6 +102,15 @@ def test_a_folder_for_a_series_already_in_the_library_points_at_the_series_page(
     thread.assert_not_called()
 
 
+def test_a_failed_queue_keeps_the_reason_out_of_the_response(empty_library):
+    with patch("comicarr.importer.importer_thread", side_effect=RuntimeError("secret /srv/path failure")):
+        result = series_service.add_comic(empty_library.ctx, "18692")
+
+    assert result["success"] is False
+    assert result["error"] == "Could not queue this series. The log has the reason."
+    assert "secret /srv/path failure" not in result["error"]
+
+
 def _mal_details():
     return {
         "name": "One Piece",

@@ -122,7 +122,7 @@ describe("SeriesFolder", () => {
         HttpResponse.json(
           {
             detail:
-              "Moved 1 of 2 files, then could not move Wizard 002.cbz: disk full",
+              "Moved 1 of 2 files, then could not move Wizard 002.cbz. The log has the reason.",
             success: false,
             files_moved: 1,
             files_left: 1,
@@ -138,7 +138,7 @@ describe("SeriesFolder", () => {
     await user.click(screen.getByRole("button", { name: "Save folder" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("disk full");
+    expect(alert.textContent).toContain("Wizard 002.cbz");
     expect(alert.textContent).toContain("1 file stays readable where it was.");
     expect(screen.queryByText("Series folder changed")).toBeNull();
     expect(screen.getByRole("dialog")).toBeTruthy();

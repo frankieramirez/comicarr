@@ -158,14 +158,14 @@ def add_comic(ctx, comic_id, folder=None):
                 re.sub("^4050-", "", comic_id), folder, getattr(ctx, "config", None)
             )
         except series_location.SeriesLocationError as e:
-            return {"success": False, "error": str(e), "status": e.status}
+            return {"success": False, "error": e.detail, "status": e.status}
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
         importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Could not queue this series. The log has the reason."}
     return {
         "success": True,
         "message": "Successfully queued adding id: %s" % comic_id,
@@ -191,14 +191,14 @@ def add_manga(ctx, manga_id, folder=None):
         try:
             location = series_location.folder_for_new_series(comic_id, folder, ctx.config)
         except series_location.SeriesLocationError as e:
-            return {"success": False, "error": str(e), "status": e.status}
+            return {"success": False, "error": e.detail, "status": e.status}
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
         importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SEARCH] Error queueing manga %s: %s" % (manga_id, e))
-        return {"success": False, "error": "Error adding manga: %s" % str(e)}
+        return {"success": False, "error": "Could not queue this manga. The log has the reason."}
     return {
         "success": True,
         "message": "Successfully queued adding id: %s" % comic_id,

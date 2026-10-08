@@ -34,6 +34,7 @@ class SeriesLocationError(ValueError):
 
     def __init__(self, message, *, status=400):
         super().__init__(message)
+        self.detail = message
         self.status = status
 
 
@@ -174,7 +175,10 @@ def _prepare_folder(target):
     try:
         os.makedirs(target, exist_ok=True)
     except OSError as e:
-        raise SeriesLocationError("Could not create %s: %s" % (target, e)) from e
+        logger.error("[SERIES-LOCATION] Could not create %s: %s" % (target, e))
+        raise SeriesLocationError(
+            "Could not create %s. Check that Comicarr can write to its parent folder." % target
+        ) from e
     if not os.access(target, os.W_OK | os.X_OK):
         raise SeriesLocationError("Comicarr cannot write to %s." % target)
 
@@ -224,8 +228,15 @@ def _move_planned_files(plan):
                 holding.path, destination, placement.Purpose.RELOCATE, on_existing=placement.OnExisting.REFUSE
             )
         except OSError as e:
-            error = "Moved %d of %d files, then could not move %s: %s" % (len(moved), len(plan), holding.path, e)
-            logger.error("[SERIES-LOCATION] %s" % error)
+            logger.error(
+                "[SERIES-LOCATION] Moved %d of %d files, then could not move %s: %s"
+                % (len(moved), len(plan), holding.path, e)
+            )
+            error = "Moved %d of %d files, then could not move %s. The log has the reason." % (
+                len(moved),
+                len(plan),
+                holding.path,
+            )
             return moved, error
         series_queries.set_holding_location(holding.table, holding.issue_id, os.path.basename(destination))
         moved.append(holding._replace(path=destination))
