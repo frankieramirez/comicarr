@@ -207,13 +207,14 @@ def add_manga(ctx, manga_id, folder=None):
     }
 
 
-def search_issue(ctx, issue_id, *, trigger="issue_retry"):
+def search_issue(ctx, issue_id, *, trigger="issue_retry", entity_type=None):
     """Scoped single-issue search with the same route precheck as force_search.
 
     Used by needs-attention band retry / search-again (#483). Does not rewrite
     journal stage; callers stamp R9 resolution separately.
     """
     from comicarr.app.search.commands import enqueue_search_command
+    from comicarr.app.series.queries import normalize_obligation_entity_type
 
     if issue_id in (None, "") or not str(issue_id).strip():
         return {
@@ -232,8 +233,12 @@ def search_issue(ctx, issue_id, *, trigger="issue_retry"):
             "message": precheck.get("message"),
         }
 
+    payload = {"issueid": str(issue_id).strip()}
+    normalized_type = normalize_obligation_entity_type(entity_type)
+    if normalized_type:
+        payload["entity_type"] = normalized_type
     command = enqueue_search_command(
-        {"issueid": str(issue_id).strip()},
+        payload,
         trigger=trigger,
         scope_type="issue",
         scope_id=str(issue_id).strip(),

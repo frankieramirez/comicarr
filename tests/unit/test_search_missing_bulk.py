@@ -238,6 +238,27 @@ def test_explicit_annual_lookup_uses_null_deleted_row():
     assert oneoff is False
 
 
+def test_search_source_skips_phantom_issues_row_for_annual_and_explicit_arc():
+    from comicarr import search as legacy_search
+    from comicarr.tables import storyarcs
+
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID="c1", Status="Active"))
+        conn.execute(issues.insert().values(IssueID="A1", ComicID=None, Status="Wanted"))
+        conn.execute(annuals.insert().values(IssueID="A1", ComicID="c1", Issue_Number="Annual 1", Status="Snatched"))
+        conn.execute(storyarcs.insert().values(IssueArcID="SA1", StoryArc="Arc", Status="Snatched"))
+
+    result, mode, oneoff = legacy_search._search_source_for_issue("A1")
+    assert mode == "want_ann"
+    assert result["Issue_Number"] == "Annual 1"
+    assert oneoff is False
+
+    result, mode, oneoff = legacy_search._search_source_for_issue("SA1", entity_type="story_arc")
+    assert mode == "story_arc"
+    assert result["IssueArcID"] == "SA1"
+    assert oneoff is True
+
+
 def test_bulk_search_rejects_stale_preview_without_mutating_sources(monkeypatch):
     _seed_series()
     _ready_route(monkeypatch)

@@ -22,10 +22,13 @@ Safe no-op for admitted reasons and for ``download_failed_researching``
 
 from __future__ import annotations
 
+from sqlalchemy import func, or_, select, text
+
 from comicarr import logger
 from comicarr.app.attention._policy import base_reason, is_actionable, reconciliation_for
 
 RECONCILE_AUDIT_IDENTITY = "system:band-actionability"
+PHANTOM_BACKUP_TABLE = "issues_phantom_backup_969"
 
 
 def _payload_dict(payload):
@@ -113,11 +116,33 @@ def _blocklist_release(
     )
 
 
-def _rewant_issue(issueid, *, conn=None):
+def _entity_type_from_payload(payload):
+    from comicarr.app.series.queries import normalize_obligation_entity_type
+
+    data = _payload_dict(payload)
+    return normalize_obligation_entity_type(data.get("mode"))
+
+
+def _rewant_issue(issueid, *, payload=None, conn=None):
     from comicarr.app.series import queries as series_queries
 
-    series_queries.queue_issue(issueid, RECONCILE_AUDIT_IDENTITY, conn=conn)
-    logger.info("[BAND-RECONCILE] re-wanted issueid=%s (audit=%s)" % (issueid, RECONCILE_AUDIT_IDENTITY))
+    outcome = series_queries.update_obligation_intent(
+        issueid,
+        RECONCILE_AUDIT_IDENTITY,
+        intent="wanted",
+        entity_type=_entity_type_from_payload(payload),
+        conn=conn,
+    )
+    if not outcome.get("ok"):
+        logger.warn(
+            "[BAND-RECONCILE] re-want found no library row issueid=%s (audit=%s)" % (issueid, RECONCILE_AUDIT_IDENTITY)
+        )
+        return False
+    logger.info(
+        "[BAND-RECONCILE] re-wanted issueid=%s entity_type=%s (audit=%s)"
+        % (issueid, outcome.get("entity_type"), RECONCILE_AUDIT_IDENTITY)
+    )
+    return True
 
 
 def reconcile_excluded(
@@ -208,7 +233,8 @@ def reconcile_excluded(
                 return "logged_no_issue"
             return "rewanted_no_issue"
         try:
-            _rewant_issue(resolved_issue, conn=conn)
+            if not _rewant_issue(resolved_issue, payload=payload, conn=conn):
+                return "rewant_failed"
         except Exception as e:
             logger.error("[BAND-RECONCILE] re-want failed token=%s issueid=%s: %s" % (token, resolved_issue, e))
             if strict:
@@ -246,6 +272,49 @@ def _close_if_already_fulfilled(row):
     return True
 
 
+def _ensure_phantom_backup_table(conn):
+    dialect = conn.engine.dialect.name
+    false_predicate = "0" if dialect == "sqlite" else "FALSE"
+    conn.execute(
+        text("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM issues WHERE %s" % (PHANTOM_BACKUP_TABLE, false_predicate))
+    )
+
+
+def cleanup_phantom_issue_rows():
+    """Copy-then-delete issues rows that are annual or story-arc phantoms (#969).
+
+    Phantoms have NULL ComicID and an IssueID that also exists in annuals or
+    storyarcs.IssueArcID. A plain DELETE is irreversible, so rows are copied
+    into ``issues_phantom_backup_969`` first. Idempotent: a second pass finds
+    nothing to copy.
+    """
+    from comicarr import db
+    from comicarr.tables import annuals, issues, storyarcs
+
+    phantom_filter = (issues.c.ComicID.is_(None)) & or_(
+        issues.c.IssueID.in_(select(annuals.c.IssueID)),
+        issues.c.IssueID.in_(select(storyarcs.c.IssueArcID)),
+    )
+    engine = db.get_engine()
+    with engine.begin() as conn:
+        count = conn.execute(select(func.count()).select_from(issues).where(phantom_filter)).scalar() or 0
+        if not count:
+            return {"copied": 0, "deleted": 0}
+        _ensure_phantom_backup_table(conn)
+        conn.execute(
+            text(
+                "INSERT INTO %s SELECT issues.* FROM issues WHERE issues.ComicID IS NULL AND ("
+                "EXISTS (SELECT 1 FROM annuals WHERE annuals.IssueID = issues.IssueID) OR "
+                "EXISTS (SELECT 1 FROM storyarcs WHERE storyarcs.IssueArcID = issues.IssueID))" % PHANTOM_BACKUP_TABLE
+            )
+        )
+        deleted = conn.execute(issues.delete().where(phantom_filter)).rowcount
+    logger.warn(
+        "[BAND-RECONCILE] copied %s phantom issues row(s) to %s and deleted %s" % (count, PHANTOM_BACKUP_TABLE, deleted)
+    )
+    return {"copied": int(count), "deleted": int(deleted)}
+
+
 def reconcile_existing_excluded_rows():
     """One-shot pass: re-want / blocklist issues stranded by pre-#541 exclusions.
 
@@ -254,14 +323,17 @@ def reconcile_existing_excluded_rows():
     ``Snatched`` unless clause 2 runs. Walk unresolved journal rows whose
     reason is now non-actionable and discharge their obligations.
 
-    Idempotent: re-wanting an already-Wanted issue is a no-op upsert; blocklist
-    upserts the same failed-table key.
+    Idempotent: re-wanting an already-Wanted issue is a no-op UPDATE; blocklist
+    upserts the same failed-table key. Also copies then deletes phantom issues
+    rows left by pre-#969 re-wants of annuals and story arcs.
     """
     from sqlalchemy import and_, or_, select
 
     from comicarr import db
     from comicarr.app.downloads.journal import FAILED, MANUAL_REVIEW, RESOLVED_STATUSES
     from comicarr.tables import pipeline_journal
+
+    phantom_cleanup = cleanup_phantom_issue_rows()
 
     pre_actionability = and_(
         pipeline_journal.c.stage.in_((FAILED, MANUAL_REVIEW)),
@@ -272,7 +344,14 @@ def reconcile_existing_excluded_rows():
     )
 
     rows = db.select_all(select(pipeline_journal).where(pre_actionability))
-    summary = {"scanned": 0, "acted": 0, "closed_fulfilled": 0, "skipped_actionable": 0, "results": {}}
+    summary = {
+        "scanned": 0,
+        "acted": 0,
+        "closed_fulfilled": 0,
+        "skipped_actionable": 0,
+        "results": {},
+        "phantom_cleanup": phantom_cleanup,
+    }
     for row in rows or []:
         summary["scanned"] += 1
         reason = row.get("fail_reason")
@@ -292,10 +371,16 @@ def reconcile_existing_excluded_rows():
         )
         summary["acted"] += 1
         summary["results"][result] = summary["results"].get(result, 0) + 1
-    if summary["acted"] or summary["closed_fulfilled"]:
+    if summary["acted"] or summary["closed_fulfilled"] or phantom_cleanup.get("deleted"):
         logger.warn(
             "[BAND-RECONCILE] one-shot stranded-row pass: scanned=%s acted=%s "
-            "closed_fulfilled=%s results=%s"
-            % (summary["scanned"], summary["acted"], summary["closed_fulfilled"], summary["results"])
+            "closed_fulfilled=%s results=%s phantom_cleanup=%s"
+            % (
+                summary["scanned"],
+                summary["acted"],
+                summary["closed_fulfilled"],
+                summary["results"],
+                phantom_cleanup,
+            )
         )
     return summary

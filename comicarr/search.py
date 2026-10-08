@@ -1812,10 +1812,12 @@ def _search_source_for_issue(issueid, entity_type=None):
             "want_ann",
             False,
         )
+    if normalized_type == "story_arc":
+        return db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid)), "story_arc", True
     if normalized_type == "issue":
         return db.select_one(select(issues).where(issues.c.IssueID == issueid)), "want", False
 
-    result = db.select_one(select(issues).where(issues.c.IssueID == issueid))
+    result = db.select_one(select(issues).where(issues.c.IssueID == issueid, issues.c.ComicID.is_not(None)))
     if result is not None:
         return result, "want", False
 
@@ -1831,6 +1833,10 @@ def _search_source_for_issue(issueid, entity_type=None):
     result = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issueid))
     if result is not None:
         return result, "story_arc", True
+
+    result = db.select_one(select(issues).where(issues.c.IssueID == issueid))
+    if result is not None:
+        return result, "want", False
 
     return db.select_one(select(weekly).where(weekly.c.IssueID == issueid)), "pullwant", True
 
