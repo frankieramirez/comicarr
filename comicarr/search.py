@@ -1947,7 +1947,7 @@ def searchforissue(
                                     },
                                 },
                             )
-                            if checkit["status"] is True:
+                            if checkit["status"] is True or (rsschecker and checkit.get("reason") == "series_inactive"):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
@@ -2006,7 +2006,9 @@ def searchforissue(
                                         },
                                     },
                                 )
-                                if checkit["status"] is True:
+                                if checkit["status"] is True or (
+                                    rsschecker and checkit.get("reason") == "series_inactive"
+                                ):
                                     if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                         results.append(
                                             {
@@ -2081,7 +2083,7 @@ def searchforissue(
                                     },
                                 },
                             )
-                            if checkit["status"] is True:
+                            if checkit["status"] is True or (rsschecker and checkit.get("reason") == "series_inactive"):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
