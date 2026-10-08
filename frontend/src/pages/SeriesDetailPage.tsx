@@ -825,7 +825,7 @@ export default function SeriesDetailPage() {
                 disabled={!comicId || searchPreview.isFetching}
                 className="px-3.5 font-semibold"
               >
-                <Search className="h-3.5 w-3.5" />
+                <Search />
                 Search all missing
               </Button>
               <Button
@@ -855,7 +855,7 @@ export default function SeriesDetailPage() {
                 }
                 aria-label="Interactive Search for missing issues"
               >
-                <Search className="h-3.5 w-3.5" />
+                <Search />
                 Review missing
               </Button>
               <Button
@@ -888,7 +888,7 @@ export default function SeriesDetailPage() {
                 aria-label="Browse every indexer's releases for this series"
                 title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
               >
-                <TextSearch className="h-3.5 w-3.5" />
+                <TextSearch />
                 Browse releases
               </Button>
               <Button
@@ -899,7 +899,7 @@ export default function SeriesDetailPage() {
                 disabled={refreshMutation.isPending}
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
+                  className={refreshMutation.isPending ? "animate-spin" : ""}
                 />
                 Refresh
               </Button>
@@ -909,7 +909,7 @@ export default function SeriesDetailPage() {
                     to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
                     aria-label="View activity for this series"
                   >
-                    <Activity className="h-3.5 w-3.5" />
+                    <Activity />
                     Activity
                   </Link>
                 </Button>
@@ -921,11 +921,7 @@ export default function SeriesDetailPage() {
                 onClick={handlePauseResume}
                 disabled={pauseMutation.isPending || resumeMutation.isPending}
               >
-                {isPaused ? (
-                  <Play className="h-3.5 w-3.5" />
-                ) : (
-                  <Pause className="h-3.5 w-3.5" />
-                )}
+                {isPaused ? <Play /> : <Pause />}
                 {isPaused ? "Resume" : "Pause"}
               </Button>
               {!showDeleteConfirm ? (
@@ -936,7 +932,7 @@ export default function SeriesDetailPage() {
                   onClick={() => setShowDeleteConfirm(true)}
                   className="text-muted-foreground"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 />
                   Delete
                 </Button>
               ) : (
@@ -949,7 +945,7 @@ export default function SeriesDetailPage() {
                     disabled={deleteMutation.isPending}
                     className="font-semibold"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 />
                     Confirm delete
                   </Button>
                   <Button
@@ -1196,7 +1192,7 @@ export default function SeriesDetailPage() {
                   aria-label="Set status on selected issues"
                 >
                   Set status
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  <ChevronDown aria-hidden="true" />
                 </Button>
               }
               onSelect={(status) => void handleBulkSetStatus(status)}

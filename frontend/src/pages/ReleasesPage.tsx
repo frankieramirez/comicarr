@@ -216,7 +216,13 @@ export default function ReleasesPage() {
           }
         >
           <RefreshCw
-            className={`w-3.5 h-3.5 ${weeklyRefresh.isPending || weeklyStatus === "running" || weeklyStatus === "queued" ? "animate-spin" : ""}`}
+            className={
+              weeklyRefresh.isPending ||
+              weeklyStatus === "running" ||
+              weeklyStatus === "queued"
+                ? "animate-spin"
+                : ""
+            }
           />
           {weeklyStatus === "running"
             ? "Refreshing…"

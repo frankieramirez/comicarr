@@ -188,9 +188,7 @@ export default function DashboardPage() {
             disabled={!canScan || scanPending}
             title={scanTitle}
           >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${scanPending ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={scanPending ? "animate-spin" : ""} />
             {scanPending ? "Scanning…" : "Scan libraries"}
           </Button>
         )}

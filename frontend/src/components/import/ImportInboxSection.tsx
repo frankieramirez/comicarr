@@ -68,7 +68,7 @@ export default function ImportInboxSection() {
             className="shrink-0"
           >
             <RefreshCw
-              className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
+              className={busy ? "animate-spin" : ""}
               style={{
                 color: busy ? "var(--primary)" : "var(--muted-foreground)",
               }}
