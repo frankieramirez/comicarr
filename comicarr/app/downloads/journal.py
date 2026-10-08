@@ -372,9 +372,13 @@ def _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
     against a supersedable terminal row is a NEW in-flight obligation that
     legitimately supersedes the closed attempt — reset the row.
 
-    Supersedable means a terminal `failed` row, or a `manual_review` row an
-    operator has already resolved. See ``_SUPERSEDABLE_TERMINALS`` for why the
-    two differ; an unresolved manual_review row is left terminal on purpose.
+    Supersedable means a terminal `failed` row, a `manual_review` row an
+    operator has already resolved, or a `post_processed` row whose issue is
+    no longer in the library (Status is not Downloaded/Archived, or the
+    verified file is gone). See ``_SUPERSEDABLE_TERMINALS`` for the failed /
+    manual_review split; an unresolved manual_review row is left terminal on
+    purpose. post_processed stays blocking while the library still holds the
+    issue so a completed grab cannot be re-reserved from the same provider.
 
     WHY this does NOT weaken the monotonic stale-replay guard: replay never
     issues a fresh RESERVED/SNATCHED transition (the snatch seam and DDL
@@ -402,11 +406,15 @@ def _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
     if stage not in _RESNATCH_STAGES:
         return False
 
-    previous = conn.execute(select(pipeline_journal.c.stage).where(pipeline_journal.c.release_key == key)).scalar()
+    previous_row = conn.execute(select(pipeline_journal).where(pipeline_journal.c.release_key == key)).fetchone()
+    previous = previous_row._mapping.get("stage") if previous_row is not None else None
+    allow_post_processed = previous == POST_PROCESSED and not _library_holds_issue(
+        conn, previous_row._mapping.get("issueid") if previous_row is not None else None
+    )
     reset = conn.execute(
         update(pipeline_journal)
         .where(pipeline_journal.c.release_key == key)
-        .where(_supersedable_terminal_predicate())
+        .where(_supersedable_terminal_predicate(allow_post_processed=allow_post_processed))
         .values(fail_reason=None, status=None, hash=None, **upd_values)
     )
     if reset.rowcount:
@@ -418,25 +426,89 @@ def _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
     return False
 
 
-def _supersedable_terminal_predicate():
+def _supersedable_terminal_predicate(*, allow_post_processed=False):
     """SQL for "this terminal row may be superseded by a fresh re-snatch"."""
 
-    return or_(
+    clauses = [
         pipeline_journal.c.stage == FAILED,
         and_(
             pipeline_journal.c.stage == MANUAL_REVIEW,
             pipeline_journal.c.status.in_(RESOLVED_STATUSES),
         ),
+    ]
+    if allow_post_processed:
+        clauses.append(pipeline_journal.c.stage == POST_PROCESSED)
+    return or_(*clauses)
+
+
+def _library_holds_issue(conn, issueid):
+    """True when the obligation's library row still holds a verified file.
+
+    Resolves issues (with ComicID), then undeleted annuals, then story arcs,
+    then a leftover issues row. Unknown ids fail closed (still blocking).
+    Folders kept after a series move count via ``retained_locations``.
+    """
+    if issueid in (None, ""):
+        return True
+    from comicarr.app.acquisition.evidence import has_verified_library_file
+    from comicarr.app.series.location import retained_locations
+    from comicarr.tables import annuals, comics, issues, storyarcs
+
+    issue_id = str(issueid)
+
+    def _fetch(stmt):
+        return conn.execute(stmt).fetchone()
+
+    found = _fetch(
+        select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(
+            issues.c.IssueID == issue_id,
+            issues.c.ComicID.is_not(None),
+        )
+    )
+    if found is None:
+        found = _fetch(
+            select(annuals.c.Status, annuals.c.Location, annuals.c.ComicID).where(
+                annuals.c.IssueID == issue_id,
+                or_(annuals.c.Deleted.is_(None), annuals.c.Deleted != 1),
+            )
+        )
+    if found is None:
+        found = _fetch(
+            select(storyarcs.c.Status, storyarcs.c.Location, storyarcs.c.ComicID).where(
+                storyarcs.c.IssueArcID == issue_id
+            )
+        )
+    if found is None:
+        found = _fetch(select(issues.c.Status, issues.c.Location, issues.c.ComicID).where(issues.c.IssueID == issue_id))
+    if found is None:
+        return True
+    mapping = found._mapping
+    if str(mapping.get("Status") or "") not in {"Downloaded", "Archived"}:
+        return False
+    series = _fetch(select(comics).where(comics.c.ComicID == str(mapping.get("ComicID") or "")))
+    if series is None:
+        return True
+    series_map = dict(series._mapping)
+    return has_verified_library_file(
+        series_map.get("ComicLocation"),
+        mapping.get("Location"),
+        retained_locations(series_map),
     )
 
 
-def _is_supersedable_terminal(mapping):
+def _is_supersedable_terminal(mapping, *, conn=None):
     """Python mirror of :func:`_supersedable_terminal_predicate`."""
 
     stage = mapping.get("stage")
     if stage == FAILED:
         return True
-    return stage == MANUAL_REVIEW and mapping.get("status") in RESOLVED_STATUSES
+    if stage == MANUAL_REVIEW and mapping.get("status") in RESOLVED_STATUSES:
+        return True
+    if stage == POST_PROCESSED:
+        if conn is None:
+            return False
+        return not _library_holds_issue(conn, mapping.get("issueid"))
+    return False
 
 
 def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
@@ -450,7 +522,9 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
         sanitize_payload(load_payload(existing_row._mapping.get("payload_json"))) if existing_row is not None else None
     )
     new_attempt = (
-        existing_row is not None and _is_supersedable_terminal(existing_row._mapping) and stage in _RESNATCH_STAGES
+        existing_row is not None
+        and _is_supersedable_terminal(existing_row._mapping, conn=conn)
+        and stage in _RESNATCH_STAGES
     )
     if new_attempt:
         existing_payload = {
@@ -587,7 +661,9 @@ def _apply_transition(conn, key, stage, new_rank, fields, payload, when):
             )
             return False
 
-    if existing[0] in _SUPERSEDABLE_TERMINALS and _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
+    if (existing[0] in _SUPERSEDABLE_TERMINALS or existing[0] == POST_PROCESSED) and _try_reset_terminal_attempt(
+        conn, key, stage, new_rank, upd_values
+    ):
         return True
 
     logger.fdebug(
