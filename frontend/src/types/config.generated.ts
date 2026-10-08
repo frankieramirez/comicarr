@@ -54,6 +54,7 @@ export interface ReadableConfig {
   manga_dir?: string;
   manga_destination_dir?: string;
   imp_move?: boolean;
+  imp_file_opts?: string;
   imp_rename?: boolean;
   imp_metadata?: boolean;
   imp_seriesfolders?: boolean;
@@ -179,6 +180,7 @@ export interface WritableConfig {
   announce_releases?: boolean;
   comic_dir?: string;
   imp_move?: boolean;
+  imp_file_opts?: string;
   imp_rename?: boolean;
   imp_metadata?: boolean;
   imp_seriesfolders?: boolean;

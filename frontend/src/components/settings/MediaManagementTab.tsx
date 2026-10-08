@@ -6,6 +6,22 @@ import type {
   WritableConfig,
 } from "../../types/config.generated";
 
+const IMPORT_FILE_OPTS_INHERIT = "file_opts";
+const IMPORT_FILE_OPTS_OPTIONS = [
+  { value: IMPORT_FILE_OPTS_INHERIT, label: "Same as downloads" },
+  { value: "move", label: "Move" },
+  { value: "copy", label: "Copy" },
+  { value: "hardlink", label: "Hardlink" },
+  { value: "softlink", label: "Softlink" },
+];
+
+function importFileOptsSelectValue(value?: string): string {
+  if (!value || value.trim().toLowerCase() === "none") {
+    return IMPORT_FILE_OPTS_INHERIT;
+  }
+  return value;
+}
+
 interface MediaManagementTabProps {
   config: ReadableConfig;
   formData: SettingsFormData;
@@ -66,7 +82,20 @@ export function MediaManagementTab({
           type="checkbox"
           checked={formData.imp_move ?? false}
           onChange={(v) => onChange("imp_move", v as boolean)}
-          helpText="Move imported files to the library directory"
+          helpText="Place imported files into the series folder instead of leaving them in the import directory as Archived"
+        />
+        <SettingField
+          label="Import file operation"
+          type="select"
+          value={importFileOptsSelectValue(formData.imp_file_opts)}
+          options={IMPORT_FILE_OPTS_OPTIONS}
+          onChange={(v) =>
+            onChange(
+              "imp_file_opts",
+              v === IMPORT_FILE_OPTS_INHERIT ? "" : (v as string),
+            )
+          }
+          helpText="How files are placed into the library when Move files on import is on. Same as downloads follows the post-processing file operation, so torrent users can keep downloads on copy and set imports to move."
         />
         <SettingField
           label="Rename files on import"
