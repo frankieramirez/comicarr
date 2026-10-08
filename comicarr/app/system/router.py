@@ -17,6 +17,7 @@ migrate first (Phase 1).
 import asyncio
 import json
 import threading
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -33,6 +34,7 @@ from comicarr.app.core.security import (
 )
 from comicarr.app.system import service as system_service
 from comicarr.app.system import support_bundle as support_bundle_module
+from comicarr.app.system.log_files import LogFileError
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -325,12 +327,42 @@ def get_logs(
         system_service.DEFAULT_LOG_LINES,
         ge=1,
         le=system_service.MAX_LOG_LINES,
-        description="How many trailing lines of comicarr.log to return.",
+        description="Legacy tail lines, or newest matching whole records when search parameters are supplied (maximum 5000).",
     ),
+    selector: str | None = Query(None, max_length=64),
+    query: str | None = Query(
+        None, max_length=1000, description="Literal case-insensitive text within any record line."
+    ),
+    component: str | None = Query(None, max_length=200, description="Exact case-insensitive logger function name."),
+    severity: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] | None = None,
     ctx: AppContext = Depends(get_context),
 ):
-    """Return the tail of the current log file plus the effective log level."""
-    return system_service.get_recent_logs(ctx, lines=lines)
+    """Read the legacy tail, or search a selected file with bounded whole-record results."""
+    if selector is None and query is None and component is None and severity is None:
+        return system_service.get_recent_logs(ctx, lines=lines)
+    try:
+        return system_service.search_logs(
+            ctx,
+            selector="current" if selector is None else selector,
+            query=query or "",
+            component=component or "",
+            severity=severity,
+            limit=lines,
+        )
+    except LogFileError as e:
+        status = {"invalid_selector": 400, "unsafe_file": 400, "missing": 404, "changed": 409, "too_large": 413}.get(
+            e.code, 503
+        )
+        return JSONResponse(status_code=status, content={"error": str(e), "code": e.code})
+
+
+@router.get("/system/logs/files", dependencies=[Depends(require_session)])
+def get_log_files(ctx: AppContext = Depends(get_context)):
+    """List regular Comicarr log files with selectors, byte sizes, and UTC modification times."""
+    try:
+        return system_service.list_log_files(ctx)
+    except LogFileError as e:
+        return JSONResponse(status_code=503, content={"error": str(e), "code": e.code})
 
 
 @router.post("/system/logs/rotate", dependencies=[Depends(require_session)])

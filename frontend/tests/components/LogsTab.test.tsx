@@ -34,8 +34,26 @@ const LINES = [
   "11-Aug-2026 14:30:02 - ERROR   :: comicarr.downloaders : Thread-5 : refused",
 ];
 
+const FILES = [
+  {
+    selector: "current",
+    name: "comicarr.log",
+    size: 500,
+    modified: "2026-08-11T14:30:00Z",
+  },
+  {
+    selector: "rotation-2",
+    name: "comicarr.log.2",
+    size: 800,
+    modified: "2026-08-10T14:30:00Z",
+  },
+];
+
 function stubLogs(logs: string[], level: LogLevelContext) {
   server.use(
+    http.get("/api/system/logs/files", () =>
+      HttpResponse.json({ files: FILES }),
+    ),
     http.get("/api/system/logs", () =>
       HttpResponse.json({
         logs,
@@ -145,7 +163,131 @@ describe("LogsTab", () => {
     expect(onChange).toHaveBeenCalledWith("log_level", 2);
   });
 
+  it("searches only on submit and combines file, component and severity on the server", async () => {
+    stubLogs(LINES, UNPINNED);
+    const requests: URLSearchParams[] = [];
+    server.use(
+      http.get("/api/system/logs", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push(params);
+        return HttpResponse.json({
+          logs: params.get("query")
+            ? ["matching header [REDACTED]\n", "  whole traceback\n"]
+            : LINES,
+          level: UNPINNED,
+          file: FILES.find((file) => file.selector === params.get("selector")),
+          lines_scanned: 6001,
+          records_matched: 301,
+          records_returned: 200,
+          truncated: true,
+          record_limit: 200,
+          byte_limit: 8388608,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByText(/pool open/);
+    const beforeTyping = requests.length;
+    await user.type(screen.getByLabelText("Search text"), "needle");
+    await user.type(screen.getByLabelText("Component"), "search");
+    expect(requests).toHaveLength(beforeTyping);
+    await user.click(screen.getByLabelText("Log file"));
+    await user.click(
+      await screen.findByRole("option", { name: /comicarr.log.2/ }),
+    );
+    await user.click(screen.getByLabelText("Filter log lines"));
+    await user.click(
+      await screen.findByRole("option", { name: "Errors only" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText(/whole traceback/);
+    await waitFor(() => expect(requests.at(-1)?.get("query")).toBe("needle"));
+    const last = requests.at(-1)!;
+    expect(last.get("selector")).toBe("rotation-2");
+    expect(last.get("component")).toBe("search");
+    expect(last.get("severity")).toBe("ERROR");
+    expect(screen.getByRole("status").textContent).toContain(
+      "6,001 lines scanned",
+    );
+    expect(screen.getByRole("status").textContent).toContain("301 matched");
+    expect(screen.getByRole("status").textContent).toContain("200 returned");
+    expect(screen.getByRole("status").textContent).toContain("Truncated");
+    const clipboard = vi.spyOn(navigator.clipboard, "writeText");
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    expect(clipboard).toHaveBeenCalledWith(
+      "matching header [REDACTED]\n  whole traceback",
+    );
+  });
+
+  it("refreshes missing rotated files and results without losing the search", async () => {
+    stubLogs(LINES, UNPINNED);
+    let available = false;
+    let lists = 0;
+    server.use(
+      http.get("/api/system/logs/files", () => {
+        lists++;
+        return HttpResponse.json({ files: FILES });
+      }),
+      http.get("/api/system/logs", () =>
+        available
+          ? HttpResponse.json({
+              logs: ["recovered match"],
+              level: UNPINNED,
+              file: FILES[1],
+              lines_scanned: 1,
+              records_matched: 1,
+              records_returned: 1,
+              truncated: false,
+            })
+          : HttpResponse.json(
+              {
+                error: "The log file no longer exists. Refresh the file list.",
+                code: "missing",
+              },
+              { status: 404 },
+            ),
+      ),
+    );
+    renderTab();
+    await screen.findByText(/The log file no longer exists/);
+    expect(screen.queryByText(/Nothing in/)).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    available = true;
+    const before = lists;
+    await userEvent.click(
+      screen.getByRole("button", { name: "Refresh files and results" }),
+    );
+    await screen.findByText(/recovered match/);
+    expect(lists).toBeGreaterThan(before);
+  });
+
+  it("shows no matching records separately from an empty file", async () => {
+    stubLogs([], UNPINNED);
+    server.use(
+      http.get("/api/system/logs", () =>
+        HttpResponse.json({
+          logs: [],
+          level: UNPINNED,
+          file: FILES[0],
+          lines_scanned: 6001,
+          records_matched: 0,
+          records_returned: 0,
+          truncated: false,
+        }),
+      ),
+    );
+    renderTab();
+    expect(
+      await screen.findByText("No records match this search."),
+    ).toBeTruthy();
+  });
+
   it("surfaces a read failure instead of an empty console", async () => {
+    stubLogs([], UNPINNED);
     server.use(
       http.get("/api/system/logs", () =>
         HttpResponse.json({
