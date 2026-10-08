@@ -1,5 +1,0 @@
----
-"comicarr": minor
----
-
-You can now choose the library folder for a single series. On the series page, Library folder → Change folder takes a server path, so a magazine like Wizard can live under a Magazines folder while everything else stays under your comics destination. You can also pick a folder when adding a series from search with the folder button next to Add. The folder must sit inside a library root. Your destination and manga destination are always roots, and Settings → Media → Additional library roots lets you add more, one path per line. When you change an existing series, you choose whether to leave its files where they are or move them. Left files stay readable and keep counting as downloaded. A move only touches that series' files, and nothing moves if a file with the same name is already in the new folder. New downloads and imports are placed, renamed and tagged in the chosen folder. Refresh, rescans and switching a series to manga keep your choice. Use automatic folder returns the series to the folder Comicarr would pick. Downloads and OPDS can now also serve files stored under the manga destination or an additional root.
