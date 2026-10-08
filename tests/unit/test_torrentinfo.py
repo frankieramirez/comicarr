@@ -265,6 +265,7 @@ def test_invalid_hash_is_not_a_client_outage():
 def test_autosnatch_script_oserror_is_not_a_client_outage(monkeypatch, tmp_path):
     script = tmp_path / "autosnatch.sh"
     script.write_text("#!/bin/bash\n")
+    comicarr.CONFIG.AUTO_SNATCH = True
     comicarr.CONFIG.AUTO_SNATCH_SCRIPT = str(script)
 
     with (
