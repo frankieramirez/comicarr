@@ -6,10 +6,14 @@ import {
 } from "@/hooks/useAiSuggestions";
 import { SuggestionCard } from "./SuggestionCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import { panelState } from "@/lib/panelState";
 
 export function AiSuggestions() {
-  const { data: suggestions, isLoading } = useAiSuggestions();
+  const query = useAiSuggestions();
+  const suggestions = query.data ?? [];
   const navigate = useNavigate();
+  const state = panelState(query, suggestions.length === 0);
 
   const handleAdd = (comicName: string, comicId?: string | null) => {
     if (comicId) {
@@ -19,7 +23,7 @@ export function AiSuggestions() {
     }
   };
 
-  if (isLoading) {
+  if (state === "loading") {
     return (
       <div className="space-y-3">
         <Skeleton className="h-6 w-48" />
@@ -29,7 +33,17 @@ export function AiSuggestions() {
     );
   }
 
-  if (!suggestions || suggestions.length === 0) {
+  if (state === "unavailable") {
+    return (
+      <PanelUnavailable
+        label="Suggestions"
+        onRetry={() => void query.refetch()}
+        isRetrying={query.isFetching}
+      />
+    );
+  }
+
+  if (state === "empty") {
     return (
       <div className="rounded-lg border border-card-border bg-card p-6 text-center">
         <Sparkles className="w-8 h-8 text-muted-foreground mx-auto mb-2" />

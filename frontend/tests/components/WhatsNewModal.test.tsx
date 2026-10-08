@@ -12,7 +12,9 @@ import WhatsNewModal, {
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual =
-    await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+    await vi.importActual<typeof import("react-router-dom")>(
+      "react-router-dom",
+    );
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -103,6 +105,32 @@ describe("WhatsNewModal", () => {
     expect(await screen.findByText("only change")).toBeTruthy();
     // Header already names the range; body heading for the sole section is omitted.
     expect(screen.queryByRole("heading", { name: "0.21.0" })).toBeNull();
+  });
+
+  it("renders unavailable with retry when notes fail, not the empty sentence", async () => {
+    stubPending([{ version: "0.21.0", bullets: ["change"] }]);
+    server.use(
+      http.get("/api/system/release-notes", () =>
+        HttpResponse.json({ detail: "unavailable" }, { status: 500 }),
+      ),
+    );
+
+    render(createElement(WhatsNewModal));
+
+    expect(await screen.findByText("Release notes unavailable")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Retry Release notes" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Release notes could not load.")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Settings → About" })
+        .getAttribute("href"),
+    ).toBe(WHATS_NEW_ARCHIVE_PATH);
+    expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
+    expect(
+      screen.queryByText("No release notes recorded for this upgrade."),
+    ).toBeNull();
   });
 
   it("Got it posts dismiss", async () => {
