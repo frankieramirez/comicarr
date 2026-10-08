@@ -68,4 +68,35 @@ describe("ArcIssueTable", () => {
       await screen.findByRole("heading", { name: "Review releases" }),
     ).toBeTruthy();
   });
+
+  it("moves keyboard focus through menu items and returns it to the trigger on Escape", async () => {
+    const user = userEvent.setup();
+    render(<ArcIssueTable issues={[arcIssue]} storyArcId="arc-1" />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Actions for Absolute Batman #9",
+    });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+
+    const firstItem = await screen.findByRole("menuitem", {
+      name: "Interactive Search",
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(firstItem);
+    });
+
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "Mark as Read" }),
+    );
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
 });

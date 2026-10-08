@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -162,5 +163,52 @@ describe("MatchModal", () => {
     expect(
       screen.getByPlaceholderText("Search for a manga series..."),
     ).toHaveProperty("disabled", true);
+  });
+
+  it("traps tab focus in the dialog and returns it to the Match trigger on Escape", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Match import
+          </button>
+          <MatchModal
+            isOpen={open}
+            onClose={() => {
+              onClose();
+              setOpen(false);
+            }}
+            importGroup={comicGroup}
+            onMatch={vi.fn()}
+          />
+        </>
+      );
+    }
+
+    renderMinimal(<Harness />);
+
+    const trigger = screen.getByRole("button", { name: "Match import" });
+    await user.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "Match Import" });
+    expect(dialog.getAttribute("role")).toBe("dialog");
+
+    for (let i = 0; i < 20; i += 1) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
   });
 });

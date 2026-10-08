@@ -10,11 +10,19 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import { useSetArcIssueStatus, useDelArcIssue } from "@/hooks/useStoryArcs";
+import { cn } from "@/lib/utils";
 import type { ArcIssue, ArcIssueStatus } from "@/types";
 
 interface ArcIssueTableProps {
@@ -34,12 +42,121 @@ const STATUS_BADGE_MAP: Record<
   Added: "default",
 };
 
+function ArcIssueRowMenu({
+  issue,
+  onStatusChange,
+  onRemove,
+  onInteractiveSearch,
+}: {
+  issue: ArcIssue;
+  onStatusChange: (issueArcId: string, status: ArcIssueStatus) => void;
+  onRemove: (issueArcId: string) => void;
+  onInteractiveSearch: (issue: ArcIssue) => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const triggerLabel = `Actions for ${issue.ComicName} #${issue.IssueNumber}`;
+
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setConfirmDelete(false);
+      }}
+    >
+      <DropdownMenuTrigger
+        aria-label={triggerLabel}
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "h-8 w-8 p-0",
+        )}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[10rem]">
+        <DropdownMenuItem onClick={() => onInteractiveSearch(issue)}>
+          <Search className="h-4 w-4" />
+          Interactive Search
+        </DropdownMenuItem>
+        {issue.Status === "Read" ? (
+          <DropdownMenuItem
+            onClick={() => onStatusChange(issue.IssueArcID, "Wanted")}
+          >
+            <EyeOff className="h-4 w-4" />
+            Mark as Unread
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => onStatusChange(issue.IssueArcID, "Read")}
+          >
+            <Eye className="h-4 w-4" />
+            Mark as Read
+          </DropdownMenuItem>
+        )}
+        {issue.Status !== "Wanted" && issue.Status !== "Read" && (
+          <DropdownMenuItem
+            onClick={() => onStatusChange(issue.IssueArcID, "Wanted")}
+          >
+            <Search className="h-4 w-4" />
+            Mark as Wanted
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={() => onStatusChange(issue.IssueArcID, "Skipped")}
+        >
+          <BookOpen className="h-4 w-4" />
+          Mark as Skipped
+        </DropdownMenuItem>
+
+        {issue.ComicID && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              render={<Link to={`/library/${issue.ComicID}`} />}
+            >
+              <ExternalLink className="h-4 w-4" />
+              View in Library
+            </DropdownMenuItem>
+          </>
+        )}
+
+        <DropdownMenuSeparator />
+        {confirmDelete ? (
+          <div className="flex items-center gap-1 px-1 py-1">
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 flex-1 px-2 text-xs"
+              onClick={() => onRemove(issue.IssueArcID)}
+            >
+              Confirm
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 flex-1 px-2 text-xs"
+              onClick={() => setConfirmDelete(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <DropdownMenuItem
+            closeOnClick={false}
+            className="text-destructive focus:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Remove from Arc
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function ArcIssueTable({
   issues,
   storyArcId,
 }: ArcIssueTableProps) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const { addToast } = useToast();
   const { startReview, reviewSheetProps } = useInteractiveReview();
 
@@ -47,7 +164,6 @@ export default function ArcIssueTable({
   const delIssueMutation = useDelArcIssue();
 
   const handleStatusChange = (issueArcId: string, status: ArcIssueStatus) => {
-    setOpenMenuId(null);
     setStatusMutation.mutate(
       { issueArcId, status },
       {
@@ -63,8 +179,6 @@ export default function ArcIssueTable({
   };
 
   const handleRemove = (issueArcId: string) => {
-    setOpenMenuId(null);
-    setConfirmDeleteId(null);
     delIssueMutation.mutate(
       { issueArcId, storyArcId },
       {
@@ -86,33 +200,47 @@ export default function ArcIssueTable({
     );
   };
 
+  const handleInteractiveSearch = (issue: ArcIssue) => {
+    void startReview(
+      {
+        IssueNumber: issue.IssueNumber,
+        ComicName: issue.ComicName,
+        Status: issue.Status,
+      },
+      {
+        entityType: "story_arc_issue",
+        entityId: issue.IssueArcID,
+      },
+    );
+  };
+
   return (
-    <div className="rounded-lg border border-card-border bg-card overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-card-border bg-muted/50">
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground w-12">
+          <tr className="border-b border-border bg-muted/50">
+            <th className="w-12 px-4 py-3 text-left font-medium text-muted-foreground">
               #
             </th>
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
               Issue
             </th>
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+            <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground md:table-cell">
               Date
             </th>
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground w-28">
+            <th className="w-28 px-4 py-3 text-left font-medium text-muted-foreground">
               Status
             </th>
-            <th className="text-right px-4 py-3 font-medium text-muted-foreground w-12" />
+            <th className="w-12 px-4 py-3 text-right font-medium text-muted-foreground" />
           </tr>
         </thead>
         <tbody>
           {issues.map((issue) => (
             <tr
               key={issue.IssueArcID}
-              className="border-b border-card-border last:border-0 hover:bg-muted/30 transition-colors"
+              className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
             >
-              <td className="px-4 py-3 text-muted-foreground tabular-nums">
+              <td className="px-4 py-3 tabular-nums text-muted-foreground">
                 {issue.ReadingOrder}
               </td>
               <td className="px-4 py-3">
@@ -126,12 +254,12 @@ export default function ArcIssueTable({
                   </span>
                 </div>
                 {issue.IssueName && (
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                     {issue.IssueName}
                   </p>
                 )}
               </td>
-              <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
+              <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                 {issue.IssueDate || "-"}
               </td>
               <td className="px-4 py-3">
@@ -140,150 +268,12 @@ export default function ArcIssueTable({
                 </Badge>
               </td>
               <td className="px-4 py-3 text-right">
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-haspopup="true"
-                    aria-expanded={openMenuId === issue.IssueArcID}
-                    aria-label={`Actions for ${issue.ComicName} #${issue.IssueNumber}`}
-                    onClick={() =>
-                      setOpenMenuId(
-                        openMenuId === issue.IssueArcID
-                          ? null
-                          : issue.IssueArcID,
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") setOpenMenuId(null);
-                    }}
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-
-                  {openMenuId === issue.IssueArcID && (
-                    <>
-                      {/* Click-away backdrop */}
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          setConfirmDeleteId(null);
-                        }}
-                      />
-                      <div
-                        role="menu"
-                        className="absolute right-0 top-full mt-1 z-50 min-w-[10rem] rounded-md border border-card-border bg-card shadow-lg p-1"
-                      >
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            void startReview(
-                              {
-                                IssueNumber: issue.IssueNumber,
-                                ComicName: issue.ComicName,
-                                Status: issue.Status,
-                              },
-                              {
-                                entityType: "story_arc_issue",
-                                entityId: issue.IssueArcID,
-                              },
-                            );
-                          }}
-                        >
-                          <Search className="w-4 h-4" />
-                          Interactive Search
-                        </button>
-                        {issue.Status === "Read" ? (
-                          <button
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                            onClick={() =>
-                              handleStatusChange(issue.IssueArcID, "Wanted")
-                            }
-                          >
-                            <EyeOff className="w-4 h-4" />
-                            Mark as Unread
-                          </button>
-                        ) : (
-                          <button
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                            onClick={() =>
-                              handleStatusChange(issue.IssueArcID, "Read")
-                            }
-                          >
-                            <Eye className="w-4 h-4" />
-                            Mark as Read
-                          </button>
-                        )}
-                        {issue.Status !== "Wanted" &&
-                          issue.Status !== "Read" && (
-                            <button
-                              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                              onClick={() =>
-                                handleStatusChange(issue.IssueArcID, "Wanted")
-                              }
-                            >
-                              <Search className="w-4 h-4" />
-                              Mark as Wanted
-                            </button>
-                          )}
-                        <button
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                          onClick={() =>
-                            handleStatusChange(issue.IssueArcID, "Skipped")
-                          }
-                        >
-                          <BookOpen className="w-4 h-4" />
-                          Mark as Skipped
-                        </button>
-
-                        {issue.ComicID && (
-                          <>
-                            <div className="my-1 border-t border-card-border" />
-                            <Link
-                              to={`/library/${issue.ComicID}`}
-                              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors text-left"
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              View in Library
-                            </Link>
-                          </>
-                        )}
-
-                        <div className="my-1 border-t border-card-border" />
-                        {confirmDeleteId === issue.IssueArcID ? (
-                          <div className="flex items-center gap-1 px-1 py-1">
-                            <button
-                              className="flex-1 px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
-                              onClick={() => handleRemove(issue.IssueArcID)}
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              className="flex-1 px-2 py-1 text-xs rounded hover:bg-muted"
-                              onClick={() => setConfirmDeleteId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-sm hover:bg-red-500/10 text-red-600 transition-colors text-left"
-                            onClick={() => setConfirmDeleteId(issue.IssueArcID)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Remove from Arc
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <ArcIssueRowMenu
+                  issue={issue}
+                  onStatusChange={handleStatusChange}
+                  onRemove={handleRemove}
+                  onInteractiveSearch={handleInteractiveSearch}
+                />
               </td>
             </tr>
           ))}

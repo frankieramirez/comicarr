@@ -128,7 +128,9 @@ describe("ImportPage", () => {
 
     render(<ImportPage />);
 
-    expect(await screen.findByText(/No new series found in directory/)).toBeTruthy();
+    expect(
+      await screen.findByText(/No new series found in directory/),
+    ).toBeTruthy();
     expect(
       screen.getByText("Reconciled 1 existing comic series."),
     ).toBeTruthy();
@@ -378,5 +380,41 @@ describe("ImportPage", () => {
     expect(
       screen.getByText("Resolve the loading error before reviewing imports."),
     ).toBeTruthy();
+  });
+
+  it("keeps Tab inside MatchModal and returns focus to Match on Escape", async () => {
+    server.use(
+      http.get("/api/import", () =>
+        HttpResponse.json({
+          imports: [makeGroup()],
+          pagination: { total: 1, limit: 50, offset: 0, has_more: false },
+          summary: { group_count: 1, file_count: 2 },
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<ImportPage />);
+
+    const matchButton = await screen.findByRole("button", {
+      name: "Match import",
+    });
+    await user.click(matchButton);
+
+    const dialog = await screen.findByRole("dialog", { name: "Match Import" });
+    for (let i = 0; i < 20; i += 1) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Match import" }),
+      );
+    });
   });
 });
