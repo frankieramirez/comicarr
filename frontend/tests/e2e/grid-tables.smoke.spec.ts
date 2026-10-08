@@ -88,11 +88,11 @@ test("search list and weekly pull keep the title readable on a phone", async ({
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/search?q=spider&type=comic&view=list");
-  await expect(page.getByText("Marvel")).toBeVisible();
-  await expect(page.getByText("2022")).toBeVisible();
+  await expect(page.getByText("Marvel", { exact: true })).toBeVisible();
+  await expect(page.getByText("2022", { exact: true })).toBeVisible();
   await page.goto("/releases?view=all");
-  await expect(page.getByText("DC Comics")).toBeVisible();
-  await expect(page.getByText("#19")).toBeVisible();
+  await expect(page.getByText("DC Comics", { exact: true })).toBeVisible();
+  await expect(page.getByText("#19", { exact: true })).toBeVisible();
 });
 
 test("series issue status stays in the phone viewport", async ({
