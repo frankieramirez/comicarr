@@ -32,10 +32,12 @@ MODES = ("copy", "move", "hardlink", "softlink")
 
 
 class FakeConfig:
-    def __init__(self, file_opts="move", arc_fileops="copy", relative=False):
+    def __init__(self, file_opts="move", arc_fileops="copy", relative=False, imp_file_opts=None):
         self.FILE_OPTS = file_opts
         self.ARC_FILEOPS = arc_fileops
         self.ARC_FILEOPS_SOFTLINK_RELATIVE = relative
+        if imp_file_opts is not None:
+            self.IMP_FILE_OPTS = imp_file_opts
 
 
 @pytest.fixture
@@ -74,6 +76,67 @@ class TestModeIsReadAtCallTime:
         result = place(source, destination, Purpose.SERIES, on_existing=OnExisting.UNGUARDED, config=config)
 
         assert result.effective_mode == "copy"
+
+    @pytest.mark.parametrize("unset", (None, "", "None", " none "))
+    def test_import_falls_back_to_file_opts_when_imp_file_opts_is_unset(self, paths, unset):
+        source, destination = paths
+        config = FakeConfig(file_opts="copy", imp_file_opts=unset)
+
+        result = place(source, destination, Purpose.IMPORT, on_existing=OnExisting.UNGUARDED, config=config)
+
+        assert result.effective_mode == "copy"
+        assert os.path.exists(source), "falling back to copy must not consume the import source"
+
+    def test_import_uses_imp_file_opts_while_series_stays_on_file_opts(self, tmp_path):
+        inbox = tmp_path / "inbox" / "import.cbz"
+        grabbed = tmp_path / "download" / "grab.cbz"
+        library = tmp_path / "library"
+        inbox.parent.mkdir()
+        grabbed.parent.mkdir()
+        library.mkdir()
+        inbox.write_bytes(b"import")
+        grabbed.write_bytes(b"grab")
+        config = FakeConfig(file_opts="copy", imp_file_opts="move")
+
+        imported = place(
+            str(inbox),
+            str(library / inbox.name),
+            Purpose.IMPORT,
+            on_existing=OnExisting.UNGUARDED,
+            config=config,
+        )
+        processed = place(
+            str(grabbed),
+            str(library / grabbed.name),
+            Purpose.SERIES,
+            on_existing=OnExisting.UNGUARDED,
+            config=config,
+        )
+
+        assert imported.effective_mode == "move"
+        assert not inbox.exists()
+        assert processed.effective_mode == "copy"
+        assert grabbed.exists()
+
+    def test_import_mode_ignores_case_and_whitespace(self, paths):
+        source, destination = paths
+        config = FakeConfig(file_opts="move", imp_file_opts=" Copy ")
+
+        result = place(source, destination, Purpose.IMPORT, on_existing=OnExisting.UNGUARDED, config=config)
+
+        assert result.effective_mode == "copy"
+        assert os.path.exists(source)
+
+    @pytest.mark.parametrize("invalid", ("mvoe", 1))
+    def test_invalid_import_mode_fails_without_touching_the_source(self, paths, invalid):
+        source, destination = paths
+        config = FakeConfig(file_opts="copy", imp_file_opts=invalid)
+
+        with pytest.raises(PlacementError):
+            place(source, destination, Purpose.IMPORT, on_existing=OnExisting.REFUSE, config=config)
+
+        assert os.path.exists(source)
+        assert not os.path.exists(destination)
 
     def test_one_off_and_arc_read_arc_fileops(self, paths):
         source, destination = paths

@@ -153,6 +153,20 @@ def _already_placed(destination, purpose, on_existing, mode) -> PlacementResult:
     )
 
 
+def _unset_file_opts(value):
+    """True when IMP_FILE_OPTS should follow FILE_OPTS.
+
+    The empty registry default, a missing attribute, and the Mylar-era
+    string ``None`` are all "not set". Invalid values are left alone so
+    ``place()`` fails the same way a bad FILE_OPTS does.
+    """
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False
+    return value.strip().casefold() in ("", "none")
+
+
 def _resolve_mode(config, purpose, multiple):
     """Read the operative mode from config. Called once per `place()`, never cached."""
     if purpose is Purpose.RELOCATE:
@@ -161,6 +175,10 @@ def _resolve_mode(config, purpose, multiple):
         if multiple is True:
             return "copy"
         return config.ARC_FILEOPS
+    if purpose is Purpose.IMPORT:
+        import_mode = getattr(config, "IMP_FILE_OPTS", None)
+        if not _unset_file_opts(import_mode):
+            return import_mode.strip().casefold() if isinstance(import_mode, str) else import_mode
     return config.FILE_OPTS
 
 

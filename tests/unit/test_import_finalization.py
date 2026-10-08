@@ -23,13 +23,23 @@ import pytest
 from sqlalchemy import create_engine, insert, select
 
 from comicarr.app.common import placement
+from comicarr.app.config.registry import REGISTRY, readable_keys, writable_keys
 from comicarr.app.imports import finalization
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import router as series_router
 from comicarr.tables import importresults
 
 
-def _config(*, move=False, rename=False, file_opts="move", metadata=False, enable_meta=False, cbr2cbz_only=False):
+def _config(
+    *,
+    move=False,
+    rename=False,
+    file_opts="move",
+    imp_file_opts=None,
+    metadata=False,
+    enable_meta=False,
+    cbr2cbz_only=False,
+):
     return SimpleNamespace(
         IMP_MOVE=move,
         IMP_RENAME=rename,
@@ -41,17 +51,28 @@ def _config(*, move=False, rename=False, file_opts="move", metadata=False, enabl
         # so "move" is the setting under which every pre-existing test here was
         # written. The link and copy modes are new behaviour, covered below.
         FILE_OPTS=file_opts,
+        IMP_FILE_OPTS=imp_file_opts,
         ARC_FILEOPS=file_opts,
         ARC_FILEOPS_SOFTLINK_RELATIVE=False,
     )
 
 
-def _ctx(*, move=False, rename=False, file_opts="move", metadata=False, enable_meta=False, cbr2cbz_only=False):
+def _ctx(
+    *,
+    move=False,
+    rename=False,
+    file_opts="move",
+    imp_file_opts=None,
+    metadata=False,
+    enable_meta=False,
+    cbr2cbz_only=False,
+):
     return SimpleNamespace(
         config=_config(
             move=move,
             rename=rename,
             file_opts=file_opts,
+            imp_file_opts=imp_file_opts,
             metadata=metadata,
             enable_meta=enable_meta,
             cbr2cbz_only=cbr2cbz_only,
@@ -858,6 +879,116 @@ class TestRollbackUnderSourcePreservingModes:
         assert exc_info.value.rollback_failed is False, "rollback must not have tried to move a copy back"
         assert source.read_text() == "chapter"
         assert not (target_directory / source.name).exists()
+
+
+def test_imp_file_opts_is_an_optional_import_override():
+    key = REGISTRY["IMP_FILE_OPTS"]
+    assert key.type is str
+    assert key.section == "Import"
+    assert key.default == ""
+    assert key.readable is True
+    assert key.writable is True
+    assert "IMP_FILE_OPTS" in readable_keys()
+    assert "IMP_FILE_OPTS" in writable_keys()
+    file_opts = REGISTRY["FILE_OPTS"]
+    assert file_opts.readable is False
+    assert file_opts.writable is False
+
+
+class TestImportFileOptsIndependentOfFileOpts:
+    """IMP_FILE_OPTS is the import-only override. FILE_OPTS stays the download mode."""
+
+    def test_move_imports_while_file_opts_stays_copy(self, tmp_path):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory) as mark_imported,
+            patch("comicarr.updater.forceRescan"),
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=True, file_opts="copy", imp_file_opts="move"),
+                ["imp-1"],
+                "mal-123",
+            )
+
+        assert result.moved == 1
+        assert not source.exists()
+        assert (target_directory / source.name).read_text() == "chapter"
+        mark_imported.assert_called_once()
+
+    def test_database_failure_rolls_back_a_move_when_file_opts_is_copy(self, tmp_path):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch.object(
+                finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
+            ),
+            patch("comicarr.updater.forceRescan"),
+        ):
+            with pytest.raises(finalization.ImportFinalizationError, match="database unavailable") as exc_info:
+                finalization.finalize_manual_match(
+                    _ctx(move=True, file_opts="copy", imp_file_opts="move"),
+                    ["imp-1"],
+                    "mal-123",
+                )
+
+        assert exc_info.value.rollback_failed is False
+        assert source.read_text() == "chapter"
+        assert not (target_directory / source.name).exists()
+
+    def test_copy_imports_keep_the_source_while_file_opts_is_move(self, tmp_path):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch("comicarr.updater.forceRescan"),
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=True, file_opts="move", imp_file_opts="copy"),
+                ["imp-1"],
+                "mal-123",
+            )
+
+        assert result.moved == 1
+        assert source.read_text() == "chapter"
+        assert (target_directory / source.name).read_text() == "chapter"
+
+    @pytest.mark.parametrize("imp_file_opts", ("move", "copy", "hardlink", "softlink"))
+    def test_archive_mode_ignores_the_import_operation(self, tmp_path, imp_file_opts):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch("comicarr.updater.forceRescan") as force_rescan,
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=False, file_opts="copy", imp_file_opts=imp_file_opts),
+                ["imp-1"],
+                "mal-123",
+            )
+
+        assert result.archived == 1
+        assert result.moved == 0
+        assert source.read_text() == "chapter"
+        assert list(target_directory.iterdir()) == []
+        assert force_rescan.call_args_list == [call("mal-123", archive=str(source.parent)), call("mal-123")]
 
 
 class TestWriteMetadataOnImport:

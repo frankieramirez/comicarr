@@ -282,6 +282,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("MANGA_DIR", str, "Import", None, readable=True),
     ConfigKey("MANGA_DESTINATION_DIR", str, "General", None, readable=True),
     ConfigKey("IMP_MOVE", bool, "Import", False, readable=True, writable=True),
+    ConfigKey("IMP_FILE_OPTS", str, "Import", "", readable=True, writable=True),
     ConfigKey("IMP_PATHS", bool, "Import", False),
     ConfigKey("IMP_RENAME", bool, "Import", False, readable=True, writable=True),
     ConfigKey("IMP_METADATA", bool, "Import", False, readable=True, writable=True),

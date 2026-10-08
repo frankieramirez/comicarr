@@ -87,6 +87,7 @@ SCHEDULER_JOB_NAMES = {
 
 SETUP_PERSISTENCE_ERROR = "Failed to persist initial credentials"
 CONFIG_PERSISTENCE_ERROR = "Failed to persist configuration"
+IMP_FILE_OPTS_ERROR = "IMP_FILE_OPTS must be move, copy, hardlink, softlink, or empty to follow FILE_OPTS"
 PROVIDER_CONFIG_PERSISTENCE_ERROR = "Failed to persist provider configuration"
 
 
@@ -412,6 +413,19 @@ def update_config(ctx, key_values):
         nzb_downloader = filtered["NZB_DOWNLOADER"]
         if isinstance(nzb_downloader, bool) or not isinstance(nzb_downloader, int) or not 0 <= nzb_downloader <= 3:
             return {"success": False, "error": "NZB_DOWNLOADER must be an integer between 0 and 3"}
+
+    if "IMP_FILE_OPTS" in filtered:
+        import_mode = filtered["IMP_FILE_OPTS"]
+        if import_mode is None:
+            import_mode = ""
+        if not isinstance(import_mode, str):
+            return {"success": False, "error": IMP_FILE_OPTS_ERROR}
+        import_mode = import_mode.strip().casefold()
+        if import_mode == "none":
+            import_mode = ""
+        if import_mode not in ("", "move", "copy", "hardlink", "softlink"):
+            return {"success": False, "error": IMP_FILE_OPTS_ERROR}
+        filtered["IMP_FILE_OPTS"] = import_mode
 
     if "SAB_HOST" in filtered:
         new_origin = _http_origin(filtered["SAB_HOST"])

@@ -686,6 +686,27 @@ class TestConfigService:
         assert result == {"success": True}
         ctx.config.apply_transaction.assert_called_once_with({"NZB_DOWNLOADER": 3})
 
+    @pytest.mark.parametrize("value", ("mvoe", "symlink", "inherit", "file_opts", 1, True))
+    def test_update_config_rejects_invalid_imp_file_opts(self, value):
+        ctx = _make_test_ctx()
+
+        result = system_service.update_config(ctx, {"imp_file_opts": value})
+
+        assert result == {"success": False, "error": system_service.IMP_FILE_OPTS_ERROR}
+        ctx.config.apply_transaction.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("value", "stored"),
+        (("", ""), (None, ""), ("None", ""), ("move", "move"), (" Hardlink ", "hardlink"), ("softlink", "softlink")),
+    )
+    def test_update_config_normalizes_imp_file_opts(self, value, stored):
+        ctx = _make_test_ctx()
+
+        result = system_service.update_config(ctx, {"imp_file_opts": value})
+
+        assert result == {"success": True}
+        ctx.config.apply_transaction.assert_called_once_with({"IMP_FILE_OPTS": stored})
+
     def test_update_config_rejects_sensitive_keys_regardless_of_case(self):
         """update_config rejects api_key, http_password in any casing."""
         ctx = _make_test_ctx()
