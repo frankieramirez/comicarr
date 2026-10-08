@@ -306,6 +306,7 @@ export default function SeriesTable({
                 : "text-muted-foreground hover:text-foreground"
             }`}
             aria-label="List view"
+            aria-pressed={!isGridView}
           >
             <LayoutList className="w-3.5 h-3.5" />
           </button>
@@ -326,6 +327,7 @@ export default function SeriesTable({
                 : "text-muted-foreground hover:text-foreground"
             }`}
             aria-label="Grid view"
+            aria-pressed={isGridView}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
@@ -541,6 +543,11 @@ function SortHeader({
   onClick,
   align = "left",
 }: SortHeaderProps) {
+  const sortAnnouncement = active
+    ? desc
+      ? "sorted descending"
+      : "sorted ascending"
+    : null;
   return (
     <button
       type="button"
@@ -552,13 +559,16 @@ function SortHeader({
       <span>{label}</span>
       {active ? (
         desc ? (
-          <ChevronDown className="w-3 h-3" />
+          <ChevronDown className="w-3 h-3" aria-hidden />
         ) : (
-          <ChevronUp className="w-3 h-3" />
+          <ChevronUp className="w-3 h-3" aria-hidden />
         )
       ) : (
-        <ChevronsUpDown className="w-3 h-3 opacity-40" />
+        <ChevronsUpDown className="w-3 h-3 opacity-40" aria-hidden />
       )}
+      {sortAnnouncement ? (
+        <span className="sr-only">{sortAnnouncement}</span>
+      ) : null}
     </button>
   );
 }

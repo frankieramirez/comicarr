@@ -45,6 +45,7 @@ function SeverityDot({ open, trouble }: { open: boolean; trouble: boolean }) {
   if (open) {
     return (
       <span
+        role="img"
         aria-label="In progress"
         className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ background: "var(--status-active)" }}
@@ -54,6 +55,7 @@ function SeverityDot({ open, trouble }: { open: boolean; trouble: boolean }) {
   if (trouble) {
     return (
       <span
+        role="img"
         aria-label="Needs attention (history)"
         className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ background: "var(--status-error)" }}
