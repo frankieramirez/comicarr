@@ -90,7 +90,8 @@ def delete_arc(arc_id, arc_name=None, delete_type=None):
 
 def delete_arc_issue(issue_arc_id, manual=None):
     """Remove a single issue from a story arc (soft-delete by default)."""
-    arc_queries.soft_delete_arc_issue(issue_arc_id, manual=manual)
+    if not arc_queries.soft_delete_arc_issue(issue_arc_id, manual=manual):
+        return {"success": False, "status_code": 404, "error": "Arc issue not found: %s" % issue_arc_id}
     logger.info("[DELETE-ARC] Removed %s from the Story Arc" % issue_arc_id)
     return {"success": True}
 
@@ -100,7 +101,8 @@ def set_issue_status(issue_arc_id, status):
     if status not in ALLOWED_ARC_STATUSES:
         return {"success": False, "error": "Invalid status"}
 
-    arc_queries.set_issue_status(issue_arc_id, status)
+    if not arc_queries.set_issue_status(issue_arc_id, status):
+        return {"success": False, "status_code": 404, "error": "Arc issue not found: %s" % issue_arc_id}
     return {"success": True}
 
 

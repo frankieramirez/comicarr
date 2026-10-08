@@ -17,7 +17,8 @@ from sqlalchemy import create_engine, func, select
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import router as series_router
 from comicarr.app.storyarcs import queries as arc_queries
-from comicarr.tables import comics, issues
+from comicarr.app.storyarcs import router as storyarcs_router
+from comicarr.tables import comics, issues, storyarcs
 
 
 def _engine(monkeypatch, *tables):
@@ -117,3 +118,31 @@ def test_bulk_pause_counts_only_existing_series(monkeypatch):
     with engine.connect() as conn:
         assert conn.execute(select(comics.c.Status)).scalar() == "Paused"
     assert _count(engine, comics) == 1
+
+
+def test_arc_issue_status_missing_id_does_not_insert(monkeypatch):
+    engine = _engine(monkeypatch, storyarcs)
+    assert arc_queries.set_issue_status("missing", "Wanted") is False
+    assert _count(engine, storyarcs) == 0
+
+
+def test_arc_issue_soft_delete_missing_id_does_not_insert(monkeypatch):
+    engine = _engine(monkeypatch, storyarcs)
+    assert arc_queries.soft_delete_arc_issue("missing") is False
+    assert _count(engine, storyarcs) == 0
+
+
+def test_arc_issue_status_route_returns_404_for_unknown_id(monkeypatch):
+    engine = _engine(monkeypatch, storyarcs)
+    response = storyarcs_router.set_arc_issue_status("ARC1", "missing", {"status": "Wanted"})
+    assert response.status_code == 404
+    assert _body(response) == {"detail": "Arc issue not found: missing"}
+    assert _count(engine, storyarcs) == 0
+
+
+def test_arc_issue_delete_route_returns_404_for_unknown_id(monkeypatch):
+    engine = _engine(monkeypatch, storyarcs)
+    response = storyarcs_router.delete_arc_issue("ARC1", "missing")
+    assert response.status_code == 404
+    assert _body(response) == {"detail": "Arc issue not found: missing"}
+    assert _count(engine, storyarcs) == 0
