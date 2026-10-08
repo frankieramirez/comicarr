@@ -14,7 +14,8 @@ from sqlalchemy import func, select
 
 from comicarr import db
 from comicarr.app.series import queries as series_queries
-from comicarr.tables import annuals, comics, issues, metadata, upcoming
+from comicarr.search import searchforissue_checker
+from comicarr.tables import annuals, comics, issues, metadata, storyarcs, upcoming
 
 
 @pytest.fixture(autouse=True)
@@ -104,3 +105,33 @@ def test_count_orphan_annuals_reports_rows_without_a_series():
         )
 
     assert series_queries.count_orphan_annuals() == 1
+
+
+def test_arc_issue_without_library_series_stays_searchable():
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            storyarcs.insert().values(
+                IssueArcID="ARC-1",
+                StoryArcID="S1",
+                ComicID="NOTINLIB",
+                ComicName="Unwatched",
+                IssueNumber="1",
+                Status="Wanted",
+                IssueDate="2020-01-01",
+                ReleaseDate="2020-01-01",
+                DigitalDate="0000-00-00",
+            )
+        )
+
+    state = series_queries.get_search_candidate_state("ARC-1")
+    assert state["SeriesComicID"] is None
+    assert state["SeriesOptional"] in (True, 1)
+
+    result = searchforissue_checker(
+        "ARC-1",
+        "2020-01-01",
+        "2020-01-01",
+        "0000-00-00",
+        {},
+    )
+    assert result == {"status": True, "reason": None}

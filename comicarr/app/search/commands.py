@@ -32,7 +32,12 @@ def evaluate_search_candidate(candidate, *, release_date, digital_date, issue_da
     # Distinguishes an outer-join miss (no comics row) from a present series
     # whose Status column is NULL. A missing SeriesComicID key with a NULL
     # SeriesStatus is treated as a missing series, matching leftover orphans.
-    if "seriescomicid" in values:
+    series_optional = values.get("seriesoptional") in (True, 1, "1", "true", "True")
+    if series_optional:
+        # Story-arc one-offs have no comics row by design; missing series is
+        # still searchable. A present Ended/Paused series stays ineligible.
+        series_present = True
+    elif "seriescomicid" in values:
         series_present = values.get("seriescomicid") not in (None, "")
     else:
         series_present = raw_series_status not in (None, "")

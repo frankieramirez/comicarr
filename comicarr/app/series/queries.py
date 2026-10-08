@@ -185,6 +185,7 @@ def get_search_candidate_state(issue_id, entity_type=None):
                 acquisition_intent,
                 t_comics.c.Status.label("SeriesStatus"),
                 t_comics.c.ComicID.label("SeriesComicID"),
+                literal(table is t_storyarcs).label("SeriesOptional"),
             )
             .select_from(table.outerjoin(t_comics, t_comics.c.ComicID == table.c.ComicID))
             .where(identity == str(issue_id), *extra_conditions)

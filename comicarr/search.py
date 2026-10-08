@@ -1918,8 +1918,16 @@ def searchforissue(
                 stloop = 2
                 results = []
                 search_skip = {}
+                rss_ineligible_ids = []
                 queued_count = 0
                 error_count = 0
+
+                def _eligible_for_scan(checkit, issue_id):
+                    if checkit.get("status") is True:
+                        return True
+                    if rsschecker and issue_id:
+                        rss_ineligible_ids.append(issue_id)
+                    return False
 
                 if comicarr.CONFIG.ANNUALS_ON:
                     stloop += 1
@@ -1947,7 +1955,7 @@ def searchforissue(
                                     },
                                 },
                             )
-                            if checkit["status"] is True or (rsschecker and checkit.get("reason") == "series_inactive"):
+                            if _eligible_for_scan(checkit, iss["IssueID"]):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
@@ -2003,12 +2011,11 @@ def searchforissue(
                                             "AcquisitionIntent": None,
                                             "SeriesStatus": iss["SeriesStatus"],
                                             "SeriesComicID": iss.get("SeriesComicID"),
+                                            "SeriesOptional": True,
                                         },
                                     },
                                 )
-                                if checkit["status"] is True or (
-                                    rsschecker and checkit.get("reason") == "series_inactive"
-                                ):
+                                if _eligible_for_scan(checkit, iss["IssueID"] or iss.get("IssueArcID")):
                                     if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                         results.append(
                                             {
@@ -2083,7 +2090,7 @@ def searchforissue(
                                     },
                                 },
                             )
-                            if checkit["status"] is True or (rsschecker and checkit.get("reason") == "series_inactive"):
+                            if _eligible_for_scan(checkit, iss["IssueID"]):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
@@ -2130,6 +2137,8 @@ def searchforissue(
                 scan_results = sorted(results, key=itemgetter("StoreDate"), reverse=True)
                 if rsschecker:
                     rss_budget = PassBudget(PASS_RSS_WANTED)
+                    for issue_id in rss_ineligible_ids:
+                        rss_budget.mark_ineligible(issue_id)
                     scan_results = rss_budget.select_candidates(
                         scan_results, lambda row: row.get("IssueID"), recent=is_recent_release
                     )
