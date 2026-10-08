@@ -392,6 +392,7 @@ export function useQueueIssue(): UseMutationResult<unknown, Error, string> {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
     },
   });
 }
@@ -408,6 +409,7 @@ export function useUnqueueIssue(): UseMutationResult<unknown, Error, string> {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
     },
   });
 }

@@ -11,6 +11,7 @@ import {
   getIsAllSelected,
   toggleAllSelected,
 } from "@/components/data-table/useTableState";
+import { useToast } from "@/components/ui/toast";
 import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
 import type { UpcomingIssue } from "@/types";
 
@@ -25,6 +26,7 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, UpcomingIssue>();
 export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
+  const { addToast } = useToast();
 
   return useMemo(
     () =>
@@ -135,7 +137,18 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                         variant="outline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          unqueueIssueMutation.mutate(issueId);
+                          unqueueIssueMutation.mutate(issueId, {
+                            onSuccess: () =>
+                              addToast({
+                                type: "success",
+                                message: "1 issue skipped",
+                              }),
+                            onError: (err) =>
+                              addToast({
+                                type: "error",
+                                message: `Failed to skip issue: ${err instanceof Error ? err.message : "Unknown error"}`,
+                              }),
+                          });
                         }}
                         disabled={unqueueIssueMutation.isPending}
                         className="text-xs"
@@ -150,7 +163,18 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                         variant="outline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          queueIssueMutation.mutate(issueId);
+                          queueIssueMutation.mutate(issueId, {
+                            onSuccess: () =>
+                              addToast({
+                                type: "success",
+                                message: "1 issue queued",
+                              }),
+                            onError: (err) =>
+                              addToast({
+                                type: "error",
+                                message: `Failed to queue issue: ${err instanceof Error ? err.message : "Unknown error"}`,
+                              }),
+                          });
                         }}
                         disabled={queueIssueMutation.isPending}
                         className="text-xs"
@@ -166,7 +190,18 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                     variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
-                      queueIssueMutation.mutate(issueId);
+                      queueIssueMutation.mutate(issueId, {
+                        onSuccess: () =>
+                          addToast({
+                            type: "success",
+                            message: "1 issue queued",
+                          }),
+                        onError: (err) =>
+                          addToast({
+                            type: "error",
+                            message: `Failed to queue issue: ${err instanceof Error ? err.message : "Unknown error"}`,
+                          }),
+                      });
                     }}
                     disabled={queueIssueMutation.isPending}
                     className="text-xs"
@@ -180,6 +215,6 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
           },
         }),
       ]),
-    [onReview, queueIssueMutation, unqueueIssueMutation],
+    [onReview, queueIssueMutation, unqueueIssueMutation, addToast],
   );
 }

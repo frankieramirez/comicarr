@@ -113,12 +113,8 @@ describe("ReleasesPage", () => {
       await screen.findByRole("button", { name: "Refresh releases" }),
     );
 
-    expect(
-      await screen.findByText(/Walksoftly is unreachable/i),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText(/fixing the pull source connection/i),
-    ).toBeNull();
+    expect(await screen.findByText(/Walksoftly is unreachable/i)).toBeTruthy();
+    expect(screen.queryByText(/fixing the pull source connection/i)).toBeNull();
   });
 
   it("reports a refresh that finishes before the accepted response is rendered", async () => {
@@ -159,5 +155,35 @@ describe("ReleasesPage", () => {
     expect(
       await screen.findByRole("button", { name: "Review releases" }),
     ).toBeTruthy();
+  });
+
+  it("skips a mine-row, toasts, and drops it from the wanted-only list", async () => {
+    const store = { ...upcomingIssue };
+    server.use(
+      http.get("/api/upcoming", ({ request }) => {
+        const url = new URL(request.url);
+        const includeDownloaded =
+          url.searchParams.get("include_downloaded_issues") === "true";
+        if (store.Status !== "Wanted" && !includeDownloaded) {
+          return HttpResponse.json([]);
+        }
+        return HttpResponse.json([{ ...store }]);
+      }),
+      http.put("/api/series/issues/:issueId/unqueue", ({ params }) => {
+        expect(params.issueId).toBe(store.IssueID);
+        store.Status = "Skipped";
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+
+    expect(await screen.findByText("Absolute Batman")).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    expect(await screen.findByText("1 issue skipped")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    });
+    expect(await screen.findByText("No releases this week")).toBeTruthy();
   });
 });
