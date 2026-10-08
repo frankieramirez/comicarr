@@ -57,7 +57,7 @@ describe("Toast accessibility", () => {
       </ToastProvider>,
     );
 
-    const liveRegion = screen.getByRole("status");
+    const liveRegion = screen.getByTestId("toast-live-region");
     expect(liveRegion.getAttribute("aria-live")).toBe("polite");
     expect(liveRegion.textContent).not.toContain("Saved");
 

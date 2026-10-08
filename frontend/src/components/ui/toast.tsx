@@ -43,8 +43,10 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
+      {/* Persistent polite live region without role="status": page
+          summaries (ImportPage, RouteLoader, etc.) already own that role. */}
       <div
-        role="status"
+        data-testid="toast-live-region"
         aria-live="polite"
         aria-relevant="additions text"
         className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md"
