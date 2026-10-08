@@ -157,10 +157,11 @@ class TestBuildMangaSearchTermsEdgeCases:
 
 class TestSeriesContentKindSearchHandoff:
     @pytest.mark.parametrize(
-        ("comic_id", "stored_kind", "expected_kind"),
+        ("comic_id", "stored_kind", "set_by", "expected_kind"),
         (
-            ("134064", "manga", "manga"),
-            ("md-example", "comic", "comic"),
+            ("134064", "manga", None, "manga"),
+            ("md-example", "comic", "operator", "comic"),
+            ("md-example", "comic", None, "manga"),
         ),
     )
     def test_search_init_receives_authoritative_series_kind(
@@ -168,6 +169,7 @@ class TestSeriesContentKindSearchHandoff:
         monkeypatch,
         comic_id,
         stored_kind,
+        set_by,
         expected_kind,
     ):
         from comicarr import search
@@ -227,6 +229,7 @@ class TestSeriesContentKindSearchHandoff:
                     "IgnoreType": 0,
                     "AllowPacks": 0,
                     "ContentType": stored_kind,
+                    "ContentKindSetBy": set_by,
                 }
             ),
         )

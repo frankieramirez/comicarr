@@ -202,7 +202,7 @@ class TestMangaBranchDetection:
 
         mock_pm.assert_called_once()
 
-    def test_explicit_comic_kind_overrides_mangadex_prefix(self):
+    def test_operator_comic_kind_overrides_mangadex_prefix(self):
         pp, _mock_queue = _make_pp(
             nzb_name="Example 001.cbz",
             nzb_folder="/tmp/downloads",
@@ -215,7 +215,11 @@ class TestMangaBranchDetection:
             patch("comicarr.postprocessor.filechecker") as mock_fc,
             patch("comicarr.postprocessor.db") as mock_db,
         ):
-            mock_db.select_one.return_value = {"ComicID": "md-example", "ContentType": "comic"}
+            mock_db.select_one.return_value = {
+                "ComicID": "md-example",
+                "ContentType": "comic",
+                "ContentKindSetBy": "operator",
+            }
             mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
             try:
                 pp.Process()
@@ -223,6 +227,24 @@ class TestMangaBranchDetection:
                 pass
 
         mock_pm.assert_not_called()
+
+    def test_unmarked_legacy_mangadex_stamp_still_uses_manga_branch(self):
+        """Alembic 0002 restamped md- rows as comic; unmarked prefix still counts as manga."""
+        pp, _mock_queue = _make_pp(
+            nzb_name="Example 001.cbz",
+            nzb_folder="/tmp/downloads",
+            comicid="md-example",
+            issueid="issue-1",
+            apicall=True,
+        )
+        with (
+            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            patch("comicarr.postprocessor.db") as mock_db,
+        ):
+            mock_db.select_one.return_value = {"ComicID": "md-example", "ContentType": "comic"}
+            pp.Process()
+
+        mock_pm.assert_called_once()
 
     def test_none_comicid_skips_manga_branch(self):
         """When comicid is None, manga branch should be skipped."""

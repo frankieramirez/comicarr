@@ -74,8 +74,12 @@ class TestIsManga:
         assert is_manga({"ComicID": "999", "ContentType": "comic"}) is False
 
     @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890"))
-    def test_an_explicit_comic_kind_overrides_a_manga_provider(self, series_id):
-        assert is_manga({"ComicID": series_id, "ContentType": "comic"}) is False
+    def test_an_unmarked_legacy_comic_stamp_keeps_the_prefix(self, series_id):
+        assert is_manga({"ComicID": series_id, "ContentType": "comic"}) is True
+
+    @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890"))
+    def test_an_operator_comic_kind_overrides_a_manga_provider(self, series_id):
+        assert is_manga({"ComicID": series_id, "ContentType": "comic", "ContentKindSetBy": "operator"}) is False
 
     @pytest.mark.parametrize("series_id", ("md-uuid-1", "mal-161890"))
     def test_a_null_kind_falls_back_to_the_provider(self, series_id):

@@ -9,13 +9,15 @@
 
 """Scheduled manga ledger refresh and in-place healing.
 
-Uses prefix *or* ContentType so a legacy row restamped ``comic`` by alembic
-0002 is still visible. Does not invent live NAS counts.
+Selects series with :func:`comicarr.series_kind.manga_sql_clause` so an
+operator-marked classification wins over the ComicID prefix, while unmarked
+legacy ``md-``/``mal-`` rows stay in sync. Does not invent live NAS counts.
 """
 
 from sqlalchemy import func, or_, select
 
 from comicarr import db, logger
+from comicarr.series_kind import manga_sql_clause
 from comicarr.tables import comics as t_comics
 from comicarr.tables import issues as t_issues
 
@@ -57,12 +59,8 @@ def arm_manga_sync_job(scheduler, status, last_timestamp, interval_minutes):
 
 
 def active_manga_clause():
-    """Active series that are manga by stored kind *or* ComicID prefix."""
-    return or_(
-        t_comics.c.ContentType == "manga",
-        t_comics.c.ComicID.like("md-%"),
-        t_comics.c.ComicID.like("mal-%"),
-    )
+    """Active series that are manga under the series_kind SQL rule."""
+    return manga_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy)
 
 
 def list_active_manga_series():
