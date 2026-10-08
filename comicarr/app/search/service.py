@@ -773,10 +773,28 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                                     % torrent_hash
                                 )
                 else:
-                    logger.fdebug(
-                        "%s has no pause API; skipping the local copy and leaving the torrent running."
-                        % snapshot.get("client")
-                    )
+                    if torrent_status is True:
+                        logger.fdebug(
+                            "%s has no pause API; copying the completed torrent while it continues to seed."
+                            % snapshot.get("client")
+                        )
+                        try:
+                            torrent_path = resolve_torrent_path()
+                            new_filepath = torrent_path + ".copy"
+                            logger.fdebug("New_Filepath: %s" % new_filepath)
+                            shutil.copy(torrent_path, new_filepath)
+                            torrent_info["copied_filepath"] = new_filepath
+                        except Exception:
+                            logger.warn("Unexpected Error: %s" % sys.exc_info()[0])
+                            logger.warn(
+                                "Unable to create temporary directory to perform meta-tagging. Processing cannot continue with given item at this time."
+                            )
+                            torrent_info["copied_filepath"] = resolve_torrent_path()
+                    else:
+                        logger.fdebug(
+                            "%s has no pause API; skipping the local copy and leaving the torrent running."
+                            % snapshot.get("client")
+                        )
                 if (
                     download is True
                     and torrent_status is True

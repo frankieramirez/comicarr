@@ -1214,6 +1214,63 @@ def test_nzb_monitor_requeues_connection_error_and_continues(sqlite_ddl_db, monk
     assert requeued["nzo_id"] == "nzo-1"
 
 
+def test_nzb_monitor_survives_pause_probe_error(sqlite_ddl_db, monkeypatch):
+    return_q = queue.Queue()
+    return_q.put({"nzo_id": "nzo-paused", "clientmode": "sabnzbd"})
+    q = queue.Queue()
+    q.put("exit")
+
+    class Boom:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def sender(self, chkstatus=False):
+            raise RuntimeError("pause probe exploded")
+
+    monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", return_q, raising=False)
+    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "k", raising=False)
+    monkeypatch.setattr(service.time, "sleep", lambda _s: None)
+
+    service.nzb_monitor(q)
+
+    assert return_q.get_nowait()["nzo_id"] == "nzo-paused"
+
+
+def test_worker_main_transient_backoff_grows(sqlite_ddl_db, monkeypatch):
+    delays = []
+
+    def fake_torrentinfo(torrent_hash=None, download=False, monitor=False):
+        if len(delays) >= 2:
+            q.put("exit")
+            return {"snatch_status": "IN PROGRESS"}
+        raise requests.ConnectionError("client down")
+
+    def capture_sleep(seconds):
+        delays.append(seconds)
+
+    monkeypatch.setattr("comicarr.app.search.service.torrentinfo", fake_torrentinfo)
+    monkeypatch.setattr(service.time, "sleep", capture_sleep)
+    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", MagicMock(), raising=False)
+
+    q = queue.Queue()
+    q.put({"hash": "hash-backoff", "issueid": "ib", "comicid": "cb", "provider": "torznab", "nzbname": "B.cbz"})
+
+    service.worker_main(q)
+
+    assert delays[0] == 5
+    assert delays[1] == 10
+
+
+def test_sqlite_database_locked_is_transient():
+    from sqlalchemy.exc import OperationalError
+
+    locked = OperationalError("SELECT 1", {}, Exception("database is locked"))
+    assert service._is_transient_monitor_error(locked) is True
+    assert service._is_transient_monitor_error(TypeError("AUTO_SNATCH_SCRIPT is None")) is False
+
+
 def test_postprocess_main_continues_when_run_raises(sqlite_ddl_db, monkeypatch, tmp_path):
     first = {
         "nzb_name": "First.cbz",

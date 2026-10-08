@@ -304,3 +304,31 @@ def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
     assert result["snatch_status"] == "MONITOR COMPLETE"
     copy.assert_called_once_with("/downloads/Saga.cbz", "/downloads/Saga.cbz.copy")
     assert result["copied_filepath"] == "/downloads/Saga.cbz.copy"
+
+
+def test_local_torrent_pp_copies_a_completed_qbittorrent_download(monkeypatch):
+    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
+    comicarr.CONFIG.LOCAL_TORRENT_PP = True
+    comicarr.CONFIG.QBITTORRENT_HOST = "qb"
+    comicarr.CONFIG.QBITTORRENT_USERNAME = "u"
+    comicarr.CONFIG.QBITTORRENT_PASSWORD = "p"
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = True
+    fake_client.conn.torrents.return_value = [
+        {"hash": HASH40, "progress": 1.0, "save_path": "/downloads", "name": "Saga.cbz"}
+    ]
+    fake_client.conn.get_torrent_files.return_value = [{"name": "Saga.cbz"}]
+
+    with (
+        patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
+        patch("shutil.copy") as copy,
+    ):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert result["snatch_status"] == "MONITOR COMPLETE"
+    copy.assert_called_once_with("/downloads/Saga.cbz", "/downloads/Saga.cbz.copy")
+    assert result["copied_filepath"] == "/downloads/Saga.cbz.copy"
+    fake_client.stop_torrent.assert_not_called()

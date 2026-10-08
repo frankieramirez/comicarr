@@ -68,7 +68,13 @@ def _is_transient_monitor_error(exc):
     """True when the next pass might succeed without changing the item."""
     import requests
 
-    return isinstance(exc, (requests.RequestException, TimeoutError, ConnectionError))
+    if isinstance(exc, (requests.RequestException, TimeoutError, ConnectionError)):
+        return True
+    try:
+        from sqlalchemy.exc import OperationalError
+    except Exception:
+        return False
+    return isinstance(exc, OperationalError) and "locked" in str(exc).lower()
 
 
 def _record_poison_monitor_item(kind, item, error):
@@ -1791,9 +1797,9 @@ def worker_main(queue):
                 entity_id=item.get("journal_release_key") or item.get("hash"),
             ) as lease:
                 controller.assert_lease_current(lease)
-                item.pop("_maintenance_retry_attempt", None)
                 snstat = torrentinfo(torrent_hash=item["hash"], download=True)
                 _handle_torrent_monitor_result(item, snstat)
+                item.pop("_maintenance_retry_attempt", None)
         except MaintenanceBlocked:
             queue.put(item)
             time.sleep(_maintenance_retry_delay(item))
@@ -1920,47 +1926,51 @@ def nzb_monitor(queue):
 
     while True:
         if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
-            if comicarr.USE_SABNZBD is True:
-                sab_params = {
-                    "apikey": comicarr.CONFIG.SAB_APIKEY,
-                    "mode": "queue",
-                    "start": 0,
-                    "limit": 5,
-                    "search": None,
-                    "output": "json",
-                }
-                s = sabnzbd.SABnzbd(params=sab_params)
-                sabresponse = s.sender(chkstatus=True)
-                if sabresponse["status"] is False:
-                    while True:
-                        if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
-                            qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
-                            try:
-                                controller = MaintenanceController()
-                                with controller.lease(
-                                    "nzb-monitor",
-                                    "download-monitor",
-                                    entity_type="release",
-                                    entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
-                                ) as lease:
-                                    controller.assert_lease_current(lease)
-                                    nzstat = s.historycheck(qu_retrieve)
-                                    cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
-                            except MaintenanceBlocked:
-                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
-                            except Exception as e:
-                                item_id = _monitor_item_id(qu_retrieve)
-                                logger.error(
-                                    "[DOWNLOADS-NZB] NZB monitor rejected item%s while resuming; continuing\n%s"
-                                    % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
-                                )
-                                if _is_transient_monitor_error(e):
+            try:
+                if comicarr.USE_SABNZBD is True:
+                    sab_params = {
+                        "apikey": comicarr.CONFIG.SAB_APIKEY,
+                        "mode": "queue",
+                        "start": 0,
+                        "limit": 5,
+                        "search": None,
+                        "output": "json",
+                    }
+                    s = sabnzbd.SABnzbd(params=sab_params)
+                    sabresponse = s.sender(chkstatus=True)
+                    if sabresponse["status"] is False:
+                        while True:
+                            if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
+                                qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
+                                try:
+                                    controller = MaintenanceController()
+                                    with controller.lease(
+                                        "nzb-monitor",
+                                        "download-monitor",
+                                        entity_type="release",
+                                        entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
+                                    ) as lease:
+                                        controller.assert_lease_current(lease)
+                                        nzstat = s.historycheck(qu_retrieve)
+                                        cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
+                                except MaintenanceBlocked:
                                     comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
-                                else:
-                                    _record_poison_monitor_item("nzb", qu_retrieve, e)
-                            time.sleep(5)
-                        else:
-                            break
+                                except Exception as e:
+                                    item_id = _monitor_item_id(qu_retrieve)
+                                    logger.error(
+                                        "[DOWNLOADS-NZB] NZB monitor rejected item%s while resuming; continuing\n%s"
+                                        % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
+                                    )
+                                    if _is_transient_monitor_error(e):
+                                        comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                    else:
+                                        _record_poison_monitor_item("nzb", qu_retrieve, e)
+                                time.sleep(5)
+                            else:
+                                break
+            except Exception as e:
+                logger.error("[DOWNLOADS-NZB] SAB pause probe failed; retrying later\n%s" % redacted_traceback(e))
+                time.sleep(_maintenance_retry_delay({"clientmode": "sabnzbd"}))
         if queue.qsize() >= 1:
             item = queue.get(True)
             if item == "exit":

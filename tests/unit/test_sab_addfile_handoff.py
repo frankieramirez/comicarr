@@ -143,6 +143,13 @@ def test_rejected_submission_returns_status_false(sab_config, cached_nzb):
         assert sabnzbd.SABnzbd(_params()).sender(str(cached_nzb)) == {"status": False}
 
 
+def test_chkstatus_missing_queue_is_a_clean_rejection(sab_config):
+    response = MagicMock()
+    response.json.return_value = {"status": False, "error": "bad key"}
+    with patch.object(sabnzbd.requests, "get", return_value=response):
+        assert sabnzbd.SABnzbd({"apikey": "sab-key"}).sender(chkstatus=True) == {"status": False}
+
+
 def test_chkstatus_path_still_gets_and_sends_no_file(sab_config):
     response = MagicMock()
     response.json.return_value = {"queue": {"status": "Paused"}}
