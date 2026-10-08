@@ -95,4 +95,47 @@ describe("Toast accessibility", () => {
     });
     expect(screen.queryByText("Saved")).toBeNull();
   });
+
+  it("does not resume auto-dismiss while focus remains inside the toast", () => {
+    vi.useFakeTimers();
+    render(
+      <ToastProvider>
+        <SuccessToastTrigger />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show success" }));
+    const toast = screen.getByTestId("toast");
+    const dismiss = screen.getByRole("button", { name: "Dismiss notification" });
+
+    fireEvent.focus(dismiss);
+    fireEvent.mouseEnter(toast);
+    fireEvent.mouseLeave(toast);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("Saved")).toBeTruthy();
+
+    fireEvent.blur(dismiss, { relatedTarget: null });
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
+
+  it("does not nest error toasts inside the polite live region", async () => {
+    render(
+      <ToastProvider>
+        <ErrorToastTrigger />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show error" }));
+
+    const alert = await screen.findByRole("alert");
+    const liveRegion = screen.getByTestId("toast-live-region");
+    expect(liveRegion.contains(alert)).toBe(false);
+    expect(alert.getAttribute("aria-live")).toBeNull();
+    expect(alert.textContent).toContain("Logout failed");
+  });
 });

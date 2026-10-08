@@ -43,21 +43,36 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      {/* Persistent polite live region without role="status": page
-          summaries (ImportPage, RouteLoader, etc.) already own that role. */}
-      <div
-        data-testid="toast-live-region"
-        aria-live="polite"
-        aria-relevant="additions text"
-        className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md"
-      >
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            {...toast}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+        {/* Persistent polite live region without role="status": page
+            summaries (ImportPage, RouteLoader, etc.) already own that role. */}
+        <div
+          data-testid="toast-live-region"
+          aria-live="polite"
+          aria-relevant="additions text"
+          className="flex flex-col gap-2"
+        >
+          {toasts
+            .filter((toast) => toast.type !== "error")
+            .map((toast) => (
+              <Toast
+                key={toast.id}
+                {...toast}
+                onClose={() => removeToast(toast.id)}
+              />
+            ))}
+        </div>
+        <div data-testid="toast-alert-region" className="flex flex-col gap-2">
+          {toasts
+            .filter((toast) => toast.type === "error")
+            .map((toast) => (
+              <Toast
+                key={toast.id}
+                {...toast}
+                onClose={() => removeToast(toast.id)}
+              />
+            ))}
+        </div>
       </div>
     </ToastContext.Provider>
   );
@@ -87,6 +102,9 @@ function Toast({
   const startedAtRef = React.useRef(0);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCloseRef = React.useRef(onClose);
+  const toastRef = React.useRef<HTMLDivElement>(null);
+  const hoveredRef = React.useRef(false);
+  const focusedRef = React.useRef(false);
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -117,6 +135,12 @@ function Toast({
     );
     clearTimer();
   }, [clearTimer]);
+
+  const resumeTimerIfIdle = React.useCallback(() => {
+    if (!hoveredRef.current && !focusedRef.current) {
+      startTimer();
+    }
+  }, [startTimer]);
 
   React.useEffect(() => {
     startTimer();
@@ -151,13 +175,28 @@ function Toast({
 
   return (
     <div
+      ref={toastRef}
       role={type === "error" ? "alert" : undefined}
-      aria-live={type === "error" ? "assertive" : undefined}
-      aria-atomic={type === "error" ? "true" : undefined}
-      onMouseEnter={pauseTimer}
-      onMouseLeave={startTimer}
-      onFocus={pauseTimer}
-      onBlur={startTimer}
+      onMouseEnter={() => {
+        hoveredRef.current = true;
+        pauseTimer();
+      }}
+      onMouseLeave={() => {
+        hoveredRef.current = false;
+        resumeTimerIfIdle();
+      }}
+      onFocus={() => {
+        focusedRef.current = true;
+        pauseTimer();
+      }}
+      onBlur={(event: React.FocusEvent<HTMLDivElement>) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && toastRef.current?.contains(next)) {
+          return;
+        }
+        focusedRef.current = false;
+        resumeTimerIfIdle();
+      }}
       data-testid="toast"
       className={cn(
         "flex items-start gap-3 p-4 rounded-lg border shadow-lg animate-in slide-in-from-right",
