@@ -641,9 +641,7 @@ function QueueView() {
           header: ({ column }) => (
             <DataTableSortHeader column={column} title="Status" />
           ),
-          cell: ({ getValue }) => (
-            <ActivityStatusBadge status={getValue()} />
-          ),
+          cell: ({ getValue }) => <ActivityStatusBadge status={getValue()} />,
         }),
         queueColumnHelper.accessor("updated_date", {
           id: "updated",
@@ -786,9 +784,7 @@ function HistoryView() {
           header: ({ column }) => (
             <DataTableSortHeader column={column} title="Status" />
           ),
-          cell: ({ getValue }) => (
-            <ActivityStatusBadge status={getValue()} />
-          ),
+          cell: ({ getValue }) => <ActivityStatusBadge status={getValue()} />,
         }),
         historyColumnHelper.accessor("DateAdded", {
           id: "date",
