@@ -392,6 +392,8 @@ export function useQueueIssue(): UseMutationResult<unknown, Error, string> {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
     },
   });
 }
@@ -408,6 +410,8 @@ export function useUnqueueIssue(): UseMutationResult<unknown, Error, string> {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
     },
   });
 }
@@ -453,6 +457,7 @@ export function useSetIssueStatus(): UseMutationResult<
       queryClient.invalidateQueries({ queryKey: ["issue-detail"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
     },
   });
 }
@@ -498,6 +503,7 @@ export function useBulkSetIssueStatus(): UseMutationResult<
       queryClient.invalidateQueries({ queryKey: ["issue-detail"] });
       queryClient.invalidateQueries({ queryKey: ["wanted"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "upcoming"] });
     },
   });
 }

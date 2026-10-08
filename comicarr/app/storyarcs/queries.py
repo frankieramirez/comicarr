@@ -13,9 +13,10 @@ Story Arcs domain queries — storyarcs, readlist, weekly, upcoming tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import Integer, case, cast, func, literal, or_, select
+from sqlalchemy import Integer, and_, case, cast, func, literal, or_, select
 
 from comicarr import db
+from comicarr.tables import annuals as t_annuals
 from comicarr.tables import comics as t_comics
 from comicarr.tables import issues as t_issues
 from comicarr.tables import readlist as t_readlist
@@ -271,13 +272,23 @@ def remove_all_read():
 
 
 def get_upcoming(week, year, include_downloaded=False):
-    """Get upcoming issues for a given week/year from weekly + comics tables."""
+    """Get upcoming issues for a given week/year from weekly + comics tables.
+
+    Status comes from the annual or issue row when one exists so
+    queue/unqueue is visible without waiting for the weekly pull to rewrite
+    weekly.STATUS. Pull-list-only rows still use weekly.STATUS.
+    """
     if include_downloaded:
         status_list = ["Wanted", "Snatched", "Downloaded"]
     else:
         status_list = ["Wanted"]
 
     padded_weeknumber = func.substr(literal("0").op("||")(t_weekly.c.weeknumber), -2, 2)
+    issue_status = func.coalesce(t_annuals.c.Status, t_issues.c.Status, t_weekly.c.STATUS)
+    live_annual = and_(
+        t_weekly.c.IssueID == t_annuals.c.IssueID,
+        or_(t_annuals.c.Deleted.is_(None), t_annuals.c.Deleted != 1),
+    )
 
     stmt = (
         select(
@@ -286,15 +297,19 @@ def get_upcoming(week, year, include_downloaded=False):
             t_weekly.c.ComicID,
             t_weekly.c.IssueID,
             t_weekly.c.SHIPDATE.label("IssueDate"),
-            t_weekly.c.STATUS.label("Status"),
+            issue_status.label("Status"),
             t_comics.c.ComicName.label("DisplayComicName"),
         )
-        .select_from(t_weekly.join(t_comics, t_weekly.c.ComicID == t_comics.c.ComicID))
+        .select_from(
+            t_weekly.join(t_comics, t_weekly.c.ComicID == t_comics.c.ComicID)
+            .outerjoin(t_issues, t_weekly.c.IssueID == t_issues.c.IssueID)
+            .outerjoin(t_annuals, live_annual)
+        )
         .where(t_weekly.c.COMIC.isnot(None))
         .where(t_weekly.c.ISSUE.isnot(None))
         .where(padded_weeknumber == week)
         .where(t_weekly.c.year == year)
-        .where(t_weekly.c.STATUS.in_(status_list))
+        .where(issue_status.in_(status_list))
         .order_by(t_comics.c.ComicSortName)
     )
     return db.select_all(stmt)

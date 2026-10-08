@@ -337,6 +337,7 @@ def test_queue_issue_persists_search_before_async_handoff(monkeypatch):
 def test_explicit_issue_actions_dual_write_canonical_intent(monkeypatch):
     upsert = MagicMock()
     monkeypatch.setattr(series_queries.db, "upsert", upsert)
+    monkeypatch.setattr(series_queries, "find_issue_status_target", lambda *_a, **_k: "issues")
 
     series_queries.queue_issue("issue-1", "frankie")
     series_queries.unqueue_issue("issue-2", "frankie")
@@ -351,6 +352,28 @@ def test_explicit_issue_actions_dual_write_canonical_intent(monkeypatch):
             "issues",
             {"AcquisitionIntent": "skipped", "Status": "Skipped"},
             {"IssueID": "issue-2"},
+        ),
+    ]
+
+
+def test_queue_unqueue_dispatch_to_annuals(monkeypatch):
+    upsert = MagicMock()
+    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+    monkeypatch.setattr(series_queries, "find_issue_status_target", lambda *_a, **_k: "annuals")
+
+    series_queries.queue_issue("ann-1", "frankie")
+    series_queries.unqueue_issue("ann-1", "frankie")
+
+    assert upsert.call_args_list == [
+        call(
+            "annuals",
+            {"AcquisitionIntent": "wanted", "Status": "Wanted"},
+            {"IssueID": "ann-1"},
+        ),
+        call(
+            "annuals",
+            {"AcquisitionIntent": "skipped", "Status": "Skipped"},
+            {"IssueID": "ann-1"},
         ),
     ]
 
