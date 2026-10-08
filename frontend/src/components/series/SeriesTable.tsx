@@ -306,6 +306,7 @@ export default function SeriesTable({
                 : "text-muted-foreground hover:text-foreground"
             }`}
             aria-label="List view"
+            aria-pressed={!isGridView}
           >
             <LayoutList className="w-3.5 h-3.5" />
           </button>
@@ -326,6 +327,7 @@ export default function SeriesTable({
                 : "text-muted-foreground hover:text-foreground"
             }`}
             aria-label="Grid view"
+            aria-pressed={isGridView}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
@@ -542,24 +544,29 @@ function SortHeader({
   align = "left",
 }: SortHeaderProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 hover:text-foreground ${
-        align === "right" ? "flex-row-reverse" : ""
-      } ${active ? "text-foreground" : ""}`}
+    <div
+      role="columnheader"
+      aria-sort={active ? (desc ? "descending" : "ascending") : "none"}
     >
-      <span>{label}</span>
-      {active ? (
-        desc ? (
-          <ChevronDown className="w-3 h-3" />
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center gap-1 hover:text-foreground ${
+          align === "right" ? "flex-row-reverse" : ""
+        } ${active ? "text-foreground" : ""}`}
+      >
+        <span>{label}</span>
+        {active ? (
+          desc ? (
+            <ChevronDown className="w-3 h-3" aria-hidden />
+          ) : (
+            <ChevronUp className="w-3 h-3" aria-hidden />
+          )
         ) : (
-          <ChevronUp className="w-3 h-3" />
-        )
-      ) : (
-        <ChevronsUpDown className="w-3 h-3 opacity-40" />
-      )}
-    </button>
+          <ChevronsUpDown className="w-3 h-3 opacity-40" aria-hidden />
+        )}
+      </button>
+    </div>
   );
 }
 

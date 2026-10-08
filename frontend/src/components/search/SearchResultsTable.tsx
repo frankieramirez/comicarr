@@ -99,21 +99,22 @@ function SortHeader({
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-sort={ariaSort}
-      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-    >
-      <span>{title}</span>
-      {sortState === "asc" ? (
-        <ChevronUp className="w-3 h-3" />
-      ) : sortState === "desc" ? (
-        <ChevronDown className="w-3 h-3" />
-      ) : (
-        <ChevronsUpDown className="w-3 h-3 opacity-50" />
-      )}
-    </button>
+    <div role="columnheader" aria-sort={ariaSort ?? "none"}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+      >
+        <span>{title}</span>
+        {sortState === "asc" ? (
+          <ChevronUp className="w-3 h-3" aria-hidden />
+        ) : sortState === "desc" ? (
+          <ChevronDown className="w-3 h-3" aria-hidden />
+        ) : (
+          <ChevronsUpDown className="w-3 h-3 opacity-50" aria-hidden />
+        )}
+      </button>
+    </div>
   );
 }
 

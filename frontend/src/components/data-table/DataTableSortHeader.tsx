@@ -33,11 +33,14 @@ export function DataTableSortHeader<
     >
       <span>{title}</span>
       {column.getIsSorted() === "asc" ? (
-        <ChevronUp className="w-4 h-4" />
+        <ChevronUp className="w-4 h-4" aria-hidden />
       ) : column.getIsSorted() === "desc" ? (
-        <ChevronDown className="w-4 h-4" />
+        <ChevronDown className="w-4 h-4" aria-hidden />
       ) : (
-        <ChevronsUpDown className="w-4 h-4 text-muted-foreground/50" />
+        <ChevronsUpDown
+          className="w-4 h-4 text-muted-foreground/50"
+          aria-hidden
+        />
       )}
     </div>
   );
