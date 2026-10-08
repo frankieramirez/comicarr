@@ -8,6 +8,8 @@ import {
 import { useAiActivity } from "@/hooks/useAiActivity";
 import { ActivityFeedEntry } from "./ActivityFeedEntry";
 import { Activity } from "lucide-react";
+import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import { panelState } from "@/lib/panelState";
 
 interface ActivityFeedDrawerProps {
   open: boolean;
@@ -18,7 +20,9 @@ export function ActivityFeedDrawer({
   open,
   onOpenChange,
 }: ActivityFeedDrawerProps) {
-  const { data: entries, isLoading } = useAiActivity(50, { enabled: open });
+  const query = useAiActivity(50, { enabled: open });
+  const entries = query.data ?? [];
+  const state = panelState(query, entries.length === 0);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -32,7 +36,7 @@ export function ActivityFeedDrawer({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
-          {isLoading && (
+          {state === "loading" && (
             <div className="flex items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">
                 Loading activity...
@@ -40,7 +44,17 @@ export function ActivityFeedDrawer({
             </div>
           )}
 
-          {!isLoading && (!entries || entries.length === 0) && (
+          {state === "unavailable" && (
+            <div className="px-4">
+              <PanelUnavailable
+                label="AI activity"
+                onRetry={() => void query.refetch()}
+                isRetrying={query.isFetching}
+              />
+            </div>
+          )}
+
+          {state === "empty" && (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Activity className="h-8 w-8 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground text-center">
@@ -52,9 +66,7 @@ export function ActivityFeedDrawer({
             </div>
           )}
 
-          {!isLoading &&
-            entries &&
-            entries.length > 0 &&
+          {state === "content" &&
             entries.map((entry) => (
               <ActivityFeedEntry key={entry.id} entry={entry} />
             ))}

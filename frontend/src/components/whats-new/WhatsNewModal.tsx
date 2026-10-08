@@ -6,7 +6,7 @@
  * About without dismissing. Only "Got it" writes LAST_SEEN_VERSION.
  */
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import {
   Dialog,
@@ -15,11 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
 import { useReleaseNotes } from "@/hooks/useReleaseNotes";
 import { useDismissWhatsNew } from "@/hooks/useWhatsNew";
 import { useVersionInfo } from "@/hooks/useVersion";
 import { VersionSection } from "@/components/whats-new/ReleaseNotesList";
 import { countBullets } from "@/lib/releaseNotes";
+import { panelState } from "@/lib/panelState";
 
 /** Max versions shown in the interrupt; never split a release's bullets. */
 export const MODAL_VERSION_CAP = 3;
@@ -43,10 +45,22 @@ export default function WhatsNewModal() {
   if (!pending || !from || !to || !open) return null;
 
   const sections = notesQuery.data?.sections ?? [];
+  const notesState = panelState(notesQuery, sections.length === 0);
   const single = sections.length === 1;
   const shown = sections.slice(0, MODAL_VERSION_CAP);
   const overflow = Math.max(0, sections.length - shown.length);
   const bullets = countBullets(sections);
+
+  const notesSummary =
+    notesState === "loading"
+      ? "Loading release notes…"
+      : notesState === "unavailable"
+        ? "Release notes could not load."
+        : notesState === "empty"
+          ? "No release notes recorded for this upgrade."
+          : sections.length === 1
+            ? `${bullets} change${bullets === 1 ? "" : "s"} in this release.`
+            : `${bullets} changes across ${sections.length} releases you skipped.`;
 
   const handleGotIt = async () => {
     try {
@@ -79,19 +93,32 @@ export default function WhatsNewModal() {
             {from} → {to}
           </DialogTitle>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
-            {notesQuery.isLoading
-              ? "Loading release notes…"
-              : sections.length === 1
-                ? `${bullets} change${bullets === 1 ? "" : "s"} in this release.`
-                : sections.length === 0
-                  ? "No release notes recorded for this upgrade."
-                  : `${bullets} changes across ${sections.length} releases you skipped.`}
+            {notesSummary}
           </p>
         </DialogHeader>
 
         <div className="max-h-[55vh] overflow-y-auto px-6 py-5 space-y-6">
-          {notesQuery.isLoading ? (
+          {notesState === "loading" ? (
             <p className="text-[12px] text-muted-foreground">Loading…</p>
+          ) : notesState === "unavailable" ? (
+            <div className="space-y-3">
+              <PanelUnavailable
+                label="Release notes"
+                onRetry={() => void notesQuery.refetch()}
+                isRetrying={notesQuery.isFetching}
+              />
+              <p className="text-[12px] text-muted-foreground">
+                Notes could not load. You can still read them in{" "}
+                <Link
+                  to={WHATS_NEW_ARCHIVE_PATH}
+                  onClick={() => setOpen(false)}
+                  className="text-primary hover:underline"
+                >
+                  Settings → About
+                </Link>
+                .
+              </p>
+            </div>
           ) : (
             <>
               {shown.map((s) => (
