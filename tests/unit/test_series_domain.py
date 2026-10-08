@@ -13,7 +13,7 @@ import datetime
 import os
 import queue
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -322,7 +322,7 @@ def test_refresh_comic_coalesces_existing_mapping_command(monkeypatch):
 
 
 def test_queue_issue_persists_search_before_async_handoff(monkeypatch):
-    mark_wanted = MagicMock()
+    mark_wanted = MagicMock(return_value=True)
     enqueue = MagicMock(return_value=SimpleNamespace(run_id="search-run"))
     monkeypatch.setattr(series_service.series_queries, "queue_issue", mark_wanted)
     monkeypatch.setattr(search_commands, "enqueue_search_command", enqueue)
@@ -334,48 +334,55 @@ def test_queue_issue_persists_search_before_async_handoff(monkeypatch):
     assert result == {"success": True, "run_id": "search-run"}
 
 
+def test_queue_issue_skips_search_when_row_is_missing(monkeypatch):
+    enqueue = MagicMock()
+    monkeypatch.setattr(series_service.series_queries, "queue_issue", lambda *_a, **_k: False)
+    monkeypatch.setattr(search_commands, "enqueue_search_command", enqueue)
+
+    result = series_service.queue_issue(_make_ctx(), "missing", audit_identity="frankie")
+
+    enqueue.assert_not_called()
+    assert result == {"success": False, "status_code": 404, "error": "Issue not found: missing"}
+
+
 def test_explicit_issue_actions_dual_write_canonical_intent(monkeypatch):
-    upsert = MagicMock()
-    monkeypatch.setattr(series_queries.db, "upsert", upsert)
-    monkeypatch.setattr(series_queries, "find_issue_status_target", lambda *_a, **_k: "issues")
+    engine = create_engine("sqlite://")
+    issues.create(engine)
+    monkeypatch.setattr(series_queries.db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        conn.execute(issues.insert().values(IssueID="issue-1", Status="Old", ComicID="c1"))
+        conn.execute(issues.insert().values(IssueID="issue-2", Status="Old", ComicID="c1"))
 
-    series_queries.queue_issue("issue-1", "frankie")
-    series_queries.unqueue_issue("issue-2", "frankie")
-
-    assert upsert.call_args_list == [
-        call(
-            "issues",
-            {"AcquisitionIntent": "wanted", "Status": "Wanted"},
-            {"IssueID": "issue-1"},
-        ),
-        call(
-            "issues",
-            {"AcquisitionIntent": "skipped", "Status": "Skipped"},
-            {"IssueID": "issue-2"},
-        ),
-    ]
+    assert series_queries.queue_issue("issue-1", "frankie") is True
+    assert series_queries.unqueue_issue("issue-2", "frankie") is True
+    with engine.connect() as conn:
+        rows = {
+            row.IssueID: (row.Status, row.AcquisitionIntent)
+            for row in conn.execute(select(issues.c.IssueID, issues.c.Status, issues.c.AcquisitionIntent))
+        }
+    assert rows == {
+        "issue-1": ("Wanted", "wanted"),
+        "issue-2": ("Skipped", "skipped"),
+    }
 
 
 def test_queue_unqueue_dispatch_to_annuals(monkeypatch):
-    upsert = MagicMock()
-    monkeypatch.setattr(series_queries.db, "upsert", upsert)
-    monkeypatch.setattr(series_queries, "find_issue_status_target", lambda *_a, **_k: "annuals")
+    engine = create_engine("sqlite://")
+    issues.create(engine)
+    annuals.create(engine)
+    monkeypatch.setattr(series_queries.db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        conn.execute(annuals.insert().values(IssueID="ann-1", Status="Skipped", ComicID="c1"))
 
-    series_queries.queue_issue("ann-1", "frankie")
-    series_queries.unqueue_issue("ann-1", "frankie")
-
-    assert upsert.call_args_list == [
-        call(
-            "annuals",
-            {"AcquisitionIntent": "wanted", "Status": "Wanted"},
-            {"IssueID": "ann-1"},
-        ),
-        call(
-            "annuals",
-            {"AcquisitionIntent": "skipped", "Status": "Skipped"},
-            {"IssueID": "ann-1"},
-        ),
-    ]
+    assert series_queries.queue_issue("ann-1", "frankie") is True
+    with engine.connect() as conn:
+        row = conn.execute(select(annuals.c.Status, annuals.c.AcquisitionIntent)).one()
+    assert tuple(row) == ("Wanted", "wanted")
+    assert series_queries.unqueue_issue("ann-1", "frankie") is True
+    with engine.connect() as conn:
+        row = conn.execute(select(annuals.c.Status, annuals.c.AcquisitionIntent)).one()
+        assert tuple(row) == ("Skipped", "skipped")
+        assert conn.execute(select(issues.c.IssueID)).first() is None
 
 
 @pytest.mark.parametrize(

@@ -167,7 +167,7 @@ def _retry_or_search(row, key, *, action, actor, effects):
     if not wanted.get("ok"):
         return _failure(
             key,
-            "missing_issue",
+            "issue_not_found",
             "No matching issue, annual, or story-arc row to re-want",
             issue_id=issue_id,
             stamp_written=False,

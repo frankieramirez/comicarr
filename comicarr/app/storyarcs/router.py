@@ -111,7 +111,10 @@ def set_arc_issue_status(
 
     result = arc_service.set_issue_status(issue_arc_id, status)
     if not result["success"]:
-        return JSONResponse(status_code=400, content={"detail": result.get("error")})
+        return JSONResponse(
+            status_code=int(result.get("status_code") or 400),
+            content={"detail": result.get("error")},
+        )
     return result
 
 
@@ -124,7 +127,13 @@ def delete_arc_issue(
     issue_arc_id: str,
 ):
     """Remove a single issue from a story arc (soft-delete)."""
-    return arc_service.delete_arc_issue(issue_arc_id)
+    result = arc_service.delete_arc_issue(issue_arc_id)
+    if not result["success"]:
+        return JSONResponse(
+            status_code=int(result.get("status_code") or 400),
+            content={"detail": result.get("error")},
+        )
+    return result
 
 
 @router.post("/storyarcs/{arc_id}/want-all")

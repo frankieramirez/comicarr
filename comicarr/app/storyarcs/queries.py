@@ -13,7 +13,7 @@ Story Arcs domain queries — storyarcs, readlist, weekly, upcoming tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
-from sqlalchemy import Integer, and_, case, cast, func, literal, or_, select
+from sqlalchemy import Integer, and_, case, cast, delete, func, literal, or_, select, update
 
 from comicarr import db
 from comicarr.tables import annuals as t_annuals
@@ -111,17 +111,28 @@ def get_arc_for_refresh(arc_id):
     )
 
 
+def _update_one(stmt):
+    """Run an UPDATE/DELETE and report whether exactly one row matched."""
+    with db.get_engine().begin() as conn:
+        return conn.execute(stmt).rowcount == 1
+
+
 def set_issue_status(issue_arc_id, status):
-    """Update status of a single arc issue."""
-    db.upsert("storyarcs", {"Status": status}, {"IssueArcID": issue_arc_id})
+    """Update status of a single arc issue. Returns False when no row exists."""
+    stmt = update(t_storyarcs).where(t_storyarcs.c.IssueArcID == str(issue_arc_id)).values(Status=status)
+    return _update_one(stmt)
 
 
 def soft_delete_arc_issue(issue_arc_id, manual=None):
-    """Soft-delete or hard-delete an arc issue depending on manual flag."""
+    """Soft-delete or hard-delete an arc issue depending on manual flag.
+
+    Returns False when no row exists, so a stale id cannot insert a ghost.
+    """
     if manual == "added":
-        db.raw_execute("DELETE from storyarcs WHERE IssueArcID=?", [issue_arc_id])
-    else:
-        db.upsert("storyarcs", {"Manual": "deleted"}, {"IssueArcID": issue_arc_id})
+        stmt = delete(t_storyarcs).where(t_storyarcs.c.IssueArcID == str(issue_arc_id))
+        return _update_one(stmt)
+    stmt = update(t_storyarcs).where(t_storyarcs.c.IssueArcID == str(issue_arc_id)).values(Manual="deleted")
+    return _update_one(stmt)
 
 
 def delete_arc(arc_id, arc_name=None, delete_type=None):
@@ -236,7 +247,10 @@ def set_arc_issue_fields(issue_arc_id, values):
 
 
 def mark_issue_wanted(issue_id):
-    db.upsert("issues", {"Status": "Wanted"}, {"IssueID": issue_id})
+    """Set Status=Wanted on an existing issue. Returns False when no row exists."""
+    stmt = update(t_issues).where(t_issues.c.IssueID == str(issue_id)).values(Status="Wanted")
+    with db.get_engine().begin() as conn:
+        return conn.execute(stmt).rowcount == 1
 
 
 def count_wanted_intent_divergence():

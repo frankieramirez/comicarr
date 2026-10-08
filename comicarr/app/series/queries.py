@@ -342,14 +342,24 @@ def set_retained_locations(comic_id, retained):
     db.upsert("comics", {"RetainedLocations": json.dumps(retained) if retained else None}, {"ComicID": comic_id})
 
 
-def pause_comic(comic_id):
-    """Set comic status to Paused."""
-    db.upsert("comics", {"Status": "Paused"}, {"ComicID": comic_id})
+def _update_one(stmt, *, conn=None):
+    """Run an UPDATE and report whether exactly one row matched."""
+    if conn is not None:
+        return conn.execute(stmt).rowcount == 1
+    with db.get_engine().begin() as owned:
+        return owned.execute(stmt).rowcount == 1
 
 
-def resume_comic(comic_id):
-    """Set comic status to Active."""
-    db.upsert("comics", {"Status": "Active"}, {"ComicID": comic_id})
+def pause_comic(comic_id, *, conn=None):
+    """Set comic status to Paused. Returns False when no series row exists."""
+    stmt = update(t_comics).where(t_comics.c.ComicID == str(comic_id)).values(Status="Paused")
+    return _update_one(stmt, conn=conn)
+
+
+def resume_comic(comic_id, *, conn=None):
+    """Set comic status to Active. Returns False when no series row exists."""
+    stmt = update(t_comics).where(t_comics.c.ComicID == str(comic_id)).values(Status="Active")
+    return _update_one(stmt, conn=conn)
 
 
 def get_issues(comic_id):
@@ -368,47 +378,19 @@ def get_annuals(comic_id):
     )
 
 
-def _issue_status_table(issue_id):
-    """Write Wanted/Skipped to the table that owns this id, else issues."""
-    return find_issue_status_target(issue_id) or "issues"
-
-
 def queue_issue(issue_id, audit_identity, *, conn=None):
-    """Mark an issue as Wanted, optionally in a caller-owned transaction."""
-    from comicarr.app.acquisition.models import AcquisitionIntent
-    from comicarr.app.acquisition.policy import explicit_intent_values
-
-    values = explicit_intent_values(AcquisitionIntent.WANTED, audit_identity)
-    controls = {"IssueID": issue_id}
-    table = _issue_status_table(issue_id)
-    if conn is not None:
-        db.upsert_conn(conn, table, values, controls)
-    else:
-        db.upsert(table, values, controls)
+    """Mark an existing issue as Wanted, optionally in a caller-owned transaction."""
+    return update_obligation_intent(issue_id, audit_identity, intent="wanted", conn=conn).get("ok")
 
 
-def unqueue_issue(issue_id, audit_identity):
-    """Mark an issue as Skipped."""
-    from comicarr.app.acquisition.models import AcquisitionIntent
-    from comicarr.app.acquisition.policy import explicit_intent_values
-
-    db.upsert(
-        _issue_status_table(issue_id),
-        explicit_intent_values(AcquisitionIntent.SKIPPED, audit_identity),
-        {"IssueID": issue_id},
-    )
+def unqueue_issue(issue_id, audit_identity, *, conn=None):
+    """Mark an existing issue as Skipped."""
+    return update_obligation_intent(issue_id, audit_identity, intent="skipped", conn=conn).get("ok")
 
 
-def ignore_issue(issue_id, audit_identity):
-    """Mark an issue as Ignored (operator permanent decline; not Skipped)."""
-    from comicarr.app.acquisition.models import AcquisitionIntent
-    from comicarr.app.acquisition.policy import explicit_intent_values
-
-    db.upsert(
-        "issues",
-        explicit_intent_values(AcquisitionIntent.IGNORED, audit_identity),
-        {"IssueID": issue_id},
-    )
+def ignore_issue(issue_id, audit_identity, *, conn=None):
+    """Mark an existing issue as Ignored (operator permanent decline; not Skipped)."""
+    return update_obligation_intent(issue_id, audit_identity, intent="ignored", conn=conn).get("ok")
 
 
 _OBLIGATION_ENTITY_TYPES = {
@@ -539,7 +521,7 @@ def find_issue_status_target(issue_id, entity_type=None):
     return "annuals" if row is not None else None
 
 
-def set_issue_status(issue_id, status, audit_identity, *, table):
+def set_issue_status(issue_id, status, audit_identity, *, table, conn=None):
     """Apply one operator status set to an issue or annual row.
 
     Wanted/Skipped/Ignored are explicit acquisition intent and dual-write both
@@ -557,8 +539,7 @@ def set_issue_status(issue_id, status, audit_identity, *, table):
     stmt = update(target).where(target.c.IssueID == str(issue_id))
     if table == "annuals":
         stmt = stmt.where(or_(target.c.Deleted.is_(None), target.c.Deleted != 1))
-    with db.get_engine().begin() as conn:
-        return conn.execute(stmt.values(**values)).rowcount == 1
+    return _update_one(stmt.values(**values), conn=conn)
 
 
 def get_wanted_issues(limit=None, offset=None, search=None):

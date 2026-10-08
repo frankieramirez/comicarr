@@ -566,13 +566,15 @@ def update_content_kind(ctx, comic_id, content_type):
 
 def pause_comic(ctx, comic_id):
     """Set comic status to Paused."""
-    series_queries.pause_comic(comic_id)
+    if not series_queries.pause_comic(comic_id):
+        return {"success": False, "status_code": 404, "error": "Series not found: %s" % comic_id}
     return {"success": True}
 
 
 def resume_comic(ctx, comic_id):
     """Set comic status to Active."""
-    series_queries.resume_comic(comic_id)
+    if not series_queries.resume_comic(comic_id):
+        return {"success": False, "status_code": 404, "error": "Series not found: %s" % comic_id}
     return {"success": True}
 
 
@@ -645,14 +647,16 @@ def queue_issue(ctx, issue_id, audit_identity):
     """Mark an issue as Wanted and trigger search."""
     from comicarr.app.search.commands import enqueue_search_command
 
-    series_queries.queue_issue(issue_id, audit_identity)
+    if not series_queries.queue_issue(issue_id, audit_identity):
+        return {"success": False, "status_code": 404, "error": "Issue not found: %s" % issue_id}
     command = enqueue_search_command({"issueid": issue_id}, trigger="issue_wanted")
     return {"success": True, "run_id": command.run_id}
 
 
 def unqueue_issue(ctx, issue_id, audit_identity):
     """Mark an issue as Skipped."""
-    series_queries.unqueue_issue(issue_id, audit_identity)
+    if not series_queries.unqueue_issue(issue_id, audit_identity):
+        return {"success": False, "status_code": 404, "error": "Issue not found: %s" % issue_id}
     return {"success": True}
 
 

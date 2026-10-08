@@ -171,16 +171,34 @@ def update_series_location(
     return result
 
 
+def _write_response(result):
+    """Map a service mutation result to HTTP. Missing rows are 404."""
+    if isinstance(result, dict) and result.get("success") is False:
+        return JSONResponse(
+            status_code=int(result.get("status_code") or 400),
+            content={"detail": result.get("error")},
+        )
+    return result
+
+
+def _bulk_series_status(ids, mutate):
+    count = 0
+    for comic_id in ids:
+        if mutate(comic_id).get("success"):
+            count += 1
+    return {"success": count > 0, "count": count}
+
+
 @router.put("/series/{comic_id}/pause", dependencies=[Depends(require_session)])
 def pause_series(comic_id: str, ctx: AppContext = Depends(get_context)):
     """Pause a comic series."""
-    return series_service.pause_comic(ctx, comic_id)
+    return _write_response(series_service.pause_comic(ctx, comic_id))
 
 
 @router.put("/series/{comic_id}/resume", dependencies=[Depends(require_session)])
 def resume_series(comic_id: str, ctx: AppContext = Depends(get_context)):
     """Resume a comic series."""
-    return series_service.resume_comic(ctx, comic_id)
+    return _write_response(series_service.resume_comic(ctx, comic_id))
 
 
 MAX_BULK_IDS = 100
@@ -231,10 +249,7 @@ def bulk_pause_series(
     if error:
         return error
 
-    for comic_id in ids:
-        series_service.pause_comic(ctx, comic_id)
-
-    return {"success": True, "count": len(ids)}
+    return _bulk_series_status(ids, lambda comic_id: series_service.pause_comic(ctx, comic_id))
 
 
 @router.post("/series/bulk-resume", dependencies=[Depends(require_session)])
@@ -247,10 +262,7 @@ def bulk_resume_series(
     if error:
         return error
 
-    for comic_id in ids:
-        series_service.resume_comic(ctx, comic_id)
-
-    return {"success": True, "count": len(ids)}
+    return _bulk_series_status(ids, lambda comic_id: series_service.resume_comic(ctx, comic_id))
 
 
 @router.post("/series/{comic_id}/refresh", dependencies=[Depends(require_session)])
@@ -323,7 +335,7 @@ def queue_issue(
     ctx: AppContext = Depends(get_context),
 ):
     """Mark an issue as Wanted and trigger search."""
-    return series_service.queue_issue(ctx, issue_id, audit_identity=username)
+    return _write_response(series_service.queue_issue(ctx, issue_id, audit_identity=username))
 
 
 @router.put("/series/issues/{issue_id}/unqueue")
@@ -333,7 +345,7 @@ def unqueue_issue(
     ctx: AppContext = Depends(get_context),
 ):
     """Mark an issue as Skipped."""
-    return series_service.unqueue_issue(ctx, issue_id, audit_identity=username)
+    return _write_response(series_service.unqueue_issue(ctx, issue_id, audit_identity=username))
 
 
 @router.put("/series/issues/{issue_id}/status")

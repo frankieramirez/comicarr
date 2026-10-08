@@ -374,6 +374,20 @@ def test_retry_blocked_does_not_stamp(monkeypatch):
     assert key in _attention_release_keys()
 
 
+def test_retry_missing_issue_row_is_reported(monkeypatch):
+    monkeypatch.setattr(
+        "comicarr.app.search.health.get_search_health",
+        lambda *a, **k: {"viable_route": True, "routes": {"automatic": True}},
+    )
+    key = _seed_failed_row(issueid="gone")
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+    assert result["success"] is False
+    assert result["status_code"] == 404
+    assert result["error"] == "No matching issue, annual, or story-arc row to re-want"
+    assert key in _attention_release_keys()
+
+
 def test_stop_wanting_failed_stamps_and_sets_intent():
     _seed_issue(status="Failed")
     key = _seed_failed_row()
@@ -1309,7 +1323,8 @@ def test_retry_missing_library_row_does_not_insert_or_stamp(monkeypatch):
     result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
 
     assert result["success"] is False
-    assert result["status_code"] == 400
+    assert result["status_code"] == 404
+    assert result["error"] == "No matching issue, annual, or story-arc row to re-want"
     assert enqueued == []
     assert db.select_one(select(issues).where(issues.c.IssueID == "gone")) is None
     assert _journal_row(key).get("status") not in journal.RESOLVED_STATUSES
