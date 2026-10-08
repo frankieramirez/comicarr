@@ -396,3 +396,42 @@ def test_recover_busy_is_retryable_and_does_not_redrive(monkeypatch, tmp_path, a
     assert result.action == "post_processing-busy"
     assert _row(key)["stage"] == journal.POST_PROCESSING
     apilock.release()
+
+
+def test_run_failure_logs_release_step_paths_and_redacted_traceback(monkeypatch, tmp_path, apilock, capture_logs):
+    def denied(_item):
+        raise PermissionError(
+            "[Errno 13] Permission denied: '/library/Saga' via https://user:hunter2@idx/?apikey=SECRET1"
+        )
+
+    monkeypatch.setattr(postprocessing, "_execute", denied)
+    result = postprocessing.run(_item(tmp_path, journal_release_key="logged-release"))
+
+    assert result.status == "failed"
+    failure = next(r for r in capture_logs.records if "Execution failed" in r.getMessage()).getMessage()
+    assert "logged-release" in failure
+    assert "during process" in failure
+    assert "Saga.001.cbz" in failure
+    assert str(tmp_path) in failure
+    assert "Traceback (most recent call last)" in failure
+    assert "PermissionError" in failure
+    assert "hunter2" not in failure
+    assert "SECRET1" not in failure
+
+
+def test_recovered_failure_logs_the_same_context_as_a_fresh_run(monkeypatch, tmp_path, capture_logs):
+    key = "recovered-release"
+    _insert_journal(key, journal.POST_PROCESSING, payload={"nzb_name": "Saga.001.cbz", "nzb_folder": str(tmp_path)})
+
+    def denied(_item):
+        raise PermissionError("Permission denied")
+
+    monkeypatch.setattr(postprocessing, "_execute", denied)
+    result = postprocessing.recover(key)
+
+    assert result.status == "failed"
+    failure = next(r for r in capture_logs.records if "Execution failed" in r.getMessage()).getMessage()
+    assert key in failure
+    assert "during process" in failure
+    assert str(tmp_path) in failure
+    assert "Traceback (most recent call last)" in failure

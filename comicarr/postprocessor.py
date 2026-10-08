@@ -34,6 +34,7 @@ import comicarr
 from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
+from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads._postprocess_completion import complete as _complete_postprocess
 from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessContext,
@@ -333,6 +334,12 @@ class PostProcessor(object):
             ddl=getattr(self, "ddl", False),
             canonical_release_key=self.journal_release_key,
             log_module=self.module,
+        )
+
+    def _log_placement_failure(self, module, operation, src, dst, error):
+        logger.error(
+            "%s Failed to %s %s to %s (release=%s, issue=%s)\n%s"
+            % (module, operation, src, dst, self.journal_release_key, self.issueid, redacted_traceback(error))
         )
 
     def _journal_pp(self, stage, issueid=None, issuearcid=None, payload=None, conn=None):
@@ -3156,9 +3163,8 @@ class PostProcessor(object):
                                 multiple=mult_count,
                             )
                         except Exception as e:
-                            logger.error(
-                                "%s [ONE-OFF MODE] Failed to %s %s: %s"
-                                % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e)
+                            self._log_placement_failure(
+                                "%s [ONE-OFF MODE]" % module, comicarr.CONFIG.ARC_FILEOPS, grab_src, grab_dst, e
                             )
                             return
 
@@ -3946,7 +3952,7 @@ class PostProcessor(object):
                             raise OSError
                         place(grab_src, grab_dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
                     except Exception as e:
-                        logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.FILE_OPTS, grab_src, e))
+                        self._log_placement_failure(module, comicarr.CONFIG.FILE_OPTS, grab_src, grab_dst, e)
                         self._log("Failed to %s %s: %s" % (comicarr.CONFIG.FILE_OPTS, grab_src, e))
                         self.valreturn.append({"self.log": self.log, "mode": "stop"})
                         return self.queue.put(self.valreturn)
@@ -4441,7 +4447,7 @@ class PostProcessor(object):
             try:
                 placement = place(filepath, dst, Purpose.SERIES, on_existing=OnExisting.DISPLACE)
             except Exception as e:
-                logger.error("%s Failed to place %s: %s" % (module, filename, e))
+                self._log_placement_failure(module, "place", filepath, dst, e)
                 self._log("Failed to move/copy manga file: %s" % filename)
                 continue
 
@@ -5151,7 +5157,7 @@ class PostProcessor(object):
             except Exception as e:
                 self._log("Failed to %s %s - check log for exact error." % (comicarr.CONFIG.FILE_OPTS, src))
                 self._log("Post-Processing ABORTED.")
-                logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.FILE_OPTS, src, e))
+                self._log_placement_failure(module, comicarr.CONFIG.FILE_OPTS, src, dst, e)
                 logger.error("%s Post-Processing ABORTED" % module)
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
                 return self.queue.put(self.valreturn)
@@ -5187,7 +5193,7 @@ class PostProcessor(object):
                     raise OSError
                 place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
             except Exception as e:
-                logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.FILE_OPTS, src, e))
+                self._log_placement_failure(module, comicarr.CONFIG.FILE_OPTS, src, dst, e)
                 logger.error("%s Post-Processing ABORTED." % module)
                 self.failed_files += 1
                 self.valreturn.append({"self.log": self.log, "mode": "stop"})
@@ -5325,7 +5331,7 @@ class PostProcessor(object):
                                 raise OSError
                             place(grab_src, grab_dst, Purpose.ARC, on_existing=OnExisting.UNGUARDED)
                         except Exception as e:
-                            logger.error("%s Failed to %s %s: %s" % (module, comicarr.CONFIG.ARC_FILEOPS, grab_src, e))
+                            self._log_placement_failure(module, comicarr.CONFIG.ARC_FILEOPS, grab_src, grab_dst, e)
                             return
 
                         self._journal_pp("moved", issuearcid=arcinfo["IssueArcID"])

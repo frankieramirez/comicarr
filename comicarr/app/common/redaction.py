@@ -10,6 +10,7 @@
 """Shared secret redaction for operator-visible diagnostic text."""
 
 import re
+import traceback
 
 _PROVIDER_STRUCTURE_PATTERN = re.compile(r"(?i)(provider_list|newznab_info|torznab_info)\s*:\s*[^\r\n]*")
 _AUTHORIZATION_PATTERN = re.compile(
@@ -37,3 +38,7 @@ def redact_sensitive_text(value, secrets=()):
     message = _NAMED_SECRET_PATTERN.sub(r"\1[redacted]\3", message)
     message = _QUERY_SECRET_PATTERN.sub(r"\1[redacted]", message)
     return _URL_USERINFO_PATTERN.sub(r"\1[redacted]@", message)
+
+
+def redacted_traceback(error):
+    return redact_sensitive_text("".join(traceback.format_exception(error)).rstrip())
