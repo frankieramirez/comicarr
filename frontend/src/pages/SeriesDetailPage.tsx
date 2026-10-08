@@ -673,9 +673,6 @@ export default function SeriesDetailPage() {
     }
   };
 
-  const ghostBtn =
-    "inline-flex items-center gap-1.5 rounded-[5px] border px-3 py-1.5 text-[12px] transition-colors hover:bg-secondary/50";
-
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col page-transition">
       <div
@@ -821,21 +818,20 @@ export default function SeriesDetailPage() {
             ) : null}
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              <Button
                 type="button"
+                size="toolbar"
                 onClick={handleOpenSearch}
                 disabled={!comicId || searchPreview.isFetching}
-                className="inline-flex items-center gap-1.5 rounded-[5px] px-3.5 py-1.5 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                style={{
-                  background: "var(--primary)",
-                  color: "var(--primary-foreground)",
-                }}
+                className="px-3.5 font-semibold"
               >
                 <Search className="h-3.5 w-3.5" />
                 Search all missing
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="toolbar"
                 onClick={() =>
                   comicId
                     ? void startReview(
@@ -857,15 +853,15 @@ export default function SeriesDetailPage() {
                   reviewableMissing === 0 ||
                   reviewSheetProps.startPending
                 }
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
                 aria-label="Interactive Search for missing issues"
               >
                 <Search className="h-3.5 w-3.5" />
                 Review missing
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="toolbar"
                 onClick={() =>
                   comicId
                     ? void startReview(
@@ -889,43 +885,41 @@ export default function SeriesDetailPage() {
                   reviewableMissing === 0 ||
                   reviewSheetProps.startPending
                 }
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
                 aria-label="Browse every indexer's releases for this series"
                 title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
               >
                 <TextSearch className="h-3.5 w-3.5" />
                 Browse releases
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="toolbar"
                 onClick={handleRefresh}
                 disabled={refreshMutation.isPending}
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
                 />
                 Refresh
-              </button>
+              </Button>
               {comicId ? (
-                <Link
-                  to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
-                  className={ghostBtn}
-                  style={{ borderColor: "var(--border)" }}
-                  aria-label="View activity for this series"
-                >
-                  <Activity className="h-3.5 w-3.5" />
-                  Activity
-                </Link>
+                <Button variant="outline" size="toolbar" asChild>
+                  <Link
+                    to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
+                    aria-label="View activity for this series"
+                  >
+                    <Activity className="h-3.5 w-3.5" />
+                    Activity
+                  </Link>
+                </Button>
               ) : null}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="toolbar"
                 onClick={handlePauseResume}
                 disabled={pauseMutation.isPending || resumeMutation.isPending}
-                className={ghostBtn}
-                style={{ borderColor: "var(--border)" }}
               >
                 {isPaused ? (
                   <Play className="h-3.5 w-3.5" />
@@ -933,43 +927,39 @@ export default function SeriesDetailPage() {
                   <Pause className="h-3.5 w-3.5" />
                 )}
                 {isPaused ? "Resume" : "Pause"}
-              </button>
+              </Button>
               {!showDeleteConfirm ? (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="toolbar"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className={ghostBtn}
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--muted-foreground)",
-                  }}
+                  className="text-muted-foreground"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete
-                </button>
+                </Button>
               ) : (
                 <>
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
+                    size="toolbar"
                     onClick={handleDelete}
                     disabled={deleteMutation.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-semibold"
-                    style={{
-                      background: "var(--status-error)",
-                      color: "white",
-                    }}
+                    className="font-semibold"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Confirm delete
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="toolbar"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className={ghostBtn}
-                    style={{ borderColor: "var(--border)" }}
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -1199,14 +1189,15 @@ export default function SeriesDetailPage() {
                 bulkSetIssueStatus.isPending || setIssueStatus.isPending
               }
               trigger={
-                <button
+                <Button
                   type="button"
-                  className={`${ghostBtn} border-border`}
+                  variant="outline"
+                  size="toolbar"
                   aria-label="Set status on selected issues"
                 >
                   Set status
                   <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+                </Button>
               }
               onSelect={(status) => void handleBulkSetStatus(status)}
             />

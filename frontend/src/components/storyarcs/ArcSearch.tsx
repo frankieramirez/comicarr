@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useFindStoryArc } from "@/hooks/useArcSearch";
 import { useContentSources } from "@/hooks/useContentSources";
+import { Button } from "@/components/ui/button";
 import FilterField from "@/components/ui/FilterField";
 import EmptyState from "@/components/ui/EmptyState";
 import ArcSearchResultCard from "./ArcSearchResultCard";
@@ -91,17 +92,14 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
           loading={searching}
           widthCap="full"
         />
-        <button
+        <Button
           type="submit"
+          size="toolbar"
           disabled={query.trim().length < 3}
-          className="inline-flex items-center gap-1 px-3 h-8 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
-          style={{
-            background: "var(--primary)",
-            color: "var(--primary-foreground)",
-          }}
+          className="font-semibold"
         >
           Search
-        </button>
+        </Button>
       </form>
 
       {error && activeQuery.length > 2 && (

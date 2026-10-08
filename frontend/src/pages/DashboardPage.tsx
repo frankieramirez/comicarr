@@ -12,6 +12,7 @@ import LibraryRow from "@/components/dashboard/LibraryRow";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { panelState, type PanelState } from "@/lib/panelState";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -179,19 +180,19 @@ export default function DashboardPage() {
             isRetrying={scanTargets.isFetching}
           />
         ) : (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="toolbar"
             onClick={() => void handleLibraryScan()}
             disabled={!canScan || scanPending}
             title={scanTitle}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border text-[12px] font-medium disabled:opacity-50"
-            style={{ borderColor: "var(--border)" }}
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${scanPending ? "animate-spin" : ""}`}
             />
             {scanPending ? "Scanning…" : "Scan libraries"}
-          </button>
+          </Button>
         )}
       </div>
 
