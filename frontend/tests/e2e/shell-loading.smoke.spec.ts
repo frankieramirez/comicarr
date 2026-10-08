@@ -9,7 +9,7 @@ test("shell defers optional requests and chunks until the drawer opens", async (
     route.fulfill({ json: { configured: true } }),
   );
   await page.route("**/api/ai/activity?*", (route) =>
-    route.fulfill({ json: [] }),
+    route.fulfill({ json: { entries: [] } }),
   );
   await page.route("**/api/system/version", async (route) => {
     const response = await route.fetch();

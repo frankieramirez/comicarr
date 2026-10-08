@@ -12,11 +12,16 @@ export interface AiActivityEntry {
   error_message?: string;
 }
 
+interface AiActivityResponse {
+  entries: AiActivityEntry[];
+}
+
 export function useAiActivity(limit = 50, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["ai", "activity", limit],
     queryFn: () =>
-      apiRequest<AiActivityEntry[]>("GET", `/api/ai/activity?limit=${limit}`),
+      apiRequest<AiActivityResponse>("GET", `/api/ai/activity?limit=${limit}`),
+    select: (data) => data.entries ?? [],
     staleTime: 30 * 1000,
     enabled: options?.enabled ?? true,
   });
