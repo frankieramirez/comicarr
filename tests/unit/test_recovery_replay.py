@@ -1921,3 +1921,61 @@ def test_unanswerable_story_arc_clears_the_S_anchor_from_nzb_name(queues, tmp_pa
     with get_engine().connect() as conn:
         left = conn.execute(select(nzblog.c.IssueID).where(nzblog.c.IssueID.in_(["902", "S902"]))).fetchall()
     assert left == [], "story-arc S anchor was stranded: %r" % (left,)
+
+
+def test_stop_rows_rotate_then_quarantine_after_recovery_bound(queues, monkeypatch, tmp_path):
+    """A legacy stop leaves post_processing open. Re-drives rotate oldest-first
+    so the cap cannot pin the same rows, then the restart bound quarantines."""
+    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
+    from comicarr.app.downloads import postprocessing
+
+    monkeypatch.setattr(recovery, "_ENQUEUE_THROTTLE_SECONDS", 0)
+    total = _MAX_INLINE_PP_REDRIVE_PER_PASS + 1
+    keys = []
+    for i in range(total):
+        rkey = journal.release_key("STOP%d" % i, "nzb.su", nzbname="S%d.cbz" % i)
+        keys.append(rkey)
+        with get_engine().begin() as conn:
+            conn.execute(
+                pipeline_journal.insert().values(
+                    release_key=rkey,
+                    stage=journal.POST_PROCESSING,
+                    stage_rank=journal.stage_rank(journal.POST_PROCESSING),
+                    updated_date="2026-05-17 00:00:%02d" % i,
+                    payload_json=json.dumps(
+                        {
+                            "issueid": "STOP%d" % i,
+                            "comicid": "C1",
+                            "nzb_name": "S%d.cbz" % i,
+                            "nzb_folder": _artifact_folder(tmp_path, "S%d" % i),
+                        }
+                    ),
+                    issueid="STOP%d" % i,
+                    provider="nzb.su",
+                    downloader_type="nzb",
+                )
+            )
+
+    attempted = []
+
+    def stop_execute(item):
+        attempted.append(item["journal_release_key"])
+        return None
+
+    monkeypatch.setattr(postprocessing, "_execute", stop_execute)
+
+    newest = keys[-1]
+    for _ in range(3):
+        recovery.replay_pipeline(probes=_probe("complete"))
+
+    assert newest in attempted, "the newest row must be re-driven within three passes"
+
+    for _ in range(MAX_RECOVERY_ATTEMPTS * 2):
+        if all((_journal_row(key) or {}).get("stage") == journal.MANUAL_REVIEW for key in keys):
+            break
+        recovery.replay_pipeline(probes=_probe("complete"))
+
+    for key in keys:
+        row = _journal_row(key)
+        assert row["stage"] == journal.MANUAL_REVIEW
+        assert str(row.get("fail_reason") or "").startswith("recovery_attempts_exhausted")

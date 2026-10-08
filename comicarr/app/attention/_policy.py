@@ -41,6 +41,7 @@ REASON_PHRASES = {
     "route_not_restart_safe": "this route can't resume after a restart",
     "download_failed_no_auto_handling": "download failed and auto-handling is off",
     "submission_rejected": "the downloader rejected the submission",
+    "recovery_attempts_exhausted": "post-processing could not finish after several restarts",
 }
 
 UNMAPPED_REASON_PHRASE = "something went wrong"

@@ -166,6 +166,66 @@ def _command(row, payload):
     }
 
 
+def _recovery_count(payload):
+    try:
+        return int((payload or {}).get("recovery_count") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _legacy_stop_result(value):
+    entries = value
+    if isinstance(value, dict):
+        entries = [value]
+    if not isinstance(entries, (list, tuple)) or not entries:
+        return False
+    first = entries[0]
+    return isinstance(first, dict) and first.get("mode") == "stop"
+
+
+def _claim_recovery(release_key, item, payload):
+    """Count one restart re-drive, or quarantine once the bound is spent."""
+    # Lazy: helpers -> downloads.service -> this module, so a module-level
+    # import of runs would cycle at startup.
+    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
+
+    recovered = _recovery_count(payload)
+    if recovered >= MAX_RECOVERY_ATTEMPTS:
+        _quarantine(item, "recovery_attempts_exhausted:post_processing", release_key)
+        return False
+    next_payload = dict(payload or {})
+    next_payload["recovery_count"] = recovered + 1
+    journal.record_transition(release_key, journal.POST_PROCESSING, payload=next_payload)
+    return True
+
+
+def _note_unfinished_claim(release_key, value):
+    """Rotate an expected stop (or other unfinished claim) out of oldest-first order."""
+    if not release_key:
+        return
+    row = journal.read_one(release_key)
+    if not row or row.get("stage") != journal.POST_PROCESSING:
+        return
+    payload = journal.load_payload(row.get("payload_json")) or {}
+    if _legacy_stop_result(value):
+        payload["fail_detail"] = "postprocess_stopped"
+    else:
+        payload.setdefault("fail_detail", "postprocess_unfinished")
+    journal.record_transition(release_key, journal.POST_PROCESSING, payload=payload)
+
+
+def _try_note_unfinished_claim(release_key, value):
+    """Rotation bookkeeping must not change a completed run's outcome."""
+    try:
+        _note_unfinished_claim(release_key, value)
+    except Exception as e:
+        logger.warn(
+            "[POST-PROCESSING] Unable to rotate unfinished claim for %s: %s",
+            release_key,
+            type(e).__name__,
+        )
+
+
 def run(request):
     """Process new work; a busy attempt leaves its journal claim untouched.
 
@@ -242,9 +302,10 @@ def run(request):
             return PostProcessResult("duplicate")
         item["journal_release_key"] = key
         step = "process"
-        result = PostProcessResult("processed", value=_execute(item))
+        value = _execute(item)
+        _try_note_unfinished_claim(key, value)
         _stamp_attention_import(item, succeeded=True)
-        return result
+        return PostProcessResult("processed", value=value)
     except MaintenanceBlocked:
         return PostProcessResult(
             "busy", detail="Post-processing is paused for maintenance; retry later", action="retry"
@@ -303,9 +364,16 @@ def recover(release_key):
         except PostProcessCommandError as e:
             _quarantine(item, "invalid_recovered_postprocess_command:%s" % type(e).__name__, release_key)
             return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
+        if not _claim_recovery(release_key, item, payload):
+            return PostProcessResult(
+                "failed",
+                detail="recovery_attempts_exhausted:post_processing",
+                action="post_processing-manual-review",
+            )
         if budget is not None:
             budget["count"] += 1
         value = _execute(item)
+        _try_note_unfinished_claim(release_key, value)
         return PostProcessResult("processed", value=value, action="post_processing-redrive")
     except MaintenanceBlocked:
         return PostProcessResult(

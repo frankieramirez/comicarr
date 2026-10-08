@@ -435,3 +435,122 @@ def test_recovered_failure_logs_the_same_context_as_a_fresh_run(monkeypatch, tmp
     assert "during process" in failure
     assert str(tmp_path) in failure
     assert "Traceback (most recent call last)" in failure
+
+
+def _stop_payload(tmp_path):
+    return {
+        "issueid": "I1",
+        "comicid": "C1",
+        "nzb_name": "Saga.001.cbz",
+        "nzb_folder": str(tmp_path),
+        "failed": False,
+        "apicall": True,
+        "ddl": False,
+    }
+
+
+def test_recover_stop_rotates_payload_then_quarantines_after_bound(monkeypatch, tmp_path):
+    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
+
+    monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
+    key = "stop-release"
+    _insert_journal(key, journal.POST_PROCESSING, payload=_stop_payload(tmp_path))
+    calls = []
+
+    def process_stop(self):
+        calls.append(self.journal_release_key)
+        self.queue.put([{"mode": "stop"}])
+
+    monkeypatch.setattr(comicarr.postprocessor.PostProcessor, "Process", process_stop)
+
+    updated = []
+    for attempt in range(MAX_RECOVERY_ATTEMPTS):
+        result = postprocessing.recover(key)
+        assert result.status == "processed"
+        assert result.action == "post_processing-redrive"
+        row = _row(key)
+        assert row["stage"] == journal.POST_PROCESSING
+        payload = json.loads(row["payload_json"])
+        assert payload["recovery_count"] == attempt + 1
+        assert payload["fail_detail"] == "postprocess_stopped"
+        updated.append(row["updated_date"])
+
+    assert len(calls) == MAX_RECOVERY_ATTEMPTS
+    assert updated[-1] >= updated[0]
+
+    result = postprocessing.recover(key)
+    assert result.status == "failed"
+    assert result.action == "post_processing-manual-review"
+    row = _row(key)
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert row["fail_reason"] == "recovery_attempts_exhausted:post_processing"
+    assert len(calls) == MAX_RECOVERY_ATTEMPTS
+
+
+def test_recover_bound_follows_run_ledger_constant(monkeypatch, tmp_path):
+    import comicarr.app.acquisition.runs as runs
+
+    monkeypatch.setattr(runs, "MAX_RECOVERY_ATTEMPTS", 1)
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: None)
+    key = "bound-release"
+    _insert_journal(key, journal.POST_PROCESSING, payload=_stop_payload(tmp_path))
+
+    first = postprocessing.recover(key)
+    assert first.status == "processed"
+    assert json.loads(_row(key)["payload_json"])["recovery_count"] == 1
+
+    second = postprocessing.recover(key)
+    assert second.status == "failed"
+    assert second.detail == "recovery_attempts_exhausted:post_processing"
+    assert _row(key)["stage"] == journal.MANUAL_REVIEW
+
+
+def test_recover_bookkeeping_failure_does_not_quarantine(monkeypatch, tmp_path):
+    key = "bookkeeping-release"
+    _insert_journal(key, journal.POST_PROCESSING, payload=_stop_payload(tmp_path))
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: None)
+    original = journal.record_transition
+    writes = {"n": 0}
+
+    def flaky(release_key, stage, **kwargs):
+        writes["n"] += 1
+        if writes["n"] > 1:
+            raise RuntimeError("locked")
+        return original(release_key, stage, **kwargs)
+
+    monkeypatch.setattr(journal, "record_transition", flaky)
+
+    result = postprocessing.recover(key)
+
+    assert result.status == "processed"
+    assert result.action == "post_processing-redrive"
+    row = _row(key)
+    assert row["stage"] == journal.POST_PROCESSING
+    assert row.get("fail_reason") in (None, "")
+
+
+def test_recover_move_failure_still_redrives_before_the_bound(monkeypatch, tmp_path):
+    key = "move-fail-release"
+    _insert_journal(
+        key,
+        journal.POST_PROCESSING,
+        payload={
+            "issueid": "I1",
+            "comicid": "C1",
+            "nzb_name": "Saga.001.cbz",
+            "nzb_folder": str(tmp_path),
+            "failed": False,
+            "apicall": True,
+            "ddl": False,
+        },
+    )
+    calls = []
+    monkeypatch.setattr(postprocessing, "_execute", lambda item: calls.append(item))
+
+    first = postprocessing.recover(key)
+    second = postprocessing.recover(key)
+
+    assert first.action == "post_processing-redrive"
+    assert second.action == "post_processing-redrive"
+    assert _row(key)["stage"] == journal.POST_PROCESSING
+    assert len(calls) == 2
