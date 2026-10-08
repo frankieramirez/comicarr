@@ -25,23 +25,19 @@ interface MatchModalProps {
   importGroup: ImportGroup | null;
   onMatch: (comicId: string, comicName: string) => void;
   isMatching?: boolean;
+  triggerRowId?: string | null;
+  triggerElement?: HTMLElement | null;
 }
 
-function resolveFocusTarget(trigger: HTMLElement | null): HTMLElement | null {
+function resolveFocusTarget(
+  trigger: HTMLElement | null,
+  rowId?: string | null,
+): HTMLElement | null {
   if (trigger?.isConnected) return trigger;
-  const label =
-    trigger?.getAttribute("aria-label") ?? trigger?.textContent?.trim();
-  if (!label) return null;
-  const named = document.querySelectorAll<HTMLElement>(
-    "button, [href], input, select, textarea, [tabindex]",
-  );
-  for (const node of named) {
-    if (
-      node.getAttribute("aria-label") === label ||
-      node.textContent?.trim() === label
-    ) {
-      return node;
-    }
+  if (!rowId) return null;
+  const matches = document.querySelectorAll<HTMLElement>("[data-import-match]");
+  for (const node of matches) {
+    if (node.getAttribute("data-import-match") === rowId) return node;
   }
   return null;
 }
@@ -52,6 +48,7 @@ function MatchModalContent({
   onMatch,
   isMatching = false,
   finalFocus,
+  triggerRowId,
 }: Omit<MatchModalProps, "isOpen"> & {
   finalFocus: RefObject<HTMLElement | null>;
 }) {
@@ -104,7 +101,7 @@ function MatchModalContent({
   return (
     <DialogContent
       className="max-h-[80vh] max-w-2xl gap-0 overflow-hidden p-0 sm:rounded-lg"
-      finalFocus={() => resolveFocusTarget(finalFocus.current)}
+      finalFocus={() => resolveFocusTarget(finalFocus.current, triggerRowId)}
     >
       <DialogHeader className="space-y-1 border-b border-border p-4 pr-12 text-left">
         <DialogTitle>Match Import</DialogTitle>
@@ -263,11 +260,21 @@ export default function MatchModal({
   importGroup,
   onMatch,
   isMatching = false,
+  triggerRowId = null,
+  triggerElement = null,
 }: MatchModalProps) {
   const [keepMounted, setKeepMounted] = useState(isOpen);
   const [heldGroup, setHeldGroup] = useState(importGroup);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const heldRowIdRef = useRef<string | null>(triggerRowId ?? null);
   const mounted = isOpen || keepMounted;
+
+  if (triggerElement) {
+    triggerRef.current = triggerElement;
+  }
+  if (triggerRowId) {
+    heldRowIdRef.current = triggerRowId;
+  }
 
   if (isOpen && !keepMounted) {
     setKeepMounted(true);
@@ -298,9 +305,10 @@ export default function MatchModal({
       onOpenChange={(open) => {
         if (!open) {
           const trigger = triggerRef.current;
+          const rowId = heldRowIdRef.current;
           onClose();
           requestAnimationFrame(() => {
-            resolveFocusTarget(trigger)?.focus();
+            resolveFocusTarget(trigger, rowId)?.focus();
           });
         }
       }}
@@ -316,6 +324,7 @@ export default function MatchModal({
           onMatch={onMatch}
           isMatching={isMatching}
           finalFocus={triggerRef}
+          triggerRowId={heldRowIdRef.current}
         />
       ) : null}
     </Dialog>

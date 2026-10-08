@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   MoreHorizontal,
@@ -10,7 +10,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,7 +54,12 @@ function ArcIssueRowMenu({
   onInteractiveSearch: (issue: ArcIssue) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmRef = useRef<HTMLDivElement>(null);
   const triggerLabel = `Actions for ${issue.ComicName} #${issue.IssueNumber}`;
+
+  useLayoutEffect(() => {
+    if (confirmDelete) confirmRef.current?.focus();
+  }, [confirmDelete]);
 
   return (
     <DropdownMenu
@@ -120,24 +125,21 @@ function ArcIssueRowMenu({
 
         <DropdownMenuSeparator />
         {confirmDelete ? (
-          <div className="flex items-center gap-1 px-1 py-1">
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-7 flex-1 px-2 text-xs"
+          <>
+            <DropdownMenuItem
+              ref={confirmRef}
+              className="text-destructive focus:text-destructive"
               onClick={() => onRemove(issue.IssueArcID)}
             >
               Confirm
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 flex-1 px-2 text-xs"
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              closeOnClick={false}
               onClick={() => setConfirmDelete(false)}
             >
               Cancel
-            </Button>
-          </div>
+            </DropdownMenuItem>
+          </>
         ) : (
           <DropdownMenuItem
             closeOnClick={false}
