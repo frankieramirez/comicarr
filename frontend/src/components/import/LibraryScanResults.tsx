@@ -132,6 +132,7 @@ export default function LibraryScanResults({
               }
             >
               <Checkbox
+                aria-label={`Select ${result.series_name}`}
                 checked={isSelected}
                 disabled={!isSelectable}
                 onChange={() =>

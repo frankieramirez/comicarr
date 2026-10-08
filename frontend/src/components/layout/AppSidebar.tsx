@@ -211,6 +211,7 @@ export default function AppSidebar() {
             <TooltipTrigger asChild>
               <button
                 onClick={() => navigate("/search")}
+                aria-label="Search"
                 className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <Search className="w-4 h-4" />

@@ -36,12 +36,14 @@ export function useWantedColumns() {
           id: "select",
           header: ({ table }) => (
             <Checkbox
+              aria-label="Select all rows"
               checked={getIsAllSelected(table)}
               onCheckedChange={(value) => toggleAllSelected(table, !!value)}
             />
           ),
           cell: ({ row }) => (
             <Checkbox
+              aria-label={`Select ${row.original.ComicName}`}
               checked={row.getIsSelected()}
               onCheckedChange={(value) => row.toggleSelected(!!value)}
               onClick={(e) => e.stopPropagation()}

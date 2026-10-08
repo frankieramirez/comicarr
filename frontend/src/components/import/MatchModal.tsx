@@ -91,7 +91,12 @@ function MatchModalContent({
               </p>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Close"
+          >
             <X className="w-4 h-4" />
           </Button>
         </div>
