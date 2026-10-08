@@ -74,9 +74,9 @@ export function DataTable<TData extends RowData>({
                       onRowClick ? () => onRowClick(row.original) : undefined
                     }
                     {...(onRowClick && {
-                      role: "link",
                       tabIndex: 0,
                       onKeyDown: (event: KeyboardEvent) => {
+                        if (event.target !== event.currentTarget) return;
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           onRowClick(row.original);

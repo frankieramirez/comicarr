@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
-import { waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { render, renderMinimal, screen } from "../test-utils";
 import { server } from "../mocks/server";
@@ -24,14 +25,23 @@ function seriesRow(id: string, name: string): Comic {
   } as Comic;
 }
 
-function WantedHarness({ rows }: { rows: Issue[] }) {
+function WantedHarness({
+  rows,
+  onSelectionChange,
+}: {
+  rows: Issue[];
+  onSelectionChange?: (ids: string[]) => void;
+}) {
   const columns = useWantedColumns();
-  const { table } = useTableState({
+  const { table, selectedIds } = useTableState({
     data: rows,
     columns,
     getRowId: (row) => row.IssueID,
     selection: { scope: "filtered" },
   });
+  useEffect(() => {
+    onSelectionChange?.(selectedIds);
+  }, [selectedIds, onSelectionChange]);
   return <WantedTable table={table} />;
 }
 
@@ -85,6 +95,8 @@ describe("keyboard row activation", () => {
     );
 
     const wantedTitle = screen.getByRole("link", { name: "East of West" });
+    expect(wantedTitle.tagName).toBe("A");
+    expect(wantedTitle.getAttribute("href")).toBe("/library/4050-2");
     wantedTitle.focus();
     await user.keyboard("{Enter}");
     expect(window.location.pathname).toBe("/library/4050-2");
@@ -134,5 +146,37 @@ describe("keyboard row activation", () => {
     await waitFor(() => {
       expect(matchSelected).toHaveProperty("disabled", false);
     });
+  });
+
+  it("selects a Wanted row with Space on the checkbox without navigating", async () => {
+    window.history.pushState({}, "", "/wanted");
+    let selectedIds: string[] = [];
+    render(
+      <WantedHarness
+        rows={[
+          {
+            IssueID: "issue-1",
+            ComicID: "4050-2",
+            ComicName: "East of West",
+            Issue_Number: "1",
+            IssueName: "Chapter 1",
+            IssueDate: "2026-01-01",
+            Status: "Wanted",
+          } as Issue,
+        ]}
+        onSelectionChange={(ids) => {
+          selectedIds = ids;
+        }}
+      />,
+    );
+
+    const rowCheckbox = screen.getAllByRole("checkbox").slice(1)[0];
+    rowCheckbox.focus();
+    fireEvent.keyDown(rowCheckbox, { key: " ", code: "Space" });
+    fireEvent.keyUp(rowCheckbox, { key: " ", code: "Space" });
+    await waitFor(() => {
+      expect(selectedIds).toEqual(["issue-1"]);
+    });
+    expect(window.location.pathname).toBe("/wanted");
   });
 });
