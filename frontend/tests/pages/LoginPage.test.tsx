@@ -77,4 +77,35 @@ describe("LoginPage", () => {
       });
     });
   });
+
+  it("announces failed sign-in as an alert", async () => {
+    server.use(
+      http.get("/api/auth/check-setup", () => {
+        return HttpResponse.json({ success: true, needs_setup: false });
+      }),
+      http.get("/api/auth/check-session", () => {
+        return HttpResponse.json({ success: true, authenticated: false });
+      }),
+      http.post("/api/auth/login", () => {
+        return HttpResponse.json({
+          success: false,
+          error: "Invalid username or password",
+        });
+      }),
+    );
+
+    render(<LoginPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Sign in")).toBeTruthy();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText("username"), "wronguser");
+    await userEvent.type(screen.getByPlaceholderText("password"), "wrongpass");
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Invalid username or password");
+  });
 });
+
