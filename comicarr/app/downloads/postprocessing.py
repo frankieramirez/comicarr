@@ -16,6 +16,7 @@ from functools import wraps
 import comicarr
 from comicarr import logger
 from comicarr.app.attention import ManualReview, record
+from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 
@@ -101,6 +102,17 @@ def _quarantine(item, reason, release_key=None):
         logger.error("[POST-PROCESSING] Unable to record failure for %s: %s", key, type(e).__name__)
 
 
+def _log_failure(key, step, item, error):
+    logger.error(
+        "[POST-PROCESSING] Execution failed for %s during %s (nzb_name=%s, nzb_folder=%s)\n%s",
+        key,
+        step,
+        item.get("nzb_name"),
+        item.get("nzb_folder"),
+        redacted_traceback(error),
+    )
+
+
 def _command(row, payload):
     payload = payload or {}
     return {
@@ -143,6 +155,7 @@ def run(request):
         return PostProcessResult("busy", detail="Post-processing is busy; retry later", action="retry")
     controller = None
     lease = None
+    step = "maintenance lease"
     try:
         controller = MaintenanceController()
         lease = controller.acquire_lease("postprocess-worker", "postprocess", entity_type="release", entity_id=key)
@@ -152,6 +165,7 @@ def run(request):
             # A manual folder can discover many releases on successive runs.
             # Claiming its display name would suppress every subsequent scan.
             item["journal_release_key"] = None
+            step = "process"
             return PostProcessResult("processed", value=_execute(item))
         try:
             won = journal.record_transition(
@@ -184,6 +198,7 @@ def run(request):
         if not won:
             return PostProcessResult("duplicate")
         item["journal_release_key"] = key
+        step = "process"
         return PostProcessResult("processed", value=_execute(item))
     except MaintenanceBlocked:
         return PostProcessResult(
@@ -194,7 +209,7 @@ def run(request):
         return PostProcessResult("failed", detail=str(e))
     except Exception as e:
         _quarantine(item, "postprocess_error:%s" % type(e).__name__, key)
-        logger.error("[POST-PROCESSING] Execution failed: %s", e)
+        _log_failure(key, step, item, e)
         return PostProcessResult("failed", detail=str(e))
     finally:
         try:
@@ -253,6 +268,7 @@ def recover(release_key):
         if item is None:
             raise
         _quarantine(item, "recovered_postprocess_error:%s" % type(e).__name__, release_key)
+        _log_failure(release_key, "process", item, e)
         return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
     finally:
         try:

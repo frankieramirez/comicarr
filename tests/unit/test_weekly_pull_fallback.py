@@ -58,6 +58,7 @@ def test_pullit_uses_cached_week_when_upstream_fails(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -81,6 +82,7 @@ def test_pullit_still_fails_without_cached_week(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -102,6 +104,7 @@ def test_pullit_forwards_origin_outage_on_cached_week(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -135,6 +138,7 @@ def test_pullit_surfaces_retry_hint_when_serving_cached_week(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -160,6 +164,7 @@ def test_pullit_forwards_origin_outage_cause_on_failure(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -194,6 +199,7 @@ def test_pullit_surfaces_retry_hint_on_failure(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,
@@ -219,6 +225,7 @@ def test_pullit_drops_origin_metadata_when_later_week_fails_without_origin(monke
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
+    config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
         weeklypull.helpers,

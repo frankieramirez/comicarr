@@ -25,6 +25,7 @@ import rarfile
 import comicarr
 from comicarr import db, getcomics, logger, nzbget, sabnzbd
 from comicarr.app.attention import BATCH_CAP, PROBLEM_STATUS, Failure, ManualReview, record
+from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
@@ -1111,11 +1112,13 @@ def ddl_downloader(queue):
         except Exception as e:
             item = active_item["value"]
             item_id = None
+            site = None
             if isinstance(item, dict):
                 item_id = item.get("id") or item.get("ID")
+                site = item.get("site")
             logger.error(
-                "[DOWNLOADS-DDL] DDL worker rejected item%s; continuing with the next command: %s"
-                % ((" id=%s" % item_id) if item_id else "", e)
+                "[DOWNLOADS-DDL] DDL worker rejected item%s (site=%s); continuing with the next command\n%s"
+                % ((" id=%s" % item_id) if item_id else "", site, redacted_traceback(e))
             )
             if item_id:
                 try:
@@ -1307,8 +1310,9 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                 continue
             except Exception as e:
                 logger.error(
-                    "[DOWNLOADS-DDL] external outcome for id=%s requires review; not re-downloading: %s"
-                    % (item.get("id"), type(e).__name__)
+                    "[DOWNLOADS-DDL] external outcome for id=%s (site=%s, link_type=%s, series=%s) requires review; "
+                    "not re-downloading: %s"
+                    % (item.get("id"), item.get("site"), item.get("link_type"), item.get("series"), type(e).__name__)
                 )
                 try:
                     current = journal.read_one(ddl_rkey)

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from comicarr import logger
 from comicarr.app.attention import Failure, ManualReview, record
+from comicarr.app.common.redaction import redact_sensitive_text, redacted_traceback
 
 
 class HandoffError(RuntimeError):
@@ -226,6 +227,22 @@ def record_acceptance(release_key, route, response, payload=None, **fields):
     return RouteAcceptance(normalized, str(identity), True, False)
 
 
+def _log_handoff_failure(release_key, route, step, fields, error):
+    if isinstance(error, HandoffError):
+        detail = ": " + redact_sensitive_text(error)
+    else:
+        detail = "\n" + redacted_traceback(error)
+    logger.error(
+        "[HANDOFF] %s handoff for %s failed during %s (provider=%s, nzbname=%s)%s",
+        route,
+        release_key,
+        step,
+        fields.get("provider"),
+        fields.get("nzbname"),
+        detail,
+    )
+
+
 def perform_handoff(
     release_key,
     route,
@@ -237,13 +254,14 @@ def perform_handoff(
     **fields,
 ):
     """Hold a maintenance lease across reservation, send and acceptance."""
-    from comicarr.app.acquisition.maintenance import MaintenanceController
+    from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController
     from comicarr.app.downloads import journal
 
     normalized = normalize_route(route)
     controller = MaintenanceController()
     with controller.handoff_lease(owner, release_key, normalized) as lease:
         outcome = "failed_before_submission"
+        step = "reservation"
         try:
             controller.assert_lease_current(lease)
             if resume_accepted:
@@ -253,6 +271,7 @@ def perform_handoff(
             else:
                 reserve(release_key, normalized, payload=payload, **fields)
             controller.assert_lease_current(lease)
+            step = "submission"
             try:
                 response = sender()
             except Exception as e:
@@ -273,6 +292,7 @@ def perform_handoff(
                         % (release_key, type(record_error).__name__)
                     )
                 raise
+            step = "acceptance"
             acceptance = record_acceptance(
                 release_key,
                 normalized,
@@ -281,12 +301,15 @@ def perform_handoff(
                 **fields,
             )
             if finalizer is not None:
+                step = "finalization"
                 finalizer(response, acceptance)
             outcome = "accepted" if acceptance.restart_safe else "manual_review"
             return response, acceptance
-        except Exception:
+        except Exception as e:
             if outcome == "failed_before_submission":
                 outcome = "handoff_failed"
+            if not isinstance(e, MaintenanceBlocked):
+                _log_handoff_failure(release_key, normalized, step, fields, e)
             raise
         finally:
             controller.complete_canary_handoff(lease, outcome)

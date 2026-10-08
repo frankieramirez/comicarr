@@ -695,3 +695,85 @@ def test_ddl_persistent_reservation_failure_never_hot_loops(monkeypatch, capture
     assert rows[0]["ID"] == "ddl-cap"
     assert rows[0]["status"] == "Failed"
     assert _rows(pipeline_journal) == []
+
+
+def _failure_line(capture_logs, marker):
+    return next(r for r in capture_logs.records if marker in r.getMessage()).getMessage()
+
+
+def test_client_submission_failure_logs_route_release_provider_and_redacted_traceback(capture_logs):
+    def sender():
+        raise ConnectionError(
+            "refused by https://user:hunter2@sab.local/api?apikey=SECRET2&mode=addurl\n"
+            "newznab_info: ('idx', 'https://idx.local', '1', 'TUPLEKEY')"
+        )
+
+    with pytest.raises(ConnectionError):
+        handoff.perform_handoff(
+            "submission-failed",
+            "sabnzbd",
+            sender,
+            issueid="I9",
+            provider="nzbprov",
+            nzbname="Saga.009.nzb",
+        )
+
+    failure = _failure_line(capture_logs, "[HANDOFF] sabnzbd handoff")
+    assert "submission-failed" in failure
+    assert "during submission" in failure
+    assert "nzbprov" in failure
+    assert "Saga.009.nzb" in failure
+    assert "Traceback (most recent call last)" in failure
+    assert "hunter2" not in failure
+    assert "SECRET2" not in failure
+    assert "TUPLEKEY" not in failure
+
+
+def test_expected_reservation_failure_logs_one_line_without_traceback(monkeypatch, capture_logs):
+    monkeypatch.setattr(handoff, "reserve", MagicMock(side_effect=handoff.HandoffReservationError("db down")))
+
+    with pytest.raises(handoff.HandoffReservationError):
+        handoff.perform_handoff("reserve-failed", "sabnzbd", lambda: None, provider="nzbprov")
+
+    failure = _failure_line(capture_logs, "[HANDOFF] sabnzbd handoff")
+    assert "reserve-failed" in failure
+    assert "during reservation" in failure
+    assert "db down" in failure
+    assert "Traceback" not in failure
+
+
+def test_ddl_download_failure_logs_site_link_type_and_traceback(monkeypatch, capture_logs):
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    class BrokenGC:
+        def downloadit(self, **_kwargs):
+            raise OSError("disk unavailable for https://getcomics.example/dl?token=SECRET3")
+
+    monkeypatch.setattr(service.getcomics, "GC", BrokenGC)
+    _run_ddl_once(_ddl_item(idv="ddl-ctx", issueid="DCTX"))
+
+    handoff_failure = _failure_line(capture_logs, "[HANDOFF] ddl handoff")
+    assert "during submission" in handoff_failure
+    assert "Traceback (most recent call last)" in handoff_failure
+    assert "SECRET3" not in handoff_failure
+    summary = _failure_line(capture_logs, "external outcome")
+    assert "ddl-ctx" in summary
+    assert "DDL(GetComics)" in summary
+    assert "GC-Main" in summary
+    assert "Saga DDL" in summary
+
+
+def test_rejected_ddl_item_logs_identity_and_redacted_traceback(monkeypatch, capture_logs):
+    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+
+    def malformed(_item):
+        raise ValueError("bad command from https://getcomics.example/dl?token=SECRET4")
+
+    monkeypatch.setattr(service.DDLCommand, "from_mapping", staticmethod(malformed))
+    _run_ddl_once(_ddl_item(idv="ddl-poison", issueid="DPOI"))
+
+    failure = _failure_line(capture_logs, "DDL worker rejected item")
+    assert "ddl-poison" in failure
+    assert "DDL(GetComics)" in failure
+    assert "Traceback (most recent call last)" in failure
+    assert "SECRET4" not in failure
