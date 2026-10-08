@@ -121,6 +121,13 @@ def _reservation_refusal(release_key):
     except Exception:
         return default
     stage = current.get("stage")
+    if stage == journal.POST_PROCESSED:
+        detail = "%s is post_processed; library still holds this issue" % release_key
+        logger.warn(
+            "[HANDOFF] reservation refused: %s. Re-want the issue or remove the "
+            "library file before grabbing this provider again." % detail
+        )
+        return "handoff blocked: %s" % detail
     if stage != journal.MANUAL_REVIEW:
         return default
     detail = "%s awaiting operator review (%s)" % (release_key, current.get("fail_reason") or "no reason recorded")

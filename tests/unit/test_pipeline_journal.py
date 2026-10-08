@@ -20,7 +20,8 @@ import comicarr
 from comicarr import db
 from comicarr.app.downloads import journal
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import issues, metadata, pipeline_journal
+from comicarr.app.downloads import handoff
+from comicarr.tables import comics, issues, metadata, pipeline_journal
 
 
 @pytest.fixture(autouse=True)
@@ -214,21 +215,86 @@ def test_reservation_after_failed_resets_row_and_clears_attempt_identity(capture
     assert _row(key)["stage"] == "downloaded"
 
 
-def test_snatched_against_post_processed_still_noop(capture_logs):
-    """Only failed->snatched is special-cased. A `snatched` write against a
-    post_processed row keeps the existing monotonic no-op behavior."""
-    key = journal.release_key("401", "prov")
-    journal.record_transition(key, journal.SNATCHED)
+def _complete_post_processed(key, issueid, provider):
+    journal.record_transition(key, journal.SNATCHED, issueid=issueid, provider=provider)
     journal.record_transition(key, journal.DOWNLOADED)
     journal.record_transition(key, journal.POST_PROCESSING)
     journal.record_transition(key, journal.MOVED)
     journal.record_transition(key, journal.POST_PROCESSED)
+
+
+def _seed_library_issue(tmp_path, *, issueid, status, with_file):
+    series_dir = tmp_path / "library" / "Saga"
+    series_dir.mkdir(parents=True, exist_ok=True)
+    location = None
+    if with_file:
+        issue_file = series_dir / ("%s.cbz" % issueid)
+        issue_file.write_bytes(b"x")
+        location = str(issue_file)
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID="c1", ComicLocation=str(series_dir)))
+        conn.execute(
+            issues.insert().values(
+                IssueID=issueid,
+                ComicID="c1",
+                ComicName="Saga",
+                Status=status,
+                Location=location,
+            )
+        )
+
+
+def test_snatched_against_post_processed_still_noop_when_library_holds(tmp_path, capture_logs):
+    """A post_processed row still blocks same-provider re-snatch while the
+    library holds a verified Downloaded file."""
+    key = journal.release_key("401", "prov")
+    _seed_library_issue(tmp_path, issueid="401", status="Downloaded", with_file=True)
+    _complete_post_processed(key, "401", "prov")
 
     won = journal.record_transition(key, journal.SNATCHED)
 
     assert won is False
     assert _row(key)["stage"] == "post_processed"
     assert "no-op" in capture_logs.text
+
+
+def test_snatched_against_post_processed_resets_when_library_no_longer_holds(tmp_path, capture_logs):
+    key = journal.release_key("123", "p")
+    _seed_library_issue(tmp_path, issueid="123", status="Wanted", with_file=False)
+    _complete_post_processed(key, "123", "p")
+
+    won = journal.record_transition(key, journal.RESERVED)
+
+    assert won is True
+    row = _row(key)
+    assert row["stage"] == "reserved"
+    assert row["fail_reason"] is None
+    assert row.get("status") is None
+    assert "reset from terminal post_processed -> reserved" in capture_logs.text
+
+
+def test_reserve_against_held_post_processed_names_the_blocker(tmp_path):
+    key = journal.release_key("123", "p")
+    _seed_library_issue(tmp_path, issueid="123", status="Downloaded", with_file=True)
+    _complete_post_processed(key, "123", "p")
+
+    with pytest.raises(handoff.HandoffReservationError, match="post_processed") as raised:
+        handoff.reserve(key, "sabnzbd")
+
+    assert _row(key)["stage"] == "post_processed"
+    assert "post_processed" in str(raised.value)
+
+
+def test_reserve_against_unheld_post_processed_wins(tmp_path):
+    key = journal.release_key("123", "p")
+    _seed_library_issue(tmp_path, issueid="123", status="Wanted", with_file=False)
+    _complete_post_processed(key, "123", "p")
+
+    handoff.reserve(key, "sabnzbd")
+    row = _row(key)
+    assert row["stage"] == "reserved"
+    assert row["fail_reason"] is None
+    assert row.get("status") is None
 
 
 def test_downloaded_against_failed_still_noop(capture_logs):

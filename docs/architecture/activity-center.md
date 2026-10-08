@@ -197,9 +197,15 @@ is `success: true` with `partial: true` and a `results[]` entry per key, surface
   amendment from grouping).
 
 `_try_reset_terminal_attempt` is the genuine-re-snatch path only; it is not the
-operator path. It supersedes a terminal `failed` row unconditionally, and a
+operator path. It supersedes a terminal `failed` row unconditionally, a
 `manual_review` row **only once that row carries an R9 resolution stamp**
-([#562](https://github.com/frankieramirez/comicarr/issues/562)).
+([#562](https://github.com/frankieramirez/comicarr/issues/562)), and a
+`post_processed` row **only when the library no longer holds the issue**
+([#975](https://github.com/frankieramirez/comicarr/issues/975)): Status is not
+Downloaded/Archived, or `has_verified_library_file` is false. A completed
+issue that is still on disk stays blocked for that provider so a search cycle
+cannot re-grab it for a year of journal retention. Re-wanting after a deleted
+or corrupt file is a new in-flight obligation.
 
 The asymmetry is the point. An *unresolved* `manual_review` row is an open
 obligation — "the client may already have this, go look" — and it is on the band
