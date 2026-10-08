@@ -73,7 +73,10 @@ def test_deprecated_shims_cite_the_removal_version(guard):
     assert guard._parse_version(guard.SHIM_GUARD_VERSION) < guard._parse_version(guard.SHIM_REMOVAL_VERSION)
     for reason in guard.DEPRECATED_SHIMS.values():
         assert guard.SHIM_REMOVAL_VERSION in reason
-    assert guard._package_version() < guard._parse_version(guard.SHIM_GUARD_VERSION)
+    # The guard expires only while DEPRECATED_SHIMS is nonempty. After the
+    # 0.49.x deletion, package.json is allowed to be >= 0.49.0.
+    if guard.DEPRECATED_SHIMS:
+        assert guard._package_version() < guard._parse_version(guard.SHIM_GUARD_VERSION)
 
 
 def test_package_version_parse_is_stdlib_tuple(guard):
@@ -85,6 +88,13 @@ def test_package_version_parse_is_stdlib_tuple(guard):
 
 def test_shims_remain_allowed_before_guard_version(guard, monkeypatch):
     monkeypatch.setattr(guard, "_package_version", lambda: (0, 48, 9))
+    assert guard.main() == 0
+
+
+def test_empty_shims_are_not_expired_at_guard_version(guard, monkeypatch):
+    """Once the allowlist is emptied, 0.49.0 is a legal package version."""
+    monkeypatch.setattr(guard, "DEPRECATED_SHIMS", {})
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 49, 0))
     assert guard.main() == 0
 
 
