@@ -90,8 +90,8 @@ export default function HealthBand() {
       >
         {/* Two rows at the height of the resolved band, so it does not shift. */}
         <div aria-hidden="true" className="flex flex-col gap-2">
-          <div className="h-2.5 w-72 animate-pulse rounded-[2px] bg-primary/10" />
-          <div className="h-2.5 w-52 animate-pulse rounded-[2px] bg-primary/10" />
+          <div className="h-2.5 w-72 animate-pulse rounded-sm bg-primary/10" />
+          <div className="h-2.5 w-52 animate-pulse rounded-sm bg-primary/10" />
         </div>
       </div>
     );

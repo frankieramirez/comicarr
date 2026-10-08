@@ -226,7 +226,7 @@ export function SearchProviderEditor({
       </p>
 
       {providers.length === 0 ? (
-        <div className="rounded-[6px] border border-dashed px-4 py-5 text-[12px] text-muted-foreground">
+        <div className="rounded-lg border border-dashed px-4 py-5 text-[12px] text-muted-foreground">
           {copy.empty}
         </div>
       ) : (
@@ -237,7 +237,7 @@ export function SearchProviderEditor({
             return (
               <article
                 key={provider.id ?? `new-${index}`}
-                className="rounded-[6px] border p-4"
+                className="rounded-lg border p-4"
                 style={{ borderColor: "var(--border)" }}
               >
                 <div className="mb-3 flex items-center justify-between gap-3">

@@ -963,7 +963,7 @@ export default function SeriesDetailPage() {
           </div>
 
           <div
-            className="rounded-[6px] border md:col-span-2 xl:col-span-1"
+            className="rounded-lg border md:col-span-2 xl:col-span-1"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
             <div
@@ -1547,7 +1547,7 @@ export default function SeriesDetailPage() {
                 </div>
                 {run && (
                   <div
-                    className="mt-3 rounded-[4px] border px-2.5 py-2 font-mono text-[10px]"
+                    className="mt-3 rounded-md border px-2.5 py-2 font-mono text-[10px]"
                     style={{ borderColor: "var(--border)" }}
                   >
                     <div className="flex items-center justify-between gap-2">

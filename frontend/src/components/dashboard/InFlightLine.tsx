@@ -21,7 +21,7 @@ export default function InFlightLine() {
       <div className="px-5 py-2.5">
         <div
           aria-hidden="true"
-          className="h-2.5 w-40 animate-pulse rounded-[2px] bg-primary/10"
+          className="h-2.5 w-40 animate-pulse rounded-sm bg-primary/10"
         />
       </div>
     );

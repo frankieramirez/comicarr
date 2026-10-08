@@ -27,7 +27,7 @@ export default function ImportInboxSection() {
 
   return (
     <div
-      className="rounded-[6px] border px-3.5 py-3"
+      className="rounded-lg border px-3.5 py-3"
       style={{ borderColor: "var(--border)", background: "var(--card)" }}
     >
       <div className="flex items-center gap-3">

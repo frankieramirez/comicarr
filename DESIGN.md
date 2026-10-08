@@ -125,6 +125,9 @@ source of style drift in the codebase (see *Known drift*).
 
 `--radius: 0.375rem` with a derived `sm`/`md`/`lg`/`xl`/`2xl`/`3xl`/`4xl` scale in
 `@theme inline`. Use `rounded-md` etc.; don't write `rounded-[6px]`.
+`rounded-[5px]` is the named compact/toolbar Button step only; leftover 5px
+literals on chips and callouts stay until those primitives land. `check_radius_literals.py`
+rejects on-scale `2/4/6/10/14px` literals.
 
 ### Effects
 
@@ -246,6 +249,7 @@ Both gates run under `npm run lint:guards`:
 ```bash
 python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive; color utilities name a --color-* key
 python3 scripts/check_palette_classes.py  # no new palette literals
+python3 scripts/check_radius_literals.py  # no on-scale rounded-[2|4|6|10|14px]
 ```
 
 The remaining rows have no gate. Arbitrary font sizes are the obvious next

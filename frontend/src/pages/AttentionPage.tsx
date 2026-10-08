@@ -287,7 +287,7 @@ export default function AttentionPage() {
                   type="button"
                   aria-pressed={stage === id}
                   onClick={() => setStage(id)}
-                  className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                  className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
                   style={{
                     borderColor: "var(--border)",
                     background:
@@ -382,7 +382,7 @@ export default function AttentionPage() {
                         void runAction(action, keys);
                       }
                     }}
-                    className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                    className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                     style={{ borderColor: "var(--border)" }}
                   >
                     {actionLabel(action)}
@@ -570,7 +570,7 @@ function GroupPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => onAction(action, memberKeys)}
-                  className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                  className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                   style={{ borderColor: "var(--border)" }}
                 >
                   {actionLabel(action)}

@@ -407,7 +407,7 @@ export default function LoginPage() {
 
       {/* Card */}
       <div
-        className="relative z-10 w-full max-w-[380px] p-6 rounded-[10px] border bg-card"
+        className="relative z-10 w-full max-w-[380px] p-6 rounded-xl border bg-card"
         style={{
           borderColor: "var(--border)",
           boxShadow: "0 30px 80px rgba(0,0,0,0.4)",

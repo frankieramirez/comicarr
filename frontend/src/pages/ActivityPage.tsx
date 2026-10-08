@@ -693,7 +693,7 @@ function QueueView() {
                 type="button"
                 onClick={() => void handleRequeue(item)}
                 disabled={isRequeueing}
-                className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                 style={{ borderColor: "var(--border)" }}
                 aria-label={`Requeue ${item.series || item.filename || "failed direct download"}`}
                 title="Requeue this failed direct download after confirmation"

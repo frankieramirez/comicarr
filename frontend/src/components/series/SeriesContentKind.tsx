@@ -27,7 +27,7 @@ export function SeriesContentKind({
 }: SeriesContentKindProps) {
   return (
     <section
-      className="mb-3.5 max-w-[640px] rounded-[6px] border p-3"
+      className="mb-3.5 max-w-[640px] rounded-lg border p-3"
       style={{
         borderColor: "var(--border)",
         background: "color-mix(in oklab, var(--primary) 4%, var(--background))",

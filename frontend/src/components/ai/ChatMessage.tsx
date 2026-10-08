@@ -82,7 +82,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
             <BubbleContent
               className={
                 isUser
-                  ? "rounded-[14px] rounded-br-[4px] bg-card px-3.5 py-2.5 whitespace-pre-wrap"
+                  ? "rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 whitespace-pre-wrap"
                   : "text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap"
               }
             >

@@ -195,7 +195,7 @@ function ScanFailure({
   const detail = progress.progress.errors[0];
   return (
     <div
-      className="rounded-[6px] border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-[12px] text-foreground"
+      className="rounded-lg border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-[12px] text-foreground"
       role="alert"
     >
       {type === "comic" ? "Comic" : "Manga"} library scan failed
@@ -215,7 +215,7 @@ function ImportSummary({
 
   return (
     <div
-      className="rounded-[6px] border border-[var(--status-active)]/40 bg-[var(--status-active)]/10 px-3.5 py-3 text-[12px] text-foreground"
+      className="rounded-lg border border-[var(--status-active)]/40 bg-[var(--status-active)]/10 px-3.5 py-3 text-[12px] text-foreground"
       role="status"
     >
       Imported {imported} {type} series. The library has been refreshed.
@@ -250,7 +250,7 @@ function ScanTile({
 
   return (
     <div
-      className="rounded-[6px] border px-3.5 py-3"
+      className="rounded-lg border px-3.5 py-3"
       style={{ borderColor: "var(--border)", background: "var(--card)" }}
     >
       <div className="flex items-center gap-3">
