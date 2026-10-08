@@ -432,7 +432,9 @@ def _nzstat_to_raw(nzstat):
         return "absent"
     if isinstance(status, str) and status.startswith("unhandled status of:"):
         return "still"
-    if status in ("file not found", "failed_in_sab"):
+    if status == "file not found":
+        return "unplaced"
+    if status == "failed_in_sab":
         return "absent"
     return "unreachable"
 
@@ -649,6 +651,13 @@ def classify_details(row, probes=None, payload=None):
     if raw_state == "failed_no_auto_handling":
         logger.warn("[RECOVERY-CLASSIFY] %s -> failed_no_auto_handling (SAB failed, auto-handling off)" % rkey)
         details["verdict"] = GONE
+        return details
+    if raw_state == "unplaced":
+        logger.warn(
+            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (downloader finished but the "
+            "completed folder is unresolvable); recovery will quarantine for Import." % rkey
+        )
+        details["verdict"] = UNKNOWN
         return details
 
     if has_done_signal(row):

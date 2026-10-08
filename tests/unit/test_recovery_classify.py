@@ -930,8 +930,9 @@ def _sab_probe_row(issueid="SAB1"):
         ("false", {"status": False}, "absent", recovery_classify.GONE),
         ("removed", {"status": "nzb removed"}, "absent", recovery_classify.GONE),
         ("repairing", {"status": "unhandled status of: Repairing"}, "still", recovery_classify.STILL),
-        ("notfound", {"status": "file not found"}, "absent", recovery_classify.GONE),
+        ("notfound", {"status": "file not found"}, "unplaced", recovery_classify.UNKNOWN),
         ("failed", {"status": "failed_in_sab"}, "absent", recovery_classify.GONE),
+        ("noauto", {"status": "failed_no_auto_handling"}, "failed_no_auto_handling", recovery_classify.GONE),
         ("doublepp", {"status": "double-pp"}, "complete", recovery_classify.COMPLETE),
         ("paused", {"status": "queue_paused"}, "still", recovery_classify.STILL),
         ("mystery", {"status": "mystery-shape"}, "unreachable", recovery_classify.UNKNOWN),
@@ -955,6 +956,54 @@ def test_sab_queue_hit_is_still_without_calling_historycheck():
         hist.assert_not_called()
     assert details["raw_state"] == "still"
     assert details["verdict"] == recovery_classify.STILL
+
+
+def test_file_not_found_quarantines_for_manual_review(monkeypatch):
+    """SAB/NZBGet finished but the path is gone: Import, do not GONE/rewant."""
+    import queue as queue_module
+
+    from comicarr.app.downloads import recovery
+
+    pp = queue_module.Queue()
+    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    row = _sab_probe_row("FNFMR")
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "file not found"}):
+        details = recovery_classify.classify_details(row)
+        action = recovery._resolve_row(row)
+    assert details["raw_state"] == "unplaced"
+    assert details["verdict"] == recovery_classify.UNKNOWN
+    assert action == "file-not-found-manual-review"
+    assert pp.empty()
+    with get_engine().begin() as conn:
+        stored = (
+            conn.execute(select(pipeline_journal).where(pipeline_journal.c.release_key == row["release_key"]))
+            .mappings()
+            .first()
+        )
+    assert stored["stage"] == journal.MANUAL_REVIEW
+    assert stored["fail_reason"] == "done_signal_without_library_placement"
+
+
+def test_failed_no_auto_handling_is_terminal_gone(monkeypatch):
+    """PR 1047's handling-off status must drain, not sit as unreachable."""
+    import queue as queue_module
+
+    from comicarr.app.downloads import recovery
+
+    pp = queue_module.Queue()
+    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    row = _sab_probe_row("NOAUTO")
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "failed_no_auto_handling"}):
+        details = recovery_classify.classify_details(row)
+        action = recovery._resolve_row(row)
+    assert details["raw_state"] == "failed_no_auto_handling"
+    assert details["verdict"] == recovery_classify.GONE
+    assert action == "failed-no-auto-handling"
+    assert pp.empty()
 
 
 def test_nzb_removed_does_not_enqueue_pp(monkeypatch):
