@@ -130,10 +130,9 @@ The authenticated session supplies the actor.
 
 The bundled frontend uses these routes immediately. `GET /api/activity/band`
 and the existing Downloads resolution POST routes remain deprecated,
-serialization-only adapters for the release introducing this interface, then
-are removed in the immediately following release. The unused raw
-`GET /api/downloads/needs-attention` route is removed immediately; it returned
-journal rows rather than the actionable grouped contract.
+serialization-only adapters and are removed in 0.50.0 (ADR-0003 amendment).
+The unused raw `GET /api/downloads/needs-attention` route is removed immediately;
+it returned journal rows rather than the actionable grouped contract.
 
 ### Triage route (`/activity/attention`)
 

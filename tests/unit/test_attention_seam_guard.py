@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check_attention_seam.py"
@@ -46,6 +47,7 @@ def _tree(guard, monkeypatch, tmp_path, source, allowlist, rel="comicarr/app/lea
     module = tmp_path / rel
     module.parent.mkdir(parents=True, exist_ok=True)
     module.write_text(source, encoding="utf-8")
+    (tmp_path / "package.json").write_text('{"version": "0.44.0"}\n', encoding="utf-8")
 
     monkeypatch.setattr(guard, "ROOT", tmp_path)
     monkeypatch.setattr(guard, "SCAN_GLOBS", ("comicarr/**/*.py",))
@@ -63,6 +65,37 @@ def test_allowlist_is_the_union_of_its_two_categories(guard):
     assert guard.ALLOWLIST == {**guard.PERMANENT_HOOKS, **guard.DEPRECATED_SHIMS}
     assert not set(guard.PERMANENT_HOOKS) & set(guard.DEPRECATED_SHIMS)
     assert all(reason.strip() for reason in guard.ALLOWLIST.values())
+
+
+def test_deprecated_shims_cite_the_removal_version(guard):
+    """ADR-0003's dated removal is the allowlist trigger, not an unbounded 'next release'."""
+    assert guard.SHIM_REMOVAL_VERSION == "0.50.0"
+    for reason in guard.DEPRECATED_SHIMS.values():
+        assert guard.SHIM_REMOVAL_VERSION in reason
+    assert guard._package_version() < Version(guard.SHIM_REMOVAL_VERSION)
+
+
+def test_shims_remain_allowed_before_removal_version(guard, monkeypatch):
+    monkeypatch.setattr(guard, "_package_version", lambda: Version("0.49.9"))
+    assert guard.main() == 0
+
+
+def test_expired_shims_fail_once_package_version_reaches_removal(guard, monkeypatch, capsys):
+    monkeypatch.setattr(guard, "_package_version", lambda: Version("0.50.0"))
+    assert guard.main() == 1
+    err = capsys.readouterr().err
+    assert "outlived" in err
+    assert "0.50.0" in err
+
+
+def test_shim_reason_must_cite_removal_version(guard, monkeypatch, capsys):
+    monkeypatch.setattr(
+        guard,
+        "DEPRECATED_SHIMS",
+        {("comicarr/app/activity/reasons.py", "_policy"): "forgot the dated trigger"},
+    )
+    assert guard.main() == 1
+    assert "SHIM_REMOVAL_VERSION" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
