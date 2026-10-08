@@ -347,6 +347,7 @@ export default function SeriesDetailPage() {
   if (isLoading) {
     return (
       <div className="p-5 space-y-4">
+        <h1 className="sr-only">Series</h1>
         <Skeleton className="h-6 w-64" />
         <div className="grid gap-7 md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(0,1fr)_260px]">
           <Skeleton className="aspect-[2/3] w-[140px]" />

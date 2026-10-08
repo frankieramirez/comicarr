@@ -102,7 +102,10 @@ now rejects either name.
 - **Numeric / metadata**: `JetBrains Mono` via `--font-mono`, with
   `font-feature-settings: "tnum" 1` so columns of numbers align.
 - **Headings**: `h1`–`h3` are styled in `@layer base`. Don't re-specify size and
-  weight on a heading that the base layer already covers.
+  weight on a heading that the base layer already covers. Every routed page
+  exposes exactly one `h1`. `PageHeader` emits it; pages that hand-roll a
+  header (Dashboard, Releases, Library) must too. Loading and error branches
+  keep a visible or `sr-only` `h1` so the outline never disappears.
 - **No serif fonts.** Not in the app, not in mockups, not in generated assets.
 
 Two utilities exist for the dense mono-label idiom that appears throughout the

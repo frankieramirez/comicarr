@@ -11,6 +11,7 @@ export default function SeriesListPage() {
   if (error) {
     return (
       <div className="p-8">
+        <h1 className="sr-only">Library</h1>
         <ErrorDisplay
           error={error}
           title="Unable to load your library"
@@ -31,9 +32,9 @@ export default function SeriesListPage() {
       {/* Page header */}
       <div className="px-5 py-3.5 border-b border-border flex items-center gap-3">
         <div>
-          <div className="text-[18px] font-semibold tracking-tight leading-none">
+          <h1 className="text-[18px] font-semibold tracking-tight leading-none">
             Library
-          </div>
+          </h1>
           <div className="font-mono text-[11px] text-muted-foreground mt-1.5">
             {isLoading
               ? "loading…"

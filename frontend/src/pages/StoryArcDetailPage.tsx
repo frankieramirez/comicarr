@@ -16,6 +16,7 @@ export default function StoryArcDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
+        <h1 className="sr-only">Story arc</h1>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-40 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />

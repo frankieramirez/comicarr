@@ -166,9 +166,9 @@ export default function DashboardPage() {
       {/* Page header */}
       <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
         <div>
-          <div className="text-[18px] font-semibold tracking-tight">
+          <h1 className="text-[18px] font-semibold tracking-tight">
             Dashboard
-          </div>
+          </h1>
           <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
             {summary}
           </div>

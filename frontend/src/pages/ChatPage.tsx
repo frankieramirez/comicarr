@@ -493,7 +493,10 @@ export default function ChatPage() {
           Back to Comicarr
         </Button>
         <LoaderCircle className="animate-spin text-muted-foreground" />
-        <span className="sr-only">Loading Chat</span>
+        <h1 className="sr-only">Chat</h1>
+        <p className="sr-only" role="status" aria-label="Loading chat">
+          Loading chat
+        </p>
       </div>
     );
   }

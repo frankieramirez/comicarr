@@ -46,6 +46,7 @@ export default function IssueDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-6 p-5 page-transition">
+        <h1 className="sr-only">Issue</h1>
         <Skeleton className="h-5 w-64" />
         <Skeleton className="h-10 w-1/2" />
         <Skeleton className="h-40 w-full rounded-lg" />
