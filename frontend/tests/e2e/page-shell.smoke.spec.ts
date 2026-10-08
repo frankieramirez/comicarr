@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const TALL = 24;
+// Sub-pixel layout and scrollbar appearance move a pinned header by 1–2px
+// on CI (seen up to 2.15px on /wanted and /activity/attention). A real
+// unpin scrolls the header tens of pixels.
+const PINNED_Y_TOLERANCE_PX = 4;
 
 function recommendation(index: number) {
   return {
@@ -138,7 +142,9 @@ async function assertHeaderPins(page: Page) {
 
   const after = await header.boundingBox();
   expect(after).toBeTruthy();
-  expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
+  expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(
+    PINNED_Y_TOLERANCE_PX,
+  );
 
   // Width must match the main column, not the header's own wrapper.
   // Layout's padded `max-w-7xl` shell used to inset both equally, so
