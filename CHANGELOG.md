@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.42.1
+
+### Patch Changes
+
+- ab85f5b: When post-processing, a file move, a DDL download, or a hand-off to your download client fails, the log now says which step failed, names the release, provider or client, and the source and destination paths, and includes the full traceback. Passwords, API keys, and credentials in URLs are redacted from these lines.
+- 453b621: Imported files are tagged when Settings → Media Management → Write metadata on import is on. Inbox auto-import and manual import match now write ComicInfo.xml (and convert CBR to CBZ) the same way post-processed downloads do. A tagging failure leaves the imported file in place. With `cbr2cbz_only` set in config.ini, downloads and imports are now converted to CBZ; before, that setting left the CBR unchanged.
+
 ## 0.42.0
 
 ### Minor Changes
