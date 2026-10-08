@@ -40,13 +40,16 @@ describe("SettingField select", () => {
 });
 
 describe("SettingField checkbox", () => {
-  it("shows a focus ring on the visual box when the hidden input is focused", async () => {
+  it("shows a visible offset ring on a checked toggle when focused", async () => {
+    document.documentElement.classList.add("dark");
+    document.documentElement.style.setProperty("--background", "#111111");
+    document.documentElement.style.setProperty("--ring", "#ff6a1f");
     const user = userEvent.setup();
     render(
       <SettingField
         label="Enable notifications"
         type="checkbox"
-        checked={false}
+        checked={true}
         onChange={vi.fn()}
       />,
     );
@@ -57,7 +60,18 @@ describe("SettingField checkbox", () => {
     });
     expect(document.activeElement).toBe(input);
     const visual = input.nextElementSibling as HTMLElement;
-    expect(visual.className).toMatch(/peer-focus-visible:ring/);
+    expect(visual.className).toMatch(/peer-focus-visible:ring-2/);
+    expect(visual.className).toMatch(/peer-focus-visible:ring-offset-2/);
+    expect(visual.className).toMatch(
+      /peer-focus-visible:ring-offset-background/,
+    );
+    const shadow = getComputedStyle(visual).boxShadow;
+    expect(shadow).not.toBe("none");
+    expect(shadow).toMatch(/0px 0px 0px 2px|0 0 0 2px/);
+    expect(shadow).toMatch(/0px 0px 0px 4px|0 0 0 4px/);
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.removeProperty("--background");
+    document.documentElement.style.removeProperty("--ring");
   });
 });
 
