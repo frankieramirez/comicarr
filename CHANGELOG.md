@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.45.0
+
+### Minor Changes
+
+- 1fac072: Settings → Logs can search the current file or a retained log file by text, logger function, and minimum severity. Searches include older entries and complete tracebacks, show match counts and truncation, and keep provider secrets redacted in the viewer and Copy.
+
+### Patch Changes
+
+- df8729b: Success and info toasts are now announced to screen readers, and they stay on screen while hovered or focused. Failed sign-in and first-run setup errors are announced as alerts.
+- 9cc1f76: Retry, Search again, and Stop wanting on Needs attention now update the annual or story-arc they belong to, instead of creating a nameless issue and searching that. A band row with no matching library item can still be dismissed with Stop wanting.
+- 7ca5dd5: Import on Needs attention queues post-processing against that row's own journal key, then marks the band row imported when the worker finishes. A previous import of the same issue no longer silently drops the new one, and a failed or retried import no longer stacks duplicate band rows.
+- 74cccc9: Deleting a series now also removes its annuals. Annuals left behind by earlier deletes are no longer picked up by search. Story-arc issues whose series isn't in the library stay searchable.
+- b1cf9e7: Failed AI suggestions, AI activity, and What's New notes now say they are unavailable and offer retry instead of looking like there is simply nothing to show.
+- 98fb6d4: Re-wanting an issue after you delete or replace its file can grab it again from the same provider. A completed copy that is still in the library continues to block that provider.
+- 6dad72d: Series, issue, story arc, and Settings pages now show a Try Again control when a load fails, instead of a dead-end error. Missing records still show a not-found message without retry.
+- 02dab27: Discover and Needs attention now pin their page headers while the body scrolls, matching Wanted.
+- 4bbac1b: Want all on a story arc now wants skipped or ignored library issues, and still searches issues whose series isn't in the library. Add-missing leaves an earlier Skip or Ignore in place.
+- 19f9f4e: Skip and Want on Releases → Mine now update the row immediately and confirm with a toast, instead of leaving the Wanted badge in place.
+
 ## 0.44.0
 
 ### Minor Changes
