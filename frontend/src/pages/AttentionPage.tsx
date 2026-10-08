@@ -18,6 +18,7 @@ import PageShell from "@/components/layout/PageShell";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import FilterField from "@/components/ui/FilterField";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import RelativeTime from "@/components/ui/RelativeTime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -282,23 +283,13 @@ export default function AttentionPage() {
                   ["manual_review", "Manual review"],
                 ] as const
               ).map(([id, label]) => (
-                <button
+                <ToggleChip
                   key={id}
-                  type="button"
-                  aria-pressed={stage === id}
-                  onClick={() => setStage(id)}
-                  className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
-                  style={{
-                    borderColor: "var(--border)",
-                    background:
-                      stage === id
-                        ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                        : undefined,
-                    color: stage === id ? "var(--foreground)" : undefined,
-                  }}
+                  pressed={stage === id}
+                  onPressedChange={() => setStage(id)}
                 >
                   {label}
-                </button>
+                </ToggleChip>
               ))}
             </div>
             <select
