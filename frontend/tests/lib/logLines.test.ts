@@ -44,6 +44,13 @@ describe("parseLogLines", () => {
     expect(parseLogLines([line])[0].severity).toBe("ERROR");
   });
 
+  it("preserves whitespace inside whole records for the view and Copy", () => {
+    expect(parseLogLines(["  traceback detail  \n", "\n"])[0].raw).toBe(
+      "  traceback detail  ",
+    );
+    expect(parseLogLines(["  traceback detail  \n", "\n"])[1].raw).toBe("");
+  });
+
   it("strips the trailing newline the file carries", () => {
     expect(parseLogLines([`${CURRENT}\n`])[0].raw).toBe(CURRENT);
   });

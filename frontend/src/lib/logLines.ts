@@ -52,7 +52,7 @@ export function parseLogLines(raw: string[]): LogLine[] {
     if (match) {
       carried = SEVERITIES[match[2].toUpperCase()] ?? null;
     }
-    return { raw: line.replace(/\s+$/, ""), severity: carried };
+    return { raw: line.replace(/\r?\n$/, ""), severity: carried };
   });
 }
 

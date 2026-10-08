@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, FilePlus2, RefreshCw } from "lucide-react";
+import { Copy, FilePlus2, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -10,15 +10,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import {
   LOG_LINE_CHOICES,
   useLogs,
+  useLogFiles,
   useStartNewLog,
   type LogLevelContext,
 } from "@/hooks/useLogs";
 import {
-  filterByMinSeverity,
   formatRetention,
   parseLogLines,
   type LogLineSeverity,
@@ -103,9 +104,24 @@ function OverrideCallout({ level }: { level: LogLevelContext }) {
 export function LogsTab({ config, formData, onChange }: LogsTabProps) {
   const [lineCount, setLineCount] = useState<number>(LOG_LINE_CHOICES[0]);
   const [viewFilter, setViewFilter] = useState<"all" | LogLineSeverity>("all");
+  const [selector, setSelector] = useState("current");
+  const [query, setQuery] = useState("");
+  const [component, setComponent] = useState("");
+  const [submitted, setSubmitted] = useState({ query: "", component: "" });
   const { copy, isCopied } = useCopyToClipboard();
   const { addToast } = useToast();
-  const { data, isLoading, isFetching, error, refetch } = useLogs(lineCount);
+  const files = useLogFiles();
+  const { data, isLoading, isFetching, error, refetch } = useLogs(lineCount, {
+    search: {
+      selector,
+      ...submitted,
+      severity: viewFilter === "all" ? undefined : viewFilter,
+    },
+  });
+  const refresh = () => {
+    files.refetch();
+    refetch();
+  };
   const startNewLog = useStartNewLog();
 
   const handleStartNewLog = async () => {
@@ -118,6 +134,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
     }
     try {
       const result = await startNewLog.mutateAsync();
+      setSelector("current");
       addToast({
         type: "success",
         message: result.rotated
@@ -136,11 +153,13 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
 
   const level = formData.log_level ?? config.log_level ?? 1;
   const parsed = useMemo(() => parseLogLines(data?.logs ?? []), [data?.logs]);
-  const visible = useMemo(
-    () => filterByMinSeverity(parsed, viewFilter),
-    [parsed, viewFilter],
-  );
-  const text = visible.map((line) => line.raw).join("\n");
+  const text = parsed.map((line) => line.raw).join("\n");
+  const readError = error || files.error;
+  const hasError = Boolean(readError || data?.error);
+  const selectedName =
+    data?.file?.name ||
+    files.data?.files.find((file) => file.selector === selector)?.name ||
+    "the selected log file";
 
   const retention = formatRetention(config.max_logsize, config.max_logfiles);
   const effectiveName = data?.level.effective_name;
@@ -151,8 +170,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
         <div className="min-w-0">
           <div className="text-base font-medium tracking-wide">Logs</div>
           <div className="text-[13px] text-muted-foreground">
-            Last {lineCount} lines of{" "}
-            <span className="font-mono text-[12px]">comicarr.log</span>
+            Search current and retained files
             {retention ? ` · keeps ${retention}` : ""}
             {config.log_dir ? (
               <>
@@ -188,58 +206,12 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             </Select>
           </label>
 
-          <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            Show
-            <Select
-              value={viewFilter}
-              onValueChange={(next) =>
-                setViewFilter(next as "all" | LogLineSeverity)
-              }
-            >
-              <SelectTrigger
-                className="h-8 w-[11rem] text-[12.5px]"
-                aria-label="Filter log lines"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VIEW_FILTERS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-
-          <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            Lines
-            <Select
-              value={String(lineCount)}
-              onValueChange={(next) => setLineCount(Number(next))}
-            >
-              <SelectTrigger
-                className="h-8 w-[6rem] text-[12.5px]"
-                aria-label="Number of lines"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LOG_LINE_CHOICES.map((choice) => (
-                  <SelectItem key={choice} value={String(choice)}>
-                    {choice}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
+            onClick={refresh}
+            disabled={isFetching || files.isFetching}
           >
             <RefreshCw
               className={isFetching ? "size-3.5 animate-spin" : "size-3.5"}
@@ -251,7 +223,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             variant="outline"
             size="sm"
             onClick={() => copy(text)}
-            disabled={!text}
+            disabled={!text || hasError || isFetching}
           >
             <Copy className="size-3.5" />
             {isCopied ? "Copied" : "Copy"}
@@ -271,9 +243,137 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
 
       {data?.level ? <OverrideCallout level={data.level} /> : null}
 
+      <form
+        aria-label="Search log records"
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (query === submitted.query && component === submitted.component)
+            refetch();
+          else setSubmitted({ query, component });
+        }}
+      >
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
+          File
+          <Select
+            value={selector}
+            onValueChange={(next) => {
+              if (next) setSelector(next);
+            }}
+          >
+            <SelectTrigger className="h-9 w-56" aria-label="Log file">
+              <SelectValue>
+                {files.data?.files.find((file) => file.selector === selector)
+                  ?.name ||
+                  (selector === "current"
+                    ? "comicarr.log"
+                    : "Unavailable file")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {!files.data?.files.some((file) => file.selector === selector) ? (
+                <SelectItem value={selector} disabled>
+                  {data?.file?.name ||
+                    (selector === "current"
+                      ? "comicarr.log"
+                      : "Selected file")}{" "}
+                  (unavailable)
+                </SelectItem>
+              ) : null}
+              {(files.data?.files ?? []).map((file) => (
+                <SelectItem key={file.selector} value={file.selector}>
+                  {file.name} · {file.size.toLocaleString()} bytes ·{" "}
+                  {new Date(file.modified).toLocaleString()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="flex min-w-40 flex-1 flex-col gap-1 text-sm text-muted-foreground">
+          Search text
+          <Input
+            className="h-9"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            maxLength={1000}
+            placeholder="Literal text, any record line"
+          />
+        </label>
+        <label className="flex min-w-40 flex-col gap-1 text-sm text-muted-foreground">
+          Component
+          <Input
+            className="h-9"
+            value={component}
+            onChange={(event) => setComponent(event.target.value)}
+            maxLength={200}
+            placeholder="Logger function, e.g. backup_files"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Severity
+          <Select
+            value={viewFilter}
+            onValueChange={(next) =>
+              setViewFilter(next as "all" | LogLineSeverity)
+            }
+          >
+            <SelectTrigger className="h-9 w-44" aria-label="Filter log lines">
+              <SelectValue>
+                {
+                  VIEW_FILTERS.find((filter) => filter.value === viewFilter)
+                    ?.label
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {VIEW_FILTERS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Record limit
+          <Select
+            value={String(lineCount)}
+            onValueChange={(next) => setLineCount(Number(next))}
+          >
+            <SelectTrigger className="h-9 w-24" aria-label="Record limit">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LOG_LINE_CHOICES.map((choice) => (
+                <SelectItem key={choice} value={String(choice)}>
+                  {choice}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <Button type="submit" size="sm" className="h-9" disabled={isFetching}>
+          <Search className="size-3.5" />
+          Search
+        </Button>
+      </form>
+
+      {data?.file && !hasError ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          <span className="font-mono">{data.file.name}</span> ·{" "}
+          {data.lines_scanned?.toLocaleString()} lines scanned ·{" "}
+          {data.records_matched?.toLocaleString()} matched ·{" "}
+          {data.records_returned?.toLocaleString()} returned
+          {data.truncated
+            ? ` · Truncated: newest whole records only (up to ${data.record_limit?.toLocaleString()} records / 8 MiB)`
+            : " · Complete matches"}
+          {isFetching ? " · Searching…" : ""}
+        </p>
+      ) : null}
+
       {isLoading ? (
         <Skeleton className="h-[min(62vh,640px)] w-full" />
-      ) : error || data?.error ? (
+      ) : hasError ? (
         <div
           className="rounded-[5px] border px-3 py-2.5 text-[12.5px]"
           style={{
@@ -283,9 +383,19 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             color: "var(--status-error)",
           }}
         >
-          Could not read {data?.path || "the log file"}:{" "}
+          Could not read {selectedName}:{" "}
           {data?.error ||
-            (error instanceof Error ? error.message : "unknown error")}
+            (readError instanceof Error ? readError.message : "unknown error")}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-3"
+            onClick={refresh}
+            disabled={isFetching || files.isFetching}
+          >
+            Refresh files and results
+          </Button>
         </div>
       ) : (
         <pre
@@ -296,21 +406,22 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
           }}
         >
           {text ||
-            (parsed.length === 0
-              ? // An install that has just upgraded has little or no history —
-                `Nothing in comicarr.log yet.${
+            ((data?.lines_scanned ?? parsed.length) === 0
+              ? `Nothing in ${data?.file?.name || "comicarr.log"} yet.${
                   effectiveName
                     ? ` Comicarr is logging at ${data?.level.effective} (${effectiveName}) — raise the level above to capture more.`
                     : ""
                 }`
-              : "No lines match this filter.")}
+              : "No records match this search.")}
         </pre>
       )}
 
       <p className="text-[11px] text-muted-foreground">
         Provider secrets are redacted before these lines leave the server.
         Retention is set in <span className="font-mono">config.ini</span> and is
-        shown here read-only. Rotated files are not read — only the current one.
+        shown here read-only. Search scans the selected file and returns whole
+        records, including tracebacks, up to 5,000 records or 8 MiB. Component
+        matches the logger function name in either log format.
       </p>
     </div>
   );

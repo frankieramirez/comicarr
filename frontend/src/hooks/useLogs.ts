@@ -27,21 +27,42 @@ export interface LogLevelContext {
   pinned: boolean;
 }
 
+export interface LogFile {
+  selector: string;
+  name: string;
+  size: number;
+  modified: string;
+}
+
+export interface LogSearch {
+  selector: string;
+  query?: string;
+  component?: string;
+  severity?: string;
+}
+
 export interface LogsResponse {
   logs: string[];
   level: LogLevelContext;
-  requested: number;
-  path: string | null;
+  requested?: number;
+  path?: string | null;
   error?: string;
+  file?: LogFile;
+  lines_scanned?: number;
+  records_matched?: number;
+  records_returned?: number;
+  truncated?: boolean;
+  record_limit?: number;
+  byte_limit?: number;
 }
 
-/** Line counts the viewer offers. The server clamps anything beyond its own ceiling. */
+/** Tail line counts for legacy calls, or whole-record limits for searches. */
 export const LOG_LINE_CHOICES = [200, 1000, 5000] as const;
 
 export const LOGS_QUERY_KEY = ["system", "logs"] as const;
 
 /**
- * The tail of `comicarr.log`, refetched only on request.
+ * The current-file tail, or whole-record server search when `search` is supplied.
  *
  * No polling and no SSE: `activity` is this app's only narrative channel, and a
  * log surface that refetched on a timer would fight the operator's scroll
@@ -49,15 +70,31 @@ export const LOGS_QUERY_KEY = ["system", "logs"] as const;
  */
 export function useLogs(
   lines: number,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; search?: LogSearch },
 ): UseQueryResult<LogsResponse> {
   const enabled = options?.enabled ?? true;
+  const params = new URLSearchParams({ lines: String(lines) });
+  if (options?.search) {
+    for (const [key, value] of Object.entries(options.search)) {
+      if (value) params.set(key, value);
+    }
+  }
   return useQuery({
-    queryKey: [...LOGS_QUERY_KEY, lines],
+    queryKey: [...LOGS_QUERY_KEY, params.toString()],
     queryFn: () =>
-      apiRequest<LogsResponse>("GET", `/api/system/logs?lines=${lines}`),
+      apiRequest<LogsResponse>("GET", `/api/system/logs?${params}`),
     enabled,
     staleTime: 0,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
+export function useLogFiles() {
+  return useQuery({
+    queryKey: [...LOGS_QUERY_KEY, "files"],
+    queryFn: () =>
+      apiRequest<{ files: LogFile[] }>("GET", "/api/system/logs/files"),
     refetchOnWindowFocus: false,
     retry: false,
   });

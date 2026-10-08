@@ -282,5 +282,53 @@ standard `INFO :: comicarr.backup_files.539 : MainThread`. An existing
 a constraint on anything that parses the file, noted on
 [Build the Settings log viewer and level control](https://github.com/frankieramirez/comicarr/issues/617).
 
+## Searching log files
+
+Settings → Logs lists the current `comicarr.log` and numbered retained files from
+`LOG_DIR` (or the data directory's `logs` folder). `GET /api/system/logs/files`
+requires a session and returns each regular file's opaque selector, display name,
+size in bytes, and UTC modification time. The client treats selectors as opaque
+and never sends a path. The server refuses unknown selectors, symlinks, and
+non-regular files.
+
+`GET /api/system/logs?selector=…&query=…&component=…&severity=…&lines=200` searches
+the selected file. Omitting all search parameters preserves the existing
+`GET /api/system/logs?lines=…` current-file tail response. Text and component
+inputs search on submit in the viewer. File, severity, and record-limit selections
+apply to the submitted search; Refresh rereads both the file list and results.
+
+- `query` is literal, case-insensitive text. A header or any continuation line can
+  match; the response includes the entire record.
+- `component` is an exact, case-insensitive logger function name. For example,
+  `comicarr.backup_files.539` in the current format and
+  `maintenance.py:backup_files:539` in the retired format both match `backup_files`.
+  The optional `comicarr.` prefix is accepted.
+- `severity` is a minimum: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
+  Headers from both formats supply severity and component. Lines without a header
+  continue the preceding record; orphan lines form an unknown record. Unknown
+  severity or component remains visible unless an explicit filter excludes it.
+- `lines` becomes the whole-record limit for searches, from 1 to 5,000 (default
+  200). Results contain the newest matching records in file order, capped at
+  8 MiB of source text. The server drops oldest whole records to fit the byte cap.
+  A single matching record over 8 MiB, or any line over 1 MiB, returns `too_large`
+  instead of a partial record.
+
+Search scans the file line by line to the size observed at open, storing offsets
+for at most the requested number of matching records. It then reads only those
+records and runs `redact_sensitive_text` with configured provider secrets before
+returning their lines. Memory use stays bounded as the selected file grows.
+Appends after the initial size belong to the next Refresh.
+
+The response carries `file`, `lines_scanned`, `records_matched`,
+`records_returned`, `truncated`, `record_limit`, and `byte_limit`, alongside `logs`
+and the existing `level` context. The viewer shows these counts beside the results;
+Copy exports exactly the displayed text. These filters do not change capture
+levels or retention settings.
+
+Search errors carry an `error` message and a `code`: `invalid_selector` and
+`unsafe_file` (HTTP 400), `missing` (404), `changed` during rotation (409),
+`too_large` (413), or `unreadable` (503). The UI shows the error with a Refresh
+files and results action. An unavailable file never appears as an empty search.
+
 Charted under
 [Wayfinder: One log level dial, everywhere](https://github.com/frankieramirez/comicarr/issues/611).

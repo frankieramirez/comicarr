@@ -64,6 +64,7 @@ from comicarr.app.search.provider_config import (
     normalize_category_list,
     providers_from_config,
 )
+from comicarr.app.system import log_files
 from comicarr.tables import comics, jobhistory, storyarcs
 
 _rate_limiter = LoginRateLimiter()
@@ -815,19 +816,39 @@ def _log_level_context(ctx):
     }
 
 
-def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
-    """Return the tail of `comicarr.log`, with the level context the dial needs.
+def _log_dir(ctx):
+    return (getattr(ctx.config, "LOG_DIR", None) if ctx.config else None) or (
+        os.path.join(ctx.data_dir, "logs") if ctx.data_dir else None
+    )
 
-    Only the current file: rotated `comicarr.log.1` and friends are deliberately
-    unreachable here, and there is no pagination — the surface exists so an
-    operator can raise the level, reproduce, and paste, not to browse history.
-    """
+
+def _log_provider_secrets(ctx):
+    provider_secrets = []
+    if ctx.config:
+        for attr_name in ("EXTRA_NEWZNABS", "EXTRA_TORZNABS"):
+            for entry in getattr(ctx.config, attr_name, []) or []:
+                if isinstance(entry, (list, tuple)) and len(entry) > 3:
+                    provider_secrets.append(entry[3])
+    return provider_secrets
+
+
+def list_log_files(ctx):
+    return log_files.list_files(_log_dir(ctx))
+
+
+def search_logs(ctx, selector="current", query="", component="", severity=None, limit=DEFAULT_LOG_LINES):
+    return {
+        **log_files.search_file(_log_dir(ctx), selector, query, component, severity, limit, _log_provider_secrets(ctx)),
+        "level": _log_level_context(ctx),
+    }
+
+
+def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
+    """Legacy current-file tail; selected whole-record searches use search_logs."""
     requested = max(1, min(int(lines or DEFAULT_LOG_LINES), MAX_LOG_LINES))
     level = _log_level_context(ctx)
 
-    log_dir = getattr(ctx.config, "LOG_DIR", None) if ctx.config else None
-    if not log_dir:
-        log_dir = os.path.join(ctx.data_dir, "logs") if ctx.data_dir else None
+    log_dir = _log_dir(ctx)
 
     if not log_dir:
         return {"logs": [], "level": level, "requested": requested, "path": None}
@@ -839,12 +860,7 @@ def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
     try:
         with open(log_file, "r") as f:
             tail = deque(f, maxlen=requested)
-        provider_secrets = []
-        if ctx.config:
-            for attr_name in ("EXTRA_NEWZNABS", "EXTRA_TORZNABS"):
-                for entry in getattr(ctx.config, attr_name, []) or []:
-                    if isinstance(entry, (list, tuple)) and len(entry) > 3:
-                        provider_secrets.append(entry[3])
+        provider_secrets = _log_provider_secrets(ctx)
         return {
             "logs": [redact_sensitive_text(line, provider_secrets) for line in tail],
             "level": level,
@@ -853,7 +869,13 @@ def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
         }
     except Exception as e:
         logger.error("[SYSTEM] Error reading logs: %s" % e)
-        return {"logs": [], "level": level, "requested": requested, "path": log_file, "error": str(e)}
+        return {
+            "logs": [],
+            "level": level,
+            "requested": requested,
+            "path": log_file,
+            "error": "Cannot read the current log file. Check permissions and Refresh.",
+        }
 
 
 def start_new_log(ctx):
