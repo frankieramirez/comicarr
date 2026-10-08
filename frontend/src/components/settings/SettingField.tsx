@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,15 @@ export function SettingField({
   placeholder,
   min,
 }: SettingFieldProps) {
-  const fieldId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  const uid = useId();
+  const fieldId = uid;
+  const helpId = `${uid}-help`;
+  const errorId = `${uid}-error`;
+  const describedBy =
+    [helpText ? helpId : null, error ? errorId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
+  const testId = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
   const [checkboxFocused, setCheckboxFocused] = useState(false);
 
   if (type === "checkbox") {
@@ -69,6 +77,7 @@ export function SettingField({
       >
         <input
           id={fieldId}
+          data-testid={testId}
           type="checkbox"
           checked={!!checked}
           onChange={(e) => onChange(e.target.checked)}
@@ -98,12 +107,16 @@ export function SettingField({
         <span className="flex-1 min-w-0">
           <span className="block text-[13px] font-medium">{label}</span>
           {helpText && (
-            <span className="block text-[11.5px] text-muted-foreground mt-0.5">
+            <span
+              id={helpId}
+              className="block text-[11.5px] text-muted-foreground mt-0.5"
+            >
               {helpText}
             </span>
           )}
           {error && (
             <span
+              id={errorId}
               className="block text-[11.5px] mt-0.5"
               style={{ color: "var(--status-error)" }}
             >
@@ -154,7 +167,11 @@ export function SettingField({
             onValueChange={onChange}
             disabled={readOnly}
           >
-            <SelectTrigger id={fieldId}>
+            <SelectTrigger
+              id={fieldId}
+              data-testid={testId}
+              aria-describedby={describedBy}
+            >
               <SelectValue placeholder={placeholder || "Select…"}>
                 {selectedLabel}
               </SelectValue>
@@ -169,10 +186,13 @@ export function SettingField({
           </Select>
         </div>
         {helpText && (
-          <p className="text-[11px] text-muted-foreground mt-1">{helpText}</p>
+          <p id={helpId} className="text-[11px] text-muted-foreground mt-1">
+            {helpText}
+          </p>
         )}
         {error && (
           <p
+            id={errorId}
             className="text-[11px] mt-1"
             style={{ color: "var(--status-error)" }}
           >
@@ -191,28 +211,35 @@ export function SettingField({
       {type === "textarea" ? (
         <Textarea
           id={fieldId}
+          data-testid={testId}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={3}
+          aria-describedby={describedBy}
           className="mt-1.5 font-mono"
         />
       ) : (
         <Input
           id={fieldId}
+          data-testid={testId}
           type={type}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           min={type === "number" ? min : undefined}
+          aria-describedby={describedBy}
           className="mt-1.5"
         />
       )}
       {helpText && (
-        <p className="text-[11px] text-muted-foreground mt-1">{helpText}</p>
+        <p id={helpId} className="text-[11px] text-muted-foreground mt-1">
+          {helpText}
+        </p>
       )}
       {error && (
         <p
+          id={errorId}
           className="text-[11px] mt-1"
           style={{ color: "var(--status-error)" }}
         >
