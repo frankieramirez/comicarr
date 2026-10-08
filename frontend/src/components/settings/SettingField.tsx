@@ -74,7 +74,7 @@ export function SettingField({
           className="sr-only peer"
         />
         <span
-          className="mt-0.5 shrink-0 w-4 h-4 rounded-[3px] grid place-items-center border"
+          className="mt-0.5 shrink-0 w-4 h-4 rounded-[3px] grid place-items-center border peer-focus-visible:ring-1 peer-focus-visible:ring-ring"
           style={{
             borderColor: checked ? "var(--primary)" : "var(--border)",
             background: checked ? "var(--primary)" : "transparent",

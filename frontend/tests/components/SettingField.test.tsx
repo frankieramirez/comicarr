@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "../test-utils";
 import {
   SettingField,
@@ -35,6 +36,28 @@ describe("SettingField select", () => {
     const trigger = screen.getByRole("combobox", { name: "NZB client" });
     expect(trigger.textContent).toContain("Disabled");
     expect(trigger.textContent).not.toMatch(/(^|[^A-Za-z])3([^0-9]|$)/);
+  });
+});
+
+describe("SettingField checkbox", () => {
+  it("shows a focus ring on the visual box when the hidden input is focused", async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingField
+        label="Enable notifications"
+        type="checkbox"
+        checked={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    await user.tab();
+    const input = screen.getByRole("checkbox", {
+      name: "Enable notifications",
+    });
+    expect(document.activeElement).toBe(input);
+    const visual = input.nextElementSibling as HTMLElement;
+    expect(visual.className).toMatch(/peer-focus-visible:ring/);
   });
 });
 
