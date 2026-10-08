@@ -60,9 +60,9 @@ def _journal(**overrides):
     return base
 
 
-def test_registry_covers_exactly_thirty_bases():
-    assert len(reasons.KNOWN_BASE_TOKENS) == 30
-    assert len(reasons.REASON_PHRASES) == 20
+def test_registry_covers_exactly_thirty_two_bases():
+    assert len(reasons.KNOWN_BASE_TOKENS) == 32
+    assert len(reasons.REASON_PHRASES) == 22
     assert len(reasons.NON_ACTIONABLE_FLAT) == 9
     assert len(reasons.NON_ACTIONABLE_COMPOSITE) == 1
     # Every exclusion has a reconciliation obligation; no admitted token is excluded.

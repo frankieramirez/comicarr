@@ -10,15 +10,19 @@
 """Completed-download path resolution for NZBGet/SAB CDH."""
 
 import queue as queuelib
+import time
 import zipfile
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import comicarr
+from comicarr.app.attention import ManualReview
 from comicarr.app.downloads.service import (
     _cdh_monitor_owned,
     check_file_condition,
     resolve_completed_download_file,
 )
+from comicarr.failed import FAIL_REASON_NO_AUTO_HANDLING
 
 
 def _write_zip(path, payload=b"page"):
@@ -127,3 +131,193 @@ def test_cdh_monitor_owned_does_not_fail_when_name_is_not_a_child_file(tmp_path,
     assert queued["failed"] is False
     assert queued["nzb_folder"] == str(job)
     assert resolve_completed_download_file(queued["nzb_folder"], queued["nzb_name"]) == archive
+
+
+def _terminal_cdh_item():
+    return {
+        "nzo_id": "nzo-1",
+        "journal_release_key": "rk-nzb-1",
+        "issueid": "I1",
+        "comicid": "C1",
+        "provider": "nzb.su",
+        "nzbname": "Saga.001.nzb",
+    }
+
+
+def test_cdh_monitor_owned_records_file_not_found_as_manual_review(monkeypatch):
+    recorded = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda *a, **k: None)
+
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        _terminal_cdh_item(),
+        {"status": "file not found", "failed": False},
+    )
+
+    assert len(recorded) == 1
+    assert isinstance(recorded[0], ManualReview)
+    assert recorded[0].reason == "sab_completed_file_not_found"
+    assert recorded[0].release_key == "rk-nzb-1"
+
+
+def test_cdh_monitor_owned_failed_in_sab_retries_when_handling_on(monkeypatch):
+    recorded = []
+    terminalized = []
+    fake_pp = MagicMock()
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr(
+        "comicarr.failed.terminalize_failed_download",
+        lambda *a, **k: terminalized.append((a, k)) or True,
+    )
+    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp, raising=False)
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True),
+        raising=False,
+    )
+    monkeypatch.setattr("comicarr.app.downloads.journal.read_one", lambda *a, **k: None)
+    monkeypatch.setattr("comicarr.app.downloads.journal.record_transition", lambda *a, **k: True)
+
+    di = {"provider": "nzb.su", "id": "nzo-1", "nzbname": "Saga.001"}
+    item = {**_terminal_cdh_item(), "download_info": di}
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        item,
+        {"status": "failed_in_sab", "failed": False, "download_info": di},
+    )
+
+    assert recorded == []
+    assert terminalized == []
+    fake_pp.put.assert_called_once()
+    queued = fake_pp.put.call_args[0][0]
+    assert queued["failed"] is True
+    assert queued["issueid"] == "I1"
+
+
+def test_cdh_monitor_owned_failed_in_sab_terminalizes_when_handling_off(monkeypatch):
+    recorded = []
+    terminalized = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr(
+        "comicarr.failed.terminalize_failed_download",
+        lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
+    )
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False),
+        raising=False,
+    )
+
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        _terminal_cdh_item(),
+        {"status": "failed_in_sab", "failed": False},
+    )
+
+    assert recorded == []
+    assert terminalized == [{"rkey": "rk-nzb-1", "reason": FAIL_REASON_NO_AUTO_HANDLING}]
+
+
+def test_cdh_monitor_owned_failed_no_auto_handling_uses_shared_helper(monkeypatch):
+    terminalized = []
+    monkeypatch.setattr(
+        "comicarr.failed.terminalize_failed_download",
+        lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
+    )
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False),
+        raising=False,
+    )
+
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        _terminal_cdh_item(),
+        {"status": "failed_no_auto_handling", "failed": True, "name": "Saga.001"},
+    )
+
+    assert terminalized == [{"rkey": "rk-nzb-1", "reason": FAIL_REASON_NO_AUTO_HANDLING}]
+
+
+def test_cdh_monitor_owned_does_not_requeue_nzb_removed(monkeypatch):
+    recorded = []
+    requeue = queuelib.Queue()
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        _terminal_cdh_item(),
+        {"status": "nzb removed", "failed": False},
+        readd=False,
+    )
+
+    assert len(recorded) == 1
+    assert isinstance(recorded[0], ManualReview)
+    assert recorded[0].reason == "sab_job_missing_from_client"
+    assert requeue.empty()
+
+
+def test_cdh_monitor_owned_requeues_unhandled_status_without_sleeping(monkeypatch):
+    recorded = []
+    slept = []
+    requeue = queuelib.Queue()
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.time.sleep",
+        lambda seconds: slept.append(seconds),
+    )
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+
+    item = _terminal_cdh_item()
+    before = time.time()
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        item,
+        {"status": "unhandled status of: Repairing", "failed": False},
+        readd=False,
+    )
+
+    assert recorded == []
+    assert slept == []
+    queued = requeue.get_nowait()
+    assert queued is item
+    assert queued["_not_before"] >= before
+
+
+def test_cdh_monitor_owned_double_pp_is_noop(monkeypatch):
+    recorded = []
+    requeue = queuelib.Queue()
+    monkeypatch.setattr(
+        "comicarr.app.downloads.service.record",
+        lambda entry, **kwargs: recorded.append(entry),
+    )
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+
+    _cdh_monitor_owned(
+        queuelib.Queue(),
+        _terminal_cdh_item(),
+        {"status": "double-pp", "failed": False},
+    )
+
+    assert recorded == []
+    assert requeue.empty()

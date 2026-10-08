@@ -2058,35 +2058,37 @@ def nzb_monitor(queue):
                     s = sabnzbd.SABnzbd(params=sab_params)
                     sabresponse = s.sender(chkstatus=True)
                     if sabresponse["status"] is False:
-                        while True:
-                            if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
-                                qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
-                                try:
-                                    controller = MaintenanceController()
-                                    with controller.lease(
-                                        "nzb-monitor",
-                                        "download-monitor",
-                                        entity_type="release",
-                                        entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
-                                    ) as lease:
-                                        controller.assert_lease_current(lease)
-                                        nzstat = s.historycheck(qu_retrieve)
-                                        cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
-                                except MaintenanceBlocked:
+                        pending = comicarr.RETURN_THE_NZBQUEUE.qsize()
+                        for _ in range(pending):
+                            qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
+                            not_before = qu_retrieve.get("_not_before") if isinstance(qu_retrieve, dict) else None
+                            if not_before and time.time() < not_before:
+                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                continue
+                            try:
+                                controller = MaintenanceController()
+                                with controller.lease(
+                                    "nzb-monitor",
+                                    "download-monitor",
+                                    entity_type="release",
+                                    entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
+                                ) as lease:
+                                    controller.assert_lease_current(lease)
+                                    nzstat = s.historycheck(qu_retrieve)
+                                    cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
+                            except MaintenanceBlocked:
+                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                            except Exception as e:
+                                item_id = _monitor_item_id(qu_retrieve)
+                                logger.error(
+                                    "[DOWNLOADS-NZB] NZB monitor rejected item%s while resuming; continuing\n%s"
+                                    % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
+                                )
+                                if _is_transient_monitor_error(e):
                                     comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
-                                except Exception as e:
-                                    item_id = _monitor_item_id(qu_retrieve)
-                                    logger.error(
-                                        "[DOWNLOADS-NZB] NZB monitor rejected item%s while resuming; continuing\n%s"
-                                        % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
-                                    )
-                                    if _is_transient_monitor_error(e):
-                                        comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
-                                    else:
-                                        _record_poison_monitor_item("nzb", qu_retrieve, e)
-                                time.sleep(5)
-                            else:
-                                break
+                                else:
+                                    _record_poison_monitor_item("nzb", qu_retrieve, e)
+                            time.sleep(5)
             except Exception as e:
                 logger.error("[DOWNLOADS-NZB] SAB pause probe failed; retrying later\n%s" % redacted_traceback(e))
                 time.sleep(_maintenance_retry_delay({"clientmode": "sabnzbd"}))
@@ -2155,70 +2157,195 @@ def cdh_monitor(queue, item, nzstat, readd=False, lease=None):
         return
 
 
-def _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id):
-    """Drain OPEN_STAGES when SAB failed and FAILED_DOWNLOAD_HANDLING is off."""
+def _cdh_job_identity(item, nzstat):
+    """Issue/provider/nzb identity shared by CDH terminalize and ManualReview."""
+    di = {}
+    if isinstance(nzstat, dict):
+        di = nzstat.get("download_info") or {}
+    if not isinstance(di, dict) or not di:
+        fallback = item.get("download_info") or {}
+        di = fallback if isinstance(fallback, dict) else {}
+    issueid = (nzstat or {}).get("issueid") or item.get("issueid") or di.get("issueid")
+    provider = item.get("provider") or di.get("provider")
+    nzbname = (nzstat or {}).get("name") or item.get("nzbname") or di.get("nzbname")
+    download_hash = item.get("hash") or di.get("hash")
+    return {
+        "di": di,
+        "issueid": issueid,
+        "provider": provider,
+        "nzbname": nzbname,
+        "hash": download_hash,
+        "comicid": (nzstat or {}).get("comicid") or item.get("comicid") or di.get("comicid"),
+    }
+
+
+def _cdh_resolve_release_key(item, nzstat):
+    """Prefer a propagated journal key; else derive the same way 1047 / Process do."""
     from comicarr import failed as failed_mod
 
-    di = nzstat.get("download_info") or item.get("download_info") or {}
-    if not isinstance(di, dict):
-        di = {}
-    issueid = nzstat.get("issueid") or item.get("issueid")
-    provider = di.get("provider")
-    nzbname = nzstat.get("name") or di.get("nzbname")
-    download_hash = di.get("hash")
-    rkey = failed_mod.resolve_failed_release_key(
+    ident = _cdh_job_identity(item, nzstat)
+    return failed_mod.resolve_failed_release_key(
         journal_release_key=item.get("journal_release_key"),
-        issueid=issueid,
-        provider=provider,
-        nzbname=nzbname,
-        hash=download_hash,
-        discriminant=di or None,
+        issueid=ident["issueid"],
+        provider=ident["provider"],
+        nzbname=ident["nzbname"],
+        hash=ident["hash"],
+        discriminant=ident["di"] or None,
     )
+
+
+def _cdh_record_entry(entry):
+    """Record a terminal CDH outcome; never raise back into the monitor loop."""
+    try:
+        record(entry)
+    except Exception as e:
+        logger.error(
+            "[DOWNLOADS-CDH] Unable to record %s for %s: %s"
+            % (type(entry).__name__, entry.release_key, type(e).__name__)
+        )
+
+
+def _cdh_terminalize_no_auto_handling(item, nzstat, known_nzb_id):
+    """Drain OPEN_STAGES when SAB failed and FAILED_DOWNLOAD_HANDLING is off.
+
+    Shared with PR 1047's ``failed_no_auto_handling`` status: both go through
+    ``failed.terminalize_failed_download`` so merge order 1030 → 1047 → 1025
+    keeps a single journal transition.
+    """
+    from comicarr import failed as failed_mod
+
+    ident = _cdh_job_identity(item, nzstat)
+    rkey = _cdh_resolve_release_key(item, nzstat)
     if rkey is None:
         logger.fdebug(
             "[DOWNLOADS-CDH] journal terminalize skipped — release_key not resolvable "
-            "(nzo_id=%s issueid=%s provider=%s)" % (known_nzb_id, issueid, provider)
+            "(nzo_id=%s issueid=%s provider=%s)" % (known_nzb_id, ident["issueid"], ident["provider"])
         )
         return False
-    return failed_mod.terminalize_failed_download(
-        rkey,
-        failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
-        status=None,
-        issueid=issueid,
-        provider=provider,
-        nzbname=nzbname,
-        hash=download_hash,
-        payload={
-            "issueid": issueid,
-            "comicid": nzstat.get("comicid") or item.get("comicid"),
-            "provider": provider,
-            "nzbname": nzbname,
-            "failed": True,
+    try:
+        return failed_mod.terminalize_failed_download(
+            rkey,
+            failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+            status=None,
+            issueid=ident["issueid"],
+            provider=ident["provider"],
+            nzbname=ident["nzbname"],
+            hash=ident["hash"],
+            payload={
+                "issueid": ident["issueid"],
+                "comicid": ident["comicid"],
+                "provider": ident["provider"],
+                "nzbname": ident["nzbname"],
+                "failed": True,
+                "nzo_id": known_nzb_id,
+            },
+        )
+    except Exception as e:
+        logger.error("[DOWNLOADS-CDH] Unable to terminalize %s: %s" % (rkey, type(e).__name__))
+        return False
+
+
+def _cdh_prepare_failed_job(item, nzstat):
+    """Fill name/location/download_info so the success+failed PP path can retry."""
+    ident = _cdh_job_identity(item, nzstat)
+    di = dict(ident["di"])
+    if not di.get("provider") and ident["provider"]:
+        di["provider"] = ident["provider"]
+    if not di.get("nzbname") and ident["nzbname"]:
+        di["nzbname"] = ident["nzbname"]
+    if not di.get("id"):
+        di["id"] = item.get("nzo_id") or item.get("NZBID")
+    nzstat.setdefault("name", ident["nzbname"] or "")
+    nzstat.setdefault("location", "")
+    nzstat.setdefault("issueid", ident["issueid"])
+    nzstat.setdefault("comicid", ident["comicid"])
+    nzstat.setdefault("apicall", True)
+    nzstat.setdefault("ddl", False)
+    nzstat["download_info"] = di
+    nzstat["failed"] = True
+    nzstat["status"] = True
+
+
+def _cdh_manual_review_kwargs(item, nzstat, known_nzb_id, status):
+    ident = _cdh_job_identity(item, nzstat)
+    rkey = _cdh_resolve_release_key(item, nzstat)
+    if not rkey:
+        return None
+    return {
+        "release_key": rkey,
+        "payload": {
+            "issueid": ident["issueid"],
+            "comicid": ident["comicid"],
             "nzo_id": known_nzb_id,
+            "nzstat_status": status,
         },
-    )
+        "issue_id": ident["issueid"],
+        "provider": ident["provider"],
+        "downloader_type": item.get("clientmode") or "nzb",
+        "nzb_name": ident["nzbname"],
+        "comic_id": ident["comicid"],
+    }
+
+
+def _cdh_record_terminal_outcome(item, nzstat, readd=False):
+    """Route non-success SAB/NZBGet statuses to attention, failure, or requeue.
+
+    ``double-pp`` is an explicit no-op (ComicRN owns post-processing). File-not-
+    found and ``nzb removed`` are ManualReview. ``failed_no_auto_handling``
+    (PR 1047) and ``failed_in_sab`` with handling off terminalize through
+    ``failed.terminalize_failed_download``. ``failed_in_sab`` with handling on
+    falls through so FailedProcessor / FAILED_AUTO can retry. Unhandled
+    staging statuses requeue onto RETURN_THE_NZBQUEUE without sleeping under
+    the maintenance lease. Returns True when the status was consumed.
+    """
+    status = nzstat.get("status") if isinstance(nzstat, dict) else None
+    known_nzb_id = item.get("nzo_id") or item.get("NZBID")
+    if status == "double-pp":
+        logger.warn("ComicRN owns this download; skipping completed-download handling. [%s]" % known_nzb_id)
+        return True
+    if status == "file not found":
+        logger.warn("Unable to complete post-processing call due to not finding file. [%s]" % item)
+        fields = _cdh_manual_review_kwargs(item, nzstat, known_nzb_id, status)
+        if fields:
+            _cdh_record_entry(ManualReview(reason="sab_completed_file_not_found", **fields))
+        return True
+    if status == "nzb removed":
+        logger.warn("NZB seems to have been removed from queue: %s" % known_nzb_id)
+        fields = _cdh_manual_review_kwargs(item, nzstat, known_nzb_id, status)
+        if fields:
+            _cdh_record_entry(ManualReview(reason="sab_job_missing_from_client", **fields))
+        return True
+    if status in ("failed_no_auto_handling", "failed_in_sab"):
+        handling_on = bool(getattr(getattr(comicarr, "CONFIG", None), "FAILED_DOWNLOAD_HANDLING", False))
+        if status == "failed_in_sab" and handling_on:
+            logger.warn("Failure returned from SAB for %s; failed-download handling is on — retrying." % known_nzb_id)
+            _cdh_prepare_failed_job(item, nzstat)
+            return False
+        logger.warn(
+            "SAB reported failure for %s and failed-download handling is off; terminalizing journal." % known_nzb_id
+        )
+        _cdh_terminalize_no_auto_handling(item, nzstat, known_nzb_id)
+        return True
+    if "unhandled status" in str(status).lower():
+        delay = _maintenance_retry_delay(item) if isinstance(item, dict) else 5
+        logger.warn(
+            "NZB %s has unhandled status %s; requeueing with %ss backoff (readd=%s)."
+            % (known_nzb_id, status, delay, readd)
+        )
+        if isinstance(item, dict):
+            item["_not_before"] = time.time() + delay
+        comicarr.RETURN_THE_NZBQUEUE.put(item)
+        return True
+    return False
 
 
 def _cdh_monitor_owned(queue, item, nzstat, readd=False):
     from comicarr.helpers import check_file_condition
 
     known_nzb_id = item.get("nzo_id") or item.get("NZBID")
-    if any([nzstat["status"] == "file not found", nzstat["status"] == "double-pp"]):
-        logger.warn("Unable to complete post-processing call due to not finding file. [%s]" % item)
-    elif nzstat["status"] == "nzb removed" or "unhandled status" in str(nzstat["status"]).lower():
-        if readd is True:
-            logger.warn("NZB seems to have been in a staging process. Will requeue: %s." % known_nzb_id)
-            comicarr.RETURN_THE_NZBQUEUE.put(item)
-        else:
-            logger.warn("NZB seems to have been removed from queue: %s" % known_nzb_id)
-    elif nzstat["status"] == "failed_in_sab":
-        logger.warn("Failure returned from SAB for %s" % known_nzb_id)
-    elif nzstat["status"] == "failed_no_auto_handling":
-        logger.warn(
-            "SAB reported failure for %s and failed-download handling is off; terminalizing journal." % known_nzb_id
-        )
-        _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id)
-    elif nzstat["status"] == "queue_paused":
+    if _cdh_record_terminal_outcome(item, nzstat, readd=readd):
+        return
+    if nzstat["status"] == "queue_paused":
         if comicarr.USE_SABNZBD is True:
             comicarr.RETURN_THE_NZBQUEUE.put(item)
     elif nzstat["status"] is False:
