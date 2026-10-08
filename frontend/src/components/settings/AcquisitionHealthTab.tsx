@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/StatusBadge";
+import { Callout } from "@/components/ui/callout";
 import { toneStatusForHealth } from "@/lib/statusTone";
 import { SettingGroup } from "./SettingGroup";
 import {
@@ -191,25 +192,14 @@ function Message({
   children: React.ReactNode;
   tone?: Tone;
 }) {
-  const color =
-    tone === "danger" ? "var(--status-error)" : "var(--status-paused)";
-  const background =
-    tone === "danger"
-      ? "var(--status-error-bg)"
-      : "color-mix(in oklab, var(--status-paused) 10%, transparent)";
   return (
-    <div
-      className="flex gap-2 rounded-lg border px-3 py-2 text-[12px] leading-relaxed"
-      style={{
-        borderColor: `color-mix(in oklab, ${color} 38%, transparent)`,
-        background,
-        color,
-      }}
-      role={tone === "danger" ? "alert" : undefined}
+    <Callout
+      tone={tone === "danger" ? "error" : "warning"}
+      className="flex gap-2 px-3 py-2 text-[12px] leading-relaxed"
     >
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div className="min-w-0 break-words">{children}</div>
-    </div>
+    </Callout>
   );
 }
 

@@ -16,6 +16,7 @@ import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { Button } from "@/components/ui/button";
 import { ToggleChip } from "@/components/ui/toggle-chip";
+import { Callout } from "@/components/ui/callout";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -1400,21 +1401,12 @@ export default function SeriesDetailPage() {
             )}
 
             {searchError && (
-              <div
-                role="alert"
-                className="rounded-control border p-3 text-[12px]"
-                style={{
-                  borderColor:
-                    "color-mix(in oklab, var(--status-error) 35%, transparent)",
-                  background: "var(--status-error-bg)",
-                  color: "var(--status-error)",
-                }}
-              >
+              <Callout tone="error" className="p-3 text-[12px]">
                 <div className="font-semibold">
                   Unable to confirm this search
                 </div>
                 <div className="mt-1">{searchError}</div>
-              </div>
+              </Callout>
             )}
 
             {preview && !searchOutcome && !searchPreview.isFetching && (
@@ -1450,15 +1442,7 @@ export default function SeriesDetailPage() {
                 </div>
 
                 {!routeViable ? (
-                  <div
-                    role="alert"
-                    className="rounded-control border p-3 text-[12px]"
-                    style={{
-                      borderColor:
-                        "color-mix(in oklab, var(--status-paused) 35%, transparent)",
-                      background: "var(--status-paused-bg)",
-                    }}
-                  >
+                  <Callout tone="warning" className="p-3 text-[12px]">
                     <div className="font-semibold">
                       Search configuration needs attention
                     </div>
@@ -1489,7 +1473,7 @@ export default function SeriesDetailPage() {
                           </Link>
                         </Button>
                       )}
-                  </div>
+                  </Callout>
                 ) : preview.eligibleCount === 0 ? (
                   <div
                     className="rounded-control border p-3 text-[12px]"

@@ -19,6 +19,7 @@ import {
   type MigrationStatus,
 } from "@/hooks/useMigration";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 import { Kbd } from "@/components/ui/kbd";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
@@ -382,16 +383,13 @@ function MigrateStep({
       </div>
 
       {preview.isError && (
-        <div
-          className="flex items-start gap-2 p-2.5 rounded-md text-[12px] font-mono"
-          style={{
-            color: "var(--status-error)",
-            background: "var(--status-error-bg)",
-          }}
+        <Callout
+          tone="error"
+          className="flex items-start gap-2 rounded-md p-2.5 text-[12px] font-mono"
         >
           <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span>{preview.error.message}</span>
-        </div>
+        </Callout>
       )}
 
       {preview.data && (
@@ -587,15 +585,12 @@ function DoneStep({
         <div className="text-[18px] font-semibold tracking-tight">
           Something went wrong.
         </div>
-        <div
-          className="p-3 rounded-md font-mono text-[11.5px]"
-          style={{
-            color: "var(--status-error)",
-            background: "var(--status-error-bg)",
-          }}
+        <Callout
+          tone="error"
+          className="rounded-md p-3 font-mono text-[11.5px]"
         >
           {progress?.error || "Unknown error"}
-        </div>
+        </Callout>
         <div
           className="flex justify-between pt-3 border-t"
           style={{ borderColor: "var(--border)" }}

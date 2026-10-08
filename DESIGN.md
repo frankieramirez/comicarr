@@ -64,7 +64,10 @@ the shared focus ring, and the 12% primary tint in classes — not a per-page
 `style={{}}`. Size `xs` is 10px mono (series ledger); `sm` is 11px mono
 (Releases, Import, Attention); `md` is 12px (Settings mobile sections).
 Pressed text is `text-foreground` so light theme stays AA. Inactive chips use
-`hover:text-foreground`.
+`hover:text-foreground`. Status banners are `components/ui/callout.tsx`
+(`Callout`) with `tone` `error` | `warning` | `success` | `info` — `--status-*`
+fill, a 30% `color-mix` border, and a tone-coloured icon. Body copy stays
+`text-foreground`. Error and warning use `role="alert"`.
 
 Disabled is `opacity-50` plus `pointer-events-none` from that one primitive.
 Do not re-specify opacity or skip the focus ring on callers. The scaffold
@@ -187,7 +190,8 @@ utility must do the same.
   dark-only-token bug got in and stayed in: they bypass Tailwind, so nothing at
   build time can tell you the property doesn't resolve. Prefer a utility class;
   where a token isn't yet Tailwind-registered, `text-[var(--token)]` at least keeps
-  the value in the class layer. 288 inline `style={{` attributes across 50 files.
+  the value in the class layer. 249 inline `style={{` attributes across the
+  frontend (down from 261 after Callout absorbed the status banners).
 
 - **Do NOT add arbitrary font sizes.** `text-[10px]`, `text-[11px]`, `text-[12px]`,
   and `text-[13px]` account for 369 of the 432 arbitrary sizes in the codebase —
