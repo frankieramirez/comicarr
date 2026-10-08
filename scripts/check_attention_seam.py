@@ -50,8 +50,6 @@ import json
 import sys
 from pathlib import Path
 
-from packaging.version import InvalidVersion, Version
-
 ROOT = Path(__file__).resolve().parents[1]
 
 ATTENTION_PKG = "comicarr.app.attention"
@@ -100,12 +98,16 @@ PERMANENT_HOOKS = {
 #
 # ADR-0003 originally kept the old Activity/Downloads routes for one release.
 # That window passed; the 2026-10-08 amendment dates removal at 0.50.0 so
-# existing callers are not broken, and this guard fails once package.json
-# reaches that version while any entry remains. When a shim goes, its entry
-# here must go with it — the stale-entry check makes that a prompted action
-# rather than a forgotten one. Every reason string must cite SHIM_REMOVAL_VERSION.
+# existing callers are not broken. Version Packages PRs use GITHUB_TOKEN and
+# skip CI, so a trip at 0.50.0 would only go red after 0.50.0 had already
+# published. The guard therefore fails once package.json reaches 0.49.0 —
+# one minor early — so the deletion lands in 0.49.x and 0.50.0 ships without
+# the shims. When a shim goes, its entry here must go with it — the
+# stale-entry check makes that a prompted action rather than a forgotten one.
+# Every reason string must cite SHIM_REMOVAL_VERSION.
 # --------------------------------------------------------------------------
 SHIM_REMOVAL_VERSION = "0.50.0"
+SHIM_GUARD_VERSION = "0.49.0"
 
 DEPRECATED_SHIMS = {
     # Compatibility re-export module: comicarr.app.activity.reasons forwards
@@ -144,10 +146,15 @@ DEPRECATED_SHIMS = {
 ALLOWLIST = {**PERMANENT_HOOKS, **DEPRECATED_SHIMS}
 
 
-def _package_version() -> Version:
+def _parse_version(value: str) -> tuple[int, ...]:
+    """Stdlib-only parse of a package.json version (drops a trailing pre-release)."""
+    return tuple(int(p) for p in value.split("-")[0].split("."))
+
+
+def _package_version() -> tuple[int, ...]:
     """Installed app version from package.json — the same file Changesets bumps."""
     payload = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-    return Version(str(payload["version"]))
+    return _parse_version(str(payload["version"]))
 
 
 def _iter_source_files():
@@ -272,11 +279,11 @@ def main() -> int:
 
     try:
         current = _package_version()
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, InvalidVersion, TypeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
         version_error = str(exc)
         current = None
 
-    if current is not None and DEPRECATED_SHIMS and current >= Version(SHIM_REMOVAL_VERSION):
+    if current is not None and DEPRECATED_SHIMS and current >= _parse_version(SHIM_GUARD_VERSION):
         expired = True
 
     if violations:
@@ -333,11 +340,15 @@ def main() -> int:
         if violations or stale or unreadable or missing_version or version_error:
             print("", file=sys.stderr)
         print(
-            "Deprecated Attention shims outlived SHIM_REMOVAL_VERSION %s (package.json is %s)."
-            % (SHIM_REMOVAL_VERSION, current),
+            "Deprecated Attention shims outlived SHIM_GUARD_VERSION %s (package.json is %s)."
+            % (SHIM_GUARD_VERSION, ".".join(str(p) for p in current)),
             file=sys.stderr,
         )
-        print("Delete the six compatibility routes and empty DEPRECATED_SHIMS (ADR-0003).", file=sys.stderr)
+        print(
+            "Delete the six compatibility routes and empty DEPRECATED_SHIMS before %s (ADR-0003)."
+            % SHIM_REMOVAL_VERSION,
+            file=sys.stderr,
+        )
 
     if violations or stale or unreadable or missing_version or version_error or expired:
         return 1

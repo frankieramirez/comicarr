@@ -26,7 +26,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check_attention_seam.py"
@@ -70,21 +69,32 @@ def test_allowlist_is_the_union_of_its_two_categories(guard):
 def test_deprecated_shims_cite_the_removal_version(guard):
     """ADR-0003's dated removal is the allowlist trigger, not an unbounded 'next release'."""
     assert guard.SHIM_REMOVAL_VERSION == "0.50.0"
+    assert guard.SHIM_GUARD_VERSION == "0.49.0"
+    assert guard._parse_version(guard.SHIM_GUARD_VERSION) < guard._parse_version(guard.SHIM_REMOVAL_VERSION)
     for reason in guard.DEPRECATED_SHIMS.values():
         assert guard.SHIM_REMOVAL_VERSION in reason
-    assert guard._package_version() < Version(guard.SHIM_REMOVAL_VERSION)
+    assert guard._package_version() < guard._parse_version(guard.SHIM_GUARD_VERSION)
 
 
-def test_shims_remain_allowed_before_removal_version(guard, monkeypatch):
-    monkeypatch.setattr(guard, "_package_version", lambda: Version("0.49.9"))
+def test_package_version_parse_is_stdlib_tuple(guard):
+    """lint:guards runs under system python3; packaging is not on that path."""
+    assert "from packaging" not in SCRIPT.read_text(encoding="utf-8")
+    assert guard._parse_version("0.49.0-beta.1") == (0, 49, 0)
+    assert isinstance(guard._package_version(), tuple)
+
+
+def test_shims_remain_allowed_before_guard_version(guard, monkeypatch):
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 48, 9))
     assert guard.main() == 0
 
 
-def test_expired_shims_fail_once_package_version_reaches_removal(guard, monkeypatch, capsys):
-    monkeypatch.setattr(guard, "_package_version", lambda: Version("0.50.0"))
+def test_expired_shims_fail_once_package_version_reaches_guard(guard, monkeypatch, capsys):
+    """Trip at 0.49.0 so main goes red during 0.49.x; Version Packages PRs skip CI."""
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 49, 0))
     assert guard.main() == 1
     err = capsys.readouterr().err
     assert "outlived" in err
+    assert "0.49.0" in err
     assert "0.50.0" in err
 
 
