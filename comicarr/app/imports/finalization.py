@@ -16,6 +16,7 @@ import shutil
 import tempfile
 import threading
 from collections.abc import Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import comicarr
@@ -499,6 +500,17 @@ def _finalize_locked(
         archived=archived,
     )
     return result, _PendingTagging(rows=rows, placed=moved_files, series=series, series_id=series_id, config=config)
+
+
+@contextmanager
+def finalization_paused():
+    """Hold off finalization; yields False when one is already running."""
+    acquired = _FINALIZATION_LOCK.acquire(blocking=False)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            _FINALIZATION_LOCK.release()
 
 
 def finalize_manual_match(

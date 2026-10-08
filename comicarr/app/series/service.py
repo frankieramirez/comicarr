@@ -28,19 +28,12 @@ from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility, project_legacy_state
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
+from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.common.strings import filesafe
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.series import location as series_locations
 from comicarr.app.series import queries as series_queries
 from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, weekly
-
-_LIBRARY_ROOT_CONFIG_KEYS = (
-    "DESTINATION_DIR",
-    "MANGA_DESTINATION_DIR",
-    "COMIC_DIR",
-    "MANGA_DIR",
-    "MULTIPLE_DEST_DIRS",
-    "NEWCOM_DIR",
-)
 
 _COMIC_SCAN_START_LOCK = threading.Lock()
 _MANGA_SCAN_START_LOCK = threading.Lock()
@@ -91,7 +84,7 @@ def _display_state(projection, *, eligibility_reason=None):
     return "Unknown"
 
 
-def project_issue_state(row, *, series_status, today=None, annual=False, series_location=None):
+def project_issue_state(row, *, series_status, today=None, annual=False, series_location=None, retained_locations=()):
     """Return one canonical intent, fulfillment, eligibility, and UI projection."""
     values = dict(row)
     legacy_status = _row_value(values, "status", "Status")
@@ -100,7 +93,7 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
     location = _optional_text(_row_value(values, "location", "Location"))
 
     fulfillment = projection.fulfillment
-    verified_file = has_verified_library_file(series_location, location)
+    verified_file = has_verified_library_file(series_location, location, retained_locations)
     if verified_file and fulfillment is not Fulfillment.ARCHIVED:
         fulfillment = Fulfillment.DOWNLOADED
         evidence = "verified_location"
@@ -197,7 +190,9 @@ def _issue_summary(projected):
     }
 
 
-def project_issue_collection(rows, *, series_status, today=None, annual=False, series_location=None):
+def project_issue_collection(
+    rows, *, series_status, today=None, annual=False, series_location=None, retained_locations=()
+):
     """Project a homogeneous issue collection and its internally consistent summary."""
     projected = [
         project_issue_state(
@@ -206,6 +201,7 @@ def project_issue_collection(rows, *, series_status, today=None, annual=False, s
             today=today,
             annual=annual,
             series_location=series_location,
+            retained_locations=retained_locations,
         )
         for row in rows
     ]
@@ -228,37 +224,6 @@ def _start_library_scan(scanner, status_attr, worker, start_lock, scan_label, sc
             setattr(scanner, status_attr, previous_status)
             logger.error("[%s-SCAN] Error: %s" % (scan_label.upper(), e))
             return {"success": False, "error": "Failed to start %s scan: %s" % (scan_label, str(e))}
-
-
-def _configured_library_roots(config):
-    """Return explicit, non-empty roots that can contain series directories."""
-    if config is None:
-        return []
-
-    roots = []
-    for key in _LIBRARY_ROOT_CONFIG_KEYS:
-        root = getattr(config, key, None)
-        if not isinstance(root, str):
-            continue
-        root = root.strip()
-        if root and root.lower() != "none":
-            roots.append(root)
-    return roots
-
-
-def _is_strict_library_descendant(path, config):
-    """Require path to resolve below, but never equal, a configured root."""
-    if not isinstance(path, (str, os.PathLike)):
-        return False
-
-    roots = _configured_library_roots(config)
-    if not roots:
-        return False
-
-    try:
-        return is_path_within_allowed_dirs(path, roots, strict=True)
-    except (OSError, TypeError, ValueError):
-        return False
 
 
 def _remove_comic_location(comic_location):
@@ -301,16 +266,19 @@ def get_comic_detail(ctx, comic_id):
     annual_rows = series_queries.get_annuals(comic_id) if annuals_on else []
     series_status = comic[0].get("Status") if comic else None
     series_location = comic[0].get("ComicLocation") if comic else None
+    retained = series_locations.retained_locations(comic[0]) if comic else []
     projected_issues, _ = project_issue_collection(
         issue_rows,
         series_status=series_status,
         series_location=series_location,
+        retained_locations=retained,
     )
     projected_annuals, _ = project_issue_collection(
         annual_rows,
         series_status=series_status,
         annual=True,
         series_location=series_location,
+        retained_locations=retained,
     )
     summary = _issue_summary(projected_issues + projected_annuals)
     comic_row = comic[0] if comic else None
@@ -324,7 +292,7 @@ def get_comic_detail(ctx, comic_id):
     }
 
 
-def add_comic(ctx, comic_id):
+def add_comic(ctx, comic_id, folder=None):
     """Add a comic to the watchlist (background thread via importer)."""
     if comic_id.startswith("4050-"):
         comic_id = re.sub("4050-", "", comic_id).strip()
@@ -332,11 +300,18 @@ def add_comic(ctx, comic_id):
     from comicarr import importer
 
     try:
-        watch = [{"comicid": comic_id, "comicname": None, "seriesyear": None}]
-        importer.importer_thread(watch)
+        location = series_locations.folder_for_new_series(comic_id, folder, ctx.config)
+    except series_locations.SeriesLocationError as e:
+        return {"success": False, "error": e.detail, "status": e.status}
+
+    try:
+        watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
+        if location:
+            watch["location"] = location
+        importer.importer_thread([watch])
     except Exception as e:
         logger.error("[SERIES] Error adding comic %s: %s" % (comic_id, e))
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Could not queue this series. The log has the reason."}
 
     return {"success": True, "message": "Successfully queued up adding id: %s" % comic_id}
 
@@ -355,7 +330,7 @@ def delete_comic(ctx, comic_id, delete_directory=False):
     try:
         if delete_directory and comic.get("ComicLocation"):
             comic_location = comic["ComicLocation"]
-            if not _is_strict_library_descendant(comic_location, ctx.config):
+            if not is_strict_library_descendant(comic_location, ctx.config):
                 logger.error(
                     "[SERIES-DELETE] Refusing to delete Comic Location (%s): "
                     "not a strict descendant of a configured library root" % comic_location
@@ -521,9 +496,11 @@ def persist_manga_location_if_needed(existing, manga_dest=None):
     """Rewrite and persist ComicLocation when it would fail the manga dest check.
 
     Used by manga post-processing so an already-manga series that still points
-    at the comics tree is repaired without another operator click. Returns
-    ``(location_to_use, did_repoint)``.
+    at the comics tree is repaired without another operator click. A folder
+    the operator chose is never repaired. Returns ``(location_to_use, did_repoint)``.
     """
+    if series_locations.is_location_override(existing):
+        return _series_text((existing or {}).get("ComicLocation")), False
     dest = manga_dest if manga_dest is not None else _manga_destination()
     new_location, warning = manga_location_for_reclassify(existing, dest)
     if warning:
@@ -547,7 +524,8 @@ def update_content_kind(ctx, comic_id, content_type):
     Content kind is independent of provider identity and legacy publication
     ``Type``. The write always updates ``ContentType``. Switching to manga also
     repoints ``ComicLocation`` under the manga destination when the stored path
-    would be refused by manga post-processing. Existing files are not moved.
+    would be refused by manga post-processing, unless the operator chose the
+    folder. Existing files are not moved.
     """
     if content_type not in ("comic", "manga"):
         return {"success": False, "error": "Content kind must be comic or manga"}
@@ -557,7 +535,7 @@ def update_content_kind(ctx, comic_id, content_type):
         return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
 
     new_location = None
-    if content_type == "manga":
+    if content_type == "manga" and not series_locations.is_location_override(existing):
         new_location, warning = manga_location_for_reclassify(existing, _manga_destination())
         if warning:
             logger.warn(warning)

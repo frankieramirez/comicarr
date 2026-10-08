@@ -4379,7 +4379,18 @@ class PostProcessor(object):
             comicnzb = dict(comicnzb)
             comicnzb["ComicLocation"] = series_folder
 
-        if not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
+        from comicarr.app.common.library_roots import is_strict_library_descendant
+        from comicarr.app.series.location import is_location_override
+
+        if is_location_override(comicnzb):
+            if not is_strict_library_descendant(series_folder, comicarr.CONFIG):
+                self._log("Chosen series folder is outside the allowed library roots — refusing to write")
+                logger.error(
+                    "%s Chosen series folder %s is outside the allowed library roots" % (module, series_folder)
+                )
+                self.valreturn.append({"self.log": self.log, "mode": "stop"})
+                return self.queue.put(self.valreturn)
+        elif not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
             self._log("Series folder is outside manga destination — refusing to write")
             logger.error("%s Series folder %s is outside manga destination %s" % (module, series_folder, manga_dest))
             self.valreturn.append({"self.log": self.log, "mode": "stop"})

@@ -509,7 +509,7 @@ def get_issue_file_path(issue_id):
 
     pathfile = os.path.join(issue["ComicLocation"], issue["Location"])
     if os.path.isfile(pathfile):
-        return pathfile, issue["Location"]
+        return pathfile, os.path.basename(issue["Location"])
 
     if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
         try:

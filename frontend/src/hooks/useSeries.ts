@@ -220,6 +220,45 @@ export function useUpdateSeriesContentKind(): UseMutationResult<
   });
 }
 
+export interface SeriesLocationInput {
+  comicId: string;
+  /** A server path, or null to return to the automatic folder. */
+  folder: string | null;
+  moveFiles: boolean;
+}
+
+export interface SeriesLocationResult {
+  success: boolean;
+  comic_location: string;
+  previous_location?: string | null;
+  override: boolean;
+  files_moved: number;
+  files_left: number;
+  retained_locations: string[];
+  error?: string;
+}
+
+export function useUpdateSeriesLocation(): UseMutationResult<
+  SeriesLocationResult,
+  Error,
+  SeriesLocationInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ comicId, folder, moveFiles }) =>
+      apiRequest<SeriesLocationResult>(
+        "PATCH",
+        `/api/series/${comicId}/location`,
+        { folder, move_files: moveFiles },
+      ),
+    onSettled: (_, __, { comicId }) => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
+    },
+  });
+}
+
 /**
  * Update per-series search flags (pack matching / booktype override)
  */

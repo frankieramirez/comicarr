@@ -13,6 +13,8 @@ Series domain queries — comics, issues, annuals, importresults tables.
 Uses SQLAlchemy Core via the existing db module.
 """
 
+import json
+
 from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 
 from comicarr import db
@@ -47,6 +49,8 @@ COMICS_COLUMNS = [
     t_comics.c.BareNumberMode.label("BareNumberMode"),
     t_comics.c.MonitorMode.label("MonitorMode"),
     t_comics.c.MangaDexID.label("MangaDexID"),
+    t_comics.c.dirlocked.label("LocationOverride"),
+    t_comics.c.RetainedLocations.label("RetainedLocations"),
 ]
 
 ISSUES_COLUMNS = [
@@ -228,6 +232,7 @@ def get_comic_content_kind(comic_id):
             t_comics.c.ComicName,
             t_comics.c.ComicLocation,
             t_comics.c.ContentType,
+            t_comics.c.dirlocked,
         ).where(t_comics.c.ComicID == comic_id)
     )
 
@@ -238,6 +243,85 @@ def update_comic_content_kind(comic_id, content_type, comic_location=None):
     if comic_location is not None:
         values["ComicLocation"] = comic_location
     db.upsert("comics", values, {"ComicID": comic_id})
+
+
+def get_series_location(comic_id):
+    return db.select_one(
+        select(
+            t_comics.c.ComicID,
+            t_comics.c.ComicName,
+            t_comics.c.ComicYear,
+            t_comics.c.ComicPublisher,
+            t_comics.c.PublisherImprint,
+            t_comics.c.ComicVersion,
+            t_comics.c.Type,
+            t_comics.c.Corrected_Type,
+            t_comics.c.ComicLocation,
+            t_comics.c.ContentType,
+            t_comics.c.Status,
+            t_comics.c.dirlocked,
+            t_comics.c.RetainedLocations,
+        ).where(t_comics.c.ComicID == comic_id)
+    )
+
+
+def list_other_series_locations(comic_id):
+    return db.select_all(
+        select(
+            t_comics.c.ComicID,
+            t_comics.c.ComicName,
+            t_comics.c.ComicLocation,
+            t_comics.c.RetainedLocations,
+        ).where(t_comics.c.ComicID != comic_id)
+    )
+
+
+def get_series_holdings(comic_id):
+    """Get every issue and live annual row of a Series that names a file."""
+    rows = [
+        {"table": "issues", **row}
+        for row in db.select_all(
+            select(t_issues.c.IssueID, t_issues.c.Location).where(
+                t_issues.c.ComicID == comic_id, t_issues.c.Location.isnot(None)
+            )
+        )
+    ]
+    rows.extend(
+        {"table": "annuals", **row}
+        for row in db.select_all(
+            select(t_annuals.c.IssueID, t_annuals.c.Location).where(
+                t_annuals.c.ComicID == comic_id,
+                t_annuals.c.Location.isnot(None),
+                or_(t_annuals.c.Deleted.is_(None), t_annuals.c.Deleted != 1),
+            )
+        )
+    )
+    return rows
+
+
+def relocate_series(comic_id, *, location, override, retained, holding_locations):
+    """Atomically repoint a Series and the stored paths of its holdings."""
+    with db.get_engine().begin() as conn:
+        db.upsert_conn(
+            conn,
+            "comics",
+            {
+                "ComicLocation": location,
+                "dirlocked": 1 if override else 0,
+                "RetainedLocations": json.dumps(retained) if retained else None,
+            },
+            {"ComicID": comic_id},
+        )
+        for table, issue_id, holding_location in holding_locations:
+            db.upsert_conn(conn, table, {"Location": holding_location}, {"IssueID": issue_id})
+
+
+def set_holding_location(table, issue_id, location):
+    db.upsert(table, {"Location": location}, {"IssueID": issue_id})
+
+
+def set_retained_locations(comic_id, retained):
+    db.upsert("comics", {"RetainedLocations": json.dumps(retained) if retained else None}, {"ComicID": comic_id})
 
 
 def pause_comic(comic_id):

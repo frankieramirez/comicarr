@@ -268,9 +268,8 @@ def download_file(issue_id: str):
     Looks up the file location from the database, validates the path
     is within allowed directories, and streams the file.
     """
-    import os
-
     import comicarr
+    from comicarr.app.common.library_roots import is_servable_library_file
 
     pathfile, filename = dl_service.get_issue_file_path(issue_id)
     if pathfile is None:
@@ -279,33 +278,7 @@ def download_file(issue_id: str):
             content={"detail": "File not found for issue: %s" % issue_id},
         )
 
-    real_path = os.path.realpath(pathfile)
-    allowed_dirs = []
-    for d in [
-        getattr(comicarr.CONFIG, "DESTINATION_DIR", None),
-        getattr(comicarr.CONFIG, "MULTIPLE_DEST_DIRS", None),
-        getattr(comicarr.CONFIG, "GRABBAG_DIR", None),
-        getattr(comicarr.CONFIG, "STORYARC_LOCATION", None),
-    ]:
-        if d:
-            allowed_dirs.append(os.path.realpath(d))
-
-    if not allowed_dirs:
-        return JSONResponse(
-            status_code=403,
-            content={"detail": "No allowed directories configured"},
-        )
-
-    path_allowed = False
-    for d in allowed_dirs:
-        try:
-            if os.path.commonpath([real_path, d]) == d:
-                path_allowed = True
-                break
-        except ValueError:
-            continue
-
-    if not path_allowed:
+    if not is_servable_library_file(pathfile, comicarr.CONFIG):
         return JSONResponse(
             status_code=403,
             content={"detail": "File path outside allowed directories"},

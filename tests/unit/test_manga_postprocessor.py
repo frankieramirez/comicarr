@@ -391,6 +391,59 @@ class TestProcessMangaHealsMisplacedLocation:
         assert "outside manga destination" in result[0]["self.log"]
 
 
+class TestProcessMangaHonorsChosenFolder:
+    def _run(self, tmp_path, chosen, roots):
+        cbz = tmp_path / "Berserk v1.cbz"
+        cbz.write_bytes(b"fake cbz")
+        pp, mock_queue = _make_pp(nzb_name="Berserk v1.cbz", nzb_folder=str(tmp_path), comicid="160294")
+        comic_row = {
+            "ComicID": "160294",
+            "ComicName": "Berserk",
+            "ComicLocation": str(chosen),
+            "ContentType": "manga",
+            "dirlocked": 1,
+        }
+        config = MagicMock(
+            DESTINATION_DIR=str(tmp_path / "comics"),
+            MANGA_DESTINATION_DIR=str(tmp_path / "manga"),
+            COMIC_DIR=None,
+            MANGA_DIR=None,
+            MULTIPLE_DEST_DIRS=None,
+            NEWCOM_DIR=None,
+            ADDITIONAL_LIBRARY_ROOTS=roots,
+        )
+        with (
+            patch.object(comicarr, "CONFIG", config),
+            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch("comicarr.postprocessor.db") as mock_db,
+            patch("comicarr.app.series.queries.update_comic_content_kind") as update,
+            patch("comicarr.postprocessor.place", return_value=placement_result()) as placer,
+        ):
+            mock_db.select_one.side_effect = [comic_row, None, None, None]
+            pp._process_manga()
+        return update, placer, mock_queue.put.call_args[0][0]
+
+    def test_places_into_a_chosen_folder_under_an_additional_root(self, tmp_path):
+        chosen = tmp_path / "Seinen" / "Berserk"
+
+        update, placer, result = self._run(tmp_path, chosen, str(tmp_path / "Seinen"))
+
+        update.assert_not_called()
+        placer.assert_called_once()
+        assert str(chosen) in placer.call_args[0][1]
+        assert "outside" not in result[0]["self.log"]
+
+    def test_refuses_a_chosen_folder_no_root_allows(self, tmp_path):
+        chosen = tmp_path / "Unlisted" / "Berserk"
+
+        update, placer, result = self._run(tmp_path, chosen, None)
+
+        update.assert_not_called()
+        placer.assert_not_called()
+        assert result[0]["mode"] == "stop"
+        assert "outside the allowed library roots" in result[0]["self.log"]
+
+
 class TestProcessMangaFileMove:
     """Tests for file moving in _process_manga."""
 
@@ -1139,6 +1192,8 @@ class TestMangaVolumeRows:
             mock_db.select_all.return_value = [{"IssueID": "md-csm-v01", "VolumeNumber": "1"}]
 
             assert manga_volume_rows("md-csm", "v20") == []
+
+
 class TestMangaVolumeForIssue:
     """A licensed manga's catalogued "issues" are its English volumes.
 

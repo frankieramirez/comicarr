@@ -32,7 +32,7 @@ class TestAddComictoDBMangaRouting:
         result = importer.addComictoDB("mal-161890")
 
         assert result is sentinel
-        mock_mal.assert_called_once_with("mal-161890", imported=None, calledfrom=None)
+        mock_mal.assert_called_once_with("mal-161890", imported=None, calledfrom=None, location=None)
         mock_getcomic.assert_not_called()
 
     @patch("comicarr.importer.cv.getComic")
@@ -44,7 +44,7 @@ class TestAddComictoDBMangaRouting:
         result = importer.addComictoDB("md-abc")
 
         assert result is sentinel
-        mock_md.assert_called_once_with("md-abc", imported=None, calledfrom=None)
+        mock_md.assert_called_once_with("md-abc", imported=None, calledfrom=None, location=None)
         mock_getcomic.assert_not_called()
 
 

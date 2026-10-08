@@ -83,6 +83,10 @@ export interface Comic {
   BareNumberMode?: "auto" | "volumes" | "chapters" | null;
   /** Per-series auto-search frontier: blended | volumes | chapters */
   MonitorMode?: "blended" | "volumes" | "chapters" | null;
+  /** 1 when the operator chose ComicLocation instead of Comicarr deriving it */
+  LocationOverride?: number | null;
+  /** JSON list of folders that still hold files left behind by a folder change */
+  RetainedLocations?: string | null;
 }
 
 /** Issue entity */

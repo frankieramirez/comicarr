@@ -26,6 +26,7 @@ from starlette.responses import FileResponse
 
 import comicarr
 from comicarr import db, helpers, logger
+from comicarr.app.common.library_roots import is_servable_library_file
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
 from comicarr.getimage import comic_pages, open_archive, page_count, scale_image
@@ -759,7 +760,7 @@ def opds_issue(
     if file_path is None:
         return _error_xml("Issue Not Found")
 
-    if not _validate_file_path(file_path):
+    if not is_servable_library_file(file_path, comicarr.CONFIG):
         return Response(status_code=403)
 
     try:
@@ -796,7 +797,7 @@ def opds_stream(
     if file_path is None:
         return _error_xml("Issue Not Found")
 
-    if not _validate_file_path(file_path):
+    if not is_servable_library_file(file_path, comicarr.CONFIG):
         return Response(status_code=403)
 
     if page is None:
@@ -1333,26 +1334,4 @@ def _resolve_issue_file(issue_id):
         return None, None, None
 
     file_path = os.path.join(comic["ComicLocation"], issue["Location"])
-    return file_path, issue["Location"], issue["IssueID"]
-
-
-def _validate_file_path(filepath):
-    """Check that filepath is inside an allowed comic directory.
-
-    Returns True if the path is within one of the configured directories,
-    False otherwise.
-    """
-    real_path = os.path.realpath(filepath)
-    allowed_dirs = [
-        os.path.realpath(d)
-        for d in [
-            getattr(comicarr.CONFIG, "DESTINATION_DIR", ""),
-            getattr(comicarr.CONFIG, "COMIC_DIR", ""),
-            getattr(comicarr.CONFIG, "STORYARC_LOCATION", ""),
-            getattr(comicarr.CONFIG, "GRABBAG_DIR", ""),
-        ]
-        if d
-    ]
-    if not allowed_dirs:
-        return False
-    return any(os.path.commonpath([real_path, d]) == d for d in allowed_dirs)
+    return file_path, os.path.basename(issue["Location"]), issue["IssueID"]

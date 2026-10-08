@@ -106,9 +106,9 @@ def add_comic(
     if not comic_id:
         return JSONResponse(status_code=400, content={"detail": "Missing comic id"})
 
-    result = search_service.add_comic(ctx, comic_id)
+    result = search_service.add_comic(ctx, comic_id, folder=request_body.get("folder"))
     if not result["success"]:
-        return JSONResponse(status_code=500, content={"detail": result.get("error")})
+        return JSONResponse(status_code=result.get("status", 500), content={"detail": result.get("error")})
     return result
 
 
@@ -125,9 +125,9 @@ def add_manga(
     if not manga_id:
         return JSONResponse(status_code=400, content={"detail": "Missing manga id"})
 
-    result = search_service.add_manga(ctx, manga_id)
+    result = search_service.add_manga(ctx, manga_id, folder=request_body.get("folder"))
     if not result["success"]:
-        return JSONResponse(status_code=400, content={"detail": result.get("error")})
+        return JSONResponse(status_code=result.get("status", 400), content={"detail": result.get("error")})
     return result
 
 

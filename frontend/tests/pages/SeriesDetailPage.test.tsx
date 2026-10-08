@@ -504,6 +504,38 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByText(/Use manga chapter labels/)).toBeTruthy();
   });
 
+  it("shows a chosen library folder and the folders still holding files", async () => {
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Absolute Batman",
+            ComicYear: "2024",
+            ComicPublisher: "DC Comics",
+            Status: "Active",
+            ComicLocation: "/magazines/Absolute Batman",
+            LocationOverride: 1,
+            RetainedLocations: '["/comics/Absolute Batman (2024)"]',
+          },
+          issues: canonicalIssues,
+          annuals: [annual],
+        }),
+      ),
+    );
+    renderDetail();
+
+    expect((await screen.findByTestId("series-folder")).textContent).toBe(
+      "/magazines/Absolute Batman",
+    );
+    expect(screen.getByText("chosen")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Earlier files are still read from /comics/Absolute Batman (2024).",
+      ),
+    ).toBeTruthy();
+  });
+
   it("keeps the current kind and reports an API failure", async () => {
     server.use(
       http.patch("/api/series/1/content-kind", () =>

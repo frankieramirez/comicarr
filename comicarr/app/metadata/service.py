@@ -260,7 +260,9 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
             "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN issues b ON a.ComicID=b.ComicID WHERE b.IssueID=?",
             [issueid],
         )
+        holding_table = "issues"
         if not issuedata:
+            holding_table = "annuals"
             issuedata = db.raw_select_one(
                 "SELECT a.ComicVersion, a.ComicLocation, a.ComicYear, a.AgeRating, b.* FROM comics a LEFT JOIN annuals b ON a.ComicID=b.ComicID WHERE b.IssueID=? AND b.Deleted != 1",
                 [issueid],
@@ -283,6 +285,9 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
         comversion = issuedata["ComicVersion"]
         dirName = issuedata["ComicLocation"]
         filename = os.path.join(dirName, issuedata["Location"])
+        left_behind = os.path.isabs(issuedata["Location"])
+        if left_behind:
+            dirName = os.path.dirname(filename)
         if not os.path.exists(filename):
             file_check = list(Path(dirName).rglob("*" + issuedata["Location"]))
             if len(file_check) > 0:
@@ -443,6 +448,8 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                         os.remove(filename)
                     except OSError:
                         pass
+            if left_behind and dst != filename:
+                db.upsert(holding_table, {"Location": dst}, {"IssueID": issueid})
 
     if fail is False:
         if group is False:
