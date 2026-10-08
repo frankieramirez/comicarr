@@ -23,9 +23,9 @@ export default function PageHeader({
       className={`shrink-0 px-5 py-3.5 border-b border-border flex items-center gap-3 ${className}`}
     >
       <div className="min-w-0">
-        <div className="text-[18px] font-semibold tracking-tight leading-none">
+        <h1 className="text-[18px] font-semibold tracking-tight leading-none">
           {title}
-        </div>
+        </h1>
         {meta != null && (
           <div className="font-mono text-[11px] text-muted-foreground mt-1.5 truncate">
             {meta}

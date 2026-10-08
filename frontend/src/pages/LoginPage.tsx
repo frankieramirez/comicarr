@@ -421,9 +421,9 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <div className="text-[18px] font-semibold tracking-tight mb-1">
+        <h1 className="mb-1 text-[18px] font-semibold tracking-tight">
           {needsSetup ? "Create admin" : "Sign in"}
-        </div>
+        </h1>
         <div className="text-[12px] text-muted-foreground mb-4">
           {needsSetup
             ? "Set up your first account to unlock the library."

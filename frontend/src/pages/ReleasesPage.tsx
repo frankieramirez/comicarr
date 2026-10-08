@@ -195,9 +195,9 @@ export default function ReleasesPage() {
       {/* Header */}
       <div className="shrink-0 px-5 py-3.5 border-b border-border flex items-center justify-between gap-3">
         <div>
-          <div className="text-[18px] font-semibold tracking-tight leading-none">
+          <h1 className="text-[18px] font-semibold tracking-tight leading-none">
             Releases
-          </div>
+          </h1>
           <div className="font-mono text-[11px] text-muted-foreground mt-1.5">
             {currentView === "mine"
               ? "this week · your library"
