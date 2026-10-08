@@ -18,7 +18,7 @@ from comicarr.app.series import queries as series_queries
 from comicarr.app.series import router as series_router
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.app.storyarcs import router as storyarcs_router
-from comicarr.tables import comics, issues, storyarcs
+from comicarr.tables import annuals, comics, issues, storyarcs
 
 
 def _engine(monkeypatch, *tables):
@@ -62,11 +62,13 @@ def test_pause_existing_series(monkeypatch):
 
 
 def test_queue_unqueue_ignore_missing_id_do_not_insert(monkeypatch):
-    engine = _engine(monkeypatch, issues)
+    engine = _engine(monkeypatch, issues, annuals, storyarcs)
     assert series_queries.queue_issue("missing", "frankie") is False
     assert series_queries.unqueue_issue("missing", "frankie") is False
     assert series_queries.ignore_issue("missing", "frankie") is False
     assert _count(engine, issues) == 0
+    assert _count(engine, annuals) == 0
+    assert _count(engine, storyarcs) == 0
 
 
 def test_mark_issue_wanted_missing_id_does_not_insert(monkeypatch):
@@ -94,7 +96,7 @@ def test_pause_route_returns_404_for_unknown_series(monkeypatch):
 
 
 def test_queue_route_returns_404_for_unknown_issue(monkeypatch):
-    engine = _engine(monkeypatch, issues)
+    engine = _engine(monkeypatch, issues, annuals, storyarcs)
     response = series_router.queue_issue("missing", "frankie", SimpleNamespace())
     assert response.status_code == 404
     assert _body(response) == {"detail": "Issue not found: missing"}
@@ -102,7 +104,7 @@ def test_queue_route_returns_404_for_unknown_issue(monkeypatch):
 
 
 def test_unqueue_route_returns_404_for_unknown_issue(monkeypatch):
-    engine = _engine(monkeypatch, issues)
+    engine = _engine(monkeypatch, issues, annuals, storyarcs)
     response = series_router.unqueue_issue("missing", "frankie", SimpleNamespace())
     assert response.status_code == 404
     assert _body(response) == {"detail": "Issue not found: missing"}
