@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -297,6 +298,104 @@ def _archive_and_rescan(rows: Sequence[dict], series_id: str) -> None:
         raise _fail("Failed to rescan imported series %s: %s" % (series_id, e), phase="rescan") from e
 
 
+def _import_tagging_enabled(config) -> bool:
+    """IMP_METADATA is the import-only switch; tagging still honours ENABLE_META / CBR2CBZ_ONLY."""
+    if config is None:
+        return False
+    if not getattr(config, "IMP_METADATA", False):
+        return False
+    return bool(getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False))
+
+
+def _install_tagged_file(library_path: str, tagged_path: str) -> str:
+    """Copy ComicTagger's cache result into the library, handling CBR->CBZ.
+
+    `cmtag.run` cannot write into an existing archive, so it copies into
+    CACHE_DIR and may return a .cbz for a .cbr. The metatag service copies that
+    file back and removes the original when the basename changed; import does
+    the same so the follow-up rescan points at the final file.
+    """
+    destination_path = os.path.join(os.path.dirname(library_path), os.path.basename(tagged_path))
+    if os.path.abspath(tagged_path) != os.path.abspath(destination_path):
+        shutil.copy(tagged_path, destination_path)
+        try:
+            os.remove(tagged_path)
+        except OSError:
+            pass
+        cache_dir = os.path.dirname(tagged_path)
+        try:
+            if os.path.isdir(cache_dir) and not os.listdir(cache_dir):
+                os.rmdir(cache_dir)
+        except OSError:
+            pass
+    if os.path.abspath(library_path) != os.path.abspath(destination_path) and os.path.lexists(library_path):
+        try:
+            os.remove(library_path)
+        except OSError:
+            pass
+    return destination_path
+
+
+def _tag_imported_files(rows: Sequence[dict], placed, series_id: str, config) -> None:
+    """Best-effort tagging after a committed import. Never raises.
+
+    Inbox auto-import and manual match share `_finalize_locked`, so both honour
+    IMP_METADATA through this one call to `cmtag.run` — the same entry post-
+    processing and POST /api/metadata/metatag already use.
+    """
+    if not _import_tagging_enabled(config):
+        return
+
+    placed_by_source = {source_path: result.destination for source_path, result in placed}
+    renamed = False
+    for row in rows:
+        issue_id = row.get("_ResolvedIssueID")
+        source_path = row["ComicLocation"]
+        if not issue_id:
+            logger.fdebug("[IMPORT-MATCH] No issue ID for %s, skipping metatag" % source_path)
+            continue
+        filepath = placed_by_source.get(source_path, source_path)
+        try:
+            from comicarr import cmtag
+
+            metaresponse = cmtag.run(
+                os.path.dirname(filepath),
+                issueid=issue_id,
+                filename=filepath,
+                manualmeta=True,
+            )
+        except Exception as e:
+            logger.warn("[IMPORT-MATCH] Metatagging raised for %s: %s" % (filepath, e))
+            continue
+        if not isinstance(metaresponse, str) or not os.path.isfile(metaresponse):
+            logger.warn(
+                "[IMPORT-MATCH] Unable to write metadata to %s [%s] - leaving the imported file untagged"
+                % (os.path.basename(filepath), metaresponse)
+            )
+            continue
+        try:
+            installed = _install_tagged_file(filepath, metaresponse)
+        except Exception as e:
+            logger.warn("[IMPORT-MATCH] Could not install tagged file for %s: %s" % (filepath, e))
+            continue
+        if os.path.abspath(installed) != os.path.abspath(filepath):
+            renamed = True
+            logger.info(
+                "[IMPORT-MATCH] Wrote metadata: %s -> %s" % (os.path.basename(filepath), os.path.basename(installed))
+            )
+        else:
+            logger.info("[IMPORT-MATCH] Wrote metadata to %s" % os.path.basename(installed))
+
+    if not renamed:
+        return
+    try:
+        from comicarr import updater
+
+        updater.forceRescan(series_id)
+    except Exception as e:
+        logger.warn("[IMPORT-MATCH] Rescan after metatag rename failed for %s: %s" % (series_id, e))
+
+
 def _finalize_locked(
     ctx: AppContext,
     import_ids: Sequence[str],
@@ -346,6 +445,12 @@ def _finalize_locked(
         if rollback_errors:
             message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
         raise _fail(message, phase="commit", rollback_failed=bool(rollback_errors)) from e
+
+    # After commit: a tagging failure must not roll back a finished import.
+    try:
+        _tag_imported_files(rows, moved_files, series_id, config)
+    except Exception as e:
+        logger.warn("[IMPORT-MATCH] Metatagging failed after import of %s: %s" % (series_id, e))
 
     return ImportFinalizationResult(
         matched=len(rows),

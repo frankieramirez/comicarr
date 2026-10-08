@@ -5,9 +5,12 @@ Tests cover file grouping, auto-matching against library series,
 queuing unmatched files for review, and concurrent scan prevention.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from comicarr.app.imports import finalization
 
 
 @pytest.fixture(autouse=True)
@@ -398,3 +401,123 @@ class TestGetScanProgress:
         importinbox.INBOX_SCAN_STATUS = "scanning"
         progress = importinbox.get_scan_progress()
         assert progress["status"] == "scanning"
+
+
+class TestAutoImportWritesMetadata:
+    """Inbox auto-import goes through finalize_manual_match, which must honour IMP_METADATA."""
+
+    @staticmethod
+    def _config(*, metadata, enable_meta=False, cbr2cbz_only=False):
+        return SimpleNamespace(
+            IMP_MOVE=True,
+            IMP_RENAME=False,
+            IMP_METADATA=metadata,
+            ENABLE_META=enable_meta,
+            CBR2CBZ_ONLY=cbr2cbz_only,
+            FILE_FORMAT="",
+            FILE_OPTS="copy",
+            ARC_FILEOPS="copy",
+            ARC_FILEOPS_SOFTLINK_RELATIVE=False,
+        )
+
+    def _run(self, tmp_path, importinbox, *, metadata, enable_meta=False, cbr2cbz_only=False, cmtag_return):
+        source = tmp_path / "inbox" / "001.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_bytes(b"untagged")
+        imp_id = importinbox._filepath_to_impid(str(source))
+        ctx = SimpleNamespace(
+            config=self._config(metadata=metadata, enable_meta=enable_meta, cbr2cbz_only=cbr2cbz_only)
+        )
+        row = {
+            "impID": imp_id,
+            "ComicLocation": str(source),
+            "ComicFilename": source.name,
+            "IssueNumber": "1",
+            "Status": "Not Imported",
+        }
+
+        with (
+            patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=ctx),
+            patch.object(finalization.import_queries, "get_import_rows", return_value=[row]),
+            patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
+            patch.object(finalization.import_queries, "mark_imported"),
+            patch.object(finalization.series_queries, "get_comic_name", return_value="Batman"),
+            patch.object(
+                finalization.series_queries,
+                "get_comic_for_import",
+                return_value={"ComicName": "Batman", "ComicLocation": str(target_directory)},
+            ),
+            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.cmtag.run", return_value=cmtag_return) as mock_cmtag,
+        ):
+            ok = importinbox._finalize_auto_import_group(
+                [str(source)],
+                {"ComicID": "cv-100", "ComicName": "Batman"},
+                100,
+            )
+
+        return ok, mock_cmtag, target_directory / source.name
+
+    def test_imp_metadata_on_tags_auto_imported_files(self, tmp_path, importinbox):
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        tagged = cache / "001.cbz"
+        tagged.write_bytes(b"tagged")
+
+        ok, mock_cmtag, destination = self._run(
+            tmp_path, importinbox, metadata=True, enable_meta=True, cmtag_return=str(tagged)
+        )
+
+        assert ok is True
+        mock_cmtag.assert_called_once()
+        assert mock_cmtag.call_args.kwargs["filename"] == str(destination)
+        assert mock_cmtag.call_args.kwargs["issueid"] == "cv-1"
+        assert destination.read_bytes() == b"tagged"
+
+    def test_imp_metadata_off_does_not_tag_auto_imported_files(self, tmp_path, importinbox):
+        ok, mock_cmtag, destination = self._run(
+            tmp_path, importinbox, metadata=False, enable_meta=True, cmtag_return="unused"
+        )
+
+        assert ok is True
+        mock_cmtag.assert_not_called()
+        assert destination.read_bytes() == b"untagged"
+
+    def test_imp_metadata_on_without_enable_meta_skips_tagging(self, tmp_path, importinbox):
+        ok, mock_cmtag, destination = self._run(
+            tmp_path, importinbox, metadata=True, enable_meta=False, cmtag_return="unused"
+        )
+
+        assert ok is True
+        mock_cmtag.assert_not_called()
+        assert destination.read_bytes() == b"untagged"
+
+    def test_cbr2cbz_only_tags_auto_imported_files(self, tmp_path, importinbox):
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        tagged = cache / "001.cbz"
+        tagged.write_bytes(b"tagged")
+
+        ok, mock_cmtag, _destination = self._run(
+            tmp_path,
+            importinbox,
+            metadata=True,
+            enable_meta=False,
+            cbr2cbz_only=True,
+            cmtag_return=str(tagged),
+        )
+
+        assert ok is True
+        mock_cmtag.assert_called_once()
+
+    def test_tagging_failure_does_not_fail_auto_import(self, tmp_path, importinbox):
+        ok, mock_cmtag, destination = self._run(
+            tmp_path, importinbox, metadata=True, enable_meta=True, cmtag_return="fail"
+        )
+
+        assert ok is True
+        mock_cmtag.assert_called_once()
+        assert destination.exists()
+        assert destination.read_bytes() == b"untagged"
