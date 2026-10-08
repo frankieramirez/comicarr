@@ -61,9 +61,10 @@ Do not size icons on callers; the size variant wins over the base 16px svg rule.
 
 Pressed filter chips are `components/ui/toggle-chip.tsx` (`ToggleChip`): `aria-pressed`,
 the shared focus ring, and the 12% primary tint in classes — not a per-page
-`style={{}}`. Size `sm` is 11px mono (Releases, Import, Attention); `md` is 12px
-(Settings mobile sections). Pressed text is `text-foreground` so light theme
-stays AA. Inactive chips use `hover:text-foreground`.
+`style={{}}`. Size `xs` is 10px mono (series ledger); `sm` is 11px mono
+(Releases, Import, Attention); `md` is 12px (Settings mobile sections).
+Pressed text is `text-foreground` so light theme stays AA. Inactive chips use
+`hover:text-foreground`.
 
 Disabled is `opacity-50` plus `pointer-events-none` from that one primitive.
 Do not re-specify opacity or skip the focus ring on callers. The scaffold

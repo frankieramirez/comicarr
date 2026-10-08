@@ -50,6 +50,40 @@ describe("ToggleChip", () => {
     expect(pressedName("Bravo")).toBe("true");
   });
 
+  it("uses foreground text when pressed so light theme stays readable", () => {
+    render(
+      <ToggleChip pressed onPressedChange={() => undefined}>
+        Chip
+      </ToggleChip>,
+    );
+    expect(screen.getByRole("button").className).toContain("text-foreground");
+    expect(screen.getByRole("button").className).not.toContain("text-primary");
+  });
+
+  it("gives inactive chips a foreground hover", () => {
+    render(
+      <ToggleChip pressed={false} onPressedChange={() => undefined}>
+        Chip
+      </ToggleChip>,
+    );
+    expect(screen.getByRole("button").className).toContain(
+      "hover:text-foreground",
+    );
+  });
+
+  it("sizes xs ledger chips at 10px", () => {
+    render(
+      <ToggleChip
+        size="xs"
+        pressed={false}
+        onPressedChange={() => undefined}
+      >
+        All 12
+      </ToggleChip>,
+    );
+    expect(screen.getByRole("button").className).toContain("text-[10px]");
+  });
+
   it("keeps a focus ring class on both sizes", () => {
     const { rerender } = render(
       <ToggleChip pressed={false} onPressedChange={() => undefined}>

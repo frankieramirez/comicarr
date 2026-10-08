@@ -1155,9 +1155,9 @@ export default function SeriesDetailPage() {
             ).map(([key, label]) => (
               <ToggleChip
                 key={key}
+                size="xs"
                 pressed={filter === key}
                 onPressedChange={() => setFilter(key)}
-                className="px-2 py-0.5"
               >
                 {label}
               </ToggleChip>
