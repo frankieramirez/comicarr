@@ -107,6 +107,7 @@ def test_operator_content_kind_agrees_across_surfaces(query_db):
                 _seed_row(ComicID="md-b", ComicName="Kept manga", ContentType="manga"),
                 _seed_row(ComicID="4050-1", ComicName="A Comic", ContentType="comic"),
                 _seed_row(ComicID="md-c", ComicName="Legacy prefix", ContentType=None),
+                _seed_row(ComicID="md-legacy", ComicName="Legacy restamp", ContentType="comic"),
             ],
         )
 
@@ -115,13 +116,21 @@ def test_operator_content_kind_agrees_across_surfaces(query_db):
     assert result["content_type"] == "comic"
 
     rows = {row["ComicID"]: dict(row) for row in db.select_all(select(comics))}
-    expected_manga = {"md-a": False, "md-b": True, "4050-1": False, "md-c": True}
+    expected_manga = {
+        "md-a": False,
+        "md-b": True,
+        "4050-1": False,
+        "md-c": True,
+        "md-legacy": True,
+    }
 
     active_ids = {row["ComicID"] for row in list_active_manga_series()}
     clause_ids = {
         row["ComicID"]
         for row in db.select_all(
-            select(comics.c.ComicID).where(manga_sql_clause(comics.c.ComicID, comics.c.ContentType))
+            select(comics.c.ComicID).where(
+                manga_sql_clause(comics.c.ComicID, comics.c.ContentType, comics.c.ContentKindSetBy)
+            )
         )
     }
     manga_stats = dashboard_queries.get_library_stats("manga")
@@ -134,6 +143,8 @@ def test_operator_content_kind_agrees_across_surfaces(query_db):
         assert (comic_id in clause_ids) is want_manga
         assert _postprocess_uses_manga_branch(row) is want_manga
 
-    assert manga_stats["manga_series"] == 2
+    assert rows["md-a"]["ContentKindSetBy"] == series_kind.OPERATOR_KIND_SET_BY
+    assert rows["md-legacy"].get("ContentKindSetBy") in (None, "")
+    assert manga_stats["manga_series"] == 3
     assert comic_stats["comic_series"] == 2
-    assert active_ids == {"md-b", "md-c"}
+    assert active_ids == {"md-b", "md-c", "md-legacy"}

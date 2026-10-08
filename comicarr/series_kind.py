@@ -55,6 +55,7 @@ _PROVIDER_PREFIXES: dict[SeriesProvider, str] = {
 }
 
 _MANGA_CONTENT_TYPE = "manga"
+OPERATOR_KIND_SET_BY = "operator"
 
 
 def _series_id_of(series: str | Mapping | None) -> str:
@@ -80,56 +81,71 @@ def provider_of(series: str | Mapping | None) -> SeriesProvider:
     return SeriesProvider.COMICVINE
 
 
+def _is_manga_content_type(content_type) -> bool:
+    return content_type is not None and str(content_type).strip().casefold() == _MANGA_CONTENT_TYPE
+
+
+def _operator_set_kind(series: Mapping) -> bool:
+    return str(series.get("ContentKindSetBy") or "").strip().casefold() == OPERATOR_KIND_SET_BY
+
+
 def is_manga(series: str | Mapping | None) -> bool:
     """Return whether this Series is manga, reconciling prefix and ContentType.
 
-    A stored ``ContentType`` is authoritative when a row is available. Provider
-    identity is only the fallback for a bare id or a legacy row whose field is
-    absent/null. This lets an operator classify any provider's Series while
-    retaining prefix inference for old data. SQL callers must use
+    An operator-marked ``ContentType`` is authoritative. Unmarked rows keep the
+    ComicID prefix fallback so a legacy ``md-``/``mal-`` series restamped
+    ``comic`` by alembic 0002 still counts as manga. SQL callers must use
     :func:`manga_sql_clause` rather than re-deriving the prefix-OR form.
     """
     if isinstance(series, Mapping):
-        content_type = series.get("ContentType")
-        if content_type is not None:
-            return str(content_type).strip().casefold() == _MANGA_CONTENT_TYPE
+        if _operator_set_kind(series):
+            return _is_manga_content_type(series.get("ContentType"))
+        if _is_manga_content_type(series.get("ContentType")):
+            return True
+        if provider_of(series) in MANGA_PROVIDERS:
+            return True
+        return False
     return provider_of(series) in MANGA_PROVIDERS
 
 
-def manga_sql_clause(comic_id_column, content_type_column):
-    """SQL form of :func:`is_manga` for a Series table.
-
-    Stored ``ContentType`` wins. ``md-``/``mal-`` prefixes are the fallback
-    only when ``ContentType`` is NULL, so an operator who classifies a
-    prefixed Series as comic is excluded from manga sync, RSS, dashboard
-    stats, and library scan. This is the #976 rule; #686 kept the prefix-OR
-    filter only because no live rows were mis-stamped, not because prefix
-    should override a deliberate reclassification.
-    """
-    prefixed = or_(
+def _prefixed_id(comic_id_column):
+    return or_(
         comic_id_column.like("md-%"),
         comic_id_column.like("mal-%"),
     )
+
+
+def _unmarked_kind(set_by_column):
+    return or_(set_by_column.is_(None), set_by_column != OPERATOR_KIND_SET_BY)
+
+
+def manga_sql_clause(comic_id_column, content_type_column, set_by_column):
+    """SQL form of :func:`is_manga` for a Series table.
+
+    Prefix-OR stays for unmarked rows (legacy adoption restamped them
+    ``comic``). An explicit operator marker lets a stored kind override the
+    prefix. Do not ``NOT`` this clause; use :func:`comic_sql_clause`.
+    """
+    prefixed = _prefixed_id(comic_id_column)
     return or_(
         content_type_column == _MANGA_CONTENT_TYPE,
-        and_(content_type_column.is_(None), prefixed),
+        and_(prefixed, _unmarked_kind(set_by_column)),
     )
 
 
-def comic_sql_clause(comic_id_column, content_type_column):
+def comic_sql_clause(comic_id_column, content_type_column, set_by_column):
     """SQL form of ``not is_manga`` for a Series table.
 
     Inverse of :func:`manga_sql_clause`, written without ``NOT (clause)`` so a
     NULL ContentType does not become UNKNOWN and vanish from both buckets.
     """
-    prefixed = or_(
-        comic_id_column.like("md-%"),
-        comic_id_column.like("mal-%"),
-    )
+    prefixed = _prefixed_id(comic_id_column)
+    unmarked = _unmarked_kind(set_by_column)
     return or_(
         and_(
             content_type_column.isnot(None),
             content_type_column != _MANGA_CONTENT_TYPE,
+            not_(and_(prefixed, unmarked)),
         ),
         and_(content_type_column.is_(None), not_(prefixed)),
     )

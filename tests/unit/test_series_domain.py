@@ -582,7 +582,7 @@ def test_update_content_kind_persists_and_returns_canonical_value(monkeypatch, c
 
     result = series_service.update_content_kind(_make_ctx(), "160294", content_type)
 
-    update.assert_called_once_with("160294", content_type)
+    update.assert_called_once_with("160294", content_type, set_by="operator")
     assert result == {
         "success": True,
         "content_type": content_type,
@@ -624,6 +624,19 @@ def test_content_kind_query_updates_content_type_and_location(monkeypatch):
     )
 
 
+def test_content_kind_query_records_operator_marker(monkeypatch):
+    upsert = MagicMock()
+    monkeypatch.setattr(series_queries.db, "upsert", upsert)
+
+    series_queries.update_comic_content_kind("md-a", "comic", set_by="operator")
+
+    upsert.assert_called_once_with(
+        "comics",
+        {"ContentType": "comic", "ContentKindSetBy": "operator"},
+        {"ComicID": "md-a"},
+    )
+
+
 def test_update_content_kind_repoints_comicvine_series_to_manga_dest(monkeypatch):
     update = MagicMock()
     warn = MagicMock()
@@ -647,7 +660,7 @@ def test_update_content_kind_repoints_comicvine_series_to_manga_dest(monkeypatch
 
     result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
 
-    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk", set_by="operator")
     assert result == {
         "success": True,
         "content_type": "manga",
@@ -679,7 +692,7 @@ def test_update_content_kind_leaves_location_when_already_under_manga_dest(monke
 
     result = series_service.update_content_kind(_make_ctx(), "md-1", "manga")
 
-    update.assert_called_once_with("md-1", "manga")
+    update.assert_called_once_with("md-1", "manga", set_by="operator")
     assert result["location_repointed"] is False
     assert result["comic_location"] == "/manga/Berserk (2003)"
     warn.assert_not_called()
@@ -706,7 +719,7 @@ def test_update_content_kind_heals_manga_series_still_under_comics_dest(monkeypa
 
     result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
 
-    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk", set_by="operator")
     assert result["location_repointed"] is True
     assert result["comic_location"] == "/manga/Berserk"
 
@@ -727,7 +740,7 @@ def test_update_content_kind_to_comic_does_not_repoint_location(monkeypatch):
 
     result = series_service.update_content_kind(_make_ctx(), "160294", "comic")
 
-    update.assert_called_once_with("160294", "comic")
+    update.assert_called_once_with("160294", "comic", set_by="operator")
     assert result["location_repointed"] is False
     assert result["comic_location"] == "/manga/Berserk"
 
@@ -755,7 +768,7 @@ def test_update_content_kind_sets_manga_location_when_unset_without_orphan_warni
 
     result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
 
-    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk")
+    update.assert_called_once_with("160294", "manga", comic_location="/manga/Berserk", set_by="operator")
     assert result["location_repointed"] is True
     assert "previous_location" not in result
     warn.assert_not_called()
@@ -779,7 +792,7 @@ def test_update_content_kind_leaves_location_when_manga_dest_missing(monkeypatch
 
     result = series_service.update_content_kind(_make_ctx(), "160294", "manga")
 
-    update.assert_called_once_with("160294", "manga")
+    update.assert_called_once_with("160294", "manga", set_by="operator")
     assert result["location_repointed"] is False
     warn.assert_called_once()
     assert "no manga destination configured" in warn.call_args.args[0]

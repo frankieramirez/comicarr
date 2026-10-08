@@ -100,6 +100,7 @@ comics = Table(
     Column("cv_removed", Integer),
     Column("not_updated_db", Text),
     Column("ContentType", String(16), server_default="comic"),
+    Column("ContentKindSetBy", String(16)),
     Column("ReadingDirection", String(16), server_default="ltr"),
     Column("BareNumberMode", String(16), server_default="auto"),
     Column("MonitorMode", String(16), server_default="blended"),

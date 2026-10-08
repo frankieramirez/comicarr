@@ -63,6 +63,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0009_chat_actions": frozenset(),
     "0010_search_backlog_budget": frozenset({"search_backlog_state", "rss_search_seen"}),
     "0011_series_retained_locations": frozenset(),
+    "0012_content_kind_set_by": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",

@@ -246,16 +246,19 @@ def get_comic_content_kind(comic_id):
             t_comics.c.ComicName,
             t_comics.c.ComicLocation,
             t_comics.c.ContentType,
+            t_comics.c.ContentKindSetBy,
             t_comics.c.dirlocked,
         ).where(t_comics.c.ComicID == comic_id)
     )
 
 
-def update_comic_content_kind(comic_id, content_type, comic_location=None):
+def update_comic_content_kind(comic_id, content_type, comic_location=None, set_by=None):
     """Atomically persist content kind, and ComicLocation when provided."""
     values = {"ContentType": content_type}
     if comic_location is not None:
         values["ComicLocation"] = comic_location
+    if set_by is not None:
+        values["ContentKindSetBy"] = set_by
     db.upsert("comics", values, {"ComicID": comic_id})
 
 
@@ -272,6 +275,7 @@ def get_series_location(comic_id):
             t_comics.c.Corrected_Type,
             t_comics.c.ComicLocation,
             t_comics.c.ContentType,
+            t_comics.c.ContentKindSetBy,
             t_comics.c.Status,
             t_comics.c.dirlocked,
             t_comics.c.RetainedLocations,

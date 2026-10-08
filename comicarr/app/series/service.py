@@ -541,9 +541,11 @@ def update_content_kind(ctx, comic_id, content_type):
             logger.warn(warning)
 
     if new_location is not None:
-        series_queries.update_comic_content_kind(comic_id, content_type, comic_location=new_location)
+        series_queries.update_comic_content_kind(
+            comic_id, content_type, comic_location=new_location, set_by=series_kind.OPERATOR_KIND_SET_BY
+        )
     else:
-        series_queries.update_comic_content_kind(comic_id, content_type)
+        series_queries.update_comic_content_kind(comic_id, content_type, set_by=series_kind.OPERATOR_KIND_SET_BY)
 
     updated = series_queries.get_comic_content_kind(comic_id)
     canonical = updated["ContentType"] if updated else content_type

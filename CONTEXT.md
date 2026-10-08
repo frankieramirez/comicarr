@@ -18,9 +18,9 @@ A monitored comic or manga title and its library directory, issues or chapters, 
 
 ## Content kind
 
-An operator-controlled classification of a Series as `comic` or `manga`, independent of its Series provider and publication format. A stored kind is authoritative; provider identity is only a fallback for legacy Series without one.
+An operator-controlled classification of a Series as `comic` or `manga`, independent of its Series provider and publication format. An operator-marked kind is authoritative; the ComicID prefix remains the fallback for unmarked rows, including legacy `md-`/`mal-` series that alembic 0002 restamped `comic`.
 
-#686 confirmed there were no mis-stamped `md-`/`mal-` rows in the audited library and declined a one-time ContentType restamp; the prefix-OR scheduled-sync filter stayed because nothing needed correcting. #976 settles the remaining case: when an operator deliberately reclassifies a prefixed Series (the content-kind editor from #639), that stored kind wins on every surface — scheduled sync, manga RSS, dashboard library stats, manga library scan, and post-processing. The ComicID prefix remains only the fallback for NULL ContentType. `comicarr.series_kind.manga_sql_clause` is the one SQL form of that rule.
+#686 declined a one-time ContentType restamp after auditing one library. #976 keeps that prefix fallback unless `ContentKindSetBy=operator` (the content-kind editor from #639). That partly reverses #686's "stored kind always wins" reading: unmarked prefixed rows stay in manga sync, RSS, dashboard stats, library scan, and post-processing. `comicarr.series_kind.manga_sql_clause` is the one SQL form of that rule.
 
 _Avoid_: Content type, comic type, provider type
 

@@ -745,7 +745,9 @@ class PostProcessor(object):
         series = None
         if self.comicid is not None:
             series = db.select_one(
-                select(comics.c.ComicID, comics.c.ContentType).where(comics.c.ComicID == self.comicid)
+                select(comics.c.ComicID, comics.c.ContentType, comics.c.ContentKindSetBy).where(
+                    comics.c.ComicID == self.comicid
+                )
             )
         kind_source = series if series is not None else self.comicid
         if self.comicid is not None and series_kind.is_manga(kind_source):

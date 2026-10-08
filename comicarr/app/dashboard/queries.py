@@ -47,7 +47,7 @@ def get_library_stats(content_type=None):
         )
         conditions = (
             t_comics.c.Status != "Paused",
-            manga_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType),
+            manga_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy),
         )
     elif content_type == "comic":
         columns = (
@@ -57,7 +57,7 @@ def get_library_stats(content_type=None):
         )
         conditions = (
             t_comics.c.Status != "Paused",
-            comic_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType),
+            comic_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy),
         )
     else:
         columns = (

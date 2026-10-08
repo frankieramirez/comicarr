@@ -33,7 +33,7 @@ def query_db(tmp_path, monkeypatch):
     db.shutdown_engine()
 
 
-def test_list_active_manga_excludes_prefix_rows_stamped_comic(query_db):
+def test_list_active_manga_keeps_unmarked_legacy_prefix_rows(query_db):
     with query_db.begin() as conn:
         conn.execute(
             insert(comics),
@@ -43,35 +43,40 @@ def test_list_active_manga_excludes_prefix_rows_stamped_comic(query_db):
                     "ComicName": "One Piece",
                     "Status": "Active",
                     "ContentType": "comic",
+                    "ContentKindSetBy": None,
                 },
                 {
                     "ComicID": "mal-13",
                     "ComicName": "One Piece MAL",
                     "Status": "Active",
                     "ContentType": "comic",
+                    "ContentKindSetBy": "operator",
                 },
                 {
                     "ComicID": "md-wanted",
                     "ComicName": "Wanted",
                     "Status": "Active",
                     "ContentType": "manga",
+                    "ContentKindSetBy": None,
                 },
                 {
                     "ComicID": "4050-1",
                     "ComicName": "A Comic",
                     "Status": "Active",
                     "ContentType": "comic",
+                    "ContentKindSetBy": None,
                 },
                 {
                     "ComicID": "md-paused",
                     "ComicName": "Paused",
                     "Status": "Paused",
                     "ContentType": "manga",
+                    "ContentKindSetBy": None,
                 },
             ],
         )
     ids = {row["ComicID"] for row in list_active_manga_series()}
-    assert ids == {"md-wanted"}
+    assert ids == {"md-onepiece", "md-wanted"}
 
 
 def test_empty_ledger_series_are_those_with_zero_issues(query_db):

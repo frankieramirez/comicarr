@@ -214,7 +214,7 @@ def _load_existing_series():
                 comics.c.DynamicComicName,
                 comics.c.ComicYear,
                 comics.c.ComicLocation,
-            ).where(series_kind.comic_sql_clause(comics.c.ComicID, comics.c.ContentType))
+            ).where(series_kind.comic_sql_clause(comics.c.ComicID, comics.c.ContentType, comics.c.ContentKindSetBy))
             for row in conn.execute(stmt):
                 row_dict = dict(row._mapping)
                 for name in (
