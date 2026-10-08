@@ -181,13 +181,29 @@ def add_manga(ctx, manga_id, folder=None):
         return {"success": False, "error": "Manga integration is not enabled"}
 
     from comicarr import importer, series_kind
+    from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.app.series import location as series_location
 
     try:
         if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
             comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MYANIMELIST)
+            lookup_ids = {"comic_id": comic_id, "mal_id": series_kind.strip_prefix(comic_id)}
         else:
             comic_id = series_kind.add_prefix(manga_id, series_kind.SeriesProvider.MANGADEX)
+            lookup_ids = {"comic_id": comic_id, "mangadex_id": series_kind.strip_prefix(comic_id)}
+        try:
+            existing = find_existing_manga_series(**lookup_ids)
+        except Exception as lookup_error:
+            logger.fdebug("[SEARCH] Duplicate manga lookup failed for %s: %s" % (comic_id, lookup_error))
+            existing = None
+        if existing:
+            name = existing.get("ComicName") or existing["ComicID"]
+            return {
+                "success": False,
+                "status": 409,
+                "error": "Already in the library as %s (%s)" % (name, existing["ComicID"]),
+                "comicid": existing["ComicID"],
+            }
         try:
             location = series_location.folder_for_new_series(comic_id, folder, ctx.config)
         except series_location.SeriesLocationError as e:
