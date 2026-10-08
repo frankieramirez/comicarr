@@ -43,20 +43,20 @@ class _RuntimeResolutionEffects:
 
         return search_routes.route_health(self.ctx)
 
-    def rewant(self, issue_id, actor):
+    def rewant(self, issue_id, actor, *, entity_type=None):
         from comicarr.app.series import queries as series_queries
 
-        series_queries.queue_issue(issue_id, actor)
+        return series_queries.update_obligation_intent(issue_id, actor, intent="wanted", entity_type=entity_type)
 
-    def search(self, issue_id, trigger):
+    def search(self, issue_id, trigger, *, entity_type=None):
         from comicarr.app.search import service as search_service
 
-        return search_service.search_issue(self.ctx, issue_id, trigger=trigger)
+        return search_service.search_issue(self.ctx, issue_id, trigger=trigger, entity_type=entity_type)
 
-    def stop_wanting(self, issue_id, actor):
+    def stop_wanting(self, issue_id, actor, *, entity_type=None):
         from comicarr.app.series import queries as series_queries
 
-        series_queries.ignore_issue(issue_id, actor)
+        return series_queries.update_obligation_intent(issue_id, actor, intent="ignored", entity_type=entity_type)
 
     def enqueue_import(self, item):
         from comicarr.app.downloads import service as downloads_service
@@ -105,6 +105,12 @@ def _payload(row):
     return value if isinstance(value, dict) else {}
 
 
+def _entity_type_from_row(row):
+    from comicarr.app.series.queries import normalize_obligation_entity_type
+
+    return normalize_obligation_entity_type(_payload(row).get("mode"))
+
+
 def _failure(key, problem, message, *, status="failed", issue_id=None, stamp_written=None):
     return ResolutionItem(
         release_key=key,
@@ -141,9 +147,19 @@ def _retry_or_search(row, key, *, action, actor, effects):
             status="blocked",
             issue_id=issue_id,
         )
-    effects.rewant(issue_id, actor)
+    entity_type = _entity_type_from_row(row)
+    wanted = effects.rewant(issue_id, actor, entity_type=entity_type)
+    if not wanted.get("ok"):
+        return _failure(
+            key,
+            "missing_issue",
+            "No matching issue, annual, or story-arc row to re-want",
+            issue_id=issue_id,
+            stamp_written=False,
+        )
+    resolved_type = wanted.get("entity_type") or entity_type
     trigger = "band_retry" if action == ACTION_RETRY else "band_search_again"
-    result = effects.search(issue_id, trigger)
+    result = effects.search(issue_id, trigger, entity_type=resolved_type)
     if not result.get("success"):
         blocked = result.get("status") == "blocked"
         return _failure(
@@ -170,13 +186,18 @@ def _stop_wanting(row, key, *, actor, effects):
     issue_id = _issue_id(row)
     if not issue_id:
         return _failure(key, "missing_issue", "Journal row has no issueid")
-    effects.stop_wanting(issue_id, actor)
+    entity_type = _entity_type_from_row(row)
+    ignored = effects.stop_wanting(issue_id, actor, entity_type=entity_type)
     stamped = journal.stamp_resolution(key, journal.STATUS_IGNORED)
+    if ignored.get("ok"):
+        message = "Issue will not be searched again until you want it back"
+    else:
+        message = "No library row to un-want; dismissed from Needs attention"
     return ResolutionItem(
         release_key=key,
         ok=True,
         status="ignored",
-        message="Issue will not be searched again until you want it back",
+        message=message,
         issue_id=issue_id,
         stamp_written=stamped,
     )

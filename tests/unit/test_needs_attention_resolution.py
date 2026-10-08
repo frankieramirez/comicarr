@@ -36,7 +36,7 @@ from comicarr.app.search import service as search_service
 from comicarr.app.series import queries as series_queries
 from comicarr.app.system.acquisition_repair import RepairService
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, pipeline_journal
+from comicarr.tables import annuals, comics, issues, metadata, pipeline_journal, storyarcs
 
 
 @pytest.fixture(autouse=True)
@@ -292,6 +292,23 @@ def test_search_issue_enqueues_when_route_ready(monkeypatch):
     assert result["run_id"] == "run-1"
     enq.assert_called_once()
     assert enq.call_args.kwargs["trigger"] == "band_retry"
+    assert enq.call_args.args[0] == {"issueid": "1001"}
+
+
+def test_search_issue_threads_entity_type(monkeypatch):
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    monkeypatch.setattr(
+        "comicarr.app.search.health.get_search_health",
+        lambda *a, **k: {
+            "viable_route": True,
+            "routes": {"nzb": {"ready": True, "viable": True}},
+        },
+    )
+    fake_cmd = SimpleNamespace(run_id="run-ann", issueid="A1")
+    with patch("comicarr.app.search.commands.enqueue_search_command", return_value=fake_cmd) as enq:
+        result = search_service.search_issue(ctx, "A1", trigger="band_retry", entity_type="annual")
+    assert result["success"] is True
+    assert enq.call_args.args[0] == {"issueid": "A1", "entity_type": "annual"}
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +368,17 @@ def test_stop_wanting_failed_stamps_and_sets_intent():
     # would re-admit every row already stamped.
     assert _journal_row(key)["status"] == journal.STATUS_IGNORED
     assert _journal_row(key)["stage"] == journal.FAILED
+
+
+def test_stop_wanting_without_library_row_still_dismisses():
+    key = _seed_failed_row()
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+    assert result["success"] is True
+    assert result["status"] == "ignored"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "1001")) is None
+    assert _journal_row(key)["status"] == journal.STATUS_IGNORED
+    assert key not in _attention_release_keys()
 
 
 def test_retired_ignore_action_id_is_rejected():
@@ -823,3 +851,216 @@ def test_journal_evidence_skips_retried_failed_row():
     _seed_failed_row(key=key, status=journal.STATUS_RETRIED)
     with get_engine().connect() as conn:
         assert service._journal_evidence(conn, "1001") is None
+
+
+# ---------------------------------------------------------------------------
+# 8. Entity-aware re-want (#969)
+# ---------------------------------------------------------------------------
+
+
+def _seed_comic(*, comicid="C1"):
+    with get_engine().begin() as conn:
+        conn.execute(
+            comics.insert().values(
+                ComicID=comicid,
+                ComicName="Saga",
+                ComicYear="2012",
+                Status="Active",
+            )
+        )
+
+
+def _seed_annual_row(*, issueid="A1", comicid="C1", status="Snatched"):
+    with get_engine().begin() as conn:
+        conn.execute(
+            annuals.insert().values(
+                IssueID=issueid,
+                ComicID=comicid,
+                ComicName="Saga",
+                Issue_Number="Annual 1",
+                Status=status,
+            )
+        )
+
+
+def _seed_story_arc_row(*, arcid="SA1", status="Snatched"):
+    with get_engine().begin() as conn:
+        conn.execute(
+            storyarcs.insert().values(
+                IssueArcID=arcid,
+                StoryArc="The War",
+                ComicName="Saga",
+                IssueNumber="1",
+                Status=status,
+                ComicID="C1",
+            )
+        )
+
+
+def _ready_search(monkeypatch):
+    monkeypatch.setattr(
+        "comicarr.app.search.health.get_search_health",
+        lambda *a, **k: {"viable_route": True, "routes": {"nzb": {"ready": True}}},
+    )
+
+
+def test_retry_annual_updates_annuals_without_phantom_issues_row(monkeypatch):
+    _seed_comic()
+    _seed_annual_row()
+    key = _seed_failed_row(
+        key="A1|nzbgeek",
+        issueid="A1",
+        payload={
+            "issueid": "A1",
+            "provider": "nzbgeek",
+            "nzbname": "Saga.Annual.001",
+            "mode": "want_ann",
+        },
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    with patch(
+        "comicarr.app.search.commands.enqueue_search_command",
+        return_value=SimpleNamespace(run_id="ann-1", issueid="A1"),
+    ) as enq:
+        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+
+    assert result["success"] is True
+    annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
+    assert annual["Status"] == "Wanted"
+    assert annual["AcquisitionIntent"] == "wanted"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "A1")) is None
+    assert enq.call_args.args[0]["entity_type"] == "annual"
+    assert _journal_row(key)["status"] == journal.STATUS_RETRIED
+
+
+def test_stop_wanting_annual_marks_annual_ignored_without_phantom():
+    _seed_comic()
+    _seed_annual_row()
+    key = _seed_failed_row(
+        key="A1|nzbgeek",
+        issueid="A1",
+        payload={"issueid": "A1", "provider": "nzbgeek", "nzbname": "Saga.Annual.001", "mode": "want_ann"},
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+
+    assert result["success"] is True
+    annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
+    assert annual["Status"] == "Ignored"
+    assert annual["AcquisitionIntent"] == "ignored"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "A1")) is None
+    assert _journal_row(key)["status"] == journal.STATUS_IGNORED
+
+
+def test_retry_story_arc_updates_status_only_without_phantom(monkeypatch):
+    _seed_comic()
+    _seed_story_arc_row()
+    key = _seed_failed_row(
+        key="SA1|nzbgeek",
+        issueid="SA1",
+        payload={"issueid": "SA1", "provider": "nzbgeek", "nzbname": "Saga.Arc.001", "mode": "story_arc"},
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    with patch(
+        "comicarr.app.search.commands.enqueue_search_command",
+        return_value=SimpleNamespace(run_id="arc-1", issueid="SA1"),
+    ) as enq:
+        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+
+    assert result["success"] is True
+    arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "SA1"))
+    assert arc["Status"] == "Wanted"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "SA1")) is None
+    assert enq.call_args.args[0]["entity_type"] == "story_arc"
+
+
+def test_stop_wanting_story_arc_marks_ignored_without_intent_column():
+    _seed_comic()
+    _seed_story_arc_row()
+    key = _seed_failed_row(
+        key="SA1|nzbgeek",
+        issueid="SA1",
+        payload={"issueid": "SA1", "provider": "nzbgeek", "nzbname": "Saga.Arc.001", "mode": "story_arc"},
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+
+    assert result["success"] is True
+    arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "SA1"))
+    assert arc["Status"] == "Ignored"
+    assert db.select_one(select(issues).where(issues.c.IssueID == "SA1")) is None
+
+
+def test_retry_without_mode_probes_annual_ahead_of_phantom_issues_row(monkeypatch):
+    _seed_comic()
+    _seed_annual_row()
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID="A1", ComicID=None, Status="Wanted"))
+    key = _seed_failed_row(key="A1|nzbgeek", issueid="A1")
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    with patch(
+        "comicarr.app.search.commands.enqueue_search_command",
+        return_value=SimpleNamespace(run_id="probe-1", issueid="A1"),
+    ) as enq:
+        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+
+    assert result["success"] is True
+    annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
+    assert annual["Status"] == "Wanted"
+    assert annual["AcquisitionIntent"] == "wanted"
+    phantom = db.select_one(select(issues).where(issues.c.IssueID == "A1"))
+    assert phantom["Status"] == "Wanted"
+    assert phantom.get("AcquisitionIntent") in (None, "wanted")
+    assert enq.call_args.args[0]["entity_type"] == "annual"
+
+
+def test_retry_missing_library_row_does_not_insert_or_stamp(monkeypatch):
+    key = _seed_failed_row(key="gone|nzbgeek", issueid="gone")
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    enqueued = []
+    monkeypatch.setattr(
+        "comicarr.app.search.commands.enqueue_search_command",
+        lambda *a, **k: enqueued.append(1) or SimpleNamespace(run_id="x", issueid="gone"),
+    )
+    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+
+    assert result["success"] is False
+    assert result["status_code"] == 400
+    assert enqueued == []
+    assert db.select_one(select(issues).where(issues.c.IssueID == "gone")) is None
+    assert _journal_row(key).get("status") not in journal.RESOLVED_STATUSES
+    assert key in _attention_release_keys()
+
+
+def test_reconcile_excluded_rewants_annual_and_story_arc_without_phantoms():
+    from comicarr.app.activity import reconcile as band_reconcile
+
+    _seed_comic()
+    _seed_annual_row(issueid="A1")
+    _seed_story_arc_row(arcid="SA1")
+
+    annual_result = band_reconcile.reconcile_excluded(
+        "ddl-worker-rejected",
+        issueid="A1",
+        payload={"mode": "want_ann"},
+        strict=True,
+    )
+    arc_result = band_reconcile.reconcile_excluded(
+        "ddl-worker-rejected",
+        issueid="SA1",
+        payload={"mode": "story_arc"},
+        strict=True,
+    )
+
+    assert annual_result == "rewanted"
+    assert arc_result == "rewanted"
+    annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
+    assert annual["Status"] == "Wanted"
+    assert annual["AcquisitionIntent"] == "wanted"
+    arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "SA1"))
+    assert arc["Status"] == "Wanted"
+    assert db.select_one(select(issues).where(issues.c.IssueID.in_(("A1", "SA1")))) is None

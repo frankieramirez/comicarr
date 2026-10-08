@@ -259,14 +259,12 @@ def test_record_rolls_back_terminal_transition_when_reconciliation_fails(monkeyp
             },
         )
 
-    original_upsert_conn = db.upsert_conn
+    from comicarr.app.series import queries as series_queries
 
-    def fail_rewant(conn, table_name, values, controls):
-        if table_name == "issues":
-            raise RuntimeError("rewant persistence failed")
-        return original_upsert_conn(conn, table_name, values, controls)
+    def fail_rewant(*_args, **_kwargs):
+        raise RuntimeError("rewant persistence failed")
 
-    monkeypatch.setattr(db, "upsert_conn", fail_rewant)
+    monkeypatch.setattr(series_queries, "update_obligation_intent", fail_rewant)
 
     with pytest.raises(RuntimeError, match="rewant persistence failed"):
         record(

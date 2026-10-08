@@ -387,6 +387,116 @@ def ignore_issue(issue_id, audit_identity):
     )
 
 
+_OBLIGATION_ENTITY_TYPES = {
+    "issue": "issue",
+    "want": "issue",
+    "annual": "annual",
+    "want_ann": "annual",
+    "story_arc": "story_arc",
+    "storyarc": "story_arc",
+}
+
+
+def normalize_obligation_entity_type(entity_type):
+    """Map journal mode / search entity aliases onto issue, annual, or story_arc."""
+    if entity_type in (None, ""):
+        return None
+    return _OBLIGATION_ENTITY_TYPES.get(str(entity_type).strip().lower())
+
+
+def _first_row(stmt, conn=None):
+    if conn is not None:
+        row = conn.execute(stmt).fetchone()
+        return dict(row._mapping) if row is not None else None
+    return db.select_one(stmt)
+
+
+def resolve_obligation_target(issue_id, entity_type=None, *, conn=None):
+    """Resolve an obligation id to ``(table_name, entity_type)`` without inserting.
+
+    Probe order when ``entity_type`` is omitted: issues rows that have a ComicID,
+    then undeleted annuals, then storyarcs, then a leftover issues row. Phantoms
+    from earlier re-wants have NULL ComicID, so they cannot steal an annual or
+    arc that owns the same id.
+    """
+    issue_id = str(issue_id)
+    normalized = normalize_obligation_entity_type(entity_type)
+
+    def _issues(*, require_comic_id):
+        stmt = select(t_issues.c.IssueID).where(t_issues.c.IssueID == issue_id)
+        if require_comic_id:
+            stmt = stmt.where(t_issues.c.ComicID.is_not(None))
+        return _first_row(stmt, conn) is not None
+
+    def _annuals():
+        stmt = select(t_annuals.c.IssueID).where(
+            t_annuals.c.IssueID == issue_id,
+            or_(t_annuals.c.Deleted.is_(None), t_annuals.c.Deleted != 1),
+        )
+        return _first_row(stmt, conn) is not None
+
+    def _storyarcs():
+        stmt = select(t_storyarcs.c.IssueArcID).where(t_storyarcs.c.IssueArcID == issue_id)
+        return _first_row(stmt, conn) is not None
+
+    if normalized == "issue":
+        return ("issues", "issue") if _issues(require_comic_id=True) else None
+    if normalized == "annual":
+        return ("annuals", "annual") if _annuals() else None
+    if normalized == "story_arc":
+        return ("storyarcs", "story_arc") if _storyarcs() else None
+    if normalized is not None:
+        return None
+
+    if _issues(require_comic_id=True):
+        return "issues", "issue"
+    if _annuals():
+        return "annuals", "annual"
+    if _storyarcs():
+        return "storyarcs", "story_arc"
+    if _issues(require_comic_id=False):
+        return "issues", "issue"
+    return None
+
+
+def update_obligation_intent(issue_id, audit_identity, *, intent, entity_type=None, conn=None):
+    """Guarded UPDATE of Status (and AcquisitionIntent when the column exists).
+
+    Never inserts. Story-arc rows have no AcquisitionIntent column yet (#984),
+    so they receive Status only. Returns ``{"ok", "entity_type", "table"}``.
+    """
+    from comicarr.app.acquisition.models import AcquisitionIntent
+    from comicarr.app.acquisition.policy import explicit_intent_values
+
+    target = resolve_obligation_target(issue_id, entity_type, conn=conn)
+    if target is None:
+        return {"ok": False, "entity_type": None, "table": None}
+    table_name, resolved_type = target
+    table = {"issues": t_issues, "annuals": t_annuals, "storyarcs": t_storyarcs}[table_name]
+    values = explicit_intent_values(AcquisitionIntent(str(intent).lower()), audit_identity)
+    if "AcquisitionIntent" not in table.c:
+        values = {"Status": values["Status"]}
+    pk = table.c.IssueArcID if table_name == "storyarcs" else table.c.IssueID
+    stmt = update(table).where(pk == str(issue_id)).values(**values)
+    if table_name == "annuals":
+        stmt = stmt.where(or_(table.c.Deleted.is_(None), table.c.Deleted != 1))
+
+    def _run(connection):
+        return connection.execute(stmt).rowcount
+
+    if conn is not None:
+        rowcount = _run(conn)
+    else:
+        with db.get_engine().begin() as connection:
+            rowcount = _run(connection)
+    ok = bool(rowcount)
+    return {
+        "ok": ok,
+        "entity_type": resolved_type if ok else None,
+        "table": table_name if ok else None,
+    }
+
+
 def find_issue_status_target(issue_id, entity_type=None):
     """Resolve an issue id to its table ('issues' or 'annuals'), or None."""
     normalized = str(entity_type or "").strip().lower()

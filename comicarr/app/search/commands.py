@@ -70,7 +70,7 @@ def _bool_value(value: Any, key: str) -> bool:
 
 def _entity_type(value: Any) -> str:
     normalized = str(value or "issue").strip().lower()
-    if normalized not in {"issue", "annual"}:
+    if normalized not in {"issue", "annual", "story_arc"}:
         raise SearchCommandError("Invalid search entity type")
     return normalized
 

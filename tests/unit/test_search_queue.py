@@ -23,6 +23,7 @@ from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
 from comicarr.app.search import service
 from comicarr.app.search.commands import (
+    SearchCommand,
     enqueue_failed_download_retry,
     enqueue_search_command,
     evaluate_search_candidate,
@@ -82,6 +83,12 @@ def _configure_worker(monkeypatch):
 
 def _command(issue_id="issue-1"):
     return {"comicid": "comic-1", "issueid": issue_id, "manual": False}
+
+
+def test_search_command_accepts_story_arc_entity_type():
+    command = SearchCommand.from_mapping({"issueid": "SA1", "entity_type": "story_arc"})
+    assert command.entity_type == "story_arc"
+    assert command.persisted_payload()["entity_type"] == "story_arc"
 
 
 def test_fair_search_queue_prioritizes_operator_work_without_starving_recovery():
