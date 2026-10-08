@@ -18,6 +18,8 @@ const FULL_BLEED_ROUTES = [
   "/wanted",
   "/story-arcs",
   "/activity",
+  "/activity/attention",
+  "/discover",
   "/import",
 ];
 const FULL_BLEED_PREFIXES = ["/library/", "/series/", "/story-arcs/"];

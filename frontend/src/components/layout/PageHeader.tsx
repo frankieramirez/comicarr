@@ -19,6 +19,7 @@ export default function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
+      data-testid="page-header"
       className={`shrink-0 px-5 py-3.5 border-b border-border flex items-center gap-3 ${className}`}
     >
       <div className="min-w-0">
