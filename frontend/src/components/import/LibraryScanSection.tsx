@@ -16,6 +16,7 @@ import {
   useMangaScanConfirm,
 } from "@/hooks/useImport";
 import { useConfig } from "@/hooks/useConfig";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import LibraryScanResults from "./LibraryScanResults";
 
@@ -319,37 +320,34 @@ function ScanButton({
 }) {
   if (!configured) {
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="compact"
+        mono
         disabled
-        className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border font-mono text-[10.5px] tracking-[0.05em] uppercase shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
-        style={{
-          borderColor: "var(--border)",
-          color: "var(--muted-foreground)",
-        }}
+        className="shrink-0 text-muted-foreground"
       >
         <span>not set</span>
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="compact"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border text-[11.5px] font-medium shrink-0 hover:bg-secondary transition-colors disabled:opacity-70"
-      style={{
-        borderColor: "var(--border)",
-        color: "var(--foreground)",
-      }}
+      className="shrink-0"
     >
       <RefreshCw
-        className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
+        className={busy ? "animate-spin" : ""}
         style={{ color: busy ? "var(--primary)" : "var(--muted-foreground)" }}
         strokeWidth={2}
       />
       <span>{busy ? "scanning" : "scan"}</span>
-    </button>
+    </Button>
   );
 }

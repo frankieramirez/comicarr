@@ -45,6 +45,25 @@ New primitives use Base UI. Base UI is not a drop-in for Radix:
 - transition hooks, not `data-state` animation conventions
 - Tooltip timing is `delay`, not `delayDuration`
 
+The app's dense control is a Button size, not a copied class string.
+`components/ui/button.tsx` ships:
+
+| Size | Geometry |
+|------|----------|
+| `compact` | `h-7 px-2.5 rounded-[5px] text-[12px]` — inbox, scan, dense rows; icons 12px |
+| `toolbar` | `h-8 px-3 rounded-[5px] text-[12px]` — page-header and form actions; icons 14px |
+| `mono` | uppercase mono label on either size |
+
+`outline` on `compact`/`toolbar` keeps the old dense look: transparent fill,
+`--border` (not `--input`), no shadow, `hover:bg-secondary/50`. Default-size
+`outline` stays the shadcn filled chip (`bg-background shadow-sm border-input`).
+Do not size icons on callers; the size variant wins over the base 16px svg rule.
+
+Disabled is `opacity-50` plus `pointer-events-none` from that one primitive.
+Do not re-specify opacity or skip the focus ring on callers. The scaffold
+`default` size (`h-9 rounded-md text-sm`) remains for shadcn-era surfaces
+that have not moved yet.
+
 ## Tokens are the contract
 
 Every color, radius, and font reaches a component through a CSS custom property

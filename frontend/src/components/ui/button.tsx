@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -21,13 +21,32 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
+        default: "h-9 px-4 py-2 rounded-md",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
-        "icon-sm": "size-8",
+        icon: "h-9 w-9 rounded-md",
+        "icon-sm": "size-8 rounded-md",
+        compact: "h-7 px-2.5 rounded-[5px] text-[12px] [&_svg]:size-3",
+        toolbar: "h-8 px-3 rounded-[5px] text-[12px] [&_svg]:size-3.5",
+      },
+      mono: {
+        true: "font-mono uppercase tracking-[0.05em]",
       },
     },
+    compoundVariants: [
+      {
+        variant: "outline",
+        size: "compact",
+        class:
+          "border-border bg-transparent shadow-none hover:bg-secondary/50 hover:text-foreground",
+      },
+      {
+        variant: "outline",
+        size: "toolbar",
+        class:
+          "border-border bg-transparent shadow-none hover:bg-secondary/50 hover:text-foreground",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
@@ -42,11 +61,11 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild, children, ...props }, ref) => {
+  ({ className, variant, size, mono, asChild, children, ...props }, ref) => {
     return (
       <ButtonPrimitive
         render={asChild ? (children as React.ReactElement) : undefined}
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, mono, className }))}
         ref={ref}
         {...props}
       >

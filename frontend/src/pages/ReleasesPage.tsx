@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -203,26 +204,32 @@ export default function ReleasesPage() {
               : "this week · industry-wide"}
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="toolbar"
           onClick={() => void handleWeeklyRefresh()}
           disabled={
             weeklyRefresh.isPending ||
             weeklyStatus === "running" ||
             weeklyStatus === "queued"
           }
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border text-[12px] font-medium disabled:opacity-50"
-          style={{ borderColor: "var(--border)" }}
         >
           <RefreshCw
-            className={`w-3.5 h-3.5 ${weeklyRefresh.isPending || weeklyStatus === "running" || weeklyStatus === "queued" ? "animate-spin" : ""}`}
+            className={
+              weeklyRefresh.isPending ||
+              weeklyStatus === "running" ||
+              weeklyStatus === "queued"
+                ? "animate-spin"
+                : ""
+            }
           />
           {weeklyStatus === "running"
             ? "Refreshing…"
             : weeklyStatus === "queued"
               ? "Queued…"
               : "Refresh releases"}
-        </button>
+        </Button>
       </div>
 
       {refreshMessage && (

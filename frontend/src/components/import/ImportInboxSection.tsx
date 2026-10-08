@@ -1,4 +1,5 @@
 import { Inbox, RefreshCw, FolderOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useRefreshImport } from "@/hooks/useImport";
 import { useConfig } from "@/hooks/useConfig";
 import { useToast } from "@/components/ui/toast";
@@ -58,37 +59,34 @@ export default function ImportInboxSection() {
         </div>
 
         {configured ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="compact"
             onClick={handleScanNow}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border text-[11.5px] font-medium shrink-0 hover:bg-secondary transition-colors disabled:opacity-70"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--foreground)",
-            }}
+            className="shrink-0"
           >
             <RefreshCw
-              className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
+              className={busy ? "animate-spin" : ""}
               style={{
                 color: busy ? "var(--primary)" : "var(--muted-foreground)",
               }}
               strokeWidth={2}
             />
             <span>{busy ? "scanning" : "scan now"}</span>
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="compact"
+            mono
             disabled
-            className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-[5px] border font-mono text-[10.5px] tracking-[0.05em] uppercase shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--muted-foreground)",
-            }}
+            className="shrink-0 text-muted-foreground"
           >
             <span>not set</span>
-          </button>
+          </Button>
         )}
       </div>
     </div>

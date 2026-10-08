@@ -18,6 +18,7 @@ import {
   useMigrationProgress,
   type MigrationStatus,
 } from "@/hooks/useMigration";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
@@ -51,15 +52,12 @@ function PrimaryButton({
   endKbd?: string;
 }) {
   return (
-    <button
+    <Button
       type={type}
+      size="toolbar"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
-      style={{
-        background: "var(--primary)",
-        color: "var(--primary-foreground)",
-      }}
+      className="px-3.5 font-semibold"
     >
       {children}
       {endKbd && (
@@ -67,7 +65,7 @@ function PrimaryButton({
           {endKbd}
         </Kbd>
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -81,15 +79,15 @@ function GhostButton({
   disabled?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="toolbar"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[5px] border text-[12px] text-foreground disabled:opacity-60"
-      style={{ borderColor: "var(--border)" }}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -444,7 +442,7 @@ function MigrateStep({
           >
             {start.isPending ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="animate-spin" />
                 Starting…
               </>
             ) : (
