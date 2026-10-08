@@ -15,7 +15,7 @@ export default function RelativeTime({ value }: { value?: string | null }) {
     <time
       dateTime={date.toISOString()}
       title={format(date, "PPpp")}
-      className="font-mono text-[11px] text-muted-foreground whitespace-nowrap"
+      className="mono-meta whitespace-nowrap"
     >
       {formatDistanceToNowStrict(date, { addSuffix: true })}
     </time>

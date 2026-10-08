@@ -228,7 +228,7 @@ export function TimelineView({
     return (
       <>
         {scoped && (
-          <div className="border-b border-border px-5 py-2 font-mono text-[11px] text-muted-foreground">
+          <div className="border-b border-border px-5 py-2 mono-meta">
             Scoped to {scope_type}:{scope_id}
           </div>
         )}
@@ -249,7 +249,7 @@ export function TimelineView({
       />
 
       {scoped && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 font-mono text-[11px] text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 mono-meta">
           <span>
             Scoped to {scope_type}:{scope_id}
           </span>
@@ -279,7 +279,7 @@ export function TimelineView({
             setActivity(e.target.value);
             setPage(0);
           }}
-          className="rounded-control border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+          className="rounded-control border bg-transparent px-2 py-1.5 mono-meta"
           style={{ borderColor: "var(--border)" }}
         >
           {ACTIVITIES.map((a) => (
@@ -318,7 +318,7 @@ export function TimelineView({
                 className="flex items-start gap-3 border-b px-5 py-2 hover:bg-[var(--secondary)]"
                 style={{ borderColor: "var(--border-soft, var(--border))" }}
               >
-                <span className="mt-[2px] w-10 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span className="mt-[2px] w-10 shrink-0 mono-meta tabular-nums">
                   {clockOf(story.opened_at)}
                 </span>
                 <SeverityDot open={open} trouble={trouble} />
@@ -327,7 +327,7 @@ export function TimelineView({
                   <div className="text-[13px] leading-snug">
                     <Headline story={story} />
                     {runProgress(story) && (
-                      <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                      <span className="ml-2 mono-meta">
                         {runProgress(story)}
                       </span>
                     )}

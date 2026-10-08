@@ -186,9 +186,7 @@ export default function NeedsAttentionBand() {
   if (total === 0) {
     return (
       <div className="px-5 py-2.5" data-testid="needs-attention-empty">
-        <span className="font-mono text-[11px] text-muted-foreground">
-          Nothing needs you
-        </span>
+        <span className="mono-meta">Nothing needs you</span>
       </div>
     );
   }
@@ -235,7 +233,7 @@ export default function NeedsAttentionBand() {
         {more > 0 && (
           <Link
             to={TRIAGE_HREF}
-            className="mt-1 inline-block font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            className="mt-1 inline-block mono-meta hover:text-foreground"
             data-testid="needs-attention-more"
           >
             +{more} more…

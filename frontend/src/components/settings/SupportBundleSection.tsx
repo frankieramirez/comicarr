@@ -212,7 +212,7 @@ export function SupportBundleSection() {
               key={label}
               className="sm:px-3 first:sm:pl-0 last:sm:pr-0 list-none"
             >
-              <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+              <div className="mono-meta uppercase tracking-[0.05em]">
                 {label}
               </div>
               <div className="mt-0.5 text-[13px] leading-snug text-foreground">

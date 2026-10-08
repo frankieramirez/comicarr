@@ -131,7 +131,7 @@ export function AttentionBand({
         {more > 0 && (
           <Link
             to={href}
-            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-control border border-dashed font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-control border border-dashed mono-meta hover:text-foreground"
             style={{ borderColor: "var(--border)", height: CARD_HEIGHT }}
           >
             +{more}

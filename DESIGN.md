@@ -119,7 +119,10 @@ tables and detail pages:
 
 Use them. Hand-rolling `font-mono text-[10px] uppercase tracking-wider
 text-muted-foreground` reproduces `.mono-label` inline and is the single largest
-source of style drift in the codebase (see *Known drift*).
+source of style drift in the codebase (see *Known drift*). Exact
+`.mono-label` / `.mono-meta` token sets fail `check_mono_utilities.py`; remaining
+`font-mono text-[10px] uppercase` near-variants (other tracking or colour) are a
+shrink-only count.
 
 ### Radius
 
@@ -250,6 +253,7 @@ Both gates run under `npm run lint:guards`:
 python3 scripts/check_design_tokens.py    # no var() resolves to nothing; --status-* is exhaustive; color utilities name a --color-* key
 python3 scripts/check_palette_classes.py  # no new palette literals
 python3 scripts/check_radius_literals.py  # no on-scale rounded-[2|4|5|6|10|14px]
+python3 scripts/check_mono_utilities.py   # no exact .mono-label / .mono-meta duplicates
 ```
 
 The remaining rows have no gate. Arbitrary font sizes are the obvious next

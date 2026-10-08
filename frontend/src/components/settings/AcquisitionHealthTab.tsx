@@ -1039,9 +1039,7 @@ export function AcquisitionHealthTab() {
                   <h3 className="text-[13px] font-semibold">
                     {repairHeading(repairState)}
                   </h3>
-                  <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    {visibleRun.run_id}
-                  </p>
+                  <p className="mt-0.5 mono-meta">{visibleRun.run_id}</p>
                 </div>
                 <StatusPill
                   label={humanize(repairState)}

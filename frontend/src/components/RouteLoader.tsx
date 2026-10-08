@@ -76,7 +76,7 @@ class RouteErrorBoundary extends Component<
 function RouteLoading() {
   return (
     <div
-      className="flex min-h-[12rem] items-center justify-center p-6 font-mono text-[11px] text-muted-foreground"
+      className="flex min-h-[12rem] items-center justify-center p-6 mono-meta"
       role="status"
       aria-live="polite"
     >

@@ -127,7 +127,7 @@ export default function HealthBand() {
           ))}
 
           {quiet.length > 0 && (
-            <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 mono-meta">
               {loud.length === 0 && (
                 <Check
                   className="w-3 h-3 shrink-0"
@@ -159,7 +159,7 @@ export default function HealthBand() {
           onClick={() => void health.refetch()}
           disabled={health.isFetching}
           aria-label="Recheck acquisition health"
-          className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-control border border-border font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-control border border-border mono-meta hover:text-foreground disabled:opacity-50"
         >
           <RefreshCw
             className={`w-3 h-3 ${health.isFetching ? "animate-spin" : ""}`}

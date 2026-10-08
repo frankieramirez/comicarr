@@ -238,7 +238,7 @@ export default function AttentionPage() {
             actions={
               <Link
                 to="/activity"
-                className="inline-flex items-center gap-1 rounded-control border px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-control border px-2 py-1 mono-meta hover:text-foreground"
                 style={{ borderColor: "var(--border)" }}
               >
                 <ArrowLeft className="h-3 w-3" /> Activity
@@ -247,7 +247,7 @@ export default function AttentionPage() {
           />
 
           {scoped && (
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 font-mono text-[11px] text-muted-foreground">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 mono-meta">
               <span>
                 Scoped to {scope_type}:{scope_id}
               </span>
@@ -305,7 +305,7 @@ export default function AttentionPage() {
               aria-label="Filter by age"
               value={age}
               onChange={(e) => setAge(e.target.value as AgeFilter)}
-              className="rounded-control border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+              className="rounded-control border bg-transparent px-2 py-1.5 mono-meta">
               style={{ borderColor: "var(--border)" }}
             >
               <option value="all">any age</option>

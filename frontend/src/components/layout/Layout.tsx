@@ -151,7 +151,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Desktop omni status bar */}
-        <div className="hidden md:flex h-12 shrink-0 items-center gap-3 border-b-[0.5px] border-border bg-card px-4 font-mono text-[11px] text-muted-foreground">
+        <div className="hidden md:flex h-12 shrink-0 items-center gap-3 border-b-[0.5px] border-border bg-card px-4 mono-meta">
           <SidebarTrigger />
           <AppStatusBar />
           <div className="ml-auto flex items-center gap-3">

@@ -354,7 +354,7 @@ function MyReleasesView() {
         />
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="font-mono text-[11px] text-muted-foreground">
+          <div className="mono-meta">
             {issues.length} issue{issues.length !== 1 ? "s" : ""}
           </div>
 
@@ -538,7 +538,7 @@ function AllReleasesView() {
                   ) : null}
                 </div>
                 <div
-                  className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground`}
+                  className={`${DESKTOP_COL} mono-meta`}
                 >
                   #{issue.ISSUE}
                 </div>

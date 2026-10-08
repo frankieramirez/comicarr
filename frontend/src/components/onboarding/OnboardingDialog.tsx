@@ -540,14 +540,14 @@ function RunningStep({
           style={{ color: "var(--primary)" }}
         />
         <div className="flex-1 min-w-0">
-          <div className="font-mono text-[11px] text-muted-foreground truncate">
+          <div className="mono-meta truncate">
             current:{" "}
             <span className="text-foreground">
               {progress?.current_table || "—"}
             </span>
           </div>
         </div>
-        <div className="font-mono text-[11px] text-muted-foreground">
+        <div className="mono-meta">
           {progress?.tables_complete ?? 0} / {progress?.tables_total ?? 0}
         </div>
       </div>

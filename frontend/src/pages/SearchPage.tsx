@@ -258,7 +258,7 @@ export default function SearchPage() {
           </Button>
         </form>
         {urlQuery && pagination && !isLoading && (
-          <div className="font-mono text-[11px] text-muted-foreground">
+          <div className="mono-meta">
             {startIndex}–{endIndex} of {pagination.total}
           </div>
         )}

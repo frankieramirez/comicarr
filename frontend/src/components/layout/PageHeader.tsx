@@ -27,9 +27,7 @@ export default function PageHeader({
           {title}
         </h1>
         {meta != null && (
-          <div className="font-mono text-[11px] text-muted-foreground mt-1.5 truncate">
-            {meta}
-          </div>
+          <div className="mono-meta mt-1.5 truncate">{meta}</div>
         )}
       </div>
       {actions != null && (

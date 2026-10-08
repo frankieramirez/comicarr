@@ -178,7 +178,7 @@ export default function WantedPage() {
               type="button"
               onClick={() => refetch()}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border font-mono text-[11px] text-muted-foreground"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border mono-meta"
               style={{ borderColor: "var(--border)" }}
             >
               <RefreshCw
@@ -214,7 +214,7 @@ export default function WantedPage() {
           />
         </div>
         {matchCount !== null && (
-          <div className="font-mono text-[11px] text-muted-foreground">
+          <div className="mono-meta">
             {matchCount} match
             {matchCount === 1 ? "" : "es"}
           </div>

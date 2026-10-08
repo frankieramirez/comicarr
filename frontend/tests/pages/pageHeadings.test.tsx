@@ -54,11 +54,15 @@ const listPages: Array<{ name: string; ui: ReactElement }> = [
 
 describe("page headings", () => {
   it("renders PageHeader title as a single h1", () => {
-    render(<PageHeader title="Activity" meta="in flight" />);
+    const { container } = render(
+      <PageHeader title="Activity" meta="in flight" />,
+    );
     expect(
       screen.getByRole("heading", { level: 1, name: "Activity" }),
     ).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    const meta = container.querySelector(".mono-meta");
+    expect(meta?.textContent).toBe("in flight");
   });
 
   it("gives Dashboard, Library, and Releases the shared PageHeader padding", async () => {

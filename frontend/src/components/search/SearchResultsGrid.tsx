@@ -111,11 +111,7 @@ function SearchResultCard({
           >
             {comic.name}
           </h3>
-          {meta && (
-            <p className="font-mono text-[11px] text-muted-foreground mt-1">
-              {meta}
-            </p>
-          )}
+          {meta && <p className="mono-meta mt-1">{meta}</p>}
           {publisher && (
             <p className="text-[11.5px] text-muted-foreground mt-0.5 truncate">
               {publisher}
