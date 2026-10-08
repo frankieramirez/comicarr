@@ -465,6 +465,27 @@ def test_sab_real_historycheck_status_false_is_absent_then_gone():
         assert recovery_classify.classify(row) == recovery_classify.GONE
 
 
+def test_sab_failed_no_auto_handling_is_not_complete():
+    """Restart recovery must not treat failed_no_auto_handling as a successful
+    historycheck (COMPLETE would enqueue post-processing and leave the row open
+    until PP accidentally terminalizes)."""
+    row = _insert_journal(
+        "S2fail|sab|n",
+        journal.SNATCHED,
+        issueid="S2fail",
+        provider="sab",
+        downloader_type="nzb",
+        payload={"comicid": "C2", "download_info": {"nzo_id": "nzoFail"}},
+    )
+    nzstat = {"status": "failed_no_auto_handling", "failed": True, "name": "x"}
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+        details = recovery_classify.classify_details(row)
+        assert details["raw_state"] == "failed_no_auto_handling"
+        assert details["verdict"] != recovery_classify.COMPLETE
+        assert details["verdict"] != recovery_classify.STILL
+        assert details["verdict"] != recovery_classify.UNKNOWN
+
+
 # ---------------------------------------------------------------------------
 # has_library_placement — the import-evidence cross-check (#734). A done-signal
 # proves the DOWNLOAD finished; only the library row (Location / a

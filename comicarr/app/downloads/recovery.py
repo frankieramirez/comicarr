@@ -650,6 +650,23 @@ def _resolve_row(snapshot_row, probes=None):
     details = recovery_classify.classify_details(row, probes=probes, payload=payload)
     verdict = details.get("verdict")
 
+    if details.get("raw_state") == "failed_no_auto_handling":
+        from comicarr import failed as failed_mod
+
+        failed_mod.terminalize_failed_download(
+            rkey,
+            failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+            status=None,
+            issueid=row.get("issueid"),
+            provider=row.get("provider"),
+            nzbname=row.get("nzbname") or details.get("name") or (payload or {}).get("nzbname"),
+            hash=row.get("hash"),
+            payload=payload,
+            downloader_type=row.get("downloader_type"),
+        )
+        logger.warn("[RECOVERY] %s -> failed_no_auto_handling — journal terminalized; not re-queued." % rkey)
+        return "failed-no-auto-handling"
+
     if verdict == recovery_classify.GONE:
         recovery_classify.apply_verdict(row, verdict)
         return "gone-failed"

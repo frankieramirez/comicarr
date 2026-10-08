@@ -417,6 +417,8 @@ def _nzstat_to_raw(nzstat):
         return "complete"
     if status in ("queue_paused",):
         return "still"
+    if status == "failed_no_auto_handling":
+        return "failed_no_auto_handling"
     if status is False:
         return "absent"
     return "complete"
@@ -630,6 +632,10 @@ def classify_details(row, probes=None, payload=None):
             "transient) — journal stage left unchanged." % rkey
         )
         details["verdict"] = UNKNOWN
+        return details
+    if raw_state == "failed_no_auto_handling":
+        logger.warn("[RECOVERY-CLASSIFY] %s -> failed_no_auto_handling (SAB failed, auto-handling off)" % rkey)
+        details["verdict"] = GONE
         return details
 
     if has_done_signal(row):

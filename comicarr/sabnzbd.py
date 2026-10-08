@@ -31,6 +31,15 @@ from comicarr import cdh_mapping, logger
 from comicarr.app.common.redaction import redact_sensitive_text
 
 
+def _stage_action_text(actions):
+    """Join SAB stage_log actions so 'Failed' / 'moving' match list or string values."""
+    if isinstance(actions, str):
+        return actions
+    if not actions:
+        return ""
+    return " ".join(str(part) for part in actions)
+
+
 class SABnzbd(object):
     def __init__(self, params):
         self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
@@ -328,37 +337,46 @@ class SABnzbd(object):
                     nzo_exists = True
                     stage = hq["stage_log"]
                     logger.fdebug("stage: %s" % (stage,))
+                    failed_stage_name = None
+                    failed_action_text = None
                     for x in stage:
-                        if "Failed" in x["actions"] and any([x["name"] == "Unpack", x["name"] == "Repair"]):
-                            if "moving" in x["actions"]:
-                                logger.warn(
-                                    "There was a failure in SABnzbd during the unpack/repair phase that caused a failure: %s"
-                                    % x["actions"]
-                                )
-                            else:
-                                logger.warn(
-                                    "Failure occured during the Unpack/Repair phase of SABnzbd. This is probably a bad file: %s"
-                                    % x["actions"]
-                                )
-                                if comicarr.FAILED_DOWNLOAD_HANDLING is True:
-                                    found = {
-                                        "status": True,
-                                        "name": re.sub(".nzb", "", hq["nzb_name"]).strip(),
-                                        "location": os.path.abspath(os.path.join(hq["storage"], os.pardir)),
-                                        "failed": True,
-                                        "issueid": nzbinfo["issueid"],
-                                        "comicid": nzbinfo["comicid"],
-                                        "apicall": True,
-                                        "ddl": False,
-                                        "download_info": nzbinfo["download_info"],
-                                    }
-                            self.remove_history(hq["nzo_id"], hq["status"])
-                            break
-                    if found["status"] is False:
-                        self.remove_history(hq["nzo_id"], hq["status"])
-                        return {"status": "failed_in_sab", "failed": False}
+                        action_text = _stage_action_text(x.get("actions"))
+                        if "Failed" in action_text:
+                            failed_stage_name = x.get("name")
+                            failed_action_text = action_text
+                            if failed_stage_name in ("Unpack", "Repair"):
+                                break
+                    if "moving" in (failed_action_text or ""):
+                        logger.warn(
+                            "There was a failure in SABnzbd during the unpack/repair phase that caused a failure: %s"
+                            % (failed_action_text,)
+                        )
+                    elif failed_stage_name in ("Unpack", "Repair"):
+                        logger.warn(
+                            "Failure occured during the Unpack/Repair phase of SABnzbd. This is probably a bad file: %s"
+                            % (failed_action_text,)
+                        )
                     else:
-                        break
+                        logger.warn(
+                            "Failure returned from SABnzbd outside Unpack/Repair (stage=%s): %s"
+                            % (failed_stage_name, failed_action_text)
+                        )
+                    failed_job = {
+                        "name": re.sub(".nzb", "", hq["nzb_name"]).strip(),
+                        "location": os.path.abspath(os.path.join(hq["storage"], os.pardir)),
+                        "failed": True,
+                        "issueid": nzbinfo.get("issueid"),
+                        "comicid": nzbinfo.get("comicid"),
+                        "apicall": True,
+                        "ddl": False,
+                        "download_info": nzbinfo.get("download_info"),
+                    }
+                    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
+                        found = {"status": True, **failed_job}
+                    else:
+                        found = {"status": "failed_no_auto_handling", **failed_job}
+                    self.remove_history(hq["nzo_id"], hq["status"])
+                    break
                 elif hq["nzo_id"] == sendresponse:
                     nzo_exists = True
                     logger.fdebug(
@@ -406,7 +424,7 @@ class SABnzbd(object):
                     return {"status": "nzb removed", "failed": False}
         except requests.RequestException:
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warn("error %s" % (e,))
             if hq:
                 try:
