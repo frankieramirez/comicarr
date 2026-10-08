@@ -29,10 +29,18 @@ def evaluate_search_candidate(candidate, *, release_date, digital_date, issue_da
     projection = project_legacy_state(values.get("acquisitionintent"), values.get("legacystatus"))
     raw_series_status = values.get("seriesstatus")
     series_status = str(raw_series_status).strip().lower() if raw_series_status else None
+    # Distinguishes an outer-join miss (no comics row) from a present series
+    # whose Status column is NULL. A missing SeriesComicID key with a NULL
+    # SeriesStatus is treated as a missing series, matching leftover orphans.
+    if "seriescomicid" in values:
+        series_present = values.get("seriescomicid") not in (None, "")
+    else:
+        series_present = raw_series_status not in (None, "")
     decision = evaluate_eligibility(
         EligibilityInput(
-            series_active=series_status is None or series_status in {"active", "loading", "paused"},
-            paused=series_status == "paused",
+            series_active=series_present
+            and (series_status is None or series_status in {"active", "loading", "paused"}),
+            paused=series_present and series_status == "paused",
             intent=projection.intent,
             fulfillment=projection.fulfillment,
             release_date=release_date,

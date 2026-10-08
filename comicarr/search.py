@@ -103,7 +103,11 @@ def get_search_executor():
 def _wanted_candidate_rows(table, statuses, *extra_conditions):
     """Load candidate and series state together for bulk eligibility checks."""
     stmt = (
-        select(table, comics.c.Status.label("SeriesStatus"))
+        select(
+            table,
+            comics.c.Status.label("SeriesStatus"),
+            comics.c.ComicID.label("SeriesComicID"),
+        )
         .select_from(table.outerjoin(comics, comics.c.ComicID == table.c.ComicID))
         .where(table.c.Status.in_(statuses), *extra_conditions)
     )
@@ -1939,6 +1943,7 @@ def searchforissue(
                                         "LegacyStatus": iss["Status"],
                                         "AcquisitionIntent": iss.get("AcquisitionIntent"),
                                         "SeriesStatus": iss["SeriesStatus"],
+                                        "SeriesComicID": iss.get("SeriesComicID"),
                                     },
                                 },
                             )
@@ -1997,6 +2002,7 @@ def searchforissue(
                                             "LegacyStatus": iss["Status"],
                                             "AcquisitionIntent": None,
                                             "SeriesStatus": iss["SeriesStatus"],
+                                            "SeriesComicID": iss.get("SeriesComicID"),
                                         },
                                     },
                                 )
@@ -2037,6 +2043,14 @@ def searchforissue(
 
                             logger.info("Issues that belong to part of a Story Arc to be searched for : %s" % cnt)
                     elif stloop == 3:
+                        from comicarr.app.series import queries as series_queries
+
+                        orphan_annuals = series_queries.count_orphan_annuals()
+                        if orphan_annuals:
+                            logger.warn(
+                                "[SEARCH] %s annual(s) have no matching series and will not be searched"
+                                % orphan_annuals
+                            )
                         if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
                             issues_3 = _wanted_candidate_rows(
                                 annuals,
@@ -2063,6 +2077,7 @@ def searchforissue(
                                         "LegacyStatus": iss["Status"],
                                         "AcquisitionIntent": iss.get("AcquisitionIntent"),
                                         "SeriesStatus": iss["SeriesStatus"],
+                                        "SeriesComicID": iss.get("SeriesComicID"),
                                     },
                                 },
                             )

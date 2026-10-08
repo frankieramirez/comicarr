@@ -184,6 +184,7 @@ def get_search_candidate_state(issue_id, entity_type=None):
                 table.c.Status.label("LegacyStatus"),
                 acquisition_intent,
                 t_comics.c.Status.label("SeriesStatus"),
+                t_comics.c.ComicID.label("SeriesComicID"),
             )
             .select_from(table.outerjoin(t_comics, t_comics.c.ComicID == table.c.ComicID))
             .where(identity == str(issue_id), *extra_conditions)
@@ -195,11 +196,23 @@ def get_search_candidate_state(issue_id, entity_type=None):
 
 
 def delete_comic(comic_id):
-    """Delete a comic and its issues/upcoming entries in a single transaction."""
+    """Delete a comic and its issues, annuals, and upcoming entries in one transaction."""
     with db.get_engine().begin() as conn:
         conn.execute(delete(t_comics).where(t_comics.c.ComicID == comic_id))
         conn.execute(delete(t_issues).where(t_issues.c.ComicID == comic_id))
+        conn.execute(delete(t_annuals).where(t_annuals.c.ComicID == comic_id))
         conn.execute(delete(t_upcoming).where(t_upcoming.c.ComicID == comic_id))
+
+
+def count_orphan_annuals():
+    """Count annuals whose ComicID no longer matches a comics row."""
+    stmt = (
+        select(func.count().label("orphan_count"))
+        .select_from(t_annuals.outerjoin(t_comics, t_comics.c.ComicID == t_annuals.c.ComicID))
+        .where(t_comics.c.ComicID.is_(None))
+    )
+    row = db.select_one(stmt)
+    return int((row or {}).get("orphan_count") or 0)
 
 
 def get_comic_search_settings(comic_id):
