@@ -44,6 +44,8 @@ REASON_PHRASES = {
     "recovery_attempts_exhausted": "post-processing could not finish after several restarts",
     "torrent_monitor_item_rejected": "torrent monitor hit an unexpected error on this download",
     "nzb_monitor_item_rejected": "NZB monitor hit an unexpected error on this download",
+    "torrent_monitor_unreachable": "torrent client was unreachable while the download was still in progress",
+    "torrent_autosnatch_script_error": "the auto-snatch script failed while retrieving a completed torrent",
 }
 
 UNMAPPED_REASON_PHRASE = "something went wrong"
@@ -56,6 +58,7 @@ NON_ACTIONABLE_FLAT = frozenset(
         "ddl-worker-rejected",
         "ddl_stalled",
         "torrent_hash_not_in_client",
+        "torrent_invalid_hash",
         "legacy_downloading_without_correlation",
         "ambiguous_ddl_acceptance_after_restart",
     }
@@ -69,6 +72,7 @@ RECONCILIATION = {
     "ddl-worker-rejected": "rewant",
     "ddl_stalled": "rewant",
     "torrent_hash_not_in_client": "rewant",
+    "torrent_invalid_hash": "rewant",
     "ambiguous_ddl_acceptance_after_restart": "rewant",
     "immutable_payload_conflict": "rewant_and_log",
     "legacy_downloading_without_correlation": "rewant_if_issue",

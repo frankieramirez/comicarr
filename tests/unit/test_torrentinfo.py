@@ -115,6 +115,7 @@ def test_neither_client_returns_monitor_error_dict():
     assert isinstance(result, dict)
     assert result is not None
     assert result["snatch_status"] == "MONITOR ERROR"
+    assert result.get("client_unreachable") is True
 
 
 def test_not_found_path_still_works(monkeypatch):
@@ -234,6 +235,7 @@ def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch)
 
     assert isinstance(result, dict)
     assert result["snatch_status"] == "MONITOR ERROR"
+    assert result.get("client_unreachable") is True
     fake_client.get_torrent.assert_not_called()
 
 
@@ -249,7 +251,40 @@ def test_deluge_connect_false_is_monitor_error(monkeypatch):
 
     assert isinstance(result, dict)
     assert result["snatch_status"] == "MONITOR ERROR"
+    assert result.get("client_unreachable") is True
     fake_client.get_torrent.assert_not_called()
+
+
+def test_invalid_hash_is_not_a_client_outage():
+    result = service.torrentinfo(torrent_hash="not-a-hash", download=True)
+
+    assert result["snatch_status"] == "INVALID HASH"
+    assert result.get("client_unreachable") is not True
+
+
+def test_autosnatch_script_oserror_is_not_a_client_outage(monkeypatch, tmp_path):
+    script = tmp_path / "autosnatch.sh"
+    script.write_text("#!/bin/bash\n")
+    comicarr.CONFIG.AUTO_SNATCH = True
+    comicarr.CONFIG.AUTO_SNATCH_SCRIPT = str(script)
+
+    with (
+        patch("comicarr.app.search.service.torrent_monitor.probe") as probe,
+        patch("subprocess.Popen", side_effect=OSError("No such file")),
+    ):
+        probe.return_value = {
+            "reachable": True,
+            "found": True,
+            "completed": True,
+            "files": ["/downloads/Saga.cbz"],
+            "folder": "/downloads",
+            "name": "Saga.cbz",
+        }
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert result["snatch_status"] == "SCRIPT ERROR"
+    assert result.get("client_unreachable") is not True
+    assert "No such file" in str(result.get("error"))
 
 
 def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
