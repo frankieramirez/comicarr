@@ -210,6 +210,19 @@ export default function SearchResultsTable({
                 <span className="font-medium truncate text-[13px]">
                   {comic.name}
                 </span>
+                {(comic.comicyear ||
+                  (comic.publisher && comic.publisher !== "Unknown")) && (
+                  <span
+                    data-testid="phone-row-id"
+                    className="hidden max-md:inline shrink-0 font-mono text-[10px]"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    {comic.comicyear ? ` · ${comic.comicyear}` : ""}
+                    {comic.publisher && comic.publisher !== "Unknown"
+                      ? ` · ${comic.publisher}`
+                      : ""}
+                  </span>
+                )}
                 {sourceLabel && (
                   <span
                     className="shrink-0 font-mono text-[9px] tracking-[0.05em] uppercase px-1.5 py-0.5 rounded-[3px] border"

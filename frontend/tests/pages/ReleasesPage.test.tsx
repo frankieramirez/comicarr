@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen } from "../test-utils";
 import ReleasesPage from "@/pages/ReleasesPage";
+import { weeklyReleaseRowKey } from "@/pages/weeklyReleaseRowKey";
 
 describe("ReleasesPage", () => {
   const upcomingIssue = {
@@ -172,6 +173,25 @@ describe("ReleasesPage", () => {
       /md:grid-cols-\[minmax\(0,1fr\)_80px_160px_100px\]/,
     );
     expect(row.querySelectorAll(".max-md\\:hidden").length).toBeGreaterThan(0);
+    const phoneId = screen.getByTestId("phone-row-id");
+    expect(phoneId.textContent).toContain("#19");
+    expect(phoneId.className).toMatch(/hidden/);
+    expect(phoneId.className).toMatch(/max-md:inline/);
+  });
+
+  it("keeps weekly row keys unique when ComicID is missing", () => {
+    const duplicate = {
+      COMIC: "Batman",
+      ISSUE: "1",
+      PUBLISHER: "DC",
+      SHIPDATE: "2026-08-12",
+      STATUS: "Available",
+      ComicID: null,
+      IssueID: null,
+    };
+    expect(weeklyReleaseRowKey(duplicate, 0)).not.toEqual(
+      weeklyReleaseRowKey(duplicate, 1),
+    );
   });
 
   it("offers interactive review for wanted releases", async () => {

@@ -573,7 +573,11 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByRole("button", { name: "Have 2" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Missing 6" })).toBeTruthy();
     expect(screen.getByText(/annuals: 1/)).toBeTruthy();
-    expect(screen.getByText("Annual")).toBeTruthy();
+    expect(screen.getAllByText("Annual").length).toBeGreaterThan(0);
+    const phoneAnnual = screen.getByTestId("phone-row-id");
+    expect(phoneAnnual.textContent).toContain("Annual");
+    expect(phoneAnnual.className).toMatch(/hidden/);
+    expect(phoneAnnual.className).toMatch(/max-md:inline/);
 
     for (const state of [
       "Unknown",
@@ -647,7 +651,8 @@ describe("SeriesDetailPage", () => {
     await screen.findByText("One-Punch Man");
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
-    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.getAllByText("Volume")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Chapter")).toBeNull();
   });
 
@@ -661,7 +666,8 @@ describe("SeriesDetailPage", () => {
     await screen.findByText("One-Punch Man");
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
-    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.getAllByText("Volume")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Chapter")).toBeNull();
   });
 
@@ -677,7 +683,8 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
     // The second row carries both numbers; the chapter is the more specific
     // claim, so it must not read as a volume.
-    expect(screen.getAllByText("Chapter")).toHaveLength(2);
+    expect(screen.getAllByText("Chapter")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Volume")).toBeNull();
   });
 

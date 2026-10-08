@@ -27,16 +27,10 @@ import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import type { UpcomingIssue } from "@/types";
 import { DESKTOP_COL } from "@/components/data-table/gridColumns";
-import { encodeRowId } from "@/components/data-table/rowId";
-
-interface WeeklyIssue {
-  COMIC: string;
-  ISSUE: string;
-  PUBLISHER: string;
-  SHIPDATE: string;
-  STATUS: string;
-  ComicID: string;
-}
+import {
+  weeklyReleaseRowKey,
+  type WeeklyIssue,
+} from "@/pages/weeklyReleaseRowKey";
 
 function useWeeklyPullList() {
   return useQuery({
@@ -548,7 +542,7 @@ function AllReleasesView() {
             <div className={DESKTOP_COL}>publisher</div>
             <div>status</div>
           </div>
-          {weekly.map((issue) => {
+          {weekly.map((issue, index) => {
             const status = issue.STATUS || "Available";
             const statusColor =
               status === "Wanted"
@@ -558,17 +552,22 @@ function AllReleasesView() {
                   : "var(--muted-foreground)";
             return (
               <div
-                key={encodeRowId([
-                  issue.ComicID,
-                  issue.COMIC,
-                  issue.ISSUE,
-                  issue.SHIPDATE,
-                ])}
+                key={weeklyReleaseRowKey(issue, index)}
                 data-testid="weekly-release-row"
                 className={`grid ${WEEKLY_ROW_COLS} items-center px-5 py-2 text-[12px] border-b border-border/50`}
               >
                 <div className="font-medium truncate" data-grid-title="">
                   {issue.COMIC}
+                  {issue.ISSUE ? (
+                    <span
+                      data-testid="phone-row-id"
+                      className="hidden max-md:inline font-mono text-[11px]"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {" "}
+                      #{issue.ISSUE}
+                    </span>
+                  ) : null}
                 </div>
                 <div
                   className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground`}

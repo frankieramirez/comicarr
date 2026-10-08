@@ -1317,6 +1317,19 @@ export default function SeriesDetailPage() {
                       #{String(issueNumber ?? "").padStart(2, "0")}
                     </div>
                     <div className="min-w-0 truncate" data-grid-title="">
+                      {ledgerKind ? (
+                        <span
+                          data-testid="phone-row-id"
+                          className="mr-1.5 hidden max-md:inline rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
+                          style={{
+                            background:
+                              "color-mix(in oklab, var(--primary) 12%, transparent)",
+                            color: "var(--primary)",
+                          }}
+                        >
+                          {LEDGER_KIND_LABEL[ledgerKind]}
+                        </span>
+                      ) : null}
                       <Link
                         to={`/library/${comicId}/issue/${issueId}`}
                         className="transition-colors hover:text-primary"

@@ -72,12 +72,17 @@ test("search list and weekly pull keep the title readable on a phone", async ({
   await page.goto("/search?q=spider&type=comic&view=list");
   const searchRow = page.getByTestId("search-result-row").first();
   await expect(searchRow).toBeVisible();
+  await expect(searchRow.getByTestId("phone-row-id")).toBeVisible();
+  await expect(searchRow.getByTestId("phone-row-id")).toContainText("2022");
+  await expect(searchRow.getByTestId("phone-row-id")).toContainText("Marvel");
   await assertTitleTakesHalfTheRow(searchRow);
   await assertNoHorizontalScroll(page.getByTestId("search-results-table"));
 
   await page.goto("/releases?view=all");
   const weeklyRow = page.getByTestId("weekly-release-row").first();
   await expect(weeklyRow).toBeVisible();
+  await expect(weeklyRow.getByTestId("phone-row-id")).toBeVisible();
+  await expect(weeklyRow.getByTestId("phone-row-id")).toContainText("#19");
   await assertTitleTakesHalfTheRow(weeklyRow);
   await assertNoHorizontalScroll(page.getByTestId("weekly-releases-table"));
 
@@ -127,7 +132,23 @@ test("series issue status stays in the phone viewport", async ({
             eligible: true,
           },
         ],
-        annuals: [],
+        annuals: [
+          {
+            IssueID: "scroll-annual",
+            ComicID: "991",
+            Issue_Number: "1",
+            IssueName: "Annual 1",
+            IssueDate: "2025-06-01",
+            Status: "Wanted",
+            displayState: "Wanted",
+            annual: true,
+            acquisitionIntent: "policy",
+            fulfillment: "missing",
+            missing: true,
+            monitored: true,
+            eligible: true,
+          },
+        ],
         summary: { total: 1, owned: 0, missing: 1 },
       },
     });
@@ -150,5 +171,11 @@ test("series issue status stays in the phone viewport", async ({
   const box = await status.boundingBox();
   expect(box).toBeTruthy();
   expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  const annualBadge = page
+    .getByTestId("series-issue-list")
+    .getByTestId("phone-row-id");
+  await annualBadge.scrollIntoViewIfNeeded();
+  await expect(annualBadge).toBeVisible();
+  await expect(annualBadge).toContainText("Annual");
   await assertNoHorizontalScroll(page.getByTestId("series-issue-list"));
 });
