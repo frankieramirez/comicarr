@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { createColumnHelper } from "@tanstack/react-table";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,14 +58,18 @@ export function useWantedColumns() {
             <DataTableSortHeader column={column} title="Series" />
           ),
           cell: ({ row }) => (
-            <div>
+            <Link
+              to={`/library/${row.original.ComicID}`}
+              className="block min-w-0 hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="font-medium">{row.original.ComicName}</div>
               {row.original.ComicYear && (
                 <div className="text-sm text-muted-foreground">
                   ({row.original.ComicYear})
                 </div>
               )}
-            </div>
+            </Link>
           ),
         }),
         columnHelper.accessor("Issue_Number", {

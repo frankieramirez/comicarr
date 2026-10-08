@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   createColumnHelper,
   type RowSelectionState,
@@ -610,12 +610,14 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         <div className="flex min-w-0 items-center gap-2">
           {/* flex-1 + min-w-0 keeps the title the flexible primary and stops
               the kind badge from starving truncate to 0px width (#414). */}
-          <span
+          <Link
+            to={`/library/${comic.ComicID}`}
             data-testid="series-row-title"
-            className="min-w-0 flex-1 truncate font-medium"
+            className="min-w-0 flex-1 truncate font-medium hover:underline"
+            onClick={(e) => e.stopPropagation()}
           >
             {comic.ComicName}
-          </span>
+          </Link>
           <span className="font-mono text-[9px] text-muted-foreground/70 px-1 py-[1px] border border-border rounded-[3px] uppercase tracking-wider shrink-0">
             {kindLabel}
           </span>

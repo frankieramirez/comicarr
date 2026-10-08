@@ -163,10 +163,12 @@ function MatchModalContent({
                     selectedComic?.comicid === result.comicid;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={comicId}
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedComic(result)}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`flex w-full items-center gap-3 p-3 rounded-lg border cursor-pointer text-left transition-colors ${
                         isSelected
                           ? "border-primary bg-primary/10"
                           : "border-card-border hover:bg-muted/50"
@@ -218,7 +220,7 @@ function MatchModalContent({
                           In Library
                         </span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
