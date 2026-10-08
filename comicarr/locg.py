@@ -171,10 +171,6 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
             x["shipdate"]
 
-        from comicarr.tables import metadata as table_metadata
-
-        table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)
-
         if len(pull) == 0:
             logger.warn(
                 "[PULL-LIST] Weekly pull for week %s, %s has no data. This is probably a back-end related error of some kind."
@@ -182,51 +178,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
             )
             return {"status": "failure"}
 
-        logger.info("Re-creating pullist to ensure everything's fresh.")
-        with db.get_engine().begin() as conn:
-            conn.execute(
-                delete(weekly).where(
-                    and_(
-                        weekly.c.weeknumber == int(weeknumber),
-                        weekly.c.year == int(year),
-                    )
-                )
-            )
-
-        for x in pull:
-            comicid = None
-            issueid = None
-            comicname = x["series"]
-            if x["comicid"] is not None:
-                comicid = x["comicid"]
-            if x["issueid"] is not None:
-                issueid = x["issueid"]
-
-            cl_d = comicarr.filechecker.FileChecker()
-            cl_dyninfo = cl_d.dynamic_replace(comicname)
-            dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
-
-            controlValueDict = {"DynamicName": dynamic_name, "ISSUE": re.sub("#", "", x["issue"]).strip()}
-
-            newValueDict = {
-                "SHIPDATE": x["shipdate"],
-                "PUBLISHER": x["publisher"],
-                "STATUS": "Skipped",
-                "COMIC": comicname,
-                "ComicID": comicid,
-                "IssueID": issueid,
-                "weeknumber": x["weeknumber"],
-                "annuallink": x["annuallink"],
-                "year": x["year"],
-                "volume": x["volume"],
-                "seriesyear": x["seriesyear"],
-                "format": x["format"],
-            }
-            db.upsert("weekly", newValueDict, controlValueDict)
-
-        logger.info("[PULL-LIST] Successfully populated pull-list into Comicarr for week %s of %s" % (weeknumber, year))
-        pull_refresh = todaydate.strftime("%Y-%m-%d %H:%M:%S")
-        comicarr.CONFIG.writeconfig(values={"pull_refresh": pull_refresh})
+        store_week(pull, weeknumber, year)
 
         return {"status": "success", "count": len(data), "weeknumber": weeknumber, "year": year}
 
@@ -237,3 +189,62 @@ def locg(pulldate=None, weeknumber=None, year=None):
         else:
             logger.warn("[%s] The error returned is: %s" % (r.status_code, r.headers))
             return {"status": "failure"}
+
+
+def store_week(pull, weeknumber, year):
+    """Replace the saved pull list for one week with ``pull``.
+
+    Every pull-list source hands its rows to this, in the record shape
+    ``locg()`` builds from Walksoftly, so the ``weekly`` table and everything
+    reading it stay source-agnostic.
+    """
+    from comicarr.tables import metadata as table_metadata
+
+    todaydate = datetime.datetime.today().replace(second=0, microsecond=0)
+    table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)
+
+    logger.info("Re-creating pullist to ensure everything's fresh.")
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            delete(weekly).where(
+                and_(
+                    weekly.c.weeknumber == int(weeknumber),
+                    weekly.c.year == int(year),
+                )
+            )
+        )
+
+    for x in pull:
+        comicid = None
+        issueid = None
+        comicname = x["series"]
+        if x["comicid"] is not None:
+            comicid = x["comicid"]
+        if x["issueid"] is not None:
+            issueid = x["issueid"]
+
+        cl_d = comicarr.filechecker.FileChecker()
+        cl_dyninfo = cl_d.dynamic_replace(comicname)
+        dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
+
+        controlValueDict = {"DynamicName": dynamic_name, "ISSUE": re.sub("#", "", x["issue"]).strip()}
+
+        newValueDict = {
+            "SHIPDATE": x["shipdate"],
+            "PUBLISHER": x["publisher"],
+            "STATUS": "Skipped",
+            "COMIC": comicname,
+            "ComicID": comicid,
+            "IssueID": issueid,
+            "weeknumber": x["weeknumber"],
+            "annuallink": x["annuallink"],
+            "year": x["year"],
+            "volume": x["volume"],
+            "seriesyear": x["seriesyear"],
+            "format": x["format"],
+        }
+        db.upsert("weekly", newValueDict, controlValueDict)
+
+    logger.info("[PULL-LIST] Successfully populated pull-list into Comicarr for week %s of %s" % (weeknumber, year))
+    pull_refresh = todaydate.strftime("%Y-%m-%d %H:%M:%S")
+    comicarr.CONFIG.writeconfig(values={"pull_refresh": pull_refresh})

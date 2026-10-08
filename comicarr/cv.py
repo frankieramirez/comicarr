@@ -29,10 +29,19 @@ import comicarr
 from comicarr import helpers, logger
 from comicarr.app.metadata.series_type import resolve_series_edition
 
+# Request types whose responses are JSON rather than XML.
+_JSON_RTYPES = frozenset({"single_issue", "db_updater", "weekly_releases", "weekly_volumes"})
+
+# ComicVine fills in store dates as a week goes on, so a cached answer for the
+# current week has to expire before the next four-hourly pull-list run (#919).
+WEEKLY_RELEASES_CACHE_TTL = 3600
+
 
 def get_cache_ttl_for_rtype(rtype):
     """Get cache TTL based on request type"""
-    if rtype in ["comic", "comicyears", "import", "image", "firstissue", "imprints_first"]:
+    if rtype == "weekly_releases":
+        return min(WEEKLY_RELEASES_CACHE_TTL, comicarr.CONFIG.CV_CACHE_TTL_SEARCH)
+    if rtype in ["comic", "comicyears", "import", "image", "firstissue", "imprints_first", "weekly_volumes"]:
         return comicarr.CONFIG.CV_CACHE_TTL_METADATA
     elif rtype == "storyarc":
         return comicarr.CONFIG.CV_CACHE_TTL_ARC
@@ -157,13 +166,35 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + "&field_list=date_last_updated,id,volume,issue_number&sort=date_last_updated:asc&offset="
             + str(offset)
         )
+    elif rtype == "weekly_releases":
+        PULLURL = (
+            comicarr.CVURL
+            + "issues/?api_key="
+            + str(comicapi)
+            + "&format=json&filter=store_date:"
+            + dateinfo["start_date"]
+            + "|"
+            + dateinfo["end_date"]
+            + "&field_list=id,issue_number,name,volume,store_date,cover_date&sort=id:asc&offset="
+            + str(offset)
+        )
+    elif rtype == "weekly_volumes":
+        PULLURL = (
+            comicarr.CVURL
+            + "volumes/?api_key="
+            + str(comicapi)
+            + "&format=json&filter=id:"
+            + str(comicidlist)
+            + "&field_list=id,name,start_year,publisher&offset="
+            + str(offset)
+        )
 
     if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE:
         cached_response = comicarr.CV_CACHE.get(PULLURL)
         if cached_response:
             logger.fdebug("[CACHE HIT] %s" % rtype)
             try:
-                if any([rtype == "single_issue", rtype == "db_updater"]):
+                if rtype in _JSON_RTYPES:
                     return json.loads(cached_response)
                 else:
                     return parseString(cached_response)
@@ -186,13 +217,13 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
 
     if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE and r.status_code == 200:
         ttl = get_cache_ttl_for_rtype(rtype)
-        if any([rtype == "single_issue", rtype == "db_updater"]):
+        if rtype in _JSON_RTYPES:
             comicarr.CV_CACHE.set(PULLURL, r.text.encode("utf-8"), ttl)
         else:
             comicarr.CV_CACHE.set(PULLURL, r.content, ttl)
 
     try:
-        if any([rtype == "single_issue", rtype == "db_updater"]):
+        if rtype in _JSON_RTYPES:
             dom = r.json()
         else:
             dom = parseString(r.content)
