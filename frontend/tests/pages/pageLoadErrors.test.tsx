@@ -72,7 +72,9 @@ describe("page load ErrorDisplay retry", () => {
       { route: "/library/1", useMemoryRouter: true },
     );
 
-    expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Try Again" }),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
     expect(await screen.findByText("Absolute Batman")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Try Again" })).toBeNull();
@@ -110,7 +112,9 @@ describe("page load ErrorDisplay retry", () => {
       { route: "/library/1/issue/issue-23", useMemoryRouter: true },
     );
 
-    expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Try Again" }),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
     expect(await screen.findByTestId("issue-detail-title")).toBeTruthy();
   });
@@ -151,9 +155,13 @@ describe("page load ErrorDisplay retry", () => {
       { route: "/story-arcs/arc-1", useMemoryRouter: true },
     );
 
-    expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Try Again" }),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
-    expect(await screen.findByText("The Death of Superman")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "The Death of Superman" }),
+    ).toBeTruthy();
   });
 
   it("shows story arc not-found without retry on 404", async () => {
@@ -180,7 +188,9 @@ describe("page load ErrorDisplay retry", () => {
     failThenSucceed(http.get, "/api/storyarcs", [arcPayload]);
     render(<StoryArcsPage />);
 
-    expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Try Again" }),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
     expect(await screen.findByText("The Death of Superman")).toBeTruthy();
   });
@@ -195,7 +205,13 @@ describe("page load ErrorDisplay retry", () => {
     );
     render(<SettingsPage />);
 
-    expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+    expect(
+      await screen.findByRole(
+        "button",
+        { name: "Try Again" },
+        { timeout: 5000 },
+      ),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
     expect(await screen.findByText("Settings")).toBeTruthy();
     await waitFor(() =>

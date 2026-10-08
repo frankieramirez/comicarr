@@ -53,6 +53,7 @@ export function createTestQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         retry: false,
+        retryDelay: 0,
         gcTime: 0,
         staleTime: 0,
         refetchOnWindowFocus: false,
@@ -73,7 +74,9 @@ export function createTestQueryClient(): QueryClient {
 /**
  * Creates a wrapper component with all providers.
  */
-function createAllProviders(options: CustomRenderOptions = {}): React.FC<WrapperProps> {
+function createAllProviders(
+  options: CustomRenderOptions = {},
+): React.FC<WrapperProps> {
   const { route = "/", useMemoryRouter = false, queryClient } = options;
   const testQueryClient = queryClient ?? createTestQueryClient();
 
@@ -100,7 +103,10 @@ function createAllProviders(options: CustomRenderOptions = {}): React.FC<Wrapper
  * Useful for testing isolated components.
  */
 function createMinimalProviders(
-  options: Pick<CustomRenderOptions, "route" | "useMemoryRouter" | "queryClient"> = {}
+  options: Pick<
+    CustomRenderOptions,
+    "route" | "useMemoryRouter" | "queryClient"
+  > = {},
 ): React.FC<WrapperProps> {
   const { route = "/", useMemoryRouter = false, queryClient } = options;
   const testQueryClient = queryClient ?? createTestQueryClient();
@@ -136,7 +142,7 @@ function createMinimalProviders(
  */
 function customRender(
   ui: ReactElement,
-  options: CustomRenderOptions = {}
+  options: CustomRenderOptions = {},
 ): ReturnType<typeof render> {
   const { route, useMemoryRouter, queryClient, ...renderOptions } = options;
 
@@ -152,7 +158,7 @@ function customRender(
  */
 function renderMinimal(
   ui: ReactElement,
-  options: CustomRenderOptions = {}
+  options: CustomRenderOptions = {},
 ): ReturnType<typeof render> {
   const { route, useMemoryRouter, queryClient, ...renderOptions } = options;
 
