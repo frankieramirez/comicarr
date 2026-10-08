@@ -221,6 +221,37 @@ def group_metatag(ctx, comic_id):
         return {"success": False, "error": str(e)}
 
 
+def cmtag_series_arguments(issueid, comicid, comversion, seriesyear, agerating):
+    """Volume label, reading order and age rating for `cmtag.run`.
+
+    Shared by manual metatagging and import finalization so an imported file is
+    tagged with the same series fields as one tagged from the series page.
+    """
+    if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+        if all([seriesyear is not None, seriesyear != "None"]):
+            vol_label = seriesyear
+        else:
+            logger.warn(
+                "Cannot populate the year for the series for some reason. Dropping down to numeric volume label."
+            )
+            vol_label = comversion
+    else:
+        vol_label = comversion
+
+    readingorder = None
+    if all([issueid is not None, comicid is not None]):
+        roders = db.raw_select_all(
+            "SELECT StoryArc, ReadingOrder from storyarcs WHERE ComicID=? AND IssueID=?", [comicid, issueid]
+        )
+        if roders is not None:
+            readingorder = []
+            for rd in roders:
+                readingorder.append((rd["StoryArc"], rd["ReadingOrder"]))
+            logger.fdebug("readingorder: %s" % (readingorder))
+
+    return {"comversion": vol_label, "readingorder": readingorder, "agerating": agerating}
+
+
 def _do_manual_metatag(issueid, comicid=None, group=False):
     """Tag metadata for a single issue. Extracted from WebInterface.manual_metatag."""
     module = "[MANUAL META-TAGGING]"
@@ -301,36 +332,12 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
 
         from comicarr import cmtag
 
-        if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
-            if all([seriesyear is not None, seriesyear != "None"]):
-                vol_label = seriesyear
-            else:
-                logger.warn(
-                    "Cannot populate the year for the series for some reason. Dropping down to numeric volume label."
-                )
-                vol_label = comversion
-        else:
-            vol_label = comversion
-
-        readingorder = None
-        if all([issueid is not None, comicid is not None]):
-            roders = db.raw_select_all(
-                "SELECT StoryArc, ReadingOrder from storyarcs WHERE ComicID=? AND IssueID=?", [comicid, issueid]
-            )
-            if roders is not None:
-                readingorder = []
-                for rd in roders:
-                    readingorder.append((rd["StoryArc"], rd["ReadingOrder"]))
-                logger.fdebug("readingorder: %s" % (readingorder))
-
         metaresponse = cmtag.run(
             dirName,
             issueid=issueid,
             filename=filename,
-            comversion=vol_label,
             manualmeta=True,
-            readingorder=readingorder,
-            agerating=agerating,
+            **cmtag_series_arguments(issueid, comicid, comversion, seriesyear, agerating),
         )
     except ImportError:
         logger.warn(

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -311,13 +312,27 @@ def _install_tagged_file(library_path: str, tagged_path: str) -> str:
     """Copy ComicTagger's cache result into the library, handling CBR->CBZ.
 
     `cmtag.run` cannot write into an existing archive, so it copies into
-    CACHE_DIR and may return a .cbz for a .cbr. The metatag service copies that
-    file back and removes the original when the basename changed; import does
-    the same so the follow-up rescan points at the final file.
+    CACHE_DIR and may return a .cbz for a .cbr. The result is staged beside the
+    target and swapped in with `os.replace`: writing through the existing path
+    would truncate an inode a FILE_OPTS=hardlink import shares with the inbox
+    original, and a crash mid-copy would corrupt the only library copy.
     """
     destination_path = os.path.join(os.path.dirname(library_path), os.path.basename(tagged_path))
+    renamed = os.path.abspath(library_path) != os.path.abspath(destination_path)
+    if renamed and os.path.lexists(destination_path):
+        raise FileExistsError("%s already exists; leaving %s untagged" % (destination_path, library_path))
     if os.path.abspath(tagged_path) != os.path.abspath(destination_path):
-        shutil.copy(tagged_path, destination_path)
+        fd, staged_path = tempfile.mkstemp(prefix=".comicarr-tag-", dir=os.path.dirname(destination_path))
+        os.close(fd)
+        try:
+            shutil.copy(tagged_path, staged_path)
+            os.replace(staged_path, destination_path)
+        except Exception:
+            try:
+                os.remove(staged_path)
+            except OSError:
+                pass
+            raise
         try:
             os.remove(tagged_path)
         except OSError:
@@ -328,7 +343,7 @@ def _install_tagged_file(library_path: str, tagged_path: str) -> str:
                 os.rmdir(cache_dir)
         except OSError:
             pass
-    if os.path.abspath(library_path) != os.path.abspath(destination_path) and os.path.lexists(library_path):
+    if renamed and os.path.lexists(library_path):
         try:
             os.remove(library_path)
         except OSError:
@@ -336,19 +351,32 @@ def _install_tagged_file(library_path: str, tagged_path: str) -> str:
     return destination_path
 
 
-def _tag_imported_files(rows: Sequence[dict], placed, series_id: str, config) -> None:
+@dataclass(frozen=True)
+class _PendingTagging:
+    rows: Sequence[dict]
+    placed: Sequence
+    series: dict
+    series_id: str
+    config: object
+
+
+def _tag_imported_files(pending: _PendingTagging) -> None:
     """Best-effort tagging after a committed import. Never raises.
 
-    Inbox auto-import and manual match share `_finalize_locked`, so both honour
-    IMP_METADATA through this one call to `cmtag.run` — the same entry post-
-    processing and POST /api/metadata/metatag already use.
+    Inbox auto-import and manual match share `finalize_manual_match`, so both
+    honour IMP_METADATA through this one call to `cmtag.run` — the same entry
+    post-processing and POST /api/metadata/metatag already use. It runs after
+    `_FINALIZATION_LOCK` is released: ComicTagger has no timeout, and a slow or
+    wedged run must not block every other import.
     """
-    if not _import_tagging_enabled(config):
+    if not _import_tagging_enabled(pending.config):
         return
 
-    placed_by_source = {source_path: result.destination for source_path, result in placed}
+    series_id = pending.series_id
+    placed_by_source = {source_path: result.destination for source_path, result in pending.placed}
     renamed = False
-    for row in rows:
+    archive_directories = []
+    for row in pending.rows:
         issue_id = row.get("_ResolvedIssueID")
         source_path = row["ComicLocation"]
         if not issue_id:
@@ -357,12 +385,21 @@ def _tag_imported_files(rows: Sequence[dict], placed, series_id: str, config) ->
         filepath = placed_by_source.get(source_path, source_path)
         try:
             from comicarr import cmtag
+            from comicarr.app.metadata import service as metadata_service
 
+            series_arguments = metadata_service.cmtag_series_arguments(
+                issue_id,
+                series_id,
+                pending.series.get("ComicVersion"),
+                pending.series.get("ComicYear"),
+                pending.series.get("AgeRating"),
+            )
             metaresponse = cmtag.run(
                 os.path.dirname(filepath),
                 issueid=issue_id,
                 filename=filepath,
                 manualmeta=True,
+                **series_arguments,
             )
         except Exception as e:
             logger.warn("[IMPORT-MATCH] Metatagging raised for %s: %s" % (filepath, e))
@@ -380,6 +417,12 @@ def _tag_imported_files(rows: Sequence[dict], placed, series_id: str, config) ->
             continue
         if os.path.abspath(installed) != os.path.abspath(filepath):
             renamed = True
+            if source_path not in placed_by_source:
+                # Archived in place: the series rescan only sees files outside
+                # the series folder when given their directory.
+                archive_directory = os.path.abspath(os.path.dirname(installed))
+                if archive_directory not in archive_directories:
+                    archive_directories.append(archive_directory)
             logger.info(
                 "[IMPORT-MATCH] Wrote metadata: %s -> %s" % (os.path.basename(filepath), os.path.basename(installed))
             )
@@ -391,6 +434,8 @@ def _tag_imported_files(rows: Sequence[dict], placed, series_id: str, config) ->
     try:
         from comicarr import updater
 
+        for archive_directory in archive_directories:
+            updater.forceRescan(series_id, archive=archive_directory)
         updater.forceRescan(series_id)
     except Exception as e:
         logger.warn("[IMPORT-MATCH] Rescan after metatag rename failed for %s: %s" % (series_id, e))
@@ -405,7 +450,7 @@ def _finalize_locked(
     fallback_issue_id: str | None,
     match_source: str,
     match_confidence: int,
-) -> ImportFinalizationResult:
+) -> tuple[ImportFinalizationResult, _PendingTagging]:
     normalized_ids = _normalize_import_ids(import_ids)
     rows = _load_and_validate_rows(normalized_ids)
     ensured_name = _ensure_series(series_id, series_name)
@@ -446,19 +491,14 @@ def _finalize_locked(
             message += "; rollback incomplete: %s" % "; ".join(rollback_errors)
         raise _fail(message, phase="commit", rollback_failed=bool(rollback_errors)) from e
 
-    # After commit: a tagging failure must not roll back a finished import.
-    try:
-        _tag_imported_files(rows, moved_files, series_id, config)
-    except Exception as e:
-        logger.warn("[IMPORT-MATCH] Metatagging failed after import of %s: %s" % (series_id, e))
-
-    return ImportFinalizationResult(
+    result = ImportFinalizationResult(
         matched=len(rows),
         series_id=series_id,
         series_name=effective_name,
         moved=moved,
         archived=archived,
     )
+    return result, _PendingTagging(rows=rows, placed=moved_files, series=series, series_id=series_id, config=config)
 
 
 def finalize_manual_match(
@@ -474,7 +514,7 @@ def finalize_manual_match(
     """Finalize one operator-confirmed match through a single testable seam."""
     try:
         with _FINALIZATION_LOCK:
-            return _finalize_locked(
+            result, pending_tagging = _finalize_locked(
                 ctx,
                 import_ids,
                 series_id,
@@ -490,3 +530,11 @@ def finalize_manual_match(
         error = _fail("Failed to finalize imports for %s: %s" % (series_id, e), phase="finalization")
         logger.error("[IMPORT-MATCH] [%s] %s" % (error.phase, error))
         raise error from e
+
+    # After commit and outside the lock: a tagging failure must not roll back
+    # a finished import.
+    try:
+        _tag_imported_files(pending_tagging)
+    except Exception as e:
+        logger.warn("[IMPORT-MATCH] Metatagging failed after import of %s: %s" % (series_id, e))
+    return result

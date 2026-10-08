@@ -406,6 +406,14 @@ class TestGetScanProgress:
 class TestAutoImportWritesMetadata:
     """Inbox auto-import goes through finalize_manual_match, which must honour IMP_METADATA."""
 
+    @pytest.fixture(autouse=True)
+    def _series_arguments(self):
+        with patch(
+            "comicarr.app.metadata.service.cmtag_series_arguments",
+            return_value={"comversion": None, "readingorder": None, "agerating": None},
+        ):
+            yield
+
     @staticmethod
     def _config(*, metadata, enable_meta=False, cbr2cbz_only=False):
         return SimpleNamespace(

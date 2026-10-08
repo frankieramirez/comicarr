@@ -870,8 +870,26 @@ class TestWriteMetadataOnImport:
     final file.
     """
 
+    @pytest.fixture(autouse=True)
+    def _series_arguments(self):
+        with patch(
+            "comicarr.app.metadata.service.cmtag_series_arguments",
+            return_value={"comversion": "v2016", "readingorder": None, "agerating": "Teen"},
+        ) as series_arguments:
+            yield series_arguments
+
     @staticmethod
-    def _finalize(tmp_path, *, metadata, enable_meta=False, cbr2cbz_only=False, move=True, cmtag_return, issue_id="cv-1"):
+    def _finalize(
+        tmp_path,
+        *,
+        metadata,
+        enable_meta=False,
+        cbr2cbz_only=False,
+        move=True,
+        file_opts="copy",
+        cmtag_return,
+        issue_id="cv-1",
+    ):
         source = tmp_path / "inbox" / "issue 1.cbz"
         target_directory = tmp_path / "library"
         source.parent.mkdir()
@@ -898,7 +916,7 @@ class TestWriteMetadataOnImport:
             result = finalization.finalize_manual_match(
                 _ctx(
                     move=move,
-                    file_opts="copy",
+                    file_opts=file_opts,
                     metadata=metadata,
                     enable_meta=enable_meta,
                     cbr2cbz_only=cbr2cbz_only,
@@ -1046,3 +1064,101 @@ class TestWriteMetadataOnImport:
         mock_cmtag.assert_not_called()
         mark_imported.assert_called_once()
         assert destination.read_bytes() == b"untagged"
+
+    def test_tagger_gets_the_series_fields_post_processing_passes(self, tmp_path, _series_arguments):
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        tagged = cache / "issue 1.cbz"
+        tagged.write_bytes(b"tagged")
+
+        _result, mock_cmtag, _mark, _events, _source, _destination = self._finalize(
+            tmp_path, metadata=True, enable_meta=True, cmtag_return=str(tagged)
+        )
+
+        _series_arguments.assert_called_once_with("cv-1", "cv-100", None, None, None)
+        assert mock_cmtag.call_args.kwargs["comversion"] == "v2016"
+        assert mock_cmtag.call_args.kwargs["agerating"] == "Teen"
+        assert "readingorder" in mock_cmtag.call_args.kwargs
+
+    def test_tagging_runs_after_the_finalization_lock_is_released(self, tmp_path):
+        held_during_tagging = []
+
+        def tagger(_filename):
+            held_during_tagging.append(finalization._FINALIZATION_LOCK.locked())
+            return "fail"
+
+        self._finalize(tmp_path, metadata=True, enable_meta=True, cmtag_return=tagger)
+
+        assert held_during_tagging == [False], "a slow ComicTagger run must not block other imports"
+
+    def test_hardlink_import_leaves_the_inbox_original_untouched(self, tmp_path):
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        tagged = cache / "issue 1.cbz"
+        tagged.write_bytes(b"tagged")
+
+        _result, _cmtag, _mark, _events, source, destination = self._finalize(
+            tmp_path, metadata=True, enable_meta=True, file_opts="hardlink", cmtag_return=str(tagged)
+        )
+
+        assert destination.read_bytes() == b"tagged"
+        assert source.read_bytes() == b"untagged", "tagging must not write through the shared inode"
+        assert not os.path.samefile(source, destination)
+        assert [p.name for p in destination.parent.iterdir()] == [destination.name], "no staged temp file left"
+
+    def test_archive_in_place_cbr_to_cbz_rescans_the_import_directory(self, tmp_path):
+        source = tmp_path / "inbox" / "issue 1.cbr"
+        target_directory = tmp_path / "library"
+        cache = tmp_path / "cache"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        cache.mkdir()
+        source.write_bytes(b"rar")
+        tagged = cache / "issue 1.cbz"
+        tagged.write_bytes(b"cbz")
+
+        with (
+            _environment([_row("imp-1", source, issue_number="1")], target_directory),
+            patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
+            patch("comicarr.updater.forceRescan") as force_rescan,
+            patch("comicarr.cmtag.run", return_value=str(tagged)),
+        ):
+            finalization.finalize_manual_match(
+                _ctx(move=False, metadata=True, enable_meta=True),
+                ["imp-1"],
+                "cv-100",
+            )
+
+        inbox = os.path.abspath(source.parent)
+        assert (source.parent / "issue 1.cbz").read_bytes() == b"cbz"
+        assert not source.exists()
+        # Import archive + series rescan, then the same pair again for the .cbz.
+        assert force_rescan.call_args_list[-2:] == [call("cv-100", archive=inbox), call("cv-100")]
+
+    def test_cbr_to_cbz_never_overwrites_an_existing_cbz(self, tmp_path):
+        source = tmp_path / "inbox" / "issue 1.cbr"
+        target_directory = tmp_path / "library"
+        cache = tmp_path / "cache"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        cache.mkdir()
+        source.write_bytes(b"rar")
+        (target_directory / "issue 1.cbz").write_bytes(b"existing")
+        tagged = cache / "issue 1.cbz"
+        tagged.write_bytes(b"cbz")
+
+        with (
+            _environment([_row("imp-1", source, issue_number="1")], target_directory),
+            patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
+            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.cmtag.run", return_value=str(tagged)),
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=True, file_opts="copy", metadata=True, enable_meta=True),
+                ["imp-1"],
+                "cv-100",
+            )
+
+        assert result.matched == 1
+        assert (target_directory / "issue 1.cbz").read_bytes() == b"existing"
+        assert (target_directory / "issue 1.cbr").read_bytes() == b"rar"
