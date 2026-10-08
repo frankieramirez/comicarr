@@ -13,7 +13,7 @@ interface SuggestionCardProps {
 
 export function SuggestionCard({ suggestion, onAdd }: SuggestionCardProps) {
   return (
-    <div className="flex items-start justify-between gap-4 p-4 rounded-lg border border-card-border bg-card">
+    <div className="flex items-start justify-between gap-4 p-4 rounded-lg border border-border bg-card">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-sm truncate">

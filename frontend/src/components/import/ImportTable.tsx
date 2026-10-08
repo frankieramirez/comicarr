@@ -96,7 +96,7 @@ function FileRow({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-2 border-t border-card-border bg-muted/20 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)_minmax(5rem,7rem)] sm:items-center md:px-6">
+    <div className="grid grid-cols-1 gap-2 border-t border-border bg-muted/20 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)_minmax(5rem,7rem)] sm:items-center md:px-6">
       <div className="flex min-w-0 items-center gap-2 md:pl-8">
         <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <span
@@ -143,7 +143,7 @@ function FileRow({
             }
           }}
           className={cn(
-            "h-8 w-full border-card-border bg-background/80 px-2 py-0 font-mono text-xs focus-visible:ring-primary",
+            "h-8 w-full border-border bg-background/80 px-2 py-0 font-mono text-xs focus-visible:ring-primary",
             saveState === "dirty" && "border-primary/60",
             (saveState === "error" || saveState === "required") &&
               "border-destructive focus-visible:ring-destructive",

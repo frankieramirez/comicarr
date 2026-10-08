@@ -45,7 +45,7 @@ export function AiSuggestions() {
 
   if (state === "empty") {
     return (
-      <div className="rounded-lg border border-card-border bg-card p-6 text-center">
+      <div className="rounded-lg border border-border bg-card p-6 text-center">
         <Sparkles className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
         <p className="text-sm text-muted-foreground">
           Nothing new this week matches your collection

@@ -66,7 +66,7 @@ export default function ArcMissingSeries({
   };
 
   return (
-    <div className="rounded-lg border border-card-border bg-card p-4 space-y-3">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BookPlus className="w-4 h-4 text-primary" />
