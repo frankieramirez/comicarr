@@ -5,22 +5,22 @@ const TONE = {
   error: {
     role: "alert" as const,
     className:
-      "bg-[var(--status-error-bg)] text-[var(--status-error)] border-[color-mix(in_oklab,var(--status-error)_30%,transparent)]",
+      "bg-[var(--status-error-bg)] border-[color-mix(in_oklab,var(--status-error)_30%,transparent)] [&_svg]:text-[var(--status-error)]",
   },
   warning: {
-    role: "status" as const,
+    role: "alert" as const,
     className:
-      "bg-[var(--status-paused-bg)] text-[var(--status-paused)] border-[color-mix(in_oklab,var(--status-paused)_30%,transparent)]",
+      "bg-[var(--status-paused-bg)] border-[color-mix(in_oklab,var(--status-paused)_30%,transparent)] [&_svg]:text-[var(--status-paused)]",
   },
   success: {
     role: "status" as const,
     className:
-      "bg-[var(--status-active-bg)] text-[var(--status-active)] border-[color-mix(in_oklab,var(--status-active)_30%,transparent)]",
+      "bg-[var(--status-active-bg)] border-[color-mix(in_oklab,var(--status-active)_30%,transparent)] [&_svg]:text-[var(--status-active)]",
   },
   info: {
     role: "status" as const,
     className:
-      "bg-[var(--status-wanted-bg)] text-[var(--status-wanted)] border-[color-mix(in_oklab,var(--status-wanted)_30%,transparent)]",
+      "bg-[var(--status-wanted-bg)] border-[color-mix(in_oklab,var(--status-wanted)_30%,transparent)] [&_svg]:text-[var(--status-wanted)]",
   },
 } as const;
 
@@ -31,8 +31,8 @@ export interface CalloutProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Status-coloured banner. Tokens live in classes so both themes resolve;
- * error is `role="alert"`, everything else `role="status"`.
+ * Status-coloured banner. Tone applies to fill, border, and icon; body copy
+ * stays foreground. Error and warning are `role="alert"`.
  */
 const Callout = React.forwardRef<HTMLDivElement, CalloutProps>(
   ({ tone = "info", className, ...props }, ref) => {
@@ -41,7 +41,11 @@ const Callout = React.forwardRef<HTMLDivElement, CalloutProps>(
       <div
         ref={ref}
         role={spec.role}
-        className={cn("rounded-lg border p-4", spec.className, className)}
+        className={cn(
+          "rounded-lg border p-4 text-foreground",
+          spec.className,
+          className,
+        )}
         {...props}
       />
     );

@@ -21,10 +21,22 @@ describe("Callout", () => {
     },
   );
 
-  it("exposes role=alert for error and role=status otherwise", () => {
+  it("exposes role=alert for error and warning", () => {
     const { rerender } = render(<Callout tone="error">Broken</Callout>);
     expect(screen.getByRole("alert").textContent).toBe("Broken");
     rerender(<Callout tone="warning">Heads up</Callout>);
-    expect(screen.getByRole("status").textContent).toBe("Heads up");
+    expect(screen.getByRole("alert").textContent).toBe("Heads up");
+    rerender(<Callout tone="info">Note</Callout>);
+    expect(screen.getByRole("status").textContent).toBe("Note");
+  });
+
+  it("keeps body copy on foreground and tone on the icon", () => {
+    const { container } = render(<Callout tone="warning">Heads up</Callout>);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el.className).toContain("text-foreground");
+    expect(el.className).toContain("[&_svg]:text-[var(--status-paused)]");
+    expect(el.className.split(/\s+/)).not.toContain(
+      "text-[var(--status-paused)]",
+    );
   });
 });
