@@ -55,11 +55,11 @@ const ACTIVITY_STATUS_TITLES: Record<string, string> = {
 };
 
 function activityStatusLabel(status: string): string {
-  return status.replaceAll("_", " ");
+  return status.replace(/_/g, " ");
 }
 
 function activityStatusTitle(status: string): string {
-  const key = status.trim().toLowerCase().replaceAll("_", " ");
+  const key = status.trim().toLowerCase().replace(/_/g, " ");
   if (ACTIVITY_STATUS_TITLES[key]) return ACTIVITY_STATUS_TITLES[key];
   if (key.includes("fail") || key.includes("error")) {
     return ACTIVITY_STATUS_TITLES.failed;
