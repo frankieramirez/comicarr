@@ -34,15 +34,14 @@ export default function IssueDetailPage() {
     comicId: string;
     issueId: string;
   }>();
-  const { data, isLoading, error, isError, refetch, isFetching } = useIssueDetail(
-    comicId,
-    issueId,
-  );
+  const { data, isLoading, error, isError, refetch, isFetching } =
+    useIssueDetail(comicId, issueId);
   const setIssueStatus = useSetIssueStatus();
   const { addToast } = useToast();
   const missingIssue =
     isNotFoundError(error) ||
-    (error instanceof Error && error.message === "Issue not found for this series");
+    (error instanceof Error &&
+      error.message === "Issue not found for this series");
 
   if (isLoading) {
     return (
