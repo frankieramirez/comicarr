@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
 import { useToast } from "@/components/ui/toast";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { InterfaceTab } from "@/components/settings/InterfaceTab";
@@ -49,7 +50,7 @@ function parseSectionParam(raw: string | null): SectionId | null {
 }
 
 export default function SettingsPage() {
-  const { data: config, isLoading, error } = useConfig();
+  const { data: config, isLoading, error, refetch, isFetching } = useConfig();
   const updateConfigMutation = useUpdateConfig();
   const { addToast } = useToast();
   const location = useLocation();
@@ -265,20 +266,14 @@ export default function SettingsPage() {
   if (error) {
     return (
       <div className="p-6">
-        <div
-          className="rounded-[6px] border p-4"
-          style={{
-            borderColor:
-              "color-mix(in oklab, var(--status-error) 30%, transparent)",
-            background: "var(--status-error-bg)",
-            color: "var(--status-error)",
+        <ErrorDisplay
+          error={error}
+          title="Unable to load settings"
+          onRetry={() => {
+            void refetch();
           }}
-        >
-          <div className="font-semibold mb-1">Error loading settings</div>
-          <div className="text-[12px]">
-            {error.message || "Failed to load configuration."}
-          </div>
-        </div>
+          isRetrying={isFetching}
+        />
       </div>
     );
   }

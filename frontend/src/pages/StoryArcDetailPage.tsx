@@ -4,11 +4,14 @@ import { useStoryArcDetail } from "@/hooks/useStoryArcs";
 import ArcHeader from "@/components/storyarcs/ArcHeader";
 import ArcIssueTable from "@/components/storyarcs/ArcIssueTable";
 import ArcMissingSeries from "@/components/storyarcs/ArcMissingSeries";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isNotFoundError } from "@/lib/api";
 
 export default function StoryArcDetailPage() {
   const { storyArcId } = useParams<{ storyArcId: string }>();
-  const { data, isLoading, error } = useStoryArcDetail(storyArcId);
+  const { data, isLoading, error, refetch, isFetching } =
+    useStoryArcDetail(storyArcId);
 
   if (isLoading) {
     return (
@@ -20,10 +23,23 @@ export default function StoryArcDetailPage() {
     );
   }
 
-  if (error || !data) {
+  if (error && !isNotFoundError(error)) {
+    return (
+      <ErrorDisplay
+        error={error}
+        title="Unable to load story arc"
+        onRetry={() => {
+          void refetch();
+        }}
+        isRetrying={isFetching}
+      />
+    );
+  }
+
+  if (!data) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 text-lg">Failed to load story arc</p>
+        <h1 className="text-lg font-semibold">Story arc not found</h1>
         <p className="text-muted-foreground text-sm mt-2">
           {error?.message || "Story arc not found"}
         </p>

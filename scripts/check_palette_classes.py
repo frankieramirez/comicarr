@@ -79,7 +79,6 @@ BASELINE: dict[str, int] = {
     "components/settings/AiTab.tsx": 2,
     "components/storyarcs/ArcIssueRow.tsx": 7,
     "components/storyarcs/ArcIssueTable.tsx": 4,
-    "pages/StoryArcDetailPage.tsx": 1,
 }
 
 

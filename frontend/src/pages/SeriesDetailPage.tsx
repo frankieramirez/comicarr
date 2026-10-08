@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
@@ -53,6 +54,7 @@ import type {
   ContentType,
   SettableIssueStatus,
 } from "@/types";
+import { isNotFoundError } from "@/lib/api";
 import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
 
@@ -251,7 +253,13 @@ export default function SeriesDetailPage() {
   const [searchRunId, setSearchRunId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  const { data: seriesData, isLoading, error } = useSeriesDetail(comicId);
+  const {
+    data: seriesData,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useSeriesDetail(comicId);
   const pauseMutation = usePauseSeries();
   const resumeMutation = useResumeSeries();
   const refreshMutation = useRefreshSeries();
@@ -352,27 +360,34 @@ export default function SeriesDetailPage() {
     );
   }
 
-  if (error || !seriesData) {
+  if (error && !isNotFoundError(error)) {
     return (
       <div className="p-5">
-        <div
-          className="rounded-[6px] border p-4"
-          style={{
-            borderColor:
-              "color-mix(in oklab, var(--status-error) 30%, transparent)",
-            background: "var(--status-error-bg)",
-            color: "var(--status-error)",
+        <ErrorDisplay
+          error={error}
+          title="Unable to load series"
+          onRetry={() => {
+            void refetch();
           }}
-        >
-          <div className="mb-1 font-semibold">Failed to load series</div>
-          <div className="text-[12px]">
+          isRetrying={isFetching}
+        />
+      </div>
+    );
+  }
+
+  if (!seriesData) {
+    return (
+      <div className="p-5">
+        <div className="mx-auto max-w-lg py-16 text-center">
+          <h1 className="text-lg font-semibold">Series not found</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             {error?.message || "Series not found."}
-          </div>
+          </p>
           <Link
             to="/library"
-            className="mt-3 inline-block font-mono text-[11px] underline"
+            className="mt-6 inline-block text-sm text-primary hover:underline"
           >
-            ← back to library
+            Back to library
           </Link>
         </div>
       </div>
