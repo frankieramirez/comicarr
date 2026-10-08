@@ -57,6 +57,7 @@ import type {
 import { isNotFoundError } from "@/lib/api";
 import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
+import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 
 type IssueFilter = "all" | "have" | "missing" | "monitored";
 
@@ -212,7 +213,7 @@ function pluralize(count: number, singular: string): string {
 }
 
 const ISSUE_GRID_COLS =
-  "grid-cols-[28px_72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
+  "grid-cols-[42px_minmax(0,1fr)_auto_36px] md:grid-cols-[28px_72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
 
 function issueRowKey(issue: Issue): string {
   return `${issue.annual ? "annual" : "issue"}:${issue.id ?? issue.IssueID}`;
@@ -1221,10 +1222,10 @@ export default function SeriesDetailPage() {
         )}
 
         <div
-          className="min-w-0 overflow-x-auto split:min-h-0 split:flex-1 split:overflow-auto"
+          className="min-w-0 md:overflow-x-auto split:min-h-0 split:flex-1 split:overflow-auto"
           data-testid="series-issue-list"
         >
-          <div className="min-w-[920px]">
+          <div className="md:min-w-[920px]">
             <div
               className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
               style={{
@@ -1233,7 +1234,7 @@ export default function SeriesDetailPage() {
                 background: "var(--card)",
               }}
             >
-              <div className="flex items-center">
+              <div className={`${DESKTOP_COL} flex items-center`}>
                 <Checkbox
                   checked={
                     allFilteredSelected
@@ -1247,11 +1248,11 @@ export default function SeriesDetailPage() {
                   disabled={bulkSetIssueStatus.isPending}
                 />
               </div>
-              <div>type</div>
+              <div className={DESKTOP_COL}>type</div>
               <div>#</div>
               <div>title</div>
-              <div>arc</div>
-              <div>date</div>
+              <div className={DESKTOP_COL}>arc</div>
+              <div className={DESKTOP_COL}>date</div>
               <div>state</div>
               <div className="sr-only">search</div>
             </div>
@@ -1287,7 +1288,7 @@ export default function SeriesDetailPage() {
                     className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
                     style={{ borderColor: "var(--border)" }}
                   >
-                    <div className="flex items-center">
+                    <div className={`${DESKTOP_COL} flex items-center`}>
                       <Checkbox
                         checked={selectedRows.has(rowKey)}
                         onCheckedChange={() => toggleRowSelected(rowKey)}
@@ -1295,7 +1296,7 @@ export default function SeriesDetailPage() {
                         disabled={!issueId || bulkSetIssueStatus.isPending}
                       />
                     </div>
-                    <div>
+                    <div className={DESKTOP_COL}>
                       {ledgerKind && (
                         <span
                           className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
@@ -1315,7 +1316,20 @@ export default function SeriesDetailPage() {
                     >
                       #{String(issueNumber ?? "").padStart(2, "0")}
                     </div>
-                    <div className="min-w-0 truncate">
+                    <div className="min-w-0 truncate" data-grid-title="">
+                      {ledgerKind ? (
+                        <span
+                          data-testid="phone-row-id"
+                          className="mr-1.5 hidden max-md:inline rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
+                          style={{
+                            background:
+                              "color-mix(in oklab, var(--primary) 12%, transparent)",
+                            color: "var(--primary)",
+                          }}
+                        >
+                          {LEDGER_KIND_LABEL[ledgerKind]}
+                        </span>
+                      ) : null}
                       <Link
                         to={`/library/${comicId}/issue/${issueId}`}
                         className="transition-colors hover:text-primary"
@@ -1325,18 +1339,21 @@ export default function SeriesDetailPage() {
                       </Link>
                     </div>
                     <div
-                      className="truncate text-[11px]"
+                      className={`${DESKTOP_COL} truncate text-[11px]`}
                       style={{ color: "var(--muted-foreground)" }}
                     >
                       {issue.Arc || "—"}
                     </div>
                     <div
-                      className="font-mono text-[10px]"
+                      className={`${DESKTOP_COL} font-mono text-[10px]`}
                       style={{ color: "var(--muted-foreground)" }}
                     >
                       {displayComicDate(issueDate)}
                     </div>
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <div
+                      className="flex min-w-0 flex-wrap items-center gap-1.5"
+                      data-grid-status=""
+                    >
                       <IssueStatusMenu
                         current={status}
                         label={`Change status for ${rowLabel}`}

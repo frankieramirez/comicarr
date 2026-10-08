@@ -27,6 +27,7 @@ def get_weekly_releases(week, year):
             t_weekly.c.STATUS,
             t_weekly.c.ComicID,
             t_weekly.c.IssueID,
+            t_weekly.c.rowid,
         )
         .where(t_weekly.c.weeknumber == normalized_week, t_weekly.c.year == year)
         .order_by(t_weekly.c.COMIC.asc())

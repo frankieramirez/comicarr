@@ -26,15 +26,11 @@ import EmptyState from "@/components/ui/EmptyState";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import type { UpcomingIssue } from "@/types";
-
-interface WeeklyIssue {
-  COMIC: string;
-  ISSUE: string;
-  PUBLISHER: string;
-  SHIPDATE: string;
-  STATUS: string;
-  ComicID: string;
-}
+import { DESKTOP_COL } from "@/components/data-table/gridColumns";
+import {
+  weeklyReleaseRowKey,
+  type WeeklyIssue,
+} from "@/pages/weeklyReleaseRowKey";
 
 function useWeeklyPullList() {
   return useQuery({
@@ -45,6 +41,9 @@ function useWeeklyPullList() {
 }
 
 type ReleasesView = "mine" | "all";
+
+const WEEKLY_ROW_COLS =
+  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_80px_160px_100px]";
 
 function Tab({
   active,
@@ -531,17 +530,16 @@ function AllReleasesView() {
           description="Run a weekly pull list update from Settings to populate this view."
         />
       ) : (
-        <div>
+        <div data-testid="weekly-releases-table">
           <div
-            className="sticky top-0 z-10 grid font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 px-5 py-2 border-b bg-background"
+            className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 px-5 py-2 border-b bg-background`}
             style={{
               borderColor: "var(--border)",
-              gridTemplateColumns: "1fr 80px 160px 100px",
             }}
           >
             <div>title</div>
-            <div>issue</div>
-            <div>publisher</div>
+            <div className={DESKTOP_COL}>issue</div>
+            <div className={DESKTOP_COL}>publisher</div>
             <div>status</div>
           </div>
           {weekly.map((issue, index) => {
@@ -554,17 +552,31 @@ function AllReleasesView() {
                   : "var(--muted-foreground)";
             return (
               <div
-                key={`${issue.COMIC}-${issue.ISSUE}-${index}`}
-                className="grid items-center px-5 py-2 text-[12px] border-b border-border/50"
-                style={{
-                  gridTemplateColumns: "1fr 80px 160px 100px",
-                }}
+                key={weeklyReleaseRowKey(issue, index)}
+                data-testid="weekly-release-row"
+                className={`grid ${WEEKLY_ROW_COLS} items-center px-5 py-2 text-[12px] border-b border-border/50`}
               >
-                <div className="font-medium truncate">{issue.COMIC}</div>
-                <div className="font-mono text-[11px] text-muted-foreground">
+                <div className="font-medium truncate" data-grid-title="">
+                  {issue.COMIC}
+                  {issue.ISSUE ? (
+                    <span
+                      data-testid="phone-row-id"
+                      className="hidden max-md:inline font-mono text-[11px]"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {" "}
+                      #{issue.ISSUE}
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground`}
+                >
                   #{issue.ISSUE}
                 </div>
-                <div className="text-muted-foreground truncate">
+                <div
+                  className={`${DESKTOP_COL} text-muted-foreground truncate`}
+                >
                   {issue.PUBLISHER}
                 </div>
                 <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase">

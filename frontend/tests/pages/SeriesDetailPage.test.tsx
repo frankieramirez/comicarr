@@ -312,13 +312,22 @@ describe("SeriesDetailPage", () => {
     );
     expect(issues.className.split(/\s+/)).toEqual(
       expect.arrayContaining([
-        "overflow-x-auto",
+        "md:overflow-x-auto",
         "split:min-h-0",
         "split:flex-1",
         "split:overflow-auto",
       ]),
     );
+    expect(issues.className.split(/\s+/)).not.toContain("overflow-x-auto");
     expect(issues.className.split(/\s+/)).not.toContain("flex-1");
+    expect(issues.querySelector(".md\\:min-w-\\[920px\\]")).toBeTruthy();
+    const issueRow = issues.querySelector(".grid.items-center");
+    expect(issueRow?.className).toMatch(
+      /grid-cols-\[42px_minmax\(0,1fr\)_auto_36px\]/,
+    );
+    expect(issueRow?.className).toMatch(
+      /md:grid-cols-\[28px_72px_42px_minmax\(220px,1fr\)_/,
+    );
 
     expect(body.contains(screen.getByTestId("series-description"))).toBe(true);
     expect(
@@ -564,7 +573,11 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByRole("button", { name: "Have 2" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Missing 6" })).toBeTruthy();
     expect(screen.getByText(/annuals: 1/)).toBeTruthy();
-    expect(screen.getByText("Annual")).toBeTruthy();
+    expect(screen.getAllByText("Annual").length).toBeGreaterThan(0);
+    const phoneAnnual = screen.getByTestId("phone-row-id");
+    expect(phoneAnnual.textContent).toContain("Annual");
+    expect(phoneAnnual.className).toMatch(/hidden/);
+    expect(phoneAnnual.className).toMatch(/max-md:inline/);
 
     for (const state of [
       "Unknown",
@@ -638,7 +651,8 @@ describe("SeriesDetailPage", () => {
     await screen.findByText("One-Punch Man");
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
-    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.getAllByText("Volume")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Chapter")).toBeNull();
   });
 
@@ -652,7 +666,8 @@ describe("SeriesDetailPage", () => {
     await screen.findByText("One-Punch Man");
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
-    expect(screen.getAllByText("Volume")).toHaveLength(2);
+    expect(screen.getAllByText("Volume")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Chapter")).toBeNull();
   });
 
@@ -668,7 +683,8 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
     // The second row carries both numbers; the chapter is the more specific
     // claim, so it must not read as a volume.
-    expect(screen.getAllByText("Chapter")).toHaveLength(2);
+    expect(screen.getAllByText("Chapter")).toHaveLength(4);
+    expect(screen.getAllByTestId("phone-row-id")).toHaveLength(2);
     expect(screen.queryByText("Volume")).toBeNull();
   });
 

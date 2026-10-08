@@ -37,6 +37,7 @@ import {
   type ComicarrTableFeatures,
   type TableStore,
 } from "@/components/data-table/useTableState";
+import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 import { DataTableFooter } from "@/components/data-table/DataTableFooter";
 import { useTableUrlStore } from "@/components/data-table/tableUrlStore";
 import {
@@ -65,11 +66,6 @@ const seriesParams = {
 
 const LIST_ROW_COLS =
   "grid-cols-[20px_40px_minmax(0,1fr)] md:grid-cols-[20px_40px_minmax(10rem,1fr)_160px_100px_110px_180px_60px]";
-
-/** Secondary desktop-only columns — removed from the grid on phone widths.
- *  `max-md:hidden` leaves the element's own display (block/flex/inline-flex)
- *  intact at md+, unlike `hidden md:block` which fights flex utilities. */
-const DESKTOP_COL = "max-md:hidden";
 
 interface SeriesTableProps {
   data?: Comic[];
