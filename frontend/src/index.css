@@ -265,20 +265,6 @@ body {
     font-feature-settings: "tnum" 1;
   }
 
-  .mono-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
-  }
-
-  .mono-meta {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted-foreground);
-  }
-
   .glass-nav {
     background: var(--glassmorphism-bg);
     backdrop-filter: var(--glassmorphism-blur);
@@ -346,4 +332,18 @@ body {
 
 .animate-shimmer {
   animation: shimmer 2s infinite;
+}
+
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@utility mono-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground);
 }

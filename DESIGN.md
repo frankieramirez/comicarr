@@ -109,13 +109,14 @@ now rejects either name.
   keep a visible or `sr-only` `h1` so the outline never disappears.
 - **No serif fonts.** Not in the app, not in mockups, not in generated assets.
 
-Two utilities exist for the dense mono-label idiom that appears throughout the
-tables and detail pages:
+Two `@utility` classes exist for the dense mono-label idiom that appears
+throughout the tables and detail pages. They sort with Tailwind utilities so a
+sibling `text-*` colour or size can override them:
 
 | Utility | Renders |
 |---------|---------|
-| `.mono-label` | 10px mono, uppercase, `0.08em` tracking, muted |
-| `.mono-meta` | 11px mono, muted |
+| `mono-label` | 10px mono, uppercase, `0.08em` tracking, muted |
+| `mono-meta` | 11px mono, muted |
 
 Use them. Hand-rolling `font-mono text-[10px] uppercase tracking-wider
 text-muted-foreground` reproduces `.mono-label` inline and is the single largest
