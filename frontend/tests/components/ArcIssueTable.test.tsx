@@ -68,4 +68,76 @@ describe("ArcIssueTable", () => {
       await screen.findByRole("heading", { name: "Review releases" }),
     ).toBeTruthy();
   });
+
+  it("moves keyboard focus through menu items and returns it to the trigger on Escape", async () => {
+    const user = userEvent.setup();
+    render(<ArcIssueTable issues={[arcIssue]} storyArcId="arc-1" />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Actions for Absolute Batman #9",
+    });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+
+    const firstItem = await screen.findByRole("menuitem", {
+      name: "Interactive Search",
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(firstItem);
+    });
+
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "Mark as Read" }),
+    );
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  it("reaches Confirm with the keyboard after Remove from Arc", async () => {
+    let deleted: { storyArcId?: string; issueArcId?: string } | undefined;
+    server.use(
+      http.delete(
+        "/api/storyarcs/:storyArcId/issues/:issueArcId",
+        ({ params }) => {
+          deleted = params;
+          return HttpResponse.json({ success: true });
+        },
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ArcIssueTable issues={[arcIssue]} storyArcId="arc-1" />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Actions for Absolute Batman #9",
+    });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+
+    const remove = await screen.findByRole("menuitem", {
+      name: "Remove from Arc",
+    });
+    remove.focus();
+    await user.keyboard("{Enter}");
+
+    const confirm = await screen.findByRole("menuitem", { name: "Confirm" });
+    if (document.activeElement !== confirm) {
+      await user.keyboard("{ArrowDown}");
+    }
+    expect(document.activeElement).toBe(confirm);
+
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(deleted).toEqual({
+        storyArcId: "arc-1",
+        issueArcId: "arc-issue-9",
+      });
+    });
+  });
 });

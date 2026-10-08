@@ -59,6 +59,8 @@ export default function ImportPage() {
   const [showIgnored, setShowIgnored] = useState(false);
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchingGroup, setMatchingGroup] = useState<ImportGroup | null>(null);
+  const [matchTrigger, setMatchTrigger] = useState<HTMLElement | null>(null);
+  const [matchTriggerId, setMatchTriggerId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useImportPending(
     limit,
@@ -116,8 +118,10 @@ export default function ImportPage() {
   );
   const selectedGroupCount = selectedRows.length;
 
-  function handleMatchClick(group: ImportGroup) {
+  function handleMatchClick(group: ImportGroup, trigger?: HTMLElement) {
     setMatchingGroup(group);
+    setMatchTrigger(trigger ?? null);
+    setMatchTriggerId(getImportGroupRowId(group));
     setMatchModalOpen(true);
   }
 
@@ -450,10 +454,13 @@ export default function ImportPage() {
         onClose={() => {
           setMatchModalOpen(false);
           setMatchingGroup(null);
+          setMatchTrigger(null);
         }}
         importGroup={matchingGroup}
         onMatch={handleMatch}
         isMatching={matchImportMutation.isPending}
+        triggerRowId={matchTriggerId}
+        triggerElement={matchTrigger}
       />
     </div>
   );

@@ -65,7 +65,7 @@ export function useImportColumns({
   onDeleteClick,
   isActionLoading = false,
 }: {
-  onMatchClick?: (group: ImportGroup) => void;
+  onMatchClick?: (group: ImportGroup, trigger: HTMLElement) => void;
   onIgnoreClick?: (group: ImportGroup, ignore: boolean) => void;
   onDeleteClick?: (group: ImportGroup) => void;
   isActionLoading?: boolean;
@@ -227,11 +227,12 @@ export function useImportColumns({
                       size="sm"
                       variant="outline"
                       aria-label="Match import"
+                      data-import-match={getImportGroupRowId(row.original)}
                       disabled={isActionLoading}
                       className="h-8 px-2"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onMatchClick?.(row.original);
+                        onMatchClick?.(row.original, e.currentTarget);
                       }}
                     >
                       <Link2 className="w-4 h-4" />
