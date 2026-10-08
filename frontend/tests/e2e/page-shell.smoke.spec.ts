@@ -140,10 +140,11 @@ async function assertHeaderPins(page: Page) {
   expect(after).toBeTruthy();
   expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
 
-  const shell = page.getByTestId("page-shell");
-  const widthSource =
-    (await shell.count()) > 0 ? shell : header.locator("xpath=..");
-  const widthBox = await widthSource.boundingBox();
+  // Width must match the main column, not the header's own wrapper.
+  // Layout's padded `max-w-7xl` shell used to inset both equally, so
+  // comparing the header to page-shell passed on the bug.
+  const main = page.locator("main");
+  const widthBox = await main.boundingBox();
   expect(widthBox).toBeTruthy();
   expect(Math.abs(after!.width - widthBox!.width)).toBeLessThan(2);
 }
