@@ -321,6 +321,34 @@ def check_version_now(ctx: AppContext = Depends(get_context)):
     return system_service.force_version_check(ctx)
 
 
+def _log_file_error_response(code):
+    responses = {
+        "invalid_selector": (
+            400,
+            {"code": "invalid_selector", "error": "Unknown log file selector. Refresh the file list."},
+        ),
+        "unsafe_file": (
+            400,
+            {"code": "unsafe_file", "error": "The selected log is not a regular file. Refresh the file list."},
+        ),
+        "missing": (404, {"code": "missing", "error": "The log file no longer exists. Refresh the file list."}),
+        "changed": (
+            409,
+            {"code": "changed", "error": "The log file changed during rotation. Refresh and search again."},
+        ),
+        "too_large": (
+            413,
+            {
+                "code": "too_large",
+                "error": "Log data exceeds the search limits (1 MiB per line or 8 MiB per matching record). Check the file contents and narrow the search.",
+            },
+        ),
+        "unreadable": (503, {"code": "unreadable", "error": "Cannot read log files. Check permissions and Refresh."}),
+    }
+    status, body = responses.get(code, responses["unreadable"])
+    return JSONResponse(status_code=status, content=body)
+
+
 @router.get("/system/logs", dependencies=[Depends(require_session)])
 def get_logs(
     lines: int = Query(
@@ -350,10 +378,7 @@ def get_logs(
             limit=lines,
         )
     except LogFileError as e:
-        status = {"invalid_selector": 400, "unsafe_file": 400, "missing": 404, "changed": 409, "too_large": 413}.get(
-            e.code, 503
-        )
-        return JSONResponse(status_code=status, content={"error": str(e), "code": e.code})
+        return _log_file_error_response(e.code)
 
 
 @router.get("/system/logs/files", dependencies=[Depends(require_session)])
@@ -362,7 +387,7 @@ def get_log_files(ctx: AppContext = Depends(get_context)):
     try:
         return system_service.list_log_files(ctx)
     except LogFileError as e:
-        return JSONResponse(status_code=503, content={"error": str(e), "code": e.code})
+        return _log_file_error_response(e.code)
 
 
 @router.post("/system/logs/rotate", dependencies=[Depends(require_session)])

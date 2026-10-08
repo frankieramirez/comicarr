@@ -855,7 +855,13 @@ def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
         }
     except Exception as e:
         logger.error("[SYSTEM] Error reading logs: %s" % e)
-        return {"logs": [], "level": level, "requested": requested, "path": log_file, "error": str(e)}
+        return {
+            "logs": [],
+            "level": level,
+            "requested": requested,
+            "path": log_file,
+            "error": "Cannot read the current log file. Check permissions and Refresh.",
+        }
 
 
 def start_new_log(ctx):

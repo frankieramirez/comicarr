@@ -37,13 +37,18 @@ class LogFileError(Exception):
         self.code = code
 
 
-def _filename(selector):
+def _filename(log_dir, selector):
     if selector == "current":
         return "comicarr.log"
-    match = re.fullmatch(r"rotation-([1-9][0-9]{0,8})", selector)
-    if match:
-        return "comicarr.log." + match[1]
-    raise LogFileError("invalid_selector", "Unknown log file selector. Refresh the file list.")
+    if not re.fullmatch(r"rotation-[1-9][0-9]{0,8}", selector):
+        raise LogFileError("invalid_selector", "Unknown log file selector. Refresh the file list.")
+    if log_dir:
+        with os.scandir(log_dir) as entries:
+            for entry in entries:
+                if re.fullmatch(r"comicarr\.log\.[1-9][0-9]{0,8}", entry.name):
+                    if "rotation-" + entry.name.removeprefix("comicarr.log.") == selector:
+                        return entry.name
+    raise LogFileError("missing", "The log file no longer exists. Refresh the file list.")
 
 
 def _entry(name, info):
@@ -87,15 +92,15 @@ def _component(body):
 
 
 def search_file(log_dir, selector, query="", component="", severity=None, limit=200, provider_secrets=()):
-    name = _filename(selector)
-    if not log_dir:
-        raise LogFileError("missing", "The log file no longer exists. Refresh the file list.")
-    path = Path(log_dir) / name
     limit = max(1, min(limit, MAX_LOG_RECORDS))
     query = query.casefold()
     component = component.casefold().removeprefix("comicarr.")
     floor = SEVERITIES.get(severity) if severity else None
     try:
+        name = _filename(log_dir, selector)
+        if not log_dir:
+            raise LogFileError("missing", "The log file no longer exists. Refresh the file list.")
+        path = Path(log_dir) / name
         before = path.lstat()
         if not stat.S_ISREG(before.st_mode):
             raise LogFileError("unsafe_file", "The selected log is not a regular file. Refresh the file list.")

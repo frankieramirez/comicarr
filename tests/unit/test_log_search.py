@@ -130,7 +130,20 @@ def test_log_reads_require_session(log_app, url):
 
 @pytest.mark.parametrize(
     "selector",
-    ["../comicarr.log", "/tmp/comicarr.log", "comicarr.log", "unknown", "rotation-0", "rotation-2/../comicarr.log"],
+    [
+        "../comicarr.log",
+        "/tmp/comicarr.log",
+        "comicarr.log",
+        "unknown",
+        "rotation-0",
+        "rotation-2/../comicarr.log",
+        "rotation-2\\..\\comicarr.log",
+        "rotation-2%2f..%2fcomicarr.log",
+        "rotation-2\x00",
+        "rotation-2\n",
+        "rotation-２",
+        "",
+    ],
 )
 def test_api_refuses_paths_and_unknown_selectors(log_app, selector):
     log_app.dependency_overrides[require_session] = lambda: "operator"
@@ -141,8 +154,9 @@ def test_api_refuses_paths_and_unknown_selectors(log_app, selector):
 
 
 @pytest.mark.parametrize("kind", ["symlink", "directory", "fifo"])
-def test_unsafe_files_are_not_listed_or_read(log_ctx, tmp_path, kind):
-    path = tmp_path / "comicarr.log.2"
+@pytest.mark.parametrize("selector, name", [("current", "comicarr.log"), ("rotation-2", "comicarr.log.2")])
+def test_unsafe_files_are_not_listed_or_read(log_ctx, tmp_path, kind, selector, name):
+    path = tmp_path / name
     if kind == "symlink":
         target = tmp_path / "secret.txt"
         target.write_text("secret outside logs")
@@ -153,7 +167,7 @@ def test_unsafe_files_are_not_listed_or_read(log_ctx, tmp_path, kind):
         os.mkfifo(path)
     assert service.list_log_files(log_ctx)["files"] == []
     with pytest.raises(log_files.LogFileError) as error:
-        service.search_logs(log_ctx, selector="rotation-2")
+        service.search_logs(log_ctx, selector=selector)
     assert error.value.code == "unsafe_file"
 
 
@@ -171,6 +185,73 @@ def test_missing_and_unreadable_files_are_actionable(log_app, tmp_path, monkeypa
         assert response.status_code == 503
         assert response.json()["code"] == "unreadable"
         assert "Refresh" in response.json()["error"]
+
+
+@pytest.mark.parametrize(
+    "endpoint, function",
+    [
+        ("/api/system/logs?selector=current", "search_logs"),
+        ("/api/system/logs/files", "list_log_files"),
+    ],
+)
+@pytest.mark.parametrize(
+    "code, status, public_code",
+    [
+        ("invalid_selector", 400, "invalid_selector"),
+        ("unsafe_file", 400, "unsafe_file"),
+        ("missing", 404, "missing"),
+        ("changed", 409, "changed"),
+        ("too_large", 413, "too_large"),
+        ("unreadable", 503, "unreadable"),
+        ("PRIVATE token=canary-secret", 503, "unreadable"),
+    ],
+)
+def test_log_errors_never_serialize_exception_details(
+    log_app, monkeypatch, endpoint, function, code, status, public_code
+):
+    log_app.dependency_overrides[require_session] = lambda: "operator"
+
+    def fail(*args, **kwargs):
+        raise log_files.LogFileError(code, "PRIVATE /credentials/provider.key token=canary-secret")
+
+    monkeypatch.setattr(service, function, fail)
+    with TestClient(log_app) as client:
+        response = client.get(endpoint)
+    assert response.status_code == status
+    assert response.json()["code"] == public_code
+    assert "PRIVATE" not in response.text
+    assert "/credentials" not in response.text
+    assert "canary-secret" not in response.text
+
+
+def test_legacy_tail_errors_never_serialize_exception_details(log_app, tmp_path, monkeypatch):
+    (tmp_path / "comicarr.log").write_text("contents\n")
+    log_app.dependency_overrides[require_session] = lambda: "operator"
+
+    def fail(*args, **kwargs):
+        raise PermissionError("PRIVATE /credentials/provider.key token=canary-secret")
+
+    monkeypatch.setattr(service, "open", fail, raising=False)
+    with TestClient(log_app) as client:
+        response = client.get("/api/system/logs?lines=2")
+    assert response.status_code == 200
+    assert response.json()["logs"] == []
+    assert "Refresh" in response.json()["error"]
+    assert "PRIVATE" not in response.text
+    assert "/credentials" not in response.text
+    assert "canary-secret" not in response.text
+
+
+def test_selected_missing_current_log_remains_actionable(log_app):
+    log_app.dependency_overrides[require_session] = lambda: "operator"
+    with TestClient(log_app) as client:
+        legacy = client.get("/api/system/logs?lines=2")
+        selected = client.get("/api/system/logs?selector=current")
+    assert legacy.status_code == 200
+    assert legacy.json()["logs"] == []
+    assert selected.status_code == 404
+    assert selected.json()["code"] == "missing"
+    assert "Refresh" in selected.json()["error"]
 
 
 def test_rotation_during_read_returns_changed_error(log_ctx, tmp_path, monkeypatch):
