@@ -83,8 +83,45 @@ def _execute(item):
     return processor.post_process()
 
 
+def _is_unjournaled(item):
+    return (
+        isinstance(item, dict)
+        and item.get("source") in {"manual", "compat", "monitor"}
+        and not item.get("journal_release_key")
+    )
+
+
+def _stamp_attention_import(item, *, succeeded=False):
+    if not isinstance(item, dict):
+        return
+    band_key = item.get("attention_release_key")
+    if not band_key:
+        return
+    attempt_key = item.get("journal_release_key")
+    if not succeeded and attempt_key and str(band_key) == str(attempt_key):
+        return
+    try:
+        journal.stamp_resolution(band_key, journal.STATUS_IMPORTED)
+    except Exception as e:
+        logger.warn("[POST-PROCESSING] Could not stamp attention import %s: %s", band_key, e)
+
+
+def _failed_import_redrive(item, key):
+    """True when Import is retrying the same attempt row after a failed claim."""
+    if not key or not isinstance(item, dict):
+        return False
+    if "|import:" not in str(key) or not item.get("attention_release_key"):
+        return False
+    row = journal.read_one(key)
+    if not row or row.get("status") in journal.RESOLVED_STATUSES:
+        return False
+    return row.get("stage") == journal.MANUAL_REVIEW
+
+
 def _quarantine(item, reason, release_key=None):
     if not isinstance(item, dict):
+        return
+    if _is_unjournaled(item) and not release_key:
         return
     key = release_key or item.get("journal_release_key")
     try:
@@ -143,13 +180,16 @@ def run(request):
         _quarantine(request, "invalid_postprocess_command:%s" % type(e).__name__)
         return PostProcessResult("failed", detail=str(e))
 
-    key = item.get("journal_release_key") or journal.derive_release_key(
-        {
-            "issueid": item.get("issueid"),
-            "comicid": item.get("comicid"),
-            "nzbname": item["nzb_name"],
-        }
-    )
+    unjournaled = _is_unjournaled(item)
+    key = None
+    if not unjournaled:
+        key = item.get("journal_release_key") or journal.derive_release_key(
+            {
+                "issueid": item.get("issueid"),
+                "comicid": item.get("comicid"),
+                "nzbname": item["nzb_name"],
+            }
+        )
     lock = comicarr.APILOCK
     if not lock.acquire(blocking=False):
         return PostProcessResult("busy", detail="Post-processing is busy; retry later", action="retry")
@@ -161,7 +201,7 @@ def run(request):
         lease = controller.acquire_lease("postprocess-worker", "postprocess", entity_type="release", entity_id=key)
         controller.assert_lease_current(lease)
         item = validate_postprocess_item(item)
-        if item.get("source") in {"manual", "compat", "monitor"} and not item.get("journal_release_key"):
+        if unjournaled:
             # A manual folder can discover many releases on successive runs.
             # Claiming its display name would suppress every subsequent scan.
             item["journal_release_key"] = None
@@ -179,12 +219,15 @@ def run(request):
                         "failed",
                         "issueid",
                         "comicid",
+                        "provider",
                         "apicall",
                         "ddl",
                         "download_info",
+                        "attention_release_key",
                     )
                 },
                 issueid=item.get("issueid"),
+                provider=item.get("provider"),
             )
         except Exception as e:
             if item.get("journal_release_key"):
@@ -195,20 +238,24 @@ def run(request):
             )
             key = None
             won = True
-        if not won:
+        if not won and not _failed_import_redrive(item, key):
             return PostProcessResult("duplicate")
         item["journal_release_key"] = key
         step = "process"
-        return PostProcessResult("processed", value=_execute(item))
+        result = PostProcessResult("processed", value=_execute(item))
+        _stamp_attention_import(item, succeeded=True)
+        return result
     except MaintenanceBlocked:
         return PostProcessResult(
             "busy", detail="Post-processing is paused for maintenance; retry later", action="retry"
         )
     except PostProcessCommandError as e:
         _quarantine(item, "invalid_postprocess_command:%s" % type(e).__name__, key)
+        _stamp_attention_import(item)
         return PostProcessResult("failed", detail=str(e))
     except Exception as e:
         _quarantine(item, "postprocess_error:%s" % type(e).__name__, key)
+        _stamp_attention_import(item)
         _log_failure(key, step, item, e)
         return PostProcessResult("failed", detail=str(e))
     finally:

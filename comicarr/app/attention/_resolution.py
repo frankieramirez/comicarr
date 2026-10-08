@@ -59,28 +59,43 @@ class _RuntimeResolutionEffects:
         return series_queries.update_obligation_intent(issue_id, actor, intent="ignored", entity_type=entity_type)
 
     def enqueue_import(self, item):
-        from comicarr.app.downloads import service as downloads_service
+        import comicarr
         from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 
         try:
             validated = validate_postprocess_item(item)
         except PostProcessCommandError as e:
             return {"success": False, "problem": "invalid_import_source", "message": str(e)}
-        result = downloads_service.force_process(
-            nzb_name=validated["nzb_name"],
-            nzb_folder=validated["nzb_folder"],
-            issueid=validated.get("issueid"),
-            comicid=validated.get("comicid"),
-            ddl=validated.get("ddl") or False,
-            oneoff=validated.get("oneoff") or False,
-        )
-        if not result.get("success"):
-            return {
-                "success": False,
-                "problem": "import_failed",
-                "message": result.get("error") or "Post-process queue failed",
+        band_key = item.get("attention_release_key")
+        if isinstance(band_key, str) and "|import:" in band_key:
+            attempt_key = band_key
+        else:
+            attempt_key = journal.import_attempt_key(
+                validated.get("issueid"),
+                item.get("provider"),
+                attempt_id=band_key,
+            )
+        comicarr.PP_QUEUE.put(
+            {
+                "nzb_name": validated["nzb_name"],
+                "nzb_folder": validated["nzb_folder"],
+                "issueid": validated.get("issueid"),
+                "comicid": validated.get("comicid"),
+                "ddl": validated.get("ddl") or False,
+                "oneoff": validated.get("oneoff") or False,
+                "failed": validated.get("failed") or False,
+                "apicall": True,
+                "journal_release_key": attempt_key,
+                "provider": item.get("provider"),
+                "attention_release_key": band_key,
             }
-        return {"success": True, "message": result.get("message") or "Import queued"}
+        )
+        return {
+            "success": True,
+            "queued": True,
+            "attempt_key": attempt_key,
+            "message": "Import queued",
+        }
 
 
 def _issue_id(row):
@@ -218,17 +233,23 @@ def _import(row, key, *, source, effects):
             "comicid": payload.get("comicid"),
             "ddl": bool(payload.get("ddl")),
             "oneoff": bool(payload.get("oneoff")),
+            "provider": row.get("provider") or payload.get("provider"),
+            "attention_release_key": key,
         }
     )
     if not outcome.get("success"):
-        return _failure(key, outcome["problem"], outcome.get("message") or "Import could not be queued")
-    stamped = journal.stamp_resolution(key, journal.STATUS_IMPORTED)
+        return _failure(
+            key,
+            outcome.get("problem") or "import_failed",
+            outcome.get("message") or "Import could not be queued",
+            stamp_written=False,
+        )
     return ResolutionItem(
         release_key=key,
         ok=True,
-        status="imported",
-        message=outcome.get("message"),
-        stamp_written=stamped,
+        status="queued",
+        message=outcome.get("message") or "Import queued",
+        stamp_written=False,
     )
 
 

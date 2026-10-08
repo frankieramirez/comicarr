@@ -133,6 +133,7 @@ def force_process(
             "comicid": comicid,
             "apicall": True,
             "ddl": ddl,
+            "source": "manual",
         }
     )
     return {"success": True, "message": "Successfully submitted request for post-processing for %s" % nzb_name}

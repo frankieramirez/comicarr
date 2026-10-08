@@ -35,6 +35,7 @@ import hashlib
 import json
 import re
 import time
+import uuid
 
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -172,6 +173,18 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     return "%s|%s" % (issueid, prov)
 
 
+def import_attempt_key(issueid, provider, *, attempt_id=None):
+    """Fresh key for an Attention import so the band row stays immutable.
+
+    Snatch identity remains ``issueid|provider``. Import attempts append
+    ``|import:<id>`` so a prior ``post_processed`` row on the snatch key, or
+    the historical provider-less ``issueid|`` key, cannot refuse the new claim.
+    """
+    base = release_key(issueid, provider)
+    disc = _coerce_discriminant(attempt_id) or uuid.uuid4().hex[:16]
+    return "%s|import:%s" % (base, disc)
+
+
 def _coerce_discriminant(discriminant):
     """Normalize a caller-supplied discriminant to a short stable token.
 
@@ -233,6 +246,7 @@ _PAYLOAD_KEYS = frozenset(
         "ddl",
         "oneoff",
         "journal_release_key",
+        "attention_release_key",
         "download_info",
         "fail_detail",
     }
