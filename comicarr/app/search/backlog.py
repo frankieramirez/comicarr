@@ -252,6 +252,27 @@ class PassBudget:
             logger.fdebug("[SEARCH-BACKLOG] Unable to persist seen %s/%s: %s" % (self.pass_kind, issue_id, e))
         _save_state(self.pass_kind, self.cursor_key, self.cycle_generation or self.rssdb_generation)
 
+    def mark_ineligible(self, issue_id: str | None) -> None:
+        """Persist as seen without spending the item budget.
+
+        Ineligible rows (orphans, inactive series) must not be RSS-looked-up,
+        but they still have to count as checked or the cycle never completes.
+        """
+        if not issue_id:
+            return
+        issue_id = str(issue_id)
+        if issue_id in self.seen:
+            return
+        self.seen.add(issue_id)
+        try:
+            db.upsert(
+                "rss_search_seen",
+                {"checked_at": _now_iso()},
+                {"pass_kind": self.pass_kind, "issue_id": issue_id},
+            )
+        except Exception as e:
+            logger.fdebug("[SEARCH-BACKLOG] Unable to persist ineligible %s/%s: %s" % (self.pass_kind, issue_id, e))
+
     def _reset_cycle(self) -> None:
         self.seen = set()
         self.cursor_key = None

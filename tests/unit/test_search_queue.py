@@ -585,6 +585,71 @@ def test_search_candidate_requires_explicit_active_series(series_status, reason)
     assert result == {"status": False, "reason": reason}
 
 
+def test_search_candidate_missing_series_is_inactive():
+    result = evaluate_search_candidate(
+        {"LegacyStatus": "Wanted", "SeriesStatus": None},
+        release_date="2020-01-01",
+        digital_date=None,
+        issue_date=None,
+    )
+
+    assert result == {"status": False, "reason": "series_inactive"}
+
+
+def test_search_candidate_join_miss_is_inactive_even_if_status_column_could_be_null():
+    result = evaluate_search_candidate(
+        {"LegacyStatus": "Wanted", "SeriesStatus": None, "SeriesComicID": None},
+        release_date="2020-01-01",
+        digital_date=None,
+        issue_date=None,
+    )
+
+    assert result == {"status": False, "reason": "series_inactive"}
+
+
+def test_search_candidate_present_series_with_null_status_stays_active():
+    result = evaluate_search_candidate(
+        {"LegacyStatus": "Wanted", "SeriesStatus": None, "SeriesComicID": "C1"},
+        release_date="2020-01-01",
+        digital_date=None,
+        issue_date=None,
+    )
+
+    assert result == {"status": True, "reason": None}
+
+
+def test_search_candidate_arc_one_off_without_library_series_stays_searchable():
+    result = evaluate_search_candidate(
+        {
+            "LegacyStatus": "Wanted",
+            "SeriesStatus": None,
+            "SeriesComicID": None,
+            "SeriesOptional": True,
+        },
+        release_date="2020-01-01",
+        digital_date=None,
+        issue_date=None,
+    )
+
+    assert result == {"status": True, "reason": None}
+
+
+def test_search_candidate_optional_ended_series_stays_inactive():
+    result = evaluate_search_candidate(
+        {
+            "LegacyStatus": "Wanted",
+            "SeriesStatus": "Ended",
+            "SeriesComicID": "C1",
+            "SeriesOptional": True,
+        },
+        release_date="2020-01-01",
+        digital_date=None,
+        issue_date=None,
+    )
+
+    assert result == {"status": False, "reason": "series_inactive"}
+
+
 def test_bulk_candidate_state_avoids_per_issue_eligibility_query(monkeypatch):
     from comicarr import search as legacy_search
 

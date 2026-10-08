@@ -311,6 +311,29 @@ def test_rss_scan_skips_when_a_pass_is_running_without_touching_searchlock(rss_w
     rss_watchlist.search_lock.acquire.assert_not_called()
 
 
+def test_rss_scan_does_not_lookup_ended_series(rss_watchlist):
+    with get_engine().begin() as conn:
+        conn.execute(
+            comics.insert().values(
+                ComicID="ended-1",
+                ComicName="Ended Book",
+                ComicName_Filesafe="Ended_Book",
+                ComicYear="2024",
+                ComicPublisher="DC",
+                Status="Ended",
+                Type="Comic",
+            )
+        )
+        conn.execute(_wanted("e1", comic_id="ended-1"))
+    mark_rssdb_refreshed("gen-1")
+
+    rss_watchlist.search.searchforissue(rsschecker="yes")
+
+    looked_up = {issue_id for batch in rss_watchlist.rss_lookups for issue_id in batch}
+    assert "e1" not in looked_up
+    assert "e1" in _seen_ids()
+
+
 def test_rss_scan_marks_skipped_rows_seen_so_the_cycle_completes(rss_watchlist):
     _seed_watchlist(_wanted("1"), _wanted("orphan", comic_id="missing-series"))
     mark_rssdb_refreshed("gen-1")

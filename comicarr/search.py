@@ -103,7 +103,11 @@ def get_search_executor():
 def _wanted_candidate_rows(table, statuses, *extra_conditions):
     """Load candidate and series state together for bulk eligibility checks."""
     stmt = (
-        select(table, comics.c.Status.label("SeriesStatus"))
+        select(
+            table,
+            comics.c.Status.label("SeriesStatus"),
+            comics.c.ComicID.label("SeriesComicID"),
+        )
         .select_from(table.outerjoin(comics, comics.c.ComicID == table.c.ComicID))
         .where(table.c.Status.in_(statuses), *extra_conditions)
     )
@@ -1920,8 +1924,16 @@ def searchforissue(
                 stloop = 2
                 results = []
                 search_skip = {}
+                rss_ineligible_ids = []
                 queued_count = 0
                 error_count = 0
+
+                def _eligible_for_scan(checkit, issue_id):
+                    if checkit.get("status") is True:
+                        return True
+                    if rsschecker and issue_id:
+                        rss_ineligible_ids.append(issue_id)
+                    return False
 
                 if comicarr.CONFIG.ANNUALS_ON:
                     stloop += 1
@@ -1945,10 +1957,11 @@ def searchforissue(
                                         "LegacyStatus": iss["Status"],
                                         "AcquisitionIntent": iss.get("AcquisitionIntent"),
                                         "SeriesStatus": iss["SeriesStatus"],
+                                        "SeriesComicID": iss.get("SeriesComicID"),
                                     },
                                 },
                             )
-                            if checkit["status"] is True:
+                            if _eligible_for_scan(checkit, iss["IssueID"]):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
@@ -2003,10 +2016,12 @@ def searchforissue(
                                             "LegacyStatus": iss["Status"],
                                             "AcquisitionIntent": None,
                                             "SeriesStatus": iss["SeriesStatus"],
+                                            "SeriesComicID": iss.get("SeriesComicID"),
+                                            "SeriesOptional": True,
                                         },
                                     },
                                 )
-                                if checkit["status"] is True:
+                                if _eligible_for_scan(checkit, iss["IssueID"] or iss.get("IssueArcID")):
                                     if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                         results.append(
                                             {
@@ -2043,6 +2058,14 @@ def searchforissue(
 
                             logger.info("Issues that belong to part of a Story Arc to be searched for : %s" % cnt)
                     elif stloop == 3:
+                        from comicarr.app.series import queries as series_queries
+
+                        orphan_annuals = series_queries.count_orphan_annuals()
+                        if orphan_annuals:
+                            logger.warn(
+                                "[SEARCH] %s annual(s) have no matching series and will not be searched"
+                                % orphan_annuals
+                            )
                         if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
                             issues_3 = _wanted_candidate_rows(
                                 annuals,
@@ -2069,10 +2092,11 @@ def searchforissue(
                                         "LegacyStatus": iss["Status"],
                                         "AcquisitionIntent": iss.get("AcquisitionIntent"),
                                         "SeriesStatus": iss["SeriesStatus"],
+                                        "SeriesComicID": iss.get("SeriesComicID"),
                                     },
                                 },
                             )
-                            if checkit["status"] is True:
+                            if _eligible_for_scan(checkit, iss["IssueID"]):
                                 if not any(r["IssueID"] == iss["IssueID"] for r in results):
                                     results.append(
                                         {
@@ -2119,6 +2143,8 @@ def searchforissue(
                 scan_results = sorted(results, key=itemgetter("StoreDate"), reverse=True)
                 if rsschecker:
                     rss_budget = PassBudget(PASS_RSS_WANTED)
+                    for issue_id in rss_ineligible_ids:
+                        rss_budget.mark_ineligible(issue_id)
                     scan_results = rss_budget.select_candidates(
                         scan_results, lambda row: row.get("IssueID"), recent=is_recent_release
                     )
