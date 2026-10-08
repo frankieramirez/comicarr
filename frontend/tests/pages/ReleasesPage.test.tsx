@@ -234,4 +234,32 @@ describe("ReleasesPage", () => {
     });
     expect(await screen.findByText("No releases this week")).toBeTruthy();
   });
+
+  it("toasts when Skip on My releases fails", async () => {
+    server.use(
+      http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),
+      http.put("/api/series/issues/:issueId/unqueue", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("toasts when Want on My releases fails", async () => {
+    server.use(
+      http.get("/api/upcoming", () =>
+        HttpResponse.json([{ ...upcomingIssue, Status: "Skipped" }]),
+      ),
+      http.put("/api/series/issues/:issueId/queue", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ReleasesPage />);
+    await user.click(await screen.findByRole("button", { name: "Want" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
 });

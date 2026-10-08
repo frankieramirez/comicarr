@@ -9,6 +9,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDismissWhatsNew, useWhatsNewArchive } from "@/hooks/useWhatsNew";
 import { VersionSection } from "@/components/whats-new/ReleaseNotesList";
+import { getErrorMessage } from "@/lib/api";
 import { countBullets } from "@/lib/releaseNotes";
 import { cn } from "@/lib/utils";
 import type { ReleaseNotesSection } from "@/types/version";
@@ -112,14 +113,23 @@ export default function WhatsNewArchive() {
           </p>
         </div>
         {pending && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void dismiss.mutateAsync()}
-            disabled={dismiss.isPending}
-          >
-            {dismiss.isPending ? "Saving…" : "Mark as read"}
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            {dismiss.error ? (
+              <p role="alert" className="text-[11px] text-destructive">
+                {getErrorMessage(dismiss.error)}
+              </p>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void dismiss.mutateAsync().catch(() => undefined);
+              }}
+              disabled={dismiss.isPending}
+            >
+              {dismiss.isPending ? "Saving…" : "Mark as read"}
+            </Button>
+          </div>
         )}
       </div>
 

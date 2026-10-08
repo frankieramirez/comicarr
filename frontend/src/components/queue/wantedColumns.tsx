@@ -11,7 +11,9 @@ import {
   getIsAllSelected,
   toggleAllSelected,
 } from "@/components/data-table/useTableState";
+import { useToast } from "@/components/ui/toast";
 import { useUnqueueIssue } from "@/hooks/useSeries";
+import { getErrorMessage } from "@/lib/api";
 import { formatWantedAcquisitionAnnotation } from "@/lib/wantedAnnotation";
 import type { WantedIssue } from "@/types";
 
@@ -25,6 +27,7 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, WantedIssue>();
  */
 export function useWantedColumns() {
   const unqueueIssueMutation = useUnqueueIssue();
+  const { addToast } = useToast();
 
   return useMemo(
     () =>
@@ -154,7 +157,14 @@ export function useWantedColumns() {
               variant="outline"
               onClick={(e) => {
                 e.stopPropagation();
-                unqueueIssueMutation.mutate(row.original.IssueID);
+                unqueueIssueMutation.mutate(row.original.IssueID, {
+                  onError: (err) => {
+                    addToast({
+                      type: "error",
+                      message: getErrorMessage(err),
+                    });
+                  },
+                });
               }}
               disabled={unqueueIssueMutation.isPending}
               className="text-xs"
@@ -165,6 +175,6 @@ export function useWantedColumns() {
           ),
         }),
       ]),
-    [unqueueIssueMutation],
+    [addToast, unqueueIssueMutation],
   );
 }
