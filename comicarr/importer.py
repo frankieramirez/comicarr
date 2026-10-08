@@ -99,6 +99,21 @@ def is_exists(comicid):
         return False
 
 
+def _refuse_duplicate_manga(attempted_id, existing):
+    """Log and return a refused add when the same work is already tracked."""
+    existing_id = existing.get("ComicID")
+    existing_name = existing.get("ComicName") or existing_id
+    detail = "Already in the library as %s (%s)" % (existing_name, existing_id)
+    logger.warn("[MANGA] Refusing to add %s; %s" % (attempted_id, detail))
+    _emit_add_activity("failed", attempted_id, comicname=existing_name, reason_detail=detail)
+    return {
+        "status": "duplicate",
+        "comicid": existing_id,
+        "comicname": existing_name,
+        "error": detail,
+    }
+
+
 def _emit_add_activity(status, comicid, comicname=None, reason_detail=None):
     """Narrate a series add. Failures must not be swallowed silently."""
     try:
@@ -1214,6 +1229,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
         dict with status information
     """
     from comicarr import mangadex
+    from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.config import get_manga_destination
 
     logger.info("[MANGADEX] Adding manga with ID: %s" % mangaid)
@@ -1238,23 +1254,35 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
         series_status = "Loading"
         comlocation = location
 
-    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
-
-    manga = mangadex.get_manga_details(mangaid)
-
-    if not manga:
-        logger.error("[MANGADEX] Error fetching manga details for: %s" % mangaid)
-        if dbmanga is not None:
-            restore_status = series_status if series_status != "Loading" else "Active"
-            db.upsert("comics", {"Status": restore_status}, controlValueDict)
-        else:
+    if dbmanga is None:
+        manga = mangadex.get_manga_details(mangaid)
+        if not manga:
+            logger.error("[MANGADEX] Error fetching manga details for: %s" % mangaid)
             db.upsert(
                 "comics",
                 {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
                 controlValueDict,
             )
-        _emit_add_activity("failed", mangaid, reason_detail="MangaDex details fetch failed")
-        return {"status": "incomplete"}
+            _emit_add_activity("failed", mangaid, reason_detail="MangaDex details fetch failed")
+            return {"status": "incomplete"}
+        existing = find_existing_manga_series(
+            comic_id=mangaid,
+            mal_id=manga.get("mal_id"),
+            mangadex_id=mangadex_uuid,
+        )
+        if existing:
+            return _refuse_duplicate_manga(mangaid, existing)
+
+    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
+
+    if dbmanga is not None:
+        manga = mangadex.get_manga_details(mangaid)
+        if not manga:
+            logger.error("[MANGADEX] Error fetching manga details for: %s" % mangaid)
+            restore_status = series_status if series_status != "Loading" else "Active"
+            db.upsert("comics", {"Status": restore_status}, controlValueDict)
+            _emit_add_activity("failed", mangaid, reason_detail="MangaDex details fetch failed")
+            return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
     manga_year = manga.get("year") or "0000"
@@ -1312,6 +1340,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
         "MetadataSource": "mangadex",
         "ExternalID": mangadex_uuid,
         "MangaDexID": mangadex_uuid,
+        "MalID": manga.get("mal_id") or (dbmanga or {}).get("MalID"),
         "LastUpdated": helpers.now(),
         "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
     }
@@ -1364,6 +1393,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
         dict with status information
     """
     from comicarr import mangadex, myanimelist
+    from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.config import get_manga_destination
 
     logger.info("[MAL] Adding manga with ID: %s" % mangaid)
@@ -1389,23 +1419,44 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
         series_status = "Loading"
         comlocation = location
 
-    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
-
-    manga = myanimelist.get_manga_details(mangaid)
-
-    if not manga:
-        logger.error("[MAL] Error fetching manga details for: %s" % mangaid)
-        if dbmanga is not None:
-            restore_status = series_status if series_status != "Loading" else "Active"
-            db.upsert("comics", {"Status": restore_status}, controlValueDict)
-        else:
+    mangadex_uuid = None
+    resolved_mangadex = False
+    if dbmanga is None:
+        manga = myanimelist.get_manga_details(mangaid)
+        if not manga:
+            logger.error("[MAL] Error fetching manga details for: %s" % mangaid)
             db.upsert(
                 "comics",
                 {"ComicName": "Fetch failed, try refreshing. (%s)" % mangaid, "Status": "Active"},
                 controlValueDict,
             )
-        _emit_add_activity("failed", mangaid, reason_detail="MyAnimeList details fetch failed")
-        return {"status": "incomplete"}
+            _emit_add_activity("failed", mangaid, reason_detail="MyAnimeList details fetch failed")
+            return {"status": "incomplete"}
+        mangadex_uuid = mangadex.find_by_mal_id(
+            mal_numeric_id,
+            title_hint=manga.get("name"),
+            alternate_titles=manga.get("alt_titles", []),
+            allow_title_match=False,
+        )
+        resolved_mangadex = True
+        existing = find_existing_manga_series(
+            comic_id=mangaid,
+            mal_id=mal_numeric_id,
+            mangadex_id=mangadex_uuid,
+        )
+        if existing:
+            return _refuse_duplicate_manga(mangaid, existing)
+
+    db.upsert("comics", {"Status": "Loading"}, controlValueDict)
+
+    if dbmanga is not None:
+        manga = myanimelist.get_manga_details(mangaid)
+        if not manga:
+            logger.error("[MAL] Error fetching manga details for: %s" % mangaid)
+            restore_status = series_status if series_status != "Loading" else "Active"
+            db.upsert("comics", {"Status": restore_status}, controlValueDict)
+            _emit_add_activity("failed", mangaid, reason_detail="MyAnimeList details fetch failed")
+            return {"status": "incomplete"}
 
     manga_name = manga.get("name", "Unknown")
     manga_year = manga.get("year") or "0000"
@@ -1438,11 +1489,12 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
     status_mapping = {"ongoing": "Continuing", "completed": "Ended", "hiatus": "Continuing", "cancelled": "Ended"}
     comic_published = status_mapping.get(md_status, "Unknown")
 
-    mangadex_uuid = mangadex.find_by_mal_id(
-        mal_numeric_id,
-        title_hint=manga_name,
-        alternate_titles=manga.get("alt_titles", []),
-    )
+    if not resolved_mangadex:
+        mangadex_uuid = mangadex.find_by_mal_id(
+            mal_numeric_id,
+            title_hint=manga_name,
+            alternate_titles=manga.get("alt_titles", []),
+        )
 
     comic_values = {
         "ComicID": mangaid,

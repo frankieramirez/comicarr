@@ -472,7 +472,7 @@ def get_manga_details(manga_id):
     return details
 
 
-def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
+def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None, *, allow_title_match=True):
     """Find MangaDex manga UUID by its MyAnimeList ID.
 
     Searches MangaDex by the primary and alternate MAL titles, then checks
@@ -483,6 +483,9 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
         title_hint: Manga title to search MangaDex with
         alternate_titles: Optional alternate titles to try if the primary
             lookup fails or does not return an exact MAL link match
+        allow_title_match: When True (default), fall back to a >=60% title
+            similarity if no result has links.mal equal to ``mal_id``. Duplicate
+            guards must pass False so a sequel or spin-off cannot block a MAL add.
 
     Returns:
         MangaDex manga UUID (string) or None if not found
@@ -553,7 +556,7 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None):
                 best_score = score
                 best_uuid = manga.get("id")
 
-    if best_uuid and best_score >= 0.6:
+    if allow_title_match and best_uuid and best_score >= 0.6:
         logger.info(
             "[MANGADEX] Found MAL %s -> MangaDex %s (via title match, %.1f%%)"
             % (mal_id_str, best_uuid, best_score * 100)

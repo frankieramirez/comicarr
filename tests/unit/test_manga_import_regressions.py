@@ -106,6 +106,29 @@ class TestMangaDexMalMatching:
 
         assert result == "exact-candidate"
 
+    @patch("comicarr.mangadex._make_request")
+    def test_exact_only_lookup_skips_title_fallback(self, mock_request):
+        from comicarr import mangadex
+
+        mock_request.return_value = {
+            "result": "ok",
+            "data": [
+                {
+                    "id": "fuzzy-candidate",
+                    "attributes": {"title": {"en": "One Piece"}, "altTitles": [], "links": {}},
+                }
+            ],
+        }
+
+        result = mangadex.find_by_mal_id(
+            "13",
+            title_hint="One Piece",
+            allow_title_match=False,
+        )
+
+        assert result is None
+        assert mangadex.find_by_mal_id("13", title_hint="One Piece") == "fuzzy-candidate"
+
     @patch("comicarr.mangadex._rate_limit")
     @patch("comicarr.mangadex.logger")
     @patch("comicarr.mangadex.requests.get")
