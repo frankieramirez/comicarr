@@ -677,22 +677,26 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 return torrent_files[0]
             return torrent_folder
 
-        if all([torrent_status is True, download is True]):
+        auto_snatch_script = getattr(comicarr.CONFIG, "AUTO_SNATCH_SCRIPT", None)
+        auto_snatch_ready = bool(getattr(comicarr.CONFIG, "AUTO_SNATCH", False)) and bool(auto_snatch_script)
+        local_torrent_pp = bool(getattr(comicarr.CONFIG, "LOCAL_TORRENT_PP", False))
+
+        if all([torrent_status is True, download is True, auto_snatch_ready]):
             if not issueid:
                 torrent_info["snatch_status"] = "MONITOR STARTING"
 
             logger.info("Torrent is completed and status is currently Snatched. Attempting to auto-retrieve.")
-            with open(comicarr.CONFIG.AUTO_SNATCH_SCRIPT, "r") as f:
+            with open(auto_snatch_script, "r") as f:
                 first_line = f.readline()
 
-            if comicarr.CONFIG.AUTO_SNATCH_SCRIPT.endswith(".sh"):
+            if str(auto_snatch_script).endswith(".sh"):
                 shell_cmd = re.sub("#!", "", first_line)
                 if shell_cmd == "" or shell_cmd is None:
                     shell_cmd = "/bin/bash"
             else:
                 shell_cmd = sys.executable
 
-            curScriptName = shell_cmd + " " + str(comicarr.CONFIG.AUTO_SNATCH_SCRIPT)
+            curScriptName = shell_cmd + " " + str(auto_snatch_script)
             downlocation = resolve_torrent_path()
 
             autosnatch_env = os.environ.copy()
@@ -741,7 +745,8 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 torrent_info["snatch_status"] = snatch_status
         else:
             snatch_status = "IN PROGRESS"
-            if monitor is True:
+            run_local_copy = monitor is True or (download is True and torrent_status is True and local_torrent_pp)
+            if run_local_copy:
                 if snapshot.get("client") in torrent_monitor.PAUSABLE_ROUTES:
                     pauseit = torrent_monitor.pause(torrent_hash)
                     if pauseit is False:
@@ -772,6 +777,14 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                         "%s has no pause API; skipping the local copy and leaving the torrent running."
                         % snapshot.get("client")
                     )
+                if (
+                    download is True
+                    and torrent_status is True
+                    and local_torrent_pp
+                    and snatch_status == "IN PROGRESS"
+                    and torrent_info.get("copied_filepath")
+                ):
+                    snatch_status = "MONITOR COMPLETE"
             torrent_info["snatch_status"] = snatch_status
 
     return torrent_info

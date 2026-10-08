@@ -350,11 +350,9 @@ def test_owned_record_retries_sqlite_lock_contention(monkeypatch):
 def test_torrent_monitor_not_found_survives_a_raising_record(monkeypatch):
     """A recording failure must not kill the torrent-monitor worker thread.
 
-    ``worker_main`` catches only ``MaintenanceBlocked``, so anything else that
-    escapes ``_handle_torrent_monitor_result`` takes the monitor down until the
-    process restarts. ``record`` now runs strict reconciliation as well as the
-    journal transition, so it can raise for reasons the old journal-only write
-    never could.
+    ``_handle_torrent_monitor_result`` already swallows a raising ``record``.
+    ``worker_main`` also contains unexpected exceptions so a later poison item
+    cannot take the monitor down until the process restarts.
     """
     from comicarr.app.downloads import service
 

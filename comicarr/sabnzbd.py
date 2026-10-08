@@ -224,13 +224,14 @@ class SABnzbd(object):
                 )
                 hist_params["limit"] = 200
 
-        hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
-        historyresponse = hist.json()
-        histqueue = historyresponse["history"]
         found = {"status": False}
         nzo_exists = False
+        hq = None
 
         try:
+            hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+            historyresponse = hist.json()
+            histqueue = historyresponse["history"]
             for hq in histqueue["slots"]:
                 logger.fdebug("nzo_id: %s --- %s [%s]" % (hq["nzo_id"], sendresponse, hq["status"]))
                 if hq["nzo_id"] == sendresponse and any(
@@ -408,7 +409,11 @@ class SABnzbd(object):
                     return {"status": "nzb removed", "failed": False}
         except Exception as e:
             logger.warn("error %s" % (e,))
-            self.remove_history(hq["nzo_id"], hq["status"])
+            if hq:
+                try:
+                    self.remove_history(hq["nzo_id"], hq["status"])
+                except Exception as remove_error:
+                    logger.warn("Unable to remove SAB history after historycheck error: %s" % remove_error)
             return {"status": False, "failed": False}
 
         return found

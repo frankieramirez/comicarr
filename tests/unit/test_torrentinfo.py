@@ -38,7 +38,9 @@ def _torrent_flags(monkeypatch):
                 "DELUGE_HOST": "localhost",
                 "DELUGE_USERNAME": "u",
                 "DELUGE_PASSWORD": "p",
+                "AUTO_SNATCH": False,
                 "AUTO_SNATCH_SCRIPT": "",
+                "LOCAL_TORRENT_PP": False,
                 "PP_SSHHOST": "",
                 "PP_SSHPORT": "",
                 "PP_SSHUSER": "",
@@ -265,3 +267,40 @@ def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
     assert isinstance(result, dict)
     assert result["snatch_status"] == "NOT FOUND"
     assert result["hash"] == HASH40
+
+
+def test_completed_download_without_auto_snatch_does_not_open_script(monkeypatch):
+    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = True
+    fake_client.get_torrent.return_value = _deluge_torrent(finished=True)
+
+    with (
+        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("builtins.open", side_effect=AssertionError("auto-snatch script must not open")),
+    ):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert result["snatch_status"] == "IN PROGRESS"
+
+
+def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
+    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
+    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    comicarr.CONFIG.LOCAL_TORRENT_PP = True
+
+    fake_client = MagicMock()
+    fake_client.connect.return_value = True
+    fake_client.get_torrent.return_value = _deluge_torrent(finished=True)
+
+    with (
+        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("shutil.copy") as copy,
+    ):
+        result = service.torrentinfo(torrent_hash=HASH40, download=True)
+
+    assert result["snatch_status"] == "MONITOR COMPLETE"
+    copy.assert_called_once_with("/downloads/Saga.cbz", "/downloads/Saga.cbz.copy")
+    assert result["copied_filepath"] == "/downloads/Saga.cbz.copy"
