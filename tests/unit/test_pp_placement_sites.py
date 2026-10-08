@@ -151,14 +151,14 @@ def _post_processor(download, **kwargs):
         )
 
 
-def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=None):
+def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=None, **pp_kwargs):
     """Run Process_next to completion, capturing every placement call.
 
     Everything downstream of placement -- library totals, search bookkeeping,
     notifications -- is stubbed. This suite is about what reaches the stage and
     what the caller does when it raises, not about the DB facts that follow.
     """
-    pp = _post_processor(library["download"])
+    pp = _post_processor(library["download"], **pp_kwargs)
     calls = []
     real_place = postprocessor.place
 
@@ -220,6 +220,19 @@ class TestNonManualSeriesPlacement:
         pp.queue.put.assert_called_once()
         payload = pp.queue.put.call_args[0][0]
         assert payload[0]["mode"] == "stop"
+
+    def test_a_denied_move_logs_release_paths_and_traceback(self, library, monkeypatch, capture_logs):
+        def denied(*_args, **_kwargs):
+            raise PermissionError("[Errno 13] Permission denied")
+
+        _drive_process_next(library, monkeypatch, place=denied, journal_release_key="pp-release")
+
+        failure = next(r for r in capture_logs.records if "Failed to move" in r.getMessage()).getMessage()
+        assert "pp-release" in failure
+        assert str(library["grabbed"]) in failure
+        assert str(library["series_folder"] / "Saga 001.cbz") in failure
+        assert "Traceback (most recent call last)" in failure
+        assert "PermissionError" in failure
 
     def test_a_failed_placement_leaves_the_download_alone(self, library, monkeypatch):
         def boom(*_args, **_kwargs):
