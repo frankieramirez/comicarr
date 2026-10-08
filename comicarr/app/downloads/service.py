@@ -33,7 +33,6 @@ from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
-
 IN_PROGRESS_POLL_SECONDS = 5
 MONITOR_OUTAGE_BUDGET_SECONDS = 30 * 60
 
