@@ -79,37 +79,34 @@ class SABnzbd(object):
                     verify=comicarr.CONFIG.SAB_VERIFY,
                     timeout=30,
                 )
+            sendresponse = sendit.json()
+            if chkstatus is True:
+                queueinfo = sendresponse["queue"]
+                if str(queueinfo["status"]).lower() == "paused":
+                    return {"status": True}
+                return {"status": False}
         except Exception as e:
             logger.warn(
                 "[SAB-SEND] Failed to send to client. Error returned: %s"
                 % redact_sensitive_text(e, secrets=(getattr(comicarr.CONFIG, "SAB_APIKEY", None),))
             )
             return {"status": False}
+
+        if sendresponse["status"] is True:
+            queue_params = {
+                "status": True,
+                "nzo_id": "".join(sendresponse["nzo_ids"]),
+                "queue": {
+                    "mode": "queue",
+                    "search": "".join(sendresponse["nzo_ids"]),
+                    "output": "json",
+                    "apikey": comicarr.CONFIG.SAB_APIKEY,
+                },
+            }
         else:
-            sendresponse = sendit.json()
-            if chkstatus is True:
-                queueinfo = sendresponse["queue"]
-                if str(queueinfo["status"]).lower() == "paused":
-                    return {"status": True}
-                else:
-                    return {"status": False}
+            queue_params = {"status": False}
 
-            if sendresponse["status"] is True:
-                queue_params = {
-                    "status": True,
-                    "nzo_id": "".join(sendresponse["nzo_ids"]),
-                    "queue": {
-                        "mode": "queue",
-                        "search": "".join(sendresponse["nzo_ids"]),
-                        "output": "json",
-                        "apikey": comicarr.CONFIG.SAB_APIKEY,
-                    },
-                }
-
-            else:
-                queue_params = {"status": False}
-
-            return queue_params
+        return queue_params
 
     def processor(self):
         self.params["nzo_id"]
@@ -224,13 +221,14 @@ class SABnzbd(object):
                 )
                 hist_params["limit"] = 200
 
-        hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
-        historyresponse = hist.json()
-        histqueue = historyresponse["history"]
         found = {"status": False}
         nzo_exists = False
+        hq = None
 
         try:
+            hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+            historyresponse = hist.json()
+            histqueue = historyresponse["history"]
             for hq in histqueue["slots"]:
                 logger.fdebug("nzo_id: %s --- %s [%s]" % (hq["nzo_id"], sendresponse, hq["status"]))
                 if hq["nzo_id"] == sendresponse and any(
@@ -406,9 +404,15 @@ class SABnzbd(object):
                     return self.historycheck(nzbinfo, roundtwo=True)
                 else:
                     return {"status": "nzb removed", "failed": False}
+        except requests.RequestException:
+            raise
         except Exception as e:
             logger.warn("error %s" % (e,))
-            self.remove_history(hq["nzo_id"], hq["status"])
+            if hq:
+                try:
+                    self.remove_history(hq["nzo_id"], hq["status"])
+                except Exception as remove_error:
+                    logger.warn("Unable to remove SAB history after historycheck error: %s" % remove_error)
             return {"status": False, "failed": False}
 
         return found

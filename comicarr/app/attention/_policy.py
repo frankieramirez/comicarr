@@ -42,6 +42,8 @@ REASON_PHRASES = {
     "download_failed_no_auto_handling": "download failed and auto-handling is off",
     "submission_rejected": "the downloader rejected the submission",
     "recovery_attempts_exhausted": "post-processing could not finish after several restarts",
+    "torrent_monitor_item_rejected": "torrent monitor hit an unexpected error on this download",
+    "nzb_monitor_item_rejected": "NZB monitor hit an unexpected error on this download",
 }
 
 UNMAPPED_REASON_PHRASE = "something went wrong"

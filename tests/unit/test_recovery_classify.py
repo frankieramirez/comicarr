@@ -429,6 +429,26 @@ def test_dict_probe_with_location_classifies_complete_and_keeps_folder():
     assert recovery_classify.classify(row, probes=probes) == recovery_classify.COMPLETE
 
 
+def test_sab_connection_error_during_historycheck_is_unreachable_not_gone(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERIFY", False, raising=False)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERSION", "4.5.0", raising=False)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_MOVING_DELAY", 0, raising=False)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_CATEGORY", None, raising=False)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_HOST", "http://sab.local:8080", raising=False)
+    row = _insert_journal(
+        "S2down|sab|n",
+        journal.SNATCHED,
+        issueid="S2down",
+        provider="sab",
+        downloader_type="nzb",
+        payload={"comicid": "C2", "download_info": {"nzo_id": "nzoY"}},
+    )
+    with patch("comicarr.sabnzbd.requests.get", side_effect=requests.ConnectionError("sab down")):
+        assert recovery_classify.classify(row) == recovery_classify.UNKNOWN
+
+
 def test_sab_real_historycheck_status_false_is_absent_then_gone():
     with get_engine().begin() as conn:
         conn.execute(issues.insert().values(IssueID="S2", Status="Snatched"))

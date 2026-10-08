@@ -49,6 +49,74 @@ def _maintenance_retry_delay(item):
     return maintenance_retry_delay(attempt)
 
 
+def _monitor_item_id(item):
+    if not isinstance(item, dict):
+        return None
+    return (
+        item.get("id")
+        or item.get("ID")
+        or item.get("nzo_id")
+        or item.get("NZBID")
+        or item.get("hash")
+        or item.get("issueid")
+        or item.get("nzb_name")
+        or item.get("nzbname")
+    )
+
+
+def _is_transient_monitor_error(exc):
+    """True when the next pass might succeed without changing the item."""
+    import requests
+
+    if isinstance(exc, (requests.RequestException, TimeoutError, ConnectionError)):
+        return True
+    try:
+        from sqlalchemy.exc import OperationalError
+    except Exception:
+        return False
+    return isinstance(exc, OperationalError) and "locked" in str(exc).lower()
+
+
+def _record_poison_monitor_item(kind, item, error):
+    """Record Attention for a poison item so the worker can continue."""
+    if not isinstance(item, dict):
+        return
+    try:
+        from comicarr.app.common.redaction import redact_sensitive_text
+        from comicarr.app.downloads import journal
+
+        rkey = item.get("journal_release_key")
+        if not rkey:
+            rkey = journal.release_key(
+                item.get("issueid"),
+                item.get("provider"),
+                nzbname=item.get("nzbname") or item.get("nzb_name"),
+                hash=item.get("hash"),
+                discriminant=item.get("nzo_id") or item.get("NZBID") or item.get("hash") or item,
+            )
+        if not rkey:
+            return
+        payload = dict(item)
+        payload["fail_detail"] = redact_sensitive_text(str(error))[:1000]
+        common = {
+            "release_key": rkey,
+            "payload": payload,
+            "issue_id": item.get("issueid"),
+            "provider": item.get("provider"),
+            "nzb_name": item.get("nzbname") or item.get("nzb_name"),
+            "download_hash": item.get("hash"),
+            "comic_id": item.get("comicid"),
+        }
+        if kind == "torrent":
+            record(Failure(reason="torrent_monitor_item_rejected", downloader_type="torrent", **common))
+        elif kind == "nzb":
+            record(Failure(reason="nzb_monitor_item_rejected", downloader_type="nzb", **common))
+        else:
+            record(Failure(reason="postprocess_error", downloader_type=item.get("clientmode"), **common))
+    except Exception as e:
+        logger.error("[DOWNLOADS] Unable to record poison monitor item: %s" % type(e).__name__)
+
+
 def _paginated_activity_response(key, query, **options):
     paginated = query(**options)
     return {
@@ -1691,7 +1759,16 @@ def postprocess_main(queue):
         if item == "exit":
             logger.info("Cleaning up workers for shutdown")
             break
-        outcome = postprocessing.run(item)
+        try:
+            outcome = postprocessing.run(item)
+        except Exception as e:
+            item_id = _monitor_item_id(item)
+            logger.error(
+                "[DOWNLOADS-PP] Post-process worker rejected item%s; continuing with the next command\n%s"
+                % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
+            )
+            _record_poison_monitor_item("postprocess", item, e)
+            continue
         if outcome.status == "busy":
             queue.put(item)
             time.sleep(1)
@@ -1720,12 +1797,23 @@ def worker_main(queue):
                 entity_id=item.get("journal_release_key") or item.get("hash"),
             ) as lease:
                 controller.assert_lease_current(lease)
-                item.pop("_maintenance_retry_attempt", None)
                 snstat = torrentinfo(torrent_hash=item["hash"], download=True)
                 _handle_torrent_monitor_result(item, snstat)
+                item.pop("_maintenance_retry_attempt", None)
         except MaintenanceBlocked:
             queue.put(item)
             time.sleep(_maintenance_retry_delay(item))
+        except Exception as e:
+            item_id = _monitor_item_id(item)
+            logger.error(
+                "[DOWNLOADS-WORKER] Torrent monitor rejected item%s; continuing with the next command\n%s"
+                % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
+            )
+            if _is_transient_monitor_error(e):
+                queue.put(item)
+                time.sleep(_maintenance_retry_delay(item))
+            else:
+                _record_poison_monitor_item("torrent", item, e)
 
 
 def _handle_torrent_monitor_result(item, snstat):
@@ -1838,45 +1926,51 @@ def nzb_monitor(queue):
 
     while True:
         if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
-            if comicarr.USE_SABNZBD is True:
-                sab_params = {
-                    "apikey": comicarr.CONFIG.SAB_APIKEY,
-                    "mode": "queue",
-                    "start": 0,
-                    "limit": 5,
-                    "search": None,
-                    "output": "json",
-                }
-                s = sabnzbd.SABnzbd(params=sab_params)
-                sabresponse = s.sender(chkstatus=True)
-                if sabresponse["status"] is False:
-                    while True:
-                        if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
-                            qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
-                            try:
-                                controller = MaintenanceController()
-                                with controller.lease(
-                                    "nzb-monitor",
-                                    "download-monitor",
-                                    entity_type="release",
-                                    entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
-                                ) as lease:
-                                    controller.assert_lease_current(lease)
-                                    nzstat = s.historycheck(qu_retrieve)
-                                    cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
-                            except MaintenanceBlocked:
-                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
-                            except Exception as e:
-                                logger.error(
-                                    "Exception occurred while resuming NZB monitor id=%s: %s"
-                                    % (
-                                        qu_retrieve.get("nzo_id") or qu_retrieve.get("NZBID"),
-                                        type(e).__name__,
+            try:
+                if comicarr.USE_SABNZBD is True:
+                    sab_params = {
+                        "apikey": comicarr.CONFIG.SAB_APIKEY,
+                        "mode": "queue",
+                        "start": 0,
+                        "limit": 5,
+                        "search": None,
+                        "output": "json",
+                    }
+                    s = sabnzbd.SABnzbd(params=sab_params)
+                    sabresponse = s.sender(chkstatus=True)
+                    if sabresponse["status"] is False:
+                        while True:
+                            if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
+                                qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
+                                try:
+                                    controller = MaintenanceController()
+                                    with controller.lease(
+                                        "nzb-monitor",
+                                        "download-monitor",
+                                        entity_type="release",
+                                        entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
+                                    ) as lease:
+                                        controller.assert_lease_current(lease)
+                                        nzstat = s.historycheck(qu_retrieve)
+                                        cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
+                                except MaintenanceBlocked:
+                                    comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                except Exception as e:
+                                    item_id = _monitor_item_id(qu_retrieve)
+                                    logger.error(
+                                        "[DOWNLOADS-NZB] NZB monitor rejected item%s while resuming; continuing\n%s"
+                                        % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
                                     )
-                                )
-                            time.sleep(5)
-                        else:
-                            break
+                                    if _is_transient_monitor_error(e):
+                                        comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                    else:
+                                        _record_poison_monitor_item("nzb", qu_retrieve, e)
+                                time.sleep(5)
+                            else:
+                                break
+            except Exception as e:
+                logger.error("[DOWNLOADS-NZB] SAB pause probe failed; retrying later\n%s" % redacted_traceback(e))
+                time.sleep(_maintenance_retry_delay({"clientmode": "sabnzbd"}))
         if queue.qsize() >= 1:
             item = queue.get(True)
             if item == "exit":
@@ -1906,6 +2000,17 @@ def nzb_monitor(queue):
             except MaintenanceBlocked:
                 queue.put(item)
                 time.sleep(_maintenance_retry_delay(item))
+            except Exception as e:
+                item_id = _monitor_item_id(item)
+                logger.error(
+                    "[DOWNLOADS-NZB] NZB monitor rejected item%s; continuing with the next command\n%s"
+                    % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
+                )
+                if _is_transient_monitor_error(e):
+                    queue.put(item)
+                    time.sleep(_maintenance_retry_delay(item))
+                else:
+                    _record_poison_monitor_item("nzb", item, e)
         else:
             time.sleep(5)
 
