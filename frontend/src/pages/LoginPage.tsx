@@ -205,6 +205,7 @@ function SetupForm() {
 
       {error && (
         <div
+          role="alert"
           className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
           style={{
             color: "var(--status-error)",
@@ -319,6 +320,7 @@ function LoginForm() {
 
       {error && (
         <div
+          role="alert"
           className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
           style={{
             color: "var(--status-error)",

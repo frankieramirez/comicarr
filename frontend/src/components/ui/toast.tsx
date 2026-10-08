@@ -33,11 +33,6 @@ export function ToastProvider({ children }: ToastProviderProps) {
     const id = Math.random().toString(36).substr(2, 9);
     const newToast = { ...toast, id };
     setToasts((prev) => [...prev, newToast]);
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, toast.duration || 5000);
-
     return id;
   }, []);
 
@@ -48,7 +43,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-relevant="additions text"
+        className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md"
+      >
         {toasts.map((toast) => (
           <Toast
             key={toast.id}
@@ -78,8 +78,49 @@ function Toast({
   title,
   description,
   message,
+  duration,
   onClose,
 }: ToastProps) {
+  const remainingMsRef = React.useRef(duration || 5000);
+  const startedAtRef = React.useRef(0);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCloseRef = React.useRef(onClose);
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const clearTimer = React.useCallback(() => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const startTimer = React.useCallback(() => {
+    clearTimer();
+    startedAtRef.current = Date.now();
+    timeoutRef.current = setTimeout(() => {
+      onCloseRef.current();
+    }, remainingMsRef.current);
+  }, [clearTimer]);
+
+  const pauseTimer = React.useCallback(() => {
+    if (timeoutRef.current === null) {
+      return;
+    }
+    remainingMsRef.current = Math.max(
+      0,
+      remainingMsRef.current - (Date.now() - startedAtRef.current),
+    );
+    clearTimer();
+  }, [clearTimer]);
+
+  React.useEffect(() => {
+    startTimer();
+    return clearTimer;
+  }, [startTimer, clearTimer]);
+
   const icons: Record<ToastType, React.ReactNode> = {
     success: (
       <CheckCircle
@@ -111,6 +152,11 @@ function Toast({
       role={type === "error" ? "alert" : undefined}
       aria-live={type === "error" ? "assertive" : undefined}
       aria-atomic={type === "error" ? "true" : undefined}
+      onMouseEnter={pauseTimer}
+      onMouseLeave={startTimer}
+      onFocus={pauseTimer}
+      onBlur={startTimer}
+      data-testid="toast"
       className={cn(
         "flex items-start gap-3 p-4 rounded-lg border shadow-lg animate-in slide-in-from-right",
         styles[type],
