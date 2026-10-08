@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bot, Compass, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
+import PageShell from "@/components/layout/PageShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -122,10 +123,12 @@ export default function DiscoverPage() {
   ) : null;
 
   return (
-    <div className="page-transition flex h-full min-h-0 flex-col">
-      <PageHeader title="Discover" meta={meta} actions={refreshButton} />
-
-      <div className="flex-1 min-h-0 overflow-auto px-5 py-4">
+    <PageShell
+      header={
+        <PageHeader title="Discover" meta={meta} actions={refreshButton} />
+      }
+    >
+      <div className="px-5 py-4">
         {statusLoading || (aiConfigured && isLoading && !refresh.isError) ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -216,6 +219,6 @@ export default function DiscoverPage() {
           />
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

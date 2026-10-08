@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
+import PageShell from "@/components/layout/PageShell";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import FilterField from "@/components/ui/FilterField";
@@ -185,27 +186,33 @@ export default function AttentionPage() {
 
   if (band.isLoading && !band.data) {
     return (
-      <div className="page-transition flex h-full min-h-0 flex-col">
-        <PageHeader
-          title="Needs attention"
-          meta="what Comicarr can't finish alone"
-        />
+      <PageShell
+        header={
+          <PageHeader
+            title="Needs attention"
+            meta="what Comicarr can't finish alone"
+          />
+        }
+      >
         <div className="space-y-2 px-5 py-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20" />
           ))}
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (!band.data && band.error) {
     return (
-      <div className="page-transition flex h-full min-h-0 flex-col">
-        <PageHeader
-          title="Needs attention"
-          meta="what Comicarr can't finish alone"
-        />
+      <PageShell
+        header={
+          <PageHeader
+            title="Needs attention"
+            meta="what Comicarr can't finish alone"
+          />
+        }
+      >
         <div className="px-5 py-4">
           <ErrorDisplay
             error={band.error}
@@ -213,183 +220,189 @@ export default function AttentionPage() {
             onRetry={() => void band.refetch()}
           />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="page-transition flex h-full min-h-0 flex-col">
-      <PageHeader
-        title="Needs attention"
-        meta={
-          groups.length === 0
-            ? "nothing is waiting on you"
-            : `${groups.length} ${groups.length === 1 ? "problem" : "problems"} · ${band.data?.member_total ?? 0} issues`
-        }
-        actions={
-          <Link
-            to="/activity"
-            className="inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <ArrowLeft className="h-3 w-3" /> Activity
-          </Link>
-        }
-      />
-
-      {scoped && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 font-mono text-[11px] text-muted-foreground">
-          <span>
-            Scoped to {scope_type}:{scope_id}
-          </span>
-          <Link
-            to="/activity/attention"
-            className="ml-auto hover:text-foreground"
-          >
-            clear scope
-          </Link>
-        </div>
-      )}
-
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-5 py-2.5">
-        <div className="max-w-xs flex-1">
-          <FilterField
-            placeholder="Filter by series or reason…"
-            aria-label="Filter needs attention"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            shortcut="/"
+    <PageShell
+      header={
+        <>
+          <PageHeader
+            title="Needs attention"
+            meta={
+              groups.length === 0
+                ? "nothing is waiting on you"
+                : `${groups.length} ${groups.length === 1 ? "problem" : "problems"} · ${band.data?.member_total ?? 0} issues`
+            }
+            actions={
+              <Link
+                to="/activity"
+                className="inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <ArrowLeft className="h-3 w-3" /> Activity
+              </Link>
+            }
           />
-        </div>
-        <div
-          role="group"
-          aria-label="Filter by stage"
-          className="flex items-center gap-1"
-        >
-          {(
-            [
-              ["all", "All"],
-              ["failed", "Failed"],
-              ["manual_review", "Manual review"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={stage === id}
-              onClick={() => setStage(id)}
-              className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+
+          {scoped && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 font-mono text-[11px] text-muted-foreground">
+              <span>
+                Scoped to {scope_type}:{scope_id}
+              </span>
+              <Link
+                to="/activity/attention"
+                className="ml-auto hover:text-foreground"
+              >
+                clear scope
+              </Link>
+            </div>
+          )}
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-5 py-2.5">
+            <div className="max-w-xs flex-1">
+              <FilterField
+                placeholder="Filter by series or reason…"
+                aria-label="Filter needs attention"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                shortcut="/"
+              />
+            </div>
+            <div
+              role="group"
+              aria-label="Filter by stage"
+              className="flex items-center gap-1"
+            >
+              {(
+                [
+                  ["all", "All"],
+                  ["failed", "Failed"],
+                  ["manual_review", "Manual review"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={stage === id}
+                  onClick={() => setStage(id)}
+                  className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                  style={{
+                    borderColor: "var(--border)",
+                    background:
+                      stage === id
+                        ? "color-mix(in oklab, var(--primary) 12%, transparent)"
+                        : undefined,
+                    color: stage === id ? "var(--foreground)" : undefined,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select
+              aria-label="Filter by age"
+              value={age}
+              onChange={(e) => setAge(e.target.value as AgeFilter)}
+              className="rounded-[5px] border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <option value="all">any age</option>
+              <option value="7d">last 7 days</option>
+              <option value="30d">last 30 days</option>
+            </select>
+            {filteredKeys.length > 0 && (
+              <label className="flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(node) => {
+                    if (node)
+                      node.indeterminate = selectedIssues > 0 && !allSelected;
+                  }}
+                  onChange={() => setKeysSelected(filteredKeys, !allSelected)}
+                  aria-label={`Select all ${filteredKeys.length} issues`}
+                />
+                select all {filteredKeys.length}
+              </label>
+            )}
+            <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+              unresolved only · Download History keeps the full ledger
+            </span>
+          </div>
+
+          {selectedIssues > 0 && (
+            <div
+              role="group"
+              aria-label="Selected issues"
+              className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-2"
               style={{
                 borderColor: "var(--border)",
                 background:
-                  stage === id
-                    ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                    : undefined,
-                color: stage === id ? "var(--foreground)" : undefined,
+                  "color-mix(in oklab, var(--primary) 8%, transparent)",
               }}
             >
-              {label}
-            </button>
-          ))}
-        </div>
-        <select
-          aria-label="Filter by age"
-          value={age}
-          onChange={(e) => setAge(e.target.value as AgeFilter)}
-          className="rounded-[5px] border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <option value="all">any age</option>
-          <option value="7d">last 7 days</option>
-          <option value="30d">last 30 days</option>
-        </select>
-        {filteredKeys.length > 0 && (
-          <label className="flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              ref={(node) => {
-                if (node)
-                  node.indeterminate = selectedIssues > 0 && !allSelected;
-              }}
-              onChange={() => setKeysSelected(filteredKeys, !allSelected)}
-              aria-label={`Select all ${filteredKeys.length} issues`}
-            />
-            select all {filteredKeys.length}
-          </label>
-        )}
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-          unresolved only · Download History keeps the full ledger
-        </span>
-      </div>
-
-      {selectedIssues > 0 && (
-        <div
-          role="group"
-          aria-label="Selected issues"
-          className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-2"
-          style={{
-            borderColor: "var(--border)",
-            background: "color-mix(in oklab, var(--primary) 8%, transparent)",
-          }}
-        >
-          <span className="font-mono text-[11px]">
-            {selectedGroupCount}{" "}
-            {selectedGroupCount === 1 ? "problem" : "problems"} ·{" "}
-            {selectedIssues} {selectedIssues === 1 ? "issue" : "issues"}
-          </span>
-          {selectedIssues > 25 && (
-            <span
-              className="font-mono text-[10px]"
-              style={{ color: "var(--status-paused)" }}
-            >
-              25 at a time — the rest stay here
-            </span>
-          )}
-          {sharedActions(selectedMembers).length === 0 ? (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              these rows are at different stages — no action fits all of them
-            </span>
-          ) : (
-            sharedActions(selectedMembers).map((action) => (
+              <span className="font-mono text-[11px]">
+                {selectedGroupCount}{" "}
+                {selectedGroupCount === 1 ? "problem" : "problems"} ·{" "}
+                {selectedIssues} {selectedIssues === 1 ? "issue" : "issues"}
+              </span>
+              {selectedIssues > 25 && (
+                <span
+                  className="font-mono text-[10px]"
+                  style={{ color: "var(--status-paused)" }}
+                >
+                  25 at a time — the rest stay here
+                </span>
+              )}
+              {sharedActions(selectedMembers).length === 0 ? (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  these rows are at different stages — no action fits all of
+                  them
+                </span>
+              ) : (
+                sharedActions(selectedMembers).map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    disabled={batch.isPending}
+                    onClick={() => {
+                      const keys = selectedMembers.map(
+                        ({ member }) => member.release_key,
+                      );
+                      if (action === "stop_wanting") {
+                        confirmStopWanting(
+                          keys,
+                          selectedGroupCount === 1
+                            ? selectedMembers[0].group.series_label
+                            : undefined,
+                        );
+                      } else {
+                        void runAction(action, keys);
+                      }
+                    }}
+                    className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    {actionLabel(action)}
+                    {action === "stop_wanting" ? "…" : ""}
+                  </button>
+                ))
+              )}
               <button
-                key={action}
                 type="button"
-                disabled={batch.isPending}
-                onClick={() => {
-                  const keys = selectedMembers.map(
-                    ({ member }) => member.release_key,
-                  );
-                  if (action === "stop_wanting") {
-                    confirmStopWanting(
-                      keys,
-                      selectedGroupCount === 1
-                        ? selectedMembers[0].group.series_label
-                        : undefined,
-                    );
-                  } else {
-                    void runAction(action, keys);
-                  }
-                }}
-                className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
-                style={{ borderColor: "var(--border)" }}
+                onClick={() => setSelected(new Set())}
+                className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
               >
-                {actionLabel(action)}
-                {action === "stop_wanting" ? "…" : ""}
+                clear selection
               </button>
-            ))
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => setSelected(new Set())}
-            className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
-          >
-            clear selection
-          </button>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-auto p-5">
+        </>
+      }
+    >
+      <div className="p-5">
         {filtered.length === 0 ? (
           <EmptyState
             variant="custom"
@@ -447,7 +460,7 @@ export default function AttentionPage() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
