@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "../test-utils";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import type { SearchResult } from "@/types";
@@ -20,6 +21,25 @@ const spider2016: SearchResult = {
   issues: 32,
   publisher: "Marvel",
 };
+
+const results = [
+  {
+    id: "1",
+    comicid: "1",
+    name: "Alpha",
+    comicyear: "2020",
+    issues: 12,
+    publisher: "Pub",
+  },
+  {
+    id: "2",
+    comicid: "2",
+    name: "Beta",
+    comicyear: "2021",
+    issues: 8,
+    publisher: "Pub",
+  },
+] as SearchResult[];
 
 describe("SearchResultsTable", () => {
   it("uses a phone grid that keeps title and the add action", () => {
@@ -57,5 +77,55 @@ describe("SearchResultsTable", () => {
     expect(ids[1].textContent).toContain("2016");
     expect(ids[1].className).toMatch(/hidden/);
     expect(ids[1].className).toMatch(/max-md:inline/);
+  });
+
+  it("announces list sort direction on the sort button", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+
+    const { rerender } = render(
+      <SearchResultsTable
+        results={results}
+        currentSort="relevance"
+        onSortChange={onSortChange}
+        contentType="comic"
+      />,
+    );
+
+    expect(screen.queryByRole("columnheader")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^series$/i }));
+    expect(onSortChange).toHaveBeenCalledWith("name_desc");
+
+    rerender(
+      <SearchResultsTable
+        results={results}
+        currentSort="name_desc"
+        onSortChange={onSortChange}
+        contentType="comic"
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /series.*sorted descending/i }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: /series.*sorted descending/i }),
+    );
+    expect(onSortChange).toHaveBeenCalledWith("name_asc");
+
+    rerender(
+      <SearchResultsTable
+        results={results}
+        currentSort="name_asc"
+        onSortChange={onSortChange}
+        contentType="comic"
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /series.*sorted ascending/i }),
+    ).toBeTruthy();
   });
 });

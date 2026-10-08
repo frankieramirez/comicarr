@@ -526,6 +526,33 @@ describe("SeriesTable", () => {
     expect(screen.getByRole("link", { name: /Series 21/ })).toBeTruthy();
   });
 
+  it("announces list sort direction on the sort button", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(3)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.queryByRole("columnheader")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^title$/i }));
+
+    expect(
+      screen.getByRole("button", { name: /title.*sorted ascending/i }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: /title.*sorted ascending/i }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: /title.*sorted descending/i }),
+    ).toBeTruthy();
+  });
+
   it("exposes list view as pressed by default", () => {
     localStorage.removeItem("comicarr-library-view");
     window.history.pushState({}, "", "/library");

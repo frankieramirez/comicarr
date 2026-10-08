@@ -85,12 +85,12 @@ function SortHeader({
   const mapping = SORT_COLUMN_MAP[columnId];
   if (!mapping) return <span>{title}</span>;
   const sortState = getColumnSort(columnId, currentSort);
-  const ariaSort =
+  const sortAnnouncement =
     sortState === "asc"
-      ? ("ascending" as const)
+      ? "sorted ascending"
       : sortState === "desc"
-        ? ("descending" as const)
-        : undefined;
+        ? "sorted descending"
+        : null;
 
   const handleClick = () => {
     if (sortState === false) onSortChange(mapping.desc);
@@ -99,22 +99,23 @@ function SortHeader({
   };
 
   return (
-    <div role="columnheader" aria-sort={ariaSort ?? "none"}>
-      <button
-        type="button"
-        onClick={handleClick}
-        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-      >
-        <span>{title}</span>
-        {sortState === "asc" ? (
-          <ChevronUp className="w-3 h-3" aria-hidden />
-        ) : sortState === "desc" ? (
-          <ChevronDown className="w-3 h-3" aria-hidden />
-        ) : (
-          <ChevronsUpDown className="w-3 h-3 opacity-50" aria-hidden />
-        )}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+    >
+      <span>{title}</span>
+      {sortState === "asc" ? (
+        <ChevronUp className="w-3 h-3" aria-hidden />
+      ) : sortState === "desc" ? (
+        <ChevronDown className="w-3 h-3" aria-hidden />
+      ) : (
+        <ChevronsUpDown className="w-3 h-3 opacity-50" aria-hidden />
+      )}
+      {sortAnnouncement ? (
+        <span className="sr-only">{sortAnnouncement}</span>
+      ) : null}
+    </button>
   );
 }
 

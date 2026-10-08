@@ -543,30 +543,33 @@ function SortHeader({
   onClick,
   align = "left",
 }: SortHeaderProps) {
+  const sortAnnouncement = active
+    ? desc
+      ? "sorted descending"
+      : "sorted ascending"
+    : null;
   return (
-    <div
-      role="columnheader"
-      aria-sort={active ? (desc ? "descending" : "ascending") : "none"}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 hover:text-foreground ${
+        align === "right" ? "flex-row-reverse" : ""
+      } ${active ? "text-foreground" : ""}`}
     >
-      <button
-        type="button"
-        onClick={onClick}
-        className={`inline-flex items-center gap-1 hover:text-foreground ${
-          align === "right" ? "flex-row-reverse" : ""
-        } ${active ? "text-foreground" : ""}`}
-      >
-        <span>{label}</span>
-        {active ? (
-          desc ? (
-            <ChevronDown className="w-3 h-3" aria-hidden />
-          ) : (
-            <ChevronUp className="w-3 h-3" aria-hidden />
-          )
+      <span>{label}</span>
+      {active ? (
+        desc ? (
+          <ChevronDown className="w-3 h-3" aria-hidden />
         ) : (
-          <ChevronsUpDown className="w-3 h-3 opacity-40" aria-hidden />
-        )}
-      </button>
-    </div>
+          <ChevronUp className="w-3 h-3" aria-hidden />
+        )
+      ) : (
+        <ChevronsUpDown className="w-3 h-3 opacity-40" aria-hidden />
+      )}
+      {sortAnnouncement ? (
+        <span className="sr-only">{sortAnnouncement}</span>
+      ) : null}
+    </button>
   );
 }
 
