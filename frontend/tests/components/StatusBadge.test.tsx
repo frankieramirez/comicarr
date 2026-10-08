@@ -30,4 +30,24 @@ describe("StatusBadge statusTone", () => {
       ?.getAttribute("style");
     expect(style).toContain("var(--status-wanted)");
   });
+
+  it("keeps the raw provider label when mapping Downloading onto active", () => {
+    const tone = statusTone("Downloading");
+    expect(tone?.token).toBe("var(--status-active)");
+    expect(tone?.label).toBe("Downloading");
+    const { container } = render(
+      <StatusBadge status="Downloading" variant="dot" />,
+    );
+    expect(container.textContent).toContain("Downloading");
+    expect(container.textContent).not.toContain("Active");
+  });
+
+  it("keeps Unknown on the paused token", () => {
+    expect(statusTone("Unknown")?.token).toBe("var(--status-paused)");
+  });
+
+  it("does not invent a description tooltip", () => {
+    const { container } = render(<StatusBadge status="Wanted" variant="dot" />);
+    expect(container.querySelector("[title]")).toBeNull();
+  });
 });

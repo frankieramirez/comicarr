@@ -23,7 +23,7 @@ export default function StatusBadge({
   if (!tone) return null;
 
   const text = label ?? tone.label;
-  const caption = title ?? tone.description;
+  const caption = title;
 
   if (variant === "dot") {
     return (

@@ -41,6 +41,52 @@ import type { PaginationMeta } from "@/types";
 type ActivityView = "timeline" | "in_flight" | "queue" | "history";
 const PAGE_SIZE = 25;
 
+const ACTIVITY_STATUS_TITLES: Record<string, string> = {
+  failed: "Terminal download failure.",
+  unknown: "Manual review required; it will not retry automatically.",
+  "manual review": "Requires attention and will not retry automatically.",
+  snatched: "Active download.",
+  active: "Active download.",
+  queued: "Waiting for a worker.",
+  pending: "Waiting for a worker.",
+  wanted: "Waiting for a worker.",
+  completed: "Active download.",
+  done: "Active download.",
+};
+
+function activityStatusLabel(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
+function activityStatusTitle(status: string): string {
+  const key = status.trim().toLowerCase().replaceAll("_", " ");
+  if (ACTIVITY_STATUS_TITLES[key]) return ACTIVITY_STATUS_TITLES[key];
+  if (key.includes("fail") || key.includes("error")) {
+    return ACTIVITY_STATUS_TITLES.failed;
+  }
+  if (key.includes("manual") || key.includes("review")) {
+    return ACTIVITY_STATUS_TITLES["manual review"];
+  }
+  if (key.includes("snatch") || key.includes("down")) {
+    return "Active download.";
+  }
+  if (key.includes("queue") || key.includes("pend")) {
+    return "Waiting for a worker.";
+  }
+  return "Download state reported by the provider.";
+}
+
+function ActivityStatusBadge({ status }: { status: string }) {
+  return (
+    <StatusBadge
+      variant="dot"
+      status={status}
+      label={activityStatusLabel(status)}
+      title={activityStatusTitle(status)}
+    />
+  );
+}
+
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawView = searchParams.get("view");
@@ -596,7 +642,7 @@ function QueueView() {
             <DataTableSortHeader column={column} title="Status" />
           ),
           cell: ({ getValue }) => (
-            <StatusBadge variant="dot" status={getValue()} />
+            <ActivityStatusBadge status={getValue()} />
           ),
         }),
         queueColumnHelper.accessor("updated_date", {
@@ -741,7 +787,7 @@ function HistoryView() {
             <DataTableSortHeader column={column} title="Status" />
           ),
           cell: ({ getValue }) => (
-            <StatusBadge variant="dot" status={getValue()} />
+            <ActivityStatusBadge status={getValue()} />
           ),
         }),
         historyColumnHelper.accessor("DateAdded", {

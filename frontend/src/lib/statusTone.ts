@@ -14,7 +14,6 @@ export type StatusTone = {
   label: string;
   badgeVariant: StatusBadgeVariant;
   glowColor: string;
-  description?: string;
 };
 
 const MUTED: Omit<StatusTone, "key" | "label"> = {
@@ -30,7 +29,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
-    description: "Active download.",
   },
   paused: {
     key: "paused",
@@ -64,7 +62,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-wanted)",
     badgeVariant: "wanted",
     glowColor: "var(--status-wanted)",
-    description: "Waiting for a worker.",
   },
   skipped: {
     key: "skipped",
@@ -93,7 +90,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
-    description: "Active download.",
   },
   archived: {
     key: "archived",
@@ -106,13 +102,13 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-error)",
     badgeVariant: "error",
     glowColor: "var(--status-error)",
-    description: "Terminal download failure.",
   },
   unknown: {
     key: "unknown",
     label: "Unknown",
-    ...MUTED,
-    description: "Manual review required; it will not retry automatically.",
+    token: "var(--status-paused)",
+    badgeVariant: "paused",
+    glowColor: "var(--status-paused)",
   },
   missing: {
     key: "missing",
@@ -127,7 +123,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
-    description: "Waiting for a worker.",
   },
   pending: {
     key: "pending",
@@ -135,7 +130,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
-    description: "Waiting for a worker.",
   },
   completed: {
     key: "completed",
@@ -143,7 +137,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
-    description: "Active download.",
   },
   done: {
     key: "done",
@@ -151,7 +144,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
-    description: "Active download.",
   },
   "manual review": {
     key: "manual review",
@@ -159,7 +151,6 @@ const TONES: Record<string, StatusTone> = {
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
-    description: "Requires attention and will not retry automatically.",
   },
 };
 
@@ -186,13 +177,14 @@ export function statusTone(status?: string | null): StatusTone | null {
   if (!status) return null;
   const key = resolveKey(status);
   if (key && TONES[key]) {
-    return TONES[key];
+    const tone = TONES[key];
+    if (status.trim().toLowerCase() === key) return tone;
+    return { ...tone, label: status };
   }
   return {
     key: "custom",
     label: status,
     ...MUTED,
-    description: "Download state reported by the provider.",
   };
 }
 
