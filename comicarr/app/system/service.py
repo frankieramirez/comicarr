@@ -97,6 +97,17 @@ def get_weekly_refresh_lock():
     return getattr(comicarr, "WEEKLY_REFRESH_LOCK", _fallback_weekly_refresh_lock)
 
 
+def _set_projected_runtime_field(context_field, legacy_name, value):
+    """Write a projected scalar through AppContext when the runtime exists."""
+    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
+
+    ctx = get_runtime_if_initialized()
+    if ctx is not None and not getattr(ctx, "disposed", False):
+        return set_runtime_field(ctx, context_field, value)
+    setattr(comicarr, legacy_name, value)
+    return value
+
+
 def _secret_is_configured(value):
     """Return True when a config secret has a meaningful stored value."""
     return bool(value and value != "None")
@@ -1260,8 +1271,12 @@ def start_migration(ctx, path):
                 if gate.blocked:
                     logger.info("[MIGRATION] Acquisition remains blocked: %s" % gate.reason)
             except Exception as gate_error:
-                _comicarr.ACQUISITION_WORKERS_BLOCKED = True
-                _comicarr.ACQUISITION_BLOCK_REASON = "migration_reconciliation_gate_unavailable"
+                from comicarr.app.core.runtime import set_runtime_acquisition_status
+
+                set_runtime_acquisition_status(
+                    workers_blocked=True,
+                    block_reason="migration_reconciliation_gate_unavailable",
+                )
                 logger.error("[MIGRATION] Unable to refresh acquisition reconciliation gate: %s" % gate_error)
 
     start_background_thread(
@@ -1895,7 +1910,7 @@ def job_management(
                     comicarr.SCHED_WEEKLY_LAST = ji["last_success_timestamp"] or ji["prev_run_timestamp"]
                 if jstatus is None:
                     jstatus = "Waiting"
-                comicarr.WEEKLY_STATUS = jstatus
+                _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", jstatus)
             elif "version" in ji["JobName"].lower():
                 if comicarr.SCHED_VERSION_LAST is None:
                     comicarr.SCHED_VERSION_LAST = ji["prev_run_timestamp"]
@@ -1973,12 +1988,12 @@ def job_management(
             prev_run_timestamp = comicarr.SCHED_WEEKLY_LAST
             if "next run" in jobstatus:
                 if comicarr.WEEKLY_STATUS not in {"Error", "Running", "Queued"}:
-                    comicarr.WEEKLY_STATUS = "Waiting"
+                    _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", "Waiting")
                 if any(ky == "weekly" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.WEEKLY_STATUS = comicarr.FORCE_STATUS["weekly"]
+                    _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", comicarr.FORCE_STATUS["weekly"])
                     next_the_run = True
             else:
-                comicarr.WEEKLY_STATUS = "Paused"
+                _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", "Paused")
             sched_status = comicarr.WEEKLY_STATUS
         elif jobname == "Check Version":
             prev_run_timestamp = comicarr.SCHED_VERSION_LAST
@@ -2159,7 +2174,9 @@ def job_management(
                             break
                         elif job == "Weekly Pullist" and "weekly" in jb.lower():
                             if any(ky == "weekly" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.WEEKLY_STATUS = comicarr.FORCE_STATUS["weekly"]
+                                _set_projected_runtime_field(
+                                    "weekly_status", "WEEKLY_STATUS", comicarr.FORCE_STATUS["weekly"]
+                                )
                                 comicarr.FORCE_STATUS.pop("weekly")
 
                             if comicarr.WEEKLY_STATUS != "Paused":

@@ -30,6 +30,17 @@ _migration_lock = threading.Lock()
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def _set_runtime_scalar(context_field, legacy_name, value):
+    """Write a projected scalar through AppContext when the runtime exists."""
+    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
+
+    ctx = get_runtime_if_initialized()
+    if ctx is not None and not getattr(ctx, "disposed", False):
+        return set_runtime_field(ctx, context_field, value)
+    setattr(comicarr, legacy_name, value)
+    return value
+
+
 def _set_acquisition_reconciliation(state, message):
     """Mirror a durable reconciliation gate into legacy progress globals."""
 
@@ -350,7 +361,7 @@ class Mylar3Migration:
 
             _verify_migration(self.dbfile)
 
-            comicarr.DB_EMPTY = False
+            _set_runtime_scalar("db_empty", "DB_EMPTY", False)
             comicarr.MIGRATION_STATUS = "complete"
             comicarr.MIGRATION_CURRENT_TABLE = ""
             _set_acquisition_reconciliation(
