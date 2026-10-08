@@ -405,9 +405,17 @@ def import_selected_manga(selected_ids, scan_id):
         try:
             logger.info("[MANGA-SCAN] Importing series: %s" % manga_id)
             if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
-                importer.addMangaToDB_MAL(manga_id)
+                result = importer.addMangaToDB_MAL(manga_id)
             else:
-                importer.addMangaToDB(manga_id)
+                result = importer.addMangaToDB(manga_id)
+            if isinstance(result, dict) and result.get("status") != "complete":
+                errors.append(
+                    {
+                        "comicid": manga_id,
+                        "error": result.get("error") or result.get("status") or "import refused",
+                    }
+                )
+                continue
             imported += 1
         except Exception as e:
             logger.error("[MANGA-SCAN] Failed to import %s: %s" % (manga_id, e))

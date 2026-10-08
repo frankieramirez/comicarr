@@ -1436,6 +1436,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
             mal_numeric_id,
             title_hint=manga.get("name"),
             alternate_titles=manga.get("alt_titles", []),
+            allow_title_match=False,
         )
         resolved_mangadex = True
         existing = find_existing_manga_series(

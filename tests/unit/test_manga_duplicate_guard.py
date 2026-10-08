@@ -269,3 +269,31 @@ def test_list_library_marks_mal_id_in_library_for_mangadex_row(manga_db):
 
     assert "mal-" + MAL_ID in library
     assert library["mal-" + MAL_ID]["comicid"] == "md-" + MD_UUID
+
+
+def test_mal_add_does_not_refuse_a_fuzzy_mangadex_title_match(manga_db, monkeypatch, tmp_path):
+    """A 60% title hit is not the same work. The MAL-add guard must use
+    exact mal_id / links.mal only, or a sequel already on MangaDex blocks
+    adding the MAL series."""
+    fuzzy_uuid = "ffffffff-eeee-dddd-cccc-sequel0001"
+    _insert(
+        manga_db,
+        ComicID="md-" + fuzzy_uuid,
+        ComicName="One Piece Sequel",
+        MangaDexID=fuzzy_uuid,
+        MalID=None,
+        Status="Active",
+    )
+    _patch_add_side_effects(monkeypatch, tmp_path, mal_to_md=fuzzy_uuid)
+
+    def fake_find(*_a, allow_title_match=True, **_k):
+        return fuzzy_uuid if allow_title_match else None
+
+    monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", fake_find)
+
+    result = importer.addMangaToDB_MAL("mal-" + MAL_ID)
+
+    assert result["status"] == "complete"
+    assert result["comicid"] == "mal-" + MAL_ID
+    assert _row(manga_db, "mal-" + MAL_ID) is not None
+    assert _row(manga_db, "md-" + fuzzy_uuid) is not None

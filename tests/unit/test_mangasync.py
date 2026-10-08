@@ -148,12 +148,16 @@ class TestMangaScan:
             patch("os.path.isdir", return_value=True),
             patch.object(mangasync, "_collect_series_files", return_value=series_map),
             patch.object(mangasync, "_check_existing_series", side_effect=mock_check_existing),
-            patch.object(mangasync, "_match_series", return_value={
-                "series_name": "NewManga",
-                "file_count": 1,
-                "matched": True,
-                "match": {"comicid": "md-new", "name": "NewManga", "confidence": 85, "source": "mangadex"},
-            }),
+            patch.object(
+                mangasync,
+                "_match_series",
+                return_value={
+                    "series_name": "NewManga",
+                    "file_count": 1,
+                    "matched": True,
+                    "match": {"comicid": "md-new", "name": "NewManga", "confidence": 85, "source": "mangadex"},
+                },
+            ),
         ):
             result = mangasync.mangaScan("/manga")
 
@@ -171,9 +175,13 @@ class TestMangaScan:
 
         with (
             patch("os.path.isdir", return_value=True),
-            patch.object(mangasync, "_collect_series_files", return_value={
-                "Bleach": [("/manga/Bleach/v01.cbz", None)],
-            }),
+            patch.object(
+                mangasync,
+                "_collect_series_files",
+                return_value={
+                    "Bleach": [("/manga/Bleach/v01.cbz", None)],
+                },
+            ),
             patch.object(mangasync, "_mark_chapters_downloaded", return_value=2),
         ):
             result = mangasync.mangaScan("/manga")
@@ -244,6 +252,23 @@ class TestImportSelectedManga:
 
         assert mangasync.MANGA_SCAN_RESULTS is None
         assert mangasync.MANGA_SCAN_ID is None
+
+    def test_duplicate_import_is_not_counted_as_imported(self, mangasync):
+        mangasync.MANGA_SCAN_ID = "12345"
+        mangasync.MANGA_SCAN_RESULTS = [
+            {"series_name": "One Piece", "matched": True, "match": {"comicid": "mal-13"}},
+        ]
+
+        with patch(
+            "comicarr.importer.addMangaToDB_MAL",
+            return_value={"status": "duplicate", "comicid": "md-100", "error": "already tracked as md-100"},
+        ):
+            result = mangasync.import_selected_manga(["mal-13"], "12345")
+
+        assert result["imported"] == 0
+        assert result["success"] is False
+        assert result["errors"][0]["comicid"] == "mal-13"
+        assert mangasync.MANGA_SCAN_RESULTS is not None
 
 
 class TestGetScanProgress:
