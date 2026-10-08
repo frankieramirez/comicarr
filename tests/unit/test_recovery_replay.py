@@ -485,6 +485,30 @@ def test_ae4_gone_marks_failed_not_enqueued(queues):
     assert row["fail_reason"] == recovery_classify.FAIL_REASON_GONE
 
 
+def test_failed_no_auto_handling_closes_journal_not_pp(queues):
+    """SAB failed_no_auto_handling must close the journal on restart recovery.
+    Mapping it as complete would enqueue PP; leaving it unmapped keeps the row
+    open forever."""
+    from comicarr import failed as failed_mod
+
+    rkey = journal.release_key("30fail", "nzb.su", nzbname="C.cbz")
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "30fail", "provider": "nzb.su", "nzbname": "C.cbz"},
+        issueid="30fail",
+        provider="nzb.su",
+        downloader_type="nzb",
+        nzbname="C.cbz",
+    )
+    recovery.replay_pipeline(probes=_probe({"status": "failed_no_auto_handling", "failed": True, "name": "C.cbz"}))
+    assert _drain(queues["pp"]) == []
+    assert _drain(queues["nzb"]) == []
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.FAILED
+    assert row["fail_reason"] == failed_mod.FAIL_REASON_NO_AUTO_HANDLING
+
+
 def test_apply_verdict_lost_transition_reports_no_write_and_makes_no_claim(monkeypatch):
     """A lost journal transition is not a write. apply_verdict() must report
     False (its docstring: "Returns True iff a journal write occurred") and must

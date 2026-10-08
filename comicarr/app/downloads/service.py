@@ -2036,6 +2036,50 @@ def cdh_monitor(queue, item, nzstat, readd=False, lease=None):
         return
 
 
+def _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id):
+    """Drain OPEN_STAGES when SAB failed and FAILED_DOWNLOAD_HANDLING is off."""
+    from comicarr import failed as failed_mod
+
+    di = nzstat.get("download_info") or item.get("download_info") or {}
+    if not isinstance(di, dict):
+        di = {}
+    issueid = nzstat.get("issueid") or item.get("issueid")
+    provider = di.get("provider")
+    nzbname = nzstat.get("name") or di.get("nzbname")
+    download_hash = di.get("hash")
+    rkey = failed_mod.resolve_failed_release_key(
+        journal_release_key=item.get("journal_release_key"),
+        issueid=issueid,
+        provider=provider,
+        nzbname=nzbname,
+        hash=download_hash,
+        discriminant=di or None,
+    )
+    if rkey is None:
+        logger.fdebug(
+            "[DOWNLOADS-CDH] journal terminalize skipped — release_key not resolvable "
+            "(nzo_id=%s issueid=%s provider=%s)" % (known_nzb_id, issueid, provider)
+        )
+        return False
+    return failed_mod.terminalize_failed_download(
+        rkey,
+        failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+        status=None,
+        issueid=issueid,
+        provider=provider,
+        nzbname=nzbname,
+        hash=download_hash,
+        payload={
+            "issueid": issueid,
+            "comicid": nzstat.get("comicid") or item.get("comicid"),
+            "provider": provider,
+            "nzbname": nzbname,
+            "failed": True,
+            "nzo_id": known_nzb_id,
+        },
+    )
+
+
 def _cdh_monitor_owned(queue, item, nzstat, readd=False):
     from comicarr.helpers import check_file_condition
 
@@ -2050,6 +2094,11 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
             logger.warn("NZB seems to have been removed from queue: %s" % known_nzb_id)
     elif nzstat["status"] == "failed_in_sab":
         logger.warn("Failure returned from SAB for %s" % known_nzb_id)
+    elif nzstat["status"] == "failed_no_auto_handling":
+        logger.warn(
+            "SAB reported failure for %s and failed-download handling is off; terminalizing journal." % known_nzb_id
+        )
+        _terminalize_sab_no_auto_handling(item, nzstat, known_nzb_id)
     elif nzstat["status"] == "queue_paused":
         if comicarr.USE_SABNZBD is True:
             comicarr.RETURN_THE_NZBQUEUE.put(item)
