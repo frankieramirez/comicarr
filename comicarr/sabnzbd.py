@@ -117,6 +117,34 @@ class SABnzbd(object):
 
         return queue_params
 
+    def queuecheck(self, nzo_id):
+        """Return True when ``nzo_id`` is still in SAB's active queue."""
+        if not nzo_id:
+            return False
+        params = {
+            "mode": "queue",
+            "nzo_ids": nzo_id,
+            "output": "json",
+            "apikey": comicarr.CONFIG.SAB_APIKEY,
+        }
+        if comicarr.CONFIG.SAB_CATEGORY is not None:
+            params["category"] = comicarr.CONFIG.SAB_CATEGORY
+        response = requests.get(
+            self.sab_url,
+            params=params,
+            verify=getattr(comicarr.CONFIG, "SAB_VERIFY", False),
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        queue = payload.get("queue") if isinstance(payload, dict) else None
+        if not isinstance(queue, dict):
+            return False
+        for slot in queue.get("slots") or []:
+            if isinstance(slot, dict) and slot.get("nzo_id") == nzo_id:
+                return True
+        return False
+
     def processor(self):
         self.params["nzo_id"]
         try:

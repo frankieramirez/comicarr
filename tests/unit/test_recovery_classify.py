@@ -51,6 +51,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, nzo_id: False)
     engine = get_engine()
     metadata.create_all(engine)
     yield
@@ -906,3 +907,90 @@ def test_unprobeable_imported_oneoff_is_complete_via_builtin_probe():
         hist.assert_not_called()
     assert details["verdict"] == recovery_classify.COMPLETE
     assert details["raw_state"] == "unprobeable"
+
+
+def _sab_probe_row(issueid="SAB1"):
+    with get_engine().begin() as conn:
+        conn.execute(issues.insert().values(IssueID=issueid, Status="Snatched"))
+        conn.execute(nzblog.insert().values(IssueID=issueid, PROVIDER="sab"))
+    return _insert_journal(
+        "%s|sab|n" % issueid,
+        journal.SNATCHED,
+        issueid=issueid,
+        provider="sab",
+        downloader_type="nzb",
+        payload={"comicid": "C1", "download_info": {"nzo_id": "nzo-%s" % issueid}},
+    )
+
+
+@pytest.mark.parametrize(
+    ("case_id", "nzstat", "raw_state", "verdict"),
+    [
+        ("true", {"status": True, "location": "/dl", "name": "x"}, "complete", recovery_classify.COMPLETE),
+        ("false", {"status": False}, "absent", recovery_classify.GONE),
+        ("removed", {"status": "nzb removed"}, "absent", recovery_classify.GONE),
+        ("repairing", {"status": "unhandled status of: Repairing"}, "still", recovery_classify.STILL),
+        ("notfound", {"status": "file not found"}, "absent", recovery_classify.GONE),
+        ("failed", {"status": "failed_in_sab"}, "absent", recovery_classify.GONE),
+        ("doublepp", {"status": "double-pp"}, "complete", recovery_classify.COMPLETE),
+        ("paused", {"status": "queue_paused"}, "still", recovery_classify.STILL),
+        ("mystery", {"status": "mystery-shape"}, "unreachable", recovery_classify.UNKNOWN),
+    ],
+)
+def test_sab_historycheck_status_maps_to_raw_state(case_id, nzstat, raw_state, verdict):
+    row = _sab_probe_row("map-%s" % case_id)
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+        details = recovery_classify.classify_details(row)
+    assert details["raw_state"] == raw_state
+    assert details["verdict"] == verdict
+
+
+def test_sab_queue_hit_is_still_without_calling_historycheck():
+    row = _sab_probe_row("QSTILL")
+    with (
+        patch("comicarr.sabnzbd.SABnzbd.queuecheck", return_value=True),
+        patch("comicarr.sabnzbd.SABnzbd.historycheck") as hist,
+    ):
+        details = recovery_classify.classify_details(row)
+        hist.assert_not_called()
+    assert details["raw_state"] == "still"
+    assert details["verdict"] == recovery_classify.STILL
+
+
+def test_nzb_removed_does_not_enqueue_pp(monkeypatch):
+    """historycheck 'nzb removed' used to map to complete. It must stay off PP_QUEUE."""
+    import queue as queue_module
+
+    from comicarr.app.downloads import recovery
+
+    pp = queue_module.Queue()
+    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    row = _sab_probe_row("GONEPP")
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}):
+        details = recovery_classify.classify_details(row)
+        action = recovery._resolve_row(row)
+    assert details["verdict"] == recovery_classify.GONE
+    assert action == "gone-failed"
+    assert pp.empty()
+
+
+def test_unhandled_repairing_does_not_enqueue_pp(monkeypatch):
+    import queue as queue_module
+
+    from comicarr.app.downloads import recovery
+
+    pp = queue_module.Queue()
+    nzb = queue_module.Queue()
+    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", nzb, raising=False)
+    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    row = _sab_probe_row("REPAIR")
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "unhandled status of: Repairing"}):
+        details = recovery_classify.classify_details(row)
+        action = recovery._resolve_row(row)
+    assert details["verdict"] == recovery_classify.STILL
+    assert action == "still-reenqueued"
+    assert pp.empty()
+    assert nzb.qsize() == 1

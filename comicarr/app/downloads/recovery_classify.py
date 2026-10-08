@@ -342,8 +342,9 @@ def _probe_torrent(row, payload=None):
 
 def _sab_history_or_queue(row, payload=None):
     """SAB: still in active queue ⇒ still; in history success ⇒ complete;
-    not found in either ⇒ absent. Reuses sabnzbd.SABnzbd.historycheck()
-    (history lookup by nzo_id) — the same path nzb_monitor/cdh use."""
+    not found in either ⇒ absent. Queries the SAB queue first, then
+    reuses sabnzbd.SABnzbd.historycheck() (history lookup by nzo_id) —
+    the same path nzb_monitor/cdh use."""
     payload = payload if payload is not None else journal.load_payload(row.get("payload_json"))
     payload = payload or {}
     di = payload.get("download_info") or {}
@@ -367,6 +368,8 @@ def _sab_history_or_queue(row, payload=None):
             },
         }
         s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        if s.queuecheck(nzo_id):
+            return "still"
         nzstat = s.historycheck(nzbinfo)
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
@@ -407,7 +410,11 @@ def _nzbget_history(row, payload=None):
 
 def _nzstat_to_raw(nzstat):
     """Map a SAB/NZBGet historycheck() return shape onto the raw probe
-    vocabulary. (cdh_monitor's status mapping is the model here.)"""
+    vocabulary. (cdh_monitor's status mapping is the model here.)
+
+    ``complete`` is reserved for an explicit success (status True or
+    double-pp). Unknown strings are unreachable, never complete.
+    """
     if not isinstance(nzstat, dict):
         return "unreachable"
     status = nzstat.get("status")
@@ -421,7 +428,13 @@ def _nzstat_to_raw(nzstat):
         return "failed_no_auto_handling"
     if status is False:
         return "absent"
-    return "complete"
+    if status == "nzb removed":
+        return "absent"
+    if isinstance(status, str) and status.startswith("unhandled status of:"):
+        return "still"
+    if status in ("file not found", "failed_in_sab"):
+        return "absent"
+    return "unreachable"
 
 
 _RAW_PROBE_STATES = frozenset(("still", "complete", "absent", "unreachable", "unprobeable"))

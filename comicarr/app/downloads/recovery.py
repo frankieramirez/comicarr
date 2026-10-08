@@ -704,6 +704,25 @@ def _resolve_row(snapshot_row, probes=None):
 
     if verdict == recovery_classify.COMPLETE:
         payload = _merge_completion_evidence(payload, details)
+        item = _pp_item_from_row(row, payload)
+        try:
+            item = validate_postprocess_item(item, roots=configured_roots())
+        except PostProcessCommandError as e:
+            record(
+                ManualReview(
+                    release_key=rkey,
+                    reason="invalid_recovered_postprocess_command:%s" % type(e).__name__,
+                    payload=payload,
+                    issue_id=row.get("issueid"),
+                    provider=row.get("provider"),
+                    downloader_type=row.get("downloader_type"),
+                    nzb_name=row.get("nzbname") or (payload or {}).get("nzb_name") or (payload or {}).get("nzbname"),
+                )
+            )
+            logger.error(
+                "[RECOVERY] %s classified complete but the completed folder is unusable; quarantined: %s" % (rkey, e)
+            )
+            return "complete-manual-review"
         journal.record_transition(
             rkey,
             journal.DOWNLOADED,
@@ -712,7 +731,6 @@ def _resolve_row(snapshot_row, probes=None):
             provider=row.get("provider"),
             downloader_type=row.get("downloader_type"),
         )
-        item = _pp_item_from_row(row, payload)
         comicarr.PP_QUEUE.put(item)
         logger.info(
             "[RECOVERY] %s -> COMPLETE (done at downloader) — recorded "

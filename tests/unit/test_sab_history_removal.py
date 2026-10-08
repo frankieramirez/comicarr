@@ -94,3 +94,25 @@ def test_a_job_still_processing_after_the_wait_is_left_in_sab(sab_config, monkey
 
     assert result == {"failed": False, "status": "unhandled status of: %s" % status}
     assert all(c.kwargs["params"].get("name") != "delete" for c in get.call_args_list)
+
+
+def test_queuecheck_true_when_nzo_id_is_in_active_queue(sab_config, monkeypatch):
+    response = MagicMock()
+    response.json.return_value = {
+        "queue": {"slots": [{"nzo_id": "SABnzbd_nzo_abc123", "status": "Downloading"}]}
+    }
+    get = MagicMock(return_value=response)
+    monkeypatch.setattr(sabnzbd.requests, "get", get)
+
+    assert sabnzbd.SABnzbd({}).queuecheck("SABnzbd_nzo_abc123") is True
+    params = get.call_args.kwargs["params"]
+    assert params["mode"] == "queue"
+    assert params["nzo_ids"] == "SABnzbd_nzo_abc123"
+
+
+def test_queuecheck_false_when_nzo_id_is_not_in_queue(sab_config, monkeypatch):
+    response = MagicMock()
+    response.json.return_value = {"queue": {"slots": []}}
+    monkeypatch.setattr(sabnzbd.requests, "get", MagicMock(return_value=response))
+
+    assert sabnzbd.SABnzbd({}).queuecheck("SABnzbd_nzo_abc123") is False

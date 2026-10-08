@@ -60,6 +60,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", None, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, nzo_id: False)
     engine = get_engine()
     metadata.create_all(engine)
     assert ensure_acquisition_schema(engine).ready
@@ -216,6 +217,59 @@ def test_complete_sab_recovery_keeps_historycheck_folder(queues, tmp_path, monke
     assert row_after["stage"] == journal.DOWNLOADED
     assert row_after.get("fail_reason") != "downloaded_invalid_artifact_command:PostProcessCommandError"
     assert row_after.get("fail_reason") in (None, "")
+
+
+def test_sab_queue_hit_reenqueues_nzb_monitor(queues, monkeypatch):
+    rkey = journal.release_key("970q", "nzb.su", nzbname="Queue.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="970q", PROVIDER="nzb.su"))
+        conn.execute(issues.insert().values(IssueID="970q", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={
+            "issueid": "970q",
+            "comicid": "C970",
+            "provider": "nzb.su",
+            "route": "sabnzbd",
+            "nzo_id": "nzo-still-in-queue",
+            "nzb_name": "Queue.cbz",
+            "download_info": {"provider": "nzb.su", "nzo_id": "nzo-still-in-queue"},
+        },
+        issueid="970q",
+        provider="nzb.su",
+        downloader_type="sabnzbd",
+    )
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, nzo_id: nzo_id == "nzo-still-in-queue")
+    with patch("comicarr.sabnzbd.SABnzbd.historycheck") as hist:
+        action = recovery._resolve_row(journal.read_one(rkey))
+        hist.assert_not_called()
+    assert action == "still-reenqueued"
+    assert _drain(queues["pp"]) == []
+    nz = _drain(queues["nzb"])
+    assert len(nz) == 1
+    assert nz[0]["nzo_id"] == "nzo-still-in-queue"
+
+
+def test_complete_without_folder_quarantines_instead_of_pp_queue(queues):
+    rkey = journal.release_key("970c", "nzb.su", nzbname="NoFolder.cbz")
+    with get_engine().begin() as conn:
+        conn.execute(nzblog.insert().values(IssueID="970c", PROVIDER="nzb.su"))
+        conn.execute(issues.insert().values(IssueID="970c", Status="Snatched"))
+    _insert_journal(
+        rkey,
+        journal.SNATCHED,
+        payload={"issueid": "970c", "comicid": "C970", "nzb_name": "NoFolder.cbz"},
+        issueid="970c",
+        provider="nzb.su",
+        downloader_type="nzb",
+    )
+    action = recovery._resolve_row(journal.read_one(rkey), probes=_probe("complete"))
+    assert action == "complete-manual-review"
+    assert _drain(queues["pp"]) == []
+    row = _journal_row(rkey)
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert str(row.get("fail_reason") or "").startswith("invalid_recovered_postprocess_command:")
 
 
 def test_complete_enqueues_pp_with_stamped_key(queues, tmp_path):
@@ -602,17 +656,23 @@ def test_unprobeable_without_done_signal_leaves_stage_without_blaming_client(que
     assert "transient downloader outage" not in capture_logs.text
 
 
-def test_unprobeable_with_done_signal_enqueues_pp_not_unknown(queues):
+def test_unprobeable_with_done_signal_enqueues_pp_not_unknown(queues, tmp_path):
     """#832: unprobeable still hits the done-signal / eviction guard.
     History-evicted completion without placement is COMPLETE (same as
     absent), so recovery re-drives PP instead of looping as a fake outage."""
     rkey = journal.release_key("832b", "nzbgeek", nzbname="Done.cbz")
+    folder = _artifact_folder(tmp_path, "Done")
     with get_engine().begin() as conn:
         conn.execute(issues.insert().values(IssueID="832b", Status="Snatched"))
     _insert_journal(
         rkey,
         journal.SNATCHED,
-        payload={"issueid": "832b", "provider": "nzbgeek", "nzbname": "Done.cbz"},
+        payload={
+            "issueid": "832b",
+            "provider": "nzbgeek",
+            "nzb_name": "Done.cbz",
+            "nzb_folder": folder,
+        },
         issueid="832b",
         provider="nzbgeek",
         downloader_type="nzbget",
@@ -633,7 +693,8 @@ def test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe(queue
 
     The injectable `unprobeable` seam is not enough: this calls
     `replay_pipeline()` with no probes so the empty-payload branch
-    cannot drift from classify's raw-state handling."""
+    cannot drift from classify's raw-state handling. A complete verdict
+    without a usable folder is quarantined at recovery, not handed to PP."""
     rkey = journal.release_key("832c", "nzbgeek", nzbname="Reconstructed.cbz")
     with get_engine().begin() as conn:
         conn.execute(issues.insert().values(IssueID="832c", Status="Snatched"))
@@ -649,13 +710,12 @@ def test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe(queue
         summary = recovery.replay_pipeline()
         hist.assert_not_called()
     row = _journal_row(rkey)
-    assert row["stage"] == journal.DOWNLOADED
-    assert summary["actions"].get("complete-pp-enqueued") == 1
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert summary["actions"].get("complete-manual-review") == 1
     assert summary["actions"].get("done-unplaced-manual-review") is None
     assert summary["actions"].get("unknown-unchanged") is None
-    items = _drain(queues["pp"])
-    assert len(items) == 1
-    assert not (items[0].get("nzb_folder") or items[0].get("nzb_name") or "").strip()
+    assert _drain(queues["pp"]) == []
+    assert str(row.get("fail_reason") or "").startswith("invalid_recovered_postprocess_command:")
 
 
 def test_imported_oneoff_missing_nzbid_marks_done_after_library_status_fix(queues):
@@ -890,7 +950,14 @@ def test_one_bad_row_skipped_loop_continues_and_is_rerunnable(queues, monkeypatc
     _insert_journal(
         bad,
         journal.SNATCHED,
-        payload={"issueid": "90", "provider": "nzb.su", "nzo_id": "bad-90", "route": "sabnzbd"},
+        payload={
+            "issueid": "90",
+            "provider": "nzb.su",
+            "nzo_id": "bad-90",
+            "route": "sabnzbd",
+            "nzb_name": "BAD.cbz",
+            "nzb_folder": _artifact_folder(tmp_path, "BAD"),
+        },
         issueid="90",
         provider="nzb.su",
         downloader_type="nzb",
@@ -1002,8 +1069,10 @@ def test_anchor_reconstruct_when_no_advanced_sibling_and_nzblog_present(queues):
     rkey = journal.release_key("200", "nzb.su", nzbname=None, hash=None)
     row = _journal_row(rkey)
     assert row is not None
-    # Reconstructed then driven (complete -> PP enqueue).
-    assert len(_drain(queues["pp"])) == 1
+    # Reconstructed then classified complete; without a usable folder the
+    # command is quarantined rather than handed to PP.
+    assert summary["actions"].get("complete-manual-review") == 1
+    assert _drain(queues["pp"]) == []
 
 
 def test_completed_release_with_live_snatched_sibling_not_reconstructed(queues):
@@ -1433,11 +1502,12 @@ def test_done_signal_without_placement_is_not_marked_post_processed(queues):
     assert summary["actions"].get("done-check") is None
 
 
-def test_done_signal_without_placement_redrives_import_when_probe_resolves_folder(queues):
+def test_done_signal_without_placement_redrives_import_when_probe_resolves_folder(queues, tmp_path):
     """When the downloader history is still available and resolves the
     completed folder, the unplaced row falls through to classification and
     is re-driven through PP (real import) instead of being marked done."""
     rkey = journal.release_key("735", "nzb.su", nzbname="Ghosted.002.cbz")
+    completed = _artifact_folder(tmp_path, "Ghosted.002")
     _issue_row("735")
     _insert_journal(
         rkey,
@@ -1448,14 +1518,14 @@ def test_done_signal_without_placement_redrives_import_when_probe_resolves_folde
         downloader_type="nzb",
     )
 
-    probes = _probe({"status": True, "location": "/downloads/Ghosted.002", "name": "Ghosted.002.cbz"})
+    probes = _probe({"status": True, "location": completed, "name": "Ghosted.002.cbz"})
     recovery.replay_pipeline(probes=probes)
 
     row = _journal_row(rkey)
     assert row["stage"] == journal.DOWNLOADED, "#734: unplaced done-signal row is re-driven, not marked done"
     items = _drain(queues["pp"])
     assert len(items) == 1
-    assert items[0]["nzb_folder"] == "/downloads/Ghosted.002"
+    assert items[0]["nzb_folder"] == completed
     assert items[0]["journal_release_key"] == rkey
 
 
@@ -1517,11 +1587,12 @@ def test_false_terminal_without_placement_is_reopened_and_quarantined(queues):
     assert _drain(queues["pp"]) == []
 
 
-def test_false_terminal_reopen_redrives_import_when_probe_resolves_folder(queues):
+def test_false_terminal_reopen_redrives_import_when_probe_resolves_folder(queues, tmp_path):
     """When the downloader history still resolves the completed folder, a
     reopened #742 row is re-driven through PP (real import) in the SAME
     replay pass instead of being quarantined."""
     rkey = journal.release_key("743", "nzb.su", nzbname="Stranded.002.cbz")
+    completed = _artifact_folder(tmp_path, "Stranded.002")
     _issue_row("743")
     _insert_journal(
         rkey,
@@ -1537,7 +1608,7 @@ def test_false_terminal_reopen_redrives_import_when_probe_resolves_folder(queues
         downloader_type="nzb",
     )
 
-    probes = _probe({"status": True, "location": "/downloads/Stranded.002", "name": "Stranded.002.cbz"})
+    probes = _probe({"status": True, "location": completed, "name": "Stranded.002.cbz"})
     summary = recovery.replay_pipeline(probes=probes)
 
     assert summary["reopened_false_terminal"] == 1
@@ -1545,7 +1616,7 @@ def test_false_terminal_reopen_redrives_import_when_probe_resolves_folder(queues
     assert row["stage"] == journal.DOWNLOADED
     items = _drain(queues["pp"])
     assert len(items) == 1
-    assert items[0]["nzb_folder"] == "/downloads/Stranded.002"
+    assert items[0]["nzb_folder"] == completed
     assert items[0]["journal_release_key"] == rkey
 
 
@@ -1675,10 +1746,9 @@ def test_reopen_false_terminal_only_demotes_post_processed():
 
 def test_done_signal_without_placement_absent_probe_enqueues_pp_not_done(queues):
     """Downloader history evicted (probe absent) + done-signal + NO placement:
-    the cross-check inside classification still yields COMPLETE (never GONE),
-    so the row advances to `downloaded` and is handed to the PP worker —
-    whose validation owns the missing-folder quarantine. It must not be
-    marked post_processed by the done-check."""
+    the cross-check inside classification still yields COMPLETE (never GONE).
+    Recovery validates the PP command before enqueue and quarantines a
+    missing folder instead of marking the row post_processed."""
     rkey = journal.release_key("737", "nzb.su", nzbname="Ghosted.004.cbz")
     _issue_row("737")
     _insert_journal(
@@ -1693,9 +1763,11 @@ def test_done_signal_without_placement_absent_probe_enqueues_pp_not_done(queues)
     summary = recovery.replay_pipeline(probes=_probe("absent"))
 
     row = _journal_row(rkey)
-    assert row["stage"] == journal.DOWNLOADED
+    assert row["stage"] == journal.MANUAL_REVIEW
     assert summary["actions"].get("done-check") is None
-    assert len(_drain(queues["pp"])) == 1
+    assert summary["actions"].get("complete-manual-review") == 1
+    assert _drain(queues["pp"]) == []
+    assert str(row.get("fail_reason") or "").startswith("invalid_recovered_postprocess_command:")
 
 
 # ===========================================================================
