@@ -130,10 +130,12 @@ The authenticated session supplies the actor.
 
 The bundled frontend uses these routes immediately. `GET /api/activity/band`
 and the existing Downloads resolution POST routes remain deprecated,
-serialization-only adapters for the release introducing this interface, then
-are removed in the immediately following release. The unused raw
-`GET /api/downloads/needs-attention` route is removed immediately; it returned
-journal rows rather than the actionable grouped contract.
+serialization-only adapters. The seam guard fails at 0.49.0 so they leave in
+0.49.x; 0.50.0 ships without them (ADR-0003 amendment). Removing the GET
+adapter also requires a SPA-fallback fix: unknown `/api/*` paths currently
+answer 200 HTML rather than 404.
+The unused raw `GET /api/downloads/needs-attention` route is removed immediately;
+it returned journal rows rather than the actionable grouped contract.
 
 ### Triage route (`/activity/attention`)
 

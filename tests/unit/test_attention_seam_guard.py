@@ -46,6 +46,7 @@ def _tree(guard, monkeypatch, tmp_path, source, allowlist, rel="comicarr/app/lea
     module = tmp_path / rel
     module.parent.mkdir(parents=True, exist_ok=True)
     module.write_text(source, encoding="utf-8")
+    (tmp_path / "package.json").write_text('{"version": "0.44.0"}\n', encoding="utf-8")
 
     monkeypatch.setattr(guard, "ROOT", tmp_path)
     monkeypatch.setattr(guard, "SCAN_GLOBS", ("comicarr/**/*.py",))
@@ -63,6 +64,58 @@ def test_allowlist_is_the_union_of_its_two_categories(guard):
     assert guard.ALLOWLIST == {**guard.PERMANENT_HOOKS, **guard.DEPRECATED_SHIMS}
     assert not set(guard.PERMANENT_HOOKS) & set(guard.DEPRECATED_SHIMS)
     assert all(reason.strip() for reason in guard.ALLOWLIST.values())
+
+
+def test_deprecated_shims_cite_the_removal_version(guard):
+    """ADR-0003's dated removal is the allowlist trigger, not an unbounded 'next release'."""
+    assert guard.SHIM_REMOVAL_VERSION == "0.50.0"
+    assert guard.SHIM_GUARD_VERSION == "0.49.0"
+    assert guard._parse_version(guard.SHIM_GUARD_VERSION) < guard._parse_version(guard.SHIM_REMOVAL_VERSION)
+    for reason in guard.DEPRECATED_SHIMS.values():
+        assert guard.SHIM_REMOVAL_VERSION in reason
+    # The guard expires only while DEPRECATED_SHIMS is nonempty. After the
+    # 0.49.x deletion, package.json is allowed to be >= 0.49.0.
+    if guard.DEPRECATED_SHIMS:
+        assert guard._package_version() < guard._parse_version(guard.SHIM_GUARD_VERSION)
+
+
+def test_package_version_parse_is_stdlib_tuple(guard):
+    """lint:guards runs under system python3; packaging is not on that path."""
+    assert "from packaging" not in SCRIPT.read_text(encoding="utf-8")
+    assert guard._parse_version("0.49.0-beta.1") == (0, 49, 0)
+    assert isinstance(guard._package_version(), tuple)
+
+
+def test_shims_remain_allowed_before_guard_version(guard, monkeypatch):
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 48, 9))
+    assert guard.main() == 0
+
+
+def test_empty_shims_are_not_expired_at_guard_version(guard, monkeypatch):
+    """Once the allowlist is emptied, 0.49.0 is a legal package version."""
+    monkeypatch.setattr(guard, "DEPRECATED_SHIMS", {})
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 49, 0))
+    assert guard.main() == 0
+
+
+def test_expired_shims_fail_once_package_version_reaches_guard(guard, monkeypatch, capsys):
+    """Trip at 0.49.0 so main goes red during 0.49.x; Version Packages PRs skip CI."""
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 49, 0))
+    assert guard.main() == 1
+    err = capsys.readouterr().err
+    assert "outlived" in err
+    assert "0.49.0" in err
+    assert "0.50.0" in err
+
+
+def test_shim_reason_must_cite_removal_version(guard, monkeypatch, capsys):
+    monkeypatch.setattr(
+        guard,
+        "DEPRECATED_SHIMS",
+        {("comicarr/app/activity/reasons.py", "_policy"): "forgot the dated trigger"},
+    )
+    assert guard.main() == 1
+    assert "SHIM_REMOVAL_VERSION" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

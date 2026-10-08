@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-12
+**Amended:** 2026-10-08
 **Related:** [ADR-0001](./0001-band-actionability.md),
 [Activity Center contract](../architecture/activity-center.md)
 
@@ -129,9 +130,19 @@ routes remain as deprecated, serialization-only compatibility adapters:
 - `POST /api/downloads/needs-attention/{release_key}/stop-wanting`
 - `POST /api/downloads/needs-attention/{release_key}/import`
 
-They are removed in the immediately following release. The single-item adapters
-preserve their existing response bodies and status distinctions; redirects are
-not used because the command bodies and responses differ.
+They stay through 0.48.x. The original "immediately following release" window
+after 0.31.0 passed without the deletion, and pulling the GET adapter now would
+not 404: the SPA fallback answers 200 HTML for unknown paths (ADR-0002). A
+fallback fix that makes unknown `/api/*` paths 404 is a prerequisite for
+removing the GET adapter. Integrators still calling these routes keep working
+until 0.50.0. The single-item adapters preserve their existing response bodies
+and status distinctions; redirects are not used because the command bodies and
+responses differ. `scripts/check_attention_seam.py` cites 0.50.0 on every
+deprecated-shim allowlist entry and fails once `package.json` reaches **0.49.0**
+while any shim remains. Version Packages PRs use `GITHUB_TOKEN` and skip CI, so
+a 0.50.0 trip would only go red after 0.50.0 had already published; tripping one
+minor early makes the deletion land in 0.49.x so **0.50.0** ships without the
+adapters.
 
 ## Consequences
 
@@ -147,7 +158,18 @@ not used because the command bodies and responses differ.
   everywhere and migrating the HTTP interface. It adds no pagination, claim,
   lease, globally atomic batch, or new durability model.
 - Removing the compatibility routes requires a follow-up release record; they
-  are not indefinite aliases.
+  are not indefinite aliases. The removal version is 0.50.0.
+
+## Amendment (2026-10-08)
+
+The 0.31.0 changelog and this ADR promised the six compatibility adapters would
+leave in the next release. They are still served at 0.44.0. Deleting them now
+would break external scripts that still hit those paths, and a removed GET route
+would answer 200 HTML via the SPA fallback rather than 404. A fallback fix is a
+prerequisite for that GET removal. The adapters stay until 0.50.0 so the
+removal is dated and not a surprise hole in the SPA. The seam guard trips at
+0.49.0 — one minor early — because the Changesets Version Packages PR cannot
+run tests.
 
 ## Rejected alternatives
 

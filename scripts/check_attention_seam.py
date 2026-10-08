@@ -46,6 +46,7 @@ Wire-in: ``npm run lint:guards``.
 from __future__ import annotations
 
 import ast
+import json
 import sys
 from pathlib import Path
 
@@ -93,49 +94,67 @@ PERMANENT_HOOKS = {
 }
 
 # --------------------------------------------------------------------------
-# Deprecated compatibility shims — REMOVED NEXT RELEASE.
+# Deprecated compatibility shims — removed in SHIM_REMOVAL_VERSION.
 #
-# ADR-0003 keeps the old Activity/Downloads routes alive for exactly one
-# release as serialization-only adapters, and the PR body and changeset both
-# promise they go away in the immediately following release. When a shim goes,
-# its entry here must go with it — the stale-entry check makes that a prompted
-# action rather than a forgotten one.
+# ADR-0003 originally kept the old Activity/Downloads routes for one release.
+# That window passed; the 2026-10-08 amendment dates removal at 0.50.0 so
+# existing callers are not broken. Version Packages PRs use GITHUB_TOKEN and
+# skip CI, so a trip at 0.50.0 would only go red after 0.50.0 had already
+# published. The guard therefore fails once package.json reaches 0.49.0 —
+# one minor early — so the deletion lands in 0.49.x and 0.50.0 ships without
+# the shims. When a shim goes, its entry here must go with it — the
+# stale-entry check makes that a prompted action rather than a forgotten one.
+# Every reason string must cite SHIM_REMOVAL_VERSION.
 # --------------------------------------------------------------------------
+SHIM_REMOVAL_VERSION = "0.50.0"
+SHIM_GUARD_VERSION = "0.49.0"
+
 DEPRECATED_SHIMS = {
     # Compatibility re-export module: comicarr.app.activity.reasons forwards
     # the reason policy Attention now owns. Removal trigger: deleting
-    # comicarr/app/activity/reasons.py next release.
+    # comicarr/app/activity/reasons.py in 0.50.0.
     ("comicarr/app/activity/reasons.py", "_policy"): (
         "deprecated re-export of the reason policy Attention now owns; "
-        "delete with comicarr/app/activity/reasons.py next release"
+        "delete with comicarr/app/activity/reasons.py in 0.50.0"
     ),
     # Compatibility re-export module: comicarr.app.activity.reconcile forwards
     # the reconciliation entry points. Removal trigger: deleting
-    # comicarr/app/activity/reconcile.py next release.
+    # comicarr/app/activity/reconcile.py in 0.50.0.
     ("comicarr/app/activity/reconcile.py", "_reconciliation"): (
         "deprecated re-export of Attention's reconciliation entry points; "
-        "delete with comicarr/app/activity/reconcile.py next release"
+        "delete with comicarr/app/activity/reconcile.py in 0.50.0"
     ),
     # Activity read projections still join against Attention's row reader and
     # unresolved predicate rather than composing GET /api/attention.
     # Removal trigger: retiring the deprecated GET /api/activity/band adapter
-    # next release.
+    # in 0.50.0.
     ("comicarr/app/activity/queries.py", "_read"): (
         "deprecated /api/activity/band projection reusing Attention's row reader "
-        "and unresolved predicate; delete with the band adapter next release"
+        "and unresolved predicate; delete with the band adapter in 0.50.0"
     ),
     # Activity serialises Attention groups into the legacy band wire shape.
-    # Removal trigger: as above — the band adapter's removal next release.
+    # Removal trigger: as above — the band adapter's removal in 0.50.0.
     ("comicarr/app/activity/queries.py", "_serialization"): (
-        "deprecated band wire-shape serialization; delete with the /api/activity/band adapter next release"
+        "deprecated band wire-shape serialization; delete with the /api/activity/band adapter in 0.50.0"
     ),
     ("comicarr/app/activity/service.py", "_serialization"): (
         "deprecated band wire-shape serialization in the Activity read service; "
-        "delete with the /api/activity/band adapter next release"
+        "delete with the /api/activity/band adapter in 0.50.0"
     ),
 }
 
 ALLOWLIST = {**PERMANENT_HOOKS, **DEPRECATED_SHIMS}
+
+
+def _parse_version(value: str) -> tuple[int, ...]:
+    """Stdlib-only parse of a package.json version (drops a trailing pre-release)."""
+    return tuple(int(p) for p in value.split("-")[0].split("."))
+
+
+def _package_version() -> tuple[int, ...]:
+    """Installed app version from package.json — the same file Changesets bumps."""
+    payload = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    return _parse_version(str(payload["version"]))
 
 
 def _iter_source_files():
@@ -232,6 +251,9 @@ def main() -> int:
     violations: list[tuple[str, int, str]] = []
     unreadable: list[str] = []
     matched: set[tuple[str, str]] = set()
+    missing_version: list[tuple[str, str]] = []
+    expired = False
+    version_error: str | None = None
 
     for path in _iter_source_files():
         rel = path.relative_to(ROOT).as_posix()
@@ -250,6 +272,19 @@ def main() -> int:
             violations.append((rel, lineno, private))
 
     stale = sorted(set(ALLOWLIST) - matched)
+
+    for key, reason in DEPRECATED_SHIMS.items():
+        if SHIM_REMOVAL_VERSION not in reason:
+            missing_version.append(key)
+
+    try:
+        current = _package_version()
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+        version_error = str(exc)
+        current = None
+
+    if current is not None and DEPRECATED_SHIMS and current >= _parse_version(SHIM_GUARD_VERSION):
+        expired = True
 
     if violations:
         print("Private Attention submodule imported from outside %s:" % ATTENTION_DIR, file=sys.stderr)
@@ -285,7 +320,37 @@ def main() -> int:
         print("so it cannot say whether the file crosses the seam. Fix the file so it", file=sys.stderr)
         print("parses, then re-run scripts/check_attention_seam.py.", file=sys.stderr)
 
-    if violations or stale or unreadable:
+    if missing_version:
+        if violations or stale or unreadable:
+            print("", file=sys.stderr)
+        print(
+            "Deprecated Attention shim reason must cite SHIM_REMOVAL_VERSION (%s):" % SHIM_REMOVAL_VERSION,
+            file=sys.stderr,
+        )
+        for rel, private in missing_version:
+            print("  %s -> %s.%s" % (rel, ATTENTION_PKG, private), file=sys.stderr)
+
+    if version_error:
+        if violations or stale or unreadable or missing_version:
+            print("", file=sys.stderr)
+        print("Could not read package.json version for the shim removal check:", file=sys.stderr)
+        print("  %s" % version_error, file=sys.stderr)
+
+    if expired:
+        if violations or stale or unreadable or missing_version or version_error:
+            print("", file=sys.stderr)
+        print(
+            "Deprecated Attention shims outlived SHIM_GUARD_VERSION %s (package.json is %s)."
+            % (SHIM_GUARD_VERSION, ".".join(str(p) for p in current)),
+            file=sys.stderr,
+        )
+        print(
+            "Delete the six compatibility routes and empty DEPRECATED_SHIMS before %s (ADR-0003)."
+            % SHIM_REMOVAL_VERSION,
+            file=sys.stderr,
+        )
+
+    if violations or stale or unreadable or missing_version or version_error or expired:
         return 1
 
     print("Attention seam OK: %d allowlisted crossing(s), no new ones" % len(ALLOWLIST))
