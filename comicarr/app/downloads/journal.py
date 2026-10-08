@@ -249,6 +249,7 @@ _PAYLOAD_KEYS = frozenset(
         "attention_release_key",
         "download_info",
         "fail_detail",
+        "recovery_count",
     }
 )
 _DOWNLOAD_INFO_KEYS = frozenset({"provider", "id", "nzo_id", "NZBID", "hash", "nzbname", "clientmode"})
