@@ -913,3 +913,48 @@ class TestImportFileOptsIndependentOfFileOpts:
         assert exc_info.value.rollback_failed is False
         assert source.read_text() == "chapter"
         assert not (target_directory / source.name).exists()
+
+    def test_copy_imports_keep_the_source_while_file_opts_is_move(self, tmp_path):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch("comicarr.updater.forceRescan"),
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=True, file_opts="move", imp_file_opts="copy"),
+                ["imp-1"],
+                "mal-123",
+            )
+
+        assert result.moved == 1
+        assert source.read_text() == "chapter"
+        assert (target_directory / source.name).read_text() == "chapter"
+
+    @pytest.mark.parametrize("imp_file_opts", ("move", "copy", "hardlink", "softlink"))
+    def test_archive_mode_ignores_the_import_operation(self, tmp_path, imp_file_opts):
+        source = tmp_path / "inbox" / "chapter.cbz"
+        target_directory = tmp_path / "library"
+        source.parent.mkdir()
+        target_directory.mkdir()
+        source.write_text("chapter")
+
+        with (
+            _environment([_row("imp-1", source)], target_directory),
+            patch("comicarr.updater.forceRescan") as force_rescan,
+        ):
+            result = finalization.finalize_manual_match(
+                _ctx(move=False, file_opts="copy", imp_file_opts=imp_file_opts),
+                ["imp-1"],
+                "mal-123",
+            )
+
+        assert result.archived == 1
+        assert result.moved == 0
+        assert source.read_text() == "chapter"
+        assert list(target_directory.iterdir()) == []
+        assert force_rescan.call_args_list == [call("mal-123", archive=str(source.parent)), call("mal-123")]

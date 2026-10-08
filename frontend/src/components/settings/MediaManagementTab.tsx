@@ -78,11 +78,11 @@ export function MediaManagementTab({
         description="How files are handled during import and post-processing"
       >
         <SettingField
-          label="Move files on import"
+          label="Place imported files in the library"
           type="checkbox"
           checked={formData.imp_move ?? false}
           onChange={(v) => onChange("imp_move", v as boolean)}
-          helpText="Place imported files into the series folder instead of leaving them in the import directory as Archived"
+          helpText="Put Import Inbox files into the series folder. When off, they stay in the import directory and are marked Archived. Import file operation decides whether they are moved, copied, or linked."
         />
         <SettingField
           label="Import file operation"
@@ -95,7 +95,7 @@ export function MediaManagementTab({
               v === IMPORT_FILE_OPTS_INHERIT ? "" : (v as string),
             )
           }
-          helpText="How files are placed into the library when Move files on import is on. Same as downloads follows the post-processing file operation, so torrent users can keep downloads on copy and set imports to move."
+          helpText="How Import Inbox files get into the library when Place imported files in the library is on. Same as downloads follows the post-processing file operation, so torrent users can keep downloads on copy and set imports to move. Softlink leaves the file in the import directory and links to it, so don't clear the import directory."
         />
         <SettingField
           label="Rename files on import"

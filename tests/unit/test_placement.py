@@ -105,6 +105,26 @@ class TestModeIsReadAtCallTime:
         assert processed.effective_mode == "copy"
         assert grabbed.exists()
 
+    def test_import_mode_ignores_case_and_whitespace(self, paths):
+        source, destination = paths
+        config = FakeConfig(file_opts="move", imp_file_opts=" Copy ")
+
+        result = place(source, destination, Purpose.IMPORT, on_existing=OnExisting.UNGUARDED, config=config)
+
+        assert result.effective_mode == "copy"
+        assert os.path.exists(source)
+
+    @pytest.mark.parametrize("invalid", ("mvoe", 1))
+    def test_invalid_import_mode_fails_without_touching_the_source(self, paths, invalid):
+        source, destination = paths
+        config = FakeConfig(file_opts="copy", imp_file_opts=invalid)
+
+        with pytest.raises(PlacementError):
+            place(source, destination, Purpose.IMPORT, on_existing=OnExisting.REFUSE, config=config)
+
+        assert os.path.exists(source)
+        assert not os.path.exists(destination)
+
     def test_one_off_and_arc_read_arc_fileops(self, paths):
         source, destination = paths
         config = FakeConfig(file_opts="move", arc_fileops="copy")

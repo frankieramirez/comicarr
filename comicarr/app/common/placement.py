@@ -175,7 +175,7 @@ def _resolve_mode(config, purpose, multiple):
     if purpose is Purpose.IMPORT:
         import_mode = getattr(config, "IMP_FILE_OPTS", None)
         if not _unset_file_opts(import_mode):
-            return import_mode.strip() if isinstance(import_mode, str) else import_mode
+            return import_mode.strip().casefold() if isinstance(import_mode, str) else import_mode
     return config.FILE_OPTS
 
 
