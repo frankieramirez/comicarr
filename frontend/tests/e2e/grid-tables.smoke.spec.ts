@@ -88,11 +88,17 @@ test("search list and weekly pull keep the title readable on a phone", async ({
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/search?q=spider&type=comic&view=list");
-  await expect(page.getByText("Marvel", { exact: true })).toBeVisible();
-  await expect(page.getByText("2022", { exact: true })).toBeVisible();
+  const desktopSearch = page
+    .getByTestId("search-result-row")
+    .locator(".max-md\\:hidden");
+  await expect(desktopSearch.filter({ hasText: /^Marvel$/ })).toBeVisible();
+  await expect(desktopSearch.filter({ hasText: /^2022$/ })).toBeVisible();
   await page.goto("/releases?view=all");
-  await expect(page.getByText("DC Comics", { exact: true })).toBeVisible();
-  await expect(page.getByText("#19", { exact: true })).toBeVisible();
+  const desktopWeekly = page
+    .getByTestId("weekly-release-row")
+    .locator(".max-md\\:hidden");
+  await expect(desktopWeekly.filter({ hasText: /^DC Comics$/ })).toBeVisible();
+  await expect(desktopWeekly.filter({ hasText: /^#19$/ })).toBeVisible();
 });
 
 test("series issue status stays in the phone viewport", async ({
