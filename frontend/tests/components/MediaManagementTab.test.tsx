@@ -41,6 +41,33 @@ describe("MediaManagementTab import file operation", () => {
     );
   });
 
+  it("matches a padded or mixed-case stored value to the option", () => {
+    render(
+      <MediaManagementTab
+        config={{}}
+        formData={{ imp_file_opts: " Copy " }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(importFileOperation().textContent).toContain("Copy");
+    expect(importFileOperation().textContent).not.toContain(
+      "Same as downloads",
+    );
+  });
+
+  it("treats whitespace-only values as Same as downloads", () => {
+    render(
+      <MediaManagementTab
+        config={{}}
+        formData={{ imp_file_opts: "   " }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(importFileOperation().textContent).toContain("Same as downloads");
+  });
+
   it("saves a chosen mode as its own value", async () => {
     const onChange = vi.fn();
     render(

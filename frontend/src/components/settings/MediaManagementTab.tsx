@@ -16,10 +16,11 @@ const IMPORT_FILE_OPTS_OPTIONS = [
 ];
 
 function importFileOptsSelectValue(value?: string): string {
-  if (!value || value.trim().toLowerCase() === "none") {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === "none") {
     return IMPORT_FILE_OPTS_INHERIT;
   }
-  return value;
+  return normalized;
 }
 
 interface MediaManagementTabProps {
