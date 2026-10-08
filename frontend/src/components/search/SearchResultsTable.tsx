@@ -14,6 +14,8 @@ import {
   isSafeUrl,
   truncate,
 } from "./searchResultUtils";
+import { DESKTOP_COL } from "@/components/data-table/gridColumns";
+import { encodeRowId } from "@/components/data-table/rowId";
 import type { SearchResult, ContentType } from "@/types";
 
 const SORT_COLUMN_MAP: Record<string, { asc: string; desc: string }> = {
@@ -124,7 +126,8 @@ interface SearchResultsTableProps {
   columnToggleContainer?: HTMLElement | null;
 }
 
-const GRID = "40px 56px 1fr 160px 70px 70px 100px";
+const LIST_ROW_COLS =
+  "grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_56px_minmax(0,1fr)_160px_70px_70px_100px]";
 
 export default function SearchResultsTable({
   results,
@@ -137,18 +140,17 @@ export default function SearchResultsTable({
   const publisherLabel = isManga ? "Author" : "Publisher";
 
   return (
-    <div>
+    <div data-testid="search-results-table">
       {/* Header — sticky inside the page's results scroll region. */}
       <div
-        className="sticky top-0 z-10 grid items-center gap-3 px-5 py-2 font-mono text-[10px] tracking-[0.08em] uppercase border-b"
+        className={`sticky top-0 z-10 grid items-center gap-3 px-5 py-2 font-mono text-[10px] tracking-[0.08em] uppercase border-b ${LIST_ROW_COLS}`}
         style={{
-          gridTemplateColumns: GRID,
           borderColor: "var(--border)",
           background: "var(--background)",
           color: "var(--text-muted)",
         }}
       >
-        <div />
+        <div className={DESKTOP_COL} />
         <div />
         <div>
           <SortHeader
@@ -158,8 +160,8 @@ export default function SearchResultsTable({
             onSortChange={onSortChange}
           />
         </div>
-        <div>{publisherLabel}</div>
-        <div>
+        <div className={DESKTOP_COL}>{publisherLabel}</div>
+        <div className={DESKTOP_COL}>
           <SortHeader
             columnId="year"
             title="Year"
@@ -167,7 +169,7 @@ export default function SearchResultsTable({
             onSortChange={onSortChange}
           />
         </div>
-        <div>
+        <div className={DESKTOP_COL}>
           <SortHeader
             columnId="issues"
             title={issuesLabel}
@@ -185,21 +187,25 @@ export default function SearchResultsTable({
         const issues = comic.issues ?? comic.count_of_issues;
         return (
           <div
-            key={comic.comicid ?? comic.id ?? idx}
-            className="grid items-center gap-3 px-5 py-2.5 border-b hover:bg-secondary/30 transition-colors text-[12px]"
+            key={encodeRowId([
+              comic.comicid ?? comic.id,
+              comic.name,
+              comic.comicyear,
+            ])}
+            data-testid="search-result-row"
+            className={`grid items-center gap-3 px-5 py-2.5 border-b hover:bg-secondary/30 transition-colors text-[12px] ${LIST_ROW_COLS}`}
             style={{
-              gridTemplateColumns: GRID,
               borderColor: "var(--border)",
             }}
           >
             <div
-              className="font-mono text-[10px]"
+              className={`${DESKTOP_COL} font-mono text-[10px]`}
               style={{ color: "var(--text-muted)" }}
             >
               {String(idx + 1).padStart(2, "0")}
             </div>
             <CoverThumbnail comic={comic} />
-            <div className="min-w-0">
+            <div className="min-w-0" data-grid-title="">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-medium truncate text-[13px]">
                   {comic.name}
@@ -238,7 +244,7 @@ export default function SearchResultsTable({
               )}
             </div>
             <div
-              className="truncate"
+              className={`${DESKTOP_COL} truncate`}
               style={{ color: "var(--muted-foreground)" }}
             >
               {comic.publisher && comic.publisher !== "Unknown"
@@ -246,12 +252,12 @@ export default function SearchResultsTable({
                 : "—"}
             </div>
             <div
-              className="font-mono text-[11px]"
+              className={`${DESKTOP_COL} font-mono text-[11px]`}
               style={{ color: "var(--muted-foreground)" }}
             >
               {comic.comicyear || "—"}
             </div>
-            <div className="font-mono text-[11px]">
+            <div className={`${DESKTOP_COL} font-mono text-[11px]`}>
               {issues !== undefined ? issues : "—"}
             </div>
             <div className="flex justify-end">

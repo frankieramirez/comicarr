@@ -312,13 +312,22 @@ describe("SeriesDetailPage", () => {
     );
     expect(issues.className.split(/\s+/)).toEqual(
       expect.arrayContaining([
-        "overflow-x-auto",
+        "md:overflow-x-auto",
         "split:min-h-0",
         "split:flex-1",
         "split:overflow-auto",
       ]),
     );
+    expect(issues.className.split(/\s+/)).not.toContain("overflow-x-auto");
     expect(issues.className.split(/\s+/)).not.toContain("flex-1");
+    expect(issues.querySelector(".md\\:min-w-\\[920px\\]")).toBeTruthy();
+    const issueRow = issues.querySelector(".grid.items-center");
+    expect(issueRow?.className).toMatch(
+      /grid-cols-\[42px_minmax\(0,1fr\)_auto_36px\]/,
+    );
+    expect(issueRow?.className).toMatch(
+      /md:grid-cols-\[28px_72px_42px_minmax\(220px,1fr\)_/,
+    );
 
     expect(body.contains(screen.getByTestId("series-description"))).toBe(true);
     expect(

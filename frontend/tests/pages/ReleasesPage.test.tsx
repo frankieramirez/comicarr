@@ -146,6 +146,34 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("Releases refreshed.")).toBeTruthy();
   });
 
+  it("uses a phone weekly grid that keeps title and status", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json([
+          {
+            COMIC: "Absolute Batman",
+            ISSUE: "19",
+            PUBLISHER: "DC",
+            SHIPDATE: "2026-08-12",
+            STATUS: "Wanted",
+            ComicID: "comic-1",
+          },
+        ]),
+      ),
+    );
+    render(<ReleasesPage />, {
+      useMemoryRouter: true,
+      route: "/releases?view=all",
+    });
+
+    const row = await screen.findByTestId("weekly-release-row");
+    expect(row.className).toMatch(/grid-cols-\[minmax\(0,1fr\)_auto\]/);
+    expect(row.className).toMatch(
+      /md:grid-cols-\[minmax\(0,1fr\)_80px_160px_100px\]/,
+    );
+    expect(row.querySelectorAll(".max-md\\:hidden").length).toBeGreaterThan(0);
+  });
+
   it("offers interactive review for wanted releases", async () => {
     server.use(
       http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),
