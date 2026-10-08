@@ -179,12 +179,15 @@ def run(request):
                         "failed",
                         "issueid",
                         "comicid",
+                        "provider",
                         "apicall",
                         "ddl",
                         "download_info",
+                        "attention_release_key",
                     )
                 },
                 issueid=item.get("issueid"),
+                provider=item.get("provider"),
             )
         except Exception as e:
             if item.get("journal_release_key"):

@@ -403,16 +403,24 @@ def test_import_stamps_only_on_success(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queuelib.Queue(), raising=False)
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    processed = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.postprocessing._execute",
+        lambda item: processed.append(item),
+    )
 
     result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
     assert result["success"] is True
     assert _journal_row(key)["status"] == journal.STATUS_IMPORTED
     assert _journal_row(key)["stage"] == journal.MANUAL_REVIEW
-    assert not comicarr.PP_QUEUE.empty()
-    queued = comicarr.PP_QUEUE.get_nowait()
-    assert "journal_release_key" not in queued
+    assert len(processed) == 1
+    attempt_key = processed[0]["journal_release_key"]
+    assert attempt_key.startswith("%s|import:" % key)
+    attempt = _journal_row(attempt_key)
+    assert attempt["stage"] == journal.POST_PROCESSING
+    payload = journal.load_payload(attempt.get("payload_json"))
+    assert payload["attention_release_key"] == key
 
 
 def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
@@ -436,6 +444,151 @@ def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
     assert "error" in result
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
     assert key in _attention_release_keys()
+
+
+def test_import_uses_row_scoped_key_despite_prior_keyless_post_processed(tmp_path, monkeypatch):
+    _seed_issue(issueid="123", comicid="C1")
+    root = tmp_path / "pp"
+    root.mkdir()
+    folder = root / "job"
+    folder.mkdir()
+    prior = journal.release_key("123", "")
+    journal.record_transition(prior, journal.SNATCHED, issueid="123", provider="")
+    journal.record_transition(prior, journal.DOWNLOADED)
+    journal.record_transition(prior, journal.POST_PROCESSING)
+    journal.mark_done(prior)
+    key = _seed_manual_review_row(
+        key="123|nzbgeek",
+        issueid="123",
+        provider="nzbgeek",
+        nzb_folder=str(folder),
+        nzb_name="Saga.001.cbz",
+    )
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(
+            FAILED_DOWNLOAD_HANDLING=True,
+            FAILED_AUTO=False,
+            HIGHCOUNT=0,
+            DDL_LOCATION=str(tmp_path / "ddl"),
+            CACHE_DIR=str(tmp_path / "cache"),
+            DESTINATION_DIR=str(tmp_path / "library"),
+            MANUAL_PP_FOLDER=str(root),
+        ),
+        raising=False,
+    )
+    processed = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.postprocessing._execute",
+        lambda item: processed.append(item),
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+
+    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
+
+    assert result["success"] is True
+    assert len(processed) == 1
+    attempt_key = processed[0]["journal_release_key"]
+    assert attempt_key.startswith("123|nzbgeek|import:")
+    assert _journal_row(attempt_key)["stage"] == journal.POST_PROCESSING
+    assert _journal_row(key)["status"] == journal.STATUS_IMPORTED
+    assert _journal_row(prior)["stage"] == journal.POST_PROCESSED
+
+
+def test_import_refused_claim_does_not_stamp_band_row(tmp_path, monkeypatch):
+    _seed_issue()
+    root = tmp_path / "pp"
+    root.mkdir()
+    folder = root / "job"
+    folder.mkdir()
+    key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(
+            FAILED_DOWNLOAD_HANDLING=True,
+            FAILED_AUTO=False,
+            HIGHCOUNT=0,
+            DDL_LOCATION=str(tmp_path / "ddl"),
+            CACHE_DIR=str(tmp_path / "cache"),
+            DESTINATION_DIR=str(tmp_path / "library"),
+            MANUAL_PP_FOLDER=str(root),
+        ),
+        raising=False,
+    )
+    original = journal.record_transition
+
+    def refuse_import_claim(release_key, stage, *args, **kwargs):
+        if stage == journal.POST_PROCESSING and "|import:" in str(release_key):
+            return False
+        return original(release_key, stage, *args, **kwargs)
+
+    monkeypatch.setattr(journal, "record_transition", refuse_import_claim)
+    processed = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.postprocessing._execute",
+        lambda item: processed.append(item),
+    )
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+
+    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
+
+    assert result["success"] is False
+    assert processed == []
+    assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
+    assert key in _attention_release_keys()
+
+
+def test_force_process_stays_unjournaled(tmp_path, monkeypatch):
+    root = tmp_path / "pp"
+    root.mkdir()
+    folder = root / "job"
+    folder.mkdir()
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        SimpleNamespace(
+            FAILED_DOWNLOAD_HANDLING=True,
+            FAILED_AUTO=False,
+            HIGHCOUNT=0,
+            DDL_LOCATION=str(tmp_path / "ddl"),
+            CACHE_DIR=str(tmp_path / "cache"),
+            DESTINATION_DIR=str(tmp_path / "library"),
+            MANUAL_PP_FOLDER=str(root),
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(comicarr, "PP_QUEUE", queuelib.Queue(), raising=False)
+    processed = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.postprocessing._execute",
+        lambda item: processed.append(item),
+    )
+
+    queued = dl_service.force_process(
+        nzb_name="Saga.001.cbz",
+        nzb_folder=str(folder),
+        issueid="1001",
+        comicid="C1",
+    )
+    assert queued["success"] is True
+    item = comicarr.PP_QUEUE.get_nowait()
+    assert item["source"] == "manual"
+    assert "journal_release_key" not in item
+    comicarr.PP_QUEUE.put(item)
+    comicarr.PP_QUEUE.put("exit")
+    dl_service.postprocess_main(comicarr.PP_QUEUE)
+
+    assert len(processed) == 1
+    assert journal.read_one("1001|") is None
+    assert processed[0].get("journal_release_key") in (None, "")
+
+
+def test_import_attempt_key_is_derived_from_the_band_row():
+    assert journal.import_attempt_key("123", "nzbgeek", attempt_id="retry-1") == "123|nzbgeek|import:retry-1"
+    assert journal.import_attempt_key("123", "nzbgeek", attempt_id="retry-1") != journal.release_key("123", "nzbgeek")
+    assert journal.import_attempt_key("123", "nzbgeek", attempt_id="retry-1") != journal.release_key("123", "")
 
 
 def test_retry_not_allowed_on_manual_review():
@@ -762,7 +915,11 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queuelib.Queue(), raising=False)
+    processed = []
+    monkeypatch.setattr(
+        "comicarr.app.downloads.postprocessing._execute",
+        lambda item: processed.append(item),
+    )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
     result = dl_service.resolve_needs_attention_batch(ctx, "import", [key], audit_identity="op")
@@ -770,9 +927,10 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
     assert result["success"] is True
     assert result["succeeded"] == 1
     assert _journal_row(key)["status"] == journal.STATUS_IMPORTED
-    queued = comicarr.PP_QUEUE.get_nowait()
-    assert queued["nzb_name"] == "Saga.001.cbz"
-    assert queued["nzb_folder"] == str(folder)
+    assert len(processed) == 1
+    assert processed[0]["nzb_name"] == "Saga.001.cbz"
+    assert processed[0]["nzb_folder"] == str(folder)
+    assert processed[0]["journal_release_key"].startswith("%s|import:" % key)
 
 
 def test_batch_rejects_unknown_action_and_empty_keys():
