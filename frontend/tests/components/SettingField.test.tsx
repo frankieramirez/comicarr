@@ -75,6 +75,59 @@ describe("SettingField checkbox", () => {
   });
 });
 
+describe("SettingField ids", () => {
+  it("gives two fields with the same label unique ids", () => {
+    const { container } = render(
+      <>
+        <SettingField
+          label="Notify on snatch"
+          type="checkbox"
+          checked={false}
+          onChange={vi.fn()}
+        />
+        <SettingField
+          label="Notify on snatch"
+          type="checkbox"
+          checked={false}
+          onChange={vi.fn()}
+        />
+      </>,
+    );
+
+    const boxes = screen.getAllByRole("checkbox", { name: "Notify on snatch" });
+    expect(boxes).toHaveLength(2);
+    expect(boxes[0].id).not.toBe(boxes[1].id);
+    expect(boxes[0].id).toBeTruthy();
+    expect(boxes[1].id).toBeTruthy();
+
+    const ids = [...container.querySelectorAll("[id]")]
+      .map((el) => el.id)
+      .filter(Boolean);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("points help and error text at the control through aria-describedby", () => {
+    render(
+      <SettingField
+        label="Webhook URL"
+        value=""
+        onChange={vi.fn()}
+        helpText="Discord channel webhook URL"
+        error="Enter a URL"
+      />,
+    );
+
+    const field = screen.getByRole("textbox", { name: "Webhook URL" });
+    const describedBy = field.getAttribute("aria-describedby") ?? "";
+    expect(describedBy.split(" ")).toEqual(
+      expect.arrayContaining([
+        screen.getByText("Discord channel webhook URL").id,
+        screen.getByText("Enter a URL").id,
+      ]),
+    );
+  });
+});
+
 describe("SettingField textarea", () => {
   it("edits a multi-line value such as one path per line", async () => {
     const onChange = vi.fn();
