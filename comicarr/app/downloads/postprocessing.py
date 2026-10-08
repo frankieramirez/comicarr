@@ -23,9 +23,6 @@ from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate
 __all__ = ["PostProcessResult", "run", "recover"]
 
 _MAX_INLINE_PP_REDRIVE_PER_PASS = 5
-# Same restart bound as RunLedger.MAX_RECOVERY_ATTEMPTS. Duplicated to avoid a
-# startup circular import through helpers -> downloads.service -> runs.
-_MAX_PP_RECOVERY_ATTEMPTS = 3
 _RECOVERY_BUDGET = ContextVar("postprocessing_recovery_budget", default=None)
 
 
@@ -188,8 +185,12 @@ def _legacy_stop_result(value):
 
 def _claim_recovery(release_key, item, payload):
     """Count one restart re-drive, or quarantine once the bound is spent."""
+    # Lazy: helpers -> downloads.service -> this module, so a module-level
+    # import of runs would cycle at startup.
+    from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
+
     recovered = _recovery_count(payload)
-    if recovered >= _MAX_PP_RECOVERY_ATTEMPTS:
+    if recovered >= MAX_RECOVERY_ATTEMPTS:
         _quarantine(item, "recovery_attempts_exhausted:post_processing", release_key)
         return False
     next_payload = dict(payload or {})
@@ -211,6 +212,18 @@ def _note_unfinished_claim(release_key, value):
     else:
         payload.setdefault("fail_detail", "postprocess_unfinished")
     journal.record_transition(release_key, journal.POST_PROCESSING, payload=payload)
+
+
+def _try_note_unfinished_claim(release_key, value):
+    """Rotation bookkeeping must not change a completed run's outcome."""
+    try:
+        _note_unfinished_claim(release_key, value)
+    except Exception as e:
+        logger.warn(
+            "[POST-PROCESSING] Unable to rotate unfinished claim for %s: %s",
+            release_key,
+            type(e).__name__,
+        )
 
 
 def run(request):
@@ -290,7 +303,7 @@ def run(request):
         item["journal_release_key"] = key
         step = "process"
         value = _execute(item)
-        _note_unfinished_claim(key, value)
+        _try_note_unfinished_claim(key, value)
         _stamp_attention_import(item, succeeded=True)
         return PostProcessResult("processed", value=value)
     except MaintenanceBlocked:
@@ -360,7 +373,7 @@ def recover(release_key):
         if budget is not None:
             budget["count"] += 1
         value = _execute(item)
-        _note_unfinished_claim(release_key, value)
+        _try_note_unfinished_claim(release_key, value)
         return PostProcessResult("processed", value=value, action="post_processing-redrive")
     except MaintenanceBlocked:
         return PostProcessResult(

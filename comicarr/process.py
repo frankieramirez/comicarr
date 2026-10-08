@@ -100,6 +100,7 @@ class Process(object):
 
         ppqueue = queue.Queue()
         retry_outside = False
+        result = None
 
         if self.failed is False:
             PostProcess = comicarr.postprocessor.PostProcessor(
@@ -115,6 +116,7 @@ class Process(object):
             PostProcess.Process()
             if not ppqueue.empty():
                 chk = ppqueue.get()
+                result = chk
                 while True:
                     if chk[0]["mode"] == "fail":
                         logger.info("Initiating Failed Download handling")
@@ -146,6 +148,7 @@ class Process(object):
                 )
                 FailProcess.Process()
                 failchk = ppqueue.get()
+                result = failchk
                 if failchk[0]["mode"] == "retry":
                     logger.info("Attempting to return to search module with " + str(failchk[0]["issueid"]))
                     from comicarr.app.search.commands import enqueue_failed_download_retry
@@ -168,6 +171,7 @@ class Process(object):
             )
             PostProcess.Process()
             chk = ppqueue.get()
+            result = chk
             while True:
                 if chk[0]["mode"] == "fail":
                     logger.info("Initiating Failed Download handling")
@@ -178,4 +182,4 @@ class Process(object):
                 else:
                     logger.error("mode is unsupported: " + chk[0]["mode"])
                     break
-        return
+        return result
