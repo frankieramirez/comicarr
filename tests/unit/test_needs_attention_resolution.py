@@ -1045,6 +1045,13 @@ def test_reason_to_stage_is_a_function():
             "reason",
         ),
         (
+            "comicarr/app/downloads/service.py",
+            "_cdh_record_terminal_outcome",
+            "Failure",
+            journal.FAILED,
+            "failed_mod.FAIL_REASON_NO_AUTO_HANDLING",
+        ),
+        (
             "comicarr/failed.py",
             "terminalize_failed_download",
             "Failure",
