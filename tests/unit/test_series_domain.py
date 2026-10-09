@@ -226,6 +226,7 @@ def test_get_comic_detail_returns_backend_summary_for_issues_and_null_deleted_an
         "get_annuals",
         lambda _comic_id: [_state_row(id="annual", status="Archived")],
     )
+    monkeypatch.setattr(series_service.series_queries, "get_comic_provider_override", lambda _comic_id: None)
 
     result = series_service.get_comic_detail(_make_ctx(ANNUALS_ON=True), "160294")
 

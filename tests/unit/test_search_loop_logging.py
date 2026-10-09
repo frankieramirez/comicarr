@@ -53,7 +53,7 @@ def _patch_search_env(monkeypatch, providers):
         raising=False,
     )
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
-    monkeypatch.setattr(search, "provider_order", lambda initial_run=False: _torznab_providers(providers))
+    monkeypatch.setattr(search, "provider_order", lambda initial_run=False, comic_id=None: _torznab_providers(providers))
     monkeypatch.setattr(search.helpers, "get_issue_title", lambda *args, **kwargs: None)
     monkeypatch.setattr(search.helpers, "block_provider_check", lambda *args, **kwargs: False)
 
@@ -173,7 +173,7 @@ def test_search_init_found_exit_logs_summary(search_env, monkeypatch):
 
 
 def test_search_init_blocked_provider_still_summarizes(search_env, monkeypatch):
-    monkeypatch.setattr(search, "provider_order", lambda initial_run=False: _torznab_providers(2))
+    monkeypatch.setattr(search, "provider_order", lambda initial_run=False, comic_id=None: _torznab_providers(2))
     checks = []
 
     def block_after_first(*args, **kwargs):

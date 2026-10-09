@@ -238,6 +238,19 @@ def update_comic_search_settings(comic_id, values):
     db.upsert("comics", values, {"ComicID": comic_id})
 
 
+def get_comic_provider_override(comic_id):
+    """Get a Series' stored search provider override, or None."""
+    if not comic_id:
+        return None
+    row = db.select_one(select(t_comics.c.ProviderOverride).where(t_comics.c.ComicID == comic_id))
+    return row.get("ProviderOverride") if row else None
+
+
+def update_comic_provider_override(comic_id, value):
+    """Persist a Series' search provider override JSON; None clears it."""
+    db.upsert("comics", {"ProviderOverride": value}, {"ComicID": comic_id})
+
+
 def get_comic_content_kind(comic_id):
     """Get the persisted content kind and location fields for a Series."""
     return db.select_one(

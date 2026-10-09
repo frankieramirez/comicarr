@@ -456,6 +456,17 @@ export interface ProviderPageLink {
   url: string;
 }
 
+export interface ProviderOverride {
+  order: string[];
+  exclude: string[];
+}
+
+/** Enabled search providers in global order, and the Series' override. */
+export interface SeriesSearchProviders {
+  available: string[];
+  override: ProviderOverride | null;
+}
+
 /** Series detail response (includes issues) */
 export interface SeriesDetail {
   comic: Comic[] | Comic;
@@ -463,6 +474,7 @@ export interface SeriesDetail {
   annuals?: Issue[];
   summary?: SeriesIssueSummary;
   providerLinks?: ProviderPageLink[];
+  searchProviders?: SeriesSearchProviders;
 }
 
 /** Content type for comic/manga distinction */
