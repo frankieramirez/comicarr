@@ -147,7 +147,7 @@ export default function IssueDetailPage() {
       <div className="flex-1 min-h-0 overflow-auto">
         <div className="grid gap-7 border-b px-5 py-6 md:grid-cols-[140px_minmax(0,1fr)]">
           <div
-            className="aspect-[2/3] w-[112px] overflow-hidden rounded-[5px] border md:w-[140px]"
+            className="aspect-[2/3] w-[112px] overflow-hidden rounded-control border md:w-[140px]"
             style={{
               borderColor: "var(--border)",
               background:
@@ -213,7 +213,7 @@ export default function IssueDetailPage() {
               <div className="pt-1">
                 <Link
                   to={`/activity?scope_type=issue&scope_id=${encodeURIComponent(issueId)}`}
-                  className="inline-flex items-center gap-1.5 rounded-[5px] border px-3 py-1.5 text-[12px] font-semibold transition-colors hover:text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-[12px] font-semibold transition-colors hover:text-foreground"
                   style={{
                     borderColor: "var(--border)",
                     color: "var(--muted-foreground)",

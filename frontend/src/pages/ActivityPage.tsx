@@ -342,7 +342,7 @@ function InFlightView() {
               <RelativeTime value={item.updated_at} />
               <button
                 type="button"
-                className="rounded-[5px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-secondary/50"
+                className="rounded-control border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-secondary/50"
                 style={{ borderColor: "var(--border)" }}
                 aria-label={`Stop ${item.label}`}
                 disabled={cancelInFlight.isPending}
@@ -388,7 +388,7 @@ function ActivityToolbar({
         type="button"
         onClick={onRefresh}
         disabled={isRefreshing}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] border font-mono text-[11px] text-muted-foreground disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border font-mono text-[11px] text-muted-foreground disabled:opacity-60"
         style={{ borderColor: "var(--border)" }}
       >
         <RefreshCw
@@ -693,7 +693,7 @@ function QueueView() {
                 type="button"
                 onClick={() => void handleRequeue(item)}
                 disabled={isRequeueing}
-                className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                 style={{ borderColor: "var(--border)" }}
                 aria-label={`Requeue ${item.series || item.filename || "failed direct download"}`}
                 title="Requeue this failed direct download after confirmation"

@@ -104,7 +104,7 @@ function GroupRow({
               type="button"
               disabled={busy}
               onClick={() => onAction(action, group)}
-              className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+              className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
               style={{ borderColor: "var(--border)" }}
             >
               {actionLabel(action)}
@@ -159,7 +159,7 @@ export default function NeedsAttentionBand() {
       <div className="px-5 py-2.5" data-testid="needs-attention-loading">
         <div
           aria-hidden="true"
-          className="h-2.5 w-48 animate-pulse rounded-[2px] bg-primary/10"
+          className="h-2.5 w-48 animate-pulse rounded-sm bg-primary/10"
         />
       </div>
     );

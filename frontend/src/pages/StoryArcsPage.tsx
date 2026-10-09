@@ -43,7 +43,7 @@ export default function StoryArcsPage() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-[6px] border border-border bg-card overflow-hidden"
+                className="rounded-lg border border-border bg-card overflow-hidden"
               >
                 <Skeleton className="h-32" />
                 <div className="p-3 space-y-2">

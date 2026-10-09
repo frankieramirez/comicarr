@@ -193,7 +193,7 @@ function Metric({
           : "var(--foreground)";
   return (
     <div
-      className="min-w-0 rounded-[6px] border px-3 py-2.5"
+      className="min-w-0 rounded-lg border px-3 py-2.5"
       style={{ borderColor: "var(--border)" }}
     >
       <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
@@ -224,7 +224,7 @@ function Message({
       : "color-mix(in oklab, var(--status-paused) 10%, transparent)";
   return (
     <div
-      className="flex gap-2 rounded-[6px] border px-3 py-2 text-[12px] leading-relaxed"
+      className="flex gap-2 rounded-lg border px-3 py-2 text-[12px] leading-relaxed"
       style={{
         borderColor: `color-mix(in oklab, ${color} 38%, transparent)`,
         background,
@@ -254,7 +254,7 @@ function RouteCard({
   const routeTone = ready ? "ready" : health.blocked ? "danger" : "warning";
   return (
     <article
-      className="rounded-[6px] border p-3"
+      className="rounded-lg border p-3"
       style={{ borderColor: "var(--border)" }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -331,7 +331,7 @@ function WorkerCard({
   const state = health.state || (health.alive ? "live" : "unavailable");
   return (
     <article
-      className="rounded-[6px] border p-3"
+      className="rounded-lg border p-3"
       style={{ borderColor: "var(--border)" }}
     >
       <div className="flex items-center justify-between gap-2">
@@ -384,7 +384,7 @@ function RunCard({ kind, run }: { kind: string; run: AcquisitionRunHealth }) {
   const completion = run.completion?.state || "unknown";
   return (
     <article
-      className="rounded-[6px] border p-3"
+      className="rounded-lg border p-3"
       style={{ borderColor: "var(--border)" }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -821,7 +821,7 @@ export function AcquisitionHealthTab() {
             </div>
             {operations.jobs.data?.jobs?.length ? (
               <div
-                className="overflow-x-auto rounded-[6px] border"
+                className="overflow-x-auto rounded-lg border"
                 style={{ borderColor: "var(--border)" }}
               >
                 <table className="w-full min-w-[520px] text-left">
@@ -912,7 +912,7 @@ export function AcquisitionHealthTab() {
 
           {preview && (
             <article
-              className="space-y-3 rounded-[6px] border p-3.5"
+              className="space-y-3 rounded-lg border p-3.5"
               style={{
                 borderColor: "var(--border)",
                 background: "var(--secondary)",
@@ -1031,7 +1031,7 @@ export function AcquisitionHealthTab() {
 
           {visibleRun && (
             <article
-              className="space-y-3 rounded-[6px] border p-3.5"
+              className="space-y-3 rounded-lg border p-3.5"
               style={{ borderColor: "var(--border)" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1202,7 +1202,7 @@ export function AcquisitionHealthTab() {
 
       {operatorMessage && (
         <div
-          className="flex items-start gap-2 rounded-[6px] border px-3 py-2 text-[12px]"
+          className="flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px]"
           style={{
             borderColor:
               "color-mix(in oklab, var(--status-active) 35%, transparent)",

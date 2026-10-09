@@ -27,7 +27,7 @@ export function SeriesContentKind({
 }: SeriesContentKindProps) {
   return (
     <section
-      className="mb-3.5 max-w-[640px] rounded-[6px] border p-3"
+      className="mb-3.5 max-w-[640px] rounded-lg border p-3"
       style={{
         borderColor: "var(--border)",
         background: "color-mix(in oklab, var(--primary) 4%, var(--background))",
@@ -53,7 +53,7 @@ export function SeriesContentKind({
           role="radiogroup"
           aria-label="Content kind"
           aria-busy={pending}
-          className="relative grid grid-cols-2 rounded-[5px] border border-border bg-background p-0.5"
+          className="relative grid grid-cols-2 rounded-control border border-border bg-background p-0.5"
         >
           {(Object.keys(KIND_COPY) as ContentType[]).map((kind) => {
             const active = value === kind;

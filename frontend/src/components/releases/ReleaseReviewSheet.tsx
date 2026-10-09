@@ -203,7 +203,7 @@ function IssueContext({
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div
-        className="grid size-12 shrink-0 place-items-center rounded-[5px] border font-mono text-sm font-semibold"
+        className="grid size-12 shrink-0 place-items-center rounded-control border font-mono text-sm font-semibold"
         style={{
           borderColor: "var(--border)",
           background: "color-mix(in oklab, var(--primary) 9%, var(--card))",

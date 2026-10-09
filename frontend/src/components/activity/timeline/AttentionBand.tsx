@@ -36,7 +36,7 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
   return (
     <Link
       to={`${href}${href.includes("?") ? "&" : "?"}group=${encodeURIComponent(group.group_key)}`}
-      className="flex w-[200px] shrink-0 flex-col rounded-[5px] border bg-[var(--background)] p-2.5 text-left hover:border-[var(--primary)]"
+      className="flex w-[200px] shrink-0 flex-col rounded-control border bg-[var(--background)] p-2.5 text-left hover:border-[var(--primary)]"
       style={{ borderColor: "var(--border)", height: CARD_HEIGHT }}
     >
       <div className="flex items-center gap-1.5">
@@ -131,7 +131,7 @@ export function AttentionBand({
         {more > 0 && (
           <Link
             to={href}
-            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-[5px] border border-dashed font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-control border border-dashed font-mono text-[11px] text-muted-foreground hover:text-foreground"
             style={{ borderColor: "var(--border)", height: CARD_HEIGHT }}
           >
             +{more}

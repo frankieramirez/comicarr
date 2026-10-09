@@ -42,7 +42,7 @@ export default function SeriesListPage() {
         actions={
           <Link
             to="/search"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-semibold"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold"
             style={{
               background: "var(--primary)",
               color: "var(--primary-foreground)",

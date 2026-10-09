@@ -288,9 +288,9 @@ export default function DashboardPage() {
         <div className="px-5 py-3.5" data-testid="ask-bar">
           <form
             onSubmit={handleAsk}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] border border-border bg-card focus-within:border-primary"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card focus-within:border-primary"
           >
-            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-[5px] bg-primary/15">
+            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-control bg-primary/15">
               <span className="size-[5px] rounded-[1px] bg-primary" />
             </span>
             <input

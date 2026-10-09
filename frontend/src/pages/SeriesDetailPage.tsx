@@ -714,7 +714,7 @@ export default function SeriesDetailPage() {
           style={{ borderColor: "var(--border)" }}
         >
           <div
-            className="aspect-[2/3] w-[112px] overflow-hidden rounded-[5px] border md:w-[140px]"
+            className="aspect-[2/3] w-[112px] overflow-hidden rounded-control border md:w-[140px]"
             style={{ borderColor: "var(--border)" }}
           >
             {coverSrc && (
@@ -963,7 +963,7 @@ export default function SeriesDetailPage() {
           </div>
 
           <div
-            className="rounded-[6px] border md:col-span-2 xl:col-span-1"
+            className="rounded-lg border md:col-span-2 xl:col-span-1"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
             <div
@@ -1083,7 +1083,7 @@ export default function SeriesDetailPage() {
                     </span>
                     <select
                       aria-label="Bare numbers"
-                      className="h-7 rounded-[5px] border bg-background px-2"
+                      className="h-7 rounded-control border bg-background px-2"
                       style={{ borderColor: "var(--border)" }}
                       disabled={searchSettingsMutation.isPending}
                       value={comic.BareNumberMode || "auto"}
@@ -1105,7 +1105,7 @@ export default function SeriesDetailPage() {
                     </span>
                     <select
                       aria-label="Monitor"
-                      className="h-7 rounded-[5px] border bg-background px-2"
+                      className="h-7 rounded-control border bg-background px-2"
                       style={{ borderColor: "var(--border)" }}
                       disabled={searchSettingsMutation.isPending}
                       value={comic.MonitorMode || "blended"}
@@ -1366,7 +1366,7 @@ export default function SeriesDetailPage() {
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        className="inline-flex size-7 items-center justify-center rounded-[5px] transition-colors hover:bg-secondary/50"
+                        className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
                         style={{ color: "var(--muted-foreground)" }}
                         aria-label={interactiveSearchLabel(issue)}
                         title="Interactive Search"
@@ -1413,7 +1413,7 @@ export default function SeriesDetailPage() {
             {searchError && (
               <div
                 role="alert"
-                className="rounded-[5px] border p-3 text-[12px]"
+                className="rounded-control border p-3 text-[12px]"
                 style={{
                   borderColor:
                     "color-mix(in oklab, var(--status-error) 35%, transparent)",
@@ -1431,7 +1431,7 @@ export default function SeriesDetailPage() {
             {preview && !searchOutcome && !searchPreview.isFetching && (
               <>
                 <div
-                  className="rounded-[5px] border p-3 text-[12px]"
+                  className="rounded-control border p-3 text-[12px]"
                   style={{
                     borderColor: "var(--border)",
                     background: "var(--card)",
@@ -1463,7 +1463,7 @@ export default function SeriesDetailPage() {
                 {!routeViable ? (
                   <div
                     role="alert"
-                    className="rounded-[5px] border p-3 text-[12px]"
+                    className="rounded-control border p-3 text-[12px]"
                     style={{
                       borderColor:
                         "color-mix(in oklab, var(--status-paused) 35%, transparent)",
@@ -1503,7 +1503,7 @@ export default function SeriesDetailPage() {
                   </div>
                 ) : preview.eligibleCount === 0 ? (
                   <div
-                    className="rounded-[5px] border p-3 text-[12px]"
+                    className="rounded-control border p-3 text-[12px]"
                     style={{
                       borderColor: "var(--border)",
                       color: "var(--muted-foreground)",
@@ -1525,7 +1525,7 @@ export default function SeriesDetailPage() {
 
             {searchOutcome && (
               <div
-                className="rounded-[5px] border p-3 text-[12px]"
+                className="rounded-control border p-3 text-[12px]"
                 style={{
                   borderColor: "var(--border)",
                   background: "var(--card)",
@@ -1547,7 +1547,7 @@ export default function SeriesDetailPage() {
                 </div>
                 {run && (
                   <div
-                    className="mt-3 rounded-[4px] border px-2.5 py-2 font-mono text-[10px]"
+                    className="mt-3 rounded-md border px-2.5 py-2 font-mono text-[10px]"
                     style={{ borderColor: "var(--border)" }}
                   >
                     <div className="flex items-center justify-between gap-2">

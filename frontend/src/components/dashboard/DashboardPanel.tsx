@@ -43,7 +43,7 @@ export function PanelUnavailable({
         onClick={onRetry}
         disabled={isRetrying}
         aria-label={`Retry ${label}`}
-        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[5px] border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-control border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
       >
         <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
         {isRetrying ? "retrying…" : "retry"}
@@ -71,7 +71,7 @@ export function PanelSkeleton({
           className="flex items-center"
           style={{ height: rowHeight }}
         >
-          <div className="h-2.5 w-full animate-pulse rounded-[2px] bg-primary/10" />
+          <div className="h-2.5 w-full animate-pulse rounded-sm bg-primary/10" />
         </div>
       ))}
     </div>

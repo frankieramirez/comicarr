@@ -279,7 +279,7 @@ export function TimelineView({
             setActivity(e.target.value);
             setPage(0);
           }}
-          className="rounded-[5px] border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
+          className="rounded-control border bg-transparent px-2 py-1.5 font-mono text-[11px] text-muted-foreground"
           style={{ borderColor: "var(--border)" }}
         >
           {ACTIVITIES.map((a) => (
@@ -383,7 +383,7 @@ export function TimelineView({
               type="button"
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
-              className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
+              className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
               style={{ borderColor: "var(--border)" }}
             >
               prev
@@ -403,7 +403,7 @@ export function TimelineView({
                   void timeline.fetchNextPage();
                 }
               }}
-              className="rounded-[4px] border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
+              className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
               style={{ borderColor: "var(--border)" }}
             >
               {timeline.isFetchingNextPage

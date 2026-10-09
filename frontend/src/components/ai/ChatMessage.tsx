@@ -21,7 +21,7 @@ function AssistantMark() {
   return (
     <span
       aria-hidden="true"
-      className="flex size-4 shrink-0 items-center justify-center rounded-[5px] bg-primary/15"
+      className="flex size-4 shrink-0 items-center justify-center rounded-control bg-primary/15"
     >
       <span className="size-[5px] rounded-[1px] bg-primary" />
     </span>
@@ -82,7 +82,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
             <BubbleContent
               className={
                 isUser
-                  ? "rounded-[14px] rounded-br-[4px] bg-card px-3.5 py-2.5 whitespace-pre-wrap"
+                  ? "rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 whitespace-pre-wrap"
                   : "text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap"
               }
             >

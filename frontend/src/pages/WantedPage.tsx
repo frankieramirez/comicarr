@@ -178,7 +178,7 @@ export default function WantedPage() {
               type="button"
               onClick={() => refetch()}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] border font-mono text-[11px] text-muted-foreground"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border font-mono text-[11px] text-muted-foreground"
               style={{ borderColor: "var(--border)" }}
             >
               <RefreshCw
@@ -190,7 +190,7 @@ export default function WantedPage() {
               type="button"
               onClick={handleForceSearch}
               disabled={forceSearch.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold disabled:opacity-60"
               style={{
                 background: "var(--primary)",
                 color: "var(--primary-foreground)",

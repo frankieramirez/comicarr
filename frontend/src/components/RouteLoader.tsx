@@ -48,7 +48,7 @@ class RouteErrorBoundary extends Component<
           role="alert"
         >
           <div
-            className="max-w-md rounded-[6px] border p-5 text-center"
+            className="max-w-md rounded-lg border p-5 text-center"
             style={{
               borderColor:
                 "color-mix(in oklab, var(--status-error) 35%, transparent)",
@@ -165,7 +165,7 @@ function RouteLoadError({
       role="alert"
     >
       <div
-        className="max-w-md rounded-[6px] border p-5 text-center"
+        className="max-w-md rounded-lg border p-5 text-center"
         style={{
           borderColor:
             "color-mix(in oklab, var(--status-error) 35%, transparent)",

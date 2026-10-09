@@ -90,8 +90,8 @@ export default function HealthBand() {
       >
         {/* Two rows at the height of the resolved band, so it does not shift. */}
         <div aria-hidden="true" className="flex flex-col gap-2">
-          <div className="h-2.5 w-72 animate-pulse rounded-[2px] bg-primary/10" />
-          <div className="h-2.5 w-52 animate-pulse rounded-[2px] bg-primary/10" />
+          <div className="h-2.5 w-72 animate-pulse rounded-sm bg-primary/10" />
+          <div className="h-2.5 w-52 animate-pulse rounded-sm bg-primary/10" />
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ export default function HealthBand() {
           onClick={() => void health.refetch()}
           disabled={health.isFetching}
           aria-label="Recheck acquisition health"
-          className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-[5px] border border-border font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-control border border-border font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           <RefreshCw
             className={`w-3 h-3 ${health.isFetching ? "animate-spin" : ""}`}

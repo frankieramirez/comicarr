@@ -28,7 +28,7 @@ interface DataTableFooterProps {
 }
 
 const PAGE_BUTTON =
-  "inline-flex items-center gap-1 rounded-[5px] border border-border px-2 py-1 transition-colors hover:text-foreground hover:border-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40";
+  "inline-flex items-center gap-1 rounded-control border border-border px-2 py-1 transition-colors hover:text-foreground hover:border-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40";
 
 export function DataTableFooter({
   start,

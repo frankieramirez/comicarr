@@ -122,7 +122,7 @@ export function AboutTab({ config, formData, onChange }: AboutTabProps) {
         description="Install identity and paths for this instance."
       >
         <div
-          className="rounded-[6px] border divide-y"
+          className="rounded-lg border divide-y"
           style={{ borderColor: "var(--border)" }}
         >
           {buildRows.map(([k, v]) => (

@@ -362,7 +362,7 @@ function MyReleasesView() {
             type="button"
             onClick={() => refetch()}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] border text-[11px] font-mono"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-[11px] font-mono"
             style={{
               borderColor: "var(--border)",
               color: "var(--muted-foreground)",
@@ -392,7 +392,7 @@ function MyReleasesView() {
                 }
               }}
               disabled={retrySearchMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] border text-[11px] font-mono disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-[11px] font-mono disabled:opacity-60"
               style={{
                 borderColor: "var(--border)",
                 color: "var(--muted-foreground)",
@@ -408,7 +408,7 @@ function MyReleasesView() {
             type="button"
             onClick={handleForceSearch}
             disabled={forceSearchMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[12px] font-semibold disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-control text-[12px] font-semibold disabled:opacity-60"
             style={{
               background: "var(--primary)",
               color: "var(--primary-foreground)",

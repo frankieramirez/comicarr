@@ -344,7 +344,7 @@ export default function SettingsPage() {
                 key={s.id}
                 type="button"
                 onClick={() => setSection(s.id)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[5px] text-[13px] text-left"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-control text-[13px] text-left"
                 style={{
                   color: active
                     ? "var(--foreground)"

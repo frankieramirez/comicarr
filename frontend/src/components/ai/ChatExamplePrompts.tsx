@@ -44,7 +44,7 @@ export function ChatExamplePrompts({
           <button
             key={prompt}
             type="button"
-            className="flex flex-col gap-0.5 rounded-[10px] border bg-card/40 px-3.5 py-3 text-left transition-colors hover:border-ring hover:bg-card"
+            className="flex flex-col gap-0.5 rounded-xl border bg-card/40 px-3.5 py-3 text-left transition-colors hover:border-ring hover:bg-card"
             onClick={() => onSelectPrompt(prompt)}
           >
             <span className="text-[13px] font-medium">{label}</span>

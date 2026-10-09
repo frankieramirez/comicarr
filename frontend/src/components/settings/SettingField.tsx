@@ -141,7 +141,7 @@ export function SettingField({
         </div>
         <div className="flex items-center gap-2 min-w-0">
           <div
-            className="flex-1 min-w-0 font-mono text-[12px] px-3 py-1.5 rounded-[5px] border bg-card break-all"
+            className="flex-1 min-w-0 font-mono text-[12px] px-3 py-1.5 rounded-control border bg-card break-all"
             style={{ borderColor: "var(--border)" }}
           >
             {value ?? "—"}

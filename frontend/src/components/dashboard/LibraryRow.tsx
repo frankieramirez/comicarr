@@ -26,7 +26,7 @@ export default function LibraryRow() {
       <div className="px-5 py-3.5 border-b border-border">
         <div
           aria-hidden="true"
-          className="h-3 w-64 animate-pulse rounded-[2px] bg-primary/10"
+          className="h-3 w-64 animate-pulse rounded-sm bg-primary/10"
         />
       </div>
     );

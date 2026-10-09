@@ -26,8 +26,8 @@ const buttonVariants = cva(
         lg: "h-10 rounded-md px-8",
         icon: "h-9 w-9 rounded-md",
         "icon-sm": "size-8 rounded-md",
-        compact: "h-7 px-2.5 rounded-[5px] text-[12px] [&_svg]:size-3",
-        toolbar: "h-8 px-3 rounded-[5px] text-[12px] [&_svg]:size-3.5",
+        compact: "h-7 px-2.5 rounded-control text-[12px] [&_svg]:size-3",
+        toolbar: "h-8 px-3 rounded-control text-[12px] [&_svg]:size-3.5",
       },
       mono: {
         true: "font-mono uppercase tracking-[0.05em]",
