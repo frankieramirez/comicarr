@@ -68,7 +68,7 @@ def search_env(monkeypatch):
     monkeypatch.setattr(
         search,
         "provider_order",
-        lambda initial_run=False: {
+        lambda initial_run=False, comic_id=None: {
             "prov_order": ["torznab"],
             "torznab_info": [{"provider": "torznab", "info": ("nyaa", "https://nyaa.test", "0", "key", "8020")}],
             "newznab_info": [],

@@ -157,10 +157,11 @@ def _resolve_grab_entity(candidate):
     return _resolve_entity(candidate["entity_type"], candidate["entity_id"])
 
 
-def _provider_plan(ctx):
+def _provider_plan(ctx, series_id=None):
     return effective_provider_plan(
         ctx.config,
         is_blocked=helpers.block_provider_check,
+        override=series_queries.get_comic_provider_override(series_id),
     )
 
 
@@ -203,7 +204,7 @@ def start_search(ctx, *, actor, browser_session, entity_type, entity_id, mode=No
             "error": route_health.get("error") or "No complete acquisition route is ready",
             "routes": route_health.get("routes") or {},
         }
-    plan = _provider_plan(ctx)
+    plan = _provider_plan(ctx, entity["series_id"])
     executable = [provider for provider in plan if not provider.blocked]
     if not executable:
         return {
@@ -674,7 +675,7 @@ def grab_candidate(
                 error=route_health.get("error") or "No complete acquisition route is ready",
                 code="route_unavailable",
             )
-        if not any(not provider.blocked for provider in _provider_plan(ctx)):
+        if not any(not provider.blocked for provider in _provider_plan(ctx, entity["series_id"])):
             return _release_with_error(
                 engine,
                 candidate,

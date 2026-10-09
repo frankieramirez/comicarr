@@ -47,6 +47,8 @@ export type {
   InteractiveSearchSession,
   InteractiveGrabResult,
   SeriesDetail,
+  ProviderOverride,
+  SeriesSearchProviders,
   ContentType,
   ReadingDirection,
   MangaSearchResult,

@@ -194,6 +194,18 @@ class TestMatchGroup:
             match_confidence=100,
         )
 
+    @pytest.mark.parametrize(
+        "filename",
+        ["Midnight X-Men #001 (2026).cbz", "Midnight X-Men #1 (2026).cbz", "Midnight X-Men 001 (2026).cbz"],
+    )
+    def test_auto_import_records_issue_number_with_or_without_hash(self, importinbox, _mock_globals, filename):
+        series = {"ComicID": "cv-200", "ComicName": "Midnight X-Men", "DynamicName": "midnightxmen"}
+        _mock_globals["db"].upsert = MagicMock()
+
+        importinbox._pending_auto_import_record("/import/" + filename, series, 100)
+
+        assert _mock_globals["db"].upsert.call_args.args[1]["IssueNumber"] == "1"
+
     def test_finalization_failure_queues_group_for_review(self, importinbox, _mock_globals):
         from comicarr.app.imports.finalization import ImportFinalizationError
 

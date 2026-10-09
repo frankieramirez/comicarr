@@ -378,12 +378,19 @@ def search_init(
                 else:
                     AlternateSearch = manga_alt_str
 
-    provider_list = provider_order(initial_run=True)
+    provider_list = provider_order(initial_run=True, comic_id=ComicID)
     if content_type == "manga":
         provider_list = _providers_without_ddl(provider_list)
     findit = {}
     findit["status"] = False
 
+    if provider_list["totalproviders"] == 0 and provider_list.get("series_override"):
+        logger.warning(
+            "[SEARCH] The provider override for %s excludes every enabled search provider. Aborting search." % ComicName
+        )
+        findit["status"] = False
+        nzbprov = None
+        return findit, nzbprov
     if provider_list["totalproviders"] == 0:
         logger.error(
             "[WARNING] You have %s search providers enabled. I need at least ONE"
@@ -957,10 +964,12 @@ def _providers_without_ddl(provider_list):
     return filtered
 
 
-def provider_order(initial_run=False):
-    from comicarr.app.search.providers import effective_provider_plan, runtime_provider_entry
+def provider_order(initial_run=False, comic_id=None):
+    from comicarr.app.search.providers import effective_provider_plan, parse_provider_override, runtime_provider_entry
+    from comicarr.app.series.queries import get_comic_provider_override
 
-    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=helpers.block_provider_check)
+    override = parse_provider_override(get_comic_provider_override(comic_id))
+    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=helpers.block_provider_check, override=override)
     tor_candidates = [
         candidate for candidate in plan if candidate.kind in {"torznab", "torrent"} and not candidate.blocked
     ]
@@ -1009,6 +1018,7 @@ def provider_order(initial_run=False):
         "torznab_info": torznab_info,
         "newznab_info": newznab_info,
         "totalproviders": totalproviders,
+        "series_override": override is not None,
     }
 
 
