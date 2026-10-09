@@ -56,7 +56,7 @@ TEN_PX_UPPER_TOKS = frozenset({"font-mono", "text-[10px]", "uppercase"})
 
 # Remaining ``font-mono text-[10px] uppercase`` lines after exact
 # ``.mono-label`` replacements. This number only ever shrinks.
-MAX_TEN_PX_UPPERCASE = 30
+MAX_TEN_PX_UPPERCASE = 29
 
 
 def _scan() -> tuple[list[str], list[str], list[str]]:
