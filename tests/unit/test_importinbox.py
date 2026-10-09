@@ -18,17 +18,20 @@ def _mock_globals():
     """Patch comicarr globals so importinbox can be imported without app init."""
     mock_config = MagicMock()
     mock_config.IMPORT_DIR = "/import"
+    mock_config.AUTO_IMPORT_CONFIDENCE = 80
 
     with (
         patch("comicarr.CONFIG", mock_config),
         patch("comicarr.importinbox.logger") as mock_log,
         patch("comicarr.importinbox.db") as mock_db,
+        patch("comicarr.app.imports.queries.get_issue_id", return_value="issue-1") as get_issue_id,
+        patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
     ):
         mock_log.fdebug = lambda *a, **kw: None
         mock_log.info = lambda *a, **kw: None
         mock_log.warning = lambda *a, **kw: None
         mock_log.error = lambda *a, **kw: None
-        yield {"config": mock_config, "logger": mock_log, "db": mock_db}
+        yield {"config": mock_config, "logger": mock_log, "db": mock_db, "get_issue_id": get_issue_id}
 
 
 @pytest.fixture
@@ -199,8 +202,15 @@ class TestMatchGroup:
         series = {"ComicID": "cv-200", "ComicName": "Midnight X-Men", "DynamicName": "midnightxmen"}
         _mock_globals["db"].upsert = MagicMock()
 
-        importinbox._pending_auto_import_record("/import/" + filename, series, 100)
+        with patch("comicarr.app.imports.finalization.finalize_manual_match"):
+            result = importinbox._match_group(
+                "file:midnight",
+                {"group_name": "Midnight X-Men", "files": ["/import/" + filename]},
+                [series],
+            )
 
+        assert result == {"auto_imported": 1, "queued_for_review": 0}
+        _mock_globals["get_issue_id"].assert_called_once_with("cv-200", "1")
         assert _mock_globals["db"].upsert.call_args.args[1]["IssueNumber"] == "1"
 
     def test_finalization_failure_queues_group_for_review(self, importinbox, _mock_globals):
@@ -279,6 +289,35 @@ class TestMatchGroup:
         _mock_globals["db"].upsert.assert_not_called()
         finalize.assert_not_called()
 
+    def test_review_branch_skips_already_imported_files(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+        imported_row = {"impID": importinbox._filepath_to_impid(files[0]), "Status": "Imported"}
+
+        _mock_globals["config"].AUTO_IMPORT_CONFIDENCE = 101
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[imported_row]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result["auto_imported"] == 0
+        assert result["queued_for_review"] == 1
+        _mock_globals["db"].upsert.assert_called_once()
+        queued_values = _mock_globals["db"].upsert.call_args.args[1]
+        queued_keys = _mock_globals["db"].upsert.call_args.args[2]
+        assert queued_values["Status"] == "Not Imported"
+        assert queued_keys == {"impID": importinbox._filepath_to_impid(files[1])}
+        finalize.assert_not_called()
+
     def test_low_confidence_queues_for_review(self, importinbox, _mock_globals):
         series_list = [
             {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
@@ -337,6 +376,107 @@ class TestMatchGroup:
             )
 
         assert result["auto_imported"] == 1
+
+    def test_issue_1068_missing_issue_in_matched_series_queues_for_review(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-mad", "ComicName": "MAD Magazine", "ComicSortName": "MAD Magazine", "DynamicName": "mad"},
+        ]
+        filepath = "/import/Wizard Magazine 090.cbz"
+        _mock_globals["db"].upsert = MagicMock()
+        _mock_globals["get_issue_id"].return_value = None
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "file:wizard",
+                {"group_name": "Wizard Magazine", "files": [filepath]},
+                series_list,
+            )
+
+        assert result == {"auto_imported": 0, "queued_for_review": 1}
+        finalize.assert_not_called()
+        _mock_globals["get_issue_id"].assert_called_once_with("cv-mad", "90")
+        queued = _mock_globals["db"].upsert.call_args.args[1]
+        assert queued["MatchSource"] == "inbox"
+        assert queued["SuggestedComicID"] == "cv-mad"
+        assert queued["SuggestedComicName"] == "MAD Magazine"
+        assert queued["MatchConfidence"] >= 80
+
+    def test_issue_1068_only_files_missing_from_the_series_go_to_review(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+        _mock_globals["db"].upsert = MagicMock()
+        _mock_globals["get_issue_id"].side_effect = lambda _series_id, number: "issue-1" if number == "1" else None
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result == {"auto_imported": 1, "queued_for_review": 1}
+        assert finalize.call_args.args[1] == [importinbox._filepath_to_impid(files[0])]
+        sources = [call.args[1]["MatchSource"] for call in _mock_globals["db"].upsert.call_args_list]
+        assert sorted(sources) == ["inbox", "inbox-auto"]
+
+    def test_issue_1068_file_without_issue_number_keeps_confidence_gate(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        _mock_globals["db"].upsert = MagicMock()
+        _mock_globals["get_issue_id"].return_value = None
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": ["/import/Batman/Batman.cbz"]},
+                series_list,
+            )
+
+        assert result == {"auto_imported": 1, "queued_for_review": 0}
+        finalize.assert_called_once()
+        _mock_globals["get_issue_id"].assert_not_called()
+
+    @pytest.mark.parametrize(("offset", "auto_imported"), [(0, 1), (1, 0)])
+    def test_auto_import_threshold_comes_from_config(self, importinbox, _mock_globals, offset, auto_imported):
+        from comicarr.scanutil import name_similarity
+
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        confidence = int(name_similarity("Batman Beyond", "Batman") * 100)
+        _mock_globals["config"].AUTO_IMPORT_CONFIDENCE = confidence + offset
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match"),
+        ):
+            result = importinbox._match_group(
+                "folder:beyond",
+                {"group_name": "Batman Beyond", "files": ["/import/Batman Beyond/001.cbz"]},
+                series_list,
+            )
+
+        assert result == {"auto_imported": auto_imported, "queued_for_review": 1 - auto_imported}
+
+    def test_auto_import_confidence_setting_defaults_to_80(self):
+        from comicarr.app.config.registry import REGISTRY
+
+        key = REGISTRY["AUTO_IMPORT_CONFIDENCE"]
+        assert (key.type, key.section, key.default) == (int, "Import", 80)
+        assert key.readable and key.writable
 
 
 class TestInboxScan:

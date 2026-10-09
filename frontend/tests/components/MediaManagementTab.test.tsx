@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "../test-utils";
+import { fireEvent, render, screen } from "../test-utils";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 
 function importFileOperation() {
@@ -108,5 +108,22 @@ describe("MediaManagementTab import file operation", () => {
       }),
     ).toBeTruthy();
     expect(screen.queryByText("Move files on import")).toBeNull();
+  });
+
+  it("saves an auto-import confidence of 0 as 0", () => {
+    const onChange = vi.fn();
+    render(
+      <MediaManagementTab
+        config={{}}
+        formData={{ auto_import_confidence: 80 }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Auto-import confidence"), {
+      target: { value: "0" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith("auto_import_confidence", 0);
   });
 });

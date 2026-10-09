@@ -46,15 +46,13 @@ INBOX_SCAN_PROGRESS = {
 
 _SCAN_LOCK = threading.Lock()
 
-AUTO_IMPORT_CONFIDENCE = 80
-
 
 def inboxScan():
     """Scan IMPORT_DIR for new comic/manga files.
 
     Groups files by parent directory, fuzzy-matches each group against
-    series already in the library. High-confidence matches (>=80) are
-    auto-imported. Lower matches go to importresults for manual review.
+    series already in the library. Matches at or above AUTO_IMPORT_CONFIDENCE
+    are auto-imported. Lower matches go to importresults for manual review.
 
     Returns dict with scan results.
     """
@@ -204,7 +202,8 @@ def _load_library_series():
 def _match_group(group_key, group_info, series_list):
     """Match a file group against library series.
 
-    If best match >= AUTO_IMPORT_CONFIDENCE, auto-import all files.
+    If best match >= AUTO_IMPORT_CONFIDENCE, auto-import every file whose
+    parsed issue number exists in that series (or that has no number).
     Otherwise, queue each file in importresults for manual review.
 
     Returns dict with auto_imported and queued_for_review counts.
@@ -240,23 +239,50 @@ def _match_group(group_key, group_info, series_list):
 
     confidence = int(best_score * 100)
 
-    if best_match and confidence >= AUTO_IMPORT_CONFIDENCE:
-        pending_files = _files_pending_import(files)
-        skipped = len(files) - len(pending_files)
-        if skipped:
-            logger.fdebug("[IMPORT-INBOX] Skipping %d already-imported file(s) in group '%s'" % (skipped, group_name))
-        if not pending_files:
+    pending_files = _files_pending_import(files)
+    skipped = len(files) - len(pending_files)
+    if skipped:
+        logger.fdebug("[IMPORT-INBOX] Skipping %d already-imported file(s) in group '%s'" % (skipped, group_name))
+    if not pending_files:
+        return result
+
+    if best_match and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE:
+        from comicarr.app.imports.queries import get_issue_id
+
+        auto_files = []
+        for filepath in pending_files:
+            issue_number = _series_issue_number(filepath, best_match, files)
+            if issue_number and not get_issue_id(best_match["ComicID"], issue_number):
+                logger.info(
+                    "[IMPORT-INBOX] Queuing %s for review: '%s' has no issue %s"
+                    % (os.path.basename(filepath), best_match.get("ComicName", ""), issue_number)
+                )
+                _queue_for_review(
+                    filepath,
+                    group_key,
+                    group_name,
+                    best_match["ComicID"],
+                    best_match.get("ComicName", ""),
+                    confidence,
+                    filenames=files,
+                    series=best_match,
+                )
+                result["queued_for_review"] += 1
+            else:
+                auto_files.append((filepath, issue_number))
+        if not auto_files:
             return result
+
         logger.info(
             "[IMPORT-INBOX] Auto-matching group '%s' to '%s' (%d%% confidence)"
             % (group_name, best_match.get("ComicName", ""), confidence)
         )
-        for filepath in pending_files:
-            _pending_auto_import_record(filepath, best_match, confidence, filenames=files)
-        if _finalize_auto_import_group(pending_files, best_match, confidence):
-            result["auto_imported"] += len(pending_files)
+        for filepath, issue_number in auto_files:
+            _pending_auto_import_record(filepath, best_match, confidence, issue_number)
+        if _finalize_auto_import_group([filepath for filepath, _ in auto_files], best_match, confidence):
+            result["auto_imported"] += len(auto_files)
         else:
-            result["queued_for_review"] += len(pending_files)
+            result["queued_for_review"] += len(auto_files)
     else:
         suggested_id = best_match["ComicID"] if best_match else None
         suggested_name = best_match.get("ComicName", "") if best_match else None
@@ -264,7 +290,7 @@ def _match_group(group_key, group_info, series_list):
             "[IMPORT-INBOX] Queuing group '%s' for review (best match: %s at %d%%)"
             % (group_name, suggested_name or "none", confidence)
         )
-        for filepath in files:
+        for filepath in pending_files:
             _queue_for_review(
                 filepath,
                 group_key,
@@ -294,25 +320,27 @@ def _files_pending_import(files):
     return [filepath for filepath in files if _filepath_to_impid(filepath) not in imported]
 
 
-def _pending_auto_import_record(filepath, series, confidence, filenames=None):
-    """Record a high-confidence auto-match as pending until finalization runs."""
+def _series_issue_number(filepath, series, filenames):
     from comicarr.app.manga.parse import parse_in_series_context
 
     filename = os.path.basename(filepath)
-    imp_id = _filepath_to_impid(filepath)
-    import_date = time.strftime("%Y-%m-%d %H:%M:%S")
     parsed = parse_in_series_context(
         filename,
         series=series,
-        filenames=filenames or [filepath],
+        filenames=filenames,
         series_name=series.get("ComicName"),
     )
     number = None
     if parsed:
         number = parsed.get("volume_number") if parsed.get("chapter_number") is None else parsed.get("chapter_number")
-    chapter_number = _format_chapter_number(
-        number if number is not None else manga_parser.parse_manga_chapter_number(filename)
-    )
+    return _format_chapter_number(number if number is not None else manga_parser.parse_manga_chapter_number(filename))
+
+
+def _pending_auto_import_record(filepath, series, confidence, issue_number):
+    """Record a high-confidence auto-match as pending until finalization runs."""
+    filename = os.path.basename(filepath)
+    imp_id = _filepath_to_impid(filepath)
+    import_date = time.strftime("%Y-%m-%d %H:%M:%S")
 
     db.upsert(
         "importresults",
@@ -328,7 +356,7 @@ def _pending_auto_import_record(filepath, series, confidence, filenames=None):
             "SuggestedComicName": series.get("ComicName", ""),
             "MatchSource": "inbox-auto",
             "DynamicName": series.get("DynamicName", ""),
-            "IssueNumber": chapter_number,
+            "IssueNumber": issue_number,
         },
         {"impID": imp_id},
     )
