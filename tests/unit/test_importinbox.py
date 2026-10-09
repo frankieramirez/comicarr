@@ -25,6 +25,7 @@ def _mock_globals():
         patch("comicarr.importinbox.logger") as mock_log,
         patch("comicarr.importinbox.db") as mock_db,
         patch("comicarr.app.imports.queries.get_issue_id", return_value="issue-1") as get_issue_id,
+        patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
     ):
         mock_log.fdebug = lambda *a, **kw: None
         mock_log.info = lambda *a, **kw: None
@@ -267,6 +268,35 @@ class TestMatchGroup:
         assert result["auto_imported"] == 0
         assert result["queued_for_review"] == 0
         _mock_globals["db"].upsert.assert_not_called()
+        finalize.assert_not_called()
+
+    def test_review_branch_skips_already_imported_files(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
+        ]
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+        imported_row = {"impID": importinbox._filepath_to_impid(files[0]), "Status": "Imported"}
+
+        _mock_globals["config"].AUTO_IMPORT_CONFIDENCE = 101
+        _mock_globals["db"].upsert = MagicMock()
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[imported_row]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "folder:batman",
+                {"group_name": "Batman", "files": files},
+                series_list,
+            )
+
+        assert result["auto_imported"] == 0
+        assert result["queued_for_review"] == 1
+        _mock_globals["db"].upsert.assert_called_once()
+        queued_values = _mock_globals["db"].upsert.call_args.args[1]
+        queued_keys = _mock_globals["db"].upsert.call_args.args[2]
+        assert queued_values["Status"] == "Not Imported"
+        assert queued_keys == {"impID": importinbox._filepath_to_impid(files[1])}
         finalize.assert_not_called()
 
     def test_low_confidence_queues_for_review(self, importinbox, _mock_globals):

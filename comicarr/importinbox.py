@@ -239,15 +239,15 @@ def _match_group(group_key, group_info, series_list):
 
     confidence = int(best_score * 100)
 
+    pending_files = _files_pending_import(files)
+    skipped = len(files) - len(pending_files)
+    if skipped:
+        logger.fdebug("[IMPORT-INBOX] Skipping %d already-imported file(s) in group '%s'" % (skipped, group_name))
+    if not pending_files:
+        return result
+
     if best_match and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE:
         from comicarr.app.imports.queries import get_issue_id
-
-        pending_files = _files_pending_import(files)
-        skipped = len(files) - len(pending_files)
-        if skipped:
-            logger.fdebug("[IMPORT-INBOX] Skipping %d already-imported file(s) in group '%s'" % (skipped, group_name))
-        if not pending_files:
-            return result
 
         auto_files = []
         for filepath in pending_files:
@@ -290,7 +290,7 @@ def _match_group(group_key, group_info, series_list):
             "[IMPORT-INBOX] Queuing group '%s' for review (best match: %s at %d%%)"
             % (group_name, suggested_name or "none", confidence)
         )
-        for filepath in files:
+        for filepath in pending_files:
             _queue_for_review(
                 filepath,
                 group_key,
