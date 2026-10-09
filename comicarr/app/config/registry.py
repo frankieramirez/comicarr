@@ -288,6 +288,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("IMP_METADATA", bool, "Import", False, readable=True, writable=True),
     ConfigKey("IMP_SERIESFOLDERS", bool, "Import", True, readable=True, writable=True),
     ConfigKey("IMPORT_DIR", str, "Import", None, readable=True, gates="importinbox"),
+    ConfigKey("AUTO_IMPORT_CONFIDENCE", int, "Import", 80, readable=True, writable=True),
     ConfigKey("DUPECONSTRAINT", str, "Duplicates", None),
     ConfigKey("DDUMP", bool, "Duplicates", False),
     ConfigKey("DUPLICATE_DUMP", str, "Duplicates", None),

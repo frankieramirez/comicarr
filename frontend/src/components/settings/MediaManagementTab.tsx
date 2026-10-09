@@ -133,6 +133,16 @@ export function MediaManagementTab({
           onChange={(v) => onChange("imp_seriesfolders", v as boolean)}
           helpText="Automatically create series folders for imported files"
         />
+        <SettingField
+          label="Auto-import confidence"
+          type="number"
+          min={1}
+          value={formData.auto_import_confidence}
+          onChange={(v) =>
+            onChange("auto_import_confidence", parseInt(v as string) || 80)
+          }
+          helpText="Minimum series match score (0–100) for the Import Inbox to import files without review. Files whose issue number is missing from the matched series always go to review. Set above 100 to review everything (default: 80)."
+        />
       </SettingGroup>
 
       {/* Scheduling */}
