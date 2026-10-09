@@ -202,8 +202,15 @@ class TestMatchGroup:
         series = {"ComicID": "cv-200", "ComicName": "Midnight X-Men", "DynamicName": "midnightxmen"}
         _mock_globals["db"].upsert = MagicMock()
 
-        importinbox._pending_auto_import_record("/import/" + filename, series, 100)
+        with patch("comicarr.app.imports.finalization.finalize_manual_match"):
+            result = importinbox._match_group(
+                "file:midnight",
+                {"group_name": "Midnight X-Men", "files": ["/import/" + filename]},
+                [series],
+            )
 
+        assert result == {"auto_imported": 1, "queued_for_review": 0}
+        _mock_globals["get_issue_id"].assert_called_once_with("cv-200", "1")
         assert _mock_globals["db"].upsert.call_args.args[1]["IssueNumber"] == "1"
 
     def test_finalization_failure_queues_group_for_review(self, importinbox, _mock_globals):
