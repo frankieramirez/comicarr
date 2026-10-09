@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.45.1
+
+### Patch Changes
+
+- c4e2cc9: Screen readers now hear timeline severity, table sort direction, and which Library view is active. Those states were previously colour or icons only.
+- 6174727: Deprecated Activity preview and Downloads needs-attention compatibility routes stay until 0.50.0. Custom scripts that still call them keep working; move to GET /api/attention and POST /api/attention/resolve before then.
+- 2b1a791: Error and warning banners on login, logs, onboarding, library scan, and route load now share one status-coloured callout, including a consistent border mix.
+- 36bfd7b: Table row checkboxes, the Match dialog close button, collapsed sidebar Search, story-arc Delete, and the login/setup forms now expose names to assistive technology instead of announcing only "checkbox" or a placeholder.
+- caa800f: Page actions (library scan, release refresh, search submit, series tools, and onboarding) now share the same dense button: consistent height, focus ring, and disabled state instead of each page inventing its own.
+- 083e253: Delete and other destructive buttons now keep readable text in both themes, instead of inheriting whatever colour sat behind them.
+- fa858e8: Search, weekly Releases, and series issue lists now keep the title (and status) readable on a phone instead of squeezing them into a few pixels.
+- bc358c0: NZB and torrent monitors keep working after one download hits an unexpected error, instead of going silent until you restart Comicarr or save settings. Completed torrents with local post-processing copy the file instead of requiring an auto-snatch script.
+- af5b6bb: Pause, resume, Want, and Skip now fail with not-found when the series or issue is already gone, instead of creating an empty library row. Changing or removing a story-arc issue does the same. Needs Attention re-want and stop-wanting report not-found when the issue row is already gone.
+- 3df1c12: Reclassifying a MangaDex or MyAnimeList series as comic from the series page now stops manga sync, RSS chapter search, and manga library stats from treating it as manga. Series that still have a MangaDex or MyAnimeList id but were never reclassified that way stay in manga surfaces, even if an old upgrade stamped them as comic.
+- 8ef85b3: Library list rows, Wanted series names, and Import match results can be opened or selected with the keyboard, not only a mouse click.
+- 5a22f4a: Adding a manga that is already in the library under the other source (MangaDex vs MyAnimeList) is refused, with the existing series named in the error, instead of creating a second Wanted copy.
+- 3345db4: Import matching and story-arc issue actions now use the shared dialog and menu primitives, so keyboard users stay inside the match dialog, Escape closes it, and the arc row menu can be moved with the arrow keys.
+- e153928: SABnzbd jobs that finish with a missing file, a job SAB no longer has, or a failure while Failed download handling is off now go to Needs Attention. Failures while handling is on retry as usual. A job still Repairing or Moving is checked again without stalling the rest of the NZB monitor.
+- 9584001: Every page now has a real heading, so screen-reader heading navigation can jump to Activity, Settings, Library, and the rest of the app instead of finding a blank outline.
+- 679dc30: Dashboard, Library, and Releases now share the same page header and view tabs, so those titles line up and the Releases Mine/Industry toggle is keyboard-reachable with a pressed state.
+- f3fb352: A post-processing stop no longer stays in flight forever. Comicarr retries it a few times on restart, then moves it to Needs attention instead of blocking newer work.
+- b0f4e22: Failed post-migration gate refreshes now block automatic search and downloads in both the scheduler and the operator-facing status. Previously only one copy of that flag updated, so acquisition could keep running after a migration error.
+- 7dca128: When SABnzbd reports a failed job (Unpack, Repair, moving, or another stage), Comicarr now honors the Failed download handling setting: retries run when it is on, and the snatched job is marked failed instead of being polled forever when it is off. Restart recovery closes those rows the same way.
+- efd9cb7: Restarting Comicarr while SABnzbd is still downloading, repairing, or extracting a release no longer marks that download complete. Comicarr checks SAB's active queue first (including jobs moved to another SAB category), and a completed job without a usable folder is sent to Needs attention instead of a failed post-processing command.
+- 19d73f0: Settings fields with the same label, such as Notify on snatch on more than one notifier, now each keep their own control so clicking a label no longer toggles the wrong checkbox.
+- 0ffcc59: Keyboard focus is now visible on Settings checkboxes. Tabbing through a Settings tab outlines the toggle that currently has focus.
+- 257a7ad: Wanted and Downloaded now use the same status colours on Releases, Activity, and the library. Queue rows keep the provider's own status text (Downloading stays Downloading). Library and health chips use the compact uppercase dot, and Acquisition Health chips are now that same dot instead of a bordered pill.
+- dd7e9f2: Skip and Want on Wanted and My Releases now show an error toast if the request fails. What's New "Got it" and "Mark as read" show an on-screen alert instead of failing silently.
+- a5eea72: Filter and section chips (Releases, Settings on a phone, Import ignored, Needs attention stages) now share one pressed control, so a screen reader can tell which chip is selected.
+- e214bad: If the torrent client is briefly unreachable while Comicarr is watching a download, the monitor now retries with growing backoff for about 30 minutes instead of dropping the item. After that it appears in Needs attention as an unreachable-client review rather than sitting as Snatched until restart. A bad torrent hash or a broken auto-snatch script is reported as that failure, not as a client outage.
+
 ## 0.45.0
 
 ### Minor Changes
