@@ -117,8 +117,13 @@ class SABnzbd(object):
 
         return queue_params
 
-    def queuecheck(self, nzo_id):
-        """Return True when ``nzo_id`` is still in SAB's active queue."""
+    def queuecheck(self, nzo_id, ignore_category=False):
+        """Return True when ``nzo_id`` is still in SAB's active queue.
+
+        Startup recovery passes ``ignore_category=True`` so a job moved via
+        SAB's ``change_cat`` is still visible. Other callers keep the
+        configured category filter.
+        """
         if not nzo_id:
             return False
         params = {
@@ -127,7 +132,7 @@ class SABnzbd(object):
             "output": "json",
             "apikey": comicarr.CONFIG.SAB_APIKEY,
         }
-        if comicarr.CONFIG.SAB_CATEGORY is not None:
+        if not ignore_category and comicarr.CONFIG.SAB_CATEGORY is not None:
             params["category"] = comicarr.CONFIG.SAB_CATEGORY
         response = requests.get(
             self.sab_url,
@@ -228,11 +233,11 @@ class SABnzbd(object):
             logger.info("File has now downloaded!")
             return self.historycheck(self.params)
 
-    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1):
+    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False):
         sendresponse = nzbinfo["nzo_id"]
         hist_params = {"mode": "history", "failed": 0, "output": "json", "apikey": comicarr.CONFIG.SAB_APIKEY}
 
-        if comicarr.CONFIG.SAB_CATEGORY is not None:
+        if not ignore_category and comicarr.CONFIG.SAB_CATEGORY is not None:
             hist_params["category"] = comicarr.CONFIG.SAB_CATEGORY
 
         sab_check = None
@@ -276,7 +281,7 @@ class SABnzbd(object):
                             f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {comicarr.CONFIG.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
                         )
                         time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
-                        return self.historycheck(nzbinfo, roundtwo=True)
+                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
 
                     nzo_exists = True
                     logger.info("found matching completed item in history. Job has a status of %s" % hq["status"])
@@ -428,8 +433,13 @@ class SABnzbd(object):
 
                             if extract_counter < to_delay:
                                 extract_counter += 1
-                                return self.historycheck(nzbinfo, roundtwo=False, extract_counter=extract_counter)
-                        return self.historycheck(nzbinfo, roundtwo=True)
+                                return self.historycheck(
+                                    nzbinfo,
+                                    roundtwo=False,
+                                    extract_counter=extract_counter,
+                                    ignore_category=ignore_category,
+                                )
+                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
                     else:
                         # Leave the job in SABnzbd: removing one that is still being
                         # processed cancels it, and with del_files deletes its data.
@@ -447,7 +457,7 @@ class SABnzbd(object):
                 )
                 time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
                 if roundtwo is False:
-                    return self.historycheck(nzbinfo, roundtwo=True)
+                    return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
                 else:
                     return {"status": "nzb removed", "failed": False}
         except requests.RequestException:

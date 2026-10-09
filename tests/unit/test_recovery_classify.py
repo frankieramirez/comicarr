@@ -51,7 +51,10 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, nzo_id: False)
+    monkeypatch.setattr(
+        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        lambda self, nzo_id, ignore_category=False: False,
+    )
     engine = get_engine()
     metadata.create_all(engine)
     yield
@@ -956,6 +959,18 @@ def test_sab_queue_hit_is_still_without_calling_historycheck():
         hist.assert_not_called()
     assert details["raw_state"] == "still"
     assert details["verdict"] == recovery_classify.STILL
+
+
+def test_sab_recovery_bypasses_category_filter():
+    """Startup recovery must see NZOs that SAB's change_cat moved out of SAB_CATEGORY."""
+    row = _sab_probe_row("CATBYPASS")
+    with (
+        patch("comicarr.sabnzbd.SABnzbd.queuecheck", return_value=False) as queue,
+        patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}) as hist,
+    ):
+        recovery_classify.classify_details(row)
+    assert queue.call_args.kwargs.get("ignore_category") is True
+    assert hist.call_args.kwargs.get("ignore_category") is True
 
 
 def test_file_not_found_quarantines_for_manual_review(monkeypatch):

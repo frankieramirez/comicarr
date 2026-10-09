@@ -368,9 +368,11 @@ def _sab_history_or_queue(row, payload=None):
             },
         }
         s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
-        if s.queuecheck(nzo_id):
+        # Bypass SAB's category filter: change_cat can move a live NZO out of
+        # SAB_CATEGORY, which would hide it from both probes and yield GONE.
+        if s.queuecheck(nzo_id, ignore_category=True):
             return "still"
-        nzstat = s.historycheck(nzbinfo)
+        nzstat = s.historycheck(nzbinfo, ignore_category=True)
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
         return "unreachable"
