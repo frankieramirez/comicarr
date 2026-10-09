@@ -17,6 +17,7 @@ import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { ToggleChip } from "@/components/ui/toggle-chip";
+import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -488,12 +489,6 @@ function AllReleasesView() {
           </div>
           {weekly.map((issue, index) => {
             const status = issue.STATUS || "Available";
-            const statusColor =
-              status === "Wanted"
-                ? "var(--primary)"
-                : status === "Downloaded"
-                  ? "var(--status-active)"
-                  : "var(--muted-foreground)";
             return (
               <div
                 key={weeklyReleaseRowKey(issue, index)}
@@ -519,13 +514,7 @@ function AllReleasesView() {
                 >
                   {issue.PUBLISHER}
                 </div>
-                <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: statusColor }}
-                  />
-                  <span style={{ color: statusColor }}>{status}</span>
-                </div>
+                <StatusBadge variant="dot" status={status} />
               </div>
             );
           })}

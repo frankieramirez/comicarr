@@ -96,7 +96,9 @@ as a pattern to copy.
 `--status-{active,wanted,downloaded,paused,ended,error,skipped}` and their
 `-bg` pairs are **the** semantic color set — ~163 usages across the app, and the
 only vocabulary `StatusBadge` understands. Reach for these whenever the meaning
-is "this item is in state X".
+is "this item is in state X". `lib/statusTone.ts` is the lookup; `StatusBadge`
+offers `variant="pill"` (glowing) and `variant="dot"` (dense rows). Do not
+re-map Wanted to `--primary` or Downloaded to `--status-active` at a call site.
 
 That list is exhaustive. There is no `--status-success` and no
 `--status-warning`; both were invented at call sites and neither ever resolved.

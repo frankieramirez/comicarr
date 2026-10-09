@@ -194,6 +194,18 @@ describe("ReleasesPage", () => {
     );
   });
 
+  it("paints Wanted rows with --status-wanted", async () => {
+    server.use(
+      http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),
+    );
+    const { container } = render(<ReleasesPage />);
+    await screen.findByText("Absolute Batman");
+    const style = container
+      .querySelector('[data-testid="status-dot"]')
+      ?.getAttribute("style");
+    expect(style).toContain("var(--status-wanted)");
+  });
+
   it("offers interactive review for wanted releases", async () => {
     server.use(
       http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),

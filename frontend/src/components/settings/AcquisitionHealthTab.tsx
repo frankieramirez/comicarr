@@ -12,6 +12,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import StatusBadge from "@/components/StatusBadge";
+import { toneStatusForHealth } from "@/lib/statusTone";
 import { SettingGroup } from "./SettingGroup";
 import {
   sanitizeAcquisitionMessage,
@@ -130,47 +132,20 @@ function toneForState(value: string | null | undefined): Tone {
   return "neutral";
 }
 
-function StatusPill({
+function HealthStatus({
   label,
   tone = "neutral",
 }: {
   label: string;
   tone?: Tone;
 }) {
-  const palette: Record<
-    Tone,
-    { border: string; color: string; background: string }
-  > = {
-    ready: {
-      border: "color-mix(in oklab, var(--status-active) 36%, transparent)",
-      color: "var(--status-active)",
-      background: "color-mix(in oklab, var(--status-active) 11%, transparent)",
-    },
-    warning: {
-      border: "color-mix(in oklab, var(--status-paused) 42%, transparent)",
-      color: "var(--status-paused)",
-      background: "color-mix(in oklab, var(--status-paused) 10%, transparent)",
-    },
-    danger: {
-      border: "color-mix(in oklab, var(--status-error) 42%, transparent)",
-      color: "var(--status-error)",
-      background: "var(--status-error-bg)",
-    },
-    neutral: {
-      border: "var(--border)",
-      color: "var(--muted-foreground)",
-      background: "var(--secondary)",
-    },
-  };
-  const style = palette[tone];
-
   return (
-    <span
-      className="inline-flex max-w-full items-center rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-[0.04em]"
-      style={style}
-    >
-      <span className="truncate">{label}</span>
-    </span>
+    <StatusBadge
+      variant="dot"
+      status={toneStatusForHealth(tone)}
+      label={label}
+      className="inline-flex max-w-full items-center gap-1.5 font-mono text-[10px] uppercase"
+    />
   );
 }
 
@@ -261,7 +236,7 @@ function RouteCard({
         <div className="font-mono text-[12px] font-semibold uppercase tracking-[0.06em]">
           {route}
         </div>
-        <StatusPill
+        <HealthStatus
           label={ready ? "ready" : humanize(health.reason, "not ready")}
           tone={routeTone}
         />
@@ -276,7 +251,7 @@ function RouteCard({
         <div>
           <dt className="text-muted-foreground">client</dt>
           <dd className="mt-0.5">
-            <StatusPill
+            <HealthStatus
               label={health.client_ready ? "ready" : "not ready"}
               tone={toneForBoolean(health.client_ready)}
             />
@@ -285,7 +260,7 @@ function RouteCard({
         <div>
           <dt className="text-muted-foreground">path</dt>
           <dd className="mt-0.5">
-            <StatusPill
+            <HealthStatus
               label={health.path_ready ? "ready" : "not ready"}
               tone={toneForBoolean(health.path_ready)}
             />
@@ -294,7 +269,7 @@ function RouteCard({
         <div>
           <dt className="text-muted-foreground">restart</dt>
           <dd className="mt-0.5">
-            <StatusPill
+            <HealthStatus
               label={health.restart_safe ? "safe" : "manual review"}
               tone={toneForBoolean(health.restart_safe)}
             />
@@ -338,7 +313,7 @@ function WorkerCard({
         <div className="truncate font-mono text-[11px] uppercase tracking-[0.06em]">
           {worker}
         </div>
-        <StatusPill label={humanize(state)} tone={toneForState(state)} />
+        <HealthStatus label={humanize(state)} tone={toneForState(state)} />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
@@ -366,7 +341,7 @@ function JobRow({ job }: { job: ScheduledJobHealth }) {
     <tr className="border-t" style={{ borderColor: "var(--border)" }}>
       <td className="py-2 pr-3 text-[12px] font-medium">{job.name}</td>
       <td className="py-2 pr-3">
-        <StatusPill label={humanize(status)} tone={toneForState(status)} />
+        <HealthStatus label={humanize(status)} tone={toneForState(status)} />
       </td>
       <td className="hidden py-2 pr-3 font-mono text-[10px] text-muted-foreground sm:table-cell">
         {formatMoment(job.next_run_time)}
@@ -391,7 +366,7 @@ function RunCard({ kind, run }: { kind: string; run: AcquisitionRunHealth }) {
         <div className="font-mono text-[11px] uppercase tracking-[0.06em]">
           {kind}
         </div>
-        <StatusPill
+        <HealthStatus
           label={humanize(completion)}
           tone={toneForState(completion)}
         />
@@ -417,21 +392,24 @@ function PreviewSummary({ preview }: { preview: AcquisitionRepairPreview }) {
   const summary = preview.summary;
   return (
     <div className="flex flex-wrap gap-1.5" aria-label="Repair preview summary">
-      <StatusPill label={`${asCount(summary.owned)} owned`} tone="ready" />
-      <StatusPill
+      <HealthStatus label={`${asCount(summary.owned)} owned`} tone="ready" />
+      <HealthStatus
         label={`${asCount(summary.optional_wanted)} optional Wanted`}
         tone="warning"
       />
-      <StatusPill label={`${asCount(summary.future)} future`} tone="neutral" />
-      <StatusPill
+      <HealthStatus
+        label={`${asCount(summary.future)} future`}
+        tone="neutral"
+      />
+      <HealthStatus
         label={`${asCount(summary.in_flight)} in flight`}
         tone="warning"
       />
-      <StatusPill
+      <HealthStatus
         label={`${asCount(summary.failed)} failed`}
         tone={asCount(summary.failed) ? "danger" : "neutral"}
       />
-      <StatusPill
+      <HealthStatus
         label={`${asCount(summary.unknown)} unknown`}
         tone={asCount(summary.unknown) ? "warning" : "neutral"}
       />
@@ -1041,7 +1019,7 @@ export function AcquisitionHealthTab() {
                   </h3>
                   <p className="mt-0.5 mono-meta">{visibleRun.run_id}</p>
                 </div>
-                <StatusPill
+                <HealthStatus
                   label={humanize(repairState)}
                   tone={toneForState(repairState)}
                 />

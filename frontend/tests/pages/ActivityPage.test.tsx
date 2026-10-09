@@ -274,6 +274,33 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("Direct download requeued.")).toBeTruthy();
   });
 
+  it("paints Wanted queue rows with --status-wanted", async () => {
+    server.use(
+      http.get("/api/downloads/queue", () =>
+        HttpResponse.json({
+          queue: [
+            {
+              ...queueItem,
+              ID: "wanted-ddl",
+              series: "Wanted Series",
+              status: "Wanted",
+            },
+          ],
+          pagination: { total: 1, limit: 25, offset: 0, has_more: false },
+        }),
+      ),
+    );
+    const { container } = render(<ActivityPage />, {
+      route: "/activity?view=queue",
+      useMemoryRouter: true,
+    });
+    await screen.findByText("Wanted Series");
+    const style = container
+      .querySelector('[data-testid="status-dot"]')
+      ?.getAttribute("style");
+    expect(style).toContain("var(--status-wanted)");
+  });
+
   /**
    * The server-paginated model gets no page reset from TanStack:
    * `autoResetPageIndex` is inert under `manualPagination` (#360), so this
