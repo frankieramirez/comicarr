@@ -11,6 +11,7 @@ import { applySequentially, type BulkIssueResult } from "@/hooks/useQueue";
 import type {
   Comic,
   ContentType,
+  ProviderOverride,
   SearchMissingConfirmationInput,
   SearchMissingPreview,
   SearchMissingResult,
@@ -254,6 +255,32 @@ export function useUpdateSeriesLocation(): UseMutationResult<
       ),
     onSettled: (_, __, { comicId }) => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
+    },
+  });
+}
+
+export interface SeriesProviderOverrideInput {
+  comicId: string;
+  /** Two empty lists return the series to the global order. */
+  order: string[];
+  exclude: string[];
+}
+
+export function useUpdateSeriesProviderOverride(): UseMutationResult<
+  { success: boolean; provider_override: ProviderOverride | null },
+  Error,
+  SeriesProviderOverrideInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ comicId, order, exclude }) =>
+      apiRequest("PATCH", `/api/series/${comicId}/search-providers`, {
+        order,
+        exclude,
+      }),
+    onSuccess: (_, { comicId }) => {
       queryClient.invalidateQueries({ queryKey: ["series", comicId] });
     },
   });

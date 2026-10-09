@@ -265,7 +265,7 @@ def _search_init_logged_provider_order(monkeypatch, mock_log, *, content_type):
     monkeypatch.setattr(
         search,
         "provider_order",
-        lambda initial_run=False: {
+        lambda initial_run=False, comic_id=None: {
             **_DDL_PROVIDER_PLAN,
             "prov_order": list(_DDL_PROVIDER_PLAN["prov_order"]),
         },

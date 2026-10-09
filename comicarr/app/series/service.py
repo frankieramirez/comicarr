@@ -14,6 +14,7 @@ Module-level functions (not classes) — matches existing codebase style.
 """
 
 import datetime
+import json
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.common.strings import filesafe
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search.providers import effective_provider_plan, parse_provider_override
 from comicarr.app.series import location as series_locations
 from comicarr.app.series import queries as series_queries
 from comicarr.tables import annuals, comics, issues, oneoffhistory, storyarcs, weekly
@@ -289,6 +291,10 @@ def get_comic_detail(ctx, comic_id):
         "annuals": projected_annuals,
         "summary": summary,
         "providerLinks": series_kind.provider_page_links(comic_row) if comic_row else [],
+        "searchProviders": {
+            "available": [provider.name for provider in effective_provider_plan(ctx.config)] if ctx.config else [],
+            "override": parse_provider_override(series_queries.get_comic_provider_override(comic_id)),
+        },
     }
 
 
@@ -419,6 +425,17 @@ def update_search_settings(
             "monitor_mode": normalize_monitor_mode(updated.get("MonitorMode")),
         },
     }
+
+
+def update_provider_override(ctx, comic_id, order, exclude):
+    """Set a Series' search provider override, or clear it when both lists are empty."""
+    if not series_queries.get_comic_search_settings(comic_id):
+        return {"success": False, "error": "ComicID %s not found in watchlist" % comic_id}
+
+    override = parse_provider_override({"order": order, "exclude": exclude})
+    series_queries.update_comic_provider_override(comic_id, json.dumps(override) if override else None)
+    logger.fdebug("[SERIES] Search provider override for %s: %s" % (comic_id, override))
+    return {"success": True, "provider_override": override}
 
 
 def _series_text(value):

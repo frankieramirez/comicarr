@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
@@ -60,8 +61,52 @@ def _ordered(config, candidates):
     return sorted(candidates, key=lambda candidate: (position(candidate), candidate.name.casefold()))
 
 
-def effective_provider_plan(config, *, is_blocked: Callable[[str], bool] | None = None):
-    """Return enabled providers in effective order without exposing secrets."""
+def parse_provider_override(value) -> dict | None:
+    """Read a Series provider override; empty or unreadable values mean none."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value) if value.strip() else None
+        except ValueError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    override = {}
+    for key in ("order", "exclude"):
+        names = value.get(key) or []
+        if not isinstance(names, list):
+            names = []
+        override[key] = list(dict.fromkeys(str(name).strip() for name in names if str(name).strip()))
+    if not override["order"] and not override["exclude"]:
+        return None
+    return override
+
+
+def _with_override(plan, override):
+    override = parse_provider_override(override)
+    if override is None:
+        return plan
+    excluded = {name.casefold() for name in override["exclude"]}
+    preferred = [name.casefold() for name in override["order"]]
+    kept = [candidate for candidate in plan if candidate.name.casefold() not in excluded]
+
+    def position(candidate):
+        name = candidate.name.casefold()
+        return preferred.index(name) if name in preferred else len(preferred)
+
+    return sorted(kept, key=position)
+
+
+def effective_provider_plan(
+    config,
+    *,
+    is_blocked: Callable[[str], bool] | None = None,
+    override: dict | str | None = None,
+):
+    """Return enabled providers in effective order without exposing secrets.
+
+    A Series ``override`` moves its ``order`` names to the front and drops its
+    ``exclude`` names; it can only reorder or remove enabled providers.
+    """
     is_blocked = is_blocked or (lambda _name: False)
     candidates = []
 
@@ -96,7 +141,7 @@ def effective_provider_plan(config, *, is_blocked: Callable[[str], bool] | None 
             for index, entry in enumerate(enabled_provider_entries(getattr(config, "EXTRA_TORZNABS", None)), start=1):
                 name = str(entry[0]).strip() or "Torznab %s" % index
                 add(name, "torznab", "torznab: %s" % name, entry)
-    return _ordered(config, candidates)
+    return _with_override(_ordered(config, candidates), override)
 
 
 def runtime_provider_entry(candidate: ProviderCandidate) -> tuple | None:

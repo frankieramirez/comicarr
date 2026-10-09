@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
+import { SeriesSearchProviders } from "@/components/series/SeriesSearchProviders";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { Button } from "@/components/ui/button";
 import { ToggleChip } from "@/components/ui/toggle-chip";
@@ -817,6 +818,14 @@ export default function SeriesDetailPage() {
                 location={comic.ComicLocation}
                 override={comic.LocationOverride === 1}
                 retained={retainedLocations(comic.RetainedLocations)}
+              />
+            ) : null}
+
+            {comicId && seriesData.searchProviders ? (
+              <SeriesSearchProviders
+                comicId={comicId}
+                available={seriesData.searchProviders.available}
+                override={seriesData.searchProviders.override}
               />
             ) : null}
 

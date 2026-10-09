@@ -143,6 +143,28 @@ def update_series_content_kind(
     return result
 
 
+@router.patch("/series/{comic_id}/search-providers", dependencies=[Depends(require_session)])
+def update_series_search_providers(
+    comic_id: str,
+    request_body: dict = None,
+    ctx: AppContext = Depends(get_context),
+):
+    """Set a Series' search provider order and exclusions; two empty lists clear it."""
+    if request_body is None:
+        request_body = {}
+
+    order = request_body.get("order", [])
+    exclude = request_body.get("exclude", [])
+    for name, value in (("order", order), ("exclude", exclude)):
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            return JSONResponse(status_code=400, content={"detail": "%s must be a list of provider names" % name})
+
+    result = series_service.update_provider_override(ctx, comic_id, order, exclude)
+    if not result["success"]:
+        return JSONResponse(status_code=404, content={"detail": result.get("error")})
+    return result
+
+
 @router.patch("/series/{comic_id}/location", dependencies=[Depends(require_session)])
 def update_series_location(
     comic_id: str,
