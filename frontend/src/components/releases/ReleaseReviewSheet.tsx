@@ -215,7 +215,7 @@ function IssueContext({
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold">{name}</div>
-        <div className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="mt-1 truncate mono-label">
           {isSeries
             ? `${issue.unfiltered ? "Unfiltered · " : ""}${missingLabel}`
             : `${issue.annual ? "Annual" : "Issue"} · ${issue.Status ?? "Tracked"}`}
@@ -532,10 +532,7 @@ export function ReleaseReviewSheet({
                 className="mt-5 border-t border-border pt-4"
                 aria-labelledby="provider-failures-title"
               >
-                <h3
-                  id="provider-failures-title"
-                  className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
-                >
+                <h3 id="provider-failures-title" className="mono-label">
                   Provider failures
                 </h3>
                 <div className="mt-2 space-y-2">

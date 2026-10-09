@@ -399,7 +399,7 @@ export default function ImportPage() {
                       Scan inbox now
                     </Button>
                   ) : (
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <span className="mono-meta uppercase tracking-wider">
                       Import directory not configured
                     </span>
                   )}

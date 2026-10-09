@@ -41,7 +41,7 @@ export function DataTableFooter({
   notes,
 }: DataTableFooterProps) {
   return (
-    <div className="shrink-0 flex items-center gap-2 border-t border-border bg-card px-5 py-1.5 font-mono text-[11px] text-muted-foreground">
+    <div className="shrink-0 flex items-center gap-2 border-t border-border bg-card px-5 py-1.5 mono-meta">
       <span className="tabular-nums">
         {total === 0 ? "no rows" : `${start}–${end} of ${total}`}
       </span>

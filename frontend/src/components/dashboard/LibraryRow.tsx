@@ -71,9 +71,7 @@ export default function LibraryRow() {
         <span className="font-semibold">{completion.toFixed(1)}%</span>{" "}
         <span className="text-muted-foreground">of known issues held</span>
       </span>
-      <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-        not a health metric
-      </span>
+      <span className="ml-auto mono-meta">not a health metric</span>
     </div>
   );
 }

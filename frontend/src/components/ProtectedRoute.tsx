@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="inline-flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+        <div className="inline-flex items-center gap-2 mono-meta">
           <span
             className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-solid border-current border-r-transparent"
             role="status"

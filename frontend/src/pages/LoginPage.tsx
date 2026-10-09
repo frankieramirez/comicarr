@@ -23,10 +23,7 @@ function MonoLabel({
   htmlFor: string;
 }) {
   return (
-    <label
-      htmlFor={htmlFor}
-      className="block font-mono text-[10px] tracking-[0.08em] uppercase text-muted-foreground mb-1.5"
-    >
+    <label htmlFor={htmlFor} className="block mono-label mb-1.5">
       {children}
     </label>
   );
@@ -135,7 +132,7 @@ function SetupForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center gap-2 -mt-2 mb-2 font-mono text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-2 -mt-2 mb-2 mono-meta">
         <ShieldCheck
           className="w-3.5 h-3.5"
           style={{ color: "var(--primary)" }}

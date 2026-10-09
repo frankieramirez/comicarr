@@ -86,7 +86,7 @@ class ErrorBoundary extends React.Component<
               </p>
 
               <div className="mt-7 border-y border-border py-4">
-                <p className="font-mono text-[11px] leading-5 text-muted-foreground">
+                <p className="mono-meta leading-5">
                   If this keeps happening, check the browser console or server
                   logs for more information.
                 </p>
@@ -102,7 +102,7 @@ class ErrorBoundary extends React.Component<
                       Development error details
                     </span>
                   </summary>
-                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-border pt-3 font-mono text-[11px] leading-5 text-muted-foreground">
+                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-border pt-3 mono-meta leading-5">
                     {this.state.error.toString()}
                     {"\n\n"}
                     {this.state.errorInfo?.componentStack}

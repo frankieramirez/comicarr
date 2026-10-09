@@ -283,7 +283,7 @@ function ScanTile({
 
       {progress && (
         <div
-          className="mt-3 pt-2.5 border-t font-mono text-[11px] text-muted-foreground flex items-center gap-3"
+          className="mt-3 pt-2.5 border-t mono-meta flex items-center gap-3"
           style={{ borderColor: "var(--border)" }}
         >
           <Loader2

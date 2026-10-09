@@ -326,7 +326,7 @@ function InFlightView() {
                   <span className="font-medium">{item.label}</span>
                 )}
               </div>
-              <div className="font-mono text-[11px] text-muted-foreground">
+              <div className="mono-meta">
                 {inFlightKindLabel(item)}
                 <span className="mx-1.5">·</span>
                 {inFlightStateLabel(item)}
@@ -342,7 +342,7 @@ function InFlightView() {
               <RelativeTime value={item.updated_at} />
               <button
                 type="button"
-                className="rounded-control border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-secondary/50"
+                className="rounded-control border px-2 py-1 mono-label hover:bg-secondary/50"
                 style={{ borderColor: "var(--border)" }}
                 aria-label={`Stop ${item.label}`}
                 disabled={cancelInFlight.isPending}
@@ -388,7 +388,7 @@ function ActivityToolbar({
         type="button"
         onClick={onRefresh}
         disabled={isRefreshing}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border font-mono text-[11px] text-muted-foreground disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border mono-meta disabled:opacity-60"
         style={{ borderColor: "var(--border)" }}
       >
         <RefreshCw
@@ -653,9 +653,7 @@ function QueueView() {
             <DataTableSortHeader column={column} title="File" />
           ),
           cell: ({ getValue }) => (
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {getValue() || "—"}
-            </span>
+            <span className="mono-meta">{getValue() || "—"}</span>
           ),
         }),
         queueColumnHelper.accessor("site", {
@@ -794,7 +792,7 @@ function HistoryView() {
             <DataTableSortHeader column={column} title="Issue" />
           ),
           cell: ({ getValue }) => (
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="mono-meta">
               {getValue() ? `#${getValue()}` : "—"}
             </span>
           ),

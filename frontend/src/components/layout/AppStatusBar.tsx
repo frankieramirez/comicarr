@@ -138,7 +138,7 @@ function StatusShell({
 }) {
   return (
     <div
-      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground"
+      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 mono-meta"
       aria-label="Application status"
     >
       {children}

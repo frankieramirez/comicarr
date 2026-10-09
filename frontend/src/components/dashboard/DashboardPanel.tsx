@@ -15,11 +15,7 @@ import type { PanelState } from "@/lib/panelState";
 
 /** An honest sentence in the panel's own voice — never a blank card. */
 export function PanelNote({ children }: { children: ReactNode }) {
-  return (
-    <div className="font-mono text-[11px] text-muted-foreground py-3">
-      {children}
-    </div>
-  );
+  return <div className="mono-meta py-3">{children}</div>;
 }
 
 /**
