@@ -244,6 +244,21 @@ class TestBareNumber:
         assert result["series_name"] == "Slam Dunk"
         assert result["chapter_number"] == 1.0
 
+    def test_hash_before_number_parses_like_bare_number(self):
+        from comicarr.manga_parser import parse_manga_chapter_number, parse_manga_filename
+
+        for filename in (
+            "Midnight X-Men #001 (2026).cbz",
+            "Midnight X-Men #01 (2026).cbz",
+            "Midnight X-Men #1 (2026).cbz",
+            "Midnight X-Men 001 (2026).cbz",
+        ):
+            result = parse_manga_filename(filename)
+            assert result is not None, filename
+            assert result["series_name"] == "Midnight X-Men"
+            assert result["chapter_number"] == 1.0
+            assert parse_manga_chapter_number(filename) == 1.0
+
 
 class TestVolumeOnly:
     """Pattern: Title v01.cbz — volume only"""
