@@ -15,6 +15,7 @@ import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { Button } from "@/components/ui/button";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -1151,28 +1152,16 @@ export default function SeriesDetailPage() {
                 ["missing", `Missing ${missing}`],
                 ["monitored", `Monitored ${monitored}`],
               ] as const
-            ).map(([key, label]) => {
-              const active = filter === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setFilter(key)}
-                  className="rounded-full border px-2 py-0.5 transition-colors"
-                  style={{
-                    borderColor: active ? "var(--primary)" : "var(--border)",
-                    color: active
-                      ? "var(--primary)"
-                      : "var(--muted-foreground)",
-                    background: active
-                      ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                      : "transparent",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
+            ).map(([key, label]) => (
+              <ToggleChip
+                key={key}
+                size="xs"
+                pressed={filter === key}
+                onPressedChange={() => setFilter(key)}
+              >
+                {label}
+              </ToggleChip>
+            ))}
           </div>
         </div>
 

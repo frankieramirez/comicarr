@@ -16,6 +16,7 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,33 +47,6 @@ type ReleasesView = "mine" | "all";
 
 const WEEKLY_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_80px_160px_100px]";
-
-function ToggleChip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="font-mono text-[11px] px-2.5 py-1 rounded-full border"
-      style={{
-        borderColor: active ? "var(--primary)" : "var(--border)",
-        color: active ? "var(--primary)" : "var(--muted-foreground)",
-        background: active
-          ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-          : "transparent",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -343,15 +317,17 @@ function MyReleasesView() {
           Filter
         </div>
         <ToggleChip
-          active={!includeDownloaded}
-          label="wanted only"
-          onClick={() => setIncludeDownloaded(false)}
-        />
+          pressed={!includeDownloaded}
+          onPressedChange={() => setIncludeDownloaded(false)}
+        >
+          wanted only
+        </ToggleChip>
         <ToggleChip
-          active={includeDownloaded}
-          label="include downloaded"
-          onClick={() => setIncludeDownloaded(true)}
-        />
+          pressed={includeDownloaded}
+          onPressedChange={() => setIncludeDownloaded(true)}
+        >
+          include downloaded
+        </ToggleChip>
 
         <div className="ml-auto flex items-center gap-2">
           <div className="mono-meta">

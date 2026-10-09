@@ -24,6 +24,7 @@ import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import LibraryScanSection from "@/components/import/LibraryScanSection";
 import ImportInboxSection from "@/components/import/ImportInboxSection";
 import PageHeader from "@/components/layout/PageHeader";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import { useServerPage } from "@/components/data-table/useServerPage";
 import { useTableState } from "@/components/data-table/useTableState";
 import type { ImportGroup } from "@/types";
@@ -299,23 +300,12 @@ export default function ImportPage() {
           />
 
           <div className="flex items-center gap-3 mb-4">
-            <button
-              type="button"
-              aria-pressed={showIgnored}
-              onClick={() => {
-                setShowIgnored((prev) => !prev);
+            <ToggleChip
+              pressed={showIgnored}
+              onPressedChange={(next) => {
+                setShowIgnored(next);
                 resetPage();
                 clearSelection();
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-mono text-[11px]"
-              style={{
-                borderColor: showIgnored ? "var(--primary)" : "var(--border)",
-                color: showIgnored
-                  ? "var(--primary)"
-                  : "var(--muted-foreground)",
-                background: showIgnored
-                  ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                  : "transparent",
               }}
             >
               {showIgnored ? (
@@ -329,7 +319,7 @@ export default function ImportPage() {
                   ignored hidden
                 </>
               )}
-            </button>
+            </ToggleChip>
           </div>
 
           {isLoading && (

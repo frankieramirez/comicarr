@@ -17,6 +17,7 @@ import { AboutTab } from "@/components/settings/AboutTab";
 import { LogsTab } from "@/components/settings/LogsTab";
 import { SaveButton } from "@/components/settings/SaveButton";
 import PageHeader from "@/components/layout/PageHeader";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import { prepareConfigSaveData } from "@/lib/configSave";
 import { formatAppVersion } from "@/lib/version";
 import { httpOrigin } from "@/lib/httpOrigin";
@@ -307,27 +308,21 @@ export default function SettingsPage() {
         className="md:hidden border-b overflow-x-auto"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="flex items-center gap-1.5 px-4 py-2 whitespace-nowrap">
-          {SECTIONS.map((s) => {
-            const active = section === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSection(s.id)}
-                className="px-2.5 py-1 rounded-full border text-[12px] transition-colors shrink-0"
-                style={{
-                  borderColor: active ? "var(--primary)" : "var(--border)",
-                  color: active ? "var(--primary)" : "var(--muted-foreground)",
-                  background: active
-                    ? "color-mix(in oklab, var(--primary) 12%, transparent)"
-                    : "transparent",
-                }}
-              >
-                {s.label}
-              </button>
-            );
-          })}
+        <div
+          role="group"
+          aria-label="Settings sections"
+          className="flex items-center gap-1.5 px-4 py-2 whitespace-nowrap"
+        >
+          {SECTIONS.map((s) => (
+            <ToggleChip
+              key={s.id}
+              pressed={section === s.id}
+              onPressedChange={() => setSection(s.id)}
+              size="md"
+            >
+              {s.label}
+            </ToggleChip>
+          ))}
         </div>
       </div>
 
