@@ -305,7 +305,7 @@ export default function AttentionPage() {
               aria-label="Filter by age"
               value={age}
               onChange={(e) => setAge(e.target.value as AgeFilter)}
-              className="rounded-control border bg-transparent px-2 py-1.5 mono-meta">
+              className="rounded-control border bg-transparent px-2 py-1.5 mono-meta"
               style={{ borderColor: "var(--border)" }}
             >
               <option value="all">any age</option>
