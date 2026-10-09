@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { checkHealth, checkSetup, setupCredentials } from "@/lib/api";
 import { Kbd } from "@/components/ui/kbd";
+import { Callout } from "@/components/ui/callout";
 import GridShader from "@/components/login/GridShader";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
@@ -218,19 +219,13 @@ function SetupForm() {
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
-          style={{
-            color: "var(--status-error)",
-            background: "var(--status-error-bg)",
-            borderColor:
-              "color-mix(in oklab, var(--status-error) 30%, transparent)",
-          }}
+        <Callout
+          tone="error"
+          className="flex items-start gap-2 rounded-md p-2.5 text-[12px]"
         >
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span className="font-mono">{error}</span>
-        </div>
+        </Callout>
       )}
 
       <button
@@ -337,19 +332,13 @@ function LoginForm() {
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 p-2.5 text-[12px] rounded-md border"
-          style={{
-            color: "var(--status-error)",
-            background: "var(--status-error-bg)",
-            borderColor:
-              "color-mix(in oklab, var(--status-error) 30%, transparent)",
-          }}
+        <Callout
+          tone="error"
+          className="flex items-start gap-2 rounded-md p-2.5 text-[12px]"
         >
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span className="font-mono">{error}</span>
-        </div>
+        </Callout>
       )}
 
       <button

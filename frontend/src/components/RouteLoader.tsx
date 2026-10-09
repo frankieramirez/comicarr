@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 
 type RouteModule = { default: ComponentType };
 
@@ -43,18 +44,8 @@ class RouteErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <section
-          className="flex min-h-[12rem] items-center justify-center p-6"
-          role="alert"
-        >
-          <div
-            className="max-w-md rounded-lg border p-5 text-center"
-            style={{
-              borderColor:
-                "color-mix(in oklab, var(--status-error) 35%, transparent)",
-              background: "var(--status-error-bg)",
-            }}
-          >
+        <section className="flex min-h-[12rem] items-center justify-center p-6">
+          <Callout tone="error" className="max-w-md p-5 text-center">
             <h1 className="text-base font-semibold">
               Unable to load this page
             </h1>
@@ -64,7 +55,7 @@ class RouteErrorBoundary extends Component<
             <Button className="mt-4" onClick={this.props.onRetry} type="button">
               Try again
             </Button>
-          </div>
+          </Callout>
         </section>
       );
     }
@@ -160,18 +151,8 @@ function RouteLoadError({
   onRetry: () => void;
 }) {
   return (
-    <section
-      className="flex min-h-[12rem] items-center justify-center p-6"
-      role="alert"
-    >
-      <div
-        className="max-w-md rounded-lg border p-5 text-center"
-        style={{
-          borderColor:
-            "color-mix(in oklab, var(--status-error) 35%, transparent)",
-          background: "var(--status-error-bg)",
-        }}
-      >
+    <section className="flex min-h-[12rem] items-center justify-center p-6">
+      <Callout tone="error" className="max-w-md p-5 text-center">
         <h1 className="text-base font-semibold">Unable to load this page</h1>
         <p className="mt-2 text-[12px] text-muted-foreground">
           {error.message ||
@@ -180,7 +161,7 @@ function RouteLoadError({
         <Button className="mt-4" onClick={onRetry} type="button">
           Try again
         </Button>
-      </div>
+      </Callout>
     </section>
   );
 }

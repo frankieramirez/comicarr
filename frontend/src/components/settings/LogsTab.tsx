@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Callout } from "@/components/ui/callout";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import {
   LOG_LINE_CHOICES,
@@ -374,15 +375,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
       {isLoading ? (
         <Skeleton className="h-[min(62vh,640px)] w-full" />
       ) : hasError ? (
-        <div
-          className="rounded-control border px-3 py-2.5 text-[12.5px]"
-          style={{
-            borderColor:
-              "color-mix(in oklab, var(--status-error) 30%, transparent)",
-            background: "var(--status-error-bg)",
-            color: "var(--status-error)",
-          }}
-        >
+        <Callout tone="error" className="px-3 py-2.5 text-[12.5px]">
           Could not read {selectedName}:{" "}
           {data?.error ||
             (readError instanceof Error ? readError.message : "unknown error")}
@@ -396,7 +389,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
           >
             Refresh files and results
           </Button>
-        </div>
+        </Callout>
       ) : (
         <pre
           className="max-h-[min(62vh,640px)] overflow-auto rounded-lg border p-3 font-mono text-[11.5px] leading-[1.45] whitespace-pre-wrap break-words"

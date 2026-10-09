@@ -17,6 +17,7 @@ import {
 } from "@/hooks/useImport";
 import { useConfig } from "@/hooks/useConfig";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 import { useToast } from "@/components/ui/toast";
 import LibraryScanResults from "./LibraryScanResults";
 
@@ -194,13 +195,10 @@ function ScanFailure({
 
   const detail = progress.progress.errors[0];
   return (
-    <div
-      className="rounded-lg border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-[12px] text-foreground"
-      role="alert"
-    >
+    <Callout tone="error" className="px-3.5 py-3 text-[12px]">
       {type === "comic" ? "Comic" : "Manga"} library scan failed
       {detail ? `: ${detail}` : "."}
-    </div>
+    </Callout>
   );
 }
 
