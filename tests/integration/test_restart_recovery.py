@@ -149,7 +149,7 @@ def _artifact_folder(tmp_path, name):
 # ===========================================================================
 
 
-def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue):
+def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue, tmp_path):
     """AE1 (R1/R4/R5): a release journaled `snatched`; its external download
     completed during the downtime (U5 classify -> complete). After
     replay_pipeline() the item is enqueued for PP EXACTLY ONCE with the
@@ -159,13 +159,15 @@ def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue):
     Exactly-once property: PP_QUEUE put count == 1 on first replay, == 0 on
     the second (the journal terminal-state guard converges)."""
     rkey = journal.release_key("500", "nzb.su", nzbname="Batman_010.cbz")
+    completed = tmp_path / "Batman_010"
+    completed.mkdir()
     payload = {
         "issueid": "500",
         "comicid": "C9",
         "provider": "nzb.su",
         "nzbname": "Batman_010.cbz",
         "nzb_name": "Batman_010.cbz",
-        "nzb_folder": "/dl/Batman_010",
+        "nzb_folder": str(completed),
     }
     # nzblog row is written at snatch and only DELETED on PP success — so an
     # in-flight snatch still has its nzblog row (its absence is the
@@ -214,12 +216,13 @@ def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue):
 def test_ae1_anchor_reconstruction_drives_residual_window_completed_not_redriven(fake_pp_queue):
     """AE1 (R1/R4/R5): the U2 residual window — snatch committed durably
     (snatched + nzblog) but the strictly-last journal write was lost, NO
-    journal row exists. Replay must reconstruct the anchor and drive the item
-    to PP EXACTLY ONCE, while a genuinely-completed release (Post-Processed
-    sibling, nzblog gone) must NOT be reconstructed or re-driven.
+    journal row exists.     Replay must reconstruct the anchor. Without a usable completed folder
+    the reconstructed complete verdict is quarantined rather than handed to
+    PP. A genuinely-completed release (Post-Processed sibling, nzblog gone)
+    must NOT be reconstructed or re-driven.
 
     Exactly-once / no-silent-drop: reconstructed count == 1, the in-flight
-    issue gets exactly one PP enqueue, the completed one zero."""
+    issue is visible in Needs attention, the completed one is untouched."""
     with get_engine().begin() as conn:
         # Residual-window release: durable snatched(Snatched) + nzblog, NO
         # journal row, NO Downloaded/Post-Processed sibling -> reconstruct.
@@ -268,8 +271,9 @@ def test_ae1_anchor_reconstruction_drives_residual_window_completed_not_redriven
     assert journal.read_one(journal.release_key("701", "nzb.su", nzbname=None, hash=None)) is None
 
     items = _drain(fake_pp_queue)
-    assert len(items) == 1
-    assert items[0]["issueid"] == "700"
+    assert rebuilt["stage"] == journal.MANUAL_REVIEW
+    assert items == []
+    assert str(rebuilt.get("fail_reason") or "").startswith("invalid_recovered_postprocess_command:")
 
 
 def test_ae1_still_downloading_reenqueued_for_live_monitor_no_double_drive(fake_pp_queue, monkeypatch):
@@ -440,7 +444,7 @@ def test_ae2_already_post_processed_recognized_done_not_redriven(fake_pp_queue, 
 # ===========================================================================
 
 
-def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once(fake_pp_queue):
+def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once(fake_pp_queue, tmp_path):
     """AE3 (R3/R5): the SAME release is interrupted twice — two sequential
     replay_pipeline() runs, each simulating a separate process restart.
     Restart #1 replays the `snatched` row and re-enqueues it for PP; the live
@@ -456,12 +460,14 @@ def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once
     once the consumer's atomic claim advances the row, the second restart is
     a no-op (no duplicate grab/PP)."""
     rkey = journal.release_key("550", "nzb.su", nzbname="Flash_001.cbz")
+    completed = tmp_path / "Flash_001"
+    completed.mkdir()
     payload = {
         "issueid": "550",
         "comicid": "C55",
         "provider": "nzb.su",
         "nzb_name": "Flash_001.cbz",
-        "nzb_folder": "/dl/Flash_001",
+        "nzb_folder": str(completed),
     }
     with get_engine().begin() as conn:
         conn.execute(nzblog.insert().values(IssueID="550", PROVIDER="nzb.su", NZBName="Flash_001.cbz"))

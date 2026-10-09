@@ -342,8 +342,9 @@ def _probe_torrent(row, payload=None):
 
 def _sab_history_or_queue(row, payload=None):
     """SAB: still in active queue ⇒ still; in history success ⇒ complete;
-    not found in either ⇒ absent. Reuses sabnzbd.SABnzbd.historycheck()
-    (history lookup by nzo_id) — the same path nzb_monitor/cdh use."""
+    not found in either ⇒ absent. Queries the SAB queue first, then
+    reuses sabnzbd.SABnzbd.historycheck() (history lookup by nzo_id) —
+    the same path nzb_monitor/cdh use."""
     payload = payload if payload is not None else journal.load_payload(row.get("payload_json"))
     payload = payload or {}
     di = payload.get("download_info") or {}
@@ -367,7 +368,11 @@ def _sab_history_or_queue(row, payload=None):
             },
         }
         s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
-        nzstat = s.historycheck(nzbinfo)
+        # Bypass SAB's category filter: change_cat can move a live NZO out of
+        # SAB_CATEGORY, which would hide it from both probes and yield GONE.
+        if s.queuecheck(nzo_id, ignore_category=True):
+            return "still"
+        nzstat = s.historycheck(nzbinfo, ignore_category=True)
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
         return "unreachable"
@@ -407,7 +412,11 @@ def _nzbget_history(row, payload=None):
 
 def _nzstat_to_raw(nzstat):
     """Map a SAB/NZBGet historycheck() return shape onto the raw probe
-    vocabulary. (cdh_monitor's status mapping is the model here.)"""
+    vocabulary. (cdh_monitor's status mapping is the model here.)
+
+    ``complete`` is reserved for an explicit success (status True or
+    double-pp). Unknown strings are unreachable, never complete.
+    """
     if not isinstance(nzstat, dict):
         return "unreachable"
     status = nzstat.get("status")
@@ -421,7 +430,15 @@ def _nzstat_to_raw(nzstat):
         return "failed_no_auto_handling"
     if status is False:
         return "absent"
-    return "complete"
+    if status == "nzb removed":
+        return "absent"
+    if isinstance(status, str) and status.startswith("unhandled status of:"):
+        return "still"
+    if status == "file not found":
+        return "unplaced"
+    if status == "failed_in_sab":
+        return "absent"
+    return "unreachable"
 
 
 _RAW_PROBE_STATES = frozenset(("still", "complete", "absent", "unreachable", "unprobeable"))
@@ -636,6 +653,13 @@ def classify_details(row, probes=None, payload=None):
     if raw_state == "failed_no_auto_handling":
         logger.warn("[RECOVERY-CLASSIFY] %s -> failed_no_auto_handling (SAB failed, auto-handling off)" % rkey)
         details["verdict"] = GONE
+        return details
+    if raw_state == "unplaced":
+        logger.warn(
+            "[RECOVERY-CLASSIFY] %s -> UNKNOWN (downloader finished but the "
+            "completed folder is unresolvable); recovery will quarantine for Import." % rkey
+        )
+        details["verdict"] = UNKNOWN
         return details
 
     if has_done_signal(row):
