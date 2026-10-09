@@ -1,4 +1,4 @@
-import { writeFile, unlink } from "node:fs/promises";
+import { readFile, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -45,10 +45,20 @@ test("Logs searches a retained file, copies whole redacted records, and recovers
     await expect(page.locator("pre")).toContainText("apikey=[redacted]");
     await expect(page.locator("pre")).not.toContainText(secret);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByRole("button", { name: "Copy", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Copy results", exact: true })
+      .click();
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     expect(copied).toBe(await page.locator("pre").textContent());
     expect(copied).not.toContain(secret);
+    const downloading = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Download full file" }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe("comicarr.log.2.redacted.txt");
+    const saved = await readFile(await download.path(), "utf8");
+    expect(saved.split("\n")).toHaveLength(contents.split("\n").length);
+    expect(saved).toContain("apikey=[redacted]");
+    expect(saved).not.toContain(secret);
     if (process.env.COMICARR_LOG_SEARCH_EVIDENCE) {
       for (const theme of ["light", "dark"]) {
         await page.evaluate(
@@ -80,7 +90,7 @@ test("Logs searches a retained file, copies whole redacted records, and recovers
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(page.getByText(/The log file no longer exists/)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Copy", exact: true }),
+      page.getByRole("button", { name: "Copy results", exact: true }),
     ).toBeDisabled();
     await writeFile(path, contents);
     await page

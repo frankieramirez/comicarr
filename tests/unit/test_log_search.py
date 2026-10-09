@@ -121,7 +121,13 @@ def test_unknown_records_and_literal_query(log_ctx, tmp_path, filters, expected)
 
 
 @pytest.mark.parametrize(
-    "url", ["/api/system/logs/files", "/api/system/logs?selector=current", "/api/system/logs?lines=2"]
+    "url",
+    [
+        "/api/system/logs/files",
+        "/api/system/logs?selector=current",
+        "/api/system/logs?lines=2",
+        "/api/system/logs/download?selector=current",
+    ],
 )
 def test_log_reads_require_session(log_app, url):
     with TestClient(log_app) as client:
@@ -145,10 +151,11 @@ def test_log_reads_require_session(log_app, url):
         "",
     ],
 )
-def test_api_refuses_paths_and_unknown_selectors(log_app, selector):
+@pytest.mark.parametrize("endpoint", ["/api/system/logs", "/api/system/logs/download"])
+def test_api_refuses_paths_and_unknown_selectors(log_app, selector, endpoint):
     log_app.dependency_overrides[require_session] = lambda: "operator"
     with TestClient(log_app) as client:
-        response = client.get("/api/system/logs", params={"selector": selector})
+        response = client.get(endpoint, params={"selector": selector})
         assert response.status_code == 400
         assert response.json()["code"] == "invalid_selector"
 
@@ -168,6 +175,9 @@ def test_unsafe_files_are_not_listed_or_read(log_ctx, tmp_path, kind, selector, 
     assert service.list_log_files(log_ctx)["files"] == []
     with pytest.raises(log_files.LogFileError) as error:
         service.search_logs(log_ctx, selector=selector)
+    assert error.value.code == "unsafe_file"
+    with pytest.raises(log_files.LogFileError) as error:
+        service.download_log(log_ctx, selector)
     assert error.value.code == "unsafe_file"
 
 
@@ -192,6 +202,7 @@ def test_missing_and_unreadable_files_are_actionable(log_app, tmp_path, monkeypa
     [
         ("/api/system/logs?selector=current", "search_logs"),
         ("/api/system/logs/files", "list_log_files"),
+        ("/api/system/logs/download?selector=current", "download_log"),
     ],
 )
 @pytest.mark.parametrize(
@@ -317,3 +328,138 @@ def test_search_memory_does_not_grow_with_file_size(log_ctx, tmp_path):
     assert result["lines_scanned"] == 30000
     assert result["records_returned"] == 0
     assert peak < 2 * 1024 * 1024
+
+
+PLANTED_SECRETS = (
+    "canary-api-key-1016",
+    "canary-query-key-1016",
+    "canary-url-password-1016",
+    "canary-bearer-1016",
+    "canary-tuple-1016",
+    "canary-provider-key-1016",
+)
+
+
+def _planted_log():
+    return (
+        "11-Aug-2026 14:28:01 - INFO :: comicarr.search.12 : MainThread : api_key=canary-api-key-1016\n"
+        "11-Aug-2026 14:28:02 - DEBUG :: comicarr.search.12 : MainThread : GET https://indexer.test/api?t=search&apikey=canary-query-key-1016\n"
+        "11-Aug-2026 14:28:03 - INFO :: comicarr.sabnzbd.12 : MainThread : https://operator:canary-url-password-1016@sab.test/api\n"
+        "11-Aug-2026 14:28:04 - DEBUG :: comicarr.search.12 : MainThread : headers {'Authorization': 'Bearer canary-bearer-1016'}\n"
+        "11-Aug-2026 14:28:05 - DEBUG :: comicarr.search.12 : MainThread : provider_list: ['nzb', 'canary-tuple-1016']\n"
+        "11-Aug-2026 14:28:06 - ERROR :: comicarr.search.12 : MainThread : indexer rejected canary-provider-key-1016\n"
+        "Traceback (most recent call last):\n"
+        "  RuntimeError: Batman 2016 /comics/Batman (2016)\n"
+    )
+
+
+@pytest.mark.parametrize("selector, name", [("current", "comicarr.log"), ("rotation-2", "comicarr.log.2")])
+def test_download_streams_whole_file_line_for_line_redacted(log_app, log_ctx, tmp_path, selector, name):
+    log_ctx.config.EXTRA_NEWZNABS = [("indexer", "https://indexer.test", "1", "canary-provider-key-1016")]
+    (tmp_path / name).write_text(_planted_log())
+    log_app.dependency_overrides[require_session] = lambda: "operator"
+    with TestClient(log_app) as client:
+        response = client.get("/api/system/logs/download", params={"selector": selector})
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == f'attachment; filename="{name}.redacted.txt"'
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.headers["cache-control"] == "no-store"
+    lines = response.text.splitlines(keepends=True)
+    assert len(lines) == len(_planted_log().splitlines())
+    assert lines[-1] == "  RuntimeError: Batman 2016 /comics/Batman (2016)\n"
+    assert all("[redacted]" in line for line in lines[:6])
+    for secret in PLANTED_SECRETS:
+        assert secret not in response.text
+
+
+def test_download_is_a_bounded_memory_iterator(log_ctx, tmp_path):
+    path = tmp_path / "comicarr.log"
+    line = "11-Aug-2026 14:28:01 - INFO :: comicarr.search.12 : MainThread : " + "x" * 600 + "\n"
+    with path.open("w") as source:
+        for _ in range(30000):
+            source.write(line)
+    name, chunks = service.download_log(log_ctx, "current")
+    assert name == "comicarr.log"
+    assert iter(chunks) is chunks
+    tracemalloc.start()
+    try:
+        total = count = 0
+        for chunk in chunks:
+            total += len(chunk)
+            count += 1
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert total == path.stat().st_size
+    assert count > 100
+    assert peak < 2 * 1024 * 1024
+
+
+@pytest.mark.parametrize("change", ["unlink", "rotate", "truncate"])
+def test_download_ends_with_visible_error_when_file_changes_mid_stream(log_ctx, tmp_path, monkeypatch, change):
+    path = tmp_path / "comicarr.log"
+    path.write_text("first line\n" + "later line\n" * 20000)
+    original = log_files.redact_sensitive_text
+    changed = False
+
+    def mutate(line, secrets):
+        nonlocal changed
+        if not changed:
+            changed = True
+            if change == "unlink":
+                path.unlink()
+            elif change == "rotate":
+                path.rename(tmp_path / "comicarr.log.1")
+                path.write_text("new contents\n")
+            else:
+                os.truncate(path, 0)
+        return original(line, secrets)
+
+    monkeypatch.setattr(log_files, "redact_sensitive_text", mutate)
+    _, chunks = service.download_log(log_ctx, "current")
+    received = list(chunks)
+    assert (
+        received[-1]
+        == b"\n[Comicarr] DOWNLOAD INCOMPLETE: The log file changed or disappeared during the download. Download it again.\n"
+    )
+    assert all(b"INCOMPLETE" not in chunk for chunk in received[:-1])
+
+
+def test_download_api_ends_a_short_file_with_the_incomplete_marker(log_app, tmp_path, monkeypatch):
+    path = tmp_path / "comicarr.log"
+    path.write_text("first line\nsecond line\n")
+    original = log_files.redact_sensitive_text
+
+    def disappear(line, secrets):
+        if path.exists():
+            path.unlink()
+        return original(line, secrets)
+
+    monkeypatch.setattr(log_files, "redact_sensitive_text", disappear)
+    log_app.dependency_overrides[require_session] = lambda: "operator"
+    with TestClient(log_app) as client:
+        response = client.get("/api/system/logs/download", params={"selector": "current"})
+    assert response.status_code == 200
+    assert response.text.endswith(
+        "[Comicarr] DOWNLOAD INCOMPLETE: The log file changed or disappeared during the download. Download it again.\n"
+    )
+
+
+def test_download_refuses_oversized_lines_instead_of_splitting_secrets(log_ctx, tmp_path):
+    (tmp_path / "comicarr.log").write_text("x" * (1024 * 1024 + 1))
+    _, chunks = service.download_log(log_ctx, "current")
+    assert list(chunks) == [
+        b"\n[Comicarr] DOWNLOAD INCOMPLETE: A log line exceeds 1 MiB and cannot be redacted safely.\n"
+    ]
+
+
+def test_download_read_error_ends_with_marker_without_exception_detail(log_ctx, tmp_path, monkeypatch):
+    (tmp_path / "comicarr.log").write_text("first line\n")
+    _, chunks = service.download_log(log_ctx, "current")
+
+    def fail(*args, **kwargs):
+        raise PermissionError("PRIVATE /credentials/provider.key")
+
+    monkeypatch.setattr(log_files, "redact_sensitive_text", fail)
+    text = b"".join(chunks).decode()
+    assert text == "\n[Comicarr] DOWNLOAD INCOMPLETE: Cannot read the selected log file. Check permissions.\n"

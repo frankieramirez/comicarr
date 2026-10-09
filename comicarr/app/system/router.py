@@ -20,7 +20,7 @@ import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from comicarr import logger
@@ -388,6 +388,28 @@ def get_log_files(ctx: AppContext = Depends(get_context)):
         return system_service.list_log_files(ctx)
     except LogFileError as e:
         return _log_file_error_response(e.code)
+
+
+@router.get("/system/logs/download", dependencies=[Depends(require_session)])
+def download_log(selector: str = Query(..., max_length=64), ctx: AppContext = Depends(get_context)):
+    """Stream a whole selected log file, redacted line by line, as `<name>.redacted.txt`.
+
+    The status is sent before the file is read, so a file that rotates, shrinks,
+    or disappears mid-stream ends with a final `DOWNLOAD INCOMPLETE` line rather
+    than a short file that looks complete.
+    """
+    try:
+        name, chunks = system_service.download_log(ctx, selector)
+    except LogFileError as e:
+        return _log_file_error_response(e.code)
+    return StreamingResponse(
+        chunks,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}.redacted.txt"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.post("/system/logs/rotate", dependencies=[Depends(require_session)])

@@ -854,6 +854,10 @@ def search_logs(ctx, selector="current", query="", component="", severity=None, 
     }
 
 
+def download_log(ctx, selector):
+    return log_files.download_file(_log_dir(ctx), selector, _log_provider_secrets(ctx))
+
+
 def get_recent_logs(ctx, lines=DEFAULT_LOG_LINES):
     """Legacy current-file tail; selected whole-record searches use search_logs."""
     requested = max(1, min(int(lines or DEFAULT_LOG_LINES), MAX_LOG_LINES))
