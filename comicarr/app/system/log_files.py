@@ -18,6 +18,7 @@ from comicarr.app.common.redaction import redact_sensitive_text
 MAX_LOG_RECORDS = 5000
 MAX_RESULT_BYTES = 8 * 1024 * 1024
 MAX_LINE_BYTES = 1024 * 1024
+DOWNLOAD_CHUNK_BYTES = 64 * 1024
 HEADER = re.compile(r"^\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} - ([A-Z]+)\s*:: (.*)")
 SEVERITIES = {
     "DEBUG": 10,
@@ -91,24 +92,44 @@ def _component(body):
     return legacy[1] if legacy else None
 
 
+def _open(log_dir, selector):
+    name = _filename(log_dir, selector)
+    if not log_dir:
+        raise LogFileError("missing", "The log file no longer exists. Refresh the file list.")
+    path = Path(log_dir) / name
+    before = path.lstat()
+    if not stat.S_ISREG(before.st_mode):
+        raise LogFileError("unsafe_file", "The selected log is not a regular file. Refresh the file list.")
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    source = os.fdopen(fd, "rb")
+    opened = os.fstat(source.fileno())
+    if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+        source.close()
+        raise LogFileError("changed", "The log file changed during rotation. Refresh and search again.")
+    return name, path, source, opened
+
+
+def _check_unchanged(path, opened):
+    try:
+        after = path.lstat()
+    except FileNotFoundError as e:
+        raise LogFileError("changed", "The log file disappeared during rotation. Refresh and search again.") from e
+    if (
+        (after.st_dev, after.st_ino) != (opened.st_dev, opened.st_ino)
+        or after.st_size < opened.st_size
+        or (after.st_size == opened.st_size and after.st_mtime_ns != opened.st_mtime_ns)
+    ):
+        raise LogFileError("changed", "The log file changed during rotation. Refresh and search again.")
+
+
 def search_file(log_dir, selector, query="", component="", severity=None, limit=200, provider_secrets=()):
     limit = max(1, min(limit, MAX_LOG_RECORDS))
     query = query.casefold()
     component = component.casefold().removeprefix("comicarr.")
     floor = SEVERITIES.get(severity) if severity else None
     try:
-        name = _filename(log_dir, selector)
-        if not log_dir:
-            raise LogFileError("missing", "The log file no longer exists. Refresh the file list.")
-        path = Path(log_dir) / name
-        before = path.lstat()
-        if not stat.S_ISREG(before.st_mode):
-            raise LogFileError("unsafe_file", "The selected log is not a regular file. Refresh the file list.")
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
-        with os.fdopen(fd, "rb") as source:
-            opened = os.fstat(source.fileno())
-            if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
-                raise LogFileError("changed", "The log file changed during rotation. Refresh and search again.")
+        name, path, source, opened = _open(log_dir, selector)
+        with source:
             records = deque(maxlen=limit)
             matched = scanned = 0
             start = position = 0
@@ -166,18 +187,7 @@ def search_file(log_dir, selector, query="", component="", severity=None, limit=
                     redact_sensitive_text(line, provider_secrets)
                     for line in record.decode("utf-8", errors="replace").splitlines(keepends=True)
                 )
-            try:
-                after = path.lstat()
-            except FileNotFoundError as e:
-                raise LogFileError(
-                    "changed", "The log file disappeared during rotation. Refresh and search again."
-                ) from e
-            if (
-                (after.st_dev, after.st_ino) != (opened.st_dev, opened.st_ino)
-                or after.st_size < opened.st_size
-                or (after.st_size == opened.st_size and after.st_mtime_ns != opened.st_mtime_ns)
-            ):
-                raise LogFileError("changed", "The log file changed during rotation. Refresh and search again.")
+            _check_unchanged(path, opened)
             return {
                 "logs": logs,
                 "file": _entry(name, opened),
@@ -192,3 +202,52 @@ def search_file(log_dir, selector, query="", component="", severity=None, limit=
         raise LogFileError("missing", "The log file no longer exists. Refresh the file list.") from e
     except OSError as e:
         raise LogFileError("unreadable", "Cannot read the selected log file. Check permissions and Refresh.") from e
+
+
+def download_file(log_dir, selector, provider_secrets=()):
+    try:
+        name, path, source, opened = _open(log_dir, selector)
+    except FileNotFoundError as e:
+        raise LogFileError("missing", "The log file no longer exists. Refresh the file list.") from e
+    except OSError as e:
+        raise LogFileError("unreadable", "Cannot read the selected log file. Check permissions and Refresh.") from e
+    return name, _redacted_chunks(path, source, opened, provider_secrets)
+
+
+def _redacted_chunks(path, source, opened, provider_secrets):
+    with source:
+        try:
+            chunk = []
+            size = position = 0
+            while position < opened.st_size:
+                raw = source.readline(min(MAX_LINE_BYTES + 1, opened.st_size - position))
+                if not raw:
+                    raise LogFileError("changed", "The log file shrank during the download.")
+                if len(raw) > MAX_LINE_BYTES:
+                    raise LogFileError("too_large", "A log line exceeds 1 MiB.")
+                position += len(raw)
+                line = redact_sensitive_text(raw.decode("utf-8", errors="replace"), provider_secrets).encode("utf-8")
+                chunk.append(line)
+                size += len(line)
+                if size >= DOWNLOAD_CHUNK_BYTES:
+                    yield b"".join(chunk)
+                    chunk = []
+                    size = 0
+            if chunk:
+                yield b"".join(chunk)
+            _check_unchanged(path, opened)
+        except LogFileError as e:
+            yield _incomplete_marker(e.code)
+        except OSError:
+            yield _incomplete_marker("unreadable")
+
+
+_INCOMPLETE_REASONS = {
+    "changed": "The log file changed or disappeared during the download. Download it again.",
+    "too_large": "A log line exceeds 1 MiB and cannot be redacted safely.",
+    "unreadable": "Cannot read the selected log file. Check permissions.",
+}
+
+
+def _incomplete_marker(code):
+    return f"\n[Comicarr] DOWNLOAD INCOMPLETE: {_INCOMPLETE_REASONS[code]}\n".encode("utf-8")

@@ -330,5 +330,25 @@ Search errors carry an `error` message and a `code`: `invalid_selector` and
 `too_large` (413), or `unreadable` (503). The UI shows the error with a Refresh
 files and results action. An unavailable file never appears as an empty search.
 
+## Downloading a log file
+
+`GET /api/system/logs/download?selector=…` requires a session and streams the
+whole selected file as `<name>.redacted.txt` (`text/plain`, `no-store`). It
+resolves the selector exactly as search does, so unknown selectors, symlinks, and
+non-regular files fail with the same codes before any body is sent. The stream
+reads one line at a time to the size observed at open, runs each line through
+`redact_sensitive_text` with configured provider secrets, and sends 64 KiB
+chunks. Memory stays bounded regardless of file size. A line over 1 MiB is
+refused, never split, so a secret cannot straddle two redaction calls.
+
+Once the body has started, a failure cannot change the status code. A file that
+shrinks, disappears, or is replaced by rotation mid-stream, an oversized line, or
+a read error ends the body with a final `[Comicarr] DOWNLOAD INCOMPLETE: …` line,
+so a short file never looks complete. The browser still reports the download as
+finished: `BaseHTTPMiddleware` closes the body normally when the stream raises, so
+raising cannot abort the connection. The viewer renders Download full file as a plain link,
+letting the browser stream to disk, and labels it apart from Copy results, which
+copies only the displayed search results. The Support bundle is unchanged.
+
 Charted under
 [Wayfinder: One log level dial, everywhere](https://github.com/frankieramirez/comicarr/issues/611).

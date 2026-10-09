@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, FilePlus2, RefreshCw, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Copy, Download, FilePlus2, RefreshCw, Search } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
   Select,
@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Callout } from "@/components/ui/callout";
+import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import {
   LOG_LINE_CHOICES,
@@ -157,10 +158,11 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
   const text = parsed.map((line) => line.raw).join("\n");
   const readError = error || files.error;
   const hasError = Boolean(readError || data?.error);
+  const selectedFile = files.data?.files.find(
+    (file) => file.selector === selector,
+  );
   const selectedName =
-    data?.file?.name ||
-    files.data?.files.find((file) => file.selector === selector)?.name ||
-    "the selected log file";
+    data?.file?.name || selectedFile?.name || "the selected log file";
 
   const retention = formatRetention(config.max_logsize, config.max_logfiles);
   const effectiveName = data?.level.effective_name;
@@ -227,7 +229,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             disabled={!text || hasError || isFetching}
           >
             <Copy className="size-3.5" />
-            {isCopied ? "Copied" : "Copy"}
+            {isCopied ? "Copied" : "Copy results"}
           </Button>
           <Button
             type="button"
@@ -290,6 +292,30 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             </SelectContent>
           </Select>
         </label>
+        {selectedFile ? (
+          <a
+            href={`/api/system/logs/download?${new URLSearchParams({ selector })}`}
+            download
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-9",
+            )}
+          >
+            <Download className="size-3.5" />
+            Download full file
+          </a>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
+            disabled
+          >
+            <Download className="size-3.5" />
+            Download full file
+          </Button>
+        )}
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-sm text-muted-foreground">
           Search text
           <Input
@@ -408,6 +434,21 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
               : "No records match this search.")}
         </pre>
       )}
+
+      <p className="text-xs text-muted-foreground">
+        {selectedFile ? (
+          <>
+            Download full file saves all of{" "}
+            <span className="font-mono">{selectedFile.name}</span> as{" "}
+            <span className="font-mono">{selectedFile.name}.redacted.txt</span>,
+            with secrets redacted.
+          </>
+        ) : (
+          "Download full file saves the whole selected file with secrets redacted."
+        )}{" "}
+        It is an operator diagnostic and can contain series names and library
+        paths. Copy results copies only the records shown above.
+      </p>
 
       <p className="text-[11px] text-muted-foreground">
         Provider secrets are redacted before these lines leave the server.

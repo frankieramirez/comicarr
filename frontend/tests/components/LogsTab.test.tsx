@@ -214,10 +214,65 @@ describe("LogsTab", () => {
     expect(screen.getByRole("status").textContent).toContain("200 returned");
     expect(screen.getByRole("status").textContent).toContain("Truncated");
     const clipboard = vi.spyOn(navigator.clipboard, "writeText");
-    await user.click(screen.getByRole("button", { name: "Copy" }));
+    await user.click(screen.getByRole("button", { name: "Copy results" }));
     expect(clipboard).toHaveBeenCalledWith(
       "matching header [REDACTED]\n  whole traceback",
     );
+  });
+
+  it("downloads the whole selected file separately from copying the results", async () => {
+    stubLogs(LINES, UNPINNED);
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByText(/pool open/);
+
+    const current = await screen.findByRole("link", {
+      name: "Download full file",
+    });
+    expect(current.getAttribute("href")).toBe(
+      "/api/system/logs/download?selector=current",
+    );
+    expect(current.hasAttribute("download")).toBe(true);
+
+    await user.click(screen.getByLabelText("Log file"));
+    await user.click(
+      await screen.findByRole("option", { name: /comicarr.log.2/ }),
+    );
+    expect(
+      screen
+        .getByRole("link", { name: "Download full file" })
+        .getAttribute("href"),
+    ).toBe("/api/system/logs/download?selector=rotation-2");
+
+    const note = screen.getByText(/operator diagnostic/);
+    expect(note.textContent).toContain("comicarr.log.2.redacted.txt");
+    expect(note.textContent).toContain("series names and library paths");
+    expect(note.textContent).toContain(
+      "Copy results copies only the records shown",
+    );
+    expect(screen.getByRole("button", { name: "Copy results" })).toBeTruthy();
+  });
+
+  it("offers no download link for a file that is no longer listed", async () => {
+    stubLogs(LINES, UNPINNED);
+    server.use(
+      http.get("/api/system/logs/files", () =>
+        HttpResponse.json({ files: [] }),
+      ),
+    );
+    renderTab();
+    await screen.findByText(/pool open/);
+
+    expect(
+      screen.queryByRole("link", { name: "Download full file" }),
+    ).toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Download full file",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("refreshes missing rotated files and results without losing the search", async () => {
@@ -253,8 +308,11 @@ describe("LogsTab", () => {
     await screen.findByText(/The log file no longer exists/);
     expect(screen.queryByText(/Nothing in/)).toBeNull();
     expect(
-      (screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Copy results",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     available = true;
     const before = lists;
