@@ -126,6 +126,24 @@ vi.stubGlobal(
 // Console Mocks (optional - suppress certain warnings during tests)
 // =============================================================================
 
+function isHappyDomTeardownAbortLog(args: unknown[]): boolean {
+  const text = args
+    .map((arg) => {
+      if (typeof arg === "string") return arg;
+      if (arg instanceof Error) return `${arg.name} ${arg.message}`;
+      return "";
+    })
+    .join(" ");
+  if (!/aborted|AbortError/i.test(text)) return false;
+  return (
+    text.includes("Session check failed") ||
+    text.includes("Setup check failed") ||
+    text.includes("Session verification failed") ||
+    text.includes('Failed to execute "fetch()"') ||
+    text.includes("The operation was aborted")
+  );
+}
+
 // Suppress specific React warnings if needed
 const originalConsoleError = console.error;
 console.error = (...args: unknown[]) => {
@@ -140,6 +158,13 @@ console.error = (...args: unknown[]) => {
     typeof message === "string" &&
     suppressedWarnings.some((w) => message.includes(w))
   ) {
+    return;
+  }
+
+  // happy-dom aborts AuthProvider session fetches during worker teardown.
+  // Logging them races vitest's onUserConsoleLog RPC and fails the run with
+  // EnvironmentTeardownError even when every assertion passed.
+  if (isHappyDomTeardownAbortLog(args)) {
     return;
   }
 
