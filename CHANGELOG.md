@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.47.0
+
+### Minor Changes
+
+- b54d2d9: You can now choose which search providers a single series uses, and in what order. On the series page, Search providers → Change providers lists your enabled providers. Move one up to try it first for that series, or untick one to skip it, so a magazine like Wizard can try a particular torrent indexer before GetComics, or skip GetComics entirely. Every other series keeps the global order. Providers you didn't move still follow the global order. A series can't turn on a provider that's disabled in Settings. Manga series still skip DDL providers. Use global order removes the series' custom order. The choice applies to automatic search and to Interactive Search for that series. RSS matching still uses the global order.
+
+### Patch Changes
+
+- ee4793c: The import inbox now reads the issue number from filenames written with a `#`, such as `Midnight X-Men #001 (2026).cbz`. These files now get matched to their issue, renamed, and tagged with metadata, the same as `Midnight X-Men 001 (2026).cbz`. Before this fix they were moved into the series folder untagged.
+
 ## 0.46.0
 
 ### Minor Changes
