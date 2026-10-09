@@ -537,11 +537,7 @@ function AllReleasesView() {
                     </span>
                   ) : null}
                 </div>
-                <div
-                  className={`${DESKTOP_COL} mono-meta`}
-                >
-                  #{issue.ISSUE}
-                </div>
+                <div className={`${DESKTOP_COL} mono-meta`}>#{issue.ISSUE}</div>
                 <div
                   className={`${DESKTOP_COL} text-muted-foreground truncate`}
                 >

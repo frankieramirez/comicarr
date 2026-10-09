@@ -23,10 +23,7 @@ function MonoLabel({
   htmlFor: string;
 }) {
   return (
-    <label
-      htmlFor={htmlFor}
-      className="block mono-label mb-1.5"
-    >
+    <label htmlFor={htmlFor} className="block mono-label mb-1.5">
       {children}
     </label>
   );
