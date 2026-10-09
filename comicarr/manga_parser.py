@@ -83,7 +83,7 @@ _PAT_VOLUME_ONLY = re.compile(
 )
 
 _PAT_BARE_NUMBER = re.compile(
-    r"^(?P<series>.+?)\s+"
+    r"^(?P<series>.+?)\s+#?"
     r"(?P<chapter>\d+(?:\.\d+)?)"
     r"\s*$",
 )
