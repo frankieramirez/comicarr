@@ -12,6 +12,7 @@ import LibraryRow from "@/components/dashboard/LibraryRow";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { panelState, type PanelState } from "@/lib/panelState";
+import PageHeader from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { useToast } from "@/components/ui/toast";
@@ -163,36 +164,31 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full flex flex-col page-transition">
-      {/* Page header */}
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[18px] font-semibold tracking-tight">
-            Dashboard
-          </h1>
-          <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
-            {summary}
-          </div>
-        </div>
-        {scanTargets.isError ? (
-          <PanelUnavailable
-            label="Scan targets"
-            onRetry={() => void scanTargets.refetch()}
-            isRetrying={scanTargets.isFetching}
-          />
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="toolbar"
-            onClick={() => void handleLibraryScan()}
-            disabled={!canScan || scanPending}
-            title={scanTitle}
-          >
-            <RefreshCw className={scanPending ? "animate-spin" : ""} />
-            {scanPending ? "Scanning…" : "Scan libraries"}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Dashboard"
+        meta={summary}
+        actions={
+          scanTargets.isError ? (
+            <PanelUnavailable
+              label="Scan targets"
+              onRetry={() => void scanTargets.refetch()}
+              isRetrying={scanTargets.isFetching}
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="toolbar"
+              onClick={() => void handleLibraryScan()}
+              disabled={!canScan || scanPending}
+              title={scanTitle}
+            >
+              <RefreshCw className={scanPending ? "animate-spin" : ""} />
+              {scanPending ? "Scanning…" : "Scan libraries"}
+            </Button>
+          )
+        }
+      />
 
       {/* Health band — above every other panel, because it is the only one
           whose answer can require action today (dashboard-spec.md §2, §3.1). */}

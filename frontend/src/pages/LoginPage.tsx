@@ -421,7 +421,7 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <h1 className="mb-1 text-[18px] font-semibold tracking-tight">
+        <h1 className="mb-1 text-lg font-semibold tracking-tight">
           {needsSetup ? "Create admin" : "Sign in"}
         </h1>
         <div className="text-[12px] text-muted-foreground mb-4">
