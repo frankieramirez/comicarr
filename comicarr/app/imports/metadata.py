@@ -17,6 +17,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db, filers, helpers, metron, series_kind
 from comicarr.app.common.library_roots import is_strict_library_descendant
+from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics, issues
 
 _ADD_LOCK = threading.Lock()
@@ -109,13 +110,22 @@ def _comic_metadata(series_id, deadline):
             )
     if len(records) != total or len({row["IssueID"] for row in records}) != total:
         raise ValueError("ComicVine issue roster is incomplete; retry the import")
+    booktype = resolve_series_edition(
+        series_type="Print",
+        issue_count=total,
+        series_year=year,
+        description=volume.get("description"),
+        deck=volume.get("deck"),
+        issue_names=[row.get("IssueName") for row in records],
+        series_name=name,
+    )
     values = {
         "ComicName": name,
         "ComicYear": year,
         "ComicPublisher": publisher,
         "PublisherImprint": None,
         "ComicVersion": None,
-        "Type": "Print",
+        "Type": booktype,
         "Corrected_Type": None,
         "DetailURL": volume.get("site_detail_url"),
         "Description": volume.get("description"),
@@ -124,7 +134,7 @@ def _comic_metadata(series_id, deadline):
     }
     handler = filers.FileHandlers(comic=values)
     location = handler.folder_create()["comlocation"]
-    collision = handler.series_folder_collision_detection(location, series_id, "Print", year, None)
+    collision = handler.series_folder_collision_detection(location, series_id, booktype, year, None)
     values["ComicLocation"] = collision["comlocation"] if collision else location
     return values, records
 
@@ -247,6 +257,7 @@ def add_series_metadata(series_id):
                 os.path.realpath(values["ComicLocation"]),
             ):
                 raise ValueError("Series folder overlaps an existing series; add it with a distinct folder first")
+        latest = max(records, key=lambda row: helpers.issuedigits(row["Issue_Number"]))
         values.update(
             {
                 "ComicSortName": values["ComicName"].removeprefix("The "),
@@ -258,6 +269,10 @@ def add_series_metadata(series_id):
                 "LastUpdated": helpers.now(),
                 "DateAdded": (existing or {}).get("DateAdded") or helpers.today(),
                 "ComicPublished": values["ComicYear"],
+                "LatestIssue": latest["Issue_Number"],
+                "intLatestIssue": helpers.issuedigits(latest["Issue_Number"]),
+                "LatestIssueID": latest["IssueID"],
+                "LatestDate": latest.get("ReleaseDate") or latest.get("IssueDate") or "%s-01-01" % values["ComicYear"],
             }
         )
         with db.get_engine().begin() as conn:
