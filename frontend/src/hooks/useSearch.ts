@@ -43,13 +43,18 @@ export function useSearchComics(
 
   return useQuery({
     queryKey: ["search", query, page, sortBy],
-    queryFn: () =>
-      apiRequest<RawSearchResponse>("POST", "/api/search/comics", {
-        name: query,
-        limit,
-        offset,
-        ...(sortBy ? { sort: sortBy } : {}),
-      }),
+    queryFn: ({ signal }) =>
+      apiRequest<RawSearchResponse>(
+        "POST",
+        "/api/search/comics",
+        {
+          name: query,
+          limit,
+          offset,
+          ...(sortBy ? { sort: sortBy } : {}),
+        },
+        signal,
+      ),
     select: (data: RawSearchResponse): SearchResponse => {
       if (Array.isArray(data)) {
         return {
@@ -95,13 +100,18 @@ export function useSearchManga(
 
   return useQuery({
     queryKey: ["search", "manga", query, page, sortBy],
-    queryFn: () =>
-      apiRequest<RawSearchResponse>("POST", "/api/search/manga", {
-        name: query,
-        limit,
-        offset,
-        sort: sortBy,
-      }),
+    queryFn: ({ signal }) =>
+      apiRequest<RawSearchResponse>(
+        "POST",
+        "/api/search/manga",
+        {
+          name: query,
+          limit,
+          offset,
+          sort: sortBy,
+        },
+        signal,
+      ),
     select: (data: RawSearchResponse): SearchResponse => {
       if (Array.isArray(data)) {
         return {
