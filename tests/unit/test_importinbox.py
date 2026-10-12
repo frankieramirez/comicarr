@@ -472,6 +472,15 @@ class TestMatchGroup:
 
         assert result == {"auto_imported": auto_imported, "queued_for_review": 1 - auto_imported}
 
+    def test_config_without_auto_import_toggle_keeps_auto_import_enabled(self, importinbox, _mock_globals):
+        del _mock_globals["config"].AUTO_IMPORT_ENABLED
+        files = ["/import/Batman/001.cbz"]
+        series = {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman"}
+        with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+            result = importinbox._match_group("folder:batman", {"group_name": "Batman", "files": files}, [series])
+        assert result == {"auto_imported": 1, "queued_for_review": 0}
+        finalize.assert_called_once()
+
     def test_disabled_auto_import_preserves_exact_match_for_review(self, importinbox, _mock_globals):
         _mock_globals["config"].AUTO_IMPORT_ENABLED = False
         files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]

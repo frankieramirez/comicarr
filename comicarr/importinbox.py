@@ -257,7 +257,7 @@ def _match_group(group_key, group_info, series_list):
     confidence = int(best_score * 100)
 
     if (
-        comicarr.CONFIG.AUTO_IMPORT_ENABLED
+        getattr(comicarr.CONFIG, "AUTO_IMPORT_ENABLED", True)
         and best_match
         and len(tied_ids) == 1
         and len(years) <= 1
