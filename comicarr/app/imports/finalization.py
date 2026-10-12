@@ -49,6 +49,11 @@ class ImportFinalizationError(RuntimeError):
         self.rollback_failed = rollback_failed
 
 
+class ImportDuplicateError(ImportFinalizationError):
+    def __init__(self, message: str):
+        super().__init__(message, phase="preflight")
+
+
 def _fail(message: str, *, phase: str, rollback_failed: bool = False) -> ImportFinalizationError:
     return ImportFinalizationError(message, phase=phase, rollback_failed=rollback_failed)
 
@@ -462,6 +467,21 @@ def _finalize_locked(
     effective_name = series.get("ComicName") or ensured_name
     target_directory = series.get("ComicLocation")
     rows = _resolve_issue_ids(rows, series_id, fallback_issue_id)
+    if match_source == "inbox-auto":
+        for row in rows:
+            issue_id = row.get("_ResolvedIssueID")
+            existing_issues = (
+                series_queries.get_issue_full(series_id, issue_id)
+                if issue_id
+                else series_queries.get_issues_full(series_id)
+            )
+            for issue in existing_issues:
+                location = issue.get("Location")
+                if not location or location == "None":
+                    continue
+                existing_path = location if os.path.isabs(location) else os.path.join(target_directory or "", location)
+                if os.path.isfile(existing_path) and not os.path.samefile(existing_path, row["ComicLocation"]):
+                    raise ImportDuplicateError("Possible duplicate: issue already has a file: %s" % existing_path)
     _ensure_target_directory(target_directory)
     config = getattr(ctx, "config", None) or getattr(comicarr, "CONFIG", None)
     move_enabled = bool(getattr(config, "IMP_MOVE", False))

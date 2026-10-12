@@ -1293,3 +1293,100 @@ class TestWriteMetadataOnImport:
         assert result.matched == 1
         assert (target_directory / "issue 1.cbz").read_bytes() == b"existing"
         assert (target_directory / "issue 1.cbr").read_bytes() == b"rar"
+
+
+@pytest.mark.parametrize("move", [True, False])
+@pytest.mark.parametrize("absolute", [True, False])
+def test_auto_import_protects_existing_issue_file(tmp_path, move, absolute):
+    source = tmp_path / "inbox.cbz"
+    source.write_bytes(b"new file")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "previous.cbz"
+    existing.write_bytes(b"original file")
+    rows = [_row("imp-1", source, issue_number="1")]
+    with (
+        _environment(rows, library, series_id="cv-1") as mark_imported,
+        patch.object(finalization.import_queries, "get_issue_id", return_value="issue-1"),
+        patch.object(
+            finalization.series_queries,
+            "get_issue_full",
+            return_value=[
+                {
+                    "IssueID": "issue-1",
+                    "Location": str(existing) if absolute else existing.name,
+                }
+            ],
+        ),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate") as exc_info:
+            finalization.finalize_manual_match(_ctx(move=move), ["imp-1"], "cv-1", match_source="inbox-auto")
+    assert exc_info.value.phase == "preflight"
+    assert existing.read_bytes() == b"original file"
+    assert source.read_bytes() == b"new file"
+    mark_imported.assert_not_called()
+    rescan.assert_not_called()
+
+
+def test_unnumbered_auto_import_protects_existing_series_files(tmp_path):
+    source = tmp_path / "X-Men.cbz"
+    source.write_bytes(b"new")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "issue1.cbz"
+    existing.write_bytes(b"original")
+    with (
+        _environment([_row("imp-1", source)], library),
+        patch.object(finalization.series_queries, "get_issues_full", return_value=[{"Location": existing.name}]),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate"):
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
+    assert source.read_bytes() == b"new"
+    assert existing.read_bytes() == b"original"
+    rescan.assert_not_called()
+
+
+def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
+    from comicarr.tables import comics, issues
+
+    source = tmp_path / "inbox.cbz"
+    source.write_bytes(b"new")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "old.cbz"
+    existing.write_bytes(b"original")
+    engine = create_engine("sqlite://")
+    for table in (comics, issues, importresults):
+        table.create(engine)
+    with engine.begin() as conn:
+        conn.execute(insert(comics), {"ComicID": "cv-1", "ComicName": "X-Men", "ComicLocation": str(library)})
+        conn.execute(
+            insert(issues),
+            {
+                "IssueID": "issue-1",
+                "ComicID": "cv-1",
+                "Issue_Number": "1",
+                "Location": existing.name,
+                "Status": "Downloaded",
+            },
+        )
+        conn.execute(insert(importresults), _row("imp-1", source, issue_number="1"))
+    with (
+        patch.object(import_queries.db, "get_engine", return_value=engine),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportDuplicateError):
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
+    with engine.connect() as conn:
+        issue = conn.execute(select(issues)).mappings().one()
+        pending = conn.execute(select(importresults)).mappings().one()
+    assert issue["Location"] == "old.cbz"
+    assert issue["Status"] == "Downloaded"
+    assert pending["Status"] == "Unmatched"
+    assert pending["ComicID"] is None
+    assert source.read_bytes() == b"new"
+    assert existing.read_bytes() == b"original"
+    rescan.assert_not_called()
+    engine.dispose()

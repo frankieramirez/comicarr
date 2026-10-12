@@ -23,6 +23,7 @@ unmatched/low-confidence files into importresults for manual review.
 
 import hashlib
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -190,6 +191,7 @@ def _load_library_series():
                 comics.c.ComicID,
                 comics.c.ComicName,
                 comics.c.ComicSortName,
+                comics.c.ComicYear,
                 comics.c.DynamicComicName.label("DynamicName"),
             )
             for row in conn.execute(stmt):
@@ -212,33 +214,6 @@ def _match_group(group_key, group_info, series_list):
     group_name = group_info["group_name"]
     files = group_info["files"]
 
-    best_match = None
-    best_score = 0.0
-
-    normalized_group = normalize_title(group_name)
-
-    for series in series_list:
-        for name_field in ["ComicName", "ComicSortName", "DynamicName"]:
-            candidate = series.get(name_field)
-            if not candidate:
-                continue
-
-            normalized_candidate = normalize_title(candidate)
-            if normalized_group == normalized_candidate:
-                best_match = series
-                best_score = 1.0
-                break
-
-            score = name_similarity(group_name, candidate)
-            if score > best_score:
-                best_score = score
-                best_match = series
-
-        if best_score == 1.0:
-            break
-
-    confidence = int(best_score * 100)
-
     pending_files = _files_pending_import(files)
     skipped = len(files) - len(pending_files)
     if skipped:
@@ -246,16 +221,68 @@ def _match_group(group_key, group_info, series_list):
     if not pending_files:
         return result
 
-    if best_match and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE:
+    best_match = None
+    best_score = 0.0
+
+    year_pattern = r"[\(\[]((?:19|20)\d{2})[\)\]]"
+    years = set(re.findall(year_pattern, group_name))
+    for filepath in pending_files:
+        years.update(re.findall(year_pattern, os.path.basename(filepath)))
+    match_name = re.sub(year_pattern, "", group_name).strip()
+    normalized_group = normalize_title(match_name)
+    tied_ids = set()
+
+    for series in series_list:
+        names = [series.get("ComicName"), series.get("ComicSortName")]
+        if not any(names):
+            names = [series.get("DynamicName")]
+        score = 0.0
+        for candidate in names:
+            if not candidate:
+                continue
+            normalized_candidate = normalize_title(candidate)
+            if re.findall(r"\d+", normalized_group) != re.findall(r"\d+", normalized_candidate):
+                continue
+            score = max(score, name_similarity(match_name, candidate))
+        series_year = str(series.get("ComicYear") or "").strip()
+        if years and series_year and years != {series_year}:
+            score = 0.0
+        if score > best_score:
+            best_score = score
+            best_match = series
+            tied_ids = {series["ComicID"]}
+        elif score == best_score and score > 0:
+            tied_ids.add(series["ComicID"])
+
+    confidence = int(best_score * 100)
+
+    if best_match and len(tied_ids) == 1 and len(years) <= 1 and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE:
         from comicarr.app.imports.queries import get_issue_id
 
         auto_files = []
+        selected_titles = [best_match.get("ComicName"), best_match.get("ComicSortName")]
+        if not any(selected_titles):
+            selected_titles = [best_match.get("DynamicName") or match_name]
         for filepath in pending_files:
             issue_number = _series_issue_number(filepath, best_match, files)
-            if issue_number and not get_issue_id(best_match["ComicID"], issue_number):
+            parsed = manga_parser.parse_manga_filename(os.path.basename(filepath))
+            file_title = parsed.get("series_name") if parsed else None
+            file_identity = normalize_title(file_title) if file_title else None
+            identity_conflict = file_identity is not None and not any(
+                candidate
+                and re.findall(r"\d+", file_identity) == re.findall(r"\d+", normalize_title(candidate))
+                and name_similarity(file_title, candidate) * 100 >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
+                for candidate in selected_titles
+            )
+            if identity_conflict or (issue_number and not get_issue_id(best_match["ComicID"], issue_number)):
                 logger.info(
-                    "[IMPORT-INBOX] Queuing %s for review: '%s' has no issue %s"
-                    % (os.path.basename(filepath), best_match.get("ComicName", ""), issue_number)
+                    "[IMPORT-INBOX] Queuing %s for review: %s"
+                    % (
+                        os.path.basename(filepath),
+                        "filename title conflicts with folder match"
+                        if identity_conflict
+                        else "'%s' has no issue %s" % (best_match.get("ComicName", ""), issue_number),
+                    )
                 )
                 _queue_for_review(
                     filepath,
@@ -369,7 +396,7 @@ def _finalize_auto_import_group(files, series, confidence):
     from types import SimpleNamespace
 
     from comicarr.app.core.runtime import get_runtime_if_initialized
-    from comicarr.app.imports.finalization import ImportFinalizationError, finalize_manual_match
+    from comicarr.app.imports.finalization import ImportDuplicateError, ImportFinalizationError, finalize_manual_match
 
     imp_ids = [_filepath_to_impid(filepath) for filepath in files]
     ctx = get_runtime_if_initialized()
@@ -386,6 +413,9 @@ def _finalize_auto_import_group(files, series, confidence):
             match_confidence=confidence,
         )
     except ImportFinalizationError as e:
+        if isinstance(e, ImportDuplicateError):
+            for imp_id in imp_ids:
+                db.upsert("importresults", {"Status": "Possible Duplicate", "MatchSource": "inbox"}, {"impID": imp_id})
         logger.error(
             "[IMPORT-INBOX] Auto-import finalization failed for '%s' [%s%s]: %s"
             % (
