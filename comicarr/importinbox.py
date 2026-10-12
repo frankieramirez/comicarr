@@ -271,10 +271,12 @@ def _match_group(group_key, group_info, series_list):
             selected_titles = [best_match.get("DynamicName") or match_name]
         for filepath in pending_files:
             issue_number = _series_issue_number(filepath, best_match, files)
-            parsed = manga_parser.parse_manga_filename(os.path.basename(filepath))
+            parsed = manga_parser.parse_manga_filename(
+                os.path.basename(filepath), series_name=best_match.get("ComicName") or match_name
+            )
             file_title = parsed.get("series_name") if parsed else None
             file_identity = normalize_title(file_title) if file_title else None
-            identity_conflict = file_identity is not None and not any(
+            identity_conflict = file_identity is None or not any(
                 candidate
                 and re.findall(r"\d+", file_identity) == re.findall(r"\d+", normalize_title(candidate))
                 and name_similarity(file_title, candidate) * 100 >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
@@ -285,7 +287,7 @@ def _match_group(group_key, group_info, series_list):
                     "[IMPORT-INBOX] Queuing %s for review: %s"
                     % (
                         os.path.basename(filepath),
-                        "filename title conflicts with folder match"
+                        "filename title is unsupported or conflicts with folder match"
                         if identity_conflict
                         else "'%s' has no issue %s" % (best_match.get("ComicName", ""), issue_number),
                     )
