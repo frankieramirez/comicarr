@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
@@ -273,6 +273,95 @@ describe("SeriesDetailPage", () => {
     expect(await screen.findByText("Unverified copy")).toBeTruthy();
   });
 
+  it("disconnects layout observers on unmount and observes the new body on remount", async () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    const registrations: {
+      targets: Set<Element>;
+      disconnect: ReturnType<typeof vi.fn>;
+    }[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        targets = new Set<Element>();
+        observe = (target: Element) => this.targets.add(target);
+        unobserve = (target: Element) => this.targets.delete(target);
+        disconnect = vi.fn(() => this.targets.clear());
+        constructor() {
+          registrations.push(this);
+        }
+      },
+    );
+    const mutationDisconnect = vi.spyOn(
+      MutationObserver.prototype,
+      "disconnect",
+    );
+    try {
+      const first = renderDetail();
+      const oldBody = await screen.findByTestId("series-body-scroll");
+      const oldObserver = registrations.find((observer) =>
+        observer.targets.has(oldBody),
+      );
+      expect(oldObserver).toBeDefined();
+      mutationDisconnect.mockClear();
+      first.unmount();
+      expect(oldObserver?.targets.size).toBe(0);
+      expect(oldObserver?.disconnect).toHaveBeenCalled();
+      expect(mutationDisconnect).toHaveBeenCalled();
+      const second = renderDetail();
+      const newBody = await screen.findByTestId("series-body-scroll");
+      expect(newBody).not.toBe(oldBody);
+      const newObserver = registrations.find((observer) =>
+        observer.targets.has(newBody),
+      );
+      expect(newObserver).toBeDefined();
+      expect(newObserver).not.toBe(oldObserver);
+      expect(
+        registrations.some((observer) => observer.targets.has(oldBody)),
+      ).toBe(false);
+      mutationDisconnect.mockClear();
+      second.unmount();
+      expect(newObserver?.targets.size).toBe(0);
+      expect(mutationDisconnect).toHaveBeenCalled();
+    } finally {
+      vi.stubGlobal("ResizeObserver", originalResizeObserver);
+      mutationDisconnect.mockRestore();
+    }
+  });
+
+  it.each([
+    [399, false],
+    [400, true],
+  ])(
+    "keeps split scrolling only with at least 400px for issues (%ipx)",
+    async (remaining, fits) => {
+      const bodyHeight = vi
+        .spyOn(HTMLElement.prototype, "clientHeight", "get")
+        .mockImplementation(function () {
+          return this.dataset.testid === "series-body-scroll" ? 800 : 0;
+        });
+      const headerHeight = vi
+        .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+        .mockImplementation(function () {
+          return this.parentElement?.dataset.testid === "series-body-scroll" &&
+            this === this.parentElement.firstElementChild
+            ? 800 - remaining
+            : 0;
+        });
+      try {
+        renderDetail();
+        const body = await screen.findByTestId("series-body-scroll");
+        const list = screen.getByTestId("series-issue-list");
+        await waitFor(() => {
+          expect(body.classList.contains("split:overflow-hidden")).toBe(fits);
+          expect(list.classList.contains("split:overflow-auto")).toBe(fits);
+        });
+      } finally {
+        bodyHeight.mockRestore();
+        headerHeight.mockRestore();
+      }
+    },
+  );
+
   it("keeps the issue list in the same scroller as stacked mobile chrome", async () => {
     server.use(
       http.get("/api/series/1", () =>
@@ -305,18 +394,10 @@ describe("SeriesDetailPage", () => {
         "min-h-0",
         "overflow-y-auto",
         "overflow-x-hidden",
-        "split:flex",
-        "split:flex-col",
-        "split:overflow-hidden",
       ]),
     );
     expect(issues.className.split(/\s+/)).toEqual(
-      expect.arrayContaining([
-        "md:overflow-x-auto",
-        "split:min-h-0",
-        "split:flex-1",
-        "split:overflow-auto",
-      ]),
+      expect.arrayContaining(["md:overflow-x-auto"]),
     );
     expect(issues.className.split(/\s+/)).not.toContain("overflow-x-auto");
     expect(issues.className.split(/\s+/)).not.toContain("flex-1");
