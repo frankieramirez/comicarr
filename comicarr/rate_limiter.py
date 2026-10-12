@@ -36,7 +36,7 @@ class ComicVineRateLimiter:
         self.last_update = time.time()
         self.lock = threading.Lock()
 
-    def acquire(self):
+    def acquire(self, timeout=None):
         """
         Acquire a token to make an API request.
 
@@ -45,7 +45,11 @@ class ComicVineRateLimiter:
 
         Thread-safe: Multiple threads can call this concurrently.
         """
-        with self.lock:
+        started = time.monotonic()
+        acquired = self.lock.acquire() if timeout is None else self.lock.acquire(timeout=max(0, timeout))
+        if not acquired:
+            raise TimeoutError("ComicVine rate limiter is busy; retry the import")
+        try:
             now = time.time()
             elapsed = now - self.last_update
 
@@ -57,8 +61,12 @@ class ComicVineRateLimiter:
                 return
             else:
                 wait_time = (1.0 - self.tokens) / self.rate
+                if timeout is not None and wait_time > timeout - (time.monotonic() - started):
+                    raise TimeoutError("ComicVine rate limit exceeds the metadata request deadline")
                 self.tokens = 0
                 time.sleep(wait_time)
+        finally:
+            self.lock.release()
 
     def set_rate(self, calls_per_second):
         """

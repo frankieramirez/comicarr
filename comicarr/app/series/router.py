@@ -525,6 +525,7 @@ def match_import(
             comic_id,
             series_name=comic_name,
             fallback_issue_id=issue_id,
+            add_missing=request_body.get("add_missing") is True,
         )
     except import_finalization.ImportFinalizationError as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})

@@ -260,7 +260,13 @@ def addComictoDB(
     fixed_type=None,
     suppress_addall=None,
     location=None,
+    metadata_only=False,
 ):
+
+    if metadata_only:
+        from comicarr.app.imports.metadata import add_series_metadata
+
+        return add_series_metadata(comicid)
 
     provider = series_kind.provider_of(comicid)
     if provider is series_kind.SeriesProvider.MANGADEX:

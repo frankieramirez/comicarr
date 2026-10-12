@@ -44,6 +44,7 @@ describe("MatchModal", () => {
             {
               comicid: "12345",
               name: "Exact volume",
+              in_library: true,
               comicyear: "2024",
               publisher: "Marvel",
             },
@@ -96,6 +97,7 @@ describe("MatchModal", () => {
                   {
                     comicid: "12345",
                     name: "Exact new volume",
+                    in_library: false,
                     comicyear: "2024",
                     publisher: "Marvel",
                   },
@@ -127,11 +129,12 @@ describe("MatchModal", () => {
       expect(screen.queryByText("Late wrong volume")).toBeNull(),
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Match Selected" }),
+      screen.getByRole("button", { name: "Add series and import" }),
     );
     expect(onMatch).toHaveBeenCalledExactlyOnceWith(
       "12345",
       "Exact new volume",
+      true,
     );
   });
 
@@ -346,5 +349,126 @@ describe("MatchModal", () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(trigger);
     });
+  });
+
+  it("confirms a missing series by name, year, publisher and unmonitored outcome", async () => {
+    server.use(
+      http.post("/api/search/comics", () =>
+        HttpResponse.json({
+          results: [
+            {
+              comicid: "123",
+              name: "Example",
+              comicyear: "2020",
+              publisher: "Publisher",
+              in_library: false,
+            },
+          ],
+        }),
+      ),
+    );
+    const onMatch = vi.fn();
+    renderMinimal(
+      <MatchModal
+        isOpen
+        onClose={vi.fn()}
+        importGroup={comicGroup}
+        onMatch={onMatch}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Example.*2020.*Publisher/ }),
+    );
+    expect(
+      screen.getByText("Will add series: Example (2020, Publisher)"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Added unmonitored. No downloads will start/),
+    ).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add series and import" }),
+    );
+    expect(onMatch).toHaveBeenCalledWith("123", "Example", true);
+  });
+
+  it("keeps the existing-series match action", async () => {
+    server.use(
+      http.post("/api/search/comics", () =>
+        HttpResponse.json({
+          results: [
+            {
+              comicid: "123",
+              name: "Example",
+              comicyear: "2020",
+              publisher: "Publisher",
+              in_library: true,
+            },
+          ],
+        }),
+      ),
+    );
+    const onMatch = vi.fn();
+    renderMinimal(
+      <MatchModal
+        isOpen
+        onClose={vi.fn()}
+        importGroup={comicGroup}
+        onMatch={onMatch}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Example.*In Library/ }),
+    );
+    expect(screen.queryByText(/Will add series:/)).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Match Selected" }),
+    );
+    expect(onMatch).toHaveBeenCalledWith("123", "Example", false);
+  });
+
+  it("holds the confirmed selection and pending state during add and import", async () => {
+    server.use(
+      http.post("/api/search/comics", () =>
+        HttpResponse.json({
+          results: [
+            {
+              comicid: "123",
+              name: "Example",
+              comicyear: "2020",
+              publisher: "Publisher",
+              in_library: false,
+            },
+          ],
+        }),
+      ),
+    );
+    const onClose = vi.fn();
+    function Harness() {
+      const [matching, setMatching] = useState(false);
+      return (
+        <MatchModal
+          isOpen
+          onClose={onClose}
+          importGroup={comicGroup}
+          onMatch={() => setMatching(true)}
+          isMatching={matching}
+        />
+      );
+    }
+    renderMinimal(<Harness />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Example.*2020.*Publisher/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add series and import" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Adding and importing..." }),
+    ).toHaveProperty("disabled", true);
+    expect(
+      screen.getByPlaceholderText("Search for a comic series..."),
+    ).toHaveProperty("disabled", true);
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

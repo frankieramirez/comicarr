@@ -67,16 +67,23 @@ export function useImportPending(
 export function useMatchImport(): UseMutationResult<
   MatchImportResponse,
   Error,
-  { impIds: string[]; comicId: string; comicName?: string; issueId?: string }
+  {
+    impIds: string[];
+    comicId: string;
+    comicName?: string;
+    issueId?: string;
+    addMissing?: boolean;
+  }
 > {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ impIds, comicId, comicName, issueId }) =>
+    mutationFn: ({ impIds, comicId, comicName, issueId, addMissing = false }) =>
       apiRequest<MatchImportResponse>("POST", "/api/import/match", {
         imp_ids: impIds,
         comic_id: comicId,
         comic_name: comicName,
         issue_id: issueId,
+        add_missing: addMissing,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });

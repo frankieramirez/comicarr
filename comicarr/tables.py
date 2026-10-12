@@ -295,6 +295,7 @@ importresults = Table(
     Column("SuggestedIssueID", Text),
     Column("IgnoreFile", Integer, server_default="0"),
     Column("MatchSource", Text),
+    Column("RequiresIssueResolution", Integer, server_default="0"),
     UniqueConstraint("impID", name="uq_importresults_impid"),
 )
 

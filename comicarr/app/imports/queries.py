@@ -9,6 +9,7 @@
 
 """Database operations owned by manual import finalization."""
 
+import os
 from collections.abc import Sequence
 
 from sqlalchemy import func, or_, select, update
@@ -27,6 +28,21 @@ def get_import_rows(import_ids: Sequence[str]) -> list[dict]:
     if not import_ids:
         return []
     return db.select_all(select(t_importresults).where(t_importresults.c.impID.in_(import_ids)))
+
+
+def require_issue_resolution(import_ids: Sequence[str]) -> None:
+    """Persist strict readiness before any confirmed series creation starts."""
+    pending = or_(t_importresults.c.Status.is_(None), func.lower(t_importresults.c.Status) != "imported")
+    with db.get_engine().begin() as conn:
+        for import_id in import_ids:
+            result = conn.execute(
+                update(t_importresults)
+                .where(t_importresults.c.impID == import_id)
+                .where(pending)
+                .values(RequiresIssueResolution=1)
+            )
+            if result.rowcount != 1:
+                raise ImportRecordChangedError("Import record is missing or no longer pending: %s" % import_id)
 
 
 def get_issue_id(series_id: str, issue_number: str | None) -> str | None:
@@ -55,6 +71,30 @@ def get_issue_id(series_id: str, issue_number: str | None) -> str | None:
     return row["IssueID"] if row else None
 
 
+def get_new_series_issue_id(series_id: str, issue_number: str | None) -> str | None:
+    """Require one exact issue, with no already-filed library holding."""
+    if not issue_number:
+        return None
+    rows = db.select_all(
+        select(t_issues.c.IssueID, t_issues.c.Location)
+        .where(t_issues.c.ComicID == series_id)
+        .where(or_(t_issues.c.ChapterNumber == issue_number, t_issues.c.Issue_Number == issue_number))
+    )
+    if len(rows) != 1:
+        return None
+    location = rows[0].get("Location")
+    if location:
+        from comicarr.app.series import queries as series_queries
+
+        series = series_queries.get_comic_for_import(series_id)
+        path = (
+            location if os.path.isabs(location) else os.path.join((series or {}).get("ComicLocation") or "", location)
+        )
+        if os.path.lexists(path):
+            return None
+    return rows[0]["IssueID"]
+
+
 def mark_imported(
     matches: Sequence[tuple[str, str | None]],
     series_id: str,
@@ -77,6 +117,7 @@ def mark_imported(
                 "MatchConfidence": match_confidence,
                 "WatchMatch": "C" + series_id,
                 "IgnoreFile": 0,
+                "RequiresIssueResolution": 0,
             }
             if issue_id:
                 values["IssueID"] = issue_id
