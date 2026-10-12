@@ -9,6 +9,7 @@
 
 """Database operations owned by manual import finalization."""
 
+import os
 from collections.abc import Sequence
 
 from sqlalchemy import func, or_, select, update
@@ -53,6 +54,30 @@ def get_issue_id(series_id: str, issue_number: str | None) -> str | None:
         .limit(1)
     )
     return row["IssueID"] if row else None
+
+
+def get_new_series_issue_id(series_id: str, issue_number: str | None) -> str | None:
+    """Require one exact issue, with no already-filed library holding."""
+    if not issue_number:
+        return None
+    rows = db.select_all(
+        select(t_issues.c.IssueID, t_issues.c.Location)
+        .where(t_issues.c.ComicID == series_id)
+        .where(or_(t_issues.c.ChapterNumber == issue_number, t_issues.c.Issue_Number == issue_number))
+    )
+    if len(rows) != 1:
+        return None
+    location = rows[0].get("Location")
+    if location:
+        from comicarr.app.series import queries as series_queries
+
+        series = series_queries.get_comic_for_import(series_id)
+        path = (
+            location if os.path.isabs(location) else os.path.join((series or {}).get("ComicLocation") or "", location)
+        )
+        if os.path.lexists(path):
+            return None
+    return rows[0]["IssueID"]
 
 
 def mark_imported(

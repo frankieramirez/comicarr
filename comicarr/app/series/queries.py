@@ -150,6 +150,8 @@ def get_comic_for_import(comic_id):
             t_comics.c.ComicVersion,
             t_comics.c.ComicYear,
             t_comics.c.AgeRating,
+            t_comics.c.Status,
+            t_comics.c.LastUpdated,
         ).where(t_comics.c.ComicID == comic_id)
     )
 

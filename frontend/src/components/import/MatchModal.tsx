@@ -23,7 +23,7 @@ interface MatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   importGroup: ImportGroup | null;
-  onMatch: (comicId: string, comicName: string) => void;
+  onMatch: (comicId: string, comicName: string, addMissing: boolean) => void;
   isMatching?: boolean;
   triggerRowId?: string | null;
   triggerElement?: HTMLElement | null;
@@ -61,6 +61,7 @@ function MatchModalContent({
   const initialQuery = importGroup?.ComicName || "";
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedComic, setSelectedComic] = useState<SearchResult | null>(null);
+  const addMissing = Boolean(selectedComic && !selectedComic.in_library);
 
   const comicSearch = useSearchComics(
     searchMode === "comic" ? searchQuery : "",
@@ -75,10 +76,10 @@ function MatchModalContent({
   } = searchMode === "manga" ? mangaSearch : comicSearch;
 
   const handleMatch = () => {
-    if (selectedComic) {
+    if (selectedComic && !isMatching) {
       const comicId = selectedComic.comicid || selectedComic.id;
       const comicName = selectedComic.comicname || selectedComic.name;
-      onMatch(comicId, comicName);
+      onMatch(comicId, comicName, addMissing);
     }
   };
 
@@ -119,7 +120,7 @@ function MatchModalContent({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
             autoFocus
-            disabled={mangaBlocked || mangaLoading}
+            disabled={mangaBlocked || mangaLoading || isMatching}
           />
         </div>
       </div>
@@ -170,9 +171,10 @@ function MatchModalContent({
             <div className="space-y-2">
               {searchData.results.map((result) => {
                 const comicId = result.comicid || result.id;
-                const isSelected =
-                  selectedComic?.id === result.id ||
-                  selectedComic?.comicid === result.comicid;
+                const isSelected = Boolean(
+                  selectedComic &&
+                  (selectedComic.comicid || selectedComic.id) === comicId,
+                );
 
                 return (
                   <button
@@ -180,6 +182,7 @@ function MatchModalContent({
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => setSelectedComic(result)}
+                    disabled={isMatching}
                     className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                       isSelected
                         ? "border-primary bg-primary/10"
@@ -228,6 +231,11 @@ function MatchModalContent({
                         In Library
                       </span>
                     )}
+                    {!result.in_library && (
+                      <span className="text-xs text-muted-foreground">
+                        Will add unmonitored
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -235,6 +243,21 @@ function MatchModalContent({
           )}
       </div>
 
+      {addMissing && selectedComic && (
+        <div className="border-t border-border p-4 text-sm" role="status">
+          <p>
+            Will add series: {selectedComic.comicname || selectedComic.name} (
+            {selectedComic.comicyear ||
+              selectedComic.start_year ||
+              "Year unknown"}
+            , {selectedComic.publisher || "Publisher unknown"})
+          </p>
+          <p className="text-muted-foreground">
+            Added unmonitored. No downloads will start. Files stay pending until
+            metadata and every issue are matched.
+          </p>
+        </div>
+      )}
       <DialogFooter className="border-t border-border bg-muted/30 p-4 sm:justify-end">
         <Button variant="outline" onClick={onClose} disabled={isMatching}>
           Cancel
@@ -243,8 +266,10 @@ function MatchModalContent({
           {isMatching ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Matching...
+              {addMissing ? "Adding and importing..." : "Matching..."}
             </>
+          ) : addMissing ? (
+            "Add series and import"
           ) : (
             "Match Selected"
           )}
@@ -307,6 +332,7 @@ export default function MatchModal({
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
+        if (isMatching) return;
         if (!open) {
           const trigger = triggerRef.current;
           const rowId = heldRowId;

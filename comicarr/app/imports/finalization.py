@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 import comicarr
-from comicarr import logger, series_kind
+from comicarr import logger
 from comicarr.app.common import placement
 from comicarr.app.core.context import AppContext
 from comicarr.app.imports import queries as import_queries
@@ -88,27 +88,40 @@ def _load_and_validate_rows(import_ids: Sequence[str]) -> list[dict]:
     return rows
 
 
-def _ensure_series(series_id: str, requested_name: str | None) -> str:
+def _ensure_series(series_id: str, requested_name: str | None, *, add_missing: bool) -> tuple[str, str, bool]:
+    from comicarr.app.imports.metadata import canonical_series_id, metadata_ready
+
     existing_name = series_queries.get_comic_name(series_id)
+    if not existing_name:
+        try:
+            series_id = canonical_series_id(series_id)
+        except Exception as e:
+            raise _fail("Could not resolve %s: %s" % (requested_name or series_id, e), phase="series") from e
+        existing_name = series_queries.get_comic_name(series_id)
     if existing_name:
-        return existing_name
-    provider = series_kind.provider_of(series_id)
-    if provider not in series_kind.MANGA_PROVIDERS:
-        return requested_name or "Unknown"
+        existing = series_queries.get_comic_for_import(series_id)
+        if (
+            existing
+            and existing.get("Status") != "Loading"
+            and not existing_name.startswith(("Fetch failed", "Comic ID:"))
+            and (not add_missing or metadata_ready(existing))
+        ):
+            return series_id, existing_name, False
+        if not add_missing:
+            raise _fail("Series metadata is not ready: %s" % existing_name, phase="series")
+    if not add_missing:
+        raise _fail("Confirm Add series and import for %s first" % (requested_name or series_id), phase="series")
 
     from comicarr import importer
 
     try:
-        if provider is series_kind.SeriesProvider.MYANIMELIST:
-            result = importer.addMangaToDB_MAL(series_id)
-        else:
-            result = importer.addMangaToDB(series_id)
+        result = importer.addComictoDB(series_id, metadata_only=True)
     except Exception as e:
-        raise _fail("Error adding manga: %s" % e, phase="series") from e
+        raise _fail("Could not add %s: %s" % (requested_name or series_id, e), phase="series") from e
 
-    if not result or result.get("status") != "complete":
-        raise _fail("Failed to add manga: %s" % series_id, phase="series")
-    return result.get("comicname") or requested_name or series_queries.get_comic_name(series_id) or "Unknown"
+    if not isinstance(result, dict) or result.get("status") != "complete" or result.get("comicid") != series_id:
+        raise _fail("Metadata did not finish loading for %s" % (requested_name or series_id), phase="series")
+    return series_id, result.get("comicname") or requested_name or "Unknown", True
 
 
 def _ensure_target_directory(target_directory: str | None) -> None:
@@ -137,13 +150,16 @@ def _issue_number(row: dict) -> str | None:
     return normalized if normalized and normalized != "None" else None
 
 
-def _resolve_issue_ids(rows: Sequence[dict], series_id: str, fallback_issue_id: str | None) -> list[dict]:
+def _resolve_issue_ids(
+    rows: Sequence[dict], series_id: str, fallback_issue_id: str | None, *, new_series: bool = False
+) -> list[dict]:
     resolved = []
     for row in rows:
         resolved_row = dict(row)
         issue_number = _issue_number(row)
+        resolve = import_queries.get_new_series_issue_id if new_series else import_queries.get_issue_id
         resolved_row["_ResolvedIssueID"] = (
-            import_queries.get_issue_id(series_id, issue_number) if issue_number else None
+            resolve(series_id, issue_number) if issue_number else None
         ) or fallback_issue_id
         resolved.append(resolved_row)
     return resolved
@@ -451,17 +467,31 @@ def _finalize_locked(
     fallback_issue_id: str | None,
     match_source: str,
     match_confidence: int,
+    add_missing: bool,
 ) -> tuple[ImportFinalizationResult, _PendingTagging]:
     normalized_ids = _normalize_import_ids(import_ids)
     rows = _load_and_validate_rows(normalized_ids)
-    ensured_name = _ensure_series(series_id, series_name)
+    series_id, ensured_name, prepared_metadata = _ensure_series(series_id, series_name, add_missing=add_missing)
 
     series = series_queries.get_comic_for_import(series_id)
     if not series:
         raise _fail("Target series not found in library: %s" % series_id, phase="series")
+    if prepared_metadata:
+        from comicarr.app.imports.metadata import metadata_ready
+
+        if not metadata_ready(series):
+            raise _fail("Series metadata is not ready: %s" % ensured_name, phase="series")
     effective_name = series.get("ComicName") or ensured_name
     target_directory = series.get("ComicLocation")
-    rows = _resolve_issue_ids(rows, series_id, fallback_issue_id)
+    rows = _resolve_issue_ids(rows, series_id, None if add_missing else fallback_issue_id, new_series=add_missing)
+    if add_missing:
+        unresolved = [row["impID"] for row in rows if not row.get("_ResolvedIssueID")]
+        if unresolved:
+            raise _fail(
+                "Could not resolve every issue for %s (%s); series remains in the library, files are pending"
+                % (effective_name, ", ".join(unresolved)),
+                phase="issues",
+            )
     _ensure_target_directory(target_directory)
     config = getattr(ctx, "config", None) or getattr(comicarr, "CONFIG", None)
     move_enabled = bool(getattr(config, "IMP_MOVE", False))
@@ -522,6 +552,7 @@ def finalize_manual_match(
     fallback_issue_id: str | None = None,
     match_source: str = "manual",
     match_confidence: int = 100,
+    add_missing: bool = False,
 ) -> ImportFinalizationResult:
     """Finalize one operator-confirmed match through a single testable seam."""
     try:
@@ -534,6 +565,7 @@ def finalize_manual_match(
                 fallback_issue_id=fallback_issue_id,
                 match_source=match_source,
                 match_confidence=match_confidence,
+                add_missing=add_missing is True and match_source == "manual",
             )
     except ImportFinalizationError as e:
         logger.error("[IMPORT-MATCH] [%s] %s" % (e.phase, e))

@@ -126,11 +126,20 @@ export default function ImportPage() {
     setMatchModalOpen(true);
   }
 
-  const handleMatch = async (comicId: string, comicName: string) => {
+  const handleMatch = async (
+    comicId: string,
+    comicName: string,
+    addMissing: boolean,
+  ) => {
     if (!matchingGroup) return;
     const impIds = matchingGroup.files.map((f) => f.impID);
     try {
-      await matchImportMutation.mutateAsync({ impIds, comicId, comicName });
+      await matchImportMutation.mutateAsync({
+        impIds,
+        comicId,
+        comicName,
+        addMissing,
+      });
       addToast({
         type: "success",
         message: `Imported ${impIds.length} file${impIds.length !== 1 ? "s" : ""} as ${comicName}`,

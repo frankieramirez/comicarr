@@ -184,18 +184,32 @@ def test_missing_manga_is_added_only_after_preflight(tmp_path):
     target_directory = tmp_path / "library" / "Berserk"
     source.write_text("chapter")
     target_directory.mkdir(parents=True)
-    rows = [_row("imp-1", source)]
+    rows = [_row("imp-1", source, issue_number="1")]
 
     with (
         _environment(rows, target_directory),
         patch.object(finalization.series_queries, "get_comic_name", return_value=None),
-        patch("comicarr.importer.addMangaToDB_MAL", return_value={"status": "complete", "comicname": "Berserk"}) as add,
+        patch.object(
+            finalization.series_queries,
+            "get_comic_for_import",
+            return_value={
+                "ComicName": "Berserk",
+                "ComicLocation": str(target_directory),
+                "Status": "Paused",
+                "LastUpdated": "2026-10-12 00:00:00",
+            },
+        ),
+        patch(
+            "comicarr.importer.addComictoDB",
+            return_value={"status": "complete", "comicid": "mal-123", "comicname": "Berserk"},
+        ) as add,
+        patch.object(finalization.import_queries, "get_new_series_issue_id", return_value="mal-123-ch1"),
         patch("comicarr.updater.forceRescan"),
     ):
-        result = finalization.finalize_manual_match(_ctx(), ["imp-1"], "mal-123")
+        result = finalization.finalize_manual_match(_ctx(), ["imp-1"], "mal-123", add_missing=True)
 
     assert result.series_name == "Berserk"
-    add.assert_called_once_with("mal-123")
+    add.assert_called_once_with("mal-123", metadata_only=True)
 
 
 def test_issue_ids_resolve_per_record_with_fallback(tmp_path):
