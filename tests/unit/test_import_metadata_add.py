@@ -392,3 +392,15 @@ def test_existing_series_without_refresh_timestamp_keeps_legacy_match_behavior(p
     assert db.select_one(select(importresults))["Status"] == "Imported"
     assert db.select_one(select(comics))["Status"] == "Active"
     session.get.assert_not_called()
+
+
+def test_provider_failure_does_not_return_credential_bearing_urls(pending_import):
+    import requests
+
+    finalization, ctx, source, session, _ = pending_import
+    session.get.side_effect = requests.HTTPError("403 https://provider/volume/?api_key=test-key")
+    with pytest.raises(finalization.ImportFinalizationError) as error:
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=True)
+    assert "test-key" not in str(error.value)
+    assert "ComicVine request failed" in str(error.value)
+    assert source.read_bytes() == b"book"

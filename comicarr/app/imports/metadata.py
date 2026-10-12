@@ -12,6 +12,7 @@ import re
 import threading
 import time
 
+import requests
 from sqlalchemy import select
 
 import comicarr
@@ -62,13 +63,17 @@ def _cv_request(endpoint, params, deadline):
     if not comicarr.CONFIG.COMICVINE_API or comicarr.CONFIG.COMICVINE_API == "None":
         raise ValueError("ComicVine API key is required")
     comicarr.CV_RATE_LIMITER.acquire(timeout=_remaining(deadline))
-    response = comicarr.CV_SESSION.get(
-        comicarr.CVURL + endpoint,
-        params={**params, "api_key": comicarr.CONFIG.COMICVINE_API, "format": "json"},
-        verify=comicarr.CONFIG.CV_VERIFY,
-        timeout=min(20, _remaining(deadline)),
-    )
-    response.raise_for_status()
+    try:
+        response = comicarr.CV_SESSION.get(
+            comicarr.CVURL + endpoint,
+            params={**params, "api_key": comicarr.CONFIG.COMICVINE_API, "format": "json"},
+            verify=comicarr.CONFIG.CV_VERIFY,
+            timeout=min(20, _remaining(deadline)),
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise ValueError("ComicVine request failed; check provider connectivity and retry") from e
+    _remaining(deadline)
     payload = response.json()
     if payload.get("status_code") != 1:
         raise ValueError("ComicVine could not load series metadata")
@@ -244,6 +249,7 @@ def add_series_metadata(series_id):
             values, records = _manga_metadata(series_id, deadline)
         else:
             values, records = _comic_metadata(series_id, deadline)
+        _remaining(deadline)
         if not values.get("ComicLocation") or not os.path.isabs(values["ComicLocation"]):
             raise ValueError("A library destination must be configured before importing")
         if existing and existing.get("ComicLocation"):
