@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { render, screen } from "../test-utils";
 import SearchPage from "@/pages/SearchPage";
+import { http, HttpResponse } from "msw";
+import { server } from "../mocks/server";
 
 const SEARCH_VIEW_KEY = "comicarr-search-view";
 
@@ -9,6 +11,45 @@ describe("SearchPage result views", () => {
   afterEach(() => {
     localStorage.removeItem(SEARCH_VIEW_KEY);
   });
+
+  it.each(["4050-12345", "https://metron.cloud/series/99/"])(
+    "shows accurate header and footer counts for exact lookup %s",
+    async (query) => {
+      server.use(
+        http.post("/api/search/comics", async ({ request }) => {
+          expect(await request.json()).toMatchObject({
+            name: query,
+            limit: 20,
+            offset: 0,
+          });
+          return HttpResponse.json({
+            results: [
+              {
+                comicid: query.startsWith("4050-") ? "12345" : "metron-99",
+                name: "Exact lookup volume",
+                comicyear: "2024",
+                publisher: "Marvel",
+                issues: "4",
+              },
+            ],
+            pagination: { total: 1, limit: 20, offset: 0, returned: 1 },
+          });
+        }),
+      );
+      render(<SearchPage />, {
+        useMemoryRouter: true,
+        route: `/search?q=${encodeURIComponent(query)}&type=comic`,
+      });
+
+      expect(await screen.findByText("Exact lookup volume")).toBeTruthy();
+      expect(screen.getByText(`1 results for "${query}"`)).toBeTruthy();
+      expect(screen.getAllByText("1–1 of 1")).toHaveLength(2);
+      expect(screen.queryByText("no rows")).toBeNull();
+      expect(
+        screen.queryByRole("navigation", { name: "Pagination" }),
+      ).toBeNull();
+    },
+  );
 
   it("shows results as a list by default", async () => {
     render(<SearchPage />, {
