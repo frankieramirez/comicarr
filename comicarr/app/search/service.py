@@ -54,6 +54,13 @@ def find_comic(
     except (ValueError, TypeError):
         return {"error": "Invalid pagination parameters"}
 
+    if content_type != "manga" and type_ != "story_arc":
+        from comicarr.app.search.exact_lookup import lookup, parse_identifier
+
+        identifier = parse_identifier(name)
+        if identifier:
+            return lookup(ctx, *identifier)
+
     if content_type == "manga":
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
             return {"error": "MangaDex integration is not enabled"}
