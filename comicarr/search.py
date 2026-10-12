@@ -20,6 +20,7 @@
 
 import contextvars
 import datetime
+import math
 import os
 import re
 import shutil
@@ -31,7 +32,9 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from email.utils import parsedate_to_datetime
 from operator import itemgetter
+from threading import Lock
 from urllib.parse import urljoin
 
 import feedparser
@@ -87,6 +90,44 @@ from comicarr.tables import (
 from comicarr.torrent import monitor as torrent_monitor
 
 _search_executor = None
+_indexer_cooldowns = {}
+_indexer_cooldown_lock = Lock()
+
+
+def _indexer_cooling_down(key, provider):
+    with _indexer_cooldown_lock:
+        remaining = _indexer_cooldowns.get(key, 0) - time.monotonic()
+        if remaining <= 0:
+            _indexer_cooldowns.pop(key, None)
+            return False
+    logger.warn(
+        "[PROVIDER-SEARCH-DELAY][%s] Skipping rate-limited provider: cooldown for %.0f seconds." % (provider, remaining)
+    )
+    progress.report_provider_failure(provider, "rate_limited", "Provider cooldown for %.0f seconds." % remaining)
+    return True
+
+
+def _cool_down_indexer(key, provider, retry_after):
+    seconds = 60
+    value = str(retry_after or "").strip()
+    try:
+        if value.isdigit():
+            seconds = float(value)
+        elif value:
+            retry_at = parsedate_to_datetime(value)
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=datetime.timezone.utc)
+            seconds = max(0, retry_at.timestamp() - time.time())
+        if not math.isfinite(seconds):
+            seconds = 60
+    except (ValueError, TypeError, OverflowError):
+        seconds = 60
+    with _indexer_cooldown_lock:
+        _indexer_cooldowns[key] = max(_indexer_cooldowns.get(key, 0), time.monotonic() + seconds)
+    logger.warn("[PROVIDER-SEARCH-DELAY][%s] Rate limited (HTTP 429); cooldown for %.0f seconds." % (provider, seconds))
+    progress.report_provider_failure(
+        provider, "rate_limited", "HTTP 429; provider cooldown for %.0f seconds." % seconds
+    )
 
 
 def get_search_executor():
@@ -171,6 +212,7 @@ def parallel_search_providers(scarios_list, timeout=120):
 
 
 _http_session = None
+_indexer_http_session = None
 
 
 def _rss_result_log_summary(result):
@@ -206,29 +248,35 @@ def _issue_search_summary(
     )
 
 
-def get_http_session():
+def get_http_session(*, indexer=False):
     """
     Get the module-level HTTP session with connection pooling.
     Creates the session lazily on first use.
     """
-    global _http_session
+    global _http_session, _indexer_http_session
     if unfiltered_pass_active():
         return _get_no_retry_http_session()
-    if _http_session is None:
-        _http_session = requests.Session()
+    session = _indexer_http_session if indexer else _http_session
+    if session is None:
+        session = requests.Session()
 
         retry_strategy = Retry(
             total=3,
             backoff_factor=0.5,
-            status_forcelist=[429, 500, 502, 503, 504],
+            status_forcelist=[500, 502, 503, 504] + ([] if indexer else [429]),
+            respect_retry_after_header=not indexer,
             allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
-        _http_session.mount("http://", adapter)
-        _http_session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        if indexer:
+            _indexer_http_session = session
+        else:
+            _http_session = session
 
-    return _http_session
+    return session
 
 
 _no_retry_http_session = None
@@ -1180,6 +1228,15 @@ def NZB_SEARCH(
     foundc["lastrun"] = provider_stat["lastrun"]
     done = False
 
+    indexer_key = None
+    if RSS != "yes" and isinstance(provider_stat, dict):
+        if provider_stat["type"] == "torznab":
+            indexer_key = ("torznab", host_torznab.rstrip("/"))
+        elif provider_stat["type"] == "newznab":
+            indexer_key = ("newznab", host_newznab.rstrip("/"))
+        if indexer_key is not None and _indexer_cooling_down(indexer_key, tmpprov):
+            return foundc
+
     # Set only when this pass is searching a manga volume term. Carries the
     # real series name, because the term itself ("<series> v01") is a query
     # rather than a name and would fail every series comparison.
@@ -1430,7 +1487,12 @@ def NZB_SEARCH(
                         _honour_search_delay(nzbprov, pause_the_search, foundc["lastrun"], review=evaluator.review)
 
                     try:
-                        r = get_http_session().get(findurl, params=payload, verify=verify, headers=headers, timeout=30)
+                        r = get_http_session(indexer=True).get(
+                            findurl, params=payload, verify=verify, headers=headers, timeout=30
+                        )
+                        if r.status_code == 429:
+                            _cool_down_indexer(indexer_key, tmpprov, r.headers.get("Retry-After"))
+                            break
                         r.raise_for_status()
                     except requests.exceptions.Timeout as e:
                         logger.warn(
