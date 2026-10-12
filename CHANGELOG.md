@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.48.0
+
+### Minor Changes
+
+- 14f4ea4: In the Import Match dialog, paste a ComicVine volume ID or a ComicVine or Metron series URL to select that exact volume. Changing the search clears the previous selection, and provider failures stay visible instead of selecting another volume.
+- a0660ea: Add an Auto-import setting under Settings → Media Management. Turn it off to review every Import Inbox file while keeping suggested matches. Existing settings keep auto-import on by default, and confidence values above 100 still require review.
+
+### Patch Changes
+
+- 423a417: Import Inbox keeps hyphenated titles and numbered suffixes distinct, uses filename years to avoid the wrong volume, and sends ambiguous matches or issues with an existing file to manual review.
+- 5e2ad51: The Import Match dialog can now add a missing series and import its books in one confirmed action. It shows the series name, year, publisher, and unmonitored outcome. Metadata and every issue must be ready before files are placed; failures leave files pending for retry. Import-driven adds never start downloads, and automatically matched inbox files still require an existing library series.
+- 6b64266: Searches now skip rate-limited Newznab and Torznab providers until their retry window expires, so one indexer cannot stall the search queue for hours.
+- f0a832c: Series pages now scroll the issues list into view when a long description or settings leave too little room below the header. Short headers keep the independently scrolling list.
+
 ## 0.47.1
 
 ### Patch Changes
