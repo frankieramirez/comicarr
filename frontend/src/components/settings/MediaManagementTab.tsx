@@ -134,15 +134,23 @@ export function MediaManagementTab({
           helpText="Automatically create series folders for imported files"
         />
         <SettingField
+          label="Auto-import"
+          type="checkbox"
+          checked={formData.auto_import_enabled ?? true}
+          onChange={(v) => onChange("auto_import_enabled", v as boolean)}
+          helpText="Automatically import matching files from the Import Inbox. Turn off to review every file; suggested matches are kept."
+        />
+        <SettingField
           label="Auto-import confidence"
           type="number"
           min={0}
           value={formData.auto_import_confidence}
+          disabled={!(formData.auto_import_enabled ?? true)}
           onChange={(v) => {
             const n = parseInt(v as string);
             onChange("auto_import_confidence", Number.isNaN(n) ? 80 : n);
           }}
-          helpText="Minimum series match score (0–100) for the Import Inbox to import files without review. Files whose issue number is missing from the matched series always go to review. Set above 100 to review everything (default: 80)."
+          helpText="Only applies when auto-import is on. Minimum series match score (0–100) for the Import Inbox to import files without review. Files whose issue number is missing from the matched series always go to review. Set above 100 to review everything (default: 80)."
         />
       </SettingGroup>
 

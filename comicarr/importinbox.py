@@ -256,7 +256,13 @@ def _match_group(group_key, group_info, series_list):
 
     confidence = int(best_score * 100)
 
-    if best_match and len(tied_ids) == 1 and len(years) <= 1 and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE:
+    if (
+        comicarr.CONFIG.AUTO_IMPORT_ENABLED
+        and best_match
+        and len(tied_ids) == 1
+        and len(years) <= 1
+        and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
+    ):
         from comicarr.app.imports.queries import get_issue_id
 
         auto_files = []

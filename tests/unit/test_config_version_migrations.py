@@ -435,3 +435,30 @@ search_delay = 10
     saved = configparser.ConfigParser()
     saved.read(ini)
     assert saved.getint("General", "search_delay") == 10
+
+
+def test_import_inbox_auto_import_defaults_on_for_old_configs(tmp_path, monkeypatch):
+    cfg, ini = _load_config(
+        tmp_path,
+        monkeypatch,
+        "[General]\nconfig_version = 19\nencrypt_passwords = False\n[Import]\nauto_import_confidence = 101\n",
+    )
+    cfg.read(startup=False)
+    assert cfg.AUTO_IMPORT_ENABLED is True
+    assert cfg.AUTO_IMPORT_CONFIDENCE == 101
+    assert cfg.writeconfig_values({"auto_import_enabled": False}) is True
+    saved = configparser.ConfigParser()
+    saved.read(ini)
+    assert saved.getboolean("Import", "auto_import_enabled") is False
+    assert saved.getint("Import", "auto_import_confidence") == 101
+    cfg.read(startup=False)
+    assert cfg.AUTO_IMPORT_ENABLED is False
+
+
+def test_import_inbox_auto_import_defaults_on_for_fresh_configs(tmp_path, monkeypatch):
+    cfg, _ = _load_config(tmp_path, monkeypatch, "[General]\nconfig_version = 19\nencrypt_passwords = False\n")
+    cfg.read(startup=False)
+    assert cfg.AUTO_IMPORT_ENABLED is True
+    key = REGISTRY["AUTO_IMPORT_ENABLED"]
+    assert (key.type, key.section, key.default) == (bool, "Import", True)
+    assert key.readable and key.writable

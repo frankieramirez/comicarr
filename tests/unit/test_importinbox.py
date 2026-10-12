@@ -19,6 +19,7 @@ def _mock_globals():
     mock_config = MagicMock()
     mock_config.IMPORT_DIR = "/import"
     mock_config.AUTO_IMPORT_CONFIDENCE = 80
+    mock_config.AUTO_IMPORT_ENABLED = True
 
     with (
         patch("comicarr.CONFIG", mock_config),
@@ -470,6 +471,22 @@ class TestMatchGroup:
             )
 
         assert result == {"auto_imported": auto_imported, "queued_for_review": 1 - auto_imported}
+
+    def test_disabled_auto_import_preserves_exact_match_for_review(self, importinbox, _mock_globals):
+        _mock_globals["config"].AUTO_IMPORT_ENABLED = False
+        files = ["/import/Batman/001.cbz", "/import/Batman/002.cbz"]
+        series = {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman"}
+        with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+            result = importinbox._match_group("folder:batman", {"group_name": "Batman", "files": files}, [series])
+        assert result == {"auto_imported": 0, "queued_for_review": 2}
+        finalize.assert_not_called()
+        assert _mock_globals["db"].upsert.call_count == 2
+        for call in _mock_globals["db"].upsert.call_args_list:
+            values = call.args[1]
+            assert values["Status"] == "Not Imported"
+            assert values["SuggestedComicID"] == "cv-100"
+            assert values["SuggestedComicName"] == "Batman"
+            assert values["MatchConfidence"] == 100
 
     def test_auto_import_confidence_setting_defaults_to_80(self):
         from comicarr.app.config.registry import REGISTRY
