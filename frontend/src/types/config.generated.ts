@@ -60,6 +60,7 @@ export interface ReadableConfig {
   imp_metadata?: boolean;
   imp_seriesfolders?: boolean;
   import_dir?: string;
+  auto_import_enabled?: boolean;
   auto_import_confidence?: number;
   prowl_enabled?: boolean;
   prowl_priority?: number;
@@ -187,6 +188,7 @@ export interface WritableConfig {
   imp_rename?: boolean;
   imp_metadata?: boolean;
   imp_seriesfolders?: boolean;
+  auto_import_enabled?: boolean;
   auto_import_confidence?: number;
   prowl_enabled?: boolean;
   prowl_priority?: number;

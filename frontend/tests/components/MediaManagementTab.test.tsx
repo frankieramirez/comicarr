@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen } from "../test-utils";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 
 function importFileOperation() {
@@ -125,5 +125,63 @@ describe("MediaManagementTab import file operation", () => {
     });
 
     expect(onChange).toHaveBeenCalledWith("auto_import_confidence", 0);
+  });
+});
+
+describe("MediaManagementTab auto-import", () => {
+  it("defaults on and lets the operator turn it off without changing confidence", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <MediaManagementTab
+        config={{}}
+        formData={{ auto_import_confidence: 101 }}
+        onChange={onChange}
+      />,
+    );
+    const toggle = screen.getByRole("checkbox", { name: /^Auto-import\b/ });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
+    expect(
+      (screen.getByLabelText("Auto-import confidence") as HTMLInputElement)
+        .disabled,
+    ).toBe(false);
+    await userEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(
+      "auto_import_enabled",
+      false,
+    );
+    rerender(
+      <MediaManagementTab
+        config={{}}
+        formData={{ auto_import_enabled: false, auto_import_confidence: 101 }}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      (screen.getByLabelText("Auto-import confidence") as HTMLInputElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("Auto-import confidence") as HTMLInputElement)
+        .value,
+    ).toBe("101");
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /^Auto-import\b/ }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith("auto_import_enabled", true);
+    rerender(
+      <MediaManagementTab
+        config={{}}
+        formData={{ auto_import_enabled: true, auto_import_confidence: 101 }}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      (screen.getByLabelText("Auto-import confidence") as HTMLInputElement)
+        .disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByLabelText("Auto-import confidence") as HTMLInputElement)
+        .value,
+    ).toBe("101");
   });
 });
