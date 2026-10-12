@@ -1293,3 +1293,196 @@ class TestWriteMetadataOnImport:
         assert result.matched == 1
         assert (target_directory / "issue 1.cbz").read_bytes() == b"existing"
         assert (target_directory / "issue 1.cbr").read_bytes() == b"rar"
+
+
+@pytest.mark.parametrize("move", [True, False])
+@pytest.mark.parametrize("absolute", [True, False])
+def test_auto_import_protects_existing_issue_file(tmp_path, move, absolute):
+    source = tmp_path / "inbox.cbz"
+    source.write_bytes(b"new file")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "previous.cbz"
+    existing.write_bytes(b"original file")
+    rows = [_row("imp-1", source, issue_number="1")]
+    with (
+        _environment(rows, library, series_id="cv-1") as mark_imported,
+        patch.object(finalization.import_queries, "get_issue_id", return_value="issue-1"),
+        patch.object(
+            finalization.series_queries,
+            "get_issue_full",
+            return_value=[
+                {
+                    "IssueID": "issue-1",
+                    "Location": str(existing) if absolute else existing.name,
+                }
+            ],
+        ),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate") as exc_info:
+            finalization.finalize_manual_match(_ctx(move=move), ["imp-1"], "cv-1", match_source="inbox-auto")
+    assert exc_info.value.phase == "preflight"
+    assert existing.read_bytes() == b"original file"
+    assert source.read_bytes() == b"new file"
+    mark_imported.assert_not_called()
+    rescan.assert_not_called()
+
+
+def test_unnumbered_auto_import_protects_existing_series_files(tmp_path):
+    source = tmp_path / "X-Men.cbz"
+    source.write_bytes(b"new")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "issue1.cbz"
+    existing.write_bytes(b"original")
+    with (
+        _environment([_row("imp-1", source)], library),
+        patch.object(finalization.series_queries, "get_issues_full", return_value=[{"Location": existing.name}]),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate"):
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
+    assert source.read_bytes() == b"new"
+    assert existing.read_bytes() == b"original"
+    rescan.assert_not_called()
+
+
+def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
+    from comicarr.tables import comics, issues
+
+    source = tmp_path / "inbox.cbz"
+    source.write_bytes(b"new")
+    library = tmp_path / "library"
+    library.mkdir()
+    existing = library / "old.cbz"
+    existing.write_bytes(b"original")
+    engine = create_engine("sqlite://")
+    for table in (comics, issues, importresults):
+        table.create(engine)
+    with engine.begin() as conn:
+        conn.execute(insert(comics), {"ComicID": "cv-1", "ComicName": "X-Men", "ComicLocation": str(library)})
+        conn.execute(
+            insert(issues),
+            {
+                "IssueID": "issue-1",
+                "ComicID": "cv-1",
+                "Issue_Number": "1",
+                "Location": existing.name,
+                "Status": "Downloaded",
+            },
+        )
+        conn.execute(insert(importresults), _row("imp-1", source, issue_number="1"))
+    with (
+        patch.object(import_queries.db, "get_engine", return_value=engine),
+        patch("comicarr.updater.forceRescan") as rescan,
+    ):
+        with pytest.raises(finalization.ImportDuplicateError):
+            finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
+    with engine.connect() as conn:
+        issue = conn.execute(select(issues)).mappings().one()
+        pending = conn.execute(select(importresults)).mappings().one()
+    assert issue["Location"] == "old.cbz"
+    assert issue["Status"] == "Downloaded"
+    assert pending["Status"] == "Unmatched"
+    assert pending["ComicID"] is None
+    assert source.read_bytes() == b"new"
+    assert existing.read_bytes() == b"original"
+    rescan.assert_not_called()
+    engine.dispose()
+
+
+@pytest.mark.parametrize("unselected", [True, False])
+def test_auto_archive_rescan_consumes_only_selected_files(tmp_path, unselected):
+    from comicarr import importinbox
+    from comicarr.tables import metadata, comics, issues
+
+    inbox = tmp_path / "inbox" / "X-Men"
+    inbox.mkdir(parents=True)
+    library = tmp_path / "library"
+    library.mkdir()
+    old = tmp_path / "old.cbz"
+    old.write_bytes(b"original")
+    incoming1 = inbox / "X-Men 001 (2024).cbz"
+    if unselected:
+        incoming1.write_bytes(b"new one")
+    incoming2 = inbox / "X-Men 002 (2024).cbz"
+    incoming2.write_bytes(b"new two")
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(
+            comics.insert(),
+            dict(
+                ComicID="cv-1",
+                ComicName="X-Men",
+                ComicPublisher="Marvel",
+                ComicYear="2024",
+                ComicLocation=str(library),
+                Type="Print",
+                Status="Active",
+            ),
+        )
+        for number in (1, 2):
+            conn.execute(
+                issues.insert(),
+                dict(
+                    IssueID=f"issue-{number}",
+                    ComicID="cv-1",
+                    Issue_Number=str(number),
+                    Int_IssueNumber=number * 1000,
+                    IssueDate="2024-01-01",
+                    Status="Archived" if number == 1 else "Wanted",
+                    Location=str(old) if number == 1 else None,
+                ),
+            )
+        if unselected:
+            conn.execute(
+                importresults.insert(),
+                dict(
+                    impID=importinbox._filepath_to_impid(str(incoming1)),
+                    ComicLocation=str(incoming1),
+                    ComicFilename=incoming1.name,
+                    IssueNumber="1",
+                    Status="Imported",
+                ),
+            )
+    config = SimpleNamespace(
+        AUTO_IMPORT_CONFIDENCE=85,
+        IMP_MOVE=False,
+        IMP_METADATA=False,
+        ENABLE_META=False,
+        CBR2CBZ_ONLY=False,
+        ANNUALS_ON=False,
+        MULTIPLE_DEST_DIRS=None,
+        DUPECONSTRAINT="filesize",
+        IGNORE_HAVETOTAL=False,
+        IGNORE_TOTAL=False,
+        SNATCHED_HAVETOTAL=False,
+        ENFORCE_PERMS=False,
+        AUTOWANT_ALL=False,
+        IGNORE_SEARCH_WORDS=[],
+        ENABLE_TORRENTS=False,
+    )
+    with (
+        patch.object(import_queries.db, "get_engine", return_value=engine),
+        patch("comicarr.CONFIG", config),
+        patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=SimpleNamespace(config=config)),
+    ):
+        key, info = next(iter(importinbox._collect_file_groups(str(tmp_path / "inbox")).items()))
+        result = importinbox._match_group(key, info, importinbox._load_library_series())
+    with engine.connect() as conn:
+        issue1 = conn.execute(select(issues).where(issues.c.IssueID == "issue-1")).mappings().one()
+        pending = (
+            conn.execute(
+                select(importresults).where(importresults.c.impID == importinbox._filepath_to_impid(str(incoming2)))
+            )
+            .mappings()
+            .one()
+        )
+    assert issue1["Location"] == str(old)
+    assert old.read_bytes() == b"original"
+    assert incoming2.read_bytes() == b"new two"
+    assert result == {"auto_imported": 0 if unselected else 1, "queued_for_review": 1 if unselected else 0}
+    assert pending["Status"] == ("Possible Duplicate" if unselected else "Imported")
+    engine.dispose()
