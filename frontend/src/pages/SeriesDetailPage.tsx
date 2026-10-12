@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
@@ -247,6 +247,33 @@ export default function SeriesDetailPage() {
   const { comicId } = useParams<{ comicId: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [headerFits, setHeaderFits] = useState(false);
+  const observeBody = useCallback((body: HTMLDivElement | null) => {
+    if (!body) return;
+    const measure = () => {
+      const headerHeight = Array.from(body.children).reduce((height, child) => {
+        return child instanceof HTMLElement &&
+          child.dataset.testid !== "series-issue-list"
+          ? height + child.offsetHeight
+          : height;
+      }, 0);
+      setHeaderFits(body.clientHeight - headerHeight >= 400);
+    };
+    const resizeObserver = new ResizeObserver(measure);
+    const observeChildren = () => {
+      resizeObserver.disconnect();
+      resizeObserver.observe(body);
+      for (const child of body.children) resizeObserver.observe(child);
+      measure();
+    };
+    const mutationObserver = new MutationObserver(observeChildren);
+    mutationObserver.observe(body, { childList: true });
+    observeChildren();
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState<IssueFilter>("all");
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
@@ -709,7 +736,8 @@ export default function SeriesDetailPage() {
         table the inner scroller.
       */}
       <div
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden split:flex split:flex-col split:overflow-hidden"
+        ref={observeBody}
+        className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${headerFits ? "split:flex split:flex-col split:overflow-hidden" : ""}`}
         data-testid="series-body-scroll"
       >
         <div
@@ -1209,7 +1237,7 @@ export default function SeriesDetailPage() {
         )}
 
         <div
-          className="min-w-0 md:overflow-x-auto split:min-h-0 split:flex-1 split:overflow-auto"
+          className={`min-w-0 md:overflow-x-auto ${headerFits ? "split:min-h-0 split:flex-1 split:overflow-auto" : ""}`}
           data-testid="series-issue-list"
         >
           <div className="md:min-w-[920px]">
