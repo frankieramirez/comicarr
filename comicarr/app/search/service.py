@@ -59,7 +59,21 @@ def find_comic(
 
         identifier = parse_identifier(name)
         if identifier:
-            return lookup(ctx, *identifier)
+            page_limit = parsed_limit or 1
+            page_offset = parsed_offset or 0
+            if page_limit < 1 or page_offset < 0:
+                return {"error": "Invalid pagination parameters"}
+            result = lookup(ctx, *identifier)
+            if "results" in result:
+                total = len(result["results"])
+                result["results"] = result["results"][page_offset : page_offset + page_limit]
+                result["pagination"] = {
+                    "total": total,
+                    "limit": page_limit,
+                    "offset": page_offset,
+                    "returned": len(result["results"]),
+                }
+            return result
 
     if content_type == "manga":
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):

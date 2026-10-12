@@ -134,7 +134,7 @@ def test_missing_comicvine_volume_has_no_fallback(providers, not_found):
         response.json.return_value = {"status_code": 101}
     else:
         response.json.return_value = {"status_code": 1, "results": None}
-    assert find_comic(providers, "4050-12345") == {"results": []}
+    assert find_comic(providers, "4050-12345")["results"] == []
     providers.name_search.assert_not_called()
     providers.metron.series.assert_not_called()
 
@@ -142,7 +142,7 @@ def test_missing_comicvine_volume_has_no_fallback(providers, not_found):
 @pytest.mark.parametrize("error", [ApiError("Not found."), ApiError("No Series matches the given query.")])
 def test_missing_metron_series_has_no_fallback(providers, error):
     providers.metron.series.side_effect = error
-    assert find_comic(providers, "https://metron.cloud/series/99/") == {"results": []}
+    assert find_comic(providers, "https://metron.cloud/series/99/")["results"] == []
     providers.name_search.assert_not_called()
     providers.session.get.assert_not_called()
 
@@ -206,7 +206,7 @@ def test_metron_wrapped_http_errors_preserve_not_found_and_failures(providers, s
     providers.metron.series.side_effect = error
     result = find_comic(providers, "https://metron.cloud/series/99/")
     if status == 404:
-        assert result == {"results": []}
+        assert result["results"] == []
     else:
         assert "Metron" in result["error"]
     providers.name_search.assert_not_called()
@@ -218,8 +218,33 @@ def test_search_endpoint_preserves_empty_and_provider_error_results(providers):
     from comicarr.app.search.router import search_comics
 
     providers.session.get.return_value.status_code = 404
-    assert search_comics({"name": "4050-12345"}, ctx=providers) == {"results": []}
+    assert search_comics({"name": "4050-12345"}, ctx=providers)["results"] == []
     providers.config.USE_METRON_SEARCH = False
     result = search_comics({"name": "https://metron.cloud/series/99/"}, ctx=providers)
     assert result.status_code == 400
     assert json.loads(result.body) == {"detail": "Metron integration is not configured"}
+
+
+@pytest.mark.parametrize("query", ["4050-12345", "https://metron.cloud/series/99/"])
+@pytest.mark.parametrize("offset,returned", [(0, 1), (1, 0), (20, 0)])
+def test_exact_lookup_endpoint_reports_pagination_and_honors_offset(providers, query, offset, returned):
+    from comicarr.app.search.router import search_comics
+
+    result = search_comics({"name": query, "limit": 20, "offset": offset}, ctx=providers)
+    assert len(result["results"]) == returned
+    assert result["pagination"] == {"total": 1, "limit": 20, "offset": offset, "returned": returned}
+
+
+def test_missing_exact_lookup_has_zero_total_and_returned(providers):
+    from comicarr.app.search.router import search_comics
+
+    providers.session.get.return_value.status_code = 404
+    result = search_comics({"name": "4050-12345", "limit": 20, "offset": 0}, ctx=providers)
+    assert result == {"results": [], "pagination": {"total": 0, "limit": 20, "offset": 0, "returned": 0}}
+
+
+@pytest.mark.parametrize("parameters", [{"limit": -1}, {"offset": -1}])
+def test_exact_lookup_rejects_negative_pagination_before_provider_calls(providers, parameters):
+    assert find_comic(providers, "4050-12345", **parameters) == {"error": "Invalid pagination parameters"}
+    providers.session.get.assert_not_called()
+    providers.metron.series.assert_not_called()
