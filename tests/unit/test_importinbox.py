@@ -427,7 +427,7 @@ class TestMatchGroup:
         sources = [call.args[1]["MatchSource"] for call in _mock_globals["db"].upsert.call_args_list]
         assert sorted(sources) == ["inbox", "inbox-auto"]
 
-    def test_issue_1068_file_without_issue_number_keeps_confidence_gate(self, importinbox, _mock_globals):
+    def test_unsupported_file_without_issue_number_requires_review(self, importinbox, _mock_globals):
         series_list = [
             {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
         ]
@@ -444,8 +444,8 @@ class TestMatchGroup:
                 series_list,
             )
 
-        assert result == {"auto_imported": 1, "queued_for_review": 0}
-        finalize.assert_called_once()
+        assert result == {"auto_imported": 0, "queued_for_review": 1}
+        finalize.assert_not_called()
         _mock_globals["get_issue_id"].assert_not_called()
 
     @pytest.mark.parametrize(("offset", "auto_imported"), [(0, 1), (1, 0)])
@@ -602,6 +602,7 @@ class TestAutoImportWritesMetadata:
             patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=ctx),
             patch.object(finalization.import_queries, "get_import_rows", return_value=[row]),
             patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
+            patch.object(finalization.series_queries, "get_issue_full", return_value=[]),
             patch.object(finalization.import_queries, "mark_imported"),
             patch.object(finalization.series_queries, "get_comic_name", return_value="Batman"),
             patch.object(
@@ -681,3 +682,154 @@ class TestAutoImportWritesMetadata:
         mock_cmtag.assert_called_once()
         assert destination.exists()
         assert destination.read_bytes() == b"untagged"
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("X-Men", "xmen"),
+        ("X-Men '97", "xmen 97"),
+        ("X-Men ’97", "xmen 97"),
+        ("X-Men 2099", "xmen 2099"),
+        ("Batman: Year One", "batman year one"),
+        ("Batman - Year One", "batman year one"),
+    ],
+)
+def test_title_identity_preserves_words_and_digits(title, expected):
+    from comicarr.scanutil import normalize_title
+
+    assert normalize_title(title) == expected
+
+
+@pytest.mark.parametrize(
+    "filename, expected_id",
+    [
+        ("X-Men 001 (2024).cbz", "new"),
+        ("X-Men '97 002 (2024).cbz", "97"),
+        ("X-Men ’97 002 (2024).cbz", "97"),
+    ],
+)
+def test_inbox_selects_title_and_year(importinbox, _mock_globals, filename, expected_id):
+    series = [
+        {"ComicID": "old", "ComicName": "X-Men", "ComicYear": "1991", "DynamicName": "xmen"},
+        {"ComicID": "new", "ComicName": "X-Men", "ComicYear": "2024", "DynamicName": "xmen"},
+        {"ComicID": "97", "ComicName": "X-Men '97", "ComicYear": "2024", "DynamicName": "xmen"},
+    ]
+    with (
+        patch("os.walk", return_value=[("/import", [], [filename])]),
+        patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+    ):
+        groups = importinbox._collect_file_groups("/import")
+        key, info = next(iter(groups.items()))
+        result = importinbox._match_group(key, info, series)
+
+    assert result == {"auto_imported": 1, "queued_for_review": 0}
+    assert finalize.call_args.args[2] == expected_id
+    assert _mock_globals["db"].upsert.call_args.args[1]["IssueNumber"] in ("1", "2")
+
+
+def test_equal_volumes_queue_even_at_full_confidence(importinbox, _mock_globals):
+    series = [{"ComicID": str(i), "ComicName": "X-Men", "ComicYear": "2024"} for i in range(2)]
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group(
+            "group", {"group_name": "X-Men", "files": ["/import/X-Men 001 (2024).cbz"]}, series
+        )
+    assert result == {"auto_imported": 0, "queued_for_review": 1}
+    finalize.assert_not_called()
+    assert _mock_globals["db"].upsert.call_args.args[1]["Status"] == "Not Imported"
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        ["/import/X-Men 001 (1991).cbz", "/import/X-Men 002 (2024).cbz"],
+        ["/import/X-Men 001.cbz"],
+    ],
+)
+def test_multiple_volumes_without_one_year_queue(importinbox, files):
+    series = [
+        {"ComicID": "old", "ComicName": "X-Men", "ComicYear": "1991"},
+        {"ComicID": "new", "ComicName": "X-Men", "ComicYear": "2024"},
+    ]
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group("group", {"group_name": "X-Men", "files": files}, series)
+    assert result == {"auto_imported": 0, "queued_for_review": len(files)}
+    finalize.assert_not_called()
+
+
+def test_wrong_year_or_numbered_identity_is_never_auto_imported(importinbox, _mock_globals):
+    _mock_globals["config"].AUTO_IMPORT_CONFIDENCE = 1
+    series = [{"ComicID": "old", "ComicName": "X-Men", "ComicYear": "1991"}]
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group(
+            "group", {"group_name": "X-Men '97", "files": ["/import/X-Men '97 001 (2024).cbz"]}, series
+        )
+    assert result == {"auto_imported": 0, "queued_for_review": 1}
+    finalize.assert_not_called()
+
+
+def test_possible_duplicate_is_visible_in_review_queue(importinbox, _mock_globals):
+    from comicarr.app.imports.finalization import ImportDuplicateError
+
+    files = ["/import/X-Men 001 (2024).cbz"]
+    series = {"ComicID": "new", "ComicName": "X-Men", "ComicYear": "2024"}
+    with patch(
+        "comicarr.app.imports.finalization.finalize_manual_match",
+        side_effect=ImportDuplicateError("Possible duplicate"),
+    ):
+        result = importinbox._match_group("group", {"group_name": "X-Men", "files": files}, [series])
+    assert result == {"auto_imported": 0, "queued_for_review": 1}
+    assert _mock_globals["db"].upsert.call_args.args[1]["Status"] == "Possible Duplicate"
+    assert _mock_globals["db"].upsert.call_args.args[2] == {"impID": importinbox._filepath_to_impid(files[0])}
+
+
+def test_imported_file_does_not_supply_year_for_pending_volume(importinbox):
+    files = ["/import/X-Men 001 (1991).cbz", "/import/X-Men 002 (2024).cbz"]
+    imported = {"impID": importinbox._filepath_to_impid(files[0]), "Status": "Imported"}
+    series = [
+        {"ComicID": "old", "ComicName": "X-Men", "ComicYear": "1991"},
+        {"ComicID": "new", "ComicName": "X-Men", "ComicYear": "2024"},
+    ]
+    with (
+        patch("comicarr.app.imports.queries.get_import_rows", return_value=[imported]),
+        patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+    ):
+        result = importinbox._match_group("group", {"group_name": "X-Men", "files": files}, series)
+    assert result == {"auto_imported": 1, "queued_for_review": 0}
+    assert finalize.call_args.args[2] == "new"
+
+
+def test_folder_match_does_not_override_explicit_filename_identity(importinbox, _mock_globals):
+    files = ["/import/X-Men/X-Men 001 (2024).cbz", "/import/X-Men/X-Men '97 002 (2024).cbz"]
+    series = [
+        {"ComicID": "base", "ComicName": "X-Men", "ComicYear": "2024"},
+        {"ComicID": "97", "ComicName": "X-Men '97", "ComicYear": "2024"},
+    ]
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group("folder", {"group_name": "X-Men", "files": files}, series)
+    assert result == {"auto_imported": 1, "queued_for_review": 1}
+    assert finalize.call_args.args[1] == [importinbox._filepath_to_impid(files[0])]
+    queued = [
+        entry.args[1] for entry in _mock_globals["db"].upsert.call_args_list if entry.args[1]["MatchSource"] == "inbox"
+    ]
+    assert queued[0]["ComicFilename"] == "X-Men '97 002 (2024).cbz"
+
+
+def test_filename_can_use_selected_series_sort_name(importinbox):
+    series = {"ComicID": "flash", "ComicName": "The Flash", "ComicSortName": "Flash", "ComicYear": "2024"}
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group(
+            "folder", {"group_name": "Flash", "files": ["/import/Flash/Flash 001 (2024).cbz"]}, [series]
+        )
+    assert result == {"auto_imported": 1, "queued_for_review": 0}
+    finalize.assert_called_once()
+
+
+def test_unsupported_unnumbered_title_goes_to_review(importinbox):
+    series = {"ComicID": "base", "ComicName": "X-Men", "ComicYear": "2024"}
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group(
+            "folder", {"group_name": "X-Men (2024)", "files": ["/import/X-Men (2024)/X-Men '97 (2024).cbz"]}, [series]
+        )
+    assert result == {"auto_imported": 0, "queued_for_review": 1}
+    finalize.assert_not_called()

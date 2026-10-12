@@ -49,6 +49,11 @@ class ImportFinalizationError(RuntimeError):
         self.rollback_failed = rollback_failed
 
 
+class ImportDuplicateError(ImportFinalizationError):
+    def __init__(self, message: str):
+        super().__init__(message, phase="preflight")
+
+
 def _fail(message: str, *, phase: str, rollback_failed: bool = False) -> ImportFinalizationError:
     return ImportFinalizationError(message, phase=phase, rollback_failed=rollback_failed)
 
@@ -498,6 +503,21 @@ def _finalize_locked(
                 % (effective_name, ", ".join(unresolved)),
                 phase="issues",
             )
+    if match_source == "inbox-auto":
+        for row in rows:
+            issue_id = row.get("_ResolvedIssueID")
+            existing_issues = (
+                series_queries.get_issue_full(series_id, issue_id)
+                if issue_id
+                else series_queries.get_issues_full(series_id)
+            )
+            for issue in existing_issues:
+                location = issue.get("Location")
+                if not location or location == "None":
+                    continue
+                existing_path = location if os.path.isabs(location) else os.path.join(target_directory or "", location)
+                if os.path.isfile(existing_path) and not os.path.samefile(existing_path, row["ComicLocation"]):
+                    raise ImportDuplicateError("Possible duplicate: issue already has a file: %s" % existing_path)
     _ensure_target_directory(target_directory)
     config = getattr(ctx, "config", None) or getattr(comicarr, "CONFIG", None)
     move_enabled = bool(getattr(config, "IMP_MOVE", False))
@@ -508,6 +528,19 @@ def _finalize_locked(
         moved = len(rows)
         archived = 0
     else:
+        if match_source == "inbox-auto":
+            from comicarr.scanutil import COMIC_EXTENSIONS
+
+            selected_paths = {os.path.abspath(row["ComicLocation"]) for row in rows}
+            directories = {os.path.dirname(path) for path in selected_paths}
+            for directory in directories:
+                for root, _directories, filenames in os.walk(directory):
+                    for filename in filenames:
+                        path = os.path.abspath(os.path.join(root, filename))
+                        if filename.lower().endswith(COMIC_EXTENSIONS) and path not in selected_paths:
+                            raise ImportDuplicateError(
+                                "Possible duplicate: archive rescan would consume an unselected file: %s" % path
+                            )
         _archive_and_rescan(rows, series_id)
         moved = 0
         archived = len(rows)

@@ -31,7 +31,6 @@ COMIC_EXTENSIONS = (".cbr", ".cbz", ".cb7", ".pdf")
 def normalize_title(name):
     """Normalize a title for comparison: lowercase, strip punctuation and common particles."""
     name = name.lower().strip()
-    name = re.split(r"\s*[:\-\u2013\u2014~]\s*", name)[0]
     name = re.sub(r"[^\w\s]", "", name)
     name = re.sub(r"\s+", " ", name).strip()
     return name
