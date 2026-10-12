@@ -492,6 +492,19 @@ def _finalize_locked(
         moved = len(rows)
         archived = 0
     else:
+        if match_source == "inbox-auto":
+            from comicarr.scanutil import COMIC_EXTENSIONS
+
+            selected_paths = {os.path.abspath(row["ComicLocation"]) for row in rows}
+            directories = {os.path.dirname(path) for path in selected_paths}
+            for directory in directories:
+                for root, _directories, filenames in os.walk(directory):
+                    for filename in filenames:
+                        path = os.path.abspath(os.path.join(root, filename))
+                        if filename.lower().endswith(COMIC_EXTENSIONS) and path not in selected_paths:
+                            raise ImportDuplicateError(
+                                "Possible duplicate: archive rescan would consume an unselected file: %s" % path
+                            )
         _archive_and_rescan(rows, series_id)
         moved = 0
         archived = len(rows)

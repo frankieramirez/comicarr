@@ -427,7 +427,7 @@ class TestMatchGroup:
         sources = [call.args[1]["MatchSource"] for call in _mock_globals["db"].upsert.call_args_list]
         assert sorted(sources) == ["inbox", "inbox-auto"]
 
-    def test_issue_1068_file_without_issue_number_keeps_confidence_gate(self, importinbox, _mock_globals):
+    def test_unsupported_file_without_issue_number_requires_review(self, importinbox, _mock_globals):
         series_list = [
             {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
         ]
@@ -444,8 +444,8 @@ class TestMatchGroup:
                 series_list,
             )
 
-        assert result == {"auto_imported": 1, "queued_for_review": 0}
-        finalize.assert_called_once()
+        assert result == {"auto_imported": 0, "queued_for_review": 1}
+        finalize.assert_not_called()
         _mock_globals["get_issue_id"].assert_not_called()
 
     @pytest.mark.parametrize(("offset", "auto_imported"), [(0, 1), (1, 0)])
@@ -823,3 +823,13 @@ def test_filename_can_use_selected_series_sort_name(importinbox):
         )
     assert result == {"auto_imported": 1, "queued_for_review": 0}
     finalize.assert_called_once()
+
+
+def test_unsupported_unnumbered_title_goes_to_review(importinbox):
+    series = {"ComicID": "base", "ComicName": "X-Men", "ComicYear": "2024"}
+    with patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize:
+        result = importinbox._match_group(
+            "folder", {"group_name": "X-Men (2024)", "files": ["/import/X-Men (2024)/X-Men '97 (2024).cbz"]}, [series]
+        )
+    assert result == {"auto_imported": 0, "queued_for_review": 1}
+    finalize.assert_not_called()
