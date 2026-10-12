@@ -36,6 +36,145 @@ describe("MatchModal", () => {
     vi.clearAllMocks();
   });
 
+  it("clears the selected volume as soon as the query changes", async () => {
+    server.use(
+      http.post("/api/search/comics", () =>
+        HttpResponse.json({
+          results: [
+            {
+              comicid: "12345",
+              name: "Exact volume",
+              in_library: true,
+              comicyear: "2024",
+              publisher: "Marvel",
+            },
+          ],
+        }),
+      ),
+    );
+    const onMatch = vi.fn();
+    renderMinimal(
+      <MatchModal
+        isOpen
+        onClose={vi.fn()}
+        importGroup={comicGroup}
+        onMatch={onMatch}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Exact volume/ }),
+    );
+    const confirm = screen.getByRole("button", { name: "Match Selected" });
+    expect(confirm).toHaveProperty("disabled", false);
+    await userEvent.clear(
+      screen.getByPlaceholderText("Search for a comic series..."),
+    );
+    expect(confirm).toHaveProperty("disabled", true);
+    await userEvent.click(confirm);
+    expect(onMatch).not.toHaveBeenCalled();
+  });
+
+  it("keeps a late result for an earlier query out of the current selection", async () => {
+    let releaseOld: () => void = () => {};
+    const oldPending = new Promise<void>((resolve) => {
+      releaseOld = resolve;
+    });
+    let oldRequested = false;
+    server.use(
+      http.post("/api/search/comics", async ({ request }) => {
+        const { name } = (await request.json()) as { name: string };
+        if (name === "Old volume") {
+          oldRequested = true;
+          await oldPending;
+          return HttpResponse.json({
+            results: [{ comicid: "111", name: "Late wrong volume" }],
+          });
+        }
+        return HttpResponse.json({
+          results:
+            name === "4050-12345"
+              ? [
+                  {
+                    comicid: "12345",
+                    name: "Exact new volume",
+                    in_library: false,
+                    comicyear: "2024",
+                    publisher: "Marvel",
+                  },
+                ]
+              : [],
+        });
+      }),
+    );
+    const onMatch = vi.fn();
+    renderMinimal(
+      <MatchModal
+        isOpen
+        onClose={vi.fn()}
+        importGroup={comicGroup}
+        onMatch={onMatch}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Search series" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "Old volume");
+    await waitFor(() => expect(oldRequested).toBe(true));
+    await userEvent.clear(input);
+    await userEvent.type(input, "4050-12345");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Exact new volume/ }),
+    );
+    releaseOld();
+    await waitFor(() =>
+      expect(screen.queryByText("Late wrong volume")).toBeNull(),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add series and import" }),
+    );
+    expect(onMatch).toHaveBeenCalledExactlyOnceWith(
+      "12345",
+      "Exact new volume",
+      true,
+    );
+  });
+
+  it("shows provider errors and empty exact lookups without retaining a selection", async () => {
+    server.use(
+      http.post("/api/search/comics", async ({ request }) => {
+        const { name } = (await request.json()) as { name: string };
+        if (name === "https://metron.cloud/series/99/") {
+          return HttpResponse.json(
+            { detail: "Metron integration is not configured" },
+            { status: 400 },
+          );
+        }
+        return HttpResponse.json({ results: [] });
+      }),
+    );
+    renderMinimal(
+      <MatchModal
+        isOpen
+        onClose={vi.fn()}
+        importGroup={comicGroup}
+        onMatch={vi.fn()}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Search series" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "4050-12345");
+    expect(
+      await screen.findByText("No results found. Try a different search term."),
+    ).toBeTruthy();
+    await userEvent.clear(input);
+    await userEvent.type(input, "https://metron.cloud/series/99/");
+    expect(
+      await screen.findByText(/Metron integration is not configured/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Match Selected" }),
+    ).toHaveProperty("disabled", true);
+  });
+
   it("searches comics for comic import groups", async () => {
     let searchedEndpoint = "";
 

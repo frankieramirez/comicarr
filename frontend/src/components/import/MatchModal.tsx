@@ -71,12 +71,20 @@ function MatchModalContent({
 
   const {
     data: searchData,
-    isLoading: isSearching,
+    isFetching: isSearching,
     error: searchError,
   } = searchMode === "manga" ? mangaSearch : comicSearch;
 
+  const canMatch =
+    !!selectedComic &&
+    !isSearching &&
+    !searchError &&
+    !mangaBlocked &&
+    !mangaLoading &&
+    !!searchData?.results.includes(selectedComic);
+
   const handleMatch = () => {
-    if (selectedComic && !isMatching) {
+    if (canMatch && selectedComic && !isMatching) {
       const comicId = selectedComic.comicid || selectedComic.id;
       const comicName = selectedComic.comicname || selectedComic.name;
       onMatch(comicId, comicName, addMissing);
@@ -117,12 +125,28 @@ function MatchModalContent({
           <Input
             placeholder={placeholder}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSelectedComic(null);
+              setSearchQuery(e.target.value);
+            }}
+            aria-label="Search series"
+            aria-describedby={
+              searchMode === "comic" ? "match-search-help" : undefined
+            }
             className="pl-10"
             autoFocus
             disabled={mangaBlocked || mangaLoading || isMatching}
           />
         </div>
+        {searchMode === "comic" && (
+          <p
+            id="match-search-help"
+            className="mt-2 text-sm text-muted-foreground"
+          >
+            Search by name, or paste a ComicVine volume ID (4050-12345),
+            ComicVine volume URL, or Metron series URL.
+          </p>
+        )}
       </div>
 
       <div className="max-h-[400px] overflow-y-auto p-4">
@@ -156,6 +180,7 @@ function MatchModalContent({
         {!mangaBlocked &&
           !mangaLoading &&
           !isSearching &&
+          !searchError &&
           searchData?.results &&
           searchData.results.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
@@ -166,15 +191,15 @@ function MatchModalContent({
         {!mangaBlocked &&
           !mangaLoading &&
           !isSearching &&
+          !searchError &&
           searchData?.results &&
           searchData.results.length > 0 && (
             <div className="space-y-2">
               {searchData.results.map((result) => {
                 const comicId = result.comicid || result.id;
-                const isSelected = Boolean(
-                  selectedComic &&
-                  (selectedComic.comicid || selectedComic.id) === comicId,
-                );
+                const isSelected =
+                  !!selectedComic &&
+                  (selectedComic.comicid || selectedComic.id) === comicId;
 
                 return (
                   <button
@@ -262,7 +287,7 @@ function MatchModalContent({
         <Button variant="outline" onClick={onClose} disabled={isMatching}>
           Cancel
         </Button>
-        <Button onClick={handleMatch} disabled={!selectedComic || isMatching}>
+        <Button onClick={handleMatch} disabled={!canMatch || isMatching}>
           {isMatching ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

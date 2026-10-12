@@ -475,3 +475,81 @@ def test_scanner_updates_and_auto_source_cannot_clear_pending_readiness(pending_
     assert automatic.value.phase == "issues"
     assert source.read_bytes() == b"book"
     assert db.select_one(select(importresults))["Status"] == "Not Imported"
+
+
+@pytest.mark.parametrize("query", ["4050-123", "https://comicvine.gamespot.com/example/4050-123/"])
+@pytest.mark.parametrize("number", ["1", "99"])
+def test_exact_lookup_add_and_reopened_retry_preserve_readiness(pending_import, monkeypatch, query, number):
+    import json
+
+    from comicarr.app.search.router import search_comics
+    from comicarr.app.series.router import match_import
+
+    _, ctx, source, session, importresults = pending_import
+    ctx.config.COMICVINE_API = comicarr.CONFIG.COMICVINE_API
+    ctx.config.CV_VERIFY = True
+    monkeypatch.setattr(
+        "comicarr.mb.listLibrary", lambda: {row["ComicID"]: row["Status"] for row in db.select_all(select(comics))}
+    )
+    monkeypatch.setattr(
+        "comicarr.mb.findComic", MagicMock(side_effect=AssertionError("Exact query must not fuzzy-search"))
+    )
+    volume = {
+        "id": 123,
+        "name": "Example",
+        "start_year": "2020",
+        "count_of_issues": 1,
+        "publisher": {"name": "Publisher"},
+        "site_detail_url": "https://example/123",
+    }
+    issue = {"id": 456, "volume": {"id": 123}, "issue_number": "1", "cover_date": "2020-01-01"}
+    session.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: {"status_code": 1, "results": volume}),
+        MagicMock(status_code=200, json=lambda: {"status_code": 1, "results": volume}),
+        MagicMock(status_code=200, json=lambda: {"status_code": 1, "results": [issue], "number_of_total_results": 1}),
+        MagicMock(status_code=200, json=lambda: {"status_code": 1, "results": volume}),
+    ]
+    db.upsert("importresults", {"IssueNumber": number}, {"impID": "pending"})
+    lookup = search_comics({"name": query, "limit": 20}, ctx=ctx)
+    assert lookup["pagination"] == {"total": 1, "limit": 20, "offset": 0, "returned": 1}
+    candidate = lookup["results"][0]
+    assert candidate["comicid"] == "123"
+    assert candidate["in_library"] is False
+    result = match_import(
+        {
+            "imp_ids": ["pending"],
+            "comic_id": candidate["comicid"],
+            "comic_name": candidate["name"],
+            "add_missing": True,
+        },
+        ctx=ctx,
+    )
+    if number == "1":
+        assert result["comic_id"] == "123"
+        assert result["imported"] == 1
+        row = db.select_one(select(importresults))
+        assert row["Status"] == "Imported"
+        assert row["IssueID"] == "456"
+        assert row["RequiresIssueResolution"] == 0
+        assert not source.exists()
+        assert db.select_one(select(comics))["Status"] == "Paused"
+    else:
+        assert result.status_code == 500
+        assert "resolve every issue" in json.loads(result.body)["detail"]
+        reopened = search_comics({"name": query}, ctx=ctx)["results"][0]
+        assert reopened["in_library"] is True
+        retry = match_import(
+            {
+                "imp_ids": ["pending"],
+                "comic_id": reopened["comicid"],
+                "comic_name": reopened["name"],
+                "add_missing": False,
+            },
+            ctx=ctx,
+        )
+        assert retry.status_code == 500
+        row = db.select_one(select(importresults))
+        assert row["RequiresIssueResolution"] == 1
+        assert row["Status"] == "Not Imported"
+        assert row["IssueID"] is None
+        assert source.read_bytes() == b"book"
