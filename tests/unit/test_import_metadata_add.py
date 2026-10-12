@@ -404,3 +404,74 @@ def test_provider_failure_does_not_return_credential_bearing_urls(pending_import
     assert "test-key" not in str(error.value)
     assert "ComicVine request failed" in str(error.value)
     assert source.read_bytes() == b"book"
+
+
+def test_reopened_retry_retains_issue_readiness_after_restart(pending_import):
+    import importlib
+
+    finalization, ctx, source, session, importresults = pending_import
+    db.upsert("importresults", {"IssueNumber": "99"}, {"impID": "pending"})
+    with pytest.raises(finalization.ImportFinalizationError) as first:
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=True)
+    assert first.value.phase == "issues"
+    db.get_engine().dispose()
+    finalization = importlib.reload(finalization)
+    with pytest.raises(finalization.ImportFinalizationError) as reopened:
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=False, fallback_issue_id="456")
+    assert reopened.value.phase == "issues"
+    assert source.read_bytes() == b"book"
+    row = db.select_one(select(importresults))
+    assert row["Status"] == "Not Imported"
+    assert row["IssueID"] is None
+    assert row["RequiresIssueResolution"] == 1
+    assert session.get.call_count == 2
+    db.upsert("importresults", {"IssueNumber": "1"}, {"impID": "pending"})
+    assert finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=False).matched == 1
+    row = db.select_one(select(importresults))
+    assert row["IssueID"] == "456"
+    assert row["Status"] == "Imported"
+    assert row["RequiresIssueResolution"] == 0
+
+
+def test_established_existing_series_still_imports_without_number(pending_import):
+    finalization, ctx, source, session, importresults = pending_import
+    library = source.parent / "library" / "Established"
+    library.mkdir(parents=True)
+    db.upsert(
+        "comics", {"ComicName": "Established", "ComicLocation": str(library), "Status": "Active"}, {"ComicID": "123"}
+    )
+    db.upsert("importresults", {"IssueNumber": None}, {"impID": "pending"})
+    result = finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=False)
+    assert result.matched == 1
+    assert db.select_one(select(importresults))["Status"] == "Imported"
+    session.get.assert_not_called()
+
+
+def test_reopened_retry_does_not_bypass_metadata_readiness(pending_import):
+    finalization, ctx, source, _, _ = pending_import
+    db.upsert("importresults", {"IssueNumber": "99"}, {"impID": "pending"})
+    with pytest.raises(finalization.ImportFinalizationError):
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=True)
+    db.upsert("importresults", {"IssueNumber": "1"}, {"impID": "pending"})
+    db.upsert("comics", {"LastUpdated": None}, {"ComicID": "123"})
+    with pytest.raises(finalization.ImportFinalizationError) as retry:
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=False)
+    assert retry.value.phase == "series"
+    assert source.read_bytes() == b"book"
+
+
+def test_scanner_updates_and_auto_source_cannot_clear_pending_readiness(pending_import, monkeypatch):
+    from comicarr import importinbox
+
+    finalization, ctx, source, _, importresults = pending_import
+    db.upsert("importresults", {"IssueNumber": "99"}, {"impID": "pending"})
+    with pytest.raises(finalization.ImportFinalizationError):
+        finalization.finalize_manual_match(ctx, ["pending"], "123", add_missing=True)
+    monkeypatch.setattr(importinbox, "_filepath_to_impid", lambda _: "pending")
+    importinbox._pending_auto_import_record(str(source), db.select_one(select(comics)), 100, "99")
+    assert db.select_one(select(importresults))["RequiresIssueResolution"] == 1
+    with pytest.raises(finalization.ImportFinalizationError) as automatic:
+        finalization.finalize_manual_match(ctx, ["pending"], "123", match_source="inbox-auto")
+    assert automatic.value.phase == "issues"
+    assert source.read_bytes() == b"book"
+    assert db.select_one(select(importresults))["Status"] == "Not Imported"

@@ -157,10 +157,11 @@ def _resolve_issue_ids(
     for row in rows:
         resolved_row = dict(row)
         issue_number = _issue_number(row)
-        resolve = import_queries.get_new_series_issue_id if new_series else import_queries.get_issue_id
-        resolved_row["_ResolvedIssueID"] = (
-            resolve(series_id, issue_number) if issue_number else None
-        ) or fallback_issue_id
+        strict = new_series or row.get("RequiresIssueResolution") == 1
+        resolve = import_queries.get_new_series_issue_id if strict else import_queries.get_issue_id
+        resolved_row["_ResolvedIssueID"] = (resolve(series_id, issue_number) if issue_number else None) or (
+            None if strict else fallback_issue_id
+        )
         resolved.append(resolved_row)
     return resolved
 
@@ -471,12 +472,15 @@ def _finalize_locked(
 ) -> tuple[ImportFinalizationResult, _PendingTagging]:
     normalized_ids = _normalize_import_ids(import_ids)
     rows = _load_and_validate_rows(normalized_ids)
+    if add_missing:
+        import_queries.require_issue_resolution(normalized_ids)
+        rows = [{**row, "RequiresIssueResolution": 1} for row in rows]
     series_id, ensured_name, prepared_metadata = _ensure_series(series_id, series_name, add_missing=add_missing)
 
     series = series_queries.get_comic_for_import(series_id)
     if not series:
         raise _fail("Target series not found in library: %s" % series_id, phase="series")
-    if prepared_metadata:
+    if prepared_metadata or any(row.get("RequiresIssueResolution") == 1 for row in rows):
         from comicarr.app.imports.metadata import metadata_ready
 
         if not metadata_ready(series):
@@ -484,8 +488,10 @@ def _finalize_locked(
     effective_name = series.get("ComicName") or ensured_name
     target_directory = series.get("ComicLocation")
     rows = _resolve_issue_ids(rows, series_id, None if add_missing else fallback_issue_id, new_series=add_missing)
-    if add_missing:
-        unresolved = [row["impID"] for row in rows if not row.get("_ResolvedIssueID")]
+    if add_missing or any(row.get("RequiresIssueResolution") == 1 for row in rows):
+        unresolved = [
+            row["impID"] for row in rows if row.get("RequiresIssueResolution") == 1 and not row.get("_ResolvedIssueID")
+        ]
         if unresolved:
             raise _fail(
                 "Could not resolve every issue for %s (%s); series remains in the library, files are pending"

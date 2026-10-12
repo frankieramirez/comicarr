@@ -204,6 +204,7 @@ def test_missing_manga_is_added_only_after_preflight(tmp_path):
             return_value={"status": "complete", "comicid": "mal-123", "comicname": "Berserk"},
         ) as add,
         patch.object(finalization.import_queries, "get_new_series_issue_id", return_value="mal-123-ch1"),
+        patch.object(finalization.import_queries, "require_issue_resolution"),
         patch("comicarr.updater.forceRescan"),
     ):
         result = finalization.finalize_manual_match(_ctx(), ["imp-1"], "mal-123", add_missing=True)

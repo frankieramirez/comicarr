@@ -30,6 +30,21 @@ def get_import_rows(import_ids: Sequence[str]) -> list[dict]:
     return db.select_all(select(t_importresults).where(t_importresults.c.impID.in_(import_ids)))
 
 
+def require_issue_resolution(import_ids: Sequence[str]) -> None:
+    """Persist strict readiness before any confirmed series creation starts."""
+    pending = or_(t_importresults.c.Status.is_(None), func.lower(t_importresults.c.Status) != "imported")
+    with db.get_engine().begin() as conn:
+        for import_id in import_ids:
+            result = conn.execute(
+                update(t_importresults)
+                .where(t_importresults.c.impID == import_id)
+                .where(pending)
+                .values(RequiresIssueResolution=1)
+            )
+            if result.rowcount != 1:
+                raise ImportRecordChangedError("Import record is missing or no longer pending: %s" % import_id)
+
+
 def get_issue_id(series_id: str, issue_number: str | None) -> str | None:
     """Resolve an issue or chapter ID for a manual import record."""
     if issue_number is None:
@@ -102,6 +117,7 @@ def mark_imported(
                 "MatchConfidence": match_confidence,
                 "WatchMatch": "C" + series_id,
                 "IgnoreFile": 0,
+                "RequiresIssueResolution": 0,
             }
             if issue_id:
                 values["IssueID"] = issue_id

@@ -197,8 +197,8 @@ def test_upgrade_database_accepts_a_known_prior_comicarr_revision(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0001_baseline')"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
-    assert current_revision(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    assert current_revision(engine) == "0014_import_issue_readiness"
 
 
 def test_upgrade_database_accepts_pre_chat_revision_without_library_chat_tables(tmp_path):
@@ -219,8 +219,8 @@ def test_upgrade_database_accepts_pre_chat_revision_without_library_chat_tables(
 
     assert "ai_chat_threads" not in set(inspect(engine).get_table_names())
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0013_series_provider_override"
-    assert current_revision(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    assert current_revision(engine) == "0014_import_issue_readiness"
     assert {"ai_chat_threads", "ai_chat_messages", "ai_chat_attachments"}.issubset(
         set(inspect(engine).get_table_names())
     )
@@ -253,8 +253,8 @@ def test_upgrade_database_accepts_pre_activity_revision_without_activity_events(
 
     assert "activity_events" not in set(inspect(engine).get_table_names())
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0013_series_provider_override"
-    assert current_revision(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    assert current_revision(engine) == "0014_import_issue_readiness"
     assert "activity_events" in set(inspect(engine).get_table_names())
 
     activity_indexes = {index["name"] for index in inspect(engine).get_indexes("activity_events")}
@@ -291,7 +291,7 @@ def test_upgrade_accepts_pre_interactive_revision_without_session_tables(tmp_pat
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0005_activity_events')"))
 
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert {"interactive_search_sessions", "interactive_search_candidates"}.issubset(
         set(inspect(engine).get_table_names())
     )
@@ -326,7 +326,7 @@ def test_upgrade_from_session_revision_adds_interactive_progress_columns(tmp_pat
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0006_interactive_search_sessions')"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     columns = {column["name"] for column in inspect(engine).get_columns("interactive_search_sessions")}
     assert {
         "provider_total",
@@ -418,7 +418,7 @@ def test_upgrade_creates_pipeline_journal_stage_index_when_missing(tmp_path):
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0003_library_chat')"))
 
     assert "pipeline_journal_stage" not in {index["name"] for index in inspect(engine).get_indexes("pipeline_journal")}
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert "pipeline_journal_stage" in {index["name"] for index in inspect(engine).get_indexes("pipeline_journal")}
 
 
@@ -436,13 +436,13 @@ def test_upgrade_database_builds_a_fresh_database_to_the_single_head(tmp_path):
 
     revision = upgrade_database(engine)
 
-    assert revision == "0013_series_provider_override"
+    assert revision == "0014_import_issue_readiness"
     assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
 
 
 def test_head_includes_manga_series_mode_columns(tmp_path):
     engine = create_engine("sqlite:///%s" % (tmp_path / "manga-modes.db"))
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     columns = {column["name"] for column in inspect(engine).get_columns("comics")}
     assert {"BareNumberMode", "MonitorMode", "ContentKindSetBy"}.issubset(columns)
 
@@ -451,7 +451,7 @@ def test_head_includes_ledger_retention_indexes(tmp_path):
     """#478: four retention indexes land at head; pipeline_journal_stage stays."""
 
     engine = create_engine("sqlite:///%s" % (tmp_path / "retention-indexes.db"))
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
 
     inspector = inspect(engine)
     expected = {
@@ -486,7 +486,7 @@ def test_upgrade_from_library_chat_creates_missing_retention_indexes(tmp_path):
         for index_name in retention_indexes:
             conn.execute(text("DROP INDEX IF EXISTS %s" % index_name))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     inspector = inspect(engine)
     for table_name, index_name in (
         ("acquisition_run_items", "acquisition_run_items_state_completed"),
@@ -510,7 +510,7 @@ def test_upgrade_accepts_pre_backlog_revision_without_search_backlog_tables(tmp_
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0009_chat_actions')"))
 
     assert classify_database(engine) is DatabaseState.VERSIONED
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert {"search_backlog_state", "rss_search_seen"}.issubset(set(inspect(engine).get_table_names()))
 
 
@@ -537,7 +537,7 @@ def test_upgrade_from_0010_adds_series_retained_locations(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0010_search_backlog_budget')"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert "RetainedLocations" in {column["name"] for column in inspect(engine).get_columns("comics")}
 
 
@@ -550,7 +550,7 @@ def test_upgrade_from_0011_adds_content_kind_set_by(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0011_series_retained_locations')"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert "ContentKindSetBy" in {column["name"] for column in inspect(engine).get_columns("comics")}
 
 
@@ -566,7 +566,7 @@ def test_provider_override_migration_upgrades_and_downgrades(tmp_path):
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
         conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0012_content_kind_set_by')"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     with engine.begin() as conn:
         assert conn.execute(text("SELECT ProviderOverride FROM comics WHERE ComicID = 'wizard'")).scalar() is None
 
@@ -575,7 +575,7 @@ def test_provider_override_migration_upgrades_and_downgrades(tmp_path):
     assert current_revision(engine) == "0012_content_kind_set_by"
     assert "ProviderOverride" not in {column["name"] for column in inspect(engine).get_columns("comics")}
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
     assert "ProviderOverride" in {column["name"] for column in inspect(engine).get_columns("comics")}
 
 
@@ -585,8 +585,8 @@ def test_upgrade_database_stamps_only_a_verified_legacy_database(tmp_path):
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))
 
-    assert upgrade_database(engine) == "0013_series_provider_override"
-    assert current_revision(engine) == "0013_series_provider_override"
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    assert current_revision(engine) == "0014_import_issue_readiness"
 
 
 def test_upgrade_database_never_stamps_an_unknown_database(tmp_path):
@@ -654,3 +654,37 @@ def test_legacy_adoption_moves_a_known_readinglist_shape_to_storyarcs(tmp_path):
     assert "readinglist" not in set(inspect(engine).get_table_names())
     with engine.connect() as conn:
         assert conn.execute(text("SELECT ComicName FROM storyarcs WHERE IssueArcID = 'arc-issue-1'")).scalar() == "Saga"
+
+
+def test_import_issue_readiness_upgrade_preserves_existing_records_and_retry_state(tmp_path):
+    from alembic import command
+
+    engine = create_engine("sqlite:///%s" % (tmp_path / "import-readiness.db"))
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE importresults DROP COLUMN RequiresIssueResolution"))
+        conn.execute(
+            text("INSERT INTO importresults(impID, Status, IssueNumber) VALUES ('pending', 'Not Imported', '99')")
+        )
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)"))
+        conn.execute(text("INSERT INTO alembic_version(version_num) VALUES ('0013_series_provider_override')"))
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT Status, IssueNumber, RequiresIssueResolution FROM importresults WHERE impID='pending'")
+        ).first()
+        assert tuple(row) == ("Not Imported", "99", 0)
+        conn.execute(text("UPDATE importresults SET RequiresIssueResolution=1 WHERE impID='pending'"))
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    with engine.connect() as conn:
+        assert (
+            conn.execute(text("SELECT RequiresIssueResolution FROM importresults WHERE impID='pending'")).scalar() == 1
+        )
+        command.downgrade(alembic_config(engine, conn), "0013_series_provider_override")
+    assert "RequiresIssueResolution" not in {column["name"] for column in inspect(engine).get_columns("importresults")}
+    assert upgrade_database(engine) == "0014_import_issue_readiness"
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT Status, IssueNumber FROM importresults WHERE impID='pending'")).first() == (
+            "Not Imported",
+            "99",
+        )
