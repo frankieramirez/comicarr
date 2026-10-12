@@ -32,6 +32,7 @@ interface SettingFieldProps {
   onChange?: (value: string | boolean) => void;
   type?: "text" | "password" | "number" | "checkbox" | "select" | "textarea";
   readOnly?: boolean;
+  disabled?: boolean;
   helpText?: string;
   error?: string;
   options?: SelectOption[];
@@ -47,6 +48,7 @@ export function SettingField({
   onChange = () => {},
   type = "text",
   readOnly = false,
+  disabled = false,
   helpText,
   error,
   options = [],
@@ -83,7 +85,7 @@ export function SettingField({
           onChange={(e) => onChange(e.target.checked)}
           onFocus={() => setCheckboxFocused(true)}
           onBlur={() => setCheckboxFocused(false)}
-          disabled={readOnly}
+          disabled={readOnly || disabled}
           className="sr-only peer"
         />
         <span
@@ -165,7 +167,7 @@ export function SettingField({
           <Select
             value={value?.toString()}
             onValueChange={onChange}
-            disabled={readOnly}
+            disabled={readOnly || disabled}
           >
             <SelectTrigger
               id={fieldId}
@@ -216,6 +218,7 @@ export function SettingField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={3}
+          disabled={disabled}
           aria-describedby={describedBy}
           className="mt-1.5 font-mono"
         />
@@ -228,6 +231,7 @@ export function SettingField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           min={type === "number" ? min : undefined}
+          disabled={disabled}
           aria-describedby={describedBy}
           className="mt-1.5"
         />
