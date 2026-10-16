@@ -112,6 +112,7 @@ export interface ReadableConfig {
   sab_verify?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
+  qbittorrent_root_routes?: string;
   opds_enable?: boolean;
   opds_pagesize?: number;
   ai_base_url?: string;
@@ -253,6 +254,7 @@ export interface WritableConfig {
   sab_verify?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
+  qbittorrent_root_routes?: string;
   opds_enable?: boolean;
   opds_pagesize?: number;
   ai_base_url?: string;

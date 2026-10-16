@@ -120,6 +120,22 @@ export function DownloadClientsTab({
           placeholder="/downloads/Magazines"
         />
       </SettingGroup>
+
+      {Number(config.torrent_downloader) === 5 && (
+        <SettingGroup
+          title="qBittorrent categories by library root"
+          description="Send torrents for Series in a library root to their own qBittorrent category or save path. Other Series keep the global category and folder."
+        >
+          <SettingField
+            label="Routes"
+            type="textarea"
+            value={formData.qbittorrent_root_routes || ""}
+            onChange={(v) => onChange("qbittorrent_root_routes", v as string)}
+            helpText="One route per line: library root | category | save path. The save path is optional. Add the save path to Additional monitored folders if downloads finish there."
+            placeholder="/comics/Magazines | magazines | /downloads/Magazines"
+          />
+        </SettingGroup>
+      )}
     </div>
   );
 }
