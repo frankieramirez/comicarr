@@ -376,3 +376,21 @@ def test_a_folder_comicarr_cannot_write_to_is_refused_before_anything_changes(li
     assert (old_folder / "Wizard 001.cbz").is_file()
     assert _series(WIZARD)["ComicLocation"] == str(old_folder)
     assert _issue_location("wiz-1") == "Wizard 001.cbz"
+
+
+def test_cataloging_as_magazine_moves_to_the_magazine_root_and_keeps_files_readable(library):
+    old_folder = _wizard_with_one_issue(library)
+    library.config.MAGAZINE_DESTINATION_DIR = str(library.magazines)
+
+    result = series_service.update_content_kind(library.ctx, WIZARD, "magazine")
+
+    new_folder = library.magazines / "Wizard (1991)"
+    assert result["content_type"] == "magazine"
+    assert result["location_repointed"] is True
+    assert result["comic_location"] == str(new_folder)
+    assert new_folder.is_dir()
+    assert (old_folder / "Wizard 001.cbz").is_file()
+    assert _series(WIZARD)["dirlocked"] in (0, None)
+    assert json.loads(_series(WIZARD)["RetainedLocations"]) == [str(old_folder)]
+    assert _issue_location("wiz-1") == str(old_folder / "Wizard 001.cbz")
+    assert library.rescans == [WIZARD]

@@ -1,7 +1,7 @@
 import { LoaderCircle } from "lucide-react";
-import type { ContentType } from "@/types";
+import type { SeriesKind } from "@/types";
 
-const KIND_COPY: Record<ContentType, { label: string; description: string }> = {
+const KIND_COPY: Record<SeriesKind, { label: string; description: string }> = {
   comic: {
     label: "Comic",
     description: "Use comic issue labels and matching rules.",
@@ -10,13 +10,20 @@ const KIND_COPY: Record<ContentType, { label: string; description: string }> = {
     label: "Manga",
     description: "Use manga chapter labels and matching rules.",
   },
+  magazine: {
+    label: "Magazine",
+    description:
+      "Search and download like a comic, and keep it with your magazines.",
+  },
 };
 
+const KINDS = Object.keys(KIND_COPY) as SeriesKind[];
+
 interface SeriesContentKindProps {
-  value: ContentType;
+  value: SeriesKind;
   provider: string;
   pending: boolean;
-  onChange: (value: ContentType) => void;
+  onChange: (value: SeriesKind) => void;
 }
 
 export function SeriesContentKind({
@@ -44,18 +51,18 @@ export function SeriesContentKind({
           </p>
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
             Future labels and matching follow this choice. Existing files and
-            issue history stay unchanged. Switching to manga also stores the
-            series under the manga destination so downloads can import; files
-            already on disk are not moved.
+            issue history stay unchanged. Switching to manga or magazine also
+            stores the series under that destination so downloads import there,
+            unless you chose its folder; files already on disk are not moved.
           </p>
         </div>
         <div
           role="radiogroup"
           aria-label="Content kind"
           aria-busy={pending}
-          className="relative grid grid-cols-2 rounded-control border border-border bg-background p-0.5"
+          className="relative grid grid-cols-3 rounded-control border border-border bg-background p-0.5"
         >
-          {(Object.keys(KIND_COPY) as ContentType[]).map((kind) => {
+          {KINDS.map((kind, index) => {
             const active = value === kind;
             return (
               <button
@@ -69,7 +76,8 @@ export function SeriesContentKind({
                   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
                     return;
                   event.preventDefault();
-                  onChange(kind === "comic" ? "manga" : "comic");
+                  const step = event.key === "ArrowRight" ? 1 : -1;
+                  onChange(KINDS[(index + step + KINDS.length) % KINDS.length]);
                 }}
                 className={`rounded-[3px] px-3 py-2 font-mono text-[12px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
                   active

@@ -42,11 +42,11 @@ def test_content_kind_route_rejects_every_value_outside_strict_wire_enum(monkeyp
     response = series_router.update_series_content_kind("160294", request_body, SimpleNamespace())
 
     assert response.status_code == 400
-    assert _response_body(response) == {"detail": "content_type must be one of: comic, manga"}
+    assert _response_body(response) == {"detail": "content_type must be one of: comic, manga, magazine"}
     update.assert_not_called()
 
 
-@pytest.mark.parametrize("content_type", ["comic", "manga"])
+@pytest.mark.parametrize("content_type", ["comic", "manga", "magazine"])
 def test_content_kind_route_accepts_enum_and_returns_service_result(monkeypatch, content_type):
     update = MagicMock(return_value={"success": True, "content_type": content_type})
     monkeypatch.setattr(series_router.series_service, "update_content_kind", update)

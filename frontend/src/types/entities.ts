@@ -74,7 +74,7 @@ export interface Comic {
   ForceContinuing?: boolean;
   AlternateSearch?: string | null;
   ComicVersion?: string | null;
-  ContentType?: ContentType | null;
+  ContentType?: SeriesKind | null;
   /** Per-series pack/bundle matching flag — Text column, "1" when enabled */
   AllowPacks?: string | number | null;
   /** Per-series booktype-mismatch override — Integer flag column */
@@ -480,6 +480,9 @@ export interface SeriesDetail {
 /** Content type for comic/manga distinction */
 export type ContentType = "comic" | "manga";
 
+/** How the operator catalogs a Series; a magazine is a comic for search and downloads */
+export type SeriesKind = ContentType | "magazine";
+
 /** Reading direction for manga */
 export type ReadingDirection = "ltr" | "rtl";
 
@@ -513,7 +516,7 @@ export interface MangaChapter {
 
 /** Extended Comic interface with manga support */
 export interface ComicOrManga extends Comic {
-  ContentType?: ContentType | null;
+  ContentType?: SeriesKind | null;
   ReadingDirection?: ReadingDirection;
   MetadataSource?: string | null;
   ExternalID?: string | null;

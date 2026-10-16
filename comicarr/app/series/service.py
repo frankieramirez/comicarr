@@ -535,17 +535,60 @@ def persist_manga_location_if_needed(existing, manga_dest=None):
     return new_location, True
 
 
+def _magazine_destination():
+    return _series_text(getattr(comicarr.CONFIG, "MAGAZINE_DESTINATION_DIR", None))
+
+
+def magazine_location_for_reclassify(existing, magazine_dest):
+    """Return the folder a Series moves to when cataloged as Magazine, or None to keep it.
+
+    The Series keeps its folder name and moves under the magazine root. None
+    means no magazine root is set, or the folder is already under it.
+    """
+    dest = _series_text(magazine_dest)
+    if not dest:
+        return None
+    current = _series_text((existing or {}).get("ComicLocation"))
+    if current and is_path_within_allowed_dirs(current, [dest], strict=True):
+        return None
+    folder = os.path.basename(os.path.normpath(current)) if current else None
+    if not folder:
+        name = (existing or {}).get("ComicName")
+        folder = str(filesafe(name)).strip() if name else ""
+    if not folder:
+        return None
+    return os.path.join(dest, folder)
+
+
+def _relocate_magazine(ctx, comic_id, existing):
+    """Move a newly cataloged magazine to its automatic folder under the magazine root.
+
+    Goes through the Series folder flow so files already on disk stay readable
+    from their old folder. Returns the new folder, or None when nothing moved.
+    """
+    if not magazine_location_for_reclassify(existing, _magazine_destination()):
+        return None
+    try:
+        result = series_locations.change_series_location(ctx, comic_id, None, move_files=False)
+    except series_locations.SeriesLocationError as e:
+        logger.warn("[SERIES] %s was cataloged as Magazine but kept its folder: %s" % (comic_id, e))
+        return None
+    return result.get("comic_location")
+
+
 def update_content_kind(ctx, comic_id, content_type):
-    """Persist an operator-controlled comic-or-manga classification.
+    """Persist an operator-controlled comic, manga or magazine classification.
 
     Content kind is independent of provider identity and legacy publication
     ``Type``. The write always updates ``ContentType``. Switching to manga also
     repoints ``ComicLocation`` under the manga destination when the stored path
-    would be refused by manga post-processing, unless the operator chose the
-    folder. Existing files are not moved.
+    would be refused by manga post-processing, and switching to magazine moves
+    the Series to its automatic folder under ``MAGAZINE_DESTINATION_DIR`` when
+    that is set, keeping earlier files readable where they are; neither happens
+    when the operator chose the folder. Existing files are not moved.
     """
-    if content_type not in ("comic", "manga"):
-        return {"success": False, "error": "Content kind must be comic or manga"}
+    if content_type not in series_kind.CONTENT_KINDS:
+        return {"success": False, "error": "Content kind must be comic, manga or magazine"}
 
     existing = series_queries.get_comic_content_kind(comic_id)
     if not existing:
@@ -563,6 +606,9 @@ def update_content_kind(ctx, comic_id, content_type):
         )
     else:
         series_queries.update_comic_content_kind(comic_id, content_type, set_by=series_kind.OPERATOR_KIND_SET_BY)
+
+    if content_type == series_kind.MAGAZINE_CONTENT_TYPE and not series_locations.is_location_override(existing):
+        new_location = _relocate_magazine(ctx, comic_id, existing)
 
     updated = series_queries.get_comic_content_kind(comic_id)
     canonical = updated["ContentType"] if updated else content_type

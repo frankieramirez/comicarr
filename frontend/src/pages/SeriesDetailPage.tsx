@@ -54,7 +54,7 @@ import type {
   ReleaseReviewIssue,
   SearchMissingPreview,
   SearchMissingResult,
-  ContentType,
+  SeriesKind,
   SettableIssueStatus,
 } from "@/types";
 import { isNotFoundError } from "@/lib/api";
@@ -505,7 +505,11 @@ export default function SeriesDetailPage() {
     comicId?.startsWith("md-") ||
     comicId?.startsWith("mal-"),
   );
-  const contentKind: ContentType = isManga ? "manga" : "comic";
+  const contentKind: SeriesKind = isManga
+    ? "manga"
+    : comic.ContentType?.toLowerCase() === "magazine"
+      ? "magazine"
+      : "comic";
   const volumeCount = allIssues.filter(
     (issue) => getLedgerKind(issue, isManga) === "volume",
   ).length;
@@ -588,7 +592,7 @@ export default function SeriesDetailPage() {
     }
   };
 
-  const handleContentKindChange = async (nextKind: ContentType) => {
+  const handleContentKindChange = async (nextKind: SeriesKind) => {
     if (!comicId || nextKind === contentKind) return;
     try {
       const result = await contentKindMutation.mutateAsync({
@@ -599,8 +603,8 @@ export default function SeriesDetailPage() {
         type: "success",
         title: "Content kind updated",
         description: result.location_repointed
-          ? "This series now uses manga labels. New downloads import under the manga destination. Files already at the previous comics path were not moved."
-          : `This series now uses ${nextKind} labels and matching rules.`,
+          ? `This series is now cataloged as ${nextKind}. New downloads import under the ${nextKind} destination. Files already at the previous path were not moved.`
+          : `This series is now cataloged as ${nextKind}.`,
       });
     } catch {
       addToast({

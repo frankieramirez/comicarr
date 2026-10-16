@@ -50,6 +50,7 @@ export type {
   ProviderOverride,
   SeriesSearchProviders,
   ContentType,
+  SeriesKind,
   ReadingDirection,
   MangaSearchResult,
   MangaChapter,
