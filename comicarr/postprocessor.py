@@ -5531,18 +5531,19 @@ class FolderCheck:
                 write=True, job="Folder Monitor", current_run=helpers.utctimestamp(), status="Running"
             )
             comicarr.MONITOR_STATUS = "Running"
-            logger.info(
-                "%s Checking folder %s for newly snatched downloads" % (self.module, comicarr.CONFIG.CHECK_FOLDER)
-            )
             from comicarr.app.downloads import postprocessing
+            from comicarr.app.downloads.pp_commands import monitored_folders
 
-            outcome = postprocessing.run(
-                {"nzb_name": "Manual Run", "nzb_folder": comicarr.CONFIG.CHECK_FOLDER, "source": "monitor"}
-            )
-            if outcome.status == "busy":
-                comicarr.MONITOR_STATUS = "Waiting"
-                helpers.job_management(write=True, job="Folder Monitor", status="Waiting")
-                return {"status": "IN PROGRESS"}
+            for folder in monitored_folders(comicarr.CONFIG):
+                if not os.path.isdir(folder) or not os.access(folder, os.R_OK | os.X_OK):
+                    logger.warn("%s Skipping monitored folder %s: it is missing or unreadable" % (self.module, folder))
+                    continue
+                logger.info("%s Checking folder %s for newly snatched downloads" % (self.module, folder))
+                outcome = postprocessing.run({"nzb_name": "Manual Run", "nzb_folder": folder, "source": "monitor"})
+                if outcome.status == "busy":
+                    comicarr.MONITOR_STATUS = "Waiting"
+                    helpers.job_management(write=True, job="Folder Monitor", status="Waiting")
+                    return {"status": "IN PROGRESS"}
             logger.info("%s Finished checking for newly snatched downloads" % self.module)
             helpers.job_management(
                 write=True, job="Folder Monitor", last_run_completed=helpers.utctimestamp(), status="Waiting"

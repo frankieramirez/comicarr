@@ -102,6 +102,24 @@ export function DownloadClientsTab({
           </p>
         </SettingGroup>
       )}
+
+      <SettingGroup
+        title="Completed downloads"
+        description="The Folder Monitor checks these folders for finished downloads and imports them."
+      >
+        <SettingField
+          label="Additional monitored folders"
+          type="textarea"
+          value={formData.additional_check_folders || ""}
+          onChange={(v) => onChange("additional_check_folders", v as string)}
+          helpText={
+            config.check_folder
+              ? `Scanned after the main monitored folder, ${config.check_folder}. One server path per line. In Docker, use the path inside the container.`
+              : "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
+          }
+          placeholder="/downloads/Magazines"
+        />
+      </SettingGroup>
     </div>
   );
 }

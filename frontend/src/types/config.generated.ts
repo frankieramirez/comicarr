@@ -103,6 +103,7 @@ export interface ReadableConfig {
   matrix_room_id?: string;
   matrix_onsnatch?: boolean;
   check_folder?: string;
+  additional_check_folders?: string;
   nzb_downloader?: number;
   torrent_downloader?: number;
   sab_host?: string;
@@ -243,6 +244,7 @@ export interface WritableConfig {
   matrix_room_id?: string;
   matrix_onsnatch?: boolean;
   check_folder?: string;
+  additional_check_folders?: string;
   nzb_downloader?: number;
   sab_host?: string;
   sab_apikey?: string;
