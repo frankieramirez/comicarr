@@ -17,7 +17,7 @@ import time
 
 import comicarr
 from comicarr import db
-from comicarr.app.search import queries
+from comicarr.app.search import prowlarr, queries
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.search.providers import effective_provider_plan, enabled_provider_entries, ordered_provider_names
 from comicarr.app.search.routes import ROUTES, classify
@@ -178,6 +178,7 @@ def _route_enabled(config, route):
         getattr(config, "ENABLE_PUBLIC", False)
         or getattr(config, "ENABLE_32P", False)
         or (getattr(config, "ENABLE_TORZNAB", False) and _enabled_extra(getattr(config, "EXTRA_TORZNABS", None)))
+        or prowlarr.configured(config)
     )
     return bool(
         getattr(config, "ENABLE_TORRENT_SEARCH", False) and getattr(config, "ENABLE_TORRENTS", False) and providers

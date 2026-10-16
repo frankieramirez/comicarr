@@ -59,6 +59,7 @@ from comicarr.app.config.registry import (
 )
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search import prowlarr
 from comicarr.app.search.provider_config import (
     SearchProvider,
     normalize_category_list,
@@ -295,8 +296,9 @@ def get_safe_config(ctx):
         val = getattr(ctx.config, key, None)
         if val is not None:
             result[key] = val
-    if "SAB_HOST" in result:
-        result["SAB_HOST"] = _safe_provider_host(result["SAB_HOST"])
+    for host_key in ("SAB_HOST", "PROWLARR_HOST"):
+        if host_key in result:
+            result[host_key] = _safe_provider_host(result[host_key])
 
     secret_indicators = {
         "api_key_set": "API_KEY",
@@ -309,6 +311,7 @@ def get_safe_config(ctx):
         "mattermost_webhook_url_set": "MATTERMOST_WEBHOOK_URL",
         "discord_webhook_url_set": "DISCORD_WEBHOOK_URL",
         "sab_apikey_set": "SAB_APIKEY",
+        "prowlarr_apikey_set": "PROWLARR_APIKEY",
     }
     for output_key, config_key in secret_indicators.items():
         result[output_key] = _secret_is_configured(getattr(ctx.config, config_key, None))
@@ -456,6 +459,10 @@ def update_config(ctx, key_values):
                 "error": "SABnzbd API key is required when changing the server origin",
             }
 
+    prowlarr_error = _validate_prowlarr_update(ctx, filtered)
+    if prowlarr_error:
+        return {"success": False, "error": prowlarr_error}
+
     interval_changed = any(k in set(SCHEDULER_JOB_INTERVALS.values()) for k in filtered)
 
     with config_transaction_lock():
@@ -527,6 +534,61 @@ def regenerate_api_key(ctx, username, ip):
     return {"success": True, "api_key": new_api_key}
 
 
+def _provider_named_prowlarr(config):
+    """The Newznab or Torznab indexer whose name clashes with Prowlarr search, if any."""
+    reserved = prowlarr.PROWLARR_NAME.casefold()
+    for kind in ("newznab", "torznab"):
+        for record in providers_from_config(config, kind):
+            if str(record.name or "").strip().casefold() == reserved:
+                return record
+    return None
+
+
+def _validate_prowlarr_update(ctx, filtered):
+    """Check a settings update that touches the Prowlarr connection."""
+    if "PROWLARR_HOST" in filtered:
+        host = filtered["PROWLARR_HOST"]
+        if host in (None, ""):
+            filtered["PROWLARR_HOST"] = ""
+        else:
+            if _http_origin(host) is None:
+                return "Prowlarr URL must be a valid HTTP or HTTPS URL"
+            if host == _safe_provider_host(getattr(ctx.config, "PROWLARR_HOST", None)):
+                filtered["PROWLARR_HOST"] = getattr(ctx.config, "PROWLARR_HOST", None)
+            if (
+                _http_origin(host) != _http_origin(getattr(ctx.config, "PROWLARR_HOST", None))
+                and _secret_is_configured(getattr(ctx.config, "PROWLARR_APIKEY", None))
+                and not _secret_is_configured(filtered.get("PROWLARR_APIKEY"))
+            ):
+                return "Prowlarr API key is required when changing the server origin"
+    if "PROWLARR_CATEGORIES" in filtered:
+        filtered["PROWLARR_CATEGORIES"] = ",".join(prowlarr.categories(filtered["PROWLARR_CATEGORIES"]))
+    if filtered.get("ENABLE_PROWLARR") is True and _provider_named_prowlarr(ctx.config) is not None:
+        return 'Rename the indexer named "Prowlarr" under Search before turning on Prowlarr search'
+    return None
+
+
+def check_prowlarr_connection(ctx, body):
+    """Test a Prowlarr URL and API key, falling back to the stored key."""
+    body = body if isinstance(body, dict) else {}
+    stored_host = getattr(ctx.config, "PROWLARR_HOST", None) if ctx.config else None
+    host = str(body.get("host") or "").strip() or stored_host
+    if host == _safe_provider_host(stored_host):
+        host = stored_host
+    api_key = str(body.get("api_key") or "").strip()
+    if not api_key and ctx.config and _http_origin(host) == _http_origin(stored_host):
+        api_key = getattr(ctx.config, "PROWLARR_APIKEY", None) or ""
+    if _http_origin(host) is None:
+        return {"success": False, "error": "Prowlarr URL must be a valid HTTP or HTTPS URL"}
+    verify = body.get("verify")
+    if not isinstance(verify, bool):
+        verify = bool(getattr(ctx.config, "PROWLARR_VERIFY", True)) if ctx.config else True
+    result = prowlarr.check_connection(host, api_key, verify=verify)
+    if not result.get("success"):
+        result["error"] = redact_sensitive_text(result.get("error"), secrets=(api_key,))
+    return result
+
+
 def update_providers(ctx, provider_data):
     """Update Newznab/Torznab provider configuration.
 
@@ -554,6 +616,11 @@ def update_providers(ctx, provider_data):
         return {"success": False, "error": "Provider enabled must be a boolean"}
 
     config_key = "EXTRA_NEWZNABS" if provider_type == "newznab" else "EXTRA_TORZNABS"
+    if prowlarr.configured(ctx.config) and any(
+        isinstance(row, dict) and str(row.get("name") or "").strip().casefold() == prowlarr.PROWLARR_NAME.casefold()
+        for row in providers
+    ):
+        return {"success": False, "error": '"Prowlarr" is the name of Prowlarr search; choose another indexer name'}
     if object_payload:
         existing = providers_from_config(ctx.config, provider_type)
         by_id = {str(record.id): record for record in existing if record.id is not None}

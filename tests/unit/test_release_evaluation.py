@@ -771,3 +771,55 @@ class TestMangaVolumeAcceptanceArm:
         """
         evaluation = self._evaluate(monkeypatch, volume="100", wanted="100")
         assert _reason(evaluation) is None or "rejected" not in str(_reason(evaluation))
+
+
+def _prowlarr_entry(size):
+    import json
+
+    from comicarr.app.search import prowlarr
+
+    body = json.dumps(
+        [
+            {
+                "protocol": "torrent",
+                "title": "Example Series 001 (2024)",
+                "downloadUrl": "http://prowlarr.test/3/download?apikey=super-secret&link=abc",
+                "guid": "https://tracker.test/torrents/42",
+                "publishDate": "2024-01-10T12:00:00Z",
+                "size": size,
+                "seeders": 7,
+                "indexer": "Tracker",
+            }
+        ]
+    )
+    return prowlarr.entries_from_response(body)[0]
+
+
+def _prowlarr_info():
+    return _info(
+        nzbprov="torznab",
+        tmpprov="Prowlarr (torznab)",
+        provider_stat={"type": "torznab", "id": 202, "active": True, "hits": 0},
+        torznab_host=("Prowlarr", "http://prowlarr.test/api/v1/search", "1", "key", "7030", "1", 202),
+    )
+
+
+def test_prowlarr_result_is_evaluated_like_a_torznab_result(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(USE_MINSIZE=True, MINSIZE="10"))
+
+    evaluation = _evaluate(_prowlarr_entry(104857600), _prowlarr_info())
+
+    assert _reason(evaluation) == "accepted.issue"
+    assert evaluation.candidate["size_bytes"] == 104857600
+    assert evaluation.candidate["metrics"] == {"seeders": 7}
+    assert _handoff(evaluation)["kind"] == "torrent"
+    assert _handoff(evaluation)["provider"] == "Prowlarr"
+    assert _handoff(evaluation)["link"] == "http://prowlarr.test/3/download?apikey=super-secret&link=abc"
+
+
+def test_prowlarr_result_size_is_checked_against_the_minimum(monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(USE_MINSIZE=True, MINSIZE="10"))
+
+    evaluation = _evaluate(_prowlarr_entry(1024), _prowlarr_info())
+
+    assert _reason(evaluation) == "rejected.size_below_min"

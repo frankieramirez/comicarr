@@ -5,6 +5,7 @@ import type { ProviderConfigResponse } from "@/types";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { SearchProviderEditor } from "./SearchProviderEditor";
+import { ProwlarrSettings } from "./ProwlarrSettings";
 import type {
   ReadableConfig,
   SettingsFormData,
@@ -121,6 +122,7 @@ function SearchProviderSettings({
 }
 
 export function SearchTab({
+  config,
   formData,
   onChange,
   onProviderDirtyChange,
@@ -148,6 +150,12 @@ export function SearchTab({
           helpText="Pause between provider searches during a backlog run. Default 60. Minimum 5."
         />
       </SettingGroup>
+
+      <ProwlarrSettings
+        config={config}
+        formData={formData}
+        onChange={onChange}
+      />
 
       <SearchProviderSettings onDirtyChange={onProviderDirtyChange} />
 

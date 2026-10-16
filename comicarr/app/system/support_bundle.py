@@ -295,6 +295,9 @@ def _snapshot_from_config(config, ctx) -> dict[str, Any]:
         "ENABLE_32P": flag("ENABLE_32P"),
         "ENABLE_TORZNAB": flag("ENABLE_TORZNAB"),
         "EXTRA_TORZNABS": _count_list(flag("EXTRA_TORZNABS")),
+        "ENABLE_PROWLARR": flag("ENABLE_PROWLARR"),
+        "PROWLARR_HOST": bool(flag("PROWLARR_HOST")),
+        "PROWLARR_APIKEY": bool(flag("PROWLARR_APIKEY")),
         "ENABLE_TORRENT_SEARCH": flag("ENABLE_TORRENT_SEARCH"),
         "ENABLE_TORRENTS": flag("ENABLE_TORRENTS"),
         "TORRENT_DOWNLOADER": flag("TORRENT_DOWNLOADER"),
@@ -562,6 +565,7 @@ def _route_enabled_torrent(snapshot: Mapping[str, Any]) -> bool:
         snapshot.get("ENABLE_PUBLIC")
         or snapshot.get("ENABLE_32P")
         or (snapshot.get("ENABLE_TORZNAB") and int(snapshot.get("EXTRA_TORZNABS") or 0) > 0)
+        or (snapshot.get("ENABLE_PROWLARR") and snapshot.get("PROWLARR_HOST") and snapshot.get("PROWLARR_APIKEY"))
     )
     return bool(snapshot.get("ENABLE_TORRENT_SEARCH") and snapshot.get("ENABLE_TORRENTS") and providers)
 
