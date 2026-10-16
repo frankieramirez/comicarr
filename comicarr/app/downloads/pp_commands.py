@@ -32,6 +32,34 @@ _ROOT_CONFIG_KEYS = (
 )
 
 
+def additional_check_folders(config=None):
+    """Return the absolute paths listed one per line in ADDITIONAL_CHECK_FOLDERS."""
+    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    raw = getattr(config, "ADDITIONAL_CHECK_FOLDERS", None) if config is not None else None
+    if not isinstance(raw, str) or raw.strip().lower() in {"", "none"}:
+        return []
+    folders = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if line and os.path.isabs(line) and line not in folders:
+            folders.append(line)
+    return folders
+
+
+def monitored_folders(config=None):
+    """The Folder Monitor's scan list: CHECK_FOLDER first, then the additional folders.
+
+    The additional folders supplement CHECK_FOLDER rather than replace it, so
+    they are only scanned while CHECK_FOLDER is set (it still gates the job).
+    """
+    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    primary = getattr(config, "CHECK_FOLDER", None) if config is not None else None
+    if primary is None or not str(primary).strip() or str(primary).strip().lower() == "none":
+        return []
+    primary = str(primary).strip()
+    return [primary] + [folder for folder in additional_check_folders(config) if folder != primary]
+
+
 def configured_roots(config=None):
     config = config if config is not None else getattr(comicarr, "CONFIG", None)
     roots = []
@@ -39,6 +67,7 @@ def configured_roots(config=None):
         value = getattr(config, key, None) if config is not None else None
         if value and str(value).strip().lower() != "none":
             roots.append(Path(str(value)).expanduser())
+    roots.extend(Path(folder).expanduser() for folder in additional_check_folders(config))
     return roots
 
 
