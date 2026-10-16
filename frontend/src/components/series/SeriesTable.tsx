@@ -59,11 +59,19 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, Comic>();
 const LIBRARY_VIEW_KEY = "comicarr-library-view";
 
 const seriesParams = {
-  type: parseAsStringLiteral(["comic", "manga"] as const),
+  type: parseAsStringLiteral(["comic", "manga", "magazine"] as const),
   progress: parseAsStringLiteral(["0", "partial", "100"] as const),
   status: parseAsStringLiteral(["Active", "Paused", "Ended"] as const),
   view: parseAsStringLiteral(["list", "grid"] as const),
 };
+
+/** Each series is exactly one kind; anything unrecognized is a comic. */
+function seriesKindOf(comic: Comic): "comic" | "manga" | "magazine" {
+  const contentType = comic.ContentType?.toLowerCase();
+  return contentType === "manga" || contentType === "magazine"
+    ? contentType
+    : "comic";
+}
 
 const LIST_ROW_COLS =
   "grid-cols-[20px_40px_minmax(0,1fr)] md:grid-cols-[20px_40px_minmax(10rem,1fr)_160px_100px_110px_180px_60px]";
@@ -103,12 +111,15 @@ export default function SeriesTable({
   const isGridView = (params.view ?? savedView) === "grid";
   const pageSize = isGridView ? 24 : 20;
 
+  const hasMagazines = useMemo(
+    () => data.some((comic) => seriesKindOf(comic) === "magazine"),
+    [data],
+  );
+
   const filteredData = useMemo(() => {
     return data.filter((comic) => {
-      if (typeFilter !== "all") {
-        const contentType = comic.ContentType?.toLowerCase();
-        if (typeFilter === "manga" && contentType !== "manga") return false;
-        if (typeFilter === "comic" && contentType === "manga") return false;
+      if (typeFilter !== "all" && seriesKindOf(comic) !== typeFilter) {
+        return false;
       }
       if (progressFilter !== "all") {
         if (getProgressCategory(comic) !== progressFilter) return false;
@@ -348,6 +359,7 @@ export default function SeriesTable({
 
         <div className="flex-1 min-w-0">
           <SeriesFilters
+            hasMagazines={hasMagazines}
             typeFilter={typeFilter}
             progressFilter={progressFilter}
             statusFilter={statusFilter}
@@ -581,8 +593,7 @@ interface SeriesRowProps {
 
 function SeriesRow({ row, onClick }: SeriesRowProps) {
   const comic = row.original;
-  const isManga = comic.ContentType?.toLowerCase() === "manga";
-  const kindLabel = isManga ? "MANGA" : "COMIC";
+  const kindLabel = seriesKindOf(comic).toUpperCase();
   const have = parseInt(String(comic.Have)) || 0;
   const total = parseInt(String(comic.Total)) || 0;
   const progress = getProgressPercentage(comic);

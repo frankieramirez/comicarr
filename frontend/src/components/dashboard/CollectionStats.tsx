@@ -15,6 +15,9 @@ interface CollectionStatsProps {
     manga_have?: number;
     manga_total?: number;
     manga_completion_pct?: number;
+    magazine_series?: number;
+    magazine_have?: number;
+    magazine_total?: number;
   };
   isLoading: boolean;
 }
@@ -39,22 +42,44 @@ export default function CollectionStats({
   }
 
   const hasManga = (stats?.manga_series ?? 0) > 0;
+  const hasMagazines = (stats?.magazine_series ?? 0) > 0;
+  const split = (
+    comic: string,
+    manga: number,
+    magazine: number,
+    magazineNoun: string,
+  ) =>
+    hasManga || hasMagazines
+      ? [
+          comic,
+          hasManga ? `${manga} manga` : null,
+          hasMagazines ? `${magazine} ${magazineNoun}` : null,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : undefined;
 
   const items = [
     {
       label: "Active Series",
       value: stats?.total_series ?? 0,
-      subtitle: hasManga
-        ? `${stats?.comic_series ?? 0} comics, ${stats?.manga_series ?? 0} manga`
-        : undefined,
+      subtitle: split(
+        `${stats?.comic_series ?? 0} comics`,
+        stats?.manga_series ?? 0,
+        stats?.magazine_series ?? 0,
+        "magazines",
+      ),
       icon: Library,
     },
     {
       label: "Issues Collected",
       value: stats?.total_issues ?? 0,
-      subtitle: hasManga
-        ? `${stats?.comic_have ?? 0} comic, ${stats?.manga_have ?? 0} manga`
-        : undefined,
+      subtitle: split(
+        `${stats?.comic_have ?? 0} comic`,
+        stats?.manga_have ?? 0,
+        stats?.magazine_have ?? 0,
+        "magazine",
+      ),
       icon: BookOpen,
     },
     {

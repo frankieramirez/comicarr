@@ -9,10 +9,10 @@
 
 """SQLAlchemy Core projections owned by the dashboard domain."""
 
-from sqlalchemy import func, select
+from sqlalchemy import func, not_, or_, select
 
 from comicarr import db
-from comicarr.series_kind import comic_sql_clause, manga_sql_clause
+from comicarr.series_kind import comic_sql_clause, magazine_sql_clause, manga_sql_clause
 from comicarr.tables import activity_events
 from comicarr.tables import comics as t_comics
 
@@ -38,7 +38,7 @@ def get_recent_activity(cutoff, limit=10):
 
 
 def get_library_stats(content_type=None):
-    """Return combined, manga-only, or comic-only library aggregates."""
+    """Return combined, manga-only, comic-only or magazine-only library aggregates."""
     if content_type == "manga":
         columns = (
             func.count().label("manga_series"),
@@ -58,6 +58,18 @@ def get_library_stats(content_type=None):
         conditions = (
             t_comics.c.Status != "Paused",
             comic_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy),
+            or_(t_comics.c.ContentType.is_(None), not_(magazine_sql_clause(t_comics.c.ContentType))),
+        )
+    elif content_type == "magazine":
+        columns = (
+            func.count().label("magazine_series"),
+            func.coalesce(func.sum(t_comics.c.Have), 0).label("magazine_have"),
+            func.coalesce(func.sum(t_comics.c.Total), 0).label("magazine_total"),
+        )
+        conditions = (
+            t_comics.c.Status != "Paused",
+            comic_sql_clause(t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy),
+            magazine_sql_clause(t_comics.c.ContentType),
         )
     else:
         columns = (

@@ -66,6 +66,12 @@ def get_library_panel():
         result["comic_have"] = comic_stats.get("comic_have", 0) or 0
         result["comic_total"] = comic_stats.get("comic_total", 0) or 0
 
+    magazine_stats = dashboard_queries.get_library_stats("magazine")
+    if magazine_stats:
+        result["magazine_series"] = magazine_stats.get("magazine_series", 0)
+        result["magazine_have"] = magazine_stats.get("magazine_have", 0) or 0
+        result["magazine_total"] = magazine_stats.get("magazine_total", 0) or 0
+
     return {"stats": result}
 
 

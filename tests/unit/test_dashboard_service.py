@@ -35,7 +35,8 @@ class TestLibraryPanel:
         stats = {
             None: {"total_series": 10, "total_issues": 250, "total_expected": 500},
             "manga": {"manga_series": 2, "manga_have": 10, "manga_total": 20},
-            "comic": {"comic_series": 8, "comic_have": 240, "comic_total": 480},
+            "comic": {"comic_series": 7, "comic_have": 230, "comic_total": 460},
+            "magazine": {"magazine_series": 1, "magazine_have": 10, "magazine_total": 20},
         }
         monkeypatch.setattr(
             service.dashboard_queries, "get_library_stats", lambda content_type=None: stats[content_type]
@@ -50,9 +51,12 @@ class TestLibraryPanel:
             "manga_have": 10,
             "manga_total": 20,
             "manga_completion_pct": 50.0,
-            "comic_series": 8,
-            "comic_have": 240,
-            "comic_total": 480,
+            "comic_series": 7,
+            "comic_have": 230,
+            "comic_total": 460,
+            "magazine_series": 1,
+            "magazine_have": 10,
+            "magazine_total": 20,
         }
 
     def test_completion_percentage_is_zero_when_no_expected_issues(self, monkeypatch):
