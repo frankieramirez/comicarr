@@ -62,7 +62,7 @@ def _from_stats_row(row) -> str:
     name = str(row.get("provider") or "").strip().lower()
     if name.startswith("ddl(") or "getcomics" in name:
         return "ddl"
-    if "torznab" in name or name in {"32p", "public torrents", "torrent"}:
+    if "torznab" in name or name in {"32p", "public torrents", "torrent", "prowlarr"}:
         return "torrent"
     return "nzb"
 
@@ -73,7 +73,7 @@ def _from_site_name(site, config=None) -> str:
     name = str(site or "").strip().lower()
     if name.startswith("ddl(") or "getcomics" in name or name == "external":
         return "ddl"
-    if name in {"32p", "public torrents", "torrent"}:
+    if name in {"32p", "public torrents", "torrent", "prowlarr"}:
         return "torrent"
     if config is not None:
         for entry in getattr(config, "EXTRA_TORZNABS", None) or []:

@@ -15,6 +15,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
+from comicarr.app.search import prowlarr
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.search.routes import classify
 
@@ -141,6 +142,9 @@ def effective_provider_plan(
             for index, entry in enumerate(enabled_provider_entries(getattr(config, "EXTRA_TORZNABS", None)), start=1):
                 name = str(entry[0]).strip() or "Torznab %s" % index
                 add(name, "torznab", "torznab: %s" % name, entry)
+        if prowlarr.configured(config):
+            name = prowlarr.PROWLARR_NAME
+            add(name, "torznab", "torznab: %s" % name, prowlarr.provider_entry(config))
     return _with_override(_ordered(config, candidates), override)
 
 

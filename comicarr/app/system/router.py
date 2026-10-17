@@ -219,6 +219,16 @@ async def update_providers(request: Request, ctx: AppContext = Depends(get_conte
     return result
 
 
+@router.post("/config/prowlarr/test", dependencies=[Depends(require_session)])
+async def test_prowlarr(request: Request, ctx: AppContext = Depends(get_context)):
+    """Test a Prowlarr URL and API key; a blank key uses the stored one."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    return await asyncio.to_thread(system_service.check_prowlarr_connection, ctx, body)
+
+
 @router.get("/config/providers", dependencies=[Depends(require_session)])
 def get_providers(ctx: AppContext = Depends(get_context)):
     """Return provider identities and enablement without credentials."""

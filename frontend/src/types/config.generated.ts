@@ -111,8 +111,13 @@ export interface ReadableConfig {
   sab_category?: string;
   sab_directory?: string;
   sab_verify?: boolean;
+  enable_prowlarr?: boolean;
+  prowlarr_host?: string;
+  prowlarr_categories?: string;
+  prowlarr_verify?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
+  enable_torrent_search?: boolean;
   qbittorrent_root_routes?: string;
   opds_enable?: boolean;
   opds_pagesize?: number;
@@ -134,6 +139,7 @@ export interface ReadableConfig {
   metron_password_set?: boolean;
   nzb_downloader_label?: string;
   prowl_keys_set?: boolean;
+  prowlarr_apikey_set?: boolean;
   sab_apikey_set?: boolean;
   slack_webhook_url_set?: boolean;
   torrent_downloader_label?: string;
@@ -254,6 +260,11 @@ export interface WritableConfig {
   sab_category?: string;
   sab_directory?: string;
   sab_verify?: boolean;
+  enable_prowlarr?: boolean;
+  prowlarr_host?: string;
+  prowlarr_apikey?: string;
+  prowlarr_categories?: string;
+  prowlarr_verify?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
   qbittorrent_root_routes?: string;

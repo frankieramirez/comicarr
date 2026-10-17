@@ -37,7 +37,7 @@ import comicarr
 from comicarr import db, encrypted, filechecker, helpers, logger, maintenance
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
-from comicarr.app.search import provider_config
+from comicarr.app.search import provider_config, prowlarr
 
 config = configparser.ConfigParser()
 _CONFIG_TRANSACTION_LOCK = threading.RLock()
@@ -95,6 +95,7 @@ ENCRYPTED_CONFIG_ITEMS = OrderedDict(
     {
         "SAB_PASSWORD": ("SABnzbd", "sab_password"),
         "SAB_APIKEY": ("SABnzbd", "sab_apikey"),
+        "PROWLARR_APIKEY": ("Prowlarr", "prowlarr_apikey"),
         "NZBGET_PASSWORD": ("NZBGet", "nzbget_password"),
         "UTORRENT_PASSWORD": ("uTorrent", "utorrent_password"),
         "TRANSMISSION_PASSWORD": ("Transmission", "transmission_password"),
@@ -846,6 +847,8 @@ class Config(object):
             reserved.add(200)
         if self.ENABLE_DDL and self.ENABLE_EXTERNAL_SERVER:
             reserved.add(201)
+        if prowlarr.enabled(self):
+            reserved.add(prowlarr.PROWLARR_PROVIDER_ID)
         return reserved
 
     def _validate_existing_encryption_authority(self):
@@ -870,6 +873,8 @@ class Config(object):
             reserved.add("ddl(getcomics)")
         if self.ENABLE_DDL and self.ENABLE_EXTERNAL_SERVER:
             reserved.add("ddl(external)")
+        if prowlarr.enabled(self):
+            reserved.add(prowlarr.PROWLARR_NAME.casefold())
         return reserved
 
     @staticmethod
@@ -2396,6 +2401,11 @@ class Config(object):
                     PPR.append(et_name)
                     PR_NUM += 1
 
+        if prowlarr.enabled(self):
+            PR.append(prowlarr.PROWLARR_NAME)
+            PPR.append(prowlarr.PROWLARR_NAME)
+            PR_NUM += 1
+
         if self.PROVIDER_ORDER is not None:
             try:
                 PRO_ORDER = list(zip(*[iter(self.PROVIDER_ORDER.split(", "))] * 2, strict=False))
@@ -2495,6 +2505,8 @@ class Config(object):
             return provider, "DDL(External)", 201
         if provider.lower() == "experimental":
             return "experimental", "experimental", 101
+        if provider == prowlarr.PROWLARR_NAME:
+            return provider, "torznab", prowlarr.PROWLARR_PROVIDER_ID
         for provider_type, entries in (("newznab", extra_newznabs), ("torznab", extra_torznabs)):
             for entry in entries:
                 entry_name = entry[0] or entry[1]

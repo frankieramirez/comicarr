@@ -67,7 +67,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
-from comicarr.app.search import progress
+from comicarr.app.search import progress, prowlarr
 from comicarr.app.search.backlog import (
     PASS_RSS_WANTED,
     PassBudget,
@@ -1420,9 +1420,12 @@ def NZB_SEARCH(
                         torznab_fix = host_torznab[:-1]
                     else:
                         torznab_fix = host_torznab
-                    findurl = str(torznab_fix) + "?t=search&q=" + str(comsearch)
-                    if category_torznab is not None:
-                        findurl += "&cat=" + str(category_torznab)
+                    if prowlarr.is_search_endpoint(torznab_fix):
+                        findurl = prowlarr.search_url(torznab_fix, comsearch, category_torznab)
+                    else:
+                        findurl = str(torznab_fix) + "?t=search&q=" + str(comsearch)
+                        if category_torznab is not None:
+                            findurl += "&cat=" + str(category_torznab)
                 else:
                     logger.warn(
                         "You have a blank newznab entry within your configuration."
@@ -1579,7 +1582,15 @@ def NZB_SEARCH(
                         logger.warn("[ERROR] %s" % e)
                         data = False
 
-                    if data:
+                    if data and provider_stat["type"] == "torznab" and prowlarr.is_search_endpoint(host_torznab):
+                        try:
+                            verified_matches = {"entries": prowlarr.entries_from_response(data)}
+                        except ValueError as e:
+                            logger.warn("[PROWLARR] %s" % e)
+                            is_info["foundc"]["status"] = False
+                            progress.report_provider_failure(nzbprov, "request_error", str(e))
+                            verified_matches = "no results"
+                    elif data:
                         verified_matches = feedparser.parse(data)
                     else:
                         verified_matches = "no results"
