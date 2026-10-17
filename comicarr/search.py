@@ -3569,7 +3569,7 @@ def searcher(
             rcheck, _route_acceptance = handoff.perform_handoff(
                 journal_release_key,
                 torrent_route,
-                lambda: rsscheck.torsend2client(ComicName, IssueNumber, comyear, link, nzbprov, nzbid),
+                lambda: rsscheck.torsend2client(ComicName, IssueNumber, comyear, link, nzbprov, nzbid, comicid=ComicID),
                 payload=journal_payload,
                 issueid=journal_issueid,
                 provider=tmpprov,

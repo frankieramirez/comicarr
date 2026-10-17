@@ -1325,7 +1325,7 @@ def nzbdbsearch(
     return nzbinfo
 
 
-def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
+def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, comicid=None):
     logger.info("matched on " + seriesname)
     filename = helpers.filesafe(seriesname)
     filename = re.sub(" ", "_", filename)
@@ -1647,7 +1647,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None):
                 return "fail"
             else:
                 logger.info("Connected to qBittorrent! Will try to add torrent now!")
-            torrent_info = qc.load_torrent(filepath)
+            torrent_info = qc.load_torrent(filepath, comicid=comicid)
 
             if torrent_info["status"] is True:
                 torrent_info["clientmode"] = "qbittorrent"

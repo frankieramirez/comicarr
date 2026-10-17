@@ -68,6 +68,11 @@ def configured_roots(config=None):
         if value and str(value).strip().lower() != "none":
             roots.append(Path(str(value)).expanduser())
     roots.extend(Path(folder).expanduser() for folder in additional_check_folders(config))
+    if config is not None:
+        from comicarr.app.downloads.torrent_routing import parse_routes
+
+        routes = parse_routes(getattr(config, "QBITTORRENT_ROOT_ROUTES", None), warn=False)
+        roots.extend(Path(route.savepath).expanduser() for route in routes if route.savepath)
     return roots
 
 

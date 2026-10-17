@@ -58,7 +58,10 @@ class TorrentClient(object):
             logger.info("Successfully located information for torrent")
             return torrent_info
 
-    def load_torrent(self, filepath):
+    def load_torrent(self, filepath, comicid=None):
+        from comicarr.app.downloads.torrent_routing import qbittorrent_destination
+
+        destination = qbittorrent_destination(comicarr.CONFIG, comicid)
 
         if not filepath.startswith("magnet"):
             logger.info("filepath to torrent file set to : %s" % filepath)
@@ -85,24 +88,12 @@ class TorrentClient(object):
                 logger.info("Torrent not added yet, trying to add it now!")
 
                 addargs = {}
-                if not any(
-                    [
-                        comicarr.CONFIG.QBITTORRENT_LABEL is None,
-                        comicarr.CONFIG.QBITTORRENT_LABEL == "",
-                        comicarr.CONFIG.QBITTORRENT_LABEL == "None",
-                    ]
-                ):
-                    addargs.update({"category": str(comicarr.CONFIG.QBITTORRENT_LABEL)})
-                    logger.info("Setting download label to: %s" % comicarr.CONFIG.QBITTORRENT_LABEL)
-                if not any(
-                    [
-                        comicarr.CONFIG.QBITTORRENT_FOLDER is None,
-                        comicarr.CONFIG.QBITTORRENT_FOLDER == "",
-                        comicarr.CONFIG.QBITTORRENT_FOLDER == "None",
-                    ]
-                ):
-                    addargs.update({"savepath": str(comicarr.CONFIG.QBITTORRENT_FOLDER)})
-                    logger.info("Forcing download location to: %s" % comicarr.CONFIG.QBITTORRENT_FOLDER)
+                if destination.category is not None:
+                    addargs.update({"category": destination.category})
+                    logger.info("Setting download label to: %s" % destination.category)
+                if destination.savepath is not None:
+                    addargs.update({"savepath": destination.savepath})
+                    logger.info("Forcing download location to: %s" % destination.savepath)
                 if comicarr.CONFIG.QBITTORRENT_LOADACTION == "pause":
                     addargs.update({"paused": "true"})
                     logger.info("Attempting to add torrent in paused state")
@@ -156,7 +147,7 @@ class TorrentClient(object):
                 "total_filesize": tinfo["total_size"],
                 "folder": tinfo["save_path"],
                 "time_started": tinfo["addition_date"],
-                "label": comicarr.CONFIG.QBITTORRENT_LABEL,
+                "label": destination.category,
                 "status": True,
             }
 
