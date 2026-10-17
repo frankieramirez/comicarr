@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/select";
 import { useContentSources } from "@/hooks/useContentSources";
 
-export type TypeFilter = "all" | "comic" | "manga";
+export type TypeFilter = "all" | "comic" | "manga" | "magazine";
 export type ProgressFilter = "all" | "0" | "partial" | "100";
 export type StatusFilter = "all" | "Active" | "Paused" | "Ended";
 
@@ -19,6 +19,8 @@ interface SeriesFiltersProps {
   onStatusChange: (value: StatusFilter) => void;
   resultCount?: number;
   sortLabel?: string;
+  /** Offer the magazine option; only shown once a series is cataloged as one. */
+  hasMagazines?: boolean;
 }
 
 interface ChipProps {
@@ -73,9 +75,11 @@ export default function SeriesFilters({
   onStatusChange,
   resultCount,
   sortLabel,
+  hasMagazines = false,
 }: SeriesFiltersProps) {
   const { comicsEnabled, mangaEnabled } = useContentSources();
-  const showTypeFilter = comicsEnabled && mangaEnabled;
+  const showManga = comicsEnabled && mangaEnabled;
+  const showTypeFilter = showManga || hasMagazines;
 
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
@@ -88,7 +92,8 @@ export default function SeriesFilters({
           options={[
             { value: "all", label: "all" },
             { value: "comic", label: "comic" },
-            { value: "manga", label: "manga" },
+            ...(showManga ? [{ value: "manga", label: "manga" }] : []),
+            ...(hasMagazines ? [{ value: "magazine", label: "magazine" }] : []),
           ]}
         />
       )}

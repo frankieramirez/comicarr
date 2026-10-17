@@ -148,3 +148,35 @@ def test_operator_content_kind_agrees_across_surfaces(query_db):
     assert manga_stats["manga_series"] == 3
     assert comic_stats["comic_series"] == 2
     assert active_ids == {"md-b", "md-c", "md-legacy"}
+
+
+def test_magazines_are_counted_apart_from_comics_and_are_never_manga(query_db):
+    with query_db.begin() as conn:
+        conn.execute(
+            insert(comics),
+            [
+                _seed_row(ComicID="4050-1", ComicName="Batman", ContentType="comic", Have=3, Total=4),
+                _seed_row(
+                    ComicID="4050-3",
+                    ComicName="Nintendo Power",
+                    ContentType="magazine",
+                    Have=5,
+                    Total=10,
+                ),
+                _seed_row(ComicID="md-a", ComicName="Berserk", ContentType="manga"),
+            ],
+        )
+        conn.execute(insert(comics), [_seed_row(ComicID="4050-2", ComicName="Untyped")])
+
+    comic_stats = dashboard_queries.get_library_stats("comic")
+    magazine_stats = dashboard_queries.get_library_stats("magazine")
+    manga_stats = dashboard_queries.get_library_stats("manga")
+    total = dashboard_queries.get_library_stats()
+
+    assert comic_stats["comic_series"] == 2
+    assert magazine_stats == {"magazine_series": 1, "magazine_have": 5, "magazine_total": 10}
+    assert manga_stats["manga_series"] == 1
+    assert total["total_series"] == comic_stats["comic_series"] + magazine_stats["magazine_series"] + 1
+    magazine = db.select_one(select(comics).where(comics.c.ComicID == "4050-3"))
+    assert not series_kind.is_manga(magazine)
+    assert not _postprocess_uses_manga_branch(dict(magazine))

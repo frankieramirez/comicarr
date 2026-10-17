@@ -574,4 +574,44 @@ describe("SeriesTable", () => {
         .getAttribute("aria-pressed"),
     ).toBe("false");
   });
+
+  it("keeps magazines out of the comic filter and lists them on their own", () => {
+    const data = [
+      {
+        ...series(1)[0],
+        ComicID: "1",
+        ComicName: "Batman",
+        ContentType: "comic",
+      },
+      { ...series(1)[0], ComicID: "2", ComicName: "Untyped" },
+      {
+        ...series(1)[0],
+        ComicID: "3",
+        ComicName: "Nintendo Power",
+        ContentType: "magazine",
+      },
+    ] as Comic[];
+
+    window.history.pushState({}, "", "/library?type=comic");
+    const { unmount } = render(
+      <NuqsAdapter>
+        <SeriesTable data={data} />
+      </NuqsAdapter>,
+    );
+    expect(screen.getByText("Batman")).toBeTruthy();
+    expect(screen.getByText("Untyped")).toBeTruthy();
+    expect(screen.queryByText("Nintendo Power")).toBeNull();
+    expect(screen.getByText("type:")).toBeTruthy();
+    unmount();
+
+    window.history.pushState({}, "", "/library?type=magazine");
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={data} />
+      </NuqsAdapter>,
+    );
+    expect(screen.getByText("Nintendo Power")).toBeTruthy();
+    expect(screen.getByText("MAGAZINE")).toBeTruthy();
+    expect(screen.queryByText("Batman")).toBeNull();
+  });
 });

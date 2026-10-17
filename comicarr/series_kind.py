@@ -165,6 +165,11 @@ def comic_sql_clause(comic_id_column, content_type_column, set_by_column):
     )
 
 
+def magazine_sql_clause(content_type_column):
+    """SQL form of :func:`is_magazine`; magazines are a subset of :func:`comic_sql_clause`."""
+    return content_type_column == MAGAZINE_CONTENT_TYPE
+
+
 def chapter_source_id(series: str | Mapping | None) -> str | None:
     """Return the MangaDex uuid to fetch this Series' chapters against.
 
