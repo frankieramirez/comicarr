@@ -86,7 +86,34 @@ def test_package_version_parse_is_stdlib_tuple(guard):
     assert isinstance(guard._package_version(), tuple)
 
 
-def test_shims_remain_allowed_before_guard_version(guard, monkeypatch):
+# A synthetic dated shim: the real DEPRECATED_SHIMS is empty since the 0.49.x
+# deletion, so the expiry machinery is exercised against a one-file fake tree.
+_FAKE_SHIM = ("comicarr/app/leaf.py", "_serialization")
+_FAKE_SHIM_REASON = "deprecated test adapter; delete in 0.50.0"
+_FAKE_SHIM_SOURCE = "from comicarr.app.attention._serialization import serialize_view\n"
+
+
+def _fake_shim_tree(guard, monkeypatch, tmp_path, reason=_FAKE_SHIM_REASON):
+    _tree(guard, monkeypatch, tmp_path, _FAKE_SHIM_SOURCE, allowlist={_FAKE_SHIM: reason})
+    monkeypatch.setattr(guard, "DEPRECATED_SHIMS", {_FAKE_SHIM: reason})
+
+
+def test_adr_0003_shims_are_gone(guard):
+    """ADR-0003's compatibility re-export modules left in 0.49.x with their waivers."""
+    retired = {
+        ("comicarr/app/activity/reasons.py", "_policy"),
+        ("comicarr/app/activity/reconcile.py", "_reconciliation"),
+        ("comicarr/app/activity/queries.py", "_read"),
+        ("comicarr/app/activity/queries.py", "_serialization"),
+        ("comicarr/app/activity/service.py", "_serialization"),
+    }
+    assert not retired & set(guard.ALLOWLIST)
+    assert not (ROOT / "comicarr" / "app" / "activity" / "reasons.py").exists()
+    assert not (ROOT / "comicarr" / "app" / "activity" / "reconcile.py").exists()
+
+
+def test_shims_remain_allowed_before_guard_version(guard, tmp_path, monkeypatch):
+    _fake_shim_tree(guard, monkeypatch, tmp_path)
     monkeypatch.setattr(guard, "_package_version", lambda: (0, 48, 9))
     assert guard.main() == 0
 
@@ -98,8 +125,9 @@ def test_empty_shims_are_not_expired_at_guard_version(guard, monkeypatch):
     assert guard.main() == 0
 
 
-def test_expired_shims_fail_once_package_version_reaches_guard(guard, monkeypatch, capsys):
+def test_expired_shims_fail_once_package_version_reaches_guard(guard, tmp_path, monkeypatch, capsys):
     """Trip at 0.49.0 so main goes red during 0.49.x; Version Packages PRs skip CI."""
+    _fake_shim_tree(guard, monkeypatch, tmp_path)
     monkeypatch.setattr(guard, "_package_version", lambda: (0, 49, 0))
     assert guard.main() == 1
     err = capsys.readouterr().err
@@ -108,12 +136,9 @@ def test_expired_shims_fail_once_package_version_reaches_guard(guard, monkeypatc
     assert "0.50.0" in err
 
 
-def test_shim_reason_must_cite_removal_version(guard, monkeypatch, capsys):
-    monkeypatch.setattr(
-        guard,
-        "DEPRECATED_SHIMS",
-        {("comicarr/app/activity/reasons.py", "_policy"): "forgot the dated trigger"},
-    )
+def test_shim_reason_must_cite_removal_version(guard, tmp_path, monkeypatch, capsys):
+    _fake_shim_tree(guard, monkeypatch, tmp_path, reason="forgot the dated trigger")
+    monkeypatch.setattr(guard, "_package_version", lambda: (0, 48, 9))
     assert guard.main() == 1
     assert "SHIM_REMOVAL_VERSION" in capsys.readouterr().err
 

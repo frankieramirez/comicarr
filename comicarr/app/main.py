@@ -307,6 +307,39 @@ async def lifespan(app: FastAPI):
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown complete")
 
 
+def _is_api_path(path):
+    """True for a static-mount path under the API prefix (``api`` or ``api/...``).
+
+    StaticFiles hands over an OS-joined path, so Windows separators are folded.
+    """
+    normalized = path.replace("\\", "/")
+    return normalized == "api" or normalized.startswith("api/")
+
+
+class CachedStaticFiles(StaticFiles):
+    """SPA static mount: unknown paths fall back to ``index.html``.
+
+    Paths under ``/api`` never fall back. An API route that does not exist must
+    answer a JSON 404, not 200 HTML, or a removed route looks like it still
+    works to a script calling it (ADR-0002, ADR-0003).
+    """
+
+    async def get_response(self, path, scope):
+        try:
+            response = await super().get_response(path, scope)
+        except HTTPException as ex:
+            if ex.status_code == 404 and not _is_api_path(path):
+                response = await super().get_response("index.html", scope)
+                response.headers["Cache-Control"] = "no-cache"
+                return response
+            raise
+        if path.startswith("assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def create_app():
     """Factory function — creates and configures the FastAPI application."""
     app = FastAPI(
@@ -353,23 +386,6 @@ def create_app():
 
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
-
-        class CachedStaticFiles(StaticFiles):
-            async def get_response(self, path, scope):
-                try:
-                    response = await super().get_response(path, scope)
-                except HTTPException as ex:
-                    if ex.status_code == 404:
-                        response = await super().get_response("index.html", scope)
-                        response.headers["Cache-Control"] = "no-cache"
-                        return response
-                    raise
-                if path.startswith("assets/"):
-                    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-                else:
-                    response.headers["Cache-Control"] = "no-cache"
-                return response
-
         app.mount("/", CachedStaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
     return app

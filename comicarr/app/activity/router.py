@@ -12,7 +12,6 @@
 Endpoints:
 
 * ``GET /api/activity/timeline`` — narrative events, newest first
-* ``GET /api/activity/band`` — needs-attention groups (R9 predicate, grouped)
 * ``GET /api/activity/status`` — derived open-work counts (never narrative)
 * ``GET /api/activity/in-flight`` — the rows that status counts as in-flight
 * ``POST /api/activity/in-flight/cancel`` — stop one of those rows
@@ -58,22 +57,6 @@ def get_timeline(
             scope_type=scope_type,
             scope_id=scope_id,
         )
-    except ValueError as e:
-        _scope_error(e)
-
-
-@router.get("/band", dependencies=[Depends(require_session)], deprecated=True)
-def get_attention_band(
-    scope_type: str | None = Query(None, max_length=32),
-    scope_id: str | None = Query(None, max_length=255),
-):
-    """Deprecated adapter for ``GET /api/attention``.
-
-    Members are filtered by scope before grouping. The canonical route owns
-    this interface; Activity retains the old path for one compatibility release.
-    """
-    try:
-        return service.get_attention_band(scope_type=scope_type, scope_id=scope_id)
     except ValueError as e:
         _scope_error(e)
 

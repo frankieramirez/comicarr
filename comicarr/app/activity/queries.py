@@ -20,10 +20,7 @@ from sqlalchemy import and_, func, or_, select
 
 from comicarr import db
 from comicarr.app.acquisition.models import ItemOutcome
-from comicarr.app.attention import Scope, read
-from comicarr.app.attention._read import list_rows as _list_attention_rows
-from comicarr.app.attention._read import unresolved_condition as _unresolved_attention_condition
-from comicarr.app.attention._serialization import serialize_groups as _serialize_attention_groups
+from comicarr.app.attention import read
 from comicarr.app.core.database import paginated_query
 from comicarr.app.downloads.journal import OPEN_STAGES, load_payload
 from comicarr.tables import acquisition_run_items, activity_events, pipeline_journal
@@ -114,38 +111,6 @@ def list_timeline_events(limit=None, offset=None, scope_type=None, scope_id=None
         activity_events.c.event_id.desc(),
     )
     return paginated_query(stmt, limit=page_limit, offset=page_offset)
-
-
-def unresolved_band_condition():
-    """Compatibility alias for the predicate now owned by Attention."""
-    return _unresolved_attention_condition()
-
-
-def _attention_scope(scope_type, scope_id):
-    normalized_type, normalized_id = _normalize_scope(scope_type, scope_id)
-    if normalized_type is None:
-        return None
-    return Scope(type=normalized_type, id=normalized_id)
-
-
-def list_attention_band(scope_type=None, scope_id=None):
-    """Compatibility reader for callers awaiting migration to ``attention.read``."""
-    return _list_attention_rows(scope=_attention_scope(scope_type, scope_id))
-
-
-def count_attention_band(scope_type=None, scope_id=None):
-    """Compatibility count derived from one Attention view."""
-    return read(scope=_attention_scope(scope_type, scope_id)).member_total
-
-
-def list_attention_groups(scope_type=None, scope_id=None):
-    """Compatibility projection of ``AttentionView.groups``."""
-    return _serialize_attention_groups(read(scope=_attention_scope(scope_type, scope_id)).groups)
-
-
-def count_attention_groups(scope_type=None, scope_id=None):
-    """Compatibility projection of ``AttentionView.total``."""
-    return read(scope=_attention_scope(scope_type, scope_id)).total
 
 
 def count_in_flight_run_items():

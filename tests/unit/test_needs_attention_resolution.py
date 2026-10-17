@@ -13,7 +13,7 @@ Seams under test (agreed):
   1. attention.read / journal.stamp_resolution
   2. ignore_issue intent helper
   3. search_issue scoped entry
-  4. service actions: retry / search-again / ignore / import
+  4. attention.resolve actions: retry / search-again / stop-wanting / import
   5. acquisition_repair evidence skips resolved statuses
   6. same-provider re-snatch: SNATCHED against failed wins
 """
@@ -28,10 +28,16 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.attention import (
+    BATCH_CAP,
+    PROBLEM_STATUS,
+    InvalidAttentionRequest,
+    ResolutionRequest,
+    resolve,
+)
 from comicarr.app.attention import read as read_attention
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import journal
-from comicarr.app.downloads import postprocessing
+from comicarr.app.downloads import journal, postprocessing
 from comicarr.app.downloads import service as dl_service
 from comicarr.app.search import service as search_service
 from comicarr.app.series import queries as series_queries
@@ -166,6 +172,22 @@ def _journal_row(key):
 
 def _attention_release_keys():
     return {member.release_key for group in read_attention().groups for member in group.members}
+
+
+def _resolve(ctx, action, release_keys):
+    """One operator command through the public Attention seam."""
+    return resolve(ctx, ResolutionRequest(action=action, release_keys=tuple(release_keys), actor="op"))
+
+
+def _resolve_one(ctx, key, action):
+    report = _resolve(ctx, action, [key])
+    assert len(report.results) == 1
+    return report.results[0]
+
+
+def _status_code(item):
+    """The per-item HTTP status ``POST /api/attention/resolve`` reports."""
+    return None if item.ok else PROBLEM_STATUS.get(item.problem, 500)
 
 
 def _drain_pp():
@@ -331,7 +353,7 @@ def test_search_issue_threads_entity_type(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 4. Service actions
+# 4. attention.resolve actions
 # ---------------------------------------------------------------------------
 
 
@@ -347,9 +369,9 @@ def test_retry_failed_wants_stamps_and_searches(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         return_value=SimpleNamespace(run_id="r1", issueid="1001"),
     ):
-        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+        result = _resolve_one(ctx, key, "retry")
 
-    assert result["success"] is True
+    assert result.ok is True
     assert _issue_row()["Status"] == "Wanted"
     assert _issue_row()["AcquisitionIntent"] == "wanted"
     row = _journal_row(key)
@@ -367,9 +389,9 @@ def test_retry_blocked_does_not_stamp(monkeypatch):
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {"viable_route": False, "routes": {}},
     )
-    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
-    assert result["success"] is False
-    assert result["status"] == "blocked"
+    result = _resolve_one(ctx, key, "retry")
+    assert result.ok is False
+    assert result.status == "blocked"
     assert _journal_row(key).get("status") not in journal.RESOLVED_STATUSES
     assert key in _attention_release_keys()
 
@@ -381,10 +403,10 @@ def test_retry_missing_issue_row_is_reported(monkeypatch):
     )
     key = _seed_failed_row(issueid="gone")
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
-    assert result["success"] is False
-    assert result["status_code"] == 404
-    assert result["error"] == "No matching issue, annual, or story-arc row to re-want"
+    result = _resolve_one(ctx, key, "retry")
+    assert result.ok is False
+    assert _status_code(result) == 404
+    assert result.message == "No matching issue, annual, or story-arc row to re-want"
     assert key in _attention_release_keys()
 
 
@@ -392,9 +414,10 @@ def test_stop_wanting_failed_stamps_and_sets_intent():
     _seed_issue(status="Failed")
     key = _seed_failed_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
-    assert result["success"] is True
-    assert result["action"] == "stop_wanting"
+    report = _resolve(ctx, "stop_wanting", [key])
+    result = report.results[0]
+    assert result.ok is True
+    assert report.action == "stop_wanting"
     assert _issue_row()["AcquisitionIntent"] == "ignored"
     assert _issue_row()["Status"] == "Ignored"
     # The durable stamp keeps its old spelling — renaming a persisted status
@@ -406,9 +429,9 @@ def test_stop_wanting_failed_stamps_and_sets_intent():
 def test_stop_wanting_without_library_row_still_dismisses():
     key = _seed_failed_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
-    assert result["success"] is True
-    assert result["status"] == "ignored"
+    result = _resolve_one(ctx, key, "stop_wanting")
+    assert result.ok is True
+    assert result.status == "ignored"
     assert db.select_one(select(issues).where(issues.c.IssueID == "1001")) is None
     assert _journal_row(key)["status"] == journal.STATUS_IGNORED
     assert key not in _attention_release_keys()
@@ -418,9 +441,9 @@ def test_retired_ignore_action_id_is_rejected():
     _seed_issue(status="Failed")
     key = _seed_failed_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "ignore", audit_identity="op")
-    assert result["success"] is False
-    assert result["status_code"] == 400
+    # The canonical route answers an InvalidAttentionRequest with 400.
+    with pytest.raises(InvalidAttentionRequest):
+        _resolve(ctx, "ignore", [key])
     assert key in _attention_release_keys()
 
 
@@ -436,8 +459,8 @@ def test_search_again_manual_review(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         return_value=SimpleNamespace(run_id="r2", issueid="1001"),
     ):
-        result = dl_service.resolve_needs_attention(ctx, key, "search_again", audit_identity="op")
-    assert result["success"] is True
+        result = _resolve_one(ctx, key, "search_again")
+    assert result.ok is True
     assert _issue_row()["Status"] == "Wanted"
     assert _journal_row(key)["status"] == journal.STATUS_RETRIED
     assert _journal_row(key)["stage"] == journal.MANUAL_REVIEW
@@ -458,10 +481,10 @@ def test_import_stamps_only_on_success(tmp_path, monkeypatch):
         lambda item: processed.append(item),
     )
 
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is True
-    assert result["status"] == "queued"
-    assert result.get("status_code") not in (500, 409)
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is True
+    assert result.status == "queued"
+    assert _status_code(result) not in (500, 409)
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
     assert not comicarr.PP_QUEUE.empty()
     queued = comicarr.PP_QUEUE.queue[0]
@@ -497,9 +520,9 @@ def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
         raising=False,
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is False
-    assert "error" in result
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is False
+    assert result.message
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
     assert key in _attention_release_keys()
 
@@ -530,13 +553,13 @@ def test_import_uses_row_scoped_key_despite_prior_keyless_post_processed(tmp_pat
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is True
-    assert result["status"] == "queued"
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is True
+    assert result.status == "queued"
     assert processed == []
     _drain_pp()
 
-    assert result["success"] is True
+    assert result.ok is True
     assert len(processed) == 1
     attempt_key = processed[0]["journal_release_key"]
     assert attempt_key.startswith("123|nzbgeek|import:")
@@ -569,9 +592,9 @@ def test_import_refused_claim_does_not_stamp_band_row(tmp_path, monkeypatch):
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is True
-    assert result["status"] == "queued"
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is True
+    assert result.status == "queued"
     _drain_pp()
 
     assert processed == []
@@ -641,10 +664,10 @@ def test_import_busy_lock_does_not_fail_http(tmp_path, monkeypatch):
     lock = comicarr.APILOCK
     assert lock.acquire(blocking=False)
     try:
-        result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-        assert result["success"] is True
-        assert result["status"] == "queued"
-        assert result.get("status_code") not in (500, 409)
+        result = _resolve_one(ctx, key, "import")
+        assert result.ok is True
+        assert result.status == "queued"
+        assert _status_code(result) not in (500, 409)
         assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
         item = comicarr.PP_QUEUE.get_nowait()
         outcome = postprocessing.run(item)
@@ -674,8 +697,8 @@ def test_failed_import_does_not_leave_two_band_rows(tmp_path, monkeypatch):
 
     monkeypatch.setattr("comicarr.app.downloads.postprocessing._execute", boom)
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is True
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is True
     _drain_pp()
 
     attempt_key = journal.import_attempt_key("1001", "ddl", attempt_id=key)
@@ -701,10 +724,10 @@ def test_double_import_reuses_attempt_key(tmp_path, monkeypatch):
         lambda item: processed.append(dict(item)),
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    first = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    second = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert first["success"] is True
-    assert second["success"] is True
+    first = _resolve_one(ctx, key, "import")
+    second = _resolve_one(ctx, key, "import")
+    assert first.ok is True
+    assert second.ok is True
     queued = list(comicarr.PP_QUEUE.queue)
     assert len(queued) == 2
     assert queued[0]["journal_release_key"] == queued[1]["journal_release_key"]
@@ -756,16 +779,16 @@ def test_retry_not_allowed_on_manual_review():
     _seed_issue()
     key = _seed_manual_review_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
-    assert result["success"] is False
+    result = _resolve_one(ctx, key, "retry")
+    assert result.ok is False
 
 
 def test_import_not_allowed_on_failed():
     _seed_issue()
     key = _seed_failed_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "import", audit_identity="op")
-    assert result["success"] is False
+    result = _resolve_one(ctx, key, "import")
+    assert result.ok is False
 
 
 def test_already_resolved_returns_409_without_side_effects(monkeypatch):
@@ -777,9 +800,9 @@ def test_already_resolved_returns_409_without_side_effects(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         lambda *a, **k: enqueued.append(1) or SimpleNamespace(run_id="x", issueid="1001"),
     )
-    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
-    assert result["success"] is False
-    assert result.get("status_code") == 409
+    result = _resolve_one(ctx, key, "retry")
+    assert result.ok is False
+    assert _status_code(result) == 409
     assert enqueued == []
     assert _issue_row()["Status"] == "Failed"
     assert _journal_row(key)["status"] == journal.STATUS_RETRIED
@@ -799,14 +822,14 @@ def test_batch_stop_wanting_clears_every_member():
     ]
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention_batch(ctx, "stop_wanting", keys, audit_identity="op")
+    report = _resolve(ctx, "stop_wanting", keys)
 
-    assert result["success"] is True
-    assert result["partial"] is False
-    assert result["succeeded"] == 2
-    assert result["failed"] == 0
-    assert result["capped"] is False
-    assert {r["release_key"] for r in result["results"]} == set(keys)
+    assert report.success is True
+    assert report.partial is False
+    assert report.succeeded == 2
+    assert report.failed == 0
+    assert report.capped is False
+    assert {r.release_key for r in report.results} == set(keys)
     assert not _attention_release_keys() & set(keys)
 
 
@@ -820,16 +843,16 @@ def test_batch_is_best_effort_and_reports_partials():
     journal.mark_failed(orphan, "download_failed_no_auto_handling", provider="p")
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention_batch(ctx, "stop_wanting", [good, orphan], audit_identity="op")
+    report = _resolve(ctx, "stop_wanting", [good, orphan])
 
-    assert result["success"] is True
-    assert result["partial"] is True
-    assert result["succeeded"] == 1
-    assert result["failed"] == 1
-    by_key = {r["release_key"]: r for r in result["results"]}
-    assert by_key[good]["ok"] is True
-    assert by_key[orphan]["ok"] is False
-    assert by_key[orphan]["error"]
+    assert report.success is True
+    assert report.partial is True
+    assert report.succeeded == 1
+    assert report.failed == 1
+    by_key = {r.release_key: r for r in report.results}
+    assert by_key[good].ok is True
+    assert by_key[orphan].ok is False
+    assert by_key[orphan].message
     # The failed member stays on the band for another try; the sibling leaves.
     on_band = _attention_release_keys()
     assert orphan in on_band
@@ -852,12 +875,12 @@ def test_batch_caps_at_25_newest_first():
             )
         keys.append(key)
 
-    result = dl_service.resolve_needs_attention_batch(ctx, "stop_wanting", keys, audit_identity="op")
+    report = _resolve(ctx, "stop_wanting", keys)
 
-    assert result["requested"] == 30
-    assert result["processed"] == dl_service.BAND_BATCH_CAP == 25
-    assert result["capped"] is True
-    assert result["skipped_for_cap"] == 5
+    assert report.requested == 30
+    assert report.processed == BATCH_CAP == 25
+    assert report.capped is True
+    assert report.skipped_for_cap == 5
     # Newest processed first: the five oldest are what got left behind.
     still_on_band = _attention_release_keys()
     assert still_on_band == set(keys[:5])
@@ -889,14 +912,14 @@ def test_batch_keeps_unknown_keys_where_they_were_submitted():
     # Unknown keys both before and between the dated rows.
     submitted = ["ghost-a", older, "ghost-b", newer]
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention_batch(ctx, "stop_wanting", submitted, audit_identity="op")
-    ordered = [item["release_key"] for item in result["results"]]
+    report = _resolve(ctx, "stop_wanting", submitted)
+    ordered = [item.release_key for item in report.results]
 
     assert ordered[0] == "ghost-a"
     assert ordered[2] == "ghost-b"
     # The two dated slots are filled newest-first.
     assert [ordered[1], ordered[3]] == [newer, older]
-    assert [item["ok"] for item in result["results"]] == [False, True, False, True]
+    assert [item.ok for item in report.results] == [False, True, False, True]
 
 
 def test_reason_to_stage_is_a_function():
@@ -1083,11 +1106,11 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention_batch(ctx, "import", [key], audit_identity="op")
+    report = _resolve(ctx, "import", [key])
 
-    assert result["success"] is True
-    assert result["succeeded"] == 1
-    assert result["results"][0]["status"] == "queued"
+    assert report.success is True
+    assert report.succeeded == 1
+    assert report.results[0].status == "queued"
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
     _drain_pp()
     assert _journal_row(key)["status"] == journal.STATUS_IMPORTED
@@ -1100,13 +1123,12 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
 def test_batch_rejects_unknown_action_and_empty_keys():
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    unknown = dl_service.resolve_needs_attention_batch(ctx, "nuke", ["k"], audit_identity="op")
-    assert unknown["success"] is False
-    assert unknown["status_code"] == 400
+    # Both are InvalidAttentionRequest, which the canonical route answers with 400.
+    with pytest.raises(InvalidAttentionRequest):
+        _resolve(ctx, "nuke", ["k"])
 
-    empty = dl_service.resolve_needs_attention_batch(ctx, "retry", [], audit_identity="op")
-    assert empty["success"] is False
-    assert empty["status_code"] == 400
+    with pytest.raises(InvalidAttentionRequest):
+        _resolve(ctx, "retry", [])
 
 
 def test_batch_rejects_action_the_member_stage_disallows():
@@ -1114,11 +1136,13 @@ def test_batch_rejects_action_the_member_stage_disallows():
     key = _seed_manual_review_row()
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
 
-    result = dl_service.resolve_needs_attention_batch(ctx, "retry", [key], audit_identity="op")
+    report = _resolve(ctx, "retry", [key])
 
-    assert result["success"] is False
-    assert result["status_code"] == 409
-    assert result["results"][0]["ok"] is False
+    # No member succeeded: the canonical route answers 409 for that report.
+    assert report.success is False
+    assert report.succeeded == 0
+    assert report.results[0].ok is False
+    assert _status_code(report.results[0]) == 409
     assert key in _attention_release_keys()
 
 
@@ -1217,9 +1241,9 @@ def test_retry_annual_updates_annuals_without_phantom_issues_row(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         return_value=SimpleNamespace(run_id="ann-1", issueid="A1"),
     ) as enq:
-        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+        result = _resolve_one(ctx, key, "retry")
 
-    assert result["success"] is True
+    assert result.ok is True
     annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
     assert annual["Status"] == "Wanted"
     assert annual["AcquisitionIntent"] == "wanted"
@@ -1237,9 +1261,9 @@ def test_stop_wanting_annual_marks_annual_ignored_without_phantom():
         payload={"issueid": "A1", "provider": "nzbgeek", "nzbname": "Saga.Annual.001", "mode": "want_ann"},
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+    result = _resolve_one(ctx, key, "stop_wanting")
 
-    assert result["success"] is True
+    assert result.ok is True
     annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
     assert annual["Status"] == "Ignored"
     assert annual["AcquisitionIntent"] == "ignored"
@@ -1261,9 +1285,9 @@ def test_retry_story_arc_updates_status_only_without_phantom(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         return_value=SimpleNamespace(run_id="arc-1", issueid="SA1"),
     ) as enq:
-        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+        result = _resolve_one(ctx, key, "retry")
 
-    assert result["success"] is True
+    assert result.ok is True
     arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "SA1"))
     assert arc["Status"] == "Wanted"
     assert db.select_one(select(issues).where(issues.c.IssueID == "SA1")) is None
@@ -1279,9 +1303,9 @@ def test_stop_wanting_story_arc_marks_ignored_without_intent_column():
         payload={"issueid": "SA1", "provider": "nzbgeek", "nzbname": "Saga.Arc.001", "mode": "story_arc"},
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    result = dl_service.resolve_needs_attention(ctx, key, "stop_wanting", audit_identity="op")
+    result = _resolve_one(ctx, key, "stop_wanting")
 
-    assert result["success"] is True
+    assert result.ok is True
     arc = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "SA1"))
     assert arc["Status"] == "Ignored"
     assert db.select_one(select(issues).where(issues.c.IssueID == "SA1")) is None
@@ -1299,9 +1323,9 @@ def test_retry_without_mode_probes_annual_ahead_of_phantom_issues_row(monkeypatc
         "comicarr.app.search.commands.enqueue_search_command",
         return_value=SimpleNamespace(run_id="probe-1", issueid="A1"),
     ) as enq:
-        result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+        result = _resolve_one(ctx, key, "retry")
 
-    assert result["success"] is True
+    assert result.ok is True
     annual = db.select_one(select(annuals).where(annuals.c.IssueID == "A1"))
     assert annual["Status"] == "Wanted"
     assert annual["AcquisitionIntent"] == "wanted"
@@ -1320,11 +1344,11 @@ def test_retry_missing_library_row_does_not_insert_or_stamp(monkeypatch):
         "comicarr.app.search.commands.enqueue_search_command",
         lambda *a, **k: enqueued.append(1) or SimpleNamespace(run_id="x", issueid="gone"),
     )
-    result = dl_service.resolve_needs_attention(ctx, key, "retry", audit_identity="op")
+    result = _resolve_one(ctx, key, "retry")
 
-    assert result["success"] is False
-    assert result["status_code"] == 404
-    assert result["error"] == "No matching issue, annual, or story-arc row to re-want"
+    assert result.ok is False
+    assert _status_code(result) == 404
+    assert result.message == "No matching issue, annual, or story-arc row to re-want"
     assert enqueued == []
     assert db.select_one(select(issues).where(issues.c.IssueID == "gone")) is None
     assert _journal_row(key).get("status") not in journal.RESOLVED_STATUSES
@@ -1332,7 +1356,9 @@ def test_retry_missing_library_row_does_not_insert_or_stamp(monkeypatch):
 
 
 def test_reconcile_excluded_rewants_annual_and_story_arc_without_phantoms():
-    from comicarr.app.activity import reconcile as band_reconcile
+    # Reconciliation has no public counterpart on the Attention seam; pin it
+    # at its owner (the deleted activity.reconcile only re-exported it).
+    from comicarr.app.attention import _reconciliation as band_reconcile
 
     _seed_comic()
     _seed_annual_row(issueid="A1")

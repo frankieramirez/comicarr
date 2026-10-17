@@ -7,7 +7,11 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Tests for Activity Center timeline, band, and open-work read APIs (#485).
+"""Tests for Activity Center timeline, attention band, and open-work read APIs (#485).
+
+The band itself is read through the canonical Attention seam (``read`` and the
+``GET /api/attention`` wire shape); Activity owns only the timeline, status,
+and in-flight routes.
 
 Pagination choice (documented for clients): the API pages *events* ordered by
 created_at, not pre-grouped stories. Client-side story grouping (25 stories)
@@ -69,6 +73,24 @@ def _journal(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def _attention_groups(scope_type=None, scope_id=None):
+    """Groups exactly as ``GET /api/attention`` serializes them (ADR-0003)."""
+    from comicarr.app.attention import Scope, read
+    from comicarr.app.attention.router import serialize_view
+
+    scope = None if scope_type is None else Scope(type=scope_type, id=scope_id)
+    return serialize_view(read(scope=scope))["results"]
+
+
+def _attention_release_keys(scope_type=None, scope_id=None):
+    """Admitted release keys in the order the canonical view presents them."""
+    return [
+        member["release_key"]
+        for group in _attention_groups(scope_type=scope_type, scope_id=scope_id)
+        for member in group["members"]
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +250,6 @@ def test_timeline_rejects_incomplete_scope(activity_db):
 
 
 def test_band_uses_r9_unresolved_predicate(activity_db):
-    from comicarr.app.activity import queries
-
     with activity_db.begin() as conn:
         conn.execute(
             insert(pipeline_journal),
@@ -249,16 +269,13 @@ def test_band_uses_r9_unresolved_predicate(activity_db):
             ],
         )
 
-    rows = queries.list_attention_band()
-    keys = {row["release_key"] for row in rows}
-    assert keys == {"open-failed", "open-review"}
+    keys = _attention_release_keys()
+    assert set(keys) == {"open-failed", "open-review"}
     # Same updated_date → stable tie-break on release_key desc
-    assert [row["release_key"] for row in rows] == ["open-review", "open-failed"]
+    assert keys == ["open-review", "open-failed"]
 
 
 def test_band_issue_scope_intersects(activity_db):
-    from comicarr.app.activity import queries
-
     with activity_db.begin() as conn:
         conn.execute(
             insert(pipeline_journal),
@@ -268,13 +285,10 @@ def test_band_issue_scope_intersects(activity_db):
             ],
         )
 
-    rows = queries.list_attention_band(scope_type="issue", scope_id="iss-1")
-    assert [row["release_key"] for row in rows] == ["match"]
+    assert _attention_release_keys(scope_type="issue", scope_id="iss-1") == ["match"]
 
 
 def test_band_series_scope_via_issue_and_annual_membership(activity_db):
-    from comicarr.app.activity import queries
-
     with activity_db.begin() as conn:
         conn.execute(insert(issues), [{"IssueID": "iss-1", "ComicID": "ser-1", "ComicName": "Saga"}])
         conn.execute(insert(annuals), [{"IssueID": "ann-1", "ComicID": "ser-1", "ComicName": "Saga Annual"}])
@@ -288,8 +302,9 @@ def test_band_series_scope_via_issue_and_annual_membership(activity_db):
             ],
         )
 
-    rows = queries.list_attention_band(scope_type="series", scope_id="ser-1")
-    assert {row["release_key"] for row in rows} == {"issue-row", "annual-row"}
+    keys = _attention_release_keys(scope_type="series", scope_id="ser-1")
+    assert set(keys) == {"issue-row", "annual-row"}
+    assert len(keys) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +319,6 @@ def _payload(**fields):
 
 
 def test_groups_key_on_comicid_and_base_reason(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -336,19 +350,20 @@ def test_groups_key_on_comicid_and_base_reason(activity_db):
             ],
         )
 
-    groups = queries.list_attention_groups()
+    groups = _attention_groups()
     by_key = {group["group_key"]: group for group in groups}
 
     assert set(by_key) == {"42|postprocess_error", "42|submission_rejected"}
     assert by_key["42|postprocess_error"]["member_count"] == 2
     assert by_key["42|postprocess_error"]["series_label"] == "Saga"
     assert by_key["42|submission_rejected"]["member_count"] == 1
-    assert queries.count_attention_groups() == 2
+    from comicarr.app.attention import read
+
+    assert read().total == 2
 
 
 def test_groups_never_key_on_comicname(activity_db):
     """A typographic apostrophe must not split one series into two groups."""
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -369,14 +384,13 @@ def test_groups_never_key_on_comicname(activity_db):
             ],
         )
 
-    groups = queries.list_attention_groups()
+    groups = _attention_groups()
     assert len(groups) == 1
     assert groups[0]["member_count"] == 2
 
 
 def test_rows_without_comicid_become_singletons(activity_db):
     """No catch-all bucket: an unlabelled row is its own group, not a pile."""
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -387,14 +401,13 @@ def test_rows_without_comicid_become_singletons(activity_db):
             ],
         )
 
-    groups = queries.list_attention_groups()
+    groups = _attention_groups()
     assert len(groups) == 2
     assert all(group["member_count"] == 1 for group in groups)
     assert all(group["comicid"] is None for group in groups)
 
 
 def test_group_label_ladder_falls_back_to_series_id(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -409,11 +422,10 @@ def test_group_label_ladder_falls_back_to_series_id(activity_db):
             ],
         )
 
-    assert queries.list_attention_groups()[0]["series_label"] == "Series 18839"
+    assert _attention_groups()[0]["series_label"] == "Series 18839"
 
 
 def test_group_actions_are_the_stage_intersection(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -443,7 +455,7 @@ def test_group_actions_are_the_stage_intersection(activity_db):
             ],
         )
 
-    by_key = {group["group_key"]: group for group in queries.list_attention_groups()}
+    by_key = {group["group_key"]: group for group in _attention_groups()}
 
     # Mixed stages offer no group primary action — selection only.
     mixed = by_key["7|submission_rejected"]
@@ -465,7 +477,6 @@ def test_group_actions_are_the_stage_intersection(activity_db):
 
 
 def test_groups_rank_newest_first(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -496,14 +507,13 @@ def test_groups_rank_newest_first(activity_db):
             ],
         )
 
-    groups = queries.list_attention_groups()
+    groups = _attention_groups()
     assert [group["series_label"] for group in groups] == ["New", "Old"]
     assert groups[1]["oldest_updated_at"] == "2026-07-01 10:00:00"
     assert groups[1]["newest_updated_at"] == "2026-07-01 11:00:00"
 
 
 def test_scoped_band_filters_members_then_groups(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(insert(issues), [{"IssueID": "iss-1", "ComicID": "ser-1", "ComicName": "Saga"}])
@@ -526,14 +536,13 @@ def test_scoped_band_filters_members_then_groups(activity_db):
             ],
         )
 
-    groups = queries.list_attention_groups(scope_type="series", scope_id="ser-1")
+    groups = _attention_groups(scope_type="series", scope_id="ser-1")
     assert len(groups) == 1
     assert groups[0]["member_count"] == 1
     assert groups[0]["members"][0]["release_key"] == "in-scope"
 
 
 def test_reason_phrase_matches_on_base_token(activity_db):
-    from comicarr.app.activity import queries
 
     with activity_db.begin() as conn:
         conn.execute(
@@ -556,7 +565,7 @@ def test_reason_phrase_matches_on_base_token(activity_db):
             ],
         )
 
-    by_label = {group["series_label"]: group for group in queries.list_attention_groups()}
+    by_label = {group["series_label"]: group for group in _attention_groups()}
     # Composite families resolve — the whole point of keying on the base token.
     assert by_label["Saga"]["reason_phrase"] == "downloaded file failed post-process checks"
     # Unknown tokens degrade to prose, never a raw snake_case token.
@@ -729,10 +738,9 @@ def test_service_timeline_and_status_shapes(activity_db):
     assert timeline["total"] == 1
     assert timeline["results"][0]["event_id"] is not None
 
-    band = service.get_attention_band()
-    assert len(band["results"]) == 1
-    assert band["results"][0]["members"][0]["release_key"] == "band-1"
-    assert band["member_total"] == 1
+    groups = _attention_groups()
+    assert len(groups) == 1
+    assert groups[0]["members"][0]["release_key"] == "band-1"
 
     status = service.get_status()
     assert status["in_flight"] == 0
@@ -742,7 +750,7 @@ def test_service_timeline_and_status_shapes(activity_db):
     assert inflight == {"results": [], "total": 0}
 
 
-def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
+def test_attention_endpoint_collapses_a_production_shaped_pile(activity_db):
     """The wire shape the frontend types mirror, at the volume that broke it.
 
     399 unresolved rows is what a real restart-replay left behind; the operator
@@ -754,6 +762,7 @@ def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
     from fastapi.testclient import TestClient
 
     from comicarr.app.activity.router import router
+    from comicarr.app.attention.router import router as attention_router
     from comicarr.app.core.security import require_session
 
     rows = []
@@ -785,11 +794,12 @@ def test_band_endpoint_collapses_a_production_shaped_pile(activity_db):
         conn.execute(insert(pipeline_journal), rows)
 
     app = FastAPI()
+    app.include_router(attention_router)
     app.include_router(router)
     app.dependency_overrides[require_session] = lambda: "operator"
 
     with TestClient(app) as client:
-        band = client.get("/api/activity/band")
+        band = client.get("/api/attention")
         assert band.status_code == 200
         body = band.json()
 
@@ -862,7 +872,8 @@ def test_router_registers_session_protected_routes():
 
     paths = {route.path for route in router.routes}
     assert "/api/activity/timeline" in paths
-    assert "/api/activity/band" in paths
+    # Retired in 0.49.x; GET /api/attention is the grouped read (ADR-0003).
+    assert "/api/activity/band" not in paths
     assert "/api/activity/status" in paths
     assert "/api/activity/in-flight" in paths
     assert "/api/activity/in-flight/cancel" in paths

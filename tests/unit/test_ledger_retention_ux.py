@@ -17,7 +17,7 @@ Seams under test (existing product surfaces only — no full UI e2e):
   or omits the kind; never invents healthy history from empty
 - ``series_service.get_wanted`` — pruned latest terminal → null acquisition
   (never-searched presentation per Wanted pure helper)
-- ``activity.queries.list_attention_band`` / journal band — unresolved rows
+- ``attention.read`` / journal band — unresolved rows
   survive; empty band only when no unresolved trouble remains
 
 Wanted annotation rendering is covered by the frontend helper tests.
@@ -33,7 +33,7 @@ import comicarr
 from comicarr.app.acquisition import retention
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.activity import queries as activity_queries
+from comicarr.app.attention import read as read_attention
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import journal
 from comicarr.app.search import health
@@ -51,6 +51,10 @@ from comicarr.tables import (
 )
 
 FIXED_NOW = datetime.datetime(2026, 8, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+def _attention_release_keys():
+    return {member.release_key for group in read_attention().groups for member in group.members}
 
 
 @pytest.fixture(autouse=True)
@@ -341,19 +345,19 @@ def test_needs_attention_band_keeps_unresolved_after_journal_retention():
             ],
         )
 
-    before = activity_queries.list_attention_band()
-    assert {row["release_key"] for row in before} == {"open-failed", "open-review"}
+    assert _attention_release_keys() == {"open-failed", "open-review"}
 
     summary = retention.run_ledger_retention(now=FIXED_NOW)
     assert summary["pipeline_journal"] == 2
 
-    after = activity_queries.list_attention_band()
-    assert {row["release_key"] for row in after} == {"open-failed", "open-review"}
+    assert _attention_release_keys() == {"open-failed", "open-review"}
 
 
 def test_needs_attention_band_empty_only_when_no_unresolved_work():
     """Empty band is honest empty — no synthetic 'unknown trouble' tombstone."""
-    assert activity_queries.list_attention_band() == []
+    view = read_attention()
+    assert view.groups == ()
+    assert view.member_total == 0
 
 
 def test_missing_run_has_no_synthetic_progress_counters():
