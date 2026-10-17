@@ -43,8 +43,9 @@ def get_weekly(
         return JSONResponse(status_code=400, content={"detail": "Pass both week and year, or neither."})
     try:
         return weekly_service.get_week(week, year)
-    except weekly_service.WeekError as e:
-        return JSONResponse(status_code=400, content={"detail": str(e)})
+    except weekly_service.WeekError:
+        # A fixed message, so no exception text reaches the response.
+        return JSONResponse(status_code=400, content={"detail": weekly_service.WEEK_RANGE_MESSAGE})
     except Exception as e:
         logger.error("[WEEKLY] Error fetching weekly data: %s" % e)
         return JSONResponse(

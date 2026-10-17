@@ -33,6 +33,9 @@ _FETCH_LOCK = threading.Lock()
 _FETCH_ATTEMPTS: dict[tuple[str, str], float] = {}
 
 
+WEEK_RANGE_MESSAGE = "Pick a week and year from %s weeks back to %s weeks ahead." % (WEEKS_BEHIND, WEEKS_AHEAD)
+
+
 class WeekError(ValueError):
     """A requested week is malformed or outside the browsable window."""
 
@@ -74,7 +77,7 @@ def week_window(week=None, year=None, today=None):
         sunday = week_sunday(*_parse(week, year))
     offset = (sunday - current_sunday).days // 7
     if offset > WEEKS_AHEAD or offset < -WEEKS_BEHIND:
-        raise WeekError("Releases can be browsed %s weeks back and %s weeks ahead" % (WEEKS_BEHIND, WEEKS_AHEAD))
+        raise WeekError(WEEK_RANGE_MESSAGE)
     week_number, week_year = _week_key(sunday)
 
     def neighbour(delta):
