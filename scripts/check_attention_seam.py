@@ -109,39 +109,12 @@ PERMANENT_HOOKS = {
 SHIM_REMOVAL_VERSION = "0.50.0"
 SHIM_GUARD_VERSION = "0.49.0"
 
-DEPRECATED_SHIMS = {
-    # Compatibility re-export module: comicarr.app.activity.reasons forwards
-    # the reason policy Attention now owns. Removal trigger: deleting
-    # comicarr/app/activity/reasons.py in 0.50.0.
-    ("comicarr/app/activity/reasons.py", "_policy"): (
-        "deprecated re-export of the reason policy Attention now owns; "
-        "delete with comicarr/app/activity/reasons.py in 0.50.0"
-    ),
-    # Compatibility re-export module: comicarr.app.activity.reconcile forwards
-    # the reconciliation entry points. Removal trigger: deleting
-    # comicarr/app/activity/reconcile.py in 0.50.0.
-    ("comicarr/app/activity/reconcile.py", "_reconciliation"): (
-        "deprecated re-export of Attention's reconciliation entry points; "
-        "delete with comicarr/app/activity/reconcile.py in 0.50.0"
-    ),
-    # Activity read projections still join against Attention's row reader and
-    # unresolved predicate rather than composing GET /api/attention.
-    # Removal trigger: retiring the deprecated GET /api/activity/band adapter
-    # in 0.50.0.
-    ("comicarr/app/activity/queries.py", "_read"): (
-        "deprecated /api/activity/band projection reusing Attention's row reader "
-        "and unresolved predicate; delete with the band adapter in 0.50.0"
-    ),
-    # Activity serialises Attention groups into the legacy band wire shape.
-    # Removal trigger: as above — the band adapter's removal in 0.50.0.
-    ("comicarr/app/activity/queries.py", "_serialization"): (
-        "deprecated band wire-shape serialization; delete with the /api/activity/band adapter in 0.50.0"
-    ),
-    ("comicarr/app/activity/service.py", "_serialization"): (
-        "deprecated band wire-shape serialization in the Activity read service; "
-        "delete with the /api/activity/band adapter in 0.50.0"
-    ),
-}
+# The six ADR-0003 compatibility routes, the activity.reasons/reconcile
+# re-export modules, and the Activity band projections that crossed into
+# _read/_serialization were deleted in 0.49.x, so this is empty. It stays as a
+# category: any future dated shim goes here with a reason citing its removal
+# version, and the version check in main() keeps it from outliving that date.
+DEPRECATED_SHIMS: dict[tuple[str, str], str] = {}
 
 ALLOWLIST = {**PERMANENT_HOOKS, **DEPRECATED_SHIMS}
 

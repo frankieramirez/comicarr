@@ -13,11 +13,7 @@ from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.activity import queries
 from comicarr.app.activity.producers import emit_search_cancelled
-from comicarr.app.attention import PREVIEW_CAP, Scope, read
-from comicarr.app.attention._serialization import serialize_view
 from comicarr.app.downloads import journal
-
-ATTENTION_PREVIEW_CAP = PREVIEW_CAP
 
 
 def get_timeline(limit=None, offset=None, scope_type=None, scope_id=None):
@@ -28,15 +24,6 @@ def get_timeline(limit=None, offset=None, scope_type=None, scope_id=None):
         scope_type=scope_type,
         scope_id=scope_id,
     )
-
-
-def get_attention_band(scope_type=None, scope_id=None):
-    """Deprecated Activity adapter for the canonical Attention read interface."""
-    normalized_type, normalized_id = queries._normalize_scope(scope_type, scope_id)
-    scope = None
-    if normalized_type is not None:
-        scope = Scope(type=normalized_type, id=normalized_id)
-    return serialize_view(read(scope=scope), preview_cap=ATTENTION_PREVIEW_CAP)
 
 
 def get_status():

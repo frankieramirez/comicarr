@@ -17,8 +17,17 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr import db
-from comicarr.app.activity import queries, reasons
-from comicarr.app.activity import reconcile as band_reconcile
+from comicarr.app.activity import queries
+
+# The reason registry and the reconciliation entry points have no public
+# counterpart on the Attention seam: ``record`` composes them and the boot sweep
+# in recovery.py is a permanent internal hook (ADR-0003). These unit tests pin
+# that private policy directly at its owner, as the phantom-cleanup tests below
+# already do; the deleted activity.reasons / activity.reconcile modules only
+# re-exported the same objects.
+from comicarr.app.attention import _policy as reasons
+from comicarr.app.attention import _reconciliation as band_reconcile
+from comicarr.app.attention import read
 from comicarr.tables import (
     annuals,
     comics,
@@ -104,13 +113,14 @@ def test_band_excludes_non_actionable_and_admits_null(activity_db):
             ],
         )
 
-    keys = {row["release_key"] for row in queries.list_attention_band()}
+    view = read()
+    keys = {member.release_key for group in view.groups for member in group.members}
     assert keys == {"in-actionable", "in-null", "in-unknown"}
-    assert queries.count_attention_band() == 3
+    assert view.member_total == 3
 
 
 def test_band_and_count_stay_consistent(activity_db):
-    """list and count share unresolved_band_condition — including actionability."""
+    """Members and counts come from one admission predicate — including actionability."""
     with activity_db.begin() as conn:
         conn.execute(
             insert(pipeline_journal),
@@ -130,9 +140,10 @@ def test_band_and_count_stay_consistent(activity_db):
                 ),
             ],
         )
-    rows = queries.list_attention_band()
-    assert queries.count_attention_band() == len(rows)
-    assert {r["release_key"] for r in rows} == {"b", "c"}
+    view = read()
+    keys = [member.release_key for group in view.groups for member in group.members]
+    assert view.member_total == len(keys)
+    assert set(keys) == {"b", "c"}
     # Status open-work counts use the same predicate via attention_members.
     counts = queries.get_open_work_counts()
     assert counts["attention_members"] == 2

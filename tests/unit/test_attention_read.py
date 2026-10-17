@@ -191,10 +191,18 @@ def test_get_attention_requires_session_without_override():
     assert response.status_code == 401
 
 
-def test_raw_downloads_attention_reader_is_removed_but_post_adapters_remain():
-    from comicarr.app.downloads.router import router
+def test_downloads_and_activity_attention_adapters_are_removed():
+    """ADR-0003: the six compatibility routes left in 0.49.x; /api/attention owns the queue."""
+    from comicarr.app.activity.router import router as activity_router
+    from comicarr.app.downloads.router import router as downloads_router
 
-    routes = {(route.path, method) for route in router.routes for method in (getattr(route, "methods", None) or set())}
+    routes = {
+        (route.path, method)
+        for router in (activity_router, downloads_router)
+        for route in router.routes
+        for method in (getattr(route, "methods", None) or set())
+    }
 
     assert ("/api/downloads/needs-attention", "GET") not in routes
-    assert ("/api/downloads/needs-attention/batch", "POST") in routes
+    assert ("/api/activity/band", "GET") not in routes
+    assert not any("needs-attention" in path for path, _method in routes)
