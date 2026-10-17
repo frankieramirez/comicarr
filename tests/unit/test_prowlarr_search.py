@@ -149,6 +149,15 @@ def test_prowlarr_has_a_fixed_provider_search_identity():
     assert Config._provider_search_identity("Prowlarr", [], []) == ("Prowlarr", "torznab", 202)
 
 
+def test_a_saved_indexer_cannot_take_the_prowlarr_name_while_prowlarr_is_on():
+    flags = {"ENABLE_32P": False, "EXPERIMENTAL": False, "ENABLE_DDL": False}
+    torznab = [("prowlarr", "http://prowlarr.test:9696/1/api", "0", "key", "7030", "1", 5)]
+
+    with pytest.raises(ValueError, match="unique"):
+        Config._validate_provider_names(torznab, Config._reserved_provider_names(_config(**flags)))
+    Config._validate_provider_names(torznab, Config._reserved_provider_names(_config(ENABLE_PROWLARR=False, **flags)))
+
+
 @pytest.fixture
 def prowlarr_env(monkeypatch):
     calls = []
@@ -322,8 +331,8 @@ class _Response:
 def test_connection_test_uses_the_stored_key_and_counts_torrent_indexers(monkeypatch):
     seen = {}
 
-    def fake_get(url, headers=None, verify=None, timeout=None):
-        seen.update(url=url, headers=headers, verify=verify)
+    def fake_get(url, headers=None, allow_redirects=True, verify=None, timeout=None):
+        seen.update(url=url, headers=headers, allow_redirects=allow_redirects, verify=verify)
         return _Response(
             200,
             [
@@ -341,6 +350,7 @@ def test_connection_test_uses_the_stored_key_and_counts_torrent_indexers(monkeyp
     assert seen == {
         "url": "http://prowlarr.test:9696/api/v1/indexer",
         "headers": {"X-Api-Key": "stored-key"},
+        "allow_redirects": False,
         "verify": True,
     }
 
@@ -358,6 +368,7 @@ def test_connection_test_never_sends_the_stored_key_to_another_server(monkeypatc
     [
         (_Response(401, []), "Prowlarr rejected the API key"),
         (_Response(500, []), "Prowlarr answered with HTTP 500"),
+        (_Response(302, []), "Prowlarr answered with HTTP 302"),
         (_Response(200, ValueError("html")), "That URL did not answer like Prowlarr"),
     ],
 )

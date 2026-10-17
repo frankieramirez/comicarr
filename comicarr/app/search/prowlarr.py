@@ -159,6 +159,7 @@ def check_connection(host, api_key, verify=True, timeout=15) -> dict:
         response = requests.get(
             url + "/api/v1/indexer",
             headers={"X-Api-Key": _text(api_key)},
+            allow_redirects=False,
             verify=bool(verify),
             timeout=timeout,
         )

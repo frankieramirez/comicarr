@@ -873,6 +873,8 @@ class Config(object):
             reserved.add("ddl(getcomics)")
         if self.ENABLE_DDL and self.ENABLE_EXTERNAL_SERVER:
             reserved.add("ddl(external)")
+        if prowlarr.enabled(self):
+            reserved.add(prowlarr.PROWLARR_NAME.casefold())
         return reserved
 
     @staticmethod
