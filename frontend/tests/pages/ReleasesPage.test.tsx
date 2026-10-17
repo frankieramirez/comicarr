@@ -147,36 +147,236 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("Releases refreshed.")).toBeTruthy();
   });
 
-  it("uses a phone weekly grid that keeps title and status", async () => {
+  const weeklyRow = (overrides: Record<string, unknown> = {}) => ({
+    COMIC: "Absolute Batman",
+    ISSUE: "19",
+    PUBLISHER: "DC",
+    SHIPDATE: "2026-08-12",
+    STATUS: "Skipped",
+    ComicID: "comic-1",
+    IssueID: "issue-19",
+    rowid: 1,
+    in_library: true,
+    library_issue_id: "issue-19",
+    issue_status: "Wanted",
+    state: "wanted",
+    ...overrides,
+  });
+
+  const weeklyWeek = (
+    rows: unknown[],
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    week: "41",
+    year: "2026",
+    start: "2026-10-11",
+    end: "2026-10-17",
+    offset: 0,
+    prev: { week: "40", year: "2026" },
+    next: { week: "42", year: "2026" },
+    source: "stored",
+    rows,
+    ...overrides,
+  });
+
+  const renderIndustry = (route = "/releases?view=all") =>
+    render(<ReleasesPage />, { useMemoryRouter: true, route });
+
+  it("uses a phone weekly grid that keeps title, status, and actions", async () => {
     server.use(
       http.get("/api/weekly", () =>
-        HttpResponse.json([
-          {
-            COMIC: "Absolute Batman",
-            ISSUE: "19",
-            PUBLISHER: "DC",
-            SHIPDATE: "2026-08-12",
-            STATUS: "Wanted",
-            ComicID: "comic-1",
-          },
-        ]),
+        HttpResponse.json(weeklyWeek([weeklyRow()])),
       ),
     );
-    render(<ReleasesPage />, {
-      useMemoryRouter: true,
-      route: "/releases?view=all",
-    });
+    renderIndustry();
 
     const row = await screen.findByTestId("weekly-release-row");
-    expect(row.className).toMatch(/grid-cols-\[minmax\(0,1fr\)_auto\]/);
+    expect(row.className).toMatch(/grid-cols-\[minmax\(0,1fr\)_auto_auto\]/);
     expect(row.className).toMatch(
-      /md:grid-cols-\[minmax\(0,1fr\)_80px_160px_100px\]/,
+      /md:grid-cols-\[minmax\(0,1fr\)_80px_160px_110px_120px\]/,
     );
     expect(row.querySelectorAll(".max-md\\:hidden").length).toBeGreaterThan(0);
     const phoneId = screen.getByTestId("phone-row-id");
     expect(phoneId.textContent).toContain("#19");
     expect(phoneId.className).toMatch(/hidden/);
     expect(phoneId.className).toMatch(/max-md:inline/);
+  });
+
+  it("steps to the next week and back to this week", async () => {
+    const requested: string[] = [];
+    server.use(
+      http.get("/api/weekly", ({ request }) => {
+        const url = new URL(request.url);
+        const week = url.searchParams.get("week");
+        requested.push(week ?? "current");
+        return HttpResponse.json(
+          week === "42"
+            ? weeklyWeek([weeklyRow({ COMIC: "Next Week Book" })], {
+                week: "42",
+                start: "2026-10-18",
+                end: "2026-10-24",
+                offset: 1,
+                prev: { week: "41", year: "2026" },
+                next: { week: "43", year: "2026" },
+              })
+            : weeklyWeek([weeklyRow()]),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    expect(await screen.findByText("This week")).toBeTruthy();
+    expect(screen.getByText("Oct 11 – Oct 17, 2026")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Next week" }));
+
+    expect(await screen.findByText("Next Week Book")).toBeTruthy();
+    expect(screen.getByText("Oct 18 – Oct 24, 2026")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "This week" }));
+
+    expect(await screen.findByText("Absolute Batman")).toBeTruthy();
+    expect(requested.slice(0, 2)).toEqual(["current", "42"]);
+  });
+
+  it("disables next at the edge of the browsable window", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(weeklyWeek([weeklyRow()], { offset: 4, next: null })),
+      ),
+    );
+    renderIndustry("/releases?view=all&week=45&year=2026");
+
+    const next = await screen.findByRole("button", { name: "Next week" });
+    await waitFor(() => expect(next.hasAttribute("disabled")).toBe(true));
+    expect(screen.getByText("In 4 weeks")).toBeTruthy();
+  });
+
+  it("filters and sorts the week, and counts each library state", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          weeklyWeek([
+            weeklyRow({ COMIC: "Zorro", PUBLISHER: "Dynamite", rowid: 1 }),
+            weeklyRow({
+              COMIC: "Amazing Spider-Man",
+              PUBLISHER: "Marvel",
+              ISSUE: "2",
+              rowid: 2,
+              state: "not_in_library",
+              in_library: false,
+            }),
+            weeklyRow({
+              COMIC: "Batman",
+              PUBLISHER: "Aftershock",
+              ISSUE: "1",
+              rowid: 3,
+              state: "downloaded",
+            }),
+          ]),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    await screen.findByText("Zorro");
+    const titles = () =>
+      screen
+        .getAllByTestId("weekly-release-row")
+        .map((row) => row.querySelector("[data-grid-title]")?.textContent);
+    expect(titles()[0]).toContain("Amazing Spider-Man");
+
+    await user.click(screen.getByRole("button", { name: "publisher" }));
+    expect(titles()[0]).toContain("Batman");
+
+    await user.type(screen.getByLabelText("Filter releases"), "marvel");
+    expect(titles()).toHaveLength(1);
+    expect(titles()[0]).toContain("Amazing Spider-Man");
+
+    const legend = screen.getByTestId("weekly-legend");
+    expect(legend.textContent).toContain("Wanted 1");
+    expect(legend.textContent).toContain("Downloaded 1");
+    expect(legend.textContent).toContain("Not in library 1");
+  });
+
+  it("adds a series from the pull list and wants that issue", async () => {
+    const posted: unknown[] = [];
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          weeklyWeek([
+            weeklyRow({
+              rowid: 7,
+              state: "not_in_library",
+              in_library: false,
+              library_issue_id: null,
+            }),
+          ]),
+        ),
+      ),
+      http.post("/api/weekly/add", async ({ request }) => {
+        posted.push(await request.json());
+        return HttpResponse.json({
+          success: true,
+          comicid: "comic-1",
+          want_queued: true,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add Absolute Batman" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", {
+        name: "Add series and want #19",
+      }),
+    );
+
+    expect(await screen.findByText("adding…")).toBeTruthy();
+    expect(posted).toEqual([{ rowid: 7, want: true }]);
+  });
+
+  it("wants an issue of a series already in the library", async () => {
+    const queued: string[] = [];
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          weeklyWeek([
+            weeklyRow({ state: "in_library", issue_status: "Skipped" }),
+          ]),
+        ),
+      ),
+      http.put("/api/series/issues/:issueId/queue", ({ params }) => {
+        queued.push(String(params.issueId));
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Want Absolute Batman #19" }),
+    );
+
+    await waitFor(() => expect(queued).toEqual(["issue-19"]));
+    const link = screen.getByRole("link", { name: "Absolute Batman" });
+    expect(link.getAttribute("href")).toBe("/library/comic-1");
+  });
+
+  it("explains a week no source has filled yet", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(weeklyWeek([], { source: "unavailable", offset: 3 })),
+      ),
+    );
+    renderIndustry();
+
+    expect(
+      await screen.findByText(/Neither Walksoftly nor ComicVine has this week/),
+    ).toBeTruthy();
   });
 
   it("keeps weekly row keys unique when ComicID is missing", () => {

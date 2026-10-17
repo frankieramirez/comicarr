@@ -10,14 +10,10 @@ import {
   type BulkIssueResult,
 } from "@/hooks/useQueue";
 import { useRetrySearchRun } from "@/hooks/useSeries";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { useAiStatus } from "@/hooks/useAiStatus";
-import { AiSuggestions } from "@/components/weekly/AiSuggestions";
+import { useQueryClient } from "@tanstack/react-query";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { ToggleChip } from "@/components/ui/toggle-chip";
-import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,24 +26,9 @@ import EmptyState from "@/components/ui/EmptyState";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import type { UpcomingIssue } from "@/types";
-import { DESKTOP_COL } from "@/components/data-table/gridColumns";
-import {
-  weeklyReleaseRowKey,
-  type WeeklyIssue,
-} from "@/pages/weeklyReleaseRowKey";
-
-function useWeeklyPullList() {
-  return useQuery({
-    queryKey: ["weekly"],
-    queryFn: () => apiRequest<WeeklyIssue[]>("GET", "/api/weekly"),
-    staleTime: 5 * 60 * 1000,
-  });
-}
+import IndustryReleasesView from "@/components/releases/IndustryReleasesView";
 
 type ReleasesView = "mine" | "all";
-
-const WEEKLY_ROW_COLS =
-  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_80px_160px_100px]";
 
 export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -137,7 +118,7 @@ export default function ReleasesPage() {
         meta={
           currentView === "mine"
             ? "this week · your library"
-            : "this week · industry-wide"
+            : "week by week · industry-wide"
         }
         actions={
           <Button
@@ -206,7 +187,7 @@ export default function ReleasesPage() {
       </TabRow>
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {currentView === "mine" ? <MyReleasesView /> : <AllReleasesView />}
+        {currentView === "mine" ? <MyReleasesView /> : <IndustryReleasesView />}
       </div>
     </div>
   );
@@ -435,91 +416,6 @@ function MyReleasesView() {
         isLoading={bulkQueueMutation.isPending || bulkUnqueueMutation.isPending}
       />
       <ReleaseReviewSheet {...reviewSheetProps} />
-    </div>
-  );
-}
-
-function AllReleasesView() {
-  const { data: weekly, isLoading, error, refetch } = useWeeklyPullList();
-  const { data: aiStatus } = useAiStatus();
-
-  if (error) {
-    return (
-      <ErrorDisplay
-        error={error}
-        title="Unable to load weekly pull list"
-        onRetry={() => refetch()}
-      />
-    );
-  }
-
-  return (
-    <div className="flex-1 min-h-0 overflow-auto">
-      {aiStatus?.configured && (
-        <div className="px-5 py-4">
-          <AiSuggestions />
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="px-5 py-4 space-y-2">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : !weekly || weekly.length === 0 ? (
-        <EmptyState
-          variant="custom"
-          eyebrow="PULL LIST · EMPTY"
-          title="No pull list data"
-          description="Run a weekly pull list update from Settings to populate this view."
-        />
-      ) : (
-        <div data-testid="weekly-releases-table">
-          <div
-            className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 px-5 py-2 border-b bg-background`}
-            style={{
-              borderColor: "var(--border)",
-            }}
-          >
-            <div>title</div>
-            <div className={DESKTOP_COL}>issue</div>
-            <div className={DESKTOP_COL}>publisher</div>
-            <div>status</div>
-          </div>
-          {weekly.map((issue, index) => {
-            const status = issue.STATUS || "Available";
-            return (
-              <div
-                key={weeklyReleaseRowKey(issue, index)}
-                data-testid="weekly-release-row"
-                className={`grid ${WEEKLY_ROW_COLS} items-center px-5 py-2 text-[12px] border-b border-border/50`}
-              >
-                <div className="font-medium truncate" data-grid-title="">
-                  {issue.COMIC}
-                  {issue.ISSUE ? (
-                    <span
-                      data-testid="phone-row-id"
-                      className="hidden max-md:inline font-mono text-[11px]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      {" "}
-                      #{issue.ISSUE}
-                    </span>
-                  ) : null}
-                </div>
-                <div className={`${DESKTOP_COL} mono-meta`}>#{issue.ISSUE}</div>
-                <div
-                  className={`${DESKTOP_COL} text-muted-foreground truncate`}
-                >
-                  {issue.PUBLISHER}
-                </div>
-                <StatusBadge variant="dot" status={status} />
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

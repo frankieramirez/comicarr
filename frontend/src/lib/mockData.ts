@@ -717,14 +717,29 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/weekly") {
-    return upcomingReleases().map((u) => ({
-      COMIC: u.ComicName,
-      ISSUE: u.IssueNumber,
-      PUBLISHER: u.Publisher,
-      SHIPDATE: u.IssueDate,
-      STATUS: u.Status,
-      ComicID: u.ComicID,
-    }));
+    return {
+      week: "41",
+      year: "2026",
+      start: "2026-10-11",
+      end: "2026-10-17",
+      offset: 0,
+      prev: { week: "40", year: "2026" },
+      next: { week: "42", year: "2026" },
+      source: "stored",
+      rows: upcomingReleases().map((u, index) => ({
+        COMIC: u.ComicName,
+        ISSUE: u.IssueNumber,
+        PUBLISHER: u.Publisher,
+        SHIPDATE: u.IssueDate,
+        STATUS: u.Status,
+        ComicID: u.ComicID,
+        rowid: index + 1,
+        in_library: true,
+        library_issue_id: null,
+        issue_status: u.Status,
+        state: u.Status === "Wanted" ? "wanted" : "in_library",
+      })),
+    };
   }
   if (m === "GET" && url === "/api/upcoming") {
     return upcomingReleases().map((u) => ({
