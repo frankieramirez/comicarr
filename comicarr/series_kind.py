@@ -55,6 +55,8 @@ _PROVIDER_PREFIXES: dict[SeriesProvider, str] = {
 }
 
 _MANGA_CONTENT_TYPE = "manga"
+MAGAZINE_CONTENT_TYPE = "magazine"
+CONTENT_KINDS = ("comic", _MANGA_CONTENT_TYPE, MAGAZINE_CONTENT_TYPE)
 OPERATOR_KIND_SET_BY = "operator"
 
 
@@ -106,6 +108,18 @@ def is_manga(series: str | Mapping | None) -> bool:
             return True
         return False
     return provider_of(series) in MANGA_PROVIDERS
+
+
+def is_magazine(series: Mapping | None) -> bool:
+    """Return whether the operator cataloged this Series as a magazine.
+
+    A magazine is a comic for search, acquisition and post-processing, so
+    :func:`is_manga` is False for it and :func:`comic_sql_clause` includes it.
+    """
+    if not isinstance(series, Mapping):
+        return False
+    content_type = series.get("ContentType")
+    return content_type is not None and str(content_type).strip().casefold() == MAGAZINE_CONTENT_TYPE
 
 
 def _prefixed_id(comic_id_column):

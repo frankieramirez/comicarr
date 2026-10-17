@@ -14,6 +14,7 @@ from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 _LIBRARY_ROOT_CONFIG_KEYS = (
     "DESTINATION_DIR",
     "MANGA_DESTINATION_DIR",
+    "MAGAZINE_DESTINATION_DIR",
     "COMIC_DIR",
     "MANGA_DIR",
     "MULTIPLE_DEST_DIRS",

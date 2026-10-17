@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/api";
 import { applySequentially, type BulkIssueResult } from "@/hooks/useQueue";
 import type {
   Comic,
-  ContentType,
+  SeriesKind,
   ProviderOverride,
   SearchMissingConfirmationInput,
   SearchMissingPreview,
@@ -189,12 +189,12 @@ export interface SeriesSearchSettingsInput {
 
 export interface SeriesContentKindInput {
   comicId: string;
-  contentType: ContentType;
+  contentType: SeriesKind;
 }
 
 export interface SeriesContentKindResult {
   success: boolean;
-  content_type: ContentType;
+  content_type: SeriesKind;
   location_repointed?: boolean;
   comic_location?: string;
   previous_location?: string;

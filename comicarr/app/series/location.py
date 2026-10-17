@@ -118,7 +118,15 @@ def default_series_location(series):
     except Exception as e:
         logger.warn("[SERIES-LOCATION] Could not derive a default folder for %s: %s" % (series.get("ComicID"), e))
         return None
-    return (created or {}).get("comlocation")
+    location = (created or {}).get("comlocation")
+    if series_kind.is_magazine(series):
+        from comicarr.app.series.service import _magazine_destination, magazine_location_for_reclassify
+
+        return (
+            magazine_location_for_reclassify({**dict(series), "ComicLocation": location}, _magazine_destination())
+            or location
+        )
+    return location
 
 
 @contextmanager

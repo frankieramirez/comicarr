@@ -19,6 +19,7 @@ import asyncio
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from comicarr import series_kind
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session
@@ -125,15 +126,15 @@ def update_series_content_kind(
     request_body: dict = None,
     ctx: AppContext = Depends(get_context),
 ):
-    """Set a Series' provider-independent comic-or-manga content kind."""
+    """Set a Series' provider-independent comic, manga or magazine content kind."""
     if request_body is None:
         request_body = {}
 
     content_type = request_body.get("content_type")
-    if not isinstance(content_type, str) or content_type not in {"comic", "manga"}:
+    if not isinstance(content_type, str) or content_type not in series_kind.CONTENT_KINDS:
         return JSONResponse(
             status_code=400,
-            content={"detail": "content_type must be one of: comic, manga"},
+            content={"detail": "content_type must be one of: %s" % ", ".join(series_kind.CONTENT_KINDS)},
         )
 
     result = series_service.update_content_kind(ctx, comic_id, content_type)

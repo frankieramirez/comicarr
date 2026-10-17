@@ -575,7 +575,7 @@ describe("SeriesDetailPage", () => {
       screen.getByText(/Existing files and issue history stay unchanged/),
     ).toBeTruthy();
     expect(
-      screen.getByText(/stores the series under the manga destination/),
+      screen.getByText(/stores the series under that destination/),
     ).toBeTruthy();
     screen.getByRole("radio", { name: "Comic" }).focus();
     await user.keyboard("{ArrowRight}");
@@ -584,14 +584,60 @@ describe("SeriesDetailPage", () => {
     await waitFor(() => expect(detailReads).toBeGreaterThan(1));
     expect(await screen.findByText("Content kind updated")).toBeTruthy();
     expect(
-      screen.getByText(
-        /Files already at the previous comics path were not moved/,
-      ),
+      screen.getByText(/Files already at the previous path were not moved/),
     ).toBeTruthy();
     expect(
       screen.getByRole("radio", { name: "Manga" }).getAttribute("aria-checked"),
     ).toBe("true");
     expect(screen.getByText(/Use manga chapter labels/)).toBeTruthy();
+  });
+
+  it("catalogs a series as a magazine", async () => {
+    let contentType = "comic";
+    let payload: unknown;
+    server.use(
+      http.get("/api/series/1", () =>
+        HttpResponse.json({
+          comic: {
+            ComicID: "1",
+            ComicName: "Nintendo Power",
+            ComicYear: "1988",
+            ComicPublisher: "Nintendo",
+            Status: "Active",
+            ContentType: contentType,
+          },
+          issues: canonicalIssues,
+          annuals: [annual],
+        }),
+      ),
+      http.patch("/api/series/1/content-kind", async ({ request }) => {
+        payload = await request.json();
+        contentType = "magazine";
+        return HttpResponse.json({
+          success: true,
+          content_type: "magazine",
+          location_repointed: true,
+          comic_location: "/magazines/Nintendo Power (1988)",
+          previous_location: "/comics/Nintendo Power (1988)",
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole("radio", { name: "Magazine" }));
+
+    await waitFor(() => expect(payload).toEqual({ content_type: "magazine" }));
+    expect(
+      await screen.findByText(/under the magazine destination/),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("radio", { name: "Magazine" })
+          .getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
   });
 
   it("shows a chosen library folder and the folders still holding files", async () => {

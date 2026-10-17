@@ -85,6 +85,13 @@ export function MediaManagementTab({
           helpText="One server path per line, such as /comics/Magazines. In Docker, use the path inside the container."
           placeholder="/comics/Magazines"
         />
+        <SettingField
+          label="Magazine destination"
+          value={formData.magazine_destination_dir || ""}
+          onChange={(v) => onChange("magazine_destination_dir", v as string)}
+          helpText="Library root for Series cataloged as Magazine. When set, cataloging a Series as Magazine stores it here unless you chose its folder. In Docker, use the path inside the container."
+          placeholder="/magazines"
+        />
       </SettingGroup>
 
       {/* Import Behavior */}
