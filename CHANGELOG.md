@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.49.0
+
+### Minor Changes
+
+- 762d93e: The Folder Monitor can now watch more than one completed-download folder. Add extra folders, one per line, under Settings → Download Clients → Completed downloads. Each pass scans the main monitored folder first, then each extra folder, and imports with the same file operation (copy, hardlink or move), so seeding torrents keep their files. A missing or unreadable extra folder is logged and skipped without stopping the others. The extra folders only apply while the main monitored folder (`CHECK_FOLDER`) is set.
+- 6841ff8: A Series can now be cataloged as a Magazine, alongside Comic and Manga, from the "Catalog this as" control on its page. Magazines search, download and import exactly like comics. Set a Magazine destination under Settings → Media Management → Series Folders, and cataloging a Series as Magazine moves it to its automatic folder there. Files already on disk stay where they are and are still read from their old folder. A Series whose folder you chose yourself keeps it.
+- 43a9a82: The library can show magazines on their own. Once a series is cataloged as a magazine, the library's type filter offers a magazine option, and the comic filter no longer includes magazines. The dashboard counts magazines separately from comics and lists them next to the comic and manga totals.
+- 4fa460a: Comicarr can search through Prowlarr directly. Under Settings → Search → Prowlarr, turn on "Search with Prowlarr" and enter your Prowlarr URL and API key. Test Connection then reports how many torrent indexers Prowlarr has enabled. Comicarr sends one search to Prowlarr, which asks all of its indexers and skips any it knows are failing, so one broken indexer no longer holds up a search. Prowlarr appears as a single provider named Prowlarr, which you can exclude for a Series like any other provider. Only torrent results are used; keep usenet indexers as Newznab indexers. Torrent search must be on, as it already must be for Torznab indexers. The default category is 7030 (comics); add 7010 to include magazines. An existing indexer named "Prowlarr" must be renamed before Prowlarr search can be turned on.
+- 4092b1d: qBittorrent can now send torrents for Series in a chosen library root to their own category and save path. For example, magazines under `/comics/Magazines` can download to a `magazines` category in `/downloads/Magazines`. Set this up under Settings → Download Clients → qBittorrent categories by library root, with one `library root | category | save path` line per root. Series outside those roots keep the global qBittorrent category and folder.
+
 ## 0.48.0
 
 ### Minor Changes
