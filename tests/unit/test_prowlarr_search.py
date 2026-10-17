@@ -246,6 +246,12 @@ def test_an_unreadable_prowlarr_answer_is_reported_not_evaluated(prowlarr_env, m
     assert failures and failures[0][1] == "request_error"
 
 
+@pytest.fixture(autouse=True)
+def _restore_global_config(monkeypatch):
+    # A successful settings save publishes ctx.config as comicarr.CONFIG.
+    monkeypatch.setattr(comicarr, "CONFIG", comicarr.CONFIG)
+
+
 def _ctx(**config):
     ctx = _make_test_ctx()
     values = {
