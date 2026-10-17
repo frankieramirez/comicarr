@@ -43,16 +43,31 @@ test("search list and weekly pull keep the title readable on a phone", async ({
   await page.route("**/api/weekly", async (route) => {
     await route.fulfill({
       contentType: "application/json",
-      json: [
-        {
-          COMIC: "Absolute Batman",
-          ISSUE: "19",
-          PUBLISHER: "DC Comics",
-          SHIPDATE: "2026-08-12",
-          STATUS: "Wanted",
-          ComicID: "comic-1",
-        },
-      ],
+      json: {
+        week: "41",
+        year: "2026",
+        start: "2026-10-11",
+        end: "2026-10-17",
+        offset: 0,
+        prev: { week: "40", year: "2026" },
+        next: { week: "42", year: "2026" },
+        source: "stored",
+        rows: [
+          {
+            COMIC: "Absolute Batman",
+            ISSUE: "19",
+            PUBLISHER: "DC Comics",
+            SHIPDATE: "2026-08-12",
+            STATUS: "Wanted",
+            ComicID: "comic-1",
+            rowid: 1,
+            in_library: false,
+            library_issue_id: null,
+            issue_status: null,
+            state: "not_in_library",
+          },
+        ],
+      },
     });
   });
   await page.route("**/api/config", async (route) => {

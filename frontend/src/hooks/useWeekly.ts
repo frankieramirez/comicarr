@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import type { WeekRef, WeeklyPullWeek } from "@/pages/weeklyReleaseRowKey";
 
 export interface WeeklyRefreshResult {
   accepted: boolean;
@@ -44,6 +45,44 @@ export function useScheduledJobs(enabled: boolean) {
       const weekly = query.state.data?.jobs.find((job) => job.id === "weekly");
       const status = weekly?.status?.toLowerCase();
       return status === "running" || status === "queued" ? 2_000 : false;
+    },
+  });
+}
+
+/** One week of the industry pull list; no `week` means the current week. */
+export function useWeeklyPullList(week: WeekRef | null) {
+  return useQuery({
+    queryKey: ["weekly", week?.year ?? "current", week?.week ?? "current"],
+    queryFn: () =>
+      apiRequest<WeeklyPullWeek>(
+        "GET",
+        week
+          ? `/api/weekly?week=${encodeURIComponent(week.week)}&year=${encodeURIComponent(week.year)}`
+          : "/api/weekly",
+      ),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface AddFromWeekInput {
+  rowid: number;
+  want: boolean;
+}
+
+export interface AddFromWeekResult {
+  success: boolean;
+  comicid?: string;
+  want_queued?: boolean;
+}
+
+/** Add a pull-list row's series, optionally marking that issue Wanted once it lands. */
+export function useAddFromWeek() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AddFromWeekInput) =>
+      apiRequest<AddFromWeekResult>("POST", "/api/weekly/add", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
     },
   });
 }
