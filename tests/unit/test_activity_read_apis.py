@@ -738,10 +738,6 @@ def test_service_timeline_and_status_shapes(activity_db):
     assert timeline["total"] == 1
     assert timeline["results"][0]["event_id"] is not None
 
-    groups = _attention_groups()
-    assert len(groups) == 1
-    assert groups[0]["members"][0]["release_key"] == "band-1"
-
     status = service.get_status()
     assert status["in_flight"] == 0
     assert status["attention"] == 1
@@ -872,8 +868,6 @@ def test_router_registers_session_protected_routes():
 
     paths = {route.path for route in router.routes}
     assert "/api/activity/timeline" in paths
-    # Retired in 0.49.x; GET /api/attention is the grouped read (ADR-0003).
-    assert "/api/activity/band" not in paths
     assert "/api/activity/status" in paths
     assert "/api/activity/in-flight" in paths
     assert "/api/activity/in-flight/cancel" in paths

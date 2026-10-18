@@ -33,10 +33,10 @@ inside function bodies (``journal.py`` imports its post-transition hook at the
 call site to avoid an import cycle), and a line-oriented scan of module headers
 would miss them entirely.
 
-Legitimate and temporary crossings live in ``ALLOWLIST`` below, keyed on
+Legitimate crossings live in ``ALLOWLIST`` below, keyed on
 ``(relative file path, private module name)``. The list is **shrink-only**: an
 entry that no longer matches a real import is itself an error, so deleting a
-deprecated shim forces the deletion of its waiver in the same change.
+crossing forces the deletion of its waiver in the same change.
 
 Contributor-facing only — no changeset (CLAUDE.md).
 
@@ -46,7 +46,6 @@ Wire-in: ``npm run lint:guards``.
 from __future__ import annotations
 
 import ast
-import json
 import sys
 from pathlib import Path
 
@@ -65,14 +64,14 @@ SCAN_GLOBS = ("comicarr/**/*.py",)
 SKIP_DIR_NAMES = {"_vendor", "__pycache__", ".venv", "node_modules"}
 
 # --------------------------------------------------------------------------
-# Permanent internal hooks.
+# Internal hooks.
 #
-# These are not shims awaiting deletion. Each is a call site that must reach a
+# Each is a call site that must reach a
 # private Attention entry point because routing it through the public seam
 # would be wrong, not merely inconvenient. Removal trigger: only a redesign
 # that gives Attention a public equivalent of the hook.
 # --------------------------------------------------------------------------
-PERMANENT_HOOKS = {
+ALLOWLIST = {
     # journal.py's immutable-payload-conflict quarantine is itself a terminal
     # transition, so it cannot call attention.record() — that would re-enter
     # the journal recursively. ADR-0003 names this private post-transition
@@ -92,43 +91,6 @@ PERMANENT_HOOKS = {
         "boot-time idempotent sweep of pre-#541 excluded rows; a startup repair, not a recording path (#541)"
     ),
 }
-
-# --------------------------------------------------------------------------
-# Deprecated compatibility shims — removed in SHIM_REMOVAL_VERSION.
-#
-# ADR-0003 originally kept the old Activity/Downloads routes for one release.
-# That window passed; the 2026-10-08 amendment dates removal at 0.50.0 so
-# existing callers are not broken. Version Packages PRs use GITHUB_TOKEN and
-# skip CI, so a trip at 0.50.0 would only go red after 0.50.0 had already
-# published. The guard therefore fails once package.json reaches 0.49.0 —
-# one minor early — so the deletion lands in 0.49.x and 0.50.0 ships without
-# the shims. When a shim goes, its entry here must go with it — the
-# stale-entry check makes that a prompted action rather than a forgotten one.
-# Every reason string must cite SHIM_REMOVAL_VERSION.
-# --------------------------------------------------------------------------
-SHIM_REMOVAL_VERSION = "0.50.0"
-SHIM_GUARD_VERSION = "0.49.0"
-
-# The six ADR-0003 compatibility routes, the activity.reasons/reconcile
-# re-export modules, and the Activity band projections that crossed into
-# _read/_serialization were deleted in 0.49.x, so this is empty. It stays as a
-# category: any future dated shim goes here with a reason citing its removal
-# version, and the version check in main() keeps it from outliving that date.
-DEPRECATED_SHIMS: dict[tuple[str, str], str] = {}
-
-ALLOWLIST = {**PERMANENT_HOOKS, **DEPRECATED_SHIMS}
-
-
-def _parse_version(value: str) -> tuple[int, ...]:
-    """Stdlib-only parse of a package.json version (drops a trailing pre-release)."""
-    return tuple(int(p) for p in value.split("-")[0].split("."))
-
-
-def _package_version() -> tuple[int, ...]:
-    """Installed app version from package.json — the same file Changesets bumps."""
-    payload = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-    return _parse_version(str(payload["version"]))
-
 
 def _iter_source_files():
     seen = set()
@@ -224,9 +186,6 @@ def main() -> int:
     violations: list[tuple[str, int, str]] = []
     unreadable: list[str] = []
     matched: set[tuple[str, str]] = set()
-    missing_version: list[tuple[str, str]] = []
-    expired = False
-    version_error: str | None = None
 
     for path in _iter_source_files():
         rel = path.relative_to(ROOT).as_posix()
@@ -246,19 +205,6 @@ def main() -> int:
 
     stale = sorted(set(ALLOWLIST) - matched)
 
-    for key, reason in DEPRECATED_SHIMS.items():
-        if SHIM_REMOVAL_VERSION not in reason:
-            missing_version.append(key)
-
-    try:
-        current = _package_version()
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
-        version_error = str(exc)
-        current = None
-
-    if current is not None and DEPRECATED_SHIMS and current >= _parse_version(SHIM_GUARD_VERSION):
-        expired = True
-
     if violations:
         print("Private Attention submodule imported from outside %s:" % ATTENTION_DIR, file=sys.stderr)
         for rel, lineno, private in violations:
@@ -269,8 +215,8 @@ def main() -> int:
         print("Reaching past it rebuilds the policy drift the module was created to end.", file=sys.stderr)
         print("", file=sys.stderr)
         print("Call the public seam. If a crossing is genuinely unavoidable, add it to", file=sys.stderr)
-        print("PERMANENT_HOOKS or DEPRECATED_SHIMS in scripts/check_attention_seam.py", file=sys.stderr)
-        print("with the reason it exists and the trigger that removes it.", file=sys.stderr)
+        print("ALLOWLIST in scripts/check_attention_seam.py with the reason it", file=sys.stderr)
+        print("exists and the trigger that removes it.", file=sys.stderr)
 
     if stale:
         if violations:
@@ -293,37 +239,7 @@ def main() -> int:
         print("so it cannot say whether the file crosses the seam. Fix the file so it", file=sys.stderr)
         print("parses, then re-run scripts/check_attention_seam.py.", file=sys.stderr)
 
-    if missing_version:
-        if violations or stale or unreadable:
-            print("", file=sys.stderr)
-        print(
-            "Deprecated Attention shim reason must cite SHIM_REMOVAL_VERSION (%s):" % SHIM_REMOVAL_VERSION,
-            file=sys.stderr,
-        )
-        for rel, private in missing_version:
-            print("  %s -> %s.%s" % (rel, ATTENTION_PKG, private), file=sys.stderr)
-
-    if version_error:
-        if violations or stale or unreadable or missing_version:
-            print("", file=sys.stderr)
-        print("Could not read package.json version for the shim removal check:", file=sys.stderr)
-        print("  %s" % version_error, file=sys.stderr)
-
-    if expired:
-        if violations or stale or unreadable or missing_version or version_error:
-            print("", file=sys.stderr)
-        print(
-            "Deprecated Attention shims outlived SHIM_GUARD_VERSION %s (package.json is %s)."
-            % (SHIM_GUARD_VERSION, ".".join(str(p) for p in current)),
-            file=sys.stderr,
-        )
-        print(
-            "Delete the six compatibility routes and empty DEPRECATED_SHIMS before %s (ADR-0003)."
-            % SHIM_REMOVAL_VERSION,
-            file=sys.stderr,
-        )
-
-    if violations or stale or unreadable or missing_version or version_error or expired:
+    if violations or stale or unreadable:
         return 1
 
     print("Attention seam OK: %d allowlisted crossing(s), no new ones" % len(ALLOWLIST))

@@ -176,9 +176,10 @@ run tests.
 The six compatibility adapters listed above were deleted in 0.49.x, together
 with the `comicarr.app.activity.reasons` and `comicarr.app.activity.reconcile`
 re-export modules and the Activity band projections that reached into
-Attention's private reader and serializer. `DEPRECATED_SHIMS` in
-`scripts/check_attention_seam.py` is now empty; only the two permanent internal
-hooks remain allowlisted. The prerequisite SPA-fallback fix shipped in the same
+Attention's private reader and serializer. The seam guard's dated-shim
+category and its package-version expiry check existed only to force this
+deletion, so they went with it; only the two internal hooks remain
+allowlisted. The prerequisite SPA-fallback fix shipped in the same
 change: the static mount no longer serves `index.html` for paths under `/api`,
 so the removed routes, and any other unknown API path, answer a JSON `404`.
 `GET /api/attention` and `POST /api/attention/resolve` are the only HTTP
