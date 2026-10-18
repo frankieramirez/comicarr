@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.50.0
+
+### Minor Changes
+
+- b99dbec: The old Needs attention API routes are gone. If a script or integration still calls `GET /api/activity/band`, `POST /api/downloads/needs-attention/batch`, or `POST /api/downloads/needs-attention/{release_key}/retry`, `/search-again`, `/stop-wanting` or `/import`, switch it to `GET /api/attention` to read the queue and `POST /api/attention/resolve` to act on it. The resolve route takes an `action` (`retry`, `search_again`, `stop_wanting` or `import`) and a list of `release_keys`, so one call handles one item or many. The Comicarr web UI already uses these routes, so nothing changes in the app itself. An unknown path under `/api` now returns a 404 error instead of the web UI's HTML page, so a call to a removed or mistyped route fails clearly.
+- 6212704: Releases → Industry now works as a week-by-week pull list. Use the arrows to step back up to a year or ahead up to four weeks, and "This week" to return. A week Comicarr has not saved yet is fetched when you open it, from Walksoftly or, if that fails, from ComicVine. Opening a week only saves its list and never changes the status of any issue. Each release shows whether it is Wanted, Downloaded, In library, or Not in library, with a count of each above the list. You can filter by title or publisher and sort by title, publisher, or issue number. For a series you don't have, Add can add the series alone or also mark that issue Wanted once the series finishes adding. For a series you have, Want marks that issue Wanted and starts a search. Titles open the series in your library, or its ComicVine page when you don't have it.
+
 ## 0.49.0
 
 ### Minor Changes
