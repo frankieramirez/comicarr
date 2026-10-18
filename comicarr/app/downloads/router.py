@@ -18,7 +18,6 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
 
-from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
 from comicarr.app.downloads import service as dl_service
 
@@ -109,93 +108,6 @@ def process_issue(
     if not result["success"]:
         return JSONResponse(status_code=result.get("status_code", 500), content={"detail": result.get("error")})
     return result
-
-
-def _resolution_response(result):
-    if result.get("success"):
-        return result
-    return JSONResponse(
-        status_code=int(result.get("status_code") or 400),
-        content=result,
-    )
-
-
-@router.post("/needs-attention/batch", deprecated=True)
-def needs_attention_batch(
-    request_body: dict = None,
-    username: str = Depends(require_session),
-    ctx: AppContext = Depends(get_context),
-):
-    """Fan one action out over up to 25 band rows; report per-row outcomes.
-
-    Best-effort per row (#525): a mixed result is ``success: true`` with
-    ``partial: true`` and one ``results[]`` entry per key. Declared **before**
-    the ``{release_key:path}`` routes below so a literal ``batch`` segment can
-    never be read as a release key.
-    """
-    body = request_body or {}
-    result = dl_service.resolve_needs_attention_batch(
-        ctx,
-        body.get("action"),
-        body.get("release_keys") or [],
-        audit_identity=username,
-    )
-    return _resolution_response(result)
-
-
-@router.post("/needs-attention/{release_key:path}/retry", deprecated=True)
-def needs_attention_retry(
-    release_key: str,
-    username: str = Depends(require_session),
-    ctx: AppContext = Depends(get_context),
-):
-    """Re-want + scoped search for a failed band row; stamp status=retried."""
-    return _resolution_response(dl_service.resolve_needs_attention(ctx, release_key, "retry", audit_identity=username))
-
-
-@router.post("/needs-attention/{release_key:path}/search-again", deprecated=True)
-def needs_attention_search_again(
-    release_key: str,
-    username: str = Depends(require_session),
-    ctx: AppContext = Depends(get_context),
-):
-    """Re-want + scoped search for a manual_review band row; stamp status=retried."""
-    return _resolution_response(
-        dl_service.resolve_needs_attention(ctx, release_key, "search_again", audit_identity=username)
-    )
-
-
-@router.post("/needs-attention/{release_key:path}/stop-wanting", deprecated=True)
-def needs_attention_stop_wanting(
-    release_key: str,
-    username: str = Depends(require_session),
-    ctx: AppContext = Depends(get_context),
-):
-    """Stop wanting the issue (AcquisitionIntent.IGNORED); stamp status=ignored."""
-    return _resolution_response(
-        dl_service.resolve_needs_attention(ctx, release_key, "stop_wanting", audit_identity=username)
-    )
-
-
-@router.post("/needs-attention/{release_key:path}/import", deprecated=True)
-def needs_attention_import(
-    release_key: str,
-    request_body: dict = None,
-    username: str = Depends(require_session),
-    ctx: AppContext = Depends(get_context),
-):
-    """Route through validated post-process; stamp status=imported only on success."""
-    body = request_body or {}
-    return _resolution_response(
-        dl_service.resolve_needs_attention(
-            ctx,
-            release_key,
-            "import",
-            audit_identity=username,
-            nzb_name=body.get("nzb_name"),
-            nzb_folder=body.get("nzb_folder"),
-        )
-    )
 
 
 @router.get("/queue", dependencies=[Depends(require_session)])

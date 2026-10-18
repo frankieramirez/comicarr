@@ -128,14 +128,15 @@ views. `POST /api/attention/resolve` accepts one action and one or more
 `release_keys`; it is the canonical path for individual and bulk operator exits.
 The authenticated session supplies the actor.
 
-The bundled frontend uses these routes immediately. `GET /api/activity/band`
-and the existing Downloads resolution POST routes remain deprecated,
-serialization-only adapters. The seam guard fails at 0.49.0 so they leave in
-0.49.x; 0.50.0 ships without them (ADR-0003 amendment). Removing the GET
-adapter also requires a SPA-fallback fix: unknown `/api/*` paths currently
-answer 200 HTML rather than 404.
-The unused raw `GET /api/downloads/needs-attention` route is removed immediately;
-it returned journal rows rather than the actionable grouped contract.
+The bundled frontend uses only these routes. The deprecated compatibility
+adapters — `GET /api/activity/band` and the five
+`POST /api/downloads/needs-attention/...` resolution routes — were removed in
+0.49.x, so 0.50.0 ships without them (ADR-0003). The SPA fallback no longer
+answers `/api/*` paths, so a removed or unknown API route returns a JSON 404
+instead of 200 HTML.
+The unused raw `GET /api/downloads/needs-attention` route was removed when the
+canonical interface shipped; it returned journal rows rather than the actionable
+grouped contract.
 
 ### Triage route (`/activity/attention`)
 

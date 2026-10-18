@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-12
-**Amended:** 2026-10-08
+**Amended:** 2026-10-08, 2026-10-17
 **Related:** [ADR-0001](./0001-band-actionability.md),
 [Activity Center contract](../architecture/activity-center.md)
 
@@ -170,6 +170,20 @@ prerequisite for that GET removal. The adapters stay until 0.50.0 so the
 removal is dated and not a surprise hole in the SPA. The seam guard trips at
 0.49.0 — one minor early — because the Changesets Version Packages PR cannot
 run tests.
+
+## Amendment (2026-10-17): adapters removed in 0.49.x
+
+The six compatibility adapters listed above were deleted in 0.49.x, together
+with the `comicarr.app.activity.reasons` and `comicarr.app.activity.reconcile`
+re-export modules and the Activity band projections that reached into
+Attention's private reader and serializer. The seam guard's dated-shim
+category and its package-version expiry check existed only to force this
+deletion, so they went with it; only the two internal hooks remain
+allowlisted. The prerequisite SPA-fallback fix shipped in the same
+change: the static mount no longer serves `index.html` for paths under `/api`,
+so the removed routes, and any other unknown API path, answer a JSON `404`.
+`GET /api/attention` and `POST /api/attention/resolve` are the only HTTP
+interface to the queue.
 
 ## Rejected alternatives
 
