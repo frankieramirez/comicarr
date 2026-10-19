@@ -20,23 +20,26 @@ function renderChat(route = "/chat") {
 }
 
 describe("ChatPage", () => {
-  it("announces loading while AI status is pending", () => {
+  it("announces loading while AI status is pending", async () => {
+    let release: (() => void) | undefined;
     server.use(
-      http.get(
-        "/api/ai/status",
-        () =>
-          new Promise(() => {
-            /* hang so the loading branch stays mounted */
-          }),
-      ),
+      http.get("/api/ai/status", () => {
+        return new Promise((resolve) => {
+          release = () =>
+            resolve(
+              HttpResponse.json({ configured: false, circuit_state: "closed" }),
+            );
+        });
+      }),
     );
 
     renderChat();
 
-    expect(screen.getByRole("heading", { level: 1, name: "Chat" })).toBeTruthy();
     expect(
-      screen.getByRole("status", { name: "Loading chat" }),
+      screen.getByRole("heading", { level: 1, name: "Chat" }),
     ).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Loading chat" })).toBeTruthy();
+    release?.();
   });
 
   it("directs unconfigured users to AI settings", async () => {

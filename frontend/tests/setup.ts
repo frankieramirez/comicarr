@@ -16,18 +16,25 @@ import { server } from "./mocks/server";
 // Start MSW server before all tests
 beforeAll(() => {
   server.listen({
-    onUnhandledRequest: "warn", // Warn about unhandled requests during tests
+    // Unmocked fetches used to fall through to localhost, ECONNREFUSED after
+    // the test finished, and race vitest 5's onUserConsoleLog RPC
+    // (EnvironmentTeardownError) even when every assertion passed.
+    onUnhandledRequest: "error",
   });
 });
 
 // Reset handlers after each test (remove any test-specific handlers)
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // happy-dom kicks off <img> fetches after render; give intercepted
+  // responses a turn to settle before MSW resets or the worker tears down.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   server.resetHandlers();
 });
 
 // Close MSW server after all tests
-afterAll(() => {
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
   server.close();
 });
 
