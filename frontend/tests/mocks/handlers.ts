@@ -176,6 +176,16 @@ export const handlers = [
     }),
   ),
 
+  http.get("/api/activity/timeline", () =>
+    HttpResponse.json({
+      results: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+      has_more: false,
+    }),
+  ),
+
   // Needs-attention groups (dashboard §3.2 / Activity Center band). Default
   // empty so a page that mounts the band never invents trouble.
   http.get("/api/attention", () =>
@@ -255,6 +265,20 @@ export const handlers = [
     }),
   ),
 
+  http.get("/api/weekly", () =>
+    HttpResponse.json({
+      week: "41",
+      year: "2026",
+      start: "2026-10-11",
+      end: "2026-10-17",
+      offset: 0,
+      prev: { week: "40", year: "2026" },
+      next: { week: "42", year: "2026" },
+      source: "stored",
+      rows: [],
+    }),
+  ),
+
   http.get("/api/system/jobs", () =>
     HttpResponse.json({
       jobs: [
@@ -295,6 +319,15 @@ export const handlers = [
       pagination: { total: 1, limit: 50, offset: 0, returned: 1 },
     });
   }),
+
+  http.get("/api/wanted", () =>
+    HttpResponse.json({
+      issues: [],
+      pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+    }),
+  ),
+
+  http.get("/api/upcoming", () => HttpResponse.json([])),
 
   http.get("/api/series/:comicId", ({ params }) => {
     const comic = mockComics.find((c) => c.ComicID === params.comicId);
@@ -426,6 +459,34 @@ export const handlers = [
     });
   }),
 
+  // Dashboard HealthBand and Settings → Acquisition poll this on mount.
+  http.get("/api/search/health", () =>
+    HttpResponse.json({
+      viable_route: true,
+      routes: {
+        nzb: {
+          ready: true,
+          reason: "ready",
+          downstream: "sabnzbd",
+          providers: [
+            {
+              name: "nzbgeek",
+              kind: "newznab",
+              blocked: false,
+              attempted: true,
+            },
+          ],
+        },
+      },
+      workers: { search: { state: "idle", alive: true, healthy: true } },
+      maintenance: { blocked: false },
+      blocked_producer_count: 0,
+      providers: [
+        { provider: "nzbgeek", lastrun: Math.floor(Date.now() / 1000) - 720 },
+      ],
+    }),
+  ),
+
   // -------------------------------------------------------------------------
   // Config endpoints
   // -------------------------------------------------------------------------
@@ -439,6 +500,14 @@ export const handlers = [
       api_enabled: true,
     });
   }),
+
+  http.get("/api/import", () =>
+    HttpResponse.json({
+      imports: [],
+      pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+      summary: { group_count: 0, file_count: 0 },
+    }),
+  ),
 
   http.get("/api/import/comic/progress", () =>
     HttpResponse.json({
@@ -525,6 +594,24 @@ export const handlers = [
     });
   }),
 
+  http.get("/api/system/logs/files", () => HttpResponse.json({ files: [] })),
+
+  http.get("/api/system/logs", () =>
+    HttpResponse.json({
+      logs: [],
+      level: {
+        effective: 1,
+        effective_name: "info",
+        saved: 1,
+        saved_name: "info",
+        restart_level: 1,
+        restart_name: "info",
+        restart_source: "the config file",
+        pinned: false,
+      },
+    }),
+  ),
+
   http.post("/api/system/shutdown", () => {
     return HttpResponse.json({ success: true, message: "Shutdown initiated" });
   }),
@@ -532,6 +619,18 @@ export const handlers = [
   http.post("/api/system/restart", () => {
     return HttpResponse.json({ success: true, message: "Restart initiated" });
   }),
+
+  // -------------------------------------------------------------------------
+  // AI endpoints
+  // -------------------------------------------------------------------------
+
+  http.get("/api/ai/status", () =>
+    HttpResponse.json({ configured: false, circuit_state: "closed" }),
+  ),
+
+  http.get("/api/ai/chat/threads", () =>
+    HttpResponse.json({ threads: [], next_cursor: null }),
+  ),
 
   // -------------------------------------------------------------------------
   // Metadata endpoints
@@ -544,6 +643,26 @@ export const handlers = [
   http.get("/api/metadata/series-image/:seriesId", () => {
     return HttpResponse.json({ image: null });
   }),
+
+  // happy-dom fetches <img src>. Without a handler those requests fall through
+  // to localhost after the test ends and race vitest 5's console RPC.
+  http.get(
+    "/api/metadata/art/:seriesId",
+    () =>
+      new HttpResponse(new Uint8Array(), {
+        status: 200,
+        headers: { "Content-Type": "image/png" },
+      }),
+  ),
+
+  http.get(
+    "https://example.com/*",
+    () =>
+      new HttpResponse(new Uint8Array(), {
+        status: 200,
+        headers: { "Content-Type": "image/jpeg" },
+      }),
+  ),
 
   // -------------------------------------------------------------------------
   // Story arcs endpoints
