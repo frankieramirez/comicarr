@@ -3,7 +3,7 @@ name = "comicarr"
 version = "0.50.0"
 description = "Automated Comic Book Manager"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
     "APScheduler>=3.6.3",
@@ -18,7 +18,7 @@ dependencies = [
     "natsort>=3.5.2",
     "openai>=2.30.0",
     "packaging>=22.0",
-    "Pillow>=12.3.0",
+    "Pillow>=13.0.0",
     "pycryptodome>=3.19.0",
     "PyJWT>=2.13.0",
     "python-multipart>=0.0.32",
@@ -55,7 +55,6 @@ dev = [
     "pre-commit>=4.0.0",
     "pyyaml>=6.0",
     "ruff>=0.15.7",
-    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [build-system]
