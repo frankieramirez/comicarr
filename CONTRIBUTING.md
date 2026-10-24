@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Comicarr! This guide will help yo
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Node.js 22+ for the frontend build and raw Vite server
 - [uv](https://docs.astral.sh/uv/) (recommended for Python dependency management)
 
