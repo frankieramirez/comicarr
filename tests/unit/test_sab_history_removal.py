@@ -140,6 +140,82 @@ def test_historycheck_omits_category_when_ignore_category(sab_config, monkeypatc
     assert "category" not in get.call_args.kwargs["params"]
 
 
+def test_historycheck_retries_without_category_when_the_filter_hides_the_job(sab_config, monkeypatch, tmp_path):
+    """A completed job moved out of SAB_CATEGORY is invisible to the filtered
+    history call. The live monitor must look again without that filter (#1129).
+    """
+    archive = tmp_path / "Absolute.Superman.013.cbr"
+    archive.write_bytes(b"comic")
+    sab_config.SAB_REMOVE_COMPLETED = False
+    empty = MagicMock()
+    empty.json.return_value = {"history": {"slots": []}}
+    found = MagicMock()
+    found.json.return_value = {
+        "history": {
+            "slots": [
+                {
+                    "nzo_id": "SABnzbd_nzo_abc123",
+                    "status": "Completed",
+                    "script": "None",
+                    "storage": str(archive),
+                    "nzb_name": "Absolute.Superman.013.nzb",
+                    "bytes": "1000",
+                }
+            ]
+        }
+    }
+    get = MagicMock(side_effect=[empty, found])
+    monkeypatch.setattr(sabnzbd.requests, "get", get)
+    nzbinfo = {"nzo_id": "SABnzbd_nzo_abc123", "issueid": "1", "comicid": "2", "download_info": {}}
+
+    result = sabnzbd.SABnzbd({}).historycheck(nzbinfo)
+
+    assert result["status"] is True
+    assert result["location"] == str(tmp_path)
+    assert get.call_args_list[0].kwargs["params"]["category"] == "comics"
+    assert "category" not in get.call_args_list[1].kwargs["params"]
+
+
+def test_historycheck_matches_a_completed_job_by_release_name(sab_config, monkeypatch, tmp_path):
+    """Rows reconstructed without nzo_id can still be the completed archive."""
+    archive = tmp_path / "Absolute Superman 013.cbr"
+    archive.write_bytes(b"comic")
+    sab_config.SAB_REMOVE_COMPLETED = False
+    empty = MagicMock()
+    empty.json.return_value = {"history": {"slots": []}}
+    named = MagicMock()
+    named.json.return_value = {
+        "history": {
+            "slots": [
+                {
+                    "nzo_id": "SABnzbd_nzo_real",
+                    "status": "Completed",
+                    "script": "None",
+                    "storage": str(archive),
+                    "nzb_name": "Absolute.Superman.013.nzb",
+                }
+            ]
+        }
+    }
+    found = MagicMock()
+    found.json.return_value = named.json.return_value
+    get = MagicMock(side_effect=[empty, named, found])
+    monkeypatch.setattr(sabnzbd.requests, "get", get)
+    nzbinfo = {
+        "nzo_id": "missing-id",
+        "nzbname": "Absolute.Superman.013.nzb",
+        "issueid": "13",
+        "comicid": "2",
+        "download_info": {},
+    }
+
+    result = sabnzbd.SABnzbd({}).historycheck(nzbinfo, ignore_category=True)
+
+    assert result["status"] is True
+    assert result["name"] == "Absolute Superman 013.cbr"
+    assert get.call_args_list[2].kwargs["params"]["nzo_ids"] == "SABnzbd_nzo_real"
+
+
 def test_historycheck_preserves_ignore_category_across_recursion(sab_config, monkeypatch):
     empty = MagicMock()
     empty.json.return_value = {"history": {"slots": []}}

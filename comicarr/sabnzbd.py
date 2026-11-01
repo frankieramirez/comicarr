@@ -40,6 +40,103 @@ def _stage_action_text(actions):
     return " ".join(str(part) for part in actions)
 
 
+_RELEASE_NAME_KEYS = ("nzbname", "nzb_name", "name", "filename")
+
+
+_ARCHIVE_EXTENSION = re.compile(r"\.(?:cbr|cbz|zip|rar|7z|pdf)$", re.IGNORECASE)
+
+
+def normalize_release_name(value):
+    """Compare SAB history names with the release name Comicarr stored.
+
+    SAB keeps the ``nzbname`` it was given, while ``storage`` is often the
+    archive (``.cbr`` / ``.cbz``) with dots or underscores instead of spaces.
+    Issue numbers such as ``.013`` are part of the name, not an extension.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = os.path.basename(text)
+    text = re.sub(r"\.nzb$", "", text, flags=re.IGNORECASE)
+    text = _ARCHIVE_EXTENSION.sub("", text)
+    text = text.replace("_", " ").replace(".", " ")
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def release_names(*sources):
+    """Return raw release-name strings from nzbinfo, journal payloads, or slots."""
+    found = []
+    seen = set()
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        blobs = [source]
+        download_info = source.get("download_info")
+        if isinstance(download_info, dict):
+            blobs.append(download_info)
+        for blob in blobs:
+            for key in _RELEASE_NAME_KEYS:
+                raw = blob.get(key)
+                normalized = normalize_release_name(raw)
+                if normalized and normalized not in seen:
+                    seen.add(normalized)
+                    found.append(raw)
+    return found
+
+
+def match_completed_slot(slots, names):
+    """Return the single Completed history slot whose name matches, or None.
+
+    More than one distinct ``nzo_id`` is ambiguous — importing the wrong
+    archive is worse than leaving the row snatched for a manual retry.
+    """
+    wanted = {normalize_release_name(name) for name in names or ()}
+    wanted.discard("")
+    if not wanted:
+        return None
+    matches = []
+    seen_ids = set()
+    for slot in slots or []:
+        if not isinstance(slot, dict) or slot.get("status") != "Completed":
+            continue
+        slot_names = {normalize_release_name(slot.get(key)) for key in ("nzb_name", "filename", "name")}
+        storage = slot.get("storage") or ""
+        if storage:
+            base = os.path.basename(str(storage))
+            slot_names.add(normalize_release_name(base))
+        slot_names.discard("")
+        if not (wanted & slot_names):
+            continue
+        nzo_id = slot.get("nzo_id")
+        if nzo_id in seen_ids:
+            continue
+        seen_ids.add(nzo_id)
+        matches.append(slot)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        logger.warn("[SABNZBD] %d completed history jobs match this release name; not choosing one." % len(matches))
+    return None
+
+
+def _accepted_nzo_id(sendresponse):
+    """The client id from an addfile response. One job, one id.
+
+    Joining every id concatenates them into a value that matches nothing in
+    history. A missing id stays empty so acceptance can refuse the handoff.
+    """
+    raw_ids = sendresponse.get("nzo_ids")
+    if isinstance(raw_ids, str):
+        return raw_ids.strip()
+    if isinstance(raw_ids, list):
+        for raw in raw_ids:
+            text = str(raw or "").strip()
+            if text:
+                return text
+        return ""
+    return str(sendresponse.get("nzo_id") or "").strip()
+
+
 class SABnzbd(object):
     def __init__(self, params):
         self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
@@ -101,13 +198,14 @@ class SABnzbd(object):
             )
             return {"status": False}
 
-        if sendresponse["status"] is True:
+        nzo_id = _accepted_nzo_id(sendresponse)
+        if sendresponse["status"] is True and nzo_id:
             queue_params = {
                 "status": True,
-                "nzo_id": "".join(sendresponse["nzo_ids"]),
+                "nzo_id": nzo_id,
                 "queue": {
                     "mode": "queue",
-                    "search": "".join(sendresponse["nzo_ids"]),
+                    "search": nzo_id,
                     "output": "json",
                     "apikey": comicarr.CONFIG.SAB_APIKEY,
                 },
@@ -157,8 +255,10 @@ class SABnzbd(object):
             tmp_apikey = self.params["queue"].pop("apikey")
             self.params["queue"].pop("search")
             self.params["queue"]["nzo_ids"] = self.params["nzo_id"]
-            if comicarr.CONFIG.SAB_CATEGORY is not None:
-                self.params["queue"]["category"] = comicarr.CONFIG.SAB_CATEGORY
+            # A known nzo_id is unique. SAB's category filter hides a job that
+            # change_cat or sorting moved out of SAB_CATEGORY, so the monitor
+            # never sees it finish (#1129).
+            self.params["queue"].pop("category", None)
             logger.fdebug("[SAB-QUEUE] parameters set to %s" % self.params)
             self.params["queue"]["apikey"] = tmp_apikey
             time.sleep(5)
@@ -168,7 +268,7 @@ class SABnzbd(object):
                 "[SAB-QUEUE] uh-oh: %s"
                 % redact_sensitive_text(e, secrets=(getattr(comicarr.CONFIG, "SAB_APIKEY", None),))
             )
-            return self.historycheck(self.params)
+            return self.historycheck(self.params, ignore_category=True)
         else:
             queueresponse = h.json()
             logger.fdebug("successfully queried the queue for status")
@@ -212,13 +312,11 @@ class SABnzbd(object):
                     try:
                         queueinfo = queueresponse["queue"]["slots"][0]
                     except Exception:
-                        try:
-                            tmp_queue.pop("nzo_ids")
-                        except Exception:
-                            no_findie = True
-                        else:
-                            tmp_queue["nzo_ids"] = self.params["nzo_id"]
-                            queueinfo = queueresponse["queue"]
+                        # This nzo_id has left the active queue. Watching the
+                        # whole queue's mbleft blocks every other completed job
+                        # until SAB is idle, which is how a finished download
+                        # stays Snatched (#1129).
+                        break
 
                     logger.fdebug(
                         "status: %s -- mb_left: %s -- time_left: %s"
@@ -231,7 +329,7 @@ class SABnzbd(object):
                 logger.warn("error: %s" % e)
 
             logger.info("File has now downloaded!")
-            return self.historycheck(self.params)
+            return self.historycheck(self.params, ignore_category=True)
 
     def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False):
         sendresponse = nzbinfo["nzo_id"]
@@ -450,6 +548,27 @@ class SABnzbd(object):
                         return {"failed": False, "status": "unhandled status of: %s" % (hq["status"])}
 
             if not nzo_exists:
+                if not ignore_category:
+                    logger.fdebug(
+                        "[SABNZBD] %s was not in the category-filtered history; "
+                        "retrying without the category filter." % sendresponse
+                    )
+                    return self.historycheck(
+                        nzbinfo,
+                        roundtwo=roundtwo,
+                        extract_counter=extract_counter,
+                        ignore_category=True,
+                    )
+                matched = None if nzbinfo.get("_name_matched") else self.match_completed_history(nzbinfo)
+                if matched and matched.get("nzo_id") and matched.get("nzo_id") != sendresponse:
+                    logger.info(
+                        "[SABNZBD] %s was not in history; matched completed job %s by release name."
+                        % (sendresponse, matched.get("nzo_id"))
+                    )
+                    renamed = dict(nzbinfo)
+                    renamed["nzo_id"] = matched.get("nzo_id")
+                    renamed["_name_matched"] = True
+                    return self.historycheck(renamed, roundtwo=True, ignore_category=True)
                 logger.error("Cannot find nzb %s in the queue.  Was it removed?" % sendresponse)
                 logger.fdebug(
                     "sleeping for %ss to allow the process to finish before trying again.."
@@ -472,6 +591,46 @@ class SABnzbd(object):
             return {"status": False, "failed": False}
 
         return found
+
+    def list_history_slots(self, search=None, limit=200):
+        """Completed-download history without a category filter.
+
+        ``nzo_ids`` plus ``category`` hides a job SAB moved. Name reconciliation
+        needs the slot itself, so this listing does not filter by category.
+        """
+        params = {
+            "mode": "history",
+            "output": "json",
+            "limit": str(limit),
+            "apikey": comicarr.CONFIG.SAB_APIKEY,
+        }
+        if search:
+            params["search"] = search
+        response = requests.get(
+            self.sab_url,
+            params=params,
+            verify=getattr(comicarr.CONFIG, "SAB_VERIFY", False),
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        history = payload.get("history") if isinstance(payload, dict) else None
+        slots = history.get("slots") if isinstance(history, dict) else None
+        if not isinstance(slots, list):
+            return []
+        return [slot for slot in slots if isinstance(slot, dict)]
+
+    def match_completed_history(self, nzbinfo):
+        """Find one Completed history slot by release name. None if ambiguous."""
+        names = release_names(nzbinfo)
+        if not names:
+            return None
+        slots = self.list_history_slots(search=names[0], limit=50)
+        match = match_completed_slot(slots, names)
+        if match is None:
+            slots = self.list_history_slots(limit=200)
+            match = match_completed_slot(slots, names)
+        return match
 
     def remove_history(self, nzo_id, status):
         logger.info("[Sabnzbd Completed History Removal] Download is complete - removing item from history..")

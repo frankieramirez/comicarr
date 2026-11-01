@@ -81,6 +81,7 @@ SCHEDULER_JOB_NAMES = {
     "monitor": "Folder Monitor",
     "importinbox": "Import Inbox Scanner",
     "ddl_health": "DDL Health Check",
+    "sab_completed_reconcile": "SABnzbd Completed Reconcile",
     "ledger_retention": "Ledger Retention",
     "activity_retention": "Activity Event Retention",
     "interactive_search_retention": "Interactive Search Retention",

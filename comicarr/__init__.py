@@ -354,6 +354,43 @@ def _add_recurring_job(**kwargs):
     return SCHED.add_job(max_instances=1, coalesce=True, **kwargs)
 
 
+def ensure_sab_completed_reconcile():
+    """Keep the completed-SABnzbd sweep scheduled while client post-processing is on.
+
+    The job is a no-op when SABnzbd monitoring is off, and it is not added for
+    NZBGet. Enabling the setting at runtime starts it; disabling pauses it.
+    """
+    from comicarr.app.downloads.sab_reconcile import INTERVAL_MINUTES, JOB_ID
+
+    enabled = bool(
+        getattr(CONFIG, "POST_PROCESSING", False)
+        and getattr(CONFIG, "NZB_DOWNLOADER", None) == 0
+        and getattr(CONFIG, "SAB_CLIENT_POST_PROCESSING", False)
+    )
+    try:
+        existing = SCHED.get_job(JOB_ID)
+    except Exception:
+        existing = None
+    if not enabled:
+        if existing is not None:
+            existing.pause()
+        return existing
+    if existing is not None:
+        try:
+            existing.resume()
+        except Exception as e:
+            logger.fdebug("[SAB-RECONCILE] could not resume %s: %s" % (JOB_ID, e))
+        return existing
+    job = _add_recurring_job(
+        func=helpers.reconcile_completed_sab_downloads,
+        id=JOB_ID,
+        name="SABnzbd Completed Reconcile",
+        trigger=IntervalTrigger(minutes=INTERVAL_MINUTES, timezone="UTC"),
+    )
+    logger.info("[SAB-RECONCILE] Checking completed SABnzbd history every %s minutes." % INTERVAL_MINUTES)
+    return job
+
+
 def initialize(config_file):
     with INIT_LOCK:
         global \
@@ -1175,6 +1212,7 @@ def start(ctx):
                 or all([CONFIG.NZB_DOWNLOADER == 1, CONFIG.NZBGET_CLIENT_POST_PROCESSING is True])
             ):
                 queue_schedule("nzb_queue", "start", ctx=ctx)
+            ensure_sab_completed_reconcile()
 
             if CONFIG.POST_PROCESSING is True:
                 queue_schedule("pp_queue", "start", ctx=ctx)

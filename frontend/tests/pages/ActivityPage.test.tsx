@@ -494,6 +494,9 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("Nothing has happened yet")).toBeNull();
     expect(screen.queryByText("Absolute Flash")).toBeNull();
     expect(
+      screen.queryByRole("button", { name: /Retry post-processing/ }),
+    ).toBeNull();
+    expect(
       screen.queryByRole("textbox", { name: "Filter queue activity" }),
     ).toBeNull();
     expect(inFlightCalls).toBeGreaterThan(0);
@@ -544,6 +547,54 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(cancelBody).toEqual({ kind: "run", item_id: 11 });
     });
+  });
+
+  it("retries post-processing for a snatched SABnzbd row", async () => {
+    let retryBody: unknown;
+    server.use(
+      http.get("/api/activity/in-flight", () =>
+        HttpResponse.json({
+          results: [
+            {
+              kind: "journal",
+              release_key: "13|nzbgeek",
+              stage: "snatched",
+              label: "Absolute Superman #13",
+              issueid: "13",
+              comicid: "4050-123",
+              provider: "NZBGeek",
+              updated_at: "2026-07-10 12:00:00",
+              retry_postprocess: true,
+            },
+          ],
+          total: 1,
+        }),
+      ),
+      http.post("/api/downloads/retry-postprocess", async ({ request }) => {
+        retryBody = await request.json();
+        return HttpResponse.json({
+          success: true,
+          release_key: "13|nzbgeek",
+          action: "enqueued",
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ActivityPage />, {
+      route: "/activity?state=in_flight",
+      useMemoryRouter: true,
+    });
+
+    await screen.findByText("Absolute Superman #13");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Retry post-processing Absolute Superman #13",
+      }),
+    );
+    await waitFor(() => {
+      expect(retryBody).toEqual({ release_key: "13|nzbgeek" });
+    });
+    expect(await screen.findByText("Post-processing queued")).toBeTruthy();
   });
 
   it("uses the shared table for history with newest-first defaults", async () => {

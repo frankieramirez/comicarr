@@ -77,6 +77,7 @@ from comicarr.app.core.security import (  # noqa: F401
     create_https_certificates,
     remove_apikey,
 )
+from comicarr.app.downloads.sab_reconcile import reconcile_completed_sab_downloads  # noqa: F401
 from comicarr.app.downloads.service import (  # noqa: F401
     cdh_monitor,
     check_file_condition,

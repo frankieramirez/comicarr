@@ -364,6 +364,12 @@ def _merge_completion_evidence(payload, details):
         merged["nzb_name"] = name
     if details.get("failed") is not None:
         merged["failed"] = bool(details.get("failed"))
+    nzo_id = details.get("nzo_id")
+    if nzo_id and not merged.get("nzo_id"):
+        merged["nzo_id"] = str(nzo_id)
+        download_info = dict(merged.get("download_info") or {})
+        download_info.setdefault("nzo_id", str(nzo_id))
+        merged["download_info"] = download_info
     return merged
 
 
@@ -668,6 +674,7 @@ def _resolve_row(snapshot_row, probes=None):
         return "failed-no-auto-handling"
 
     if details.get("raw_state") == "unplaced":
+        payload = _merge_completion_evidence(payload, details)
         record(
             ManualReview(
                 release_key=rkey,

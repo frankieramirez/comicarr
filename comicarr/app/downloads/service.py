@@ -1926,7 +1926,7 @@ def nzb_monitor(queue):
                                     entity_id=qu_retrieve.get("journal_release_key") or qu_retrieve.get("nzo_id"),
                                 ) as lease:
                                     controller.assert_lease_current(lease)
-                                    nzstat = s.historycheck(qu_retrieve)
+                                    nzstat = s.historycheck(qu_retrieve, ignore_category=True)
                                     cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
                             except MaintenanceBlocked:
                                 comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)

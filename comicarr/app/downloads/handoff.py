@@ -192,6 +192,10 @@ def record_acceptance(release_key, route, response, payload=None, **fields):
     accepted_payload["client"] = normalized
     if identity_key and identity not in (None, ""):
         accepted_payload[identity_key] = str(identity)
+        if identity_key == "nzo_id":
+            download_info = dict(accepted_payload.get("download_info") or {})
+            download_info["nzo_id"] = str(identity)
+            accepted_payload["download_info"] = download_info
     acceptance_fields = dict(fields)
     if identity_key == "hash" and identity not in (None, ""):
         acceptance_fields.setdefault("hash", str(identity))
