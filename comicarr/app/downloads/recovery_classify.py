@@ -340,25 +340,74 @@ def _probe_torrent(row, payload=None):
     return "absent"
 
 
-def _sab_history_or_queue(row, payload=None):
+def _sab_client_id(payload, row):
+    """The SABnzbd job id, when the journal actually stored one.
+
+    ``download_info.id`` is the indexer id, not the client id, unless it
+    carries SAB's ``SABnzbd_nzo_`` prefix.
+    """
+    payload = payload or {}
+    di = payload.get("download_info") or {}
+    row = row or {}
+    for candidate in (payload.get("nzo_id"), di.get("nzo_id"), row.get("nzo_id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    indexer_id = di.get("id")
+    if indexer_id not in (None, "") and str(indexer_id).startswith("SABnzbd_nzo"):
+        return str(indexer_id)
+    return None
+
+
+def _sab_history_or_queue(row, payload=None, keep_history=False):
     """SAB: still in active queue ⇒ still; in history success ⇒ complete;
     not found in either ⇒ absent. Queries the SAB queue first, then
     reuses sabnzbd.SABnzbd.historycheck() (history lookup by nzo_id) —
-    the same path nzb_monitor/cdh use."""
+    the same path nzb_monitor/cdh use.
+
+    A missing ``nzo_id`` is a property of the row, not a SAB outage. Match
+    Completed history by release name before giving up (#1129). No id and no
+    name is ``unprobeable``, the same distinction NZBGet already makes.
+
+    ``keep_history`` keeps the SAB history entry (see
+    ``SABnzbd.historycheck``) for callers that remove it only after they have
+    durably recorded the result.
+    """
     payload = payload if payload is not None else journal.load_payload(row.get("payload_json"))
     payload = payload or {}
     di = payload.get("download_info") or {}
-    nzo_id = payload.get("nzo_id") or di.get("nzo_id") or row.get("nzo_id")
-    if not nzo_id:
-        logger.warn("[RECOVERY-CLASSIFY] SAB row %s has no nzo_id to probe." % row.get("release_key"))
-        return "unreachable"
+    nzo_id = _sab_client_id(payload, row)
+    names = None
     try:
         from comicarr import sabnzbd
 
+        names = sabnzbd.release_names(payload, di, row)
+        s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        if not nzo_id:
+            if not names:
+                logger.warn(
+                    "[RECOVERY-CLASSIFY] SAB row %s has no nzo_id and no release name to probe."
+                    % row.get("release_key")
+                )
+                return "unprobeable"
+            slot = s.match_completed_history(
+                {"nzbname": names[0], "download_info": di, "nzb_name": payload.get("nzb_name")}
+            )
+            if not slot or not slot.get("nzo_id"):
+                logger.warn(
+                    "[RECOVERY-CLASSIFY] SAB row %s has no nzo_id and no completed history match."
+                    % row.get("release_key")
+                )
+                return "unprobeable"
+            nzo_id = slot.get("nzo_id")
+            logger.info(
+                "[RECOVERY-CLASSIFY] SAB row %s matched completed history %s by release name."
+                % (row.get("release_key"), nzo_id)
+            )
         nzbinfo = {
             "nzo_id": nzo_id,
             "issueid": row.get("issueid"),
             "comicid": payload.get("comicid"),
+            "nzbname": payload.get("nzbname") or payload.get("nzb_name") or (names[0] if names else None),
             "download_info": di,
             "queue": {
                 "mode": "queue",
@@ -367,15 +416,17 @@ def _sab_history_or_queue(row, payload=None):
                 "apikey": comicarr.CONFIG.SAB_APIKEY,
             },
         }
-        s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
         # Bypass SAB's category filter: change_cat can move a live NZO out of
         # SAB_CATEGORY, which would hide it from both probes and yield GONE.
         if s.queuecheck(nzo_id, ignore_category=True):
             return "still"
-        nzstat = s.historycheck(nzbinfo, ignore_category=True)
+        nzstat = s.historycheck(nzbinfo, ignore_category=True, keep_history=keep_history)
     except Exception as e:
-        logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id, e))
+        logger.warn("[RECOVERY-CLASSIFY] SAB unreachable probing %s: %s" % (nzo_id or row.get("release_key"), e))
         return "unreachable"
+    if isinstance(nzstat, dict) and nzo_id and not nzstat.get("nzo_id"):
+        nzstat = dict(nzstat)
+        nzstat["nzo_id"] = nzo_id
     return nzstat
 
 
@@ -453,18 +504,19 @@ def _probe_evidence(raw):
     the path historycheck already resolved.
     """
     if isinstance(raw, str):
-        return raw, None, None, None
+        return raw, None, None, None, None
     if not isinstance(raw, dict):
-        return "unreachable", None, None, None
+        return "unreachable", None, None, None, None
     location = raw.get("location")
     name = raw.get("name")
     failed = raw.get("failed")
+    nzo_id = raw.get("nzo_id")
     status = raw.get("status")
     if status in _RAW_PROBE_STATES:
         raw_state = status
     else:
         raw_state = _nzstat_to_raw(raw)
-    return raw_state, location, name, failed
+    return raw_state, location, name, failed, nzo_id
 
 
 def _empty_details(verdict=UNKNOWN, raw_state=None):
@@ -477,9 +529,9 @@ def _empty_details(verdict=UNKNOWN, raw_state=None):
     }
 
 
-def _probe_nzb(row, payload=None):
+def _probe_nzb(row, payload=None, keep_history=False):
     if comicarr.USE_SABNZBD is True:
-        return _sab_history_or_queue(row, payload=payload)
+        return _sab_history_or_queue(row, payload=payload, keep_history=keep_history)
     if comicarr.USE_NZBGET is True:
         return _nzbget_history(row, payload=payload)
     logger.warn("[RECOVERY-CLASSIFY] No NZB client enabled — cannot probe %s." % row.get("release_key"))
@@ -559,6 +611,9 @@ _DEFAULT_PROBES = {
     "DDL": _probe_ddl,
 }
 
+# Probes whose SAB history lookup can delete the entry it reads.
+_HISTORY_CONSUMING_PROBES = frozenset({_probe_nzb, _sab_history_or_queue})
+
 
 def _resolve_downloader(row, payload=None):
     payload = payload if payload is not None else journal.load_payload((row or {}).get("payload_json"))
@@ -580,7 +635,7 @@ def _resolve_downloader(row, payload=None):
     return "nzb"
 
 
-def classify_details(row, probes=None, payload=None):
+def classify_details(row, probes=None, payload=None, keep_history=False):
     """Classify one open journal row and return completion evidence.
 
     Returns ``{verdict, location, name, failed, raw_state}``. ``verdict`` is
@@ -605,6 +660,9 @@ def classify_details(row, probes=None, payload=None):
     existing callers/tests still work. The injectable `probes` are still
     invoked as probe(row) (the test seam's contract); the built-in probes do
     their own single internal parse.
+
+    `keep_history`: probe SABnzbd without applying SAB_REMOVE_COMPLETED /
+    SAB_REMOVE_FAILED, for callers that have not yet recorded the result.
     """
     if not row:
         return _empty_details(UNKNOWN)
@@ -621,17 +679,21 @@ def classify_details(row, probes=None, payload=None):
         return _empty_details(UNKNOWN)
 
     try:
-        raw = probe(row)
+        if keep_history and probe in _HISTORY_CONSUMING_PROBES:
+            raw = probe(row, keep_history=True)
+        else:
+            raw = probe(row)
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] probe raised for %s (%s) — UNKNOWN: %s" % (rkey, downloader, e))
         return _empty_details(UNKNOWN)
 
-    raw_state, location, name, failed = _probe_evidence(raw)
+    raw_state, location, name, failed, nzo_id = _probe_evidence(raw)
     details = {
         "verdict": UNKNOWN,
         "location": location,
         "name": name,
         "failed": failed,
+        "nzo_id": nzo_id,
         "raw_state": raw_state,
     }
 

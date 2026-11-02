@@ -136,6 +136,24 @@ def test_sender_redacts_api_key_from_request_exception_logs(sab_config):
     assert "[SAB-SEND]" in rendered
 
 
+def test_sender_uses_the_first_nzo_id_when_sab_returns_several(sab_config, cached_nzb):
+    """Joining every id produces a value that matches no history row."""
+    response = MagicMock()
+    response.json.return_value = {"status": True, "nzo_ids": ["SABnzbd_nzo_one", "SABnzbd_nzo_two"]}
+    with patch.object(sabnzbd.requests, "post", return_value=response):
+        result = sabnzbd.SABnzbd(_params()).sender(str(cached_nzb))
+
+    assert result["nzo_id"] == "SABnzbd_nzo_one"
+    assert result["queue"]["search"] == "SABnzbd_nzo_one"
+
+
+def test_sender_rejects_an_acceptance_with_no_nzo_id(sab_config, cached_nzb):
+    response = MagicMock()
+    response.json.return_value = {"status": True, "nzo_ids": []}
+    with patch.object(sabnzbd.requests, "post", return_value=response):
+        assert sabnzbd.SABnzbd(_params()).sender(str(cached_nzb)) == {"status": False}
+
+
 def test_rejected_submission_returns_status_false(sab_config, cached_nzb):
     response = MagicMock()
     response.json.return_value = {"status": False, "error": "nope"}

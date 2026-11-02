@@ -12,12 +12,14 @@ import {
   useDownloadQueue,
   useInFlightItems,
   useRequeueDownload,
+  useRetryPostProcess,
   type HistoryItem,
   type InFlightItem,
   type QueueItem,
 } from "@/hooks/useActivity";
 import { useDebounce } from "@/hooks/use-debounce";
 import { TimelineView } from "@/components/activity/timeline";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/DataTable";
 import {
   useTableState,
@@ -209,6 +211,7 @@ function inFlightStateLabel(item: InFlightItem): string {
 function InFlightView() {
   const inflight = useInFlightItems();
   const cancelInFlight = useCancelInFlight();
+  const retryPostProcess = useRetryPostProcess();
   const { addToast } = useToast();
   const items = inflight.data?.results ?? [];
   const hardError = !inflight.data ? inflight.error : null;
@@ -230,6 +233,24 @@ function InFlightView() {
       addToast({
         type: "error",
         title: "Could not stop this item",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    }
+  };
+
+  const handleRetryPostProcess = async (item: InFlightItem) => {
+    if (item.kind !== "journal") return;
+    try {
+      await retryPostProcess.mutateAsync(item.release_key);
+      addToast({
+        type: "success",
+        title: "Post-processing queued",
+        message: item.label,
+      });
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Could not retry post-processing",
         message: error instanceof Error ? error.message : "Try again.",
       });
     }
@@ -313,16 +334,34 @@ function InFlightView() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <RelativeTime value={item.updated_at} />
-              <button
+              {item.kind === "journal" && item.retry_postprocess ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="compact"
+                  mono
+                  aria-label={`Retry post-processing ${item.label}`}
+                  disabled={
+                    retryPostProcess.isPending || cancelInFlight.isPending
+                  }
+                  onClick={() => void handleRetryPostProcess(item)}
+                >
+                  Retry post-processing
+                </Button>
+              ) : null}
+              <Button
                 type="button"
-                className="rounded-control border px-2 py-1 mono-label hover:bg-secondary/50"
-                style={{ borderColor: "var(--border)" }}
+                variant="outline"
+                size="compact"
+                mono
                 aria-label={`Stop ${item.label}`}
-                disabled={cancelInFlight.isPending}
+                disabled={
+                  cancelInFlight.isPending || retryPostProcess.isPending
+                }
                 onClick={() => void handleCancel(item)}
               >
                 Stop
-              </button>
+              </Button>
             </div>
           </li>
         );

@@ -88,6 +88,23 @@ def force_process(
     return result
 
 
+@router.post("/retry-postprocess", dependencies=[Depends(require_session)])
+def retry_postprocess(request_body: dict = None):
+    """Retry post-processing for one in-flight SABnzbd download.
+
+    Uses the completed file already in SABnzbd history (or the folder stored
+    on the journal row). Does not send the NZB again.
+    """
+    from comicarr.app.downloads.sab_reconcile import RetryPostProcessError
+    from comicarr.app.downloads.sab_reconcile import retry_postprocess as retry_row
+
+    body = request_body or {}
+    try:
+        return retry_row(body.get("release_key"))
+    except RetryPostProcessError as e:
+        return JSONResponse(status_code=e.status_code, content={"detail": str(e)})
+
+
 @router.post("/process/issue", dependencies=[Depends(require_session)])
 def process_issue(
     request_body: dict = None,

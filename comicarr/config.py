@@ -2117,6 +2117,7 @@ class Config(object):
                 or self.NZB_DOWNLOADER == 3
             ):
                 comicarr.queue_schedule("nzb_queue", "stop")
+            comicarr.ensure_sab_completed_reconcile()
 
             if self.ENABLE_DDL is True:
                 comicarr.queue_schedule("ddl_queue", "start")

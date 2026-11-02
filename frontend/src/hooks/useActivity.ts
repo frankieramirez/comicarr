@@ -115,6 +115,7 @@ export type InFlightJournalItem = {
   comicid?: string | null;
   provider?: string | null;
   updated_at: string;
+  retry_postprocess?: boolean;
 };
 
 export type InFlightItem = InFlightRunItem | InFlightJournalItem;
@@ -177,6 +178,26 @@ export function useInFlightItems() {
 
 export type CancelInFlightInput =
   { kind: "run"; item_id: number } | { kind: "journal"; release_key: string };
+
+export function useRetryPostProcess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (release_key: string) =>
+      apiRequest<{ success: boolean; action: string }>(
+        "POST",
+        "/api/downloads/retry-postprocess",
+        { release_key },
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ACTIVITY_IN_FLIGHT_QUERY_KEY,
+        }),
+        queryClient.invalidateQueries({ queryKey: ACTIVITY_STATUS_QUERY_KEY }),
+      ]);
+    },
+  });
+}
 
 export function useCancelInFlight() {
   const queryClient = useQueryClient();

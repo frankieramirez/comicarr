@@ -704,6 +704,7 @@ def test_list_in_flight_items_matches_open_work_count_rows(activity_db):
     journal = by_identity[("journal", "open-pp")]
     assert journal["stage"] == "post_processing"
     assert journal["issueid"] == "iss-10"
+    assert journal["retry_postprocess"] is False
 
 
 def test_open_work_idle_when_ledgers_empty(activity_db):

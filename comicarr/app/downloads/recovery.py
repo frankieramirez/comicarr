@@ -347,7 +347,7 @@ def _reclassify_false_terminal_imports():
     return reopened
 
 
-def _merge_completion_evidence(payload, details):
+def merge_completion_evidence(payload, details):
     """Copy probe-reported completion location/name into the journal payload.
 
     SAB/NZBGet snatch payloads have no nzb_folder (addfile returns nzo_ids
@@ -364,10 +364,39 @@ def _merge_completion_evidence(payload, details):
         merged["nzb_name"] = name
     if details.get("failed") is not None:
         merged["failed"] = bool(details.get("failed"))
+    nzo_id = details.get("nzo_id")
+    # nzo_id is an immutable journal key: only fill it when the snatch never
+    # recorded one (a name-matched history job). The probe queries by the
+    # recorded id when there is one, so the two cannot disagree.
+    if nzo_id and not merged.get("nzo_id"):
+        merged["nzo_id"] = str(nzo_id)
+        download_info = dict(merged.get("download_info") or {})
+        download_info.setdefault("nzo_id", str(nzo_id))
+        merged["download_info"] = download_info
     return merged
 
 
-def _pp_item_from_row(row, payload):
+def release_sab_history(nzo_id, failed):
+    """Apply SAB_REMOVE_COMPLETED / SAB_REMOVE_FAILED for a job this code has finished with.
+
+    Probes run with ``keep_history`` so that a rejected or lost row keeps its
+    history entry for the next pass or an operator retry. Callers release it
+    only once the row is durably ``downloaded`` (or terminally failed).
+    ``remove_history`` itself honours both settings, so this is a no-op when
+    they are off.
+    """
+    if not nzo_id:
+        return
+    try:
+        from comicarr import sabnzbd
+
+        client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        client.remove_history(str(nzo_id), "Failed" if failed else "Completed")
+    except Exception as e:
+        logger.warn("[RECOVERY] could not remove SABnzbd history for %s: %s" % (nzo_id, type(e).__name__))
+
+
+def pp_item_from_row(row, payload):
     """Reconstruct a PP_QUEUE item dict from a journal row's payload. The
     authoritative release_key is stamped as `journal_release_key` so the U4
     atomic claim (downloaded -> post_processing) advances THIS row (same
@@ -386,6 +415,60 @@ def _pp_item_from_row(row, payload):
         "download_info": payload.get("download_info"),
         "journal_release_key": row.get("release_key"),
     }
+
+
+def _nzb_name(row, payload):
+    payload = payload or {}
+    return row.get("nzbname") or payload.get("nzbname") or payload.get("nzb_name")
+
+
+def terminalize_failed_completion(row, payload, details):
+    """SAB failed the job and failed-download handling is off: close the row."""
+    from comicarr import failed as failed_mod
+
+    failed_mod.terminalize_failed_download(
+        row.get("release_key"),
+        failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+        status=None,
+        issueid=row.get("issueid"),
+        provider=row.get("provider"),
+        nzbname=row.get("nzbname") or details.get("name") or (payload or {}).get("nzbname"),
+        hash=row.get("hash"),
+        payload=payload,
+        downloader_type=row.get("downloader_type"),
+    )
+
+
+def quarantine_unplaced_completion(row, payload, details):
+    """The client finished but its folder cannot be resolved: Manual Review."""
+    payload = merge_completion_evidence(payload, details)
+    record(
+        ManualReview(
+            release_key=row.get("release_key"),
+            reason="done_signal_without_library_placement",
+            payload=payload,
+            issue_id=row.get("issueid"),
+            provider=row.get("provider"),
+            downloader_type=row.get("downloader_type"),
+            nzb_name=_nzb_name(row, payload),
+        )
+    )
+    return payload
+
+
+def quarantine_invalid_completion(row, payload, error):
+    """The completed folder failed PP command validation: Manual Review."""
+    record(
+        ManualReview(
+            release_key=row.get("release_key"),
+            reason="invalid_recovered_postprocess_command:%s" % type(error).__name__,
+            payload=payload,
+            issue_id=row.get("issueid"),
+            provider=row.get("provider"),
+            downloader_type=row.get("downloader_type"),
+            nzb_name=_nzb_name(row, payload),
+        )
+    )
 
 
 def _resume_item_from_row(row, payload):
@@ -610,7 +693,7 @@ def _resolve_row(snapshot_row, probes=None):
         return postprocessing.recover(rkey).action
 
     if cur_stage == journal.DOWNLOADED:
-        item = _pp_item_from_row(row, payload)
+        item = pp_item_from_row(row, payload)
         try:
             item = validate_postprocess_item(item, roots=configured_roots())
         except PostProcessCommandError as e:
@@ -647,38 +730,20 @@ def _resolve_row(snapshot_row, probes=None):
             "can be re-driven." % rkey
         )
 
-    details = recovery_classify.classify_details(row, probes=probes, payload=payload)
+    # Read-only SAB probe: history is released below only once this row is
+    # durably downloaded or terminally failed, never for an unplaced or
+    # rejected completion that an operator may still retry.
+    details = recovery_classify.classify_details(row, probes=probes, payload=payload, keep_history=True)
     verdict = details.get("verdict")
 
     if details.get("raw_state") == "failed_no_auto_handling":
-        from comicarr import failed as failed_mod
-
-        failed_mod.terminalize_failed_download(
-            rkey,
-            failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
-            status=None,
-            issueid=row.get("issueid"),
-            provider=row.get("provider"),
-            nzbname=row.get("nzbname") or details.get("name") or (payload or {}).get("nzbname"),
-            hash=row.get("hash"),
-            payload=payload,
-            downloader_type=row.get("downloader_type"),
-        )
+        terminalize_failed_completion(row, payload, details)
+        release_sab_history(details.get("nzo_id"), True)
         logger.warn("[RECOVERY] %s -> failed_no_auto_handling — journal terminalized; not re-queued." % rkey)
         return "failed-no-auto-handling"
 
     if details.get("raw_state") == "unplaced":
-        record(
-            ManualReview(
-                release_key=rkey,
-                reason="done_signal_without_library_placement",
-                payload=payload,
-                issue_id=row.get("issueid"),
-                provider=row.get("provider"),
-                downloader_type=row.get("downloader_type"),
-                nzb_name=row.get("nzbname") or (payload or {}).get("nzbname") or (payload or {}).get("nzb_name"),
-            )
-        )
+        quarantine_unplaced_completion(row, payload, details)
         logger.warn(
             "[RECOVERY] %s -> MANUAL REVIEW (downloader finished but the "
             "completed folder is unresolvable); Import after fixing path mapping." % rkey
@@ -721,22 +786,12 @@ def _resolve_row(snapshot_row, probes=None):
         return "unknown-unchanged"
 
     if verdict == recovery_classify.COMPLETE:
-        payload = _merge_completion_evidence(payload, details)
-        item = _pp_item_from_row(row, payload)
+        payload = merge_completion_evidence(payload, details)
+        item = pp_item_from_row(row, payload)
         try:
             item = validate_postprocess_item(item, roots=configured_roots())
         except PostProcessCommandError as e:
-            record(
-                ManualReview(
-                    release_key=rkey,
-                    reason="invalid_recovered_postprocess_command:%s" % type(e).__name__,
-                    payload=payload,
-                    issue_id=row.get("issueid"),
-                    provider=row.get("provider"),
-                    downloader_type=row.get("downloader_type"),
-                    nzb_name=row.get("nzbname") or (payload or {}).get("nzb_name") or (payload or {}).get("nzbname"),
-                )
-            )
+            quarantine_invalid_completion(row, payload, e)
             logger.error(
                 "[RECOVERY] %s classified complete but the completed folder is unusable; quarantined: %s" % (rkey, e)
             )
@@ -750,6 +805,7 @@ def _resolve_row(snapshot_row, probes=None):
             downloader_type=row.get("downloader_type"),
         )
         comicarr.PP_QUEUE.put(item)
+        release_sab_history(details.get("nzo_id"), payload.get("failed"))
         logger.info(
             "[RECOVERY] %s -> COMPLETE (done at downloader) — recorded "
             "`downloaded` then re-enqueued for PP (journal_release_key stamped "

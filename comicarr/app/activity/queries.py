@@ -23,6 +23,7 @@ from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.attention import read
 from comicarr.app.core.database import paginated_query
 from comicarr.app.downloads.journal import OPEN_STAGES, load_payload
+from comicarr.app.downloads.sab_reconcile import retry_postprocess_eligible
 from comicarr.tables import acquisition_run_items, activity_events, pipeline_journal
 
 TIMELINE_LIMIT_MIN = 1
@@ -236,6 +237,7 @@ def _shape_journal_item(row):
         "comicid": _text(payload.get("comicid")) or _text(payload.get("ComicID")),
         "provider": _text(row.get("provider")),
         "updated_at": row.get("updated_date"),
+        "retry_postprocess": retry_postprocess_eligible(row, payload),
     }
 
 

@@ -40,6 +40,103 @@ def _stage_action_text(actions):
     return " ".join(str(part) for part in actions)
 
 
+_RELEASE_NAME_KEYS = ("nzbname", "nzb_name", "name", "filename")
+
+
+_ARCHIVE_EXTENSION = re.compile(r"\.(?:cbr|cbz|zip|rar|7z|pdf)$", re.IGNORECASE)
+
+
+def normalize_release_name(value):
+    """Compare SAB history names with the release name Comicarr stored.
+
+    SAB keeps the ``nzbname`` it was given, while ``storage`` is often the
+    archive (``.cbr`` / ``.cbz``) with dots or underscores instead of spaces.
+    Issue numbers such as ``.013`` are part of the name, not an extension.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = os.path.basename(text)
+    text = re.sub(r"\.nzb$", "", text, flags=re.IGNORECASE)
+    text = _ARCHIVE_EXTENSION.sub("", text)
+    text = text.replace("_", " ").replace(".", " ")
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def release_names(*sources):
+    """Return raw release-name strings from nzbinfo, journal payloads, or slots."""
+    found = []
+    seen = set()
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        blobs = [source]
+        download_info = source.get("download_info")
+        if isinstance(download_info, dict):
+            blobs.append(download_info)
+        for blob in blobs:
+            for key in _RELEASE_NAME_KEYS:
+                raw = blob.get(key)
+                normalized = normalize_release_name(raw)
+                if normalized and normalized not in seen:
+                    seen.add(normalized)
+                    found.append(raw)
+    return found
+
+
+def match_completed_slot(slots, names):
+    """Return the single Completed history slot whose name matches, or None.
+
+    More than one distinct ``nzo_id`` is ambiguous — importing the wrong
+    archive is worse than leaving the row snatched for a manual retry.
+    """
+    wanted = {normalize_release_name(name) for name in names or ()}
+    wanted.discard("")
+    if not wanted:
+        return None
+    matches = []
+    seen_ids = set()
+    for slot in slots or []:
+        if not isinstance(slot, dict) or slot.get("status") != "Completed":
+            continue
+        slot_names = {normalize_release_name(slot.get(key)) for key in ("nzb_name", "filename", "name")}
+        storage = slot.get("storage") or ""
+        if storage:
+            base = os.path.basename(str(storage))
+            slot_names.add(normalize_release_name(base))
+        slot_names.discard("")
+        if not (wanted & slot_names):
+            continue
+        nzo_id = slot.get("nzo_id")
+        if nzo_id in seen_ids:
+            continue
+        seen_ids.add(nzo_id)
+        matches.append(slot)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        logger.warn("[SABNZBD] %d completed history jobs match this release name; not choosing one." % len(matches))
+    return None
+
+
+def _accepted_nzo_id(sendresponse):
+    """The client id from an addfile response. One job, one id.
+
+    Joining every id concatenates them into a value that matches nothing in
+    history. A missing id stays empty so acceptance can refuse the handoff.
+    """
+    raw_ids = sendresponse.get("nzo_ids")
+    if isinstance(raw_ids, str):
+        return raw_ids.strip()
+    if isinstance(raw_ids, list):
+        for raw in raw_ids:
+            text = str(raw or "").strip()
+            if text:
+                return text
+        return ""
+    return str(sendresponse.get("nzo_id") or "").strip()
+
+
 class SABnzbd(object):
     def __init__(self, params):
         self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
@@ -101,13 +198,14 @@ class SABnzbd(object):
             )
             return {"status": False}
 
-        if sendresponse["status"] is True:
+        nzo_id = _accepted_nzo_id(sendresponse)
+        if sendresponse["status"] is True and nzo_id:
             queue_params = {
                 "status": True,
-                "nzo_id": "".join(sendresponse["nzo_ids"]),
+                "nzo_id": nzo_id,
                 "queue": {
                     "mode": "queue",
-                    "search": "".join(sendresponse["nzo_ids"]),
+                    "search": nzo_id,
                     "output": "json",
                     "apikey": comicarr.CONFIG.SAB_APIKEY,
                 },
@@ -157,8 +255,10 @@ class SABnzbd(object):
             tmp_apikey = self.params["queue"].pop("apikey")
             self.params["queue"].pop("search")
             self.params["queue"]["nzo_ids"] = self.params["nzo_id"]
-            if comicarr.CONFIG.SAB_CATEGORY is not None:
-                self.params["queue"]["category"] = comicarr.CONFIG.SAB_CATEGORY
+            # A known nzo_id is unique. SAB's category filter hides a job that
+            # change_cat or sorting moved out of SAB_CATEGORY, so the monitor
+            # never sees it finish (#1129).
+            self.params["queue"].pop("category", None)
             logger.fdebug("[SAB-QUEUE] parameters set to %s" % self.params)
             self.params["queue"]["apikey"] = tmp_apikey
             time.sleep(5)
@@ -168,7 +268,7 @@ class SABnzbd(object):
                 "[SAB-QUEUE] uh-oh: %s"
                 % redact_sensitive_text(e, secrets=(getattr(comicarr.CONFIG, "SAB_APIKEY", None),))
             )
-            return self.historycheck(self.params)
+            return self.historycheck(self.params, ignore_category=True)
         else:
             queueresponse = h.json()
             logger.fdebug("successfully queried the queue for status")
@@ -212,13 +312,11 @@ class SABnzbd(object):
                     try:
                         queueinfo = queueresponse["queue"]["slots"][0]
                     except Exception:
-                        try:
-                            tmp_queue.pop("nzo_ids")
-                        except Exception:
-                            no_findie = True
-                        else:
-                            tmp_queue["nzo_ids"] = self.params["nzo_id"]
-                            queueinfo = queueresponse["queue"]
+                        # This nzo_id has left the active queue. Watching the
+                        # whole queue's mbleft blocks every other completed job
+                        # until SAB is idle, which is how a finished download
+                        # stays Snatched (#1129).
+                        break
 
                     logger.fdebug(
                         "status: %s -- mb_left: %s -- time_left: %s"
@@ -231,9 +329,16 @@ class SABnzbd(object):
                 logger.warn("error: %s" % e)
 
             logger.info("File has now downloaded!")
-            return self.historycheck(self.params)
+            return self.historycheck(self.params, ignore_category=True)
 
-    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False):
+    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False, keep_history=False):
+        """Look up one job in SABnzbd history and return its completion status.
+
+        ``keep_history`` makes this a read-only probe: SAB_REMOVE_COMPLETED and
+        SAB_REMOVE_FAILED are not applied here, so a caller that has not yet
+        recorded the result durably (the completed-download sweep, the In
+        Flight retry) can remove the history entry itself once it has.
+        """
         sendresponse = nzbinfo["nzo_id"]
         hist_params = {"mode": "history", "failed": 0, "output": "json", "apikey": comicarr.CONFIG.SAB_APIKEY}
 
@@ -281,7 +386,9 @@ class SABnzbd(object):
                             f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {comicarr.CONFIG.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
                         )
                         time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
-                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                        return self.historycheck(
+                            nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                        )
 
                     nzo_exists = True
                     logger.info("found matching completed item in history. Job has a status of %s" % hq["status"])
@@ -292,7 +399,7 @@ class SABnzbd(object):
                         logger.warn(
                             "Either disable Completed Download Handling for SABnzbd within Comicarr, or remove ComicRN from your category script in SABnzbd."
                         )
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         return {"status": "double-pp", "failed": False}
 
                     if os.path.isfile(hq["storage"]):
@@ -307,8 +414,9 @@ class SABnzbd(object):
                             "apicall": True,
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
+                            "nzo_id": hq["nzo_id"],
                         }
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         break
 
                     elif all(
@@ -326,21 +434,21 @@ class SABnzbd(object):
                                 "[ERROR] error returned during attempt to map [%s] --> root dir:[%s]. Error: %s"
                                 % (hq["storage"], comicarr.CONFIG.SAB_DIRECTORY, e)
                             )
-                            self.remove_history(hq["nzo_id"], hq["status"])
+                            self._consume_history(hq, keep_history)
                             return {"status": "file not found", "failed": False}
                         else:
                             if new_path is None:
                                 logger.warn(
                                     "[ERROR] Unable to remap the directory from SAB to Comicarr's configuration."
                                 )
-                                self.remove_history(hq["nzo_id"], hq["status"])
+                                self._consume_history(hq, keep_history)
                                 return {"status": "file not found", "failed": False}
                             elif not os.path.isfile(new_path):
                                 logger.fdebug(
                                     "[ERROR] Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and sabnzbd are on separate machines, you need to set a directory location that is accessible to both"
                                     % (new_path)
                                 )
-                                self.remove_history(hq["nzo_id"], hq["status"])
+                                self._consume_history(hq, keep_history)
                                 return {"status": "file not found", "failed": False}
 
                         logger.fdebug("location found @ %s" % new_path)
@@ -354,8 +462,9 @@ class SABnzbd(object):
                             "apicall": True,
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
+                            "nzo_id": hq["nzo_id"],
                         }
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         break
 
                     else:
@@ -363,7 +472,7 @@ class SABnzbd(object):
                             "no file found where it should be @ %s - is there another script that moves things after completion ?"
                             % hq["storage"]
                         )
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         return {"status": "file not found", "failed": False}
 
                 elif hq["nzo_id"] == sendresponse and hq["status"] == "Failed":
@@ -403,12 +512,13 @@ class SABnzbd(object):
                         "apicall": True,
                         "ddl": False,
                         "download_info": nzbinfo.get("download_info"),
+                        "nzo_id": hq["nzo_id"],
                     }
                     if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
                         found = {"status": True, **failed_job}
                     else:
                         found = {"status": "failed_no_auto_handling", **failed_job}
-                    self.remove_history(hq["nzo_id"], hq["status"])
+                    self._consume_history(hq, keep_history)
                     break
                 elif hq["nzo_id"] == sendresponse:
                     nzo_exists = True
@@ -438,8 +548,11 @@ class SABnzbd(object):
                                     roundtwo=False,
                                     extract_counter=extract_counter,
                                     ignore_category=ignore_category,
+                                    keep_history=keep_history,
                                 )
-                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                        return self.historycheck(
+                            nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                        )
                     else:
                         # Leave the job in SABnzbd: removing one that is still being
                         # processed cancels it, and with del_files deletes its data.
@@ -450,6 +563,28 @@ class SABnzbd(object):
                         return {"failed": False, "status": "unhandled status of: %s" % (hq["status"])}
 
             if not nzo_exists:
+                if not ignore_category:
+                    logger.fdebug(
+                        "[SABNZBD] %s was not in the category-filtered history; "
+                        "retrying without the category filter." % sendresponse
+                    )
+                    return self.historycheck(
+                        nzbinfo,
+                        roundtwo=roundtwo,
+                        extract_counter=extract_counter,
+                        ignore_category=True,
+                        keep_history=keep_history,
+                    )
+                matched = None if nzbinfo.get("_name_matched") else self.match_completed_history(nzbinfo)
+                if matched and matched.get("nzo_id") and matched.get("nzo_id") != sendresponse:
+                    logger.info(
+                        "[SABNZBD] %s was not in history; matched completed job %s by release name."
+                        % (sendresponse, matched.get("nzo_id"))
+                    )
+                    renamed = dict(nzbinfo)
+                    renamed["nzo_id"] = matched.get("nzo_id")
+                    renamed["_name_matched"] = True
+                    return self.historycheck(renamed, roundtwo=True, ignore_category=True, keep_history=keep_history)
                 logger.error("Cannot find nzb %s in the queue.  Was it removed?" % sendresponse)
                 logger.fdebug(
                     "sleeping for %ss to allow the process to finish before trying again.."
@@ -457,14 +592,16 @@ class SABnzbd(object):
                 )
                 time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
                 if roundtwo is False:
-                    return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                    return self.historycheck(
+                        nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                    )
                 else:
                     return {"status": "nzb removed", "failed": False}
         except requests.RequestException:
             raise
         except (ValueError, KeyError, TypeError) as e:
             logger.warn("error %s" % (e,))
-            if hq:
+            if hq and not keep_history:
                 try:
                     self.remove_history(hq["nzo_id"], hq["status"])
                 except Exception as remove_error:
@@ -472,6 +609,56 @@ class SABnzbd(object):
             return {"status": False, "failed": False}
 
         return found
+
+    def _consume_history(self, slot, keep_history):
+        """Apply the remove-from-history settings unless the caller is only probing."""
+        if keep_history:
+            return
+        self.remove_history(slot["nzo_id"], slot["status"])
+
+    def list_history_slots(self, search=None, limit=200):
+        """Completed-download history without a category filter.
+
+        ``nzo_ids`` plus ``category`` hides a job SAB moved. Name reconciliation
+        needs the slot itself, so this listing does not filter by category.
+        """
+        params = {
+            "mode": "history",
+            "output": "json",
+            "limit": str(limit),
+            "apikey": comicarr.CONFIG.SAB_APIKEY,
+        }
+        if search:
+            params["search"] = search
+        response = requests.get(
+            self.sab_url,
+            params=params,
+            verify=getattr(comicarr.CONFIG, "SAB_VERIFY", False),
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        history = payload.get("history") if isinstance(payload, dict) else None
+        slots = history.get("slots") if isinstance(history, dict) else None
+        if not isinstance(slots, list):
+            return []
+        return [slot for slot in slots if isinstance(slot, dict)]
+
+    def match_completed_history(self, nzbinfo):
+        """Find one Completed history slot by release name. None if ambiguous."""
+        names = release_names(nzbinfo)
+        if not names:
+            return None
+        search_limit = 50
+        slots = self.list_history_slots(search=names[0], limit=search_limit)
+        if len(slots) >= search_limit:
+            # A full page can hide a second job with the same name, so one
+            # match there is not proof the name is unambiguous.
+            return None
+        # SAB's search is a literal substring match, so a job whose name is
+        # spelled differently (dots vs. spaces) is missing from the search
+        # page. Check the recent listing too before calling one match unique.
+        return match_completed_slot(slots + self.list_history_slots(limit=200), names)
 
     def remove_history(self, nzo_id, status):
         logger.info("[Sabnzbd Completed History Removal] Download is complete - removing item from history..")

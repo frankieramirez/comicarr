@@ -984,11 +984,11 @@ def test_one_bad_row_skipped_loop_continues_and_is_rerunnable(queues, monkeypatc
     real_details = recovery_classify.classify_details
     fail_once = {"done": False}
 
-    def _classify_details(row, probes=None, payload=None):
+    def _classify_details(row, probes=None, payload=None, **kwargs):
         if row.get("release_key") == bad and not fail_once["done"]:
             fail_once["done"] = True
             raise RuntimeError("boom: simulated bad row")
-        return real_details(row, probes=probes, payload=payload)
+        return real_details(row, probes=probes, payload=payload, **kwargs)
 
     monkeypatch.setattr(recovery_classify, "classify_details", _classify_details)
     summary = recovery.replay_pipeline(probes=_probe("complete"))
