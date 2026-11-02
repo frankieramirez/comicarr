@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useActivity";
 import { useDebounce } from "@/hooks/use-debounce";
 import { TimelineView } from "@/components/activity/timeline";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/DataTable";
 import {
   useTableState,
@@ -334,10 +335,11 @@ function InFlightView() {
             <div className="flex shrink-0 items-center gap-2">
               <RelativeTime value={item.updated_at} />
               {item.kind === "journal" && item.retry_postprocess ? (
-                <button
+                <Button
                   type="button"
-                  className="rounded-control border px-2 py-1 mono-label hover:bg-secondary/50"
-                  style={{ borderColor: "var(--border)" }}
+                  variant="outline"
+                  size="compact"
+                  mono
                   aria-label={`Retry post-processing ${item.label}`}
                   disabled={
                     retryPostProcess.isPending || cancelInFlight.isPending
@@ -345,12 +347,13 @@ function InFlightView() {
                   onClick={() => void handleRetryPostProcess(item)}
                 >
                   Retry post-processing
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
                 type="button"
-                className="rounded-control border px-2 py-1 mono-label hover:bg-secondary/50"
-                style={{ borderColor: "var(--border)" }}
+                variant="outline"
+                size="compact"
+                mono
                 aria-label={`Stop ${item.label}`}
                 disabled={
                   cancelInFlight.isPending || retryPostProcess.isPending
@@ -358,7 +361,7 @@ function InFlightView() {
                 onClick={() => void handleCancel(item)}
               >
                 Stop
-              </button>
+              </Button>
             </div>
           </li>
         );

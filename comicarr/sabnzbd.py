@@ -331,7 +331,14 @@ class SABnzbd(object):
             logger.info("File has now downloaded!")
             return self.historycheck(self.params, ignore_category=True)
 
-    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False):
+    def historycheck(self, nzbinfo, roundtwo=False, extract_counter=1, ignore_category=False, keep_history=False):
+        """Look up one job in SABnzbd history and return its completion status.
+
+        ``keep_history`` makes this a read-only probe: SAB_REMOVE_COMPLETED and
+        SAB_REMOVE_FAILED are not applied here, so a caller that has not yet
+        recorded the result durably (the completed-download sweep, the In
+        Flight retry) can remove the history entry itself once it has.
+        """
         sendresponse = nzbinfo["nzo_id"]
         hist_params = {"mode": "history", "failed": 0, "output": "json", "apikey": comicarr.CONFIG.SAB_APIKEY}
 
@@ -379,7 +386,9 @@ class SABnzbd(object):
                             f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {comicarr.CONFIG.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
                         )
                         time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
-                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                        return self.historycheck(
+                            nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                        )
 
                     nzo_exists = True
                     logger.info("found matching completed item in history. Job has a status of %s" % hq["status"])
@@ -390,7 +399,7 @@ class SABnzbd(object):
                         logger.warn(
                             "Either disable Completed Download Handling for SABnzbd within Comicarr, or remove ComicRN from your category script in SABnzbd."
                         )
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         return {"status": "double-pp", "failed": False}
 
                     if os.path.isfile(hq["storage"]):
@@ -406,7 +415,7 @@ class SABnzbd(object):
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
                         }
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         break
 
                     elif all(
@@ -424,21 +433,21 @@ class SABnzbd(object):
                                 "[ERROR] error returned during attempt to map [%s] --> root dir:[%s]. Error: %s"
                                 % (hq["storage"], comicarr.CONFIG.SAB_DIRECTORY, e)
                             )
-                            self.remove_history(hq["nzo_id"], hq["status"])
+                            self._consume_history(hq, keep_history)
                             return {"status": "file not found", "failed": False}
                         else:
                             if new_path is None:
                                 logger.warn(
                                     "[ERROR] Unable to remap the directory from SAB to Comicarr's configuration."
                                 )
-                                self.remove_history(hq["nzo_id"], hq["status"])
+                                self._consume_history(hq, keep_history)
                                 return {"status": "file not found", "failed": False}
                             elif not os.path.isfile(new_path):
                                 logger.fdebug(
                                     "[ERROR] Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and sabnzbd are on separate machines, you need to set a directory location that is accessible to both"
                                     % (new_path)
                                 )
-                                self.remove_history(hq["nzo_id"], hq["status"])
+                                self._consume_history(hq, keep_history)
                                 return {"status": "file not found", "failed": False}
 
                         logger.fdebug("location found @ %s" % new_path)
@@ -453,7 +462,7 @@ class SABnzbd(object):
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
                         }
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         break
 
                     else:
@@ -461,7 +470,7 @@ class SABnzbd(object):
                             "no file found where it should be @ %s - is there another script that moves things after completion ?"
                             % hq["storage"]
                         )
-                        self.remove_history(hq["nzo_id"], hq["status"])
+                        self._consume_history(hq, keep_history)
                         return {"status": "file not found", "failed": False}
 
                 elif hq["nzo_id"] == sendresponse and hq["status"] == "Failed":
@@ -506,7 +515,7 @@ class SABnzbd(object):
                         found = {"status": True, **failed_job}
                     else:
                         found = {"status": "failed_no_auto_handling", **failed_job}
-                    self.remove_history(hq["nzo_id"], hq["status"])
+                    self._consume_history(hq, keep_history)
                     break
                 elif hq["nzo_id"] == sendresponse:
                     nzo_exists = True
@@ -536,8 +545,11 @@ class SABnzbd(object):
                                     roundtwo=False,
                                     extract_counter=extract_counter,
                                     ignore_category=ignore_category,
+                                    keep_history=keep_history,
                                 )
-                        return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                        return self.historycheck(
+                            nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                        )
                     else:
                         # Leave the job in SABnzbd: removing one that is still being
                         # processed cancels it, and with del_files deletes its data.
@@ -558,6 +570,7 @@ class SABnzbd(object):
                         roundtwo=roundtwo,
                         extract_counter=extract_counter,
                         ignore_category=True,
+                        keep_history=keep_history,
                     )
                 matched = None if nzbinfo.get("_name_matched") else self.match_completed_history(nzbinfo)
                 if matched and matched.get("nzo_id") and matched.get("nzo_id") != sendresponse:
@@ -568,7 +581,7 @@ class SABnzbd(object):
                     renamed = dict(nzbinfo)
                     renamed["nzo_id"] = matched.get("nzo_id")
                     renamed["_name_matched"] = True
-                    return self.historycheck(renamed, roundtwo=True, ignore_category=True)
+                    return self.historycheck(renamed, roundtwo=True, ignore_category=True, keep_history=keep_history)
                 logger.error("Cannot find nzb %s in the queue.  Was it removed?" % sendresponse)
                 logger.fdebug(
                     "sleeping for %ss to allow the process to finish before trying again.."
@@ -576,14 +589,16 @@ class SABnzbd(object):
                 )
                 time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
                 if roundtwo is False:
-                    return self.historycheck(nzbinfo, roundtwo=True, ignore_category=ignore_category)
+                    return self.historycheck(
+                        nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
+                    )
                 else:
                     return {"status": "nzb removed", "failed": False}
         except requests.RequestException:
             raise
         except (ValueError, KeyError, TypeError) as e:
             logger.warn("error %s" % (e,))
-            if hq:
+            if hq and not keep_history:
                 try:
                     self.remove_history(hq["nzo_id"], hq["status"])
                 except Exception as remove_error:
@@ -591,6 +606,12 @@ class SABnzbd(object):
             return {"status": False, "failed": False}
 
         return found
+
+    def _consume_history(self, slot, keep_history):
+        """Apply the remove-from-history settings unless the caller is only probing."""
+        if keep_history:
+            return
+        self.remove_history(slot["nzo_id"], slot["status"])
 
     def list_history_slots(self, search=None, limit=200):
         """Completed-download history without a category filter.
@@ -625,7 +646,13 @@ class SABnzbd(object):
         names = release_names(nzbinfo)
         if not names:
             return None
-        slots = self.list_history_slots(search=names[0], limit=50)
+        search_limit = 50
+        slots = self.list_history_slots(search=names[0], limit=search_limit)
+        if len(slots) >= search_limit:
+            # A full page can hide a second job with the same name, so one
+            # match there is not proof the name is unambiguous.
+            slots = slots + self.list_history_slots(limit=200)
+            return match_completed_slot(slots, names)
         match = match_completed_slot(slots, names)
         if match is None:
             slots = self.list_history_slots(limit=200)

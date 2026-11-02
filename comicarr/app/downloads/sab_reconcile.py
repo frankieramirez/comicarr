@@ -20,26 +20,11 @@ post-processing accepts the row once.
 
 import comicarr
 from comicarr import logger
-from comicarr.app.downloads import journal
+from comicarr.app.downloads import handoff, journal
 
 INTERVAL_MINUTES = 2
 JOB_ID = "sab_completed_reconcile"
 
-_SAB_ROUTES = frozenset({"sab", "sabnzbd"})
-_OTHER_ROUTES = frozenset(
-    {
-        "nzbget",
-        "ddl",
-        "torrent",
-        "rtorrent",
-        "deluge",
-        "qbittorrent",
-        "transmission",
-        "utorrent",
-        "watchdir",
-        "blackhole",
-    }
-)
 _RETRYABLE_STAGES = frozenset({journal.SNATCHED, journal.DOWNLOADED})
 
 
@@ -52,18 +37,16 @@ class RetryPostProcessError(ValueError):
 
 
 def _route(row, payload):
+    """The row's handoff route, normalized the way handoff records it; "" when unset."""
     payload = payload or {}
-    return (
-        str(payload.get("route") or payload.get("client") or (row or {}).get("downloader_type") or "").strip().lower()
-    )
+    raw = str(payload.get("route") or payload.get("client") or (row or {}).get("downloader_type") or "").strip()
+    return handoff.normalize_route(raw) if raw else ""
 
 
 def row_targets_sab(row, payload=None):
     """True when this open row is a SABnzbd (or generic NZB-on-SAB) obligation."""
     route = _route(row, payload)
-    if route in _OTHER_ROUTES:
-        return False
-    if route in _SAB_ROUTES:
+    if route == "sabnzbd":
         return True
     if route == "nzb":
         return bool(getattr(comicarr, "USE_SABNZBD", False)) and not bool(getattr(comicarr, "USE_NZBGET", False))
@@ -72,9 +55,32 @@ def row_targets_sab(row, payload=None):
     return False
 
 
+def post_processing_enabled():
+    """Whether a pp_queue worker exists to consume what this module queues."""
+    return getattr(getattr(comicarr, "CONFIG", None), "POST_PROCESSING", False) is True
+
+
+def sab_client_post_processing_enabled():
+    """Post-processing is on and SABnzbd is the NZB client handing off completed jobs.
+
+    The one definition of "SABnzbd completed-download handling is on", shared
+    by the scheduler (``comicarr.ensure_sab_completed_reconcile``) and the sweep.
+    """
+    config = getattr(comicarr, "CONFIG", None)
+    if config is None:
+        return False
+    return bool(
+        post_processing_enabled()
+        and getattr(config, "NZB_DOWNLOADER", None) == 0
+        and getattr(config, "SAB_CLIENT_POST_PROCESSING", False)
+    )
+
+
 def retry_postprocess_eligible(row, payload=None):
     """Whether Activity → In Flight should offer Retry post-processing."""
     if not row or row.get("stage") not in _RETRYABLE_STAGES:
+        return False
+    if not post_processing_enabled():
         return False
     payload = payload or {}
     if row.get("stage") == journal.DOWNLOADED and payload.get("nzb_folder"):
@@ -83,28 +89,48 @@ def retry_postprocess_eligible(row, payload=None):
 
 
 def _sab_monitoring_enabled():
-    config = getattr(comicarr, "CONFIG", None)
-    if config is None:
-        return False
-    return bool(
-        getattr(config, "POST_PROCESSING", False)
-        and getattr(config, "NZB_DOWNLOADER", None) == 0
-        and getattr(config, "SAB_CLIENT_POST_PROCESSING", False)
-        and getattr(comicarr, "USE_SABNZBD", False)
-    )
+    return sab_client_post_processing_enabled() and bool(getattr(comicarr, "USE_SABNZBD", False))
 
 
-def _validated_item(row, payload):
-    """The PP queue item, or an unplaced result when the folder is not importable."""
+def _validated_item(row, payload, quarantine=False):
+    """The PP queue item, or an unplaced result when the folder is not importable.
+
+    With ``quarantine`` the rejection is also recorded as Manual Review, the
+    same outcome startup recovery gives it, so the row does not sit at
+    Snatched with nothing to explain it.
+    """
+    from comicarr.app.downloads import recovery
     from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
-    from comicarr.app.downloads.recovery import _pp_item_from_row
 
-    item = _pp_item_from_row(row, payload)
+    item = recovery.pp_item_from_row(row, payload)
     try:
         item = validate_postprocess_item(item, roots=configured_roots())
     except PostProcessCommandError as e:
+        if quarantine:
+            recovery.quarantine_invalid_completion(row, payload, e)
+            logger.warn(
+                "[SAB-RECONCILE] %s finished in SABnzbd but its folder is not importable: %s"
+                % (row.get("release_key"), e)
+            )
         return None, {"action": "unplaced", "error": str(e), "release_key": row.get("release_key")}
     return item, None
+
+
+def _release_sab_history(nzo_id, failed):
+    """Apply SAB_REMOVE_COMPLETED / SAB_REMOVE_FAILED once the row is durably downloaded.
+
+    The probe ran with ``keep_history`` so that a rejected or lost row keeps
+    its history entry for the next pass or an operator retry.
+    """
+    if not nzo_id:
+        return
+    try:
+        from comicarr import sabnzbd
+
+        client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        client.remove_history(str(nzo_id), "Failed" if failed else "Completed")
+    except Exception as e:
+        logger.warn("[SAB-RECONCILE] could not remove SABnzbd history for %s: %s" % (nzo_id, type(e).__name__))
 
 
 def _put_postprocess(row, item):
@@ -120,6 +146,10 @@ def queue_completed_postprocess(row):
     alone. A snatched row advances to ``downloaded`` only when this call wins
     the journal transition, and only that winner enqueues — so two sweeps
     cannot both queue the same import.
+
+    The SABnzbd probe is read-only. History is removed (when the settings ask
+    for it) only after the row is durably ``downloaded``. A finished job that
+    cannot be imported is recorded the way startup recovery records it.
     """
     from comicarr.app.downloads import recovery, recovery_classify
 
@@ -145,14 +175,22 @@ def queue_completed_postprocess(row):
     if not row_targets_sab(current, payload):
         return {"action": "not-sab", "release_key": rkey}
 
-    details = recovery_classify.classify_details(current, payload=payload)
+    details = recovery_classify.classify_details(current, payload=payload, keep_history=True)
     verdict = details.get("verdict")
     raw_state = details.get("raw_state")
+    if raw_state == "failed_no_auto_handling":
+        recovery.terminalize_failed_completion(current, payload, details)
+        logger.warn("[SAB-RECONCILE] %s failed in SABnzbd and failed-download handling is off." % rkey)
+        return {"action": "failed", "release_key": rkey}
+    if raw_state == "unplaced":
+        recovery.quarantine_unplaced_completion(current, payload, details)
+        logger.warn("[SAB-RECONCILE] %s finished in SABnzbd but its folder cannot be resolved." % rkey)
+        return {"action": "unplaced", "release_key": rkey}
     if verdict != recovery_classify.COMPLETE:
         return {"action": raw_state or "not-complete", "release_key": rkey, "verdict": verdict}
 
-    payload = recovery._merge_completion_evidence(payload, details)
-    item, rejected = _validated_item(current, payload)
+    payload = recovery.merge_completion_evidence(payload, details)
+    item, rejected = _validated_item(current, payload, quarantine=True)
     if rejected:
         return rejected
     # Advance before enqueue. A second sweep sees ``downloaded`` and does not
@@ -167,14 +205,14 @@ def queue_completed_postprocess(row):
         nzbname=payload.get("nzb_name") or payload.get("nzbname") or current.get("nzbname"),
     )
     if not won:
-        latest = journal.read_one(rkey)
-        latest_stage = (latest or {}).get("stage")
-        if latest_stage != journal.DOWNLOADED:
-            logger.warn(
-                "[SAB-RECONCILE] %s looked complete but the journal did not advance (stage=%s)." % (rkey, latest_stage)
-            )
-            return {"action": "not-won", "release_key": rkey, "stage": latest_stage}
-    return _put_postprocess(current, item)
+        # Whoever moved the row on owns its post-processing: cdh_monitor and
+        # startup recovery both queue when they advance a row to downloaded.
+        latest_stage = (journal.read_one(rkey) or {}).get("stage")
+        logger.fdebug("[SAB-RECONCILE] %s advanced elsewhere (stage=%s); not queueing again." % (rkey, latest_stage))
+        return {"action": "not-won", "release_key": rkey, "stage": latest_stage}
+    result = _put_postprocess(current, item)
+    _release_sab_history(payload.get("nzo_id") or details.get("nzo_id"), payload.get("failed"))
+    return result
 
 
 def reconcile_completed_sab_downloads():
@@ -228,6 +266,7 @@ _RETRY_ERRORS = {
     "unprobeable": (409, "No completed SABnzbd history entry matches this download."),
     "unreachable": (503, "SABnzbd could not be reached. Try again once it is up."),
     "unplaced": (409, "SABnzbd finished, but the completed file is not in a folder Comicarr can import."),
+    "failed": (409, "SABnzbd reports this download failed, and failed-download handling is off."),
     "not-sab": (409, "Retry post-processing is available for SABnzbd downloads."),
     "not-won": (409, "This download changed while post-processing was being queued. Refresh and try again."),
     "not-complete": (409, "SABnzbd has not completed this download."),
@@ -243,6 +282,8 @@ def retry_postprocess(release_key):
     row = journal.read_one(key)
     if row is None:
         raise RetryPostProcessError(_RETRY_ERRORS["missing"][1], status_code=404)
+    if not post_processing_enabled():
+        raise RetryPostProcessError("Post-processing is turned off in Settings.", status_code=409)
     result = queue_completed_postprocess(row)
     action = result.get("action")
     if action == "enqueued":

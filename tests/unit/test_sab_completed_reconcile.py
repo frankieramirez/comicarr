@@ -328,3 +328,230 @@ def test_retry_endpoint_queues_post_processing(pp_queue, tmp_path, monkeypatch):
     with get_engine().connect() as conn:
         stored = conn.execute(select(pipeline_journal).where(pipeline_journal.c.release_key == "15|nzbgeek")).fetchone()
     assert stored is not None
+
+
+def _completed_job(tmp_path, name="Absolute Superman 014"):
+    completed = tmp_path / name
+    completed.mkdir()
+    (completed / ("%s.cbr" % name)).write_bytes(b"comic")
+    return completed
+
+
+def _sab_payload(issueid="14", nzo_id="SABnzbd_nzo_014"):
+    return {
+        "issueid": issueid,
+        "comicid": "C" + issueid,
+        "provider": "nzbgeek",
+        "route": "sabnzbd",
+        "nzo_id": nzo_id,
+        "nzbname": "Absolute.Superman.0%s.nzb" % issueid,
+        "download_info": {"nzo_id": nzo_id},
+    }
+
+
+def test_retry_is_refused_and_hidden_when_post_processing_is_off(pp_queue, monkeypatch):
+    row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
+    monkeypatch.setattr(comicarr.CONFIG, "POST_PROCESSING", False)
+
+    with pytest.raises(RetryPostProcessError) as raised:
+        sab_reconcile.retry_postprocess(row["release_key"])
+
+    assert raised.value.status_code == 409
+    assert "turned off" in str(raised.value)
+    assert _drain(pp_queue) == []
+    assert journal.read_one(row["release_key"])["stage"] == journal.SNATCHED
+    assert sab_reconcile.retry_postprocess_eligible(row, _sab_payload()) is False
+
+
+def test_sweep_probe_keeps_sab_history_until_the_row_is_downloaded(pp_queue, tmp_path, monkeypatch):
+    completed = _completed_job(tmp_path)
+    row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
+    calls = []
+
+    def historycheck(self, nzbinfo, **kwargs):
+        calls.append(("historycheck", kwargs.get("keep_history")))
+        return {"status": True, "location": str(completed), "name": "x.cbr", "failed": False}
+
+    def remove_history(self, nzo_id, status):
+        calls.append(("remove", nzo_id, status, journal.read_one(row["release_key"])["stage"]))
+
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.historycheck", historycheck)
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", remove_history)
+
+    result = sab_reconcile.queue_completed_postprocess(row)
+
+    assert result["action"] == "enqueued"
+    assert calls == [
+        ("historycheck", True),
+        ("remove", "SABnzbd_nzo_014", "Completed", journal.DOWNLOADED),
+    ]
+
+
+def test_rejected_folder_keeps_history_and_goes_to_manual_review(pp_queue, monkeypatch):
+    row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
+    removed = []
+    monkeypatch.setattr(
+        "comicarr.sabnzbd.SABnzbd.historycheck",
+        lambda self, nzbinfo, **kwargs: {
+            "status": True,
+            "location": "/not/under/any/configured/root",
+            "name": "x.cbr",
+            "failed": False,
+        },
+    )
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
+
+    result = sab_reconcile.queue_completed_postprocess(row)
+
+    assert result["action"] == "unplaced"
+    assert removed == []
+    assert _drain(pp_queue) == []
+    assert journal.read_one(row["release_key"])["stage"] == journal.MANUAL_REVIEW
+
+
+def test_failed_sab_job_without_failed_handling_is_terminalized(pp_queue, monkeypatch):
+    row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
+    monkeypatch.setattr(
+        "comicarr.sabnzbd.SABnzbd.historycheck",
+        lambda self, nzbinfo, **kwargs: {"status": "failed_no_auto_handling", "failed": True, "name": "x"},
+    )
+
+    result = sab_reconcile.queue_completed_postprocess(row)
+
+    assert result["action"] == "failed"
+    assert _drain(pp_queue) == []
+    assert journal.read_one(row["release_key"])["stage"] == journal.FAILED
+
+
+def test_losing_the_transition_does_not_queue_a_second_item(pp_queue, tmp_path, monkeypatch):
+    completed = _completed_job(tmp_path)
+    row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
+    monkeypatch.setattr(
+        "comicarr.sabnzbd.SABnzbd.historycheck",
+        lambda self, nzbinfo, **kwargs: {"status": True, "location": str(completed), "name": "x", "failed": False},
+    )
+    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: None)
+
+    def lost_race(rkey, stage, **kwargs):
+        with get_engine().begin() as conn:
+            conn.execute(
+                pipeline_journal.update()
+                .where(pipeline_journal.c.release_key == rkey)
+                .values(stage=journal.DOWNLOADED, stage_rank=journal.stage_rank(journal.DOWNLOADED))
+            )
+        return False
+
+    monkeypatch.setattr(journal, "record_transition", lost_race)
+
+    result = sab_reconcile.queue_completed_postprocess(row)
+
+    assert result == {"action": "not-won", "release_key": row["release_key"], "stage": journal.DOWNLOADED}
+    assert _drain(pp_queue) == []
+
+
+@pytest.mark.parametrize("status", ["nzb removed", "file not found"])
+def test_monitor_does_not_review_a_row_another_path_already_claimed(status, monkeypatch):
+    from comicarr.app.downloads import service
+
+    _insert_journal("14|nzbgeek", journal.DOWNLOADED, payload=_sab_payload(), issueid="14", provider="nzbgeek")
+    recorded = []
+    monkeypatch.setattr(service, "_cdh_record_entry", recorded.append)
+    item = {"nzo_id": "SABnzbd_nzo_014", "journal_release_key": "14|nzbgeek", "issueid": "14"}
+
+    assert service._cdh_record_terminal_outcome(item, {"status": status, "failed": False}) is True
+    assert recorded == []
+    assert journal.read_one("14|nzbgeek")["stage"] == journal.DOWNLOADED
+
+
+def test_monitor_still_reviews_a_snatched_row_whose_job_vanished(monkeypatch):
+    from comicarr.app.downloads import service
+
+    _insert_journal("14|nzbgeek", journal.SNATCHED, payload=_sab_payload(), issueid="14", provider="nzbgeek")
+    recorded = []
+    monkeypatch.setattr(service, "_cdh_record_entry", recorded.append)
+    item = {"nzo_id": "SABnzbd_nzo_014", "journal_release_key": "14|nzbgeek", "issueid": "14"}
+
+    assert service._cdh_record_terminal_outcome(item, {"status": "nzb removed", "failed": False}) is True
+    assert [entry.reason for entry in recorded] == ["sab_job_missing_from_client"]
+
+
+def test_full_search_page_is_not_trusted_for_a_single_match(monkeypatch):
+    from comicarr import sabnzbd
+
+    one = {"status": "Completed", "nzo_id": "SABnzbd_nzo_a", "nzb_name": "Absolute.Superman.013.nzb"}
+    other = {"status": "Completed", "nzo_id": "SABnzbd_nzo_b", "nzb_name": "Absolute Superman 013.nzb"}
+    filler = [{"status": "Completed", "nzo_id": "f%d" % n, "nzb_name": "Other %d" % n} for n in range(49)]
+    pages = {50: [one] + filler, 200: [other]}
+    monkeypatch.setattr(sabnzbd.SABnzbd, "list_history_slots", lambda self, search=None, limit=200: list(pages[limit]))
+
+    client = sabnzbd.SABnzbd({})
+    assert client.match_completed_history({"nzbname": "Absolute.Superman.013.nzb"}) is None
+
+
+class _FakeResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def test_processor_stops_watching_once_its_job_leaves_the_queue(monkeypatch):
+    from comicarr import sabnzbd
+
+    responses = [
+        {"noofslots": 1, "queue": {"slots": [{"filename": "x", "status": "Downloading", "mbleft": "5"}]}},
+        {"noofslots": 0, "queue": {"slots": [], "status": "Downloading", "mbleft": "900"}},
+    ]
+    sent = []
+
+    def get(url, params=None, **kwargs):
+        sent.append(dict(params))
+        return _FakeResponse(responses.pop(0))
+
+    seen = {}
+
+    def historycheck(self, nzbinfo, **kwargs):
+        seen.update(kwargs)
+        return {"status": True}
+
+    monkeypatch.setattr(sabnzbd.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(sabnzbd.requests, "get", get)
+    monkeypatch.setattr(sabnzbd.SABnzbd, "historycheck", historycheck)
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERIFY", False, raising=False)
+
+    client = sabnzbd.SABnzbd(
+        {
+            "nzo_id": "SABnzbd_nzo_013",
+            "queue": {"mode": "queue", "search": "x", "output": "json", "apikey": "k", "category": "comics"},
+        }
+    )
+
+    assert client.processor() == {"status": True}
+    assert len(sent) == 2
+    assert all("category" not in params for params in sent)
+    assert all(params.get("nzo_ids") == "SABnzbd_nzo_013" for params in sent)
+    assert seen.get("ignore_category") is True
+
+
+def test_historycheck_probe_leaves_completed_history_in_sab(tmp_path, monkeypatch):
+    from comicarr import sabnzbd
+
+    archive = tmp_path / "Absolute Superman 013.cbr"
+    archive.write_bytes(b"comic")
+    slot = {"nzo_id": "SABnzbd_nzo_013", "status": "Completed", "script": "", "storage": str(archive)}
+    monkeypatch.setattr(
+        sabnzbd.requests, "get", lambda url, params=None, **kw: _FakeResponse({"history": {"slots": [slot]}})
+    )
+    removed = []
+    monkeypatch.setattr(sabnzbd.SABnzbd, "remove_history", lambda self, nzo_id, status: removed.append(nzo_id))
+    for key, value in {"SAB_VERSION": "4.0.0", "SAB_VERIFY": False, "SAB_DIRECT_UNPACK": False}.items():
+        monkeypatch.setattr(comicarr.CONFIG, key, value, raising=False)
+    nzbinfo = {"nzo_id": "SABnzbd_nzo_013", "issueid": "13", "comicid": "C13", "download_info": {}}
+    client = sabnzbd.SABnzbd({})
+
+    probed = client.historycheck(nzbinfo, ignore_category=True, keep_history=True)
+    consumed = client.historycheck(nzbinfo, ignore_category=True)
+
+    assert probed["status"] is True and consumed["status"] is True
+    assert removed == ["SABnzbd_nzo_013"]

@@ -2139,6 +2139,29 @@ def _cdh_manual_review_kwargs(item, nzstat, known_nzb_id, status):
     }
 
 
+def _cdh_row_already_advanced(item, nzstat):
+    """True when this job's journal row is already downloaded or further along.
+
+    The completed-download sweep and startup recovery can claim a finished job
+    (and remove its SAB history, or post-processing can move its file) while the
+    live monitor still holds it. The monitor's later "nzb removed" or "file not
+    found" then describes work that already happened, not a missing download.
+    """
+    from comicarr.app.downloads import journal
+
+    rkey = _cdh_resolve_release_key(item, nzstat)
+    if not rkey:
+        return False
+    try:
+        row = journal.read_one(rkey)
+    except Exception as e:
+        logger.warn("[DOWNLOADS-CDH] could not read journal for %s: %s" % (rkey, type(e).__name__))
+        return False
+    if not row:
+        return False
+    return (journal.stage_rank(row.get("stage")) or 0) >= journal.stage_rank(journal.DOWNLOADED)
+
+
 def _cdh_record_terminal_outcome(item, nzstat, readd=False):
     """Route non-success SAB/NZBGet statuses to attention, failure, or requeue.
 
@@ -2154,6 +2177,12 @@ def _cdh_record_terminal_outcome(item, nzstat, readd=False):
     known_nzb_id = item.get("nzo_id") or item.get("NZBID")
     if status == "double-pp":
         logger.warn("ComicRN owns this download; skipping completed-download handling. [%s]" % known_nzb_id)
+        return True
+    if status in ("file not found", "nzb removed") and _cdh_row_already_advanced(item, nzstat):
+        logger.info(
+            "[DOWNLOADS-CDH] %s: %s, but the journal row is already downloaded or later; "
+            "another path claimed it, so no Manual Review." % (known_nzb_id, status)
+        )
         return True
     if status == "file not found":
         logger.warn("Unable to complete post-processing call due to not finding file. [%s]" % item)
