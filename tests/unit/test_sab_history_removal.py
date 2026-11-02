@@ -199,7 +199,10 @@ def test_historycheck_matches_a_completed_job_by_release_name(sab_config, monkey
     }
     found = MagicMock()
     found.json.return_value = named.json.return_value
-    get = MagicMock(side_effect=[empty, named, found])
+    recent = MagicMock()
+    recent.json.return_value = named.json.return_value
+    # nzo_id lookup, name search, recent-history listing, then the re-probe.
+    get = MagicMock(side_effect=[empty, named, recent, found])
     monkeypatch.setattr(sabnzbd.requests, "get", get)
     nzbinfo = {
         "nzo_id": "missing-id",
@@ -213,7 +216,7 @@ def test_historycheck_matches_a_completed_job_by_release_name(sab_config, monkey
 
     assert result["status"] is True
     assert result["name"] == "Absolute Superman 013.cbr"
-    assert get.call_args_list[2].kwargs["params"]["nzo_ids"] == "SABnzbd_nzo_real"
+    assert get.call_args_list[3].kwargs["params"]["nzo_ids"] == "SABnzbd_nzo_real"
 
 
 def test_historycheck_preserves_ignore_category_across_recursion(sab_config, monkeypatch):

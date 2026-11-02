@@ -414,6 +414,7 @@ class SABnzbd(object):
                             "apicall": True,
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
+                            "nzo_id": hq["nzo_id"],
                         }
                         self._consume_history(hq, keep_history)
                         break
@@ -461,6 +462,7 @@ class SABnzbd(object):
                             "apicall": True,
                             "ddl": False,
                             "download_info": nzbinfo["download_info"],
+                            "nzo_id": hq["nzo_id"],
                         }
                         self._consume_history(hq, keep_history)
                         break
@@ -510,6 +512,7 @@ class SABnzbd(object):
                         "apicall": True,
                         "ddl": False,
                         "download_info": nzbinfo.get("download_info"),
+                        "nzo_id": hq["nzo_id"],
                     }
                     if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
                         found = {"status": True, **failed_job}
@@ -651,13 +654,11 @@ class SABnzbd(object):
         if len(slots) >= search_limit:
             # A full page can hide a second job with the same name, so one
             # match there is not proof the name is unambiguous.
-            slots = slots + self.list_history_slots(limit=200)
-            return match_completed_slot(slots, names)
-        match = match_completed_slot(slots, names)
-        if match is None:
-            slots = self.list_history_slots(limit=200)
-            match = match_completed_slot(slots, names)
-        return match
+            return None
+        # SAB's search is a literal substring match, so a job whose name is
+        # spelled differently (dots vs. spaces) is missing from the search
+        # page. Check the recent listing too before calling one match unique.
+        return match_completed_slot(slots + self.list_history_slots(limit=200), names)
 
     def remove_history(self, nzo_id, status):
         logger.info("[Sabnzbd Completed History Removal] Download is complete - removing item from history..")

@@ -365,12 +365,35 @@ def merge_completion_evidence(payload, details):
     if details.get("failed") is not None:
         merged["failed"] = bool(details.get("failed"))
     nzo_id = details.get("nzo_id")
+    # nzo_id is an immutable journal key: only fill it when the snatch never
+    # recorded one (a name-matched history job). The probe queries by the
+    # recorded id when there is one, so the two cannot disagree.
     if nzo_id and not merged.get("nzo_id"):
         merged["nzo_id"] = str(nzo_id)
         download_info = dict(merged.get("download_info") or {})
         download_info.setdefault("nzo_id", str(nzo_id))
         merged["download_info"] = download_info
     return merged
+
+
+def release_sab_history(nzo_id, failed):
+    """Apply SAB_REMOVE_COMPLETED / SAB_REMOVE_FAILED for a job this code has finished with.
+
+    Probes run with ``keep_history`` so that a rejected or lost row keeps its
+    history entry for the next pass or an operator retry. Callers release it
+    only once the row is durably ``downloaded`` (or terminally failed).
+    ``remove_history`` itself honours both settings, so this is a no-op when
+    they are off.
+    """
+    if not nzo_id:
+        return
+    try:
+        from comicarr import sabnzbd
+
+        client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        client.remove_history(str(nzo_id), "Failed" if failed else "Completed")
+    except Exception as e:
+        logger.warn("[RECOVERY] could not remove SABnzbd history for %s: %s" % (nzo_id, type(e).__name__))
 
 
 def pp_item_from_row(row, payload):
@@ -707,11 +730,15 @@ def _resolve_row(snapshot_row, probes=None):
             "can be re-driven." % rkey
         )
 
-    details = recovery_classify.classify_details(row, probes=probes, payload=payload)
+    # Read-only SAB probe: history is released below only once this row is
+    # durably downloaded or terminally failed, never for an unplaced or
+    # rejected completion that an operator may still retry.
+    details = recovery_classify.classify_details(row, probes=probes, payload=payload, keep_history=True)
     verdict = details.get("verdict")
 
     if details.get("raw_state") == "failed_no_auto_handling":
         terminalize_failed_completion(row, payload, details)
+        release_sab_history(details.get("nzo_id"), True)
         logger.warn("[RECOVERY] %s -> failed_no_auto_handling — journal terminalized; not re-queued." % rkey)
         return "failed-no-auto-handling"
 
@@ -778,6 +805,7 @@ def _resolve_row(snapshot_row, probes=None):
             downloader_type=row.get("downloader_type"),
         )
         comicarr.PP_QUEUE.put(item)
+        release_sab_history(details.get("nzo_id"), payload.get("failed"))
         logger.info(
             "[RECOVERY] %s -> COMPLETE (done at downloader) — recorded "
             "`downloaded` then re-enqueued for PP (journal_release_key stamped "

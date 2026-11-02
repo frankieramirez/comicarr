@@ -83,8 +83,6 @@ def retry_postprocess_eligible(row, payload=None):
     if not post_processing_enabled():
         return False
     payload = payload or {}
-    if row.get("stage") == journal.DOWNLOADED and payload.get("nzb_folder"):
-        return True
     return row_targets_sab(row, payload)
 
 
@@ -114,23 +112,6 @@ def _validated_item(row, payload, quarantine=False):
             )
         return None, {"action": "unplaced", "error": str(e), "release_key": row.get("release_key")}
     return item, None
-
-
-def _release_sab_history(nzo_id, failed):
-    """Apply SAB_REMOVE_COMPLETED / SAB_REMOVE_FAILED once the row is durably downloaded.
-
-    The probe ran with ``keep_history`` so that a rejected or lost row keeps
-    its history entry for the next pass or an operator retry.
-    """
-    if not nzo_id:
-        return
-    try:
-        from comicarr import sabnzbd
-
-        client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
-        client.remove_history(str(nzo_id), "Failed" if failed else "Completed")
-    except Exception as e:
-        logger.warn("[SAB-RECONCILE] could not remove SABnzbd history for %s: %s" % (nzo_id, type(e).__name__))
 
 
 def _put_postprocess(row, item):
@@ -166,20 +147,20 @@ def queue_completed_postprocess(row):
         return {"action": "busy", "release_key": rkey, "stage": stage}
 
     payload = journal.load_payload(current.get("payload_json")) or {}
+    if not row_targets_sab(current, payload):
+        return {"action": "not-sab", "release_key": rkey}
     if stage == journal.DOWNLOADED:
         item, rejected = _validated_item(current, payload)
         if rejected:
             return rejected
         return _put_postprocess(current, item)
 
-    if not row_targets_sab(current, payload):
-        return {"action": "not-sab", "release_key": rkey}
-
     details = recovery_classify.classify_details(current, payload=payload, keep_history=True)
     verdict = details.get("verdict")
     raw_state = details.get("raw_state")
     if raw_state == "failed_no_auto_handling":
         recovery.terminalize_failed_completion(current, payload, details)
+        recovery.release_sab_history(details.get("nzo_id") or payload.get("nzo_id"), True)
         logger.warn("[SAB-RECONCILE] %s failed in SABnzbd and failed-download handling is off." % rkey)
         return {"action": "failed", "release_key": rkey}
     if raw_state == "unplaced":
@@ -211,7 +192,7 @@ def queue_completed_postprocess(row):
         logger.fdebug("[SAB-RECONCILE] %s advanced elsewhere (stage=%s); not queueing again." % (rkey, latest_stage))
         return {"action": "not-won", "release_key": rkey, "stage": latest_stage}
     result = _put_postprocess(current, item)
-    _release_sab_history(payload.get("nzo_id") or details.get("nzo_id"), payload.get("failed"))
+    recovery.release_sab_history(details.get("nzo_id") or payload.get("nzo_id"), payload.get("failed"))
     return result
 
 
