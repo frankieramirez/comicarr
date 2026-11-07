@@ -37,7 +37,23 @@ CLOUDFLARE_ORIGIN_ERRORS = {
     "524": "timed out while responding",
 }
 
-ORIGIN_OUTAGE_CAUSE = "Walksoftly is unreachable. The pull-list source is down upstream."
+DEFAULT_RELEASE_PROVIDER_URL = "https://talkhard.notaninja.party"
+
+ORIGIN_OUTAGE_CAUSE = "The release provider is unreachable. The pull-list source is down upstream."
+
+
+def release_provider_url(config=None):
+    """Base URL of the weekly pull-list source, without a trailing slash.
+
+    Walksoftly (walksoftly.itsaninja.party) went offline; Mylar3 moved to the
+    same API at talkhard.notaninja.party and made the URL a setting, so this
+    reads RELEASE_PROVIDER_URL and falls back to that default when it is unset.
+    """
+    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    value = getattr(config, "RELEASE_PROVIDER_URL", None)
+    if not isinstance(value, str) or not value.strip() or value.strip().lower() == "none":
+        value = DEFAULT_RELEASE_PROVIDER_URL
+    return value.strip().rstrip("/")
 
 
 def _retry_advice(retry_after):
@@ -94,7 +110,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
 
     params = {"week": str(weeknumber), "year": str(year)}
 
-    url = "https://walksoftly.itsaninja.party/newcomics.php"
+    url = release_provider_url() + "/newcomics.php"
 
     try:
         r = requests.get(
@@ -116,7 +132,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
         return {"status": "failure"}
     elif str(r.status_code) in CLOUDFLARE_ORIGIN_ERRORS:
         logger.warn(
-            "[%s] Walksoftly %s, so it is currently unreachable. Data shown may be stale until it comes back online.%s"
+            "[%s] The release provider %s, so it is currently unreachable. Data shown may be stale until it comes back online.%s"
             % (
                 r.status_code,
                 CLOUDFLARE_ORIGIN_ERRORS[str(r.status_code)],

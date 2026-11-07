@@ -212,6 +212,13 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("PACK_0DAY_WATCHLIST_ONLY", bool, "Weekly", True),
     ConfigKey("RESET_PULLIST_PAGINATION", bool, "Weekly", True),
     ConfigKey("MASS_PUBLISHERS", str, "Weekly", []),
+    ConfigKey(
+        "RELEASE_PROVIDER_URL",
+        str,
+        "Weekly",
+        "https://talkhard.notaninja.party",
+        note="Base URL of the weekly pull-list source; Comicarr requests <url>/newcomics.php?week=&year=.",
+    ),
     ConfigKey("AUTO_MASS_ADD", bool, "Weekly", False),
     ConfigKey("HTTP_PORT", int, "Interface", 8090, readable=True, writable=True),
     ConfigKey("HTTP_HOST", str, "Interface", "0.0.0.0", readable=True, writable=True),

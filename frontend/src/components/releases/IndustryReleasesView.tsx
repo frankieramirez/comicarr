@@ -217,7 +217,7 @@ export default function IndustryReleasesView() {
             title="No pull list for this week"
             description={
               data?.source === "unavailable"
-                ? "Neither Walksoftly nor ComicVine has this week yet. Future weeks fill in as publishers announce them; try again later."
+                ? "Neither the release provider nor ComicVine has this week yet. Future weeks fill in as publishers announce them; try again later."
                 : "Run a weekly pull list update from Settings to populate this view."
             }
           />

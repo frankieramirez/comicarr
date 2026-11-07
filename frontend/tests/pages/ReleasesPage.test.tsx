@@ -375,7 +375,7 @@ describe("ReleasesPage", () => {
     renderIndustry();
 
     expect(
-      await screen.findByText(/Neither Walksoftly nor ComicVine has this week/),
+      await screen.findByText(/Neither the release provider nor ComicVine has this week/),
     ).toBeTruthy();
   });
 

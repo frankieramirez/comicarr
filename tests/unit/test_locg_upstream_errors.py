@@ -77,7 +77,7 @@ def test_origin_errors_carry_an_operator_facing_upstream_cause(upstream):
     assert result["status"] == "failure"
     assert result["retry_after"] == 120
     assert result["origin_error"] is True
-    assert "Walksoftly" in result["cause"]
+    assert "release provider" in result["cause"]
     assert "upstream" in result["cause"].lower()
     assert "connection" not in result["cause"].lower()
 
