@@ -1276,16 +1276,22 @@ def opds_oneoff_file(
         return _not_enabled()
 
     grabbag = comicarr.CONFIG.GRABBAG_DIR
-    if not grabbag or filename != os.path.basename(filename) or filename in ("", ".", ".."):
+    if not grabbag or not os.path.isdir(grabbag):
         return _error_xml("Issue Not Found")
 
-    file_path = os.path.join(grabbag, filename)
+    # Serve only a name the folder listing itself returns, so the request
+    # never contributes to the path: no separators, no "..", no other folder.
+    listed = next((name for name in os.listdir(grabbag) if name == filename), None)
+    if listed is None:
+        return _error_xml("Issue Not Found")
+
+    file_path = os.path.join(grabbag, listed)
     if not os.path.isfile(file_path):
         return _error_xml("Issue Not Found")
     if not is_servable_library_file(file_path, comicarr.CONFIG):
         return Response(status_code=403)
 
-    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
+    return FileResponse(path=file_path, filename=listed, media_type="application/octet-stream")
 
 
 def _resolve_issue_file(issue_id):
