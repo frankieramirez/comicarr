@@ -17,7 +17,7 @@ dedicated route returning ``application/atom+xml`` responses.
 
 import glob
 import os
-from urllib.parse import quote_plus
+from urllib.parse import quote, urlencode
 from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -37,17 +37,53 @@ router = APIRouter(prefix="/opds", tags=["opds"])
 OPDS_MEDIA = "application/atom+xml; profile=opds-catalog"
 
 
+def _opds_base():
+    """Return the path the OPDS router is served under, without a trailing slash.
+
+    The router is always mounted at ``router.prefix``; HTTP_ROOT is kept as a
+    leading segment for installs behind a reverse proxy that strips it.
+    """
+    http_root = (comicarr.CONFIG.HTTP_ROOT or "/").strip("/")
+    return ("/" + http_root if http_root else "") + router.prefix
+
+
 def _opds_root():
-    """Return the configured OPDS root path."""
-    if comicarr.CONFIG.HTTP_ROOT is None:
-        return "/" + comicarr.CONFIG.OPDS_ENDPOINT
-    elif comicarr.CONFIG.HTTP_ROOT.endswith("/"):
-        return comicarr.CONFIG.HTTP_ROOT + comicarr.CONFIG.OPDS_ENDPOINT
-    else:
-        if comicarr.CONFIG.HTTP_ROOT != "/":
-            return comicarr.CONFIG.HTTP_ROOT + "/" + comicarr.CONFIG.OPDS_ENDPOINT
-        else:
-            return "/" + comicarr.CONFIG.OPDS_ENDPOINT
+    """Return the OPDS catalog root path (the registered ``/`` route)."""
+    return _opds_base() + "/"
+
+
+def _opds_url(*segments, **params):
+    """Build a link to a registered OPDS route.
+
+    Each segment is percent-encoded as a single path segment, and params become
+    a query string. Values are not XML-escaped here: the feed renderer escapes
+    attribute values exactly once with ``quoteattr()``.
+    """
+    path = _opds_base()
+    for segment in segments:
+        path += "/" + quote(str(segment), safe="")
+    query = [(key, value) for key, value in params.items() if value is not None]
+    if query:
+        path += "?" + urlencode(query)
+    return path
+
+
+def _page_links(segments, index, page_size, total):
+    """Return next/previous links for a paged feed at the given route."""
+    links = []
+    if total > index + page_size:
+        links.append(_next_link(_opds_url(*segments, index=index + page_size)))
+    if index >= page_size:
+        links.append(_prev_link(_opds_url(*segments, index=max(index - page_size, 0))))
+    return links
+
+
+def _issue_links(issue_id, filename):
+    """Return the acquisition and page-stream hrefs for an issue file."""
+    href = _opds_url("issues", issue_id, file=filename)
+    # OPDS-PSE: the reader substitutes {pageNumber}; braces must stay literal.
+    stream = _opds_url("stream", issue_id, file=filename) + "&page={pageNumber}"
+    return href, stream
 
 
 def _get_link(href=None, ltype=None, rel=None, title=None):
@@ -201,14 +237,6 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
 
     links.append(_start_link(opdsroot))
     links.append(_self_link(opdsroot))
-    links.append(
-        {
-            "href": "%s?cmd=search" % opdsroot,
-            "type": "application/opensearchdescription+xml",
-            "rel": "search",
-            "title": "Search",
-        }
-    )
 
     with db.get_engine().connect() as conn:
         from sqlalchemy import select
@@ -222,7 +250,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             "id": "Recent",
             "updated": helpers.now(),
             "content": "Recently Added Issues",
-            "href": "%s?cmd=Recent" % opdsroot,
+            "href": _opds_url("recent"),
             "kind": "acquisition",
             "rel": "subsection",
         }
@@ -235,7 +263,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
                 "id": "Publishers",
                 "updated": helpers.now(),
                 "content": "List of Comic Publishers",
-                "href": "%s?cmd=Publishers" % opdsroot,
+                "href": _opds_url("publishers"),
                 "kind": "navigation",
                 "rel": "subsection",
             }
@@ -250,7 +278,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
                 "id": "AllTitles",
                 "updated": helpers.now(),
                 "content": "List of All Comics",
-                "href": "%s?cmd=AllTitles" % opdsroot,
+                "href": _opds_url("titles"),
                 "kind": "navigation",
                 "rel": "subsection",
             }
@@ -264,7 +292,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
                 "id": "StoryArcs",
                 "updated": helpers.now(),
                 "content": "List of Story Arcs",
-                "href": "%s?cmd=StoryArcs" % opdsroot,
+                "href": _opds_url("storyarcs"),
                 "kind": "navigation",
                 "rel": "subsection",
             }
@@ -282,14 +310,14 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
                 "id": "ReadList",
                 "updated": helpers.now(),
                 "content": "Current Read List",
-                "href": "%s?cmd=ReadList" % opdsroot,
+                "href": _opds_url("readlist"),
                 "kind": "navigation",
                 "rel": "subsection",
             }
         )
 
-    gbd = comicarr.CONFIG.GRABBAG_DIR + "/*"
-    oneofflist = glob.glob(gbd)
+    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    oneofflist = glob.glob(os.path.join(grabbag, "*")) if grabbag else []
     if len(oneofflist) > 0:
         entries.append(
             {
@@ -297,7 +325,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
                 "id": "OneOffs",
                 "updated": helpers.now(),
                 "content": "OneOffs",
-                "href": "%s?cmd=OneOffs" % opdsroot,
+                "href": _opds_url("oneoffs"),
                 "kind": "navigation",
                 "rel": "subsection",
             }
@@ -323,7 +351,7 @@ def opds_publishers(
     feed["title"] = "Comicarr OPDS - Publishers"
     feed["id"] = "Publishers"
     feed["updated"] = helpers.now()
-    links = [_start_link(opdsroot), _self_link("%s?cmd=Publishers" % opdsroot)]
+    links = [_start_link(opdsroot), _self_link(_opds_url("publishers", index=index or None))]
     entries = []
 
     with db.get_engine().connect() as conn:
@@ -348,16 +376,13 @@ def opds_publishers(
                     "id": "publisher:%s" % publisher["ComicPublisher"],
                     "updated": lastupdated,
                     "content": "%s (%s)" % (publisher["ComicPublisher"], totaltitles),
-                    "href": "%s?cmd=Publisher&amp;pubid=%s" % (opdsroot, quote_plus(publisher["ComicPublisher"])),
+                    "href": _opds_url("publishers", publisher["ComicPublisher"]),
                     "kind": "navigation",
                     "rel": "subsection",
                 }
             )
 
-    if len(entries) > (index + page_size):
-        links.append(_next_link("%s?cmd=Publishers&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=Publishers&amp;index=%s" % (opdsroot, index - page_size)))
+    links.extend(_page_links(["publishers"], index, page_size, len(entries)))
 
     feed["links"] = links
     feed["entries"] = entries[index : (index + page_size)]
@@ -379,7 +404,7 @@ def opds_all_titles(
     feed["title"] = "Comicarr OPDS - All Titles"
     feed["id"] = "AllTitles"
     feed["updated"] = helpers.now()
-    links = [_start_link(opdsroot), _self_link("%s?cmd=AllTitles" % opdsroot)]
+    links = [_start_link(opdsroot), _self_link(_opds_url("titles", index=index or None))]
     entries = []
 
     comics_list = helpers.havetotals()
@@ -391,23 +416,20 @@ def opds_all_titles(
                     "id": "comic:%s (%s) [%s]" % (comic["ComicName"], comic["ComicYear"], comic["ComicID"]),
                     "updated": comic["DateAdded"],
                     "content": "%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
-                    "href": "%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic["ComicID"])),
+                    "href": _opds_url("comics", comic["ComicID"]),
                     "kind": "acquisition",
                     "rel": "subsection",
                 }
             )
 
-    if len(entries) > (index + page_size):
-        links.append(_next_link("%s?cmd=AllTitles&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=AllTitles&amp;index=%s" % (opdsroot, index - page_size)))
+    links.extend(_page_links(["titles"], index, page_size, len(entries)))
 
     feed["links"] = links
     feed["entries"] = entries[index : (index + page_size)]
     return _xml_response(feed)
 
 
-@router.get("/publishers/{publisher}", dependencies=[Depends(require_opds_auth)])
+@router.get("/publishers/{publisher:path}", dependencies=[Depends(require_opds_auth)])
 def opds_publisher(
     publisher: str,
     index: int = Query(0),
@@ -419,7 +441,7 @@ def opds_publisher(
 
     opdsroot = _opds_root()
     page_size = _page_size()
-    links = [_start_link(opdsroot), _self_link("%s?cmd=Publishers" % opdsroot)]
+    links = [_start_link(opdsroot), _self_link(_opds_url("publishers", publisher, index=index or None))]
     entries = []
 
     allcomics = helpers.havetotals()
@@ -431,7 +453,7 @@ def opds_publisher(
                     "id": "comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
                     "updated": comic["DateAdded"],
                     "content": "%s (%s)" % (comic["ComicName"], comic["ComicYear"]),
-                    "href": "%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic["ComicID"])),
+                    "href": _opds_url("comics", comic["ComicID"]),
                     "kind": "acquisition",
                     "rel": "subsection",
                 }
@@ -443,18 +465,7 @@ def opds_publisher(
     feed["id"] = "publisher:%s" % publisher
     feed["updated"] = helpers.now()
 
-    if len(entries) > (index + page_size):
-        links.append(
-            _next_link(
-                "%s?cmd=Publisher&amp;pubid=%s&amp;index=%s" % (opdsroot, quote_plus(publisher), index + page_size)
-            )
-        )
-    if index >= page_size:
-        links.append(
-            _prev_link(
-                "%s?cmd=Publisher&amp;pubid=%s&amp;index=%s" % (opdsroot, quote_plus(publisher), index - page_size)
-            )
-        )
+    links.extend(_page_links(["publishers", publisher], index, page_size, len(entries)))
 
     feed["links"] = links
     feed["entries"] = entries[index : (index + page_size)]
@@ -545,6 +556,7 @@ def opds_comic(
             else:
                 pse_count = page_count(cb)
 
+            href, stream = _issue_links(issue["IssueID"], issue["Location"])
             entries.append(
                 {
                     "title": title,
@@ -552,10 +564,8 @@ def opds_comic(
                     % (issue["ComicName"], comic["ComicYear"], comic["ComicID"], issue["Issue_Number"]),
                     "updated": updated,
                     "content": "%s" % metainfo[0]["summary"],
-                    "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
-                    % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["Location"])),
-                    "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
-                    % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["Location"])),
+                    "href": href,
+                    "stream": stream,
                     "pse_count": pse_count,
                     "kind": "acquisition",
                     "rel": "file",
@@ -571,16 +581,8 @@ def opds_comic(
     feed["id"] = "comic:%s (%s)" % (comic["ComicName"], comic["ComicYear"])
     feed["updated"] = comic["DateAdded"]
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=Comic&amp;comicid=%s" % (opdsroot, quote_plus(comic_id))))
-
-    if len(issues_list) > (index + page_size):
-        links.append(
-            _next_link("%s?cmd=Comic&amp;comicid=%s&amp;index=%s" % (opdsroot, quote_plus(comic_id), index + page_size))
-        )
-    if index >= page_size:
-        links.append(
-            _prev_link("%s?cmd=Comic&amp;comicid=%s&amp;index=%s" % (opdsroot, quote_plus(comic_id), index - page_size))
-        )
+    links.append(_self_link(_opds_url("comics", comic_id, index=index or None)))
+    links.extend(_page_links(["comics", comic_id], index, page_size, len(issues_list)))
 
     feed["links"] = links
     feed["entries"] = entries
@@ -709,6 +711,7 @@ def opds_recent(
                 else:
                     pse_count = page_count(cb)
 
+                href, stream = _issue_links(issuebook["IssueID"], location)
                 entries.append(
                     {
                         "title": title,
@@ -716,10 +719,8 @@ def opds_recent(
                         % (issuebook["ComicName"], comic["ComicYear"], issuebook["Issue_Number"]),
                         "updated": updated,
                         "content": "%s" % metainfo[0]["summary"],
-                        "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issuebook["IssueID"]), quote_plus(location)),
-                        "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issuebook["IssueID"]), quote_plus(location)),
+                        "href": href,
+                        "stream": stream,
                         "pse_count": pse_count,
                         "kind": "acquisition",
                         "rel": "file",
@@ -734,12 +735,8 @@ def opds_recent(
     feed["id"] = "New Arrivals"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=Recent" % opdsroot))
-
-    if len(recents) > (index + page_size):
-        links.append(_next_link("%s?cmd=Recent&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=Recent&amp;index=%s" % (opdsroot, index - page_size)))
+    links.append(_self_link(_opds_url("recent", index=index or None)))
+    links.extend(_page_links(["recent"], index, page_size, len(recents)))
 
     feed["links"] = links
     feed["entries"] = entries
@@ -885,7 +882,7 @@ def opds_storyarcs(
                 "id": "storyarc:%s" % arc["StoryArcID"],
                 "updated": arc["updated"],
                 "content": "%s (%s)" % (arc["StoryArcName"], arc["IssueCount"]),
-                "href": "%s?cmd=StoryArc&amp;arcid=%s" % (opdsroot, quote_plus(arc["StoryArcID"])),
+                "href": _opds_url("storyarcs", arc["StoryArcID"]),
                 "kind": "acquisition",
                 "rel": "subsection",
             }
@@ -896,12 +893,8 @@ def opds_storyarcs(
     feed["id"] = "StoryArcs"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=StoryArcs" % opdsroot))
-
-    if len(arcs) > (index + page_size):
-        links.append(_next_link("%s?cmd=StoryArcs&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=StoryArcs&amp;index=%s" % (opdsroot, index - page_size)))
+    links.append(_self_link(_opds_url("storyarcs", index=index or None)))
+    links.extend(_page_links(["storyarcs"], index, page_size, len(arcs)))
 
     feed["links"] = links
     feed["entries"] = entries
@@ -1043,16 +1036,15 @@ def opds_storyarc(
                     pse_count = 0
                 else:
                     pse_count = page_count(cb)
+                href, stream = _issue_links(issue["IssueID"], issue["filename"])
                 entries.append(
                     {
                         "title": "%s - %s" % (issue["ReadingOrder"], issue["Title"]),
                         "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
                         "content": "%s" % metainfo[0]["summary"],
-                        "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
-                        "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
+                        "href": href,
+                        "stream": stream,
                         "pse_count": pse_count,
                         "kind": "acquisition",
                         "rel": "file",
@@ -1067,16 +1059,8 @@ def opds_storyarc(
     feed["id"] = "storyarc:%s" % arc_id
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=StoryArc&amp;arcid=%s" % (opdsroot, quote_plus(arc_id))))
-
-    if len(newarclist) > (index + page_size):
-        links.append(
-            _next_link("%s?cmd=StoryArc&amp;arcid=%s&amp;index=%s" % (opdsroot, quote_plus(arc_id), index + page_size))
-        )
-    if index >= page_size:
-        links.append(
-            _prev_link("%s?cmd=StoryArc&amp;arcid=%s&amp;index=%s" % (opdsroot, quote_plus(arc_id), index - page_size))
-        )
+    links.append(_self_link(_opds_url("storyarcs", arc_id, index=index or None)))
+    links.extend(_page_links(["storyarcs", arc_id], index, page_size, len(newarclist)))
 
     feed["links"] = links
     feed["entries"] = entries
@@ -1189,16 +1173,15 @@ def opds_readlist(
                     pse_count = 0
                 else:
                     pse_count = page_count(cb)
+                href, stream = _issue_links(issue["IssueID"], issue["filename"])
                 entries.append(
                     {
                         "title": issue["Title"],
                         "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
                         "content": "%s" % metainfo[0]["summary"],
-                        "href": "%s?cmd=Issue&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
-                        "stream": "%s?cmd=Stream&amp;issueid=%s&amp;file=%s"
-                        % (opdsroot, quote_plus(issue["IssueID"]), quote_plus(issue["filename"])),
+                        "href": href,
+                        "stream": stream,
                         "pse_count": pse_count,
                         "kind": "acquisition",
                         "rel": "file",
@@ -1213,12 +1196,8 @@ def opds_readlist(
     feed["id"] = "ReadList"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=ReadList" % opdsroot))
-
-    if len(readlist_items) > (index + page_size):
-        links.append(_next_link("%s?cmd=ReadList&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=ReadList&amp;index=%s" % (opdsroot, index - page_size)))
+    links.append(_self_link(_opds_url("readlist", index=index or None)))
+    links.extend(_page_links(["readlist"], index, page_size, len(readlist_items)))
 
     feed["links"] = links
     feed["entries"] = entries
@@ -1239,8 +1218,8 @@ def opds_oneoffs(
     links = []
     entries = []
 
-    gbd = str(comicarr.CONFIG.GRABBAG_DIR + "/*")
-    flist = glob.glob(gbd)
+    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    flist = glob.glob(os.path.join(grabbag, "*")) if grabbag else []
     readlist_items = []
     for book in flist:
         issue = {}
@@ -1265,8 +1244,7 @@ def opds_oneoffs(
                         "id": "comic:%s" % issue["IssueID"],
                         "updated": issue["updated"],
                         "content": "%s" % metainfo[0]["summary"],
-                        "href": "%s?cmd=deliverFile&amp;file=%s&amp;filename=%s"
-                        % (opdsroot, quote_plus(issue["fileloc"]), quote_plus(issue["filename"])),
+                        "href": _opds_url("oneoffs", os.path.basename(issue["fileloc"])),
                         "kind": "acquisition",
                         "rel": "file",
                         "author": metainfo[0]["writer"],
@@ -1280,16 +1258,34 @@ def opds_oneoffs(
     feed["id"] = "OneOffs"
     feed["updated"] = helpers.now()
     links.append(_start_link(opdsroot))
-    links.append(_self_link("%s?cmd=OneOffs" % opdsroot))
-
-    if len(readlist_items) > (index + page_size):
-        links.append(_next_link("%s?cmd=OneOffs&amp;index=%s" % (opdsroot, index + page_size)))
-    if index >= page_size:
-        links.append(_prev_link("%s?cmd=OneOffs&amp;index=%s" % (opdsroot, index - page_size)))
+    links.append(_self_link(_opds_url("oneoffs", index=index or None)))
+    links.extend(_page_links(["oneoffs"], index, page_size, len(readlist_items)))
 
     feed["links"] = links
     feed["entries"] = entries
     return _xml_response(feed)
+
+
+@router.get("/oneoffs/{filename}", dependencies=[Depends(require_opds_auth)])
+def opds_oneoff_file(
+    filename: str,
+    ctx: AppContext = Depends(get_context),
+):
+    """Download one file from the grab-bag (one-offs) folder by its name."""
+    if not comicarr.CONFIG.OPDS_ENABLE:
+        return _not_enabled()
+
+    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    if not grabbag or filename != os.path.basename(filename) or filename in ("", ".", ".."):
+        return _error_xml("Issue Not Found")
+
+    file_path = os.path.join(grabbag, filename)
+    if not os.path.isfile(file_path):
+        return _error_xml("Issue Not Found")
+    if not is_servable_library_file(file_path, comicarr.CONFIG):
+        return Response(status_code=403)
+
+    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
 
 
 def _resolve_issue_file(issue_id):
