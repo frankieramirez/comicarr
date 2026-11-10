@@ -218,8 +218,8 @@ VENDOR_PROVENANCE = {
         "partial_attributions": (),
         "redistribution_status": "evidence-recorded",
         "unresolved_reasons": (),
-        "local_modifications": "Bundled historical RPC client",
-        "packaged_snapshot_sha256": "c3e2128ae6e541b117baed3478c7ff3e7d5c7131739d7515d1c3c3acbb970124",
+        "local_modifications": "Bundled historical RPC client; six compatibility shims replaced with plain Python 3 (#1154)",
+        "packaged_snapshot_sha256": "c6542fb83ae3d9b749f2c4aafd08c999dbea0ab38320df442b1b177cbed5f944",
     },
     "utorrent": {
         "integration_owner": "Comicarr",

@@ -53,6 +53,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y unrar
 
+      # The Docker image installs with --no-dev. Check that install imports
+      # before the dev extra can hide a missing runtime package (#1154).
+      - name: Check runtime imports without dev dependencies
+        run: |
+          uv sync --locked --no-dev
+          uv run --no-sync python -W ignore scripts/check_runtime_imports.py
+
       - name: Install Python dependencies
         run: uv sync --locked --extra dev
 

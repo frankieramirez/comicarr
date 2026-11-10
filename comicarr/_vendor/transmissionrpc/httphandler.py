@@ -6,18 +6,11 @@ import sys
 
 from .error import HTTPHandlerError
 
-from six import PY3
 
-if PY3:
-    from urllib.request import Request, build_opener, \
-        HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, HTTPDigestAuthHandler
-    from urllib.error import HTTPError, URLError
-    from http.client import BadStatusLine
-else:
-    from urllib2 import Request, build_opener, \
-        HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, HTTPDigestAuthHandler
-    from urllib2 import HTTPError, URLError
-    from httplib import BadStatusLine
+from urllib.request import Request, build_opener, \
+    HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, HTTPDigestAuthHandler
+from urllib.error import HTTPError, URLError
+from http.client import BadStatusLine
 
 class HTTPHandler(object):
     """
