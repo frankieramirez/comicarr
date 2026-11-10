@@ -384,7 +384,7 @@ def test_vendor_imports_are_declared_and_legacy_top_level_imports_are_explicit()
     namespaced, legacy = _vendor_imports()
 
     assert namespaced <= set(provenance.VENDOR_PROVENANCE)
-    assert {name: tuple(sorted(paths)) for name, paths in legacy.items()} == provenance.LEGACY_TOP_LEVEL_VENDOR_IMPORTS
+    assert legacy == {}
 
 
 def test_vendor_import_classifier_catches_exact_and_dotted_top_level_imports():

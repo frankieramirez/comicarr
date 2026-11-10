@@ -19,8 +19,3 @@ export interface ComicAddedDetail {
   status: "success" | "failure";
   message: string;
 }
-
-/** Custom window event for comic-added */
-export interface ComicAddedEvent extends CustomEvent<string> {
-  detail: string;
-}

@@ -18,11 +18,6 @@ export interface StatusBadgeProps {
   className?: string;
 }
 
-/** Button variants */
-export type ButtonVariant =
-  "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
-export type ButtonSize = "default" | "sm" | "lg" | "icon";
-
 /** Toast types */
 export type ToastType = "success" | "error" | "info";
 
@@ -61,12 +56,6 @@ export interface UpcomingTableProps {
 export interface SeriesTableProps {
   series?: Comic[];
   isLoading?: boolean;
-}
-
-/** Filter state */
-export interface FilterState {
-  status?: IssueStatus | "all";
-  search?: string;
 }
 
 /** BulkActionBar props */

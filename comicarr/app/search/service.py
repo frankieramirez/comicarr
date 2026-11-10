@@ -21,7 +21,6 @@ import time
 import uuid
 from operator import itemgetter
 from pathlib import Path
-from urllib.parse import urljoin
 
 import requests
 
@@ -953,81 +952,6 @@ def disable_provider(site, reason=None, delay=0):
     except Exception as e:
         logger.fdebug("[SEARCH] Unable to persist provider route failure: %s" % e)
     logger.info("provider_blocklist: %s" % comicarr.PROVIDER_BLOCKLIST)
-
-
-def newznab_test(name, host, ssl, apikey):
-    from xml.dom.minidom import parseString
-
-    params = {"t": "search", "apikey": apikey, "o": "xml"}
-
-    if not host.endswith("api"):
-        if not host.endswith("/"):
-            host += "/"
-        host = urljoin(host, "api")
-        logger.fdebug("[TEST-NEWZNAB] Appending `api` to end of host: %s" % host)
-    headers = {"User-Agent": str(comicarr.USER_AGENT)}
-    logger.info("host: %s" % host)
-    try:
-        r = requests.get(host, params=params, headers=headers, verify=bool(ssl))
-    except Exception as e:
-        logger.warn("Unable to connect: %s" % e)
-        return
-    else:
-        try:
-            data = parseString(r.content)
-        except Exception as e:
-            logger.warn("[WARNING] Error attempting to test: %s" % e)
-
-        try:
-            error_code = data.getElementsByTagName("error")[0].attributes["code"].value
-        except Exception:
-            logger.info("Connected - Status code returned: %s" % r.status_code)
-            if r.status_code == 200:
-                return True
-            else:
-                logger.warn("Received response - Status code returned: %s" % r.status_code)
-                return False
-
-        code = error_code
-        description = data.getElementsByTagName("error")[0].attributes["description"].value
-        logger.info("[ERROR:%s] - %s" % (code, description))
-        return False
-
-
-def torznab_test(name, host, ssl, apikey):
-    from xml.dom.minidom import parseString
-
-    params = {"t": "search", "apikey": apikey, "o": "xml"}
-
-    if host[-1:] == "/":
-        host = host[:-1]
-    headers = {"User-Agent": str(comicarr.USER_AGENT)}
-    logger.info("host: %s" % host)
-    try:
-        r = requests.get(host, params=params, headers=headers, verify=bool(ssl))
-    except Exception as e:
-        logger.warn("Unable to connect: %s" % e)
-        return
-    else:
-        try:
-            data = parseString(r.content)
-        except Exception as e:
-            logger.warn("[WARNING] Error attempting to test: %s" % e)
-
-        try:
-            error_code = data.getElementsByTagName("error")[0].attributes["code"].value
-        except Exception:
-            logger.info("Connected - Status code returned: %s" % r.status_code)
-            if r.status_code == 200:
-                return True
-            else:
-                logger.warn("Received response - Status code returned: %s" % r.status_code)
-                return False
-
-        code = error_code
-        description = data.getElementsByTagName("error")[0].attributes["description"].value
-        logger.info("[ERROR:%s] - %s" % (code, description))
-        return False
 
 
 def ignored_publisher_check(publisher):

@@ -489,7 +489,6 @@ class TestImportSelectedSeries:
         assert comicsync.COMIC_SCAN_ID is None
 
     def test_incomplete_add_is_reported_and_results_kept(self, comicsync):
-        """An add that returns ``incomplete`` is an error, not an import."""
         comicsync.COMIC_SCAN_ID = "12345"
         comicsync.COMIC_SCAN_RESULTS = [
             {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},

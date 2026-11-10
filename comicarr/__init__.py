@@ -118,7 +118,6 @@ class ThreadSafeLock:
         return False
 
 
-MINIMUM_PY_VERSION = "3.8.1"
 PROG_DIR = None
 DATA_DIR = None
 FULL_PATH = None
@@ -147,14 +146,12 @@ INIT_LOCK = threading.Lock()
 ACQUISITION_RESUME_LOCK = threading.Lock()
 IMPORTLOCK = False
 IMPORTBUTTON = False
-DONATEBUTTON = False
 IMPORT_STATUS = None
 IMPORT_FILES = 0
 IMPORT_TOTALFILES = 0
 IMPORT_CID_COUNT = 0
 IMPORT_PARSED_COUNT = 0
 IMPORT_FAILURE_COUNT = 0
-CHECKENABLED = False
 _INITIALIZED = False
 started = False
 MONITOR_STATUS = "Waiting"
@@ -183,7 +180,6 @@ SCHED_VERSION_LAST = None
 SCHED_DBUPDATE_LAST = None
 SCHED_MANGA_SYNC_LAST = None
 DB_BACKFILL = False
-DBLOCK = False
 DB_FILE = None
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
@@ -255,7 +251,6 @@ EXT_SERVER = False
 SEARCH_TIER_DATE = None
 COMICSORT = None
 PULLBYFILE = False
-CFG = None
 PUBLISHER_IMPRINTS = None
 CURRENT_WEEKNUMBER = None
 CURRENT_YEAR = None
@@ -271,8 +266,6 @@ APILOCK = ThreadSafeLock()
 SEARCHLOCK = ThreadSafeLock()
 DDL_LOCK = ThreadSafeLock()
 CMTAGGER_PATH = None
-STATIC_COMICRN_VERSION = "1.01"
-STATIC_APC_VERSION = "2.04"
 ISSUE_EXCEPTIONS = [
     "DEATHS",
     "ALPHA",
@@ -302,7 +295,6 @@ ISSUE_EXCEPTIONS = [
     "DIRECTOR'S CUT",
     "(DC)",
 ]
-SAB_PARAMS = None
 PROVIDER_START_ID = 0
 CHECK_FOLDER_CACHE = None
 FOLDER_CACHE = None
@@ -398,7 +390,6 @@ def initialize(config_file):
             CONFIG, \
             _INITIALIZED, \
             CONFIG_FILE, \
-            MINIMUM_PY_VERSION, \
             OS_DETECT, \
             MAINTENANCE, \
             CURRENT_VERSION, \
@@ -409,7 +400,6 @@ def initialize(config_file):
             IMPORTLOCK, \
             PULLBYFILE, \
             INKDROPS_32P, \
-            DONATEBUTTON, \
             CURRENT_WEEKNUMBER, \
             CURRENT_YEAR, \
             UMASK, \
@@ -429,7 +419,6 @@ def initialize(config_file):
             IMPORT_CID_COUNT, \
             IMPORT_PARSED_COUNT, \
             IMPORT_FAILURE_COUNT, \
-            CHECKENABLED, \
             CVURL, \
             DEMURL, \
             EXPURL, \
@@ -455,13 +444,10 @@ def initialize(config_file):
             USE_DELUGE, \
             USE_TRANSMISSION, \
             USE_WATCHDIR, \
-            SAB_PARAMS, \
             PUBLISHER_IMPRINTS, \
             PROG_DIR, \
             DATA_DIR, \
             CMTAGGER_PATH, \
-            STATIC_COMICRN_VERSION, \
-            STATIC_APC_VERSION, \
             KEYS_32P, \
             AUTHKEY_32P, \
             FEED_32P, \

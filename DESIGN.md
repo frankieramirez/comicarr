@@ -199,10 +199,9 @@ utility must do the same.
   sizes (`text-[12.5px]`, `text-[11.5px]`, `text-[10.5px]`, 30 usages) are
   rounding noise, not design. Use the Tailwind scale or `.mono-label` / `.mono-meta`.
 
-- **Do NOT add components under `frontend/src/components/custom/`.** All six files
-  there have zero importers, and the directory is in the ESLint `ignores` list — so
-  nothing in it is linted, type-checked in CI, or reachable. New primitives go in
-  `components/ui/`; new domain components go in `components/<domain>/`.
+- **Do NOT recreate `frontend/src/components/custom/`.** The directory is deleted:
+  its six files had zero importers. New primitives go in `components/ui/`; new
+  domain components go in `components/<domain>/`.
 
 - **Do NOT define a utility around an undefined variable.** `.card-shadow` applied
   `box-shadow: var(--card-shadow)` with `--card-shadow` defined nowhere — a no-op
@@ -254,6 +253,8 @@ design decision, not a bug fix.
 | 6 unused dark-only tokens | `--surface-*`, `--border-elevated`, `--text-tertiary`, `--text-disabled` | Deleted |
 | Undefined `--card-shadow` | 1 utility, 2 components | Utility and usages deleted |
 | Radix-era accordion keyframes | 2 keyframes, 2 registrations | Deleted; Base UI animates via `transition-[height]` |
+| Dead `components/custom/` and `frontend/src/App.css` | 6 files, 0 importers; 42 lines, imported nowhere | Deleted, with the `@dnd-kit`, `cmdk`, `react-day-picker`, and `sonner` dependencies only they used |
+| Unused `.glass-nav`, `.custom-scrollbar`, `.scrollbar-hide`, `.animate-shimmer` | 4 utilities, 2 `--glassmorphism-*` tokens | Deleted |
 | Dead `border-card-border` / unregistered `text-destructive-foreground` | 12 leftover `border-card-border` classes; destructive buttons had no foreground rule | Repointed to `border-border`; `--destructive-foreground` registered in both themes. Color utilities whose stem is not a `--color-*` key now fail `check_design_tokens.py`. |
 
 `--border-soft` is deliberately undefined. Its three call sites all write

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { toast } from "sonner";
 
 export function useCopyToClipboard() {
   const [text, setText] = useState<string | null>(null);
@@ -9,10 +8,7 @@ export function useCopyToClipboard() {
   const copy = useCallback(
     async (
       text: string,
-      { timeout, withToast }: { timeout?: number; withToast?: boolean } = {
-        timeout: 3000,
-        withToast: false,
-      },
+      { timeout }: { timeout?: number } = { timeout: 3000 },
     ) => {
       if (!navigator?.clipboard) {
         console.warn("Clipboard not supported");
@@ -27,10 +23,6 @@ export function useCopyToClipboard() {
           setTimeout(() => {
             setText(null);
           }, timeout);
-        }
-
-        if (withToast) {
-          toast.success("Copied to clipboard");
         }
 
         return true;

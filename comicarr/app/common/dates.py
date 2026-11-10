@@ -51,11 +51,6 @@ def normalize_utc_datetime(value, legacy_naive_timezone=datetime.timezone.utc):
     return value.astimezone(datetime.timezone.utc)
 
 
-def utc_datetime_timestamp(value):
-    """Return a UTC epoch timestamp for an aware or legacy-naive datetime."""
-    return normalize_utc_datetime(value).timestamp()
-
-
 def utc_date_to_local(run_time):
     """Convert an aware or legacy-naive UTC datetime to aware local time."""
     return normalize_utc_datetime(run_time).astimezone()

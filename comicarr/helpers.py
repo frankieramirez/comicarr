@@ -71,7 +71,6 @@ from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
 from comicarr.app.core.security import (  # noqa: F401
     apiremove,
-    create_https_certificates,
 )
 from comicarr.app.downloads.service import (  # noqa: F401
     cdh_monitor,
@@ -99,13 +98,11 @@ from comicarr.app.search.service import (  # noqa: F401
     checkthe_id,
     disable_provider,
     ignored_publisher_check,
-    newznab_test,
     parse_32pfeed,
     provider_unreachable,
     search_queue,
     torrent_create,
     torrentinfo,
-    torznab_test,
 )
 from comicarr.app.series.service import (  # noqa: F401
     ComicSort,

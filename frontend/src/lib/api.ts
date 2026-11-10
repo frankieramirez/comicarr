@@ -452,19 +452,3 @@ export async function apiRequest<T = unknown>(
     throw error;
   }
 }
-
-/**
- * Get cover image URL for a Metron series (lazy loading)
- */
-export async function getSeriesImage(seriesId: string): Promise<string | null> {
-  try {
-    const response = await apiRequest<{ image: string | null }>(
-      "GET",
-      `/api/metadata/series-image/${seriesId}`,
-    );
-    return response.image;
-  } catch (error) {
-    console.error("Failed to fetch series image:", error);
-    return null;
-  }
-}

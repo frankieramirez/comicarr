@@ -969,17 +969,6 @@ class MaintenanceController:
             canary_permit_id=str(permit["permit_id"]),
         )
 
-    def heartbeat_lease(self, lease_id):
-        with self.engine.begin() as conn:
-            result = conn.execute(
-                update(acquisition_maintenance_leases)
-                .where(acquisition_maintenance_leases.c.lease_id == str(lease_id))
-                .where(acquisition_maintenance_leases.c.released_at.is_(None))
-                .values(heartbeat_at=_utcnow())
-            )
-        if result.rowcount != 1:
-            raise MaintenanceConflict("acquisition lease is no longer active")
-
     def assert_lease_current(self, lease):
         """Fence-token check immediately before an external side effect.
 

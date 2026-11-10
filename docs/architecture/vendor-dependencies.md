@@ -30,7 +30,6 @@ fill missing third-party notice or source-revision evidence.
 | Vendor root | Runtime role | Source/version evidence | License evidence in copied tree | Redistribution status |
 | --- | --- | --- | --- | --- |
 | `bencode.py` | Torrent bencode/hash support | Mylar3 import; source version marker `20111107` | MIT notice in source | `evidence-recorded` |
-| `certgen.py` | HTTPS certificate generation support | Mylar3 import; upstream revision unidentified | LGPL-2.1-or-later header; referenced `LGPL2.1.txt` was not inherited | `evidence-recorded` |
 | `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
 | `deluge_client/` | Deluge RPC | Mylar3 import; exact upstream version unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
 | `get_image_size.py` | Packaged image-size support; no current first-party import | Mylar3 import; version unidentified | MIT notice in source | `evidence-recorded` |
@@ -40,7 +39,7 @@ fill missing third-party notice or source-revision evidence.
 | `transmissionrpc/` | Transmission RPC | Version `0.11` in source | MIT notice in source | `evidence-recorded` |
 | `utorrent/` | uTorrent Web API adapter | Mylar3 custody, a probable pinned py-utorrent base, later Comicarr Python 3 port, and a pinned artifact digest | No license in the probable base or copied client; engineering `NOTICE` is not a license | `unresolved` |
 
-`bencode.py`, `certgen.py`, and `get_image_size.py` are standalone modules, not
+`bencode.py` and `get_image_size.py` are standalone modules, not
 packages. They are intentionally part of the manifest and wheel inventory.
 Nested rTorrent helpers belong to the `rtorrent` root.
 
@@ -83,10 +82,8 @@ notice preserves known custody and stop conditions; it grants no rights.
 
 - Torrent and downloader integrations import through Comicarr-owned adapters
   and namespaced `comicarr._vendor` modules.
-- One inherited exception remains explicit:
-  `comicarr/app/core/security.py` imports `certgen` by its historical top-level
-  name even though the wheel ships `comicarr._vendor.certgen`. U5 owns draining
-  this import while adding the contributor-boundary ratchet. No new top-level
+- No vendor module is imported by a historical top-level name. The last
+  exception, `certgen`, was removed with its only caller. No new top-level
   vendor import is allowed.
 - Every top-level directory or standalone Python module shipped below
   `comicarr/_vendor` must have exactly one provenance entry.

@@ -3,9 +3,7 @@
  */
 
 export type {
-  ApiResponse,
   PaginationMeta,
-  PaginatedResponse,
   LoginResponse,
   LogoutResponse,
   SessionResponse,
@@ -52,8 +50,6 @@ export type {
   ContentType,
   SeriesKind,
   ReadingDirection,
-  MangaSearchResult,
-  MangaChapter,
   ComicOrManga,
   ImportFile,
   ImportGroup,
@@ -70,14 +66,9 @@ export type {
   ArcSearchResult,
 } from "./entities";
 
-export type {
-  User,
-  AuthContextValue,
-  LoginCredentials,
-  AuthState,
-} from "./auth";
+export type { User, AuthContextValue } from "./auth";
 
-export type { ComicAddedDetail, ComicAddedEvent } from "./events";
+export type { ComicAddedDetail } from "./events";
 
 export type {
   Config,
@@ -91,15 +82,12 @@ export type {
 
 export type {
   StatusBadgeProps,
-  ButtonVariant,
-  ButtonSize,
   ToastType,
   ToastData,
   ToastContextValue,
   WantedTableProps,
   UpcomingTableProps,
   SeriesTableProps,
-  FilterState,
   BulkActionBarProps,
   LayoutProps,
   ProtectedRouteProps,

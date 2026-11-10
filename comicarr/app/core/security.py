@@ -279,35 +279,3 @@ def apiremove(apistring, apitype):
         apiremoved = value_regex.sub("xUDONTNEEDTOKNOWTHISx", apiremoved1)
 
     return apiremoved
-
-
-def create_https_certificates(ssl_cert, ssl_key):
-    """
-    Create a pair of self-signed HTTPS certificares and store in them in
-    'ssl_cert' and 'ssl_key'. Method assumes pyOpenSSL is installed.
-
-    This code is stolen from SickBeard (http://github.com/midgetspy/Sick-Beard).
-    """
-
-    from certgen import TYPE_RSA, createCertificate, createCertRequest, createKeyPair, serial
-    from OpenSSL import crypto
-
-    cakey = createKeyPair(TYPE_RSA, 2048)
-    careq = createCertRequest(cakey, CN="Certificate Authority")
-    cacert = createCertificate(careq, (careq, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))
-
-    pkey = createKeyPair(TYPE_RSA, 2048)
-    req = createCertRequest(pkey, CN="Comicarr")
-    cert = createCertificate(req, (cacert, cakey), serial, (0, 60 * 60 * 24 * 365 * 10))
-
-    try:
-        with open(ssl_key, "w") as fp:
-            fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
-        os.chmod(ssl_key, 0o600)
-        with open(ssl_cert, "w") as fp:
-            fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-    except IOError as e:
-        logger.error("Error creating SSL key and certificate: %s", e)
-        return False
-
-    return True
