@@ -2,7 +2,6 @@
 # Copyright (c) 2008-2013 Erik Svensson <erik.public@gmail.com>
 # Licensed under the MIT license.
 
-from six import string_types, integer_types
 
 class TransmissionError(Exception):
     """
@@ -33,15 +32,15 @@ class HTTPHandlerError(Exception):
         self.message = ''
         self.headers = {}
         self.data = ''
-        if isinstance(httpurl, string_types):
+        if isinstance(httpurl, str):
             self.url = httpurl
-        if isinstance(httpcode, integer_types):
+        if isinstance(httpcode, int):
             self.code = httpcode
-        if isinstance(httpmsg, string_types):
+        if isinstance(httpmsg, str):
             self.message = httpmsg
         if isinstance(httpheaders, dict):
             self.headers = httpheaders
-        if isinstance(httpdata, string_types):
+        if isinstance(httpdata, str):
             self.data = httpdata
 
     def __repr__(self):

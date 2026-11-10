@@ -7,7 +7,6 @@ from collections import namedtuple
 from . import constants
 from .constants import LOGGER
 
-from six import string_types, iteritems
 
 UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
 
@@ -89,7 +88,7 @@ def rpc_bool(arg):
     """
     Convert between Python boolean and Transmission RPC boolean.
     """
-    if isinstance(arg, string_types):
+    if isinstance(arg, str):
         try:
             arg = bool(int(arg))
         except ValueError:
@@ -166,7 +165,7 @@ def get_arguments(method, rpc_version):
     else:
         return ValueError('Method "%s" not supported' % (method))
     accessible = []
-    for argument, info in iteritems(args):
+    for argument, info in args.items():
         valid_version = True
         if rpc_version < info[1]:
             valid_version = False

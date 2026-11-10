@@ -3,7 +3,6 @@
 # Licensed under the MIT license.
 
 import logging
-from six import iteritems
 
 LOGGER = logging.getLogger('transmissionrpc')
 LOGGER.setLevel(logging.ERROR)
@@ -12,7 +11,7 @@ def mirror_dict(source):
     """
     Creates a dictionary with all values as keys and all keys as values.
     """
-    source.update(dict((value, key) for key, value in iteritems(source)))
+    source.update(dict((value, key) for key, value in source.items()))
     return source
 
 DEFAULT_PORT = 9091
