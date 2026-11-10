@@ -82,9 +82,8 @@ notice preserves known custody and stop conditions; it grants no rights.
 
 - Torrent and downloader integrations import through Comicarr-owned adapters
   and namespaced `comicarr._vendor` modules.
-- No vendor module is imported by a historical top-level name. The last
-  exception, `certgen`, was removed with its only caller. No new top-level
-  vendor import is allowed.
+- No first-party module imports a vendor package by a top-level name;
+  `tests/unit/test_vendor_contracts.py` enforces it.
 - Every top-level directory or standalone Python module shipped below
   `comicarr/_vendor` must have exactly one provenance entry.
 - Every declared evidence and notice path must exist. Every actual

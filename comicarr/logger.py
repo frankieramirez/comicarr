@@ -27,7 +27,7 @@ import traceback
 from logging import Formatter
 
 import comicarr
-from comicarr.app.common.dates import now
+from comicarr import helpers
 
 MAX_LOGLIST_ENTRIES = 2500
 
@@ -65,7 +65,7 @@ class LogListHandler(logging.Handler):
     def emit(self, record):
         message = self.format(record)
         message = message.replace("\n", "<br />")
-        comicarr.LOGLIST.insert(0, (now(), message, record.levelname, record.threadName))
+        comicarr.LOGLIST.insert(0, (helpers.now(), message, record.levelname, record.threadName))
         del comicarr.LOGLIST[MAX_LOGLIST_ENTRIES:]
 
 
