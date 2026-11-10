@@ -400,7 +400,10 @@ def import_selected_series(selected_ids, scan_id):
         try:
             logger.info("[COMIC-SCAN] Importing series: %s" % comic_id)
             result = importer.addComictoDB(comic_id)
-            if isinstance(result, dict) and result.get("status") != "complete":
+            if not isinstance(result, dict):
+                errors.append({"comicid": comic_id, "error": "import refused"})
+                continue
+            if result.get("status") != "complete":
                 errors.append(
                     {
                         "comicid": comic_id,
