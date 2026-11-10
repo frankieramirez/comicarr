@@ -10,7 +10,7 @@
 """Comicarr-owned contracts shared by torrent client adapters."""
 
 from collections.abc import Mapping
-from typing import Any, Protocol, TypedDict
+from typing import Any, TypedDict
 
 
 class ConnectionFailure(TypedDict):
@@ -25,28 +25,6 @@ class MonitorError(TypedDict):
 
     snatch_status: str
     error: str
-
-
-class TorrentAdapter(Protocol):
-    """Minimum adapter surface used by the RSS and recovery workers."""
-
-    def connect(self, host: str, username: str, password: str, *args: Any, **kwargs: Any) -> Any:
-        """Connect once and return the client or a ``ConnectionFailure``."""
-
-    def find_torrent(self, torrent_hash: str) -> Any:
-        """Look up a torrent by its client-specific identifier."""
-
-    def get_torrent(self, torrent: Any) -> Mapping[str, Any] | bool:
-        """Return a normalized torrent record or ``False`` when absent."""
-
-    def start_torrent(self, torrent: Any) -> bool:
-        """Start a torrent and report whether the request succeeded."""
-
-    def stop_torrent(self, torrent: Any) -> bool:
-        """Pause a torrent and report whether the request succeeded."""
-
-    def delete_torrent(self, torrent: Any) -> Any:
-        """Delete a torrent and return deleted paths or a falsey result."""
 
 
 def connection_failure(error: object) -> ConnectionFailure:

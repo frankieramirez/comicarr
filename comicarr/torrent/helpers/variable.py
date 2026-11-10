@@ -19,20 +19,3 @@ def symlink(src, dst):
             raise ctypes.WinError()
     else:
         os.symlink(src, dst)
-
-
-def is_rarfile(f):
-    import binascii
-
-    with open(f, "rb") as f:
-        byte = f.read(12)
-
-    spanned = binascii.hexlify(byte[10])
-    main = binascii.hexlify(byte[11])
-
-    if spanned == "01" and main == "01":
-        return True
-    elif spanned == "00" and main == "00":
-        return True
-
-    return False

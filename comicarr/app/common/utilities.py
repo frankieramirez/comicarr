@@ -33,14 +33,6 @@ def extract_logline(s):
         return None
 
 
-def int_num(s):
-    """Convert string to int, falling back to float if needed."""
-    try:
-        return int(s)
-    except ValueError:
-        return float(s)
-
-
 def conversion(value):
     """Decode byte string to unicode using utf-8 or windows-1252."""
     if type(value) == str:

@@ -753,13 +753,6 @@ class Config(object):
 
         logger.info("Configuration upgraded to version %s" % self.newconfig)
 
-    def check_section(self, section, key):
-        """Check if INI section exists, if not create it"""
-        if config.has_section(section):
-            return True
-        else:
-            return False
-
     def argToBool(self, argument):
         _arg = argument.strip().lower() if isinstance(argument, str) else argument
         if _arg in (1, "1", "on", "true", True):
@@ -2316,32 +2309,6 @@ class Config(object):
                         xx_torzcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], comicarr.PROVIDER_START_ID))
             cnt += 1
         return xx_newzcat, xx_torzcat
-
-    def get_extra_torznabs(self):
-        extra_torznabs = parse_provider_extras(self.EXTRA_TORZNABS, self.CONFIG_VERSION)
-        x_torcat = []
-        for x in extra_torznabs:
-            x_cat = x[4]
-            if "#" in x_cat:
-                x_t = x[4].split("#")
-                x_cat = ",".join(x_t)
-            try:
-                x_torcat.append((x[0], x[1], x[2], x[3], x_cat, x[5], int(x[6])))
-                if int(x[6]) > comicarr.PROVIDER_START_ID:
-                    comicarr.PROVIDER_START_ID = int(x[6])
-            except Exception:
-                x_torcat.append((x[0], x[1], x[2], x[3], x_cat, x[5]))
-
-        xx_torcat = []
-        for xn in x_torcat:
-            try:
-                xx_torcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], xn[6]))
-            except Exception:
-                comicarr.PROVIDER_START_ID += 1
-                xx_torcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], comicarr.PROVIDER_START_ID))
-
-        extra_torznabs = xx_torcat
-        return extra_torznabs
 
     def get_ignored_pubs(self):
         if all([self.IGNORED_PUBLISHERS is not None, self.IGNORED_PUBLISHERS != "", len(self.IGNORED_PUBLISHERS) != 0]):

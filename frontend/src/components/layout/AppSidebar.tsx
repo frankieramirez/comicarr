@@ -177,6 +177,7 @@ export default function AppSidebar() {
           <Link
             to="/"
             onClick={handleNavClick}
+            aria-label="Comicarr home"
             className="flex items-center gap-2 flex-1 min-w-0"
           >
             <Logo className="h-3 w-auto text-foreground" />
@@ -195,6 +196,7 @@ export default function AppSidebar() {
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <SidebarInput
               data-global-search="true"
+              aria-label="Search"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

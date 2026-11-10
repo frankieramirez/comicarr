@@ -67,13 +67,3 @@ class ComicVineRateLimiter:
                 time.sleep(wait_time)
         finally:
             self.lock.release()
-
-    def set_rate(self, calls_per_second):
-        """
-        Update the rate limit dynamically.
-
-        Args:
-            calls_per_second (float): New maximum calls per second
-        """
-        with self.lock:
-            self.rate = calls_per_second

@@ -86,19 +86,6 @@ def _set_mass_refresh_pool(ctx, pool):
     set_runtime_field(ctx, "mass_refresh_pool", pool)
 
 
-def is_exists(comicid):
-
-    with db.get_engine().connect() as conn:
-        stmt = select(comics.c.ComicID, comics.c.ComicName).where(comics.c.ComicID == comicid)
-        comiclist = [dict(row._mapping) for row in conn.execute(stmt)]
-
-    if any(comicid in x for x in comiclist):
-        logger.info(comiclist[0]["ComicName"] + " is already in the database.")
-        return False
-    else:
-        return False
-
-
 def _refuse_duplicate_manga(attempted_id, existing):
     """Log and return a refused add when the same work is already tracked."""
     existing_id = existing.get("ComicID")
@@ -1869,8 +1856,7 @@ def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_adda
     except Exception:
         pass
 
-    logger.info("nostatus: %s" % nostatus)
-    logger.info("issuedata: %s" % (issuedata))
+    logger.fdebug("issue_collection: %s issue(s), nostatus=%s" % (len(issuedata or []), nostatus))
 
     nowdate = datetime.datetime.now()
     now_week = datetime.datetime.strftime(nowdate, "%Y%U")

@@ -157,11 +157,6 @@ class info32p(object):
                 "error": self.error,
             }
 
-    def callthesearch(self):
-        if self.searchterm:
-            logger.info("[32P] Successfully authenticated. Initiating search for : %s" % self.searchterm)
-            return self.search32p(s)
-
     def rssfeed(self):
         feedinfo = []
 

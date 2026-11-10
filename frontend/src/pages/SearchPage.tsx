@@ -295,7 +295,10 @@ export default function SearchPage() {
             sort
           </span>
           <Select value={urlSort} onValueChange={handleSortChange}>
-            <SelectTrigger className="h-8 text-[11px] w-[150px]">
+            <SelectTrigger
+              aria-label="Sort results"
+              className="h-8 text-[11px] w-[150px]"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

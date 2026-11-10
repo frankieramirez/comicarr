@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import type { PanelState } from "@/lib/panelState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * The shared shell every dashboard panel renders through.
@@ -67,7 +68,7 @@ export function PanelSkeleton({
           className="flex items-center"
           style={{ height: rowHeight }}
         >
-          <div className="h-2.5 w-full animate-pulse rounded-sm bg-primary/10" />
+          <Skeleton className="h-2.5 w-full rounded-sm" />
         </div>
       ))}
     </div>

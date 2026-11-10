@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
 import { inFlightView } from "@/lib/inFlight";
 import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * How much work is moving right now, across every route
@@ -19,10 +20,7 @@ export default function InFlightLine() {
   if (status.isPending) {
     return (
       <div className="px-5 py-2.5">
-        <div
-          aria-hidden="true"
-          className="h-2.5 w-40 animate-pulse rounded-sm bg-primary/10"
-        />
+        <Skeleton aria-hidden="true" className="h-2.5 w-40 rounded-sm" />
       </div>
     );
   }

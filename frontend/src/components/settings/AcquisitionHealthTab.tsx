@@ -634,6 +634,10 @@ export function AcquisitionHealthTab() {
     operations.health.isLoading ||
     operations.jobs.isLoading ||
     operations.diagnostics.isLoading;
+  const isRefreshing =
+    operations.health.isFetching ||
+    operations.jobs.isFetching ||
+    operations.diagnostics.isFetching;
 
   return (
     <div className="space-y-6">
@@ -668,10 +672,10 @@ export function AcquisitionHealthTab() {
             variant="outline"
             size="sm"
             onClick={() => void operations.refresh()}
-            disabled={isLoading || Boolean(currentMutation)}
+            disabled={isRefreshing || Boolean(currentMutation)}
             title="Refresh acquisition health"
           >
-            <RefreshCw className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw className={isRefreshing ? "animate-spin" : ""} />
             Refresh
           </Button>
         </div>

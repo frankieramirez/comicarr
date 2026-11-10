@@ -1,4 +1,5 @@
 import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardLibrary } from "@/hooks/useDashboard";
 import { panelState } from "@/lib/panelState";
 
@@ -24,10 +25,7 @@ export default function LibraryRow() {
   if (state === "loading") {
     return (
       <div className="px-5 py-3.5 border-b border-border">
-        <div
-          aria-hidden="true"
-          className="h-3 w-64 animate-pulse rounded-sm bg-primary/10"
-        />
+        <Skeleton aria-hidden="true" className="h-3 w-64 rounded-sm" />
       </div>
     );
   }

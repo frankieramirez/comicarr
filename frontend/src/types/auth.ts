@@ -24,16 +24,3 @@ export interface AuthContextValue {
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<LogoutResponse>;
 }
-
-/** Login credentials */
-export interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
-/** Auth state */
-export interface AuthState {
-  user: User | null;
-  isLoading: boolean;
-  isVerifying: boolean;
-}

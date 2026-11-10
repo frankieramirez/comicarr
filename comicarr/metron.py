@@ -116,33 +116,6 @@ def initialize_metron_api():
         return None
 
 
-def reinitialize_metron_api():
-    """
-    Reinitialize the Metron API client after config changes.
-    Called by setConfig API when Metron settings are updated.
-    """
-    global_updated = False
-
-    if comicarr.CONFIG.USE_METRON_SEARCH:
-        if comicarr.CONFIG.METRON_USERNAME and comicarr.CONFIG.METRON_PASSWORD:
-            new_api = initialize_metron_api()
-            if new_api:
-                comicarr.METRON_API = new_api
-                global_updated = True
-                logger.info("[METRON] API reinitialized after config change")
-            else:
-                comicarr.METRON_API = None
-                logger.warn("[METRON] Failed to reinitialize API after config change")
-        else:
-            comicarr.METRON_API = None
-            logger.info("[METRON] API disabled - credentials not configured")
-    else:
-        comicarr.METRON_API = None
-        logger.info("[METRON] API disabled via config")
-
-    return global_updated
-
-
 def search_series(name, mode="series", issue=None, limityear=None, limit=None, offset=None, sort=None):
     """
     Search for comic series using Metron API.

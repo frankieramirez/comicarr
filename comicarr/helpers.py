@@ -30,7 +30,6 @@ from comicarr import db
 from comicarr.app.common.dates import (  # noqa: F401
     convert_milliseconds,
     convert_seconds,
-    date_conversion,
     fullmonth,
     humanize_time,
     now,
@@ -53,7 +52,6 @@ from comicarr.app.common.numbers import (  # noqa: F401
 )
 from comicarr.app.common.numbers import issuedigits as _issuedigits_impl
 from comicarr.app.common.strings import (  # noqa: F401
-    clean_url,
     cleanHost,
     cleanhtml,
     cleanName,
@@ -68,14 +66,11 @@ from comicarr.app.common.utilities import (  # noqa: F401
     conversion,
     extract_logline,
     get_the_hash,
-    int_num,
 )
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
 from comicarr.app.core.security import (  # noqa: F401
     apiremove,
-    create_https_certificates,
-    remove_apikey,
 )
 from comicarr.app.downloads.service import (  # noqa: F401
     cdh_monitor,
@@ -96,7 +91,6 @@ from comicarr.app.downloads.service import (  # noqa: F401
 from comicarr.app.metadata.service import (  # noqa: F401
     IssueDetails,
     getImage,
-    publisherImages,
 )
 from comicarr.app.search.service import (  # noqa: F401
     LoadAlternateSearchNames,
@@ -104,18 +98,14 @@ from comicarr.app.search.service import (  # noqa: F401
     checkthe_id,
     disable_provider,
     ignored_publisher_check,
-    newznab_test,
     parse_32pfeed,
     provider_unreachable,
     search_queue,
     torrent_create,
     torrentinfo,
-    torznab_test,
 )
 from comicarr.app.series.service import (  # noqa: F401
     ComicSort,
-    DateAddedFix,
-    annual_update,
     checkthepub,
     get_issue_title,
     haveit_for_series_id,
@@ -123,19 +113,13 @@ from comicarr.app.series.service import (  # noqa: F401
     incr_snatched,
     issue_status,
     latestdate_fix,
-    latestdate_update,
-    latestissue_update,
-    listIssues,
     listLibrary,
-    listoneoffs,
     listPull,
-    statusChange,
     updateComicLocation,
 )
 from comicarr.app.storyarcs.service import (  # noqa: F401
     arcformat,
     listStoryArcs,
-    manualArc,
     spantheyears,
     updatearc_locs,
 )
@@ -144,11 +128,8 @@ from comicarr.app.system.service import (  # noqa: F401
     get_free_space,
     job_management,
     notify_ddl_stuck,
-    queue_info,
     script_env,
-    stupidchk,
     tail_that_log,
-    upgrade_dynamic,
 )
 
 from . import logger

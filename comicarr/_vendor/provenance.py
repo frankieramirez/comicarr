@@ -17,13 +17,6 @@ repository cannot establish redistribution authority for the bundled snapshot.
 ALLOWED_REDISTRIBUTION_STATUSES = frozenset({"evidence-recorded", "unresolved"})
 COMICARR_IMPORT_REVISION = "45720b948f8c0cc9153412171dca8891e266f1c8"
 
-# Temporary compatibility debt. The wheel contains ``comicarr._vendor.certgen``
-# but this caller still uses the historical top-level name. U5 owns draining the
-# import while its structural ratchet is introduced.
-LEGACY_TOP_LEVEL_VENDOR_IMPORTS = {
-    "certgen": ("comicarr/app/core/security.py",),
-}
-
 VENDOR_PROVENANCE = {
     "bencode": {
         "integration_owner": "Comicarr",
@@ -47,29 +40,6 @@ VENDOR_PROVENANCE = {
         "unresolved_reasons": (),
         "local_modifications": "Inherited Python 3 compatibility changes",
         "packaged_snapshot_sha256": "f2087ce3ed6834fe58a5c9bca2fafc817c837a4388af53dede1eb21288ad26ce",
-    },
-    "certgen": {
-        "integration_owner": "Comicarr",
-        "path": "comicarr/_vendor/certgen.py",
-        "custody_source_url": "https://github.com/mylar3/mylar3",
-        "custody_source_path": "lib/certgen.py",
-        "custody_revision": None,
-        "upstream_source_url": None,
-        "upstream_revision": None,
-        "import_revision": COMICARR_IMPORT_REVISION,
-        "upstream_version": None,
-        "version_evidence": (),
-        "license_expression": "LGPL-2.1-or-later",
-        "license_evidence": ("comicarr/_vendor/certgen.py",),
-        "license_conflict_evidence": (),
-        "notice_files": (),
-        "origin_candidates": (),
-        "replacement_candidates": (),
-        "partial_attributions": (),
-        "redistribution_status": "evidence-recorded",
-        "unresolved_reasons": (),
-        "local_modifications": "No upstream revision recovered; referenced LGPL2.1.txt is absent",
-        "packaged_snapshot_sha256": "b18d3b0f531a7340fb1186ef714eb934410fb0425a914f72cd2d1fb77ed5c1b0",
     },
     "comictaggerlib": {
         "integration_owner": "Comicarr",

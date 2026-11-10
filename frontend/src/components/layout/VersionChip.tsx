@@ -102,7 +102,7 @@ export default function VersionChip() {
               <GuidancePanel
                 guidance={guidance}
                 onCopy={async (text) => {
-                  await copy(text, { withToast: true });
+                  await copy(text);
                 }}
                 copied={isCopied}
               />

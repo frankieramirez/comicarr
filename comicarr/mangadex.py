@@ -646,41 +646,6 @@ def get_manga_chapters(manga_id, languages=None, limit=100, offset=0):
     }
 
 
-def get_manga_aggregate(manga_id, languages=None):
-    """
-    Get aggregate chapter/volume info for a manga (includes unavailable chapters).
-
-    This endpoint returns ALL chapter numbers even if they don't have uploads,
-    which is useful for tracking series like Naruto where most chapters are
-    licensed and not available on MangaDex.
-
-    Args:
-        manga_id: MangaDex manga UUID (with or without md- prefix)
-        languages: List of language codes to filter by
-
-    Returns:
-        dict with volume/chapter structure
-    """
-    manga_id = series_kind.strip_prefix(manga_id)
-
-    if languages is None:
-        languages = _get_languages()
-
-    logger.info("[MANGADEX] Fetching aggregate for manga: %s" % manga_id)
-
-    params = {
-        "translatedLanguage[]": languages,
-    }
-
-    data = _make_request(f"/manga/{manga_id}/aggregate", params=params)
-
-    if not data or data.get("result") != "ok":
-        logger.error("[MANGADEX] Failed to fetch aggregate for manga %s" % manga_id)
-        return {"volumes": {}}
-
-    return data
-
-
 def _aggregate_values(container):
     """Iterate a MangaDex aggregate mapping that may arrive as a list.
 
@@ -867,30 +832,6 @@ def get_all_chapters(manga_id, languages=None, include_unavailable=True):
         % (len(all_chapters), len(available_chapters), len(all_chapters) - len(available_chapters), manga_id)
     )
     return all_chapters
-
-
-def get_cover_image(manga_id):
-    """
-    Get cover image URL for a manga.
-
-    Args:
-        manga_id: MangaDex manga UUID (without md- prefix)
-
-    Returns:
-        Cover URL string or None
-    """
-    manga_id = series_kind.strip_prefix(manga_id)
-
-    if manga_id in _IMAGE_CACHE:
-        return _IMAGE_CACHE[manga_id]
-
-    details = get_manga_details(manga_id)
-    if details:
-        cover_url = details.get("cover_url")
-        _IMAGE_CACHE[manga_id] = cover_url
-        return cover_url
-
-    return None
 
 
 def clear_cache():

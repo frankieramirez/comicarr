@@ -199,11 +199,6 @@ utility must do the same.
   sizes (`text-[12.5px]`, `text-[11.5px]`, `text-[10.5px]`, 30 usages) are
   rounding noise, not design. Use the Tailwind scale or `.mono-label` / `.mono-meta`.
 
-- **Do NOT add components under `frontend/src/components/custom/`.** All six files
-  there have zero importers, and the directory is in the ESLint `ignores` list — so
-  nothing in it is linted, type-checked in CI, or reachable. New primitives go in
-  `components/ui/`; new domain components go in `components/<domain>/`.
-
 - **Do NOT define a utility around an undefined variable.** `.card-shadow` applied
   `box-shadow: var(--card-shadow)` with `--card-shadow` defined nowhere — a no-op
   that read like a working one, on two live card components. It was deleted rather

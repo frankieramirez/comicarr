@@ -441,7 +441,7 @@ class TestImportSelectedSeries:
             {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB") as mock_import:
+        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}) as mock_import:
             result = comicsync.import_selected_series(["cv-100", "cv-200"], "12345")
 
         assert result["success"] is True
@@ -455,7 +455,7 @@ class TestImportSelectedSeries:
             {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB") as mock_import:
+        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}) as mock_import:
             result = comicsync.import_selected_series(["cv-100"], "12345")
 
         assert result["imported"] == 1
@@ -482,11 +482,44 @@ class TestImportSelectedSeries:
             {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB"):
+        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}):
             comicsync.import_selected_series(["cv-100"], "12345")
 
         assert comicsync.COMIC_SCAN_RESULTS is None
         assert comicsync.COMIC_SCAN_ID is None
+
+    def test_incomplete_add_is_reported_and_results_kept(self, comicsync):
+        comicsync.COMIC_SCAN_ID = "12345"
+        comicsync.COMIC_SCAN_RESULTS = [
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+            {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
+        ]
+
+        outcomes = {"cv-100": {"status": "incomplete"}, "cv-200": {"status": "complete"}}
+        with patch("comicarr.importer.addComictoDB", side_effect=outcomes.get):
+            result = comicsync.import_selected_series(["cv-100", "cv-200"], "12345")
+
+        assert result["success"] is False
+        assert result["imported"] == 1
+        assert result["errors"] == [{"comicid": "cv-100", "error": "incomplete"}]
+        assert comicsync.COMIC_SCAN_RESULTS is not None
+        assert comicsync.COMIC_SCAN_ID == "12345"
+
+    @pytest.mark.parametrize("refusal", [None, "true"])
+    def test_non_dict_add_result_is_reported_and_results_kept(self, comicsync, refusal):
+        comicsync.COMIC_SCAN_ID = "12345"
+        comicsync.COMIC_SCAN_RESULTS = [
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+        ]
+
+        with patch("comicarr.importer.addComictoDB", return_value=refusal):
+            result = comicsync.import_selected_series(["cv-100"], "12345")
+
+        assert result["success"] is False
+        assert result["imported"] == 0
+        assert result["errors"] == [{"comicid": "cv-100", "error": "import refused"}]
+        assert comicsync.COMIC_SCAN_RESULTS is not None
+        assert comicsync.COMIC_SCAN_ID == "12345"
 
 
 class TestGetScanProgress:
