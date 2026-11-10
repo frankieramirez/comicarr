@@ -208,6 +208,15 @@ def require_api_key(scope="full"):
     return dependency
 
 
+def _opds_challenge(detail):
+    """401 for OPDS with a Basic challenge, so readers prompt for credentials."""
+    return HTTPException(
+        status_code=401,
+        detail=detail,
+        headers={"WWW-Authenticate": 'Basic realm="Comicarr OPDS", charset="UTF-8"'},
+    )
+
+
 def require_opds_auth(
     credentials: HTTPBasicCredentials = Depends(http_basic),
     ctx: AppContext = Depends(get_context),
@@ -217,7 +226,7 @@ def require_opds_auth(
     Supports bcrypt hashes, legacy base64, and plaintext (with auto-upgrade).
     """
     if credentials is None:
-        raise HTTPException(status_code=401, detail="OPDS authentication required")
+        raise _opds_challenge("OPDS authentication required")
 
     from comicarr import encrypted
 
@@ -237,19 +246,19 @@ def require_opds_auth(
 
     stored = valid_users.get(username)
     if stored is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise _opds_challenge("Invalid credentials")
 
     if stored.startswith("$2b$") or stored.startswith("$2a$"):
         if not encrypted.verify_password(password, stored):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise _opds_challenge("Invalid credentials")
     elif stored.startswith("^~$z$"):
         edc = encrypted.Encryptor(stored, logon=True)
         ed_chk = edc.decrypt_it()
         if not (ed_chk["status"] is True and ed_chk["password"] == password):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise _opds_challenge("Invalid credentials")
     else:
         if password != stored:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise _opds_challenge("Invalid credentials")
 
     return username
 
