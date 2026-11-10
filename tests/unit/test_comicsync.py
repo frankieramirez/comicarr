@@ -488,6 +488,24 @@ class TestImportSelectedSeries:
         assert comicsync.COMIC_SCAN_RESULTS is None
         assert comicsync.COMIC_SCAN_ID is None
 
+    def test_incomplete_add_is_reported_and_results_kept(self, comicsync):
+        """An add that returns ``incomplete`` is an error, not an import."""
+        comicsync.COMIC_SCAN_ID = "12345"
+        comicsync.COMIC_SCAN_RESULTS = [
+            {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
+            {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
+        ]
+
+        outcomes = {"cv-100": {"status": "incomplete"}, "cv-200": {"status": "complete"}}
+        with patch("comicarr.importer.addComictoDB", side_effect=outcomes.get):
+            result = comicsync.import_selected_series(["cv-100", "cv-200"], "12345")
+
+        assert result["success"] is False
+        assert result["imported"] == 1
+        assert result["errors"] == [{"comicid": "cv-100", "error": "incomplete"}]
+        assert comicsync.COMIC_SCAN_RESULTS is not None
+        assert comicsync.COMIC_SCAN_ID == "12345"
+
 
 class TestGetScanProgress:
     """Tests for progress polling."""

@@ -26,7 +26,6 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, filechecker, helpers, logger, updater
-from comicarr.app.core.workers import start_background_thread
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics
 
@@ -40,9 +39,6 @@ class metadata_Series(object):
         self.bulk = bulk
         self.api = api
         self.refreshSeries = refreshSeries
-
-    def update_metadata_thread(self):
-        start_background_thread(self.update_metadata, name="SeriesMetadata")
 
     def update_metadata(self):
         for cid in self.comiclist:

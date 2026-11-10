@@ -4,7 +4,7 @@ Agent-oriented project guide for Comicarr. Prefer retrieval-led reasoning: consu
 
 ## Stack (current)
 
-- **Python 3.10+** (`requires-python = ">=3.10"`)
+- **Python 3.11+** (`requires-python = ">=3.11"`)
 - **FastAPI + uvicorn** — `Comicarr.py` runs `uvicorn.run("comicarr.app.main:app", ...)`
 - **SQLAlchemy Core** (not ORM), INI config via `comicarr.config.Config`
 - **urllib3>=2.7.0**

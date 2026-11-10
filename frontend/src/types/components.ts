@@ -7,7 +7,6 @@ import type {
   WantedIssue,
   UpcomingIssue,
   Comic,
-  SearchResult,
   IssueStatus,
   SeriesStatus,
 } from "./entities";
@@ -64,18 +63,6 @@ export interface SeriesTableProps {
   isLoading?: boolean;
 }
 
-/** ComicCard props */
-export interface ComicCardProps {
-  comic: SearchResult;
-  onAdd?: (comicId: string) => void;
-  isAdding?: boolean;
-}
-
-/** FilterBar props */
-export interface FilterBarProps {
-  onFilterChange?: (filters: FilterState) => void;
-}
-
 /** Filter state */
 export interface FilterState {
   status?: IssueStatus | "all";
@@ -99,11 +86,6 @@ export interface LayoutProps {
 /** ProtectedRoute props */
 export interface ProtectedRouteProps {
   children: ReactNode;
-}
-
-/** ThemeToggle props */
-export interface ThemeToggleProps {
-  className?: string;
 }
 
 /** ErrorBoundary props */

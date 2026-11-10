@@ -198,6 +198,7 @@ function MyReleasesView() {
   const {
     data: issues = [],
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useUpcoming(includeDownloaded);
@@ -319,7 +320,7 @@ function MyReleasesView() {
           <button
             type="button"
             onClick={() => refetch()}
-            disabled={isLoading}
+            disabled={isFetching}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-[11px] font-mono"
             style={{
               borderColor: "var(--border)",
@@ -327,7 +328,7 @@ function MyReleasesView() {
             }}
           >
             <RefreshCw
-              className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`}
+              className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`}
             />
             refresh
           </button>

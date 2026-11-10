@@ -32,7 +32,7 @@ export default function WantedPage() {
     [resetPage],
   );
 
-  const { data, isLoading, error, refetch } = useWanted(
+  const { data, isLoading, isFetching, error, refetch } = useWanted(
     limit,
     offset,
     debouncedSearch,
@@ -177,12 +177,12 @@ export default function WantedPage() {
             <button
               type="button"
               onClick={() => refetch()}
-              disabled={isLoading}
+              disabled={isFetching}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border mono-meta"
               style={{ borderColor: "var(--border)" }}
             >
               <RefreshCw
-                className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`}
+                className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`}
               />
               refresh
             </button>

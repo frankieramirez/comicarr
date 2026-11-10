@@ -197,11 +197,6 @@ def replacetheslash(data):
     return slashreplaced
 
 
-def clean_url(url):
-    """Remove leading/trailing whitespace from a URL string."""
-    return url.strip()
-
-
 def cleanHost(host, protocol=True, ssl=False, username=None, password=None):
     """Return a cleaned up host with given url options set.
 

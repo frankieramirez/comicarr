@@ -20,7 +20,6 @@
 
 import zipfile
 from io import BytesIO
-from pathlib import Path
 
 import rarfile
 import requests
@@ -41,7 +40,7 @@ import re
 from operator import itemgetter
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
 
 
 def open_archive(location):
@@ -235,41 +234,5 @@ def retrieve_image(url):
             img = Image.open(BytesIO(data))
             imdata = scale_image(img, "JPEG", 600)
             ComicImage = str(base64.b64encode(imdata), "utf-8")
-
-    return ComicImage
-
-
-def load_image(filename, resize=600):
-    with open(filename, "rb") as i:
-        imagefile = i.read()
-    try:
-        img = Image.open(BytesIO(imagefile))
-    except Exception:
-        if filename.startswith(comicarr.CONFIG.CACHE_DIR):
-            logger.warn(
-                "possible corrupt image - cannot open/retrieve properly. Deleteing existing entry and redownloading."
-            )
-            comicid = Path(filename).stem
-            fullcomicid = "4050-" + str(comicid)
-            imageurl = comicarr.cv.getComic(fullcomicid, "image")
-            coverchk = helpers.getImage(comicid, imageurl["image"], overwrite=True)
-            if coverchk["status"] == "retry":
-                coverchk = helpers.getImage(comicid, imageurl["image_alt"], overwrite=True)
-            if coverchk["status"] == "success":
-                logger.info("successfully retrieved new image...")
-                with open(filename, "rb") as i:
-                    imagefile = i.read()
-                try:
-                    img = Image.open(BytesIO(imagefile))
-                except Exception:
-                    return
-            else:
-                return
-    imdata = scale_image(img, "JPEG", resize)
-    try:
-        ComicImage = str(base64.b64encode(imdata), "utf-8")
-    except Exception:
-        ComicImage = str(base64.b64encode(imdata + "==="), "utf-8")
-        imdata + "==="
 
     return ComicImage

@@ -66,7 +66,7 @@ from comicarr.app.search.provider_config import (
     providers_from_config,
 )
 from comicarr.app.system import log_files
-from comicarr.tables import comics, jobhistory, storyarcs
+from comicarr.tables import comics, jobhistory
 
 _rate_limiter = LoginRateLimiter()
 _fallback_weekly_refresh_lock = threading.Lock()
@@ -1650,56 +1650,6 @@ def release_acquisition_canary(ctx, permit_id, *, actor, session_id, reason):
         return _repair_error_response(e)
 
 
-def upgrade_dynamic():
-    dynamic_comiclist = []
-    from sqlalchemy import select
-
-    clist = db.select_all(select(comics))
-    for cl in clist:
-        cl_d = comicarr.filechecker.FileChecker(watchcomic=cl["ComicName"])
-        cl_dyninfo = cl_d.dynamic_replace(cl["ComicName"])
-        dynamic_comiclist.append(
-            {
-                "DynamicComicName": re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip(),
-                "ComicID": cl["ComicID"],
-            }
-        )
-
-    if len(dynamic_comiclist) > 0:
-        for dl in dynamic_comiclist:
-            CtrlVal = {"ComicID": dl["ComicID"]}
-            newVal = {"DynamicComicName": dl["DynamicComicName"]}
-            db.upsert("comics", newVal, CtrlVal)
-
-    dynamic_storylist = []
-    rlist = db.select_all(select(storyarcs).where(storyarcs.c.StoryArcID.isnot(None)))
-    for rl in rlist:
-        comicarr.filechecker.FileChecker(watchcomic=rl["ComicName"])
-        rl_dyninfo = cl_d.dynamic_replace(rl["ComicName"])
-        dynamic_storylist.append(
-            {
-                "DynamicComicName": re.sub(r"[\|\s]", "", rl_dyninfo["mod_seriesname"].lower()).strip(),
-                "IssueArcID": rl["IssueArcID"],
-            }
-        )
-
-    if len(dynamic_storylist) > 0:
-        for ds in dynamic_storylist:
-            CtrlVal = {"IssueArcID": ds["IssueArcID"]}
-            newVal = {"DynamicComicName": ds["DynamicComicName"]}
-            db.upsert("storyarcs", newVal, CtrlVal)
-
-    logger.info(
-        "Finished updating "
-        + str(len(dynamic_comiclist))
-        + " / "
-        + str(len(dynamic_storylist))
-        + " entries within the db."
-    )
-    comicarr.CONFIG.writeconfig(values={"dynamic_update": 4})
-    return
-
-
 def notify_ddl_stuck(item, age_minutes):
     """
     Send notifications for a stuck DDL download.
@@ -1766,19 +1716,6 @@ def notify_ddl_stuck(item, age_minutes):
 
 
 QueueInfo = namedtuple("QueueInfo", ("name", "is_alive", "size"))
-
-
-def queue_info():
-    yield from (
-        QueueInfo(queue_name, thread_obj.is_alive() if thread_obj is not None else None, queue.qsize())
-        for (queue_name, thread_obj, queue) in [
-            ("AUTO-COMPLETE-NZB", comicarr.NZBPOOL, comicarr.NZB_QUEUE),
-            ("AUTO-SNATCHER", comicarr.SNPOOL, comicarr.SNATCHED_QUEUE),
-            ("DDL-QUEUE", comicarr.DDLPOOL, comicarr.DDL_QUEUE),
-            ("POST-PROCESS-QUEUE", comicarr.PPPOOL, comicarr.PP_QUEUE),
-            ("SEARCH-QUEUE", comicarr.SEARCHPOOL, comicarr.SEARCH_QUEUE),
-        ]
-    )
 
 
 def script_env(mode, vars):
@@ -2326,18 +2263,6 @@ def job_management(
 
             logger.fdebug("Job update for %s: %s" % (updateCtrl, updateVals))
             db.upsert("jobhistory", updateVals, updateCtrl)
-
-
-def stupidchk():
-    from sqlalchemy import func, select
-
-    with db.get_engine().connect() as conn:
-        result_active = conn.execute(select(func.count()).select_from(comics).where(comics.c.Status == "Active"))
-        comicarr.COUNT_COMICS = result_active.scalar()
-        result_other = conn.execute(
-            select(func.count()).select_from(comics).where(comics.c.Status.in_(["Loading", "Paused"]))
-        )
-        comicarr.EN_OOMICS = result_other.scalar()
 
 
 def get_free_space(folder):

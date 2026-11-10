@@ -169,15 +169,6 @@ def humanize_time(amount, units="seconds"):
     return buf
 
 
-def date_conversion(originaldate):
-    """Return the number of hours elapsed between originaldate and now."""
-    c_obj_date = datetime.datetime.strptime(originaldate, "%Y-%m-%d %H:%M:%S")
-    n_date = datetime.datetime.now()
-    absdiff = abs(n_date - c_obj_date)
-    hours = (absdiff.days * 24 * 60 * 60 + absdiff.seconds) / 3600.0
-    return hours
-
-
 def weekly_info(
     week=None,
     year=None,

@@ -93,9 +93,12 @@ export function ApiTab({
         description="This key is used to authenticate API requests to Comicarr"
       >
         <div className="space-y-2">
-          <label className="text-sm font-medium">API Key</label>
+          <label htmlFor="settings-api-key" className="text-sm font-medium">
+            API Key
+          </label>
           <div className="flex space-x-2">
             <input
+              id="settings-api-key"
               type="text"
               value={displayedApiKey}
               placeholder={

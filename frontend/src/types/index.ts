@@ -99,13 +99,10 @@ export type {
   WantedTableProps,
   UpcomingTableProps,
   SeriesTableProps,
-  ComicCardProps,
-  FilterBarProps,
   FilterState,
   BulkActionBarProps,
   LayoutProps,
   ProtectedRouteProps,
-  ThemeToggleProps,
   ErrorBoundaryProps,
   ErrorBoundaryState,
 } from "./components";

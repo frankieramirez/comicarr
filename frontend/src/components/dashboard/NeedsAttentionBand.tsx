@@ -9,6 +9,7 @@ import {
 } from "@/components/activity/timeline";
 import { StopWantingDialog } from "@/components/activity/attention/StopWantingDialog";
 import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import {
   useActivityBand,
@@ -157,10 +158,7 @@ export default function NeedsAttentionBand() {
   if (band.isPending) {
     return (
       <div className="px-5 py-2.5" data-testid="needs-attention-loading">
-        <div
-          aria-hidden="true"
-          className="h-2.5 w-48 animate-pulse rounded-sm bg-primary/10"
-        />
+        <Skeleton aria-hidden="true" className="h-2.5 w-48 rounded-sm" />
       </div>
     );
   }

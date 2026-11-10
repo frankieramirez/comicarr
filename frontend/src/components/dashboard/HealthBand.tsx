@@ -3,6 +3,7 @@ import { AlertTriangle, Check, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSearchHealth } from "@/hooks/useAcquisitionHealth";
 import { useConfig } from "@/hooks/useConfig";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DEFAULT_SEARCH_INTERVAL_MINUTES,
   healthBandView,
@@ -90,8 +91,8 @@ export default function HealthBand() {
       >
         {/* Two rows at the height of the resolved band, so it does not shift. */}
         <div aria-hidden="true" className="flex flex-col gap-2">
-          <div className="h-2.5 w-72 animate-pulse rounded-sm bg-primary/10" />
-          <div className="h-2.5 w-52 animate-pulse rounded-sm bg-primary/10" />
+          <Skeleton className="h-2.5 w-72 rounded-sm" />
+          <Skeleton className="h-2.5 w-52 rounded-sm" />
         </div>
       </div>
     );

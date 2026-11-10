@@ -10,7 +10,6 @@
 from comicarr.app.common.dates import (  # noqa: F401
     convert_milliseconds,
     convert_seconds,
-    date_conversion,
     fullmonth,
     humanize_time,
     now,
@@ -33,7 +32,6 @@ from comicarr.app.common.numbers import (  # noqa: F401
     sizeof_fmt,
 )
 from comicarr.app.common.strings import (  # noqa: F401
-    clean_url,
     cleanHost,
     cleanhtml,
     cleanName,
@@ -49,6 +47,5 @@ from comicarr.app.common.utilities import (  # noqa: F401
     crc,
     extract_logline,
     get_the_hash,
-    int_num,
     log_that_exception,
 )

@@ -102,6 +102,7 @@ export default function ArcGenerator() {
       <div className="flex gap-2">
         <Input
           type="text"
+          aria-label="Story arc description"
           placeholder="e.g. Dark Phoenix Saga, Secret Wars 2015, Spider-Verse..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}

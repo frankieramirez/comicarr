@@ -281,13 +281,6 @@ def apiremove(apistring, apitype):
     return apiremoved
 
 
-def remove_apikey(payd, key):
-    """Replace a specific key's value with REDACTED in a dict."""
-    if key in payd:
-        payd[key] = "REDACTED"
-    return payd
-
-
 def create_https_certificates(ssl_cert, ssl_key):
     """
     Create a pair of self-signed HTTPS certificares and store in them in
