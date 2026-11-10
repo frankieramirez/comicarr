@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.5
+
+### Patch Changes
+
+- 2a3aaa0: Comicarr starts again on Docker and other fresh installs. Version 0.50.4 stopped at launch with "Comicarr could not import six" and restarted in a loop; the Transmission client no longer needs that package.
+
 ## 0.50.4
 
 ### Patch Changes
