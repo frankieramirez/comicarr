@@ -132,8 +132,45 @@ export interface TimelinePage {
   has_more: boolean;
 }
 
+/** One series inside a cause, as the dashboard names it. */
+export interface AttentionCauseSeries {
+  group_key: string;
+  comicid: string | null;
+  series_label: string;
+  member_count: number;
+  /** First few member labels, for a single-issue cause's subline. */
+  issue_labels: string[];
+}
+
+/**
+ * A needs-attention *cause* — every series group that shares one base reason
+ * and stage. The dashboard's "Needs you" rows are causes, so one settings fix
+ * or one "Retry all" reads as one problem rather than one row per series. The
+ * server folds groups into causes; the client never re-derives them.
+ */
+export interface AttentionCause {
+  cause_key: string;
+  base_reason: string | null;
+  reason_phrase: string;
+  headline: string;
+  /** What usually fixes it, as a sentence, or null. */
+  hint: string | null;
+  icon: "settings" | "failed" | "file" | string;
+  /** The one place that clears the whole cause, when there is one. */
+  fix: { label: string; href: string } | null;
+  stage: BandStage | string;
+  available_actions: BandAction[];
+  series_count: number;
+  member_count: number;
+  newest_updated_at: string;
+  series: AttentionCauseSeries[];
+  release_keys: string[];
+}
+
 export interface BandPage {
   results: AttentionGroup[];
+  /** Series groups folded by cause, largest first. */
+  causes?: AttentionCause[];
   /** Group count — the same number the status line reports. */
   total: number;
   /** Journal rows behind those groups. */

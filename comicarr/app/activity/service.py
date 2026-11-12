@@ -34,7 +34,8 @@ def get_status():
 def get_in_flight():
     """Rows counted as in-flight — same membership as ``get_status()['in_flight']``."""
     items = queries.list_in_flight_items()
-    return {"results": items, "total": len(items)}
+    stuck = sum(1 for item in items if item["stuck"])
+    return {"results": items, "total": len(items), "stuck": stuck, "moving": len(items) - stuck}
 
 
 class InFlightCancelError(ValueError):

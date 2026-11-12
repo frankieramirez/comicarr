@@ -707,12 +707,57 @@ def test_list_in_flight_items_matches_open_work_count_rows(activity_db):
     assert journal["retry_postprocess"] is False
 
 
+def test_in_flight_splits_moving_from_stuck_at_seven_days(activity_db):
+    """The Downloads rail's two-part bar: moving now vs stuck over 7 days."""
+    import datetime
+
+    from comicarr.app.activity import queries, service
+
+    local_now = datetime.datetime.now()
+    fresh = (local_now - datetime.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    old = (local_now - datetime.timedelta(days=8)).strftime("%Y-%m-%d %H:%M:%S")
+    with activity_db.begin() as conn:
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(release_key="moving", stage="post_processing", status=None, updated_date=fresh),
+                _journal(release_key="stuck-1", stage="post_processing", status=None, updated_date=old),
+                _journal(release_key="stuck-2", stage="post_processing", status=None, updated_date=old),
+            ],
+        )
+
+    counts = queries.get_open_work_counts()
+    assert counts["in_flight"] == 3
+    assert counts["in_flight_stuck"] == 2
+
+    inflight = service.get_in_flight()
+    assert (inflight["moving"], inflight["stuck"]) == (1, 2)
+    flags = {item["release_key"]: item["stuck"] for item in inflight["results"]}
+    assert flags == {"moving": False, "stuck-1": True, "stuck-2": True}
+
+
+def test_is_stuck_reads_aware_utc_and_naive_local_timestamps():
+    import datetime
+
+    from comicarr.app.activity.queries import is_stuck
+
+    now = datetime.datetime(2026, 11, 12, 12, 0, tzinfo=datetime.timezone.utc)
+    assert is_stuck({"updated_at": "2026-11-01T12:00:00+00:00"}, now=now)
+    assert not is_stuck({"updated_at": "2026-11-10T12:00:00+00:00"}, now=now)
+    naive_old = (now - datetime.timedelta(days=9)).astimezone().replace(tzinfo=None)
+    assert is_stuck({"updated_at": naive_old.strftime("%Y-%m-%d %H:%M:%S")}, now=now)
+    # No readable timestamp is never called stuck.
+    assert not is_stuck({"updated_at": None}, now=now)
+    assert not is_stuck({"updated_at": "not a date"}, now=now)
+
+
 def test_open_work_idle_when_ledgers_empty(activity_db):
     from comicarr.app.activity import queries
 
     counts = queries.get_open_work_counts()
     assert counts == {
         "in_flight": 0,
+        "in_flight_stuck": 0,
         "recovery_pending": 0,
         "attention": 0,
         "attention_members": 0,
@@ -744,7 +789,7 @@ def test_service_timeline_and_status_shapes(activity_db):
     assert status["attention"] == 1
 
     inflight = service.get_in_flight()
-    assert inflight == {"results": [], "total": 0}
+    assert inflight == {"results": [], "total": 0, "stuck": 0, "moving": 0}
 
 
 def test_attention_endpoint_collapses_a_production_shaped_pile(activity_db):

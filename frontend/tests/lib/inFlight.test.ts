@@ -32,4 +32,11 @@ describe("inFlightView", () => {
       "2 in flight (2 recovered from a restart)",
     );
   });
+
+  it("splits moving from stuck without ever exceeding the total", () => {
+    const view = inFlightView({ inFlight: 296, stuck: 295 });
+    expect([view.moving, view.stuck]).toEqual([1, 295]);
+    expect(inFlightView({ inFlight: 3, stuck: 9 }).stuck).toBe(3);
+    expect(inFlightView({ inFlight: 3 }).moving).toBe(3);
+  });
 });
