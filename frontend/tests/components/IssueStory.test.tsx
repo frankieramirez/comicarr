@@ -186,4 +186,104 @@ describe("Issue story", () => {
     expect(screen.queryByTestId("issue-likely-cause")).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
+
+  it("imports a finished download by hand from the cause", async () => {
+    server.use(
+      http.get("/api/attention", () =>
+        HttpResponse.json({
+          results: [],
+          causes: [
+            {
+              ...cause,
+              stage: "manual_review",
+              available_actions: ["import", "retry", "search_again"],
+            },
+          ],
+          total: 1,
+          member_total: 1,
+          preview_cap: 5,
+        }),
+      ),
+      http.get("/api/attention/import-source", () =>
+        HttpResponse.json({
+          release_key: "rk-18",
+          nzb_name: "Absolute.Flash.018.2026.Digital",
+          nzb_folder: "/data/usenet/complete/comics",
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderIssue();
+
+    const buttons = await screen.findAllByRole("button", {
+      name: "Import manually",
+    });
+    await user.click(buttons[0]);
+    const folder = await screen.findByLabelText("Folder");
+    await screen.findByDisplayValue("/data/usenet/complete/comics");
+    await user.clear(folder);
+    await user.type(folder, "/mnt/comics");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    await screen.findByText(/Importing/);
+    expect(resolved).toEqual([
+      {
+        action: "import",
+        release_keys: ["rk-18"],
+        import_source: {
+          nzb_name: "Absolute.Flash.018.2026.Digital",
+          nzb_folder: "/mnt/comics",
+        },
+      },
+    ]);
+  });
+
+  it("summarises the last search under its step", async () => {
+    server.use(
+      http.get("/api/activity/timeline", () =>
+        HttpResponse.json({
+          results: [event(1, "2026-10-26T14:02:00Z", "search", "succeeded")],
+          total: 1,
+          limit: 25,
+          offset: 0,
+          has_more: false,
+        }),
+      ),
+      http.get("/api/series/issues/:issueId/story", () =>
+        HttpResponse.json({
+          issue_id: "iss-18",
+          attempts: { search: 1, grab: 0, download: 0, import: 0 },
+          chosen: null,
+          search: {
+            total: 41,
+            accepted_count: 3,
+            rejected_count: 38,
+            providers: [],
+            searched_at: "2026-10-26T14:02:00Z",
+            accepted: [],
+            rejected: [],
+            reasons: [
+              {
+                code: "rejected.issue_mismatch",
+                label: "wrong issue",
+                count: 21,
+              },
+              {
+                code: "rejected.series_mismatch",
+                label: "wrong series",
+                count: 9,
+              },
+            ],
+          },
+          log: { query: "x", lines: [] },
+        }),
+      ),
+    );
+    renderIssue();
+    const summary = await screen.findByTestId("issue-search-summary");
+    expect(summary.textContent).toContain(
+      "41 results, 38 rejected, 3 acceptable.",
+    );
+    expect(summary.textContent).toContain("21 wrong issue · 9 wrong series");
+  });
 });

@@ -367,6 +367,16 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
+  http.get("/api/series/issues/:issueId/story", ({ params }) =>
+    HttpResponse.json({
+      issue_id: params.issueId,
+      attempts: { search: 0, grab: 0, download: 0, import: 0 },
+      search: null,
+      chosen: null,
+      log: { query: `IssueID: ${String(params.issueId)}`, lines: [] },
+    }),
+  ),
+
   http.put("/api/series/issues/:issueId/queue", () => {
     return HttpResponse.json({ success: true });
   }),

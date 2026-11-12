@@ -37,6 +37,7 @@ import {
   type BandAction,
 } from "@/components/activity/timeline";
 import { StopWantingDialog } from "@/components/activity/attention/StopWantingDialog";
+import { ImportManuallyDialog } from "@/components/activity/attention/ImportManuallyDialog";
 
 type StageFilter = "all" | "failed" | "manual_review";
 type AgeFilter = "all" | "7d" | "30d";
@@ -87,6 +88,10 @@ export default function AttentionPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<StopWantingTarget | null>(null);
+  const [importing, setImporting] = useState<{
+    releaseKey: string;
+    label?: string;
+  } | null>(null);
 
   const band = useActivityBand({ scope_type, scope_id });
   const batch = useBandBatchResolution();
@@ -430,13 +435,26 @@ export default function AttentionPage() {
                 onAction={(action, releaseKeys) =>
                   action === "stop_wanting"
                     ? confirmStopWanting(releaseKeys, group.series_label)
-                    : void runAction(action, releaseKeys)
+                    : action === "import" && releaseKeys.length === 1
+                      ? setImporting({
+                          releaseKey: releaseKeys[0],
+                          label: group.members?.[0]?.issue_label,
+                        })
+                      : void runAction(action, releaseKeys)
                 }
               />
             ))}
           </ul>
         )}
       </div>
+
+      {importing && (
+        <ImportManuallyDialog
+          releaseKey={importing.releaseKey}
+          label={importing.label}
+          onClose={() => setImporting(null)}
+        />
+      )}
 
       {confirming && (
         <StopWantingDialog

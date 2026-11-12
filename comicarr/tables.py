@@ -790,6 +790,15 @@ interactive_search_candidates = Table(
     ),
 )
 
+issue_search_history = Table(
+    "issue_search_history",
+    metadata,
+    Column("issue_id", String(255), primary_key=True),
+    Column("searched_at", String(40), nullable=False),
+    Column("total", Integer, nullable=False, server_default="0"),
+    Column("summary_json", Text, nullable=False),
+)
+
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,
@@ -1150,6 +1159,7 @@ TABLE_MAP = {
     "acquisition_search_previews": acquisition_search_previews,
     "interactive_search_sessions": interactive_search_sessions,
     "interactive_search_candidates": interactive_search_candidates,
+    "issue_search_history": issue_search_history,
     "search_backlog_state": search_backlog_state,
     "rss_search_seen": rss_search_seen,
     "acquisition_reconciliation": acquisition_reconciliation,

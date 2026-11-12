@@ -186,7 +186,9 @@ describe("IssueDetailPage", () => {
 
     await screen.findByTestId("issue-detail-title");
     await user.click(
-      screen.getByRole("button", { name: "Change status for Absolute Batman #23" }),
+      screen.getByRole("button", {
+        name: "Change status for Absolute Batman #23",
+      }),
     );
     await user.click(await screen.findByRole("menuitem", { name: "Skipped" }));
 
@@ -280,5 +282,85 @@ describe("series issue link routing", () => {
     expect((await screen.findByTestId("issue-detail-title")).textContent).toBe(
       "Absolute Batman #23",
     );
+  });
+
+  it("shows the last search's candidates, attempts and log lines", async () => {
+    server.use(
+      http.get("/api/series/issues/:issueId/story", () =>
+        HttpResponse.json({
+          issue_id: "issue-23",
+          attempts: { search: 2, grab: 1, download: 1, import: 0 },
+          chosen: "Absolute.Batman.023.2025.Digital",
+          search: {
+            total: 3,
+            accepted_count: 1,
+            rejected_count: 2,
+            providers: ["NZBgeek"],
+            searched_at: "2026-10-26T14:02:00+00:00",
+            accepted: [
+              {
+                title: "Absolute.Batman.023.2025.Digital.cbz",
+                provider: "NZBgeek",
+                size_bytes: 68_000_000,
+                pack: false,
+                status: "accepted",
+                reason_code: "accepted.issue",
+                reason: "Matches",
+                chosen: true,
+              },
+            ],
+            rejected: [
+              {
+                title: "Absolute.Batman.022.2025.cbz",
+                provider: "NZBgeek",
+                size_bytes: 60_000_000,
+                pack: false,
+                status: "rejected",
+                reason_code: "rejected.issue_mismatch",
+                reason: "Issue 22, wanted 23",
+              },
+            ],
+            reasons: [
+              {
+                code: "rejected.issue_mismatch",
+                label: "wrong issue",
+                count: 2,
+              },
+            ],
+          },
+          log: {
+            query: "Absolute.Batman.023.2025.Digital",
+            lines: [
+              "26-Oct-2026 14:09:02 - INFO    :: postprocess : Absolute.Batman.023.2025.Digital not found",
+            ],
+          },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <Routes>
+        <Route
+          path="/library/:comicId/issue/:issueId"
+          element={<IssueDetailPage />}
+        />
+      </Routes>,
+      { route: "/library/series-9/issue/issue-23", useMemoryRouter: true },
+    );
+
+    expect(await screen.findByText("Candidates · 1 of 3")).toBeTruthy();
+    expect(
+      screen.getByText("Absolute.Batman.023.2025.Digital.cbz"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Absolute.Batman.022.2025.cbz")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show 2 rejected" }));
+    expect(screen.getByText("Absolute.Batman.022.2025.cbz")).toBeTruthy();
+    expect(screen.getByTestId("issue-attempts").textContent).toContain("2");
+    expect(screen.getByTestId("issue-log-lines").textContent).toContain(
+      "not found",
+    );
+    expect(
+      screen.getByRole("link", { name: "Open full log" }).getAttribute("href"),
+    ).toBe("/settings?section=logs&logq=Absolute.Batman.023.2025.Digital");
   });
 });
