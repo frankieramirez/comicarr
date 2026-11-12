@@ -209,7 +209,8 @@ When to add one:
 
 - Use the [Bug Report](https://github.com/frankieramirez/comicarr/issues/new?template=bug_report.md) template
 - Include a Support bundle from **Settings → About** when reporting bugs (review the three files first; share privately with a maintainer if anything looks sensitive)
-- For feature requests, use the [Feature Request](https://github.com/frankieramirez/comicarr/issues/new?template=feature_request.md) template
+- For questions and setup help, post in [Discussions → Q&A](https://github.com/frankieramirez/comicarr/discussions/categories/q-a) instead of opening an issue
+- Talk through open-ended ideas in [Discussions → Ideas](https://github.com/frankieramirez/comicarr/discussions/categories/ideas); once a request is specific and scoped, use the [Feature Request](https://github.com/frankieramirez/comicarr/issues/new?template=feature_request.md) template
 
 ## License
 

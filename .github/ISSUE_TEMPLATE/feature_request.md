@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an improvement for Comicarr.
+about: Propose a specific, scoped change. Open-ended ideas belong in Discussions → Ideas.
 title: ''
 labels: ''
 assignees: ''

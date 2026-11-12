@@ -139,8 +139,13 @@ For setup problems, start with [troubleshooting](https://comicarr.com/docs/troub
 [Report a bug](https://github.com/frankieramirez/comicarr/issues/new?template=bug_report.md)
 with your version and installation method. You can create a Support bundle in
 **Settings → About**; review its files before attaching it publicly.
-[Feature requests](https://github.com/frankieramirez/comicarr/issues/new?template=feature_request.md)
-have their own template.
+Ask questions and get setup help in
+[Discussions → Q&A](https://github.com/frankieramirez/comicarr/discussions/categories/q-a),
+and share ideas in
+[Discussions → Ideas](https://github.com/frankieramirez/comicarr/discussions/categories/ideas).
+Once an idea is specific and scoped, file it with the
+[feature request](https://github.com/frankieramirez/comicarr/issues/new?template=feature_request.md)
+template. Issues are for actionable bugs and scoped requests.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks, and the
 [Code of Conduct](CODE_OF_CONDUCT.md) for community guidelines. Report
