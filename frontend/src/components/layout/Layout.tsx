@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import CommandPalette from "@/components/layout/CommandPalette";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
@@ -130,6 +131,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
+      <CommandPalette />
       {/* No height of its own: as a flex item it stretches to the shell's
           height, so the column below is bounded by the viewport. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
