@@ -438,12 +438,33 @@ async def search_one_wanted_issue(
     return result
 
 
+@router.get("/wanted/series", dependencies=[Depends(require_session)])
+def get_wanted_by_series(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    q: str = Query(None, max_length=200),
+    state: str = Query("all", pattern="^(all|not_found|searching|queued)$"),
+    kind: str = Query("all", pattern="^(all|comic|manga)$"),
+    sort: str = Query("problems", pattern="^(problems|missing|name)$"),
+    ctx: AppContext = Depends(get_context),
+):
+    """Wanted folded by series: missing count, which issues, and why.
+
+    ``counts`` gives the issue count per reason across the whole filtered
+    set, so the tabs keep their numbers while one is selected.
+    """
+    return series_service.get_wanted_by_series(
+        ctx, limit=limit, offset=offset, search=q, state=state, kind=kind, sort=sort
+    )
+
+
 @router.get("/wanted", dependencies=[Depends(require_session)])
 def get_wanted(
     limit: int = Query(None),
     offset: int = Query(0),
     q: str = Query(None, max_length=200),
     story_arcs: bool = Query(False, alias="story_arcs"),
+    comic_id: str = Query(None, max_length=128),
     ctx: AppContext = Depends(get_context),
 ):
     """Get all wanted issues with optional story arcs and annuals.
@@ -457,6 +478,7 @@ def get_wanted(
         offset=offset,
         include_story_arcs=story_arcs,
         search=q,
+        comic_id=comic_id,
     )
 
 

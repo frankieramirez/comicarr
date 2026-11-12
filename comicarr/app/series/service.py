@@ -1111,7 +1111,7 @@ def _attach_wanted_acquisition_annotations(rows):
     return rows
 
 
-def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=None):
+def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=None, comic_id=None):
     """Get all wanted issues, optionally with story arcs and annuals.
 
     ``search`` filters ComicName / Issue_Number before pagination so the
@@ -1122,7 +1122,7 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
     searched). Membership filtering is unchanged.
     """
     if limit is not None:
-        paginated = series_queries.get_wanted_issues(limit=limit, offset=offset, search=search)
+        paginated = series_queries.get_wanted_issues(limit=limit, offset=offset, search=search, comic_id=comic_id)
         result = {
             "issues": _attach_wanted_acquisition_annotations(paginated["results"]),
             "pagination": {
@@ -1134,7 +1134,9 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
         }
     else:
         result = {
-            "issues": _attach_wanted_acquisition_annotations(series_queries.get_wanted_issues(search=search)),
+            "issues": _attach_wanted_acquisition_annotations(
+                series_queries.get_wanted_issues(search=search, comic_id=comic_id)
+            ),
         }
 
     if include_story_arcs:
@@ -1147,6 +1149,29 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
         result["annuals"] = _attach_wanted_acquisition_annotations(series_queries.get_wanted_annuals())
 
     return result
+
+
+def get_wanted_by_series(ctx, limit=50, offset=0, search=None, state="all", kind="all", sort="problems"):
+    """Wanted folded by series, paginated over series rather than issues."""
+    from comicarr.app.series import wanted_groups
+
+    rows = _attach_wanted_acquisition_annotations(series_queries.get_wanted_issues(search=search))
+    grouped = wanted_groups.group_wanted(rows, state=state, kind=kind, sort=sort)
+    series = grouped["series"]
+    total = len(series)
+    limit = max(1, min(int(limit or 50), 200))
+    offset = max(0, int(offset or 0))
+    page = series[offset : offset + limit]
+    return {
+        "series": page,
+        "counts": grouped["counts"],
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(page) < total,
+        },
+    }
 
 
 def get_import_pending(ctx, limit=50, offset=0, include_ignored=False):

@@ -557,7 +557,7 @@ def set_issue_status(issue_id, status, audit_identity, *, table, conn=None):
     return _update_one(stmt.values(**values), conn=conn)
 
 
-def get_wanted_issues(limit=None, offset=None, search=None):
+def get_wanted_issues(limit=None, offset=None, search=None, comic_id=None):
     """Get all wanted issues joined with comic info.
 
     When ``search`` is set, ComicName and Issue_Number are matched with a
@@ -581,10 +581,14 @@ def get_wanted_issues(limit=None, offset=None, search=None):
             t_issues.c.ComicID,
             t_issues.c.IssueID,
             t_issues.c.DateAdded,
+            t_comics.c.ContentType,
+            t_comics.c.ContentKindSetBy,
         )
         .select_from(t_comics.join(t_issues, t_comics.c.ComicID == t_issues.c.ComicID))
         .where(t_issues.c.Status == "Wanted")
     )
+    if comic_id is not None and str(comic_id).strip():
+        stmt = stmt.where(t_issues.c.ComicID == str(comic_id).strip())
     if search and str(search).strip():
         pattern = "%%%s%%" % str(search).strip().lower()
         stmt = stmt.where(
