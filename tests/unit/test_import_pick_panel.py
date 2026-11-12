@@ -223,7 +223,8 @@ def test_import_confident_imports_each_group_and_keeps_going(pick_db):
     assert sorted(call.args[1][0] for call in called.call_args_list) == sorted([ids_a[0], ids_b[0]])
     assert result["groups"] == 2
     assert result["imported"] == 1
-    assert result["failed"] == [{"name": "Beta", "error": "disk full"}]
+    # The page gets a phrase for the phase, never the raw exception text.
+    assert result["failed"] == [{"name": "Beta", "error": "the files could not be moved"}]
     assert folder_memory.recall(key_a)["comic_id"] == "cv-a"
 
 

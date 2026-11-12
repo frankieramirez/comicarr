@@ -33,6 +33,17 @@ LIBRARY_LIMIT = 3
 REMOTE_LIMIT = 3
 MIN_SCORE = 0.4
 
+# What the page says when a confident group fails; the full error goes to the log.
+_FAILURE_PHASES = {
+    "preflight": "the files did not pass the pre-import checks",
+    "series": "the series could not be added",
+    "issues": "some files did not match an issue in the series",
+    "move": "the files could not be moved",
+    "commit": "the import could not be saved",
+    "finalization": "the import could not be saved",
+    "rescan": "the series could not be rescanned",
+}
+
 
 def _bar(ctx):
     config = getattr(ctx, "config", None) or comicarr.CONFIG
@@ -289,9 +300,13 @@ def import_confident(ctx, *, page_size=200):
             result = finalization.finalize_manual_match(
                 ctx, imp_ids, comic_id, series_name=group.get("SuggestedComicName")
             )
+        except finalization.ImportFinalizationError as e:
+            logger.warning("[IMPORT-PICK] Unable to import '%s' as its confident match [%s]: %s" % (name, e.phase, e))
+            failed.append({"name": name, "error": _FAILURE_PHASES.get(e.phase, "import failed")})
+            continue
         except Exception as e:
-            logger.warning("[IMPORT-PICK] Unable to import '%s' as its confident match: %s" % (name, e))
-            failed.append({"name": name, "error": str(e)})
+            logger.error("[IMPORT-PICK] Unable to import '%s' as its confident match: %s" % (name, e))
+            failed.append({"name": name, "error": "import failed"})
             continue
         imported += result.matched
         if result.matched:
