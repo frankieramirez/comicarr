@@ -17,7 +17,12 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 vi.mock("@/contexts/ThemeContext", () => ({
-  useTheme: () => ({ theme: "dark", toggleTheme: vi.fn() }),
+  useTheme: () => ({
+    theme: "dark",
+    preference: "dark",
+    setPreference: vi.fn(),
+    toggleTheme: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/ui/toast", async () => {

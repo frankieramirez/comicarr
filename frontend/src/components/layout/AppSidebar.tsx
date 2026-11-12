@@ -36,6 +36,7 @@ import {
   Activity,
   Settings,
   LogOut,
+  Monitor,
   Moon,
   Sun,
   FolderInput,
@@ -47,11 +48,23 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
+import type { ThemePreference } from "@/contexts/ThemeContext";
+
+const THEME_OPTIONS: {
+  value: ThemePreference;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+];
 
 interface NavItem {
   path: string;
@@ -64,7 +77,7 @@ interface NavItem {
 
 export default function AppSidebar() {
   const { logout, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { preference, setPreference } = useTheme();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -358,23 +371,30 @@ export default function AppSidebar() {
                 align="end"
                 sideOffset={4}
               >
+                <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
+                  <span className="text-foreground-2">Theme</span>
+                  <div
+                    role="group"
+                    aria-label="Theme"
+                    className={`ml-auto ${SEGMENTED_GROUP}`}
+                  >
+                    {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={preference === value}
+                        aria-label={label}
+                        title={label}
+                        onClick={() => setPreference(value)}
+                        className={`${SEGMENTED_ITEM} h-6 px-2 [&>svg]:size-3.5`}
+                      >
+                        <Icon aria-hidden="true" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarFallback className="rounded-lg bg-surface-3 text-xs font-semibold text-foreground-2">
-                          {avatarInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-medium">{username}</span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {theme === "light" ? "light" : "dark"} mode
-                        </span>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => {
                       navigate("/settings");
@@ -383,10 +403,9 @@ export default function AppSidebar() {
                   >
                     <Settings />
                     Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={toggleTheme}>
-                    {theme === "light" ? <Moon /> : <Sun />}
-                    {theme === "light" ? "Dark mode" : "Light mode"}
+                    <DropdownMenuShortcut className="font-mono tracking-normal">
+                      G S
+                    </DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
