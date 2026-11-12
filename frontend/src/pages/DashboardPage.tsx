@@ -1,14 +1,19 @@
-import { useState, type ReactNode, type SubmitEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAiStatus } from "@/hooks/useAiStatus";
 import { ArrowUp, RefreshCw } from "lucide-react";
 import {
   PanelBody,
   PanelSkeleton,
   PanelUnavailable,
+  SectionHeader,
 } from "@/components/dashboard/DashboardPanel";
+import {
+  MostWanted,
+  RecentlyAdded,
+} from "@/components/dashboard/LibraryHighlights";
 import HealthBand from "@/components/dashboard/HealthBand";
 import InFlightLine from "@/components/dashboard/InFlightLine";
-import LibraryRow from "@/components/dashboard/LibraryRow";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { panelState, type PanelState } from "@/lib/panelState";
@@ -28,43 +33,6 @@ import {
   useMangaScanProgress,
 } from "@/hooks/useImport";
 
-/** Panel heading plus its count and a link out to the full view. */
-function PanelHeader({
-  title,
-  meta,
-  action,
-}: {
-  title: string;
-  meta: ReactNode;
-  action?: { label: string; to: string };
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 mb-3">
-      <div className="flex items-center gap-2.5">
-        <div className="text-[13px] font-semibold">{title}</div>
-        <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
-          {meta}
-        </div>
-      </div>
-      {action && (
-        <Link
-          to={action.to}
-          className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-        >
-          {action.label}
-        </Link>
-      )}
-    </div>
-  );
-}
-
-/** A count that refuses to claim zero for a source that never answered. */
-function countMeta(state: PanelState, count: number, noun: string): string {
-  if (state === "loading") return "…";
-  if (state === "unavailable") return "unavailable";
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 /** The header's version of the same rule: a fact only once a panel has one. */
 function summarize(state: PanelState, source: string, fact: string): string {
   if (state === "loading") return "loading…";
@@ -78,6 +46,7 @@ export default function DashboardPage() {
   const scanTargets = useDashboardScanTargets();
   const navigate = useNavigate();
   const [question, setQuestion] = useState("");
+  const aiConfigured = Boolean(useAiStatus().data?.configured);
 
   /** Hand the question to the chat workspace, which asks it on arrival. */
   const handleAsk = (event: SubmitEvent<HTMLFormElement>) => {
@@ -190,126 +159,97 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Health band — above every other panel, because it is the only one
-          whose answer can require action today (dashboard-spec.md §2, §3.1). */}
-      <HealthBand />
-
-      {/* Question 2 — what needs me — and, beside it, how much work is moving
-          (dashboard-spec.md §3.2, §3.3, §4). One row, but two queries: each
-          side still reports its own unavailability and retries alone, so a
-          broken band can never take the in-flight count down with it. */}
-      <div
-        className="border-b border-border flex flex-col lg:flex-row lg:items-start"
-        data-testid="attention-inflight-row"
-      >
-        <div className="min-w-0 flex-1 border-b border-border lg:border-b-0">
-          <NeedsAttentionBand />
-        </div>
-        <div className="shrink-0 lg:border-l lg:border-border">
-          <InFlightLine />
-        </div>
-      </div>
-
-      {/* Everything below the actionable bands scrolls inside the page column. */}
       <div className="flex-1 min-h-0 overflow-auto">
-        {/* Question 3 — what is happening. On narrow viewports these stack in
-            the same priority order: activity first, then what is coming. */}
         <div
-          className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] border-b border-border min-h-[320px]"
+          className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_352px] lg:grid-rows-[auto_1fr]"
           data-testid="middle-columns"
         >
-          {/* Narrative recent activity (dashboard-spec.md §3.4) */}
-          <RecentActivity />
-
-          {/* This week */}
-          <section className="px-5 py-4" data-testid="this-week">
-            <PanelHeader
-              title="This week"
-              meta={countMeta(
-                upcomingState,
-                upcomingReleases.length,
-                "release",
-              )}
-              action={{ label: "view mine →", to: "/releases?view=mine" }}
-            />
-
-            <PanelBody
-              state={upcomingState}
-              label="This week"
-              skeleton={<PanelSkeleton rows={4} rowHeight={41} />}
-              empty="nothing upcoming this week"
-              onRetry={() => void upcoming.refetch()}
-              isRetrying={upcoming.isFetching}
-            >
-              {() =>
-                upcomingReleases.map((u, i) => (
-                  <div
-                    key={`${u.ComicID}-${u.IssueNumber}-${i}`}
-                    className="flex items-center gap-2.5 py-2.5"
-                    style={{
-                      borderTop:
-                        i > 0
-                          ? "1px solid var(--border-soft, var(--border))"
-                          : "none",
-                    }}
-                  >
-                    <div className="font-mono text-[10px] text-muted-foreground w-12 shrink-0">
-                      {u.IssueDate?.slice(5) || "—"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        to={`/library/${u.ComicID}`}
-                        className="text-[12px] truncate block hover:text-[var(--primary)]"
-                      >
-                        {u.ComicName}
-                      </Link>
-                      <div className="font-mono text-[10px] text-muted-foreground">
-                        #{u.IssueNumber}
-                      </div>
-                    </div>
-                    <div className="font-mono text-[10px] text-muted-foreground">
-                      {u.Status || "auto"}
-                    </div>
-                  </div>
-                ))
-              }
-            </PanelBody>
-          </section>
-        </div>
-
-        {/* Question 4 — what the library is. Ambient, one row, and deliberately
-            far from the health band (dashboard-spec.md §3.6). */}
-        <LibraryRow />
-
-        {/* Ask — a feature entry point, not an answer to any of §2's questions,
-            so it sits last (dashboard-spec.md §3.8). The suggestion chips are
-            gone: "Anything stuck in the queue?" was health reporting, and the
-            health band now does that properly. */}
-        <div className="px-5 py-3.5" data-testid="ask-bar">
-          <form
-            onSubmit={handleAsk}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card focus-within:border-primary"
+          {/* Main column, top: what needs me. */}
+          <div
+            className="min-w-0 px-8 pb-8 pt-2 lg:col-start-1"
+            data-testid="attention-inflight-row"
           >
-            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-control bg-primary/15">
-              <span className="size-[5px] rounded-[1px] bg-primary" />
-            </span>
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              aria-label="Ask about your library"
-              placeholder="Ask about your library — gaps, publishers, what to read next…"
-              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-            />
-            <Kbd className="hidden sm:inline-flex">⌘⇧K</Kbd>
-            <button
-              type="submit"
-              aria-label="Ask Comicarr"
-              disabled={!question.trim()}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-act text-act-foreground disabled:opacity-40"
-            >
-              <ArrowUp className="w-3.5 h-3.5" />
-            </button>
-          </form>
+            <NeedsAttentionBand />
+          </div>
+
+          {/* Right rail: is it working, what is coming, what just happened. */}
+          <aside className="flex flex-col gap-7 border-border-subtle px-8 pb-8 pt-2 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l">
+            <InFlightLine />
+            {/* On one column, health follows Needs you directly. */}
+            <div className="max-lg:-order-1">
+              <HealthBand />
+            </div>
+
+            <section data-testid="this-week">
+              <SectionHeader
+                variant="rail"
+                title="This week"
+                action={{ label: "Releases", to: "/releases?view=mine" }}
+              />
+              <PanelBody
+                state={upcomingState}
+                label="This week"
+                skeleton={<PanelSkeleton rows={3} rowHeight={26} />}
+                empty="nothing upcoming this week"
+                onRetry={() => void upcoming.refetch()}
+                isRetrying={upcoming.isFetching}
+              >
+                {() =>
+                  upcomingReleases.map((u, i) => (
+                    <Link
+                      key={`${u.ComicID}-${u.IssueNumber}-${i}`}
+                      to={`/library/${u.ComicID}`}
+                      className="flex items-baseline gap-3 py-1 text-[13px] hover:text-foreground"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {u.ComicName}{" "}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          #{u.IssueNumber}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                        {u.IssueDate?.slice(5) || "—"}
+                      </span>
+                    </Link>
+                  ))
+                }
+              </PanelBody>
+            </section>
+
+            <RecentActivity />
+          </aside>
+
+          {/* Main column, below: the library at a glance. */}
+          <div className="flex min-w-0 flex-col gap-8 px-8 pb-8 lg:col-start-1">
+            <RecentlyAdded />
+            <MostWanted />
+
+            {aiConfigured && (
+              <div data-testid="ask-bar">
+                <form
+                  onSubmit={handleAsk}
+                  className="flex items-center gap-2.5 rounded-lg border border-border-strong bg-surface-1 px-3 py-2 focus-within:border-border-emphasis"
+                >
+                  <input
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    aria-label="Ask about your library"
+                    placeholder="Ask about your library"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                  <Kbd className="hidden sm:inline-flex">⌘⇧K</Kbd>
+                  <button
+                    type="submit"
+                    aria-label="Ask Comicarr"
+                    disabled={!question.trim()}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-control bg-act text-act-foreground disabled:opacity-40"
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

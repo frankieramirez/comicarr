@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import {
   PanelBody,
   PanelSkeleton,
+  SectionHeader,
 } from "@/components/dashboard/DashboardPanel";
 import {
   sentenceFor,
@@ -41,7 +42,7 @@ function EventHeadline({ event }: { event: TimelineEvent }) {
     return (
       <span>
         {text}{" "}
-        <Link to={href} className="font-medium hover:text-[var(--primary)]">
+        <Link to={href} className="hover:underline underline-offset-2">
           {label}
         </Link>
       </span>
@@ -51,7 +52,7 @@ function EventHeadline({ event }: { event: TimelineEvent }) {
   return (
     <span>
       {text.slice(0, idx)}
-      <Link to={href} className="font-medium hover:text-[var(--primary)]">
+      <Link to={href} className="hover:underline underline-offset-2">
         {label}
       </Link>
       {text.slice(idx + label.length)}
@@ -59,32 +60,31 @@ function EventHeadline({ event }: { event: TimelineEvent }) {
   );
 }
 
-function EventRow({ event, first }: { event: TimelineEvent; first: boolean }) {
+function EventRow({ event }: { event: TimelineEvent }) {
   const trouble = severityOf(String(event.status)) === "action_required";
 
   return (
     <div
-      className="grid items-center gap-2 py-1.5 font-mono text-[11px]"
-      style={{
-        gridTemplateColumns: "120px minmax(0, 1fr)",
-        borderTop: first
-          ? "none"
-          : "1px solid var(--border-soft, var(--border))",
-      }}
+      className="flex items-baseline gap-3 py-1 text-[13px]"
       data-testid="recent-activity-row"
       data-status={event.status}
       data-activity={event.activity}
     >
-      <RelativeTime value={event.created_at} />
       <div
-        className="min-w-0 font-sans text-[12px] truncate"
+        className={`min-w-0 flex-1 truncate ${trouble ? "" : "text-foreground"}`}
         style={trouble ? { color: "var(--status-error)" } : undefined}
       >
         <EventHeadline event={event} />
       </div>
+      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+        <RelativeTime value={event.created_at} compact />
+      </span>
     </div>
   );
 }
+
+/** How many events the rail shows; the full stream lives in Activity. */
+const RAIL_ROWS = 6;
 
 export default function RecentActivity() {
   const activity = useDashboardActivity();
@@ -92,41 +92,25 @@ export default function RecentActivity() {
   const days = activity.data?.days ?? 30;
   const state = panelState(activity, events.length === 0);
 
-  const meta =
-    state === "loading"
-      ? "…"
-      : state === "unavailable"
-        ? "unavailable"
-        : `${events.length} event${events.length === 1 ? "" : "s"} · ${days} days`;
-
   return (
-    <section
-      className="px-5 py-4 lg:border-r lg:border-border"
-      data-testid="recent-activity"
-    >
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="text-[13px] font-semibold">Recent activity</div>
-          <div className="font-mono text-[10px] text-muted-foreground tracking-wider uppercase">
-            {meta}
-          </div>
-        </div>
-        <Link
-          to={ACTIVITY_HREF}
-          className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-        >
-          open activity →
-        </Link>
-      </div>
+    <section data-testid="recent-activity">
+      <SectionHeader
+        variant="rail"
+        title="Recent activity"
+        action={{ label: "Activity", to: ACTIVITY_HREF }}
+      />
 
       <PanelBody
         state={state}
         label="Recent activity"
-        skeleton={<PanelSkeleton rows={5} />}
+        skeleton={<PanelSkeleton rows={5} rowHeight={26} />}
         empty={
           <>
-            No activity in the last {days} days —{" "}
-            <Link to={ACTIVITY_HREF} className="hover:text-foreground">
+            No activity in the last {days} days.{" "}
+            <Link
+              to={ACTIVITY_HREF}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
               open full activity
             </Link>
           </>
@@ -136,12 +120,8 @@ export default function RecentActivity() {
       >
         {() => (
           <div>
-            {events.map((event, i) => (
-              <EventRow
-                key={String(event.event_id)}
-                event={event}
-                first={i === 0}
-              />
+            {events.slice(0, RAIL_ROWS).map((event) => (
+              <EventRow key={String(event.event_id)} event={event} />
             ))}
           </div>
         )}

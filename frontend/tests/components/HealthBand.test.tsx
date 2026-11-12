@@ -33,7 +33,12 @@ const healthyPayload = {
       downstream: "sabnzbd",
       providers: [
         { name: "nzbgeek", kind: "newznab", blocked: false, attempted: true },
-        { name: "drunkenslug", kind: "newznab", blocked: false, attempted: true },
+        {
+          name: "drunkenslug",
+          kind: "newznab",
+          blocked: false,
+          attempted: true,
+        },
       ],
     },
   },
@@ -56,11 +61,10 @@ describe("HealthBand", () => {
     renderMinimal(<HealthBand />);
 
     expect((await band()).getAttribute("data-tone")).toBe("healthy");
-    expect(
-      screen.getByText(
-        "SABnzbd ready · 2 of 2 indexers responding · Search running",
-      ),
-    ).toBeTruthy();
+    // One quiet row per healthy signal.
+    expect(screen.getByText("SABnzbd ready")).toBeTruthy();
+    expect(screen.getByText("2 of 2 indexers responding")).toBeTruthy();
+    expect(screen.getByText("Search running")).toBeTruthy();
     expect(
       screen.getByText("Last successful search: 12 minutes ago"),
     ).toBeTruthy();
@@ -80,7 +84,8 @@ describe("HealthBand", () => {
 
     expect((await band()).getAttribute("data-tone")).toBe("degraded");
     expect(screen.getByText("Post-processing worker not running")).toBeTruthy();
-    expect(screen.getByText(/SABnzbd ready · 2 of 2 indexers responding/)).toBeTruthy();
+    expect(screen.getByText("SABnzbd ready")).toBeTruthy();
+    expect(screen.getByText("2 of 2 indexers responding")).toBeTruthy();
   });
 
   it("links a blocked route to where it is fixed", async () => {
@@ -88,7 +93,11 @@ describe("HealthBand", () => {
       ...healthyPayload,
       viable_route: false,
       routes: {
-        nzb: { ready: false, reason: "client_not_ready", downstream: "sabnzbd" },
+        nzb: {
+          ready: false,
+          reason: "client_not_ready",
+          downstream: "sabnzbd",
+        },
       },
     });
     installConfig(1440);
@@ -103,14 +112,17 @@ describe("HealthBand", () => {
     ).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: "open download clients →" })
+        .getByRole("link", { name: "open download clients" })
         .getAttribute("href"),
     ).toBe("/settings?section=clients");
   });
 
   it("renders degraded, not healthy and not absent, when the endpoint fails", async () => {
     server.use(
-      http.get("/api/search/health", () => new HttpResponse(null, { status: 500 })),
+      http.get(
+        "/api/search/health",
+        () => new HttpResponse(null, { status: 500 }),
+      ),
     );
     installConfig(1440);
 
@@ -133,13 +145,14 @@ describe("HealthBand", () => {
     renderMinimal(<HealthBand />);
 
     expect((await band()).getAttribute("data-tone")).toBe("degraded");
-    expect(screen.getByText("Last successful search: 11 days ago")).toBeTruthy();
-    // No component complained. The band says so anyway — the silent failure.
     expect(
-      screen.getByText(
-        "SABnzbd ready · 2 of 2 indexers responding · Search running",
-      ),
+      screen.getByText("Last successful search: 11 days ago"),
     ).toBeTruthy();
+    // No component complained. The band says so anyway — the silent failure.
+    // One quiet row per healthy signal.
+    expect(screen.getByText("SABnzbd ready")).toBeTruthy();
+    expect(screen.getByText("2 of 2 indexers responding")).toBeTruthy();
+    expect(screen.getByText("Search running")).toBeTruthy();
   });
 
   it("never hides the last-successful-search line, even having never run", async () => {

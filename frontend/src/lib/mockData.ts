@@ -646,8 +646,91 @@ export function mockApiResponse(
   if (m === "GET" && url === "/api/health") {
     return { status: "ok" };
   }
+  if (m === "GET" && url === "/api/attention") {
+    const group = (
+      comicid: string,
+      series_label: string,
+      base_reason: string,
+      reason_phrase: string,
+      member_count: number,
+      available_actions: string[],
+    ) => ({
+      group_key: `${comicid}|${base_reason}`,
+      comicid,
+      series_label,
+      base_reason,
+      reason_phrase,
+      member_count,
+      newest_updated_at: "2026-11-11 09:00:00",
+      oldest_updated_at: "2026-11-10 09:00:00",
+      stage: "failed",
+      available_actions,
+      members: Array.from({ length: member_count }, (_, i) => ({
+        release_key: `${comicid}-rk-${i}`,
+        issue_label: `${series_label} #${i + 1}`,
+        issueid: `${comicid}-iss-${i}`,
+        stage: "failed",
+        available_actions,
+        updated_date: "2026-11-11 09:00:00",
+      })),
+    });
+    const results = [
+      group(
+        "mock-1",
+        "Absolute Wonder Woman",
+        "postprocess_error",
+        "post-processing failed",
+        12,
+        ["retry", "stop_wanting"],
+      ),
+      group(
+        "mock-2",
+        "Absolute Batman",
+        "postprocess_error",
+        "post-processing failed",
+        11,
+        ["retry", "stop_wanting"],
+      ),
+      group("mock-3", "Absolute Flash", "search_error", "search failed", 1, [
+        "retry",
+        "stop_wanting",
+      ]),
+    ];
+    return { results, total: 5, member_total: 27, preview_cap: 3 };
+  }
+  if (m === "GET" && url === "/api/search/health") {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      viable_route: true,
+      routes: {
+        nzb: {
+          ready: true,
+          reason: "ready",
+          downstream: "sabnzbd",
+          providers: [
+            {
+              name: "nzbgeek",
+              kind: "newznab",
+              blocked: false,
+              attempted: true,
+            },
+            {
+              name: "drunkenslug",
+              kind: "newznab",
+              blocked: false,
+              attempted: true,
+            },
+          ],
+        },
+      },
+      workers: { search: { state: "idle", alive: true, healthy: true } },
+      maintenance: { blocked: false },
+      blocked_producer_count: 0,
+      providers: [{ provider: "nzbgeek", lastrun: now - 6 * 3600 }],
+    };
+  }
   if (m === "GET" && url === "/api/activity/status") {
-    return { in_flight: 2, recovery_pending: 1, attention: 0 };
+    return { in_flight: 2, recovery_pending: 1, attention: 5 };
   }
   if (m === "GET" && url === "/api/activity/in-flight") {
     return {

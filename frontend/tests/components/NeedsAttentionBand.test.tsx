@@ -136,7 +136,7 @@ describe("NeedsAttentionBand", () => {
     expect(more.textContent).toContain("+3 more");
     expect(more.getAttribute("href")).toBe("/activity/attention");
     expect(
-      screen.getByRole("link", { name: "See all 8 →" }).getAttribute("href"),
+      screen.getByRole("link", { name: "See all 8" }).getAttribute("href"),
     ).toBe("/activity/attention");
   });
 

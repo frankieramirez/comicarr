@@ -81,7 +81,7 @@ describe("page headings", () => {
 
     const dashboard = render(<DashboardPage />);
     await waitFor(() => {
-      expect(headerPadding("Dashboard")).toBe("pt-5");
+      expect(headerPadding("Dashboard")).toBe("pt-6");
     });
     dashboard.unmount();
 
@@ -91,13 +91,13 @@ describe("page headings", () => {
       </NuqsAdapter>,
     );
     await waitFor(() => {
-      expect(headerPadding("Library")).toBe("pt-5");
+      expect(headerPadding("Library")).toBe("pt-6");
     });
     library.unmount();
 
     const releases = render(<ReleasesPage />);
     await waitFor(() => {
-      expect(headerPadding("Releases")).toBe("pt-5");
+      expect(headerPadding("Releases")).toBe("pt-6");
     });
     releases.unmount();
   });

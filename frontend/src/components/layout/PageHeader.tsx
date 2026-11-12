@@ -21,7 +21,7 @@ export default function PageHeader({
   return (
     <div
       data-testid="page-header"
-      className={`shrink-0 px-5 pt-5 pb-4 flex items-end gap-3 ${className}`}
+      className={`shrink-0 px-8 pt-6 pb-4 flex items-end gap-3 ${className}`}
     >
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight leading-tight">
@@ -59,7 +59,7 @@ export function TabRow({ children, ariaLabel }: TabRowProps) {
     <div
       role="group"
       aria-label={ariaLabel ?? "View toggles"}
-      className="shrink-0 mx-5 border-b border-border-subtle flex items-end gap-6"
+      className="shrink-0 mx-8 border-b border-border-subtle flex items-end gap-6"
     >
       {children}
     </div>

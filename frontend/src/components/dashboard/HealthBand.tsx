@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from "react";
-import { AlertTriangle, Check, RefreshCw } from "lucide-react";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSearchHealth } from "@/hooks/useAcquisitionHealth";
 import { useConfig } from "@/hooks/useConfig";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SectionHeader } from "@/components/dashboard/DashboardPanel";
 import {
   DEFAULT_SEARCH_INTERVAL_MINUTES,
   healthBandView,
@@ -50,34 +51,43 @@ const TONE_COLOR: Record<HealthTone, string> = {
   blocked: "var(--status-error)",
 };
 
-const TONE_BG: Record<HealthTone, string> = {
-  healthy: "transparent",
-  degraded: "var(--status-paused-bg)",
-  blocked: "var(--status-error-bg)",
-};
-
-/** A row for a signal that needs the operator's eye, with its fix link. */
+/** One signal: a status dot, the plain sentence, and its fix link if any. */
 function SignalRow({ signal }: { signal: HealthBandView["signals"][number] }) {
   return (
-    <div className="flex items-center gap-2 font-mono text-[11px]">
-      <AlertTriangle
-        className="w-3 h-3 shrink-0"
-        style={{ color: TONE_COLOR[signal.tone] }}
+    <li className="flex items-start gap-2 py-1 text-[13px]">
+      <span
+        className="mt-[7px] size-1.5 shrink-0 rounded-full"
+        style={{ background: TONE_COLOR[signal.tone] }}
         aria-hidden="true"
       />
-      <span style={{ color: TONE_COLOR[signal.tone] }}>{signal.text}</span>
-      {signal.fix && (
-        <Link
-          to={signal.fix.to}
-          className="text-muted-foreground hover:text-foreground underline decoration-dotted"
+      <span className="min-w-0 flex-1">
+        <span
+          className={
+            signal.tone === "healthy" ? "text-foreground-2" : "text-foreground"
+          }
         >
-          {signal.fix.label} →
-        </Link>
-      )}
-    </div>
+          {signal.text}
+        </span>
+        {signal.fix && (
+          <>
+            {" "}
+            <Link
+              to={signal.fix.to}
+              className="whitespace-nowrap text-foreground-2 underline underline-offset-2 hover:text-foreground"
+            >
+              {signal.fix.label}
+            </Link>
+          </>
+        )}
+      </span>
+    </li>
   );
 }
 
+/**
+ * The dashboard rail's System health section. Loud signals first, quiet ones
+ * after, and the last-successful-search line always last and always shown.
+ */
 export default function HealthBand() {
   const health = useSearchHealth();
   const config = useConfig();
@@ -85,16 +95,14 @@ export default function HealthBand() {
 
   if (health.isPending) {
     return (
-      <div
-        className="px-5 py-3 border-b border-border"
-        data-testid="health-band-loading"
-      >
-        {/* Two rows at the height of the resolved band, so it does not shift. */}
-        <div aria-hidden="true" className="flex flex-col gap-2">
-          <Skeleton className="h-2.5 w-72 rounded-sm" />
-          <Skeleton className="h-2.5 w-52 rounded-sm" />
+      <section data-testid="health-band-loading">
+        <SectionHeader variant="rail" title="System health" />
+        {/* Rows at the height of the resolved section, so it does not shift. */}
+        <div aria-hidden="true" className="flex flex-col gap-3 py-1">
+          <Skeleton className="h-2.5 w-56 rounded-sm" />
+          <Skeleton className="h-2.5 w-44 rounded-sm" />
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -105,69 +113,61 @@ export default function HealthBand() {
     now,
   });
 
-  const quiet = view.signals.filter((signal) => signal.tone === "healthy");
   const loud = view.signals.filter((signal) => signal.tone !== "healthy");
+  const quiet = view.signals.filter((signal) => signal.tone === "healthy");
 
   return (
-    <section
-      aria-label="Acquisition health"
-      data-tone={view.tone}
-      className="px-5 py-3 border-b border-border"
-      style={{
-        background: TONE_BG[view.tone],
-        boxShadow:
-          view.tone === "healthy"
-            ? undefined
-            : `inset 3px 0 0 ${TONE_COLOR[view.tone]}`,
-      }}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-col gap-1.5 min-w-0">
-          {loud.map((signal) => (
-            <SignalRow key={signal.key} signal={signal} />
-          ))}
-
-          {quiet.length > 0 && (
-            <div className="flex items-center gap-2 mono-meta">
-              {loud.length === 0 && (
-                <Check
-                  className="w-3 h-3 shrink-0"
-                  style={{ color: TONE_COLOR.healthy }}
-                  aria-hidden="true"
-                />
-              )}
-              <span className="truncate">
-                {quiet.map((signal) => signal.text).join(" · ")}
-              </span>
-            </div>
-          )}
-
-          {/* Never hidden, in any state, at any age. */}
-          <div
-            className="font-mono text-[11px]"
+    <section aria-label="Acquisition health" data-tone={view.tone}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          System health
+        </h2>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void health.refetch()}
+            disabled={health.isFetching}
+            aria-label="Recheck acquisition health"
+            title={health.isFetching ? "checking…" : "recheck"}
+            className="inline-flex size-6 items-center justify-center rounded-control text-muted-foreground hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`size-3 ${health.isFetching ? "animate-spin" : ""}`}
+            />
+          </button>
+          <Link
+            to="/settings?section=acquisition"
+            className="inline-flex items-center gap-0.5 text-[13px] text-foreground-2 hover:text-foreground"
+          >
+            Details
+            <ChevronRight className="size-3.5 text-muted-foreground" />
+          </Link>
+        </div>
+      </div>
+      <ul>
+        {[...loud, ...quiet].map((signal) => (
+          <SignalRow key={signal.key} signal={signal} />
+        ))}
+        {/* Never hidden, in any state, at any age. */}
+        <li className="flex items-start gap-2 py-1 text-[13px]">
+          <span
+            className="mt-[7px] size-1.5 shrink-0 rounded-full"
             style={{
-              color: view.lastSearch.stale
+              background: view.lastSearch.stale
                 ? TONE_COLOR.degraded
-                : "var(--muted-foreground)",
+                : TONE_COLOR.healthy,
             }}
+            aria-hidden="true"
+          />
+          <span
+            className={
+              view.lastSearch.stale ? "text-foreground" : "text-foreground-2"
+            }
           >
             {view.lastSearch.text}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => void health.refetch()}
-          disabled={health.isFetching}
-          aria-label="Recheck acquisition health"
-          className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-control border border-border mono-meta hover:text-foreground disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`w-3 h-3 ${health.isFetching ? "animate-spin" : ""}`}
-          />
-          {health.isFetching ? "checking…" : "recheck"}
-        </button>
-      </div>
+          </span>
+        </li>
+      </ul>
     </section>
   );
 }
