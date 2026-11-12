@@ -758,57 +758,221 @@ function timelineEvents() {
 }
 
 /** Pending import groups: a spread of confident, shaky and unmatched guesses. */
+type MockImportRow = [
+  string,
+  string | null,
+  number,
+  string,
+  string | null,
+  number | null,
+  boolean?,
+];
+
+const MOCK_IMPORT_ROWS: MockImportRow[] = [
+  [
+    "BLAME! Master Edition",
+    null,
+    6,
+    "inbox/BLAME! Master Edition",
+    "BLAME! (2016)",
+    72,
+  ],
+  ["superman_ann_2025.cbr", null, 1, "inbox", "Superman Annual (2025)", 41],
+  [
+    "Ashita no Joe 01-20 [Kodansha]",
+    null,
+    20,
+    "library/manga",
+    "Ashita no Joe (1968)",
+    64,
+  ],
+  ["Magi v37 (2018)", null, 1, "inbox", "Magi (2009)", 58],
+  ["Scan_0042.pdf", null, 1, "inbox", null, null],
+  ...(
+    [
+      ["Absolute Batman", "Absolute Batman (2024)", 3],
+      ["Ultimate Spider-Man", "Ultimate Spider-Man (2024)", 5],
+      ["Saga", "Saga (2012)", 2],
+      ["Monstress", "Monstress (2015)", 4],
+      ["Transformers", "Transformers (2023)", 6],
+      [
+        "Something is Killing the Children",
+        "Something is Killing the Children (2019)",
+        3,
+      ],
+      ["Department of Truth", "The Department of Truth (2020)", 2],
+      ["Hellboy", "Hellboy (1994)", 7],
+      ["Gideon Falls", "Gideon Falls (2018)", 3],
+      ["Paper Girls", "Paper Girls (2015)", 5],
+      ["East of West", "East of West (2013)", 4],
+      ["Invincible", "Invincible (2003)", 8],
+      ["Black Science", "Black Science (2013)", 2],
+      ["Descender", "Descender (2015)", 3],
+      ["Chainsaw Man", "Chainsaw Man (2018)", 6],
+      ["Vagabond", "Vagabond (1998)", 4],
+      ["Berserk", "Berserk (1989)", 9],
+      ["Dorohedoro", "Dorohedoro (2000)", 3],
+    ] as Array<[string, string, number]>
+  ).map(([name, suggested, count], i): MockImportRow => [
+    name,
+    null,
+    count,
+    `inbox/${name}`,
+    suggested,
+    94 - (i % 9),
+  ]),
+  ...Array.from({ length: 41 }, (_, i): MockImportRow => [
+    `sample_${String(i + 1).padStart(3, "0")}.jpg`,
+    null,
+    1,
+    "inbox",
+    null,
+    null,
+    true,
+  ]),
+];
+
 function importGroups() {
-  const rows: Array<
-    [string, string | null, number, string, string | null, number | null]
-  > = [
-    [
-      "BLAME! Master Edition",
-      null,
-      6,
-      "inbox/BLAME! Master Edition",
-      "BLAME! (2016)",
-      72,
-    ],
-    ["superman_ann_2025", "2025", 1, "inbox", "Superman Annual (2025)", 41],
-    [
-      "Ashita no Joe",
-      "1968",
-      20,
-      "library/manga/Ashita no Joe",
-      "Ashita no Joe (1968)",
-      64,
-    ],
-    ["Magi", "2018", 1, "inbox", "Magi (2009)", 58],
-    ["Scan_0042", null, 1, "inbox", null, null],
-  ];
-  return rows.map(([name, year, count, folder, suggested, confidence], i) => ({
-    DynamicName: `folder:${folder}`,
-    ComicName: name,
-    Volume: null,
-    ComicYear: year,
-    FileCount: count,
-    Status: suggested ? "Suggested" : "Unmatched",
-    SRID: null,
-    ComicID: null,
-    MatchConfidence: confidence,
-    SuggestedComicID: suggested ? `mock-${i}` : null,
-    SuggestedComicName: suggested,
-    files: Array.from({ length: count }, (_, f) => ({
-      impID: `imp-${i}-${f}`,
-      ComicFilename: `${name} ${String(f + 1).padStart(2, "0")}.cbz`,
-      ComicLocation: `/data/${folder}/${name} ${String(f + 1).padStart(2, "0")}.cbz`,
-      IssueNumber: count > 1 ? String(f + 1) : null,
+  return MOCK_IMPORT_ROWS.map(
+    ([name, year, count, folder, suggested, confidence, ignored], i) => ({
+      DynamicName: `folder:${folder}/${name}`,
+      ComicName: name,
+      Volume: null,
       ComicYear: year,
-      Status: "Unmatched",
-      IgnoreFile: 0,
+      FileCount: count,
+      Status: suggested ? "Suggested" : "Unmatched",
+      SRID: null,
+      ComicID: null,
       MatchConfidence: confidence,
       SuggestedComicID: suggested ? `mock-${i}` : null,
       SuggestedComicName: suggested,
-      SuggestedIssueID: null,
-      MatchSource: suggested ? "comicvine" : null,
+      files: Array.from({ length: count }, (_, f) => {
+        const base = name.replace(/\.(cbr|cbz|pdf|jpg)$/, "");
+        const filename =
+          count > 1
+            ? `${base} v${String(f + 1).padStart(2, "0")}.cbz`
+            : name.includes(".")
+              ? name
+              : `${name}.cbz`;
+        return {
+          impID: `imp-${i}-${f}`,
+          ComicFilename: filename,
+          ComicLocation: `/data/downloads/comics/${folder}/${filename}`,
+          IssueNumber: count > 1 ? String(f + 1) : null,
+          ComicYear: year,
+          Status: "Not Imported",
+          IgnoreFile: ignored ? 1 : 0,
+          MatchConfidence: confidence,
+          SuggestedComicID: suggested ? `mock-${i}` : null,
+          SuggestedComicName: suggested,
+          SuggestedIssueID: null,
+          MatchSource: "inbox",
+        };
+      }),
+    }),
+  );
+}
+
+function importBucketOf(group: ReturnType<typeof importGroups>[number]) {
+  if (group.files.every((f) => f.IgnoreFile === 1)) return "ignored";
+  return group.SuggestedComicID && (group.MatchConfidence ?? 0) >= 80
+    ? "confident"
+    : "needs_pick";
+}
+
+/** The pick panel for a mock group: BLAME! carries the design's two-editions case. */
+function importPickPanel(impIds: string[]) {
+  const group = importGroups().find((g) =>
+    g.files.some((f) => impIds.includes(f.impID)),
+  );
+  if (!group) return null;
+  const index = Number(group.files[0].impID.split("-")[1]);
+  const sizes = group.files.map((_, f) => (236 + ((f * 7 + index) % 14)) * 1e6);
+  const [name, year] = (group.SuggestedComicName ?? "")
+    .match(/^(.*?) \((\d{4})\)$/)
+    ?.slice(1) ?? [group.SuggestedComicName ?? "", null];
+  const candidates =
+    index === 0
+      ? [
+          {
+            comic_id: "mock-0",
+            name: "BLAME!",
+            year: "2016",
+            publisher: "Vertical",
+            issues: 6,
+            have: 6,
+            in_library: true,
+            image: null,
+            score: 72,
+          },
+          {
+            comic_id: "mock-blame-1998",
+            name: "BLAME!",
+            year: "1998",
+            publisher: "Kodansha",
+            issues: 10,
+            have: 0,
+            in_library: true,
+            image: null,
+            score: 72,
+          },
+          {
+            comic_id: "mock-nse",
+            name: "NSE: NetSphere Engineer",
+            year: "2008",
+            publisher: null,
+            issues: 1,
+            have: 0,
+            in_library: true,
+            image: null,
+            score: 31,
+          },
+        ]
+      : group.SuggestedComicID
+        ? [
+            {
+              comic_id: group.SuggestedComicID,
+              name,
+              year,
+              publisher: null,
+              issues: group.FileCount + 4,
+              have: 0,
+              in_library: true,
+              image: null,
+              score: group.MatchConfidence ?? 0,
+            },
+          ]
+        : [];
+  const bucket = importBucketOf(group);
+  return {
+    group_name: group.ComicName,
+    match_name: name || group.ComicName,
+    years: year ? [year] : [],
+    source: "inbox",
+    folder: `${group.files[0].ComicLocation.split("/").slice(4, -1).join("/")}/`,
+    found_at: new Date(Date.now() - (index + 2) * 3600_000).toISOString(),
+    total_bytes: sizes.reduce((n, b) => n + b, 0),
+    files: group.files.map((f, i) => ({
+      impID: f.impID,
+      filename: f.ComicFilename,
+      bytes: sizes[i],
+      issue_number: f.IssueNumber,
     })),
-  }));
+    confidence_bar: 80,
+    reason:
+      index === 0
+        ? "tied"
+        : !candidates.length
+          ? "no_match"
+          : bucket === "confident"
+            ? "confident"
+            : "below_bar",
+    tied: index === 0 ? 2 : 1,
+    remembers: true,
+    remembered: null,
+    pick: candidates[0]?.comic_id ?? null,
+    candidates,
+  };
 }
 
 function upcomingReleases() {
@@ -2111,7 +2275,16 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/import") {
-    const imports = importGroups();
+    const all = importGroups();
+    const bucket = parsed.searchParams.get("bucket") ?? "needs_pick";
+    const q = (parsed.searchParams.get("q") ?? "").trim().toLowerCase();
+    const imports = all.filter(
+      (g) =>
+        importBucketOf(g) === bucket &&
+        (!q || g.ComicName.toLowerCase().includes(q)),
+    );
+    const count = (b: string) =>
+      all.filter((g) => importBucketOf(g) === b).length;
     return {
       imports,
       pagination: {
@@ -2123,8 +2296,21 @@ export function mockApiResponse(
       summary: {
         group_count: imports.length,
         file_count: imports.reduce((n, g) => n + g.FileCount, 0),
+        buckets: {
+          needs_pick: count("needs_pick"),
+          confident: count("confident"),
+          ignored: count("ignored"),
+        },
+        confidence_bar: 80,
       },
     };
+  }
+  if (m === "POST" && url === "/api/import/candidates") {
+    const { imp_ids = [] } = (body ?? {}) as { imp_ids?: string[] };
+    return importPickPanel(imp_ids);
+  }
+  if (m === "POST" && url === "/api/import/candidates/remote") {
+    return { candidates: [], query: "" };
   }
 
   const detailMatch = url.match(/^\/api\/series\/([^/]+)$/);

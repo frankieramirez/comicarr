@@ -28,6 +28,8 @@ interface DataTableProps<TData extends RowData> {
     colSpan: number,
   ) => ReactNode;
   className?: string;
+  /** The row a side panel is showing; it stays highlighted. */
+  activeRowId?: string;
 }
 
 export function DataTable<TData extends RowData>({
@@ -36,6 +38,7 @@ export function DataTable<TData extends RowData>({
   renderSubRow,
   renderGroupHeader,
   className,
+  activeRowId,
 }: DataTableProps<TData>) {
   return (
     <div className={cn("min-w-0 px-8", className)}>
@@ -85,8 +88,13 @@ export function DataTable<TData extends RowData>({
                   {renderGroupHeader?.(row, index, colSpan)}
                   <TableRow
                     data-state={row.getIsSelected() && "selected"}
+                    aria-current={
+                      activeRowId !== undefined && row.id === activeRowId
+                        ? "true"
+                        : undefined
+                    }
                     className={cn(
-                      "group/row border-b border-border-subtle hover:bg-surface-1 data-[state=selected]:bg-selection",
+                      "group/row border-b border-border-subtle hover:bg-surface-1 data-[state=selected]:bg-selection aria-[current=true]:bg-surface-2",
                       onRowClick &&
                         "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     )}

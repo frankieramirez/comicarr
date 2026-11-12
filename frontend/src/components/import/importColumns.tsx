@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { ChevronRight, ChevronDown, Eye, EyeOff, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import ConfidenceBadge from "./ConfidenceBadge";
 import { encodeRowId } from "@/components/data-table/rowId";
 import {
@@ -21,7 +14,7 @@ import type { ImportGroup } from "@/types";
 const columnHelper = createColumnHelper<ComicarrTableFeatures, ImportGroup>();
 
 /** The folder the group's files sit in, trimmed to its last two segments. */
-function folderOf(group: ImportGroup): string | null {
+export function folderOf(group: ImportGroup): string | null {
   const location = group.files[0]?.ComicLocation;
   if (!location) return null;
   const parts = location.split(/[\\/]/).filter(Boolean);
@@ -60,17 +53,20 @@ export function getSelectedImportFileIds(
  * a sibling; the columns live here so the page and the selection tests drive
  * the same select column (#396, same shape as #395).
  */
-export function useImportColumns({
-  onMatchClick,
-  onIgnoreClick,
-  onDeleteClick,
-  isActionLoading = false,
-}: {
-  onMatchClick?: (group: ImportGroup, trigger: HTMLElement) => void;
-  onIgnoreClick?: (group: ImportGroup, ignore: boolean) => void;
-  onDeleteClick?: (group: ImportGroup) => void;
-  isActionLoading?: boolean;
-}) {
+/** "BLAME! (2016)" splits into a name and a year; names without one pass through. */
+export function splitSeriesYear(name: string): [string, string | null] {
+  const match = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+  return match ? [match[1], match[2]] : [name, null];
+}
+
+/**
+ * Columns for the review queue. The table instance itself lives in
+ * `ImportPage`, which owns selection because it renders `ImportBulkActions` as
+ * a sibling; the columns live here so the page and the selection tests drive
+ * the same select column (#396, same shape as #395). Per-group actions live
+ * in the pick panel a row opens.
+ */
+export function useImportColumns() {
   return useMemo(
     () =>
       columnHelper.columns([
@@ -93,42 +89,6 @@ export function useImportColumns({
           ),
           size: 40,
         }),
-        columnHelper.display({
-          id: "expander",
-          header: "",
-          cell: ({ row }) => {
-            const canExpand =
-              row.original.files && row.original.files.length > 0;
-            return canExpand ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label={
-                      row.getIsExpanded()
-                        ? "Collapse import files"
-                        : "Expand import files"
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      row.toggleExpanded();
-                    }}
-                    className="p-1 hover:bg-muted rounded"
-                  >
-                    {row.getIsExpanded() ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {row.getIsExpanded() ? "Collapse files" : "Review files"}
-                </TooltipContent>
-              </Tooltip>
-            ) : null;
-          },
-          size: 40,
-        }),
         columnHelper.accessor("ComicName", {
           header: "Files",
           cell: ({ row }) => {
@@ -136,18 +96,18 @@ export function useImportColumns({
             const count = group.FileCount ?? group.files.length;
             const folder = folderOf(group);
             return (
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {group.ComicName}
-                    {group.Volume ? ` v${group.Volume}` : ""}
-                    {group.ComicYear ? ` (${group.ComicYear})` : ""}
-                  </span>
+              <div className="min-w-0 py-1">
+                <div className="truncate text-sm text-foreground">
+                  {group.ComicName}
+                  {group.Volume ? ` v${group.Volume}` : ""}
+                  {group.ComicYear ? ` (${group.ComicYear})` : ""}
                 </div>
-                <div className="mono-meta truncate">
+                <div
+                  className="mono-meta truncate"
+                  title={getImportGroupTypeLabel(group)}
+                >
                   {count} file{count === 1 ? "" : "s"}
-                  {folder ? ` · ${folder}` : ""} ·{" "}
-                  <span>{getImportGroupTypeLabel(group)}</span>
+                  {folder ? ` · ${folder}` : ""}
                 </div>
               </div>
             );
@@ -163,16 +123,15 @@ export function useImportColumns({
                 <span className="text-sm text-muted-foreground">No match</span>
               );
             }
+            const [name, year] = splitSeriesYear(suggestedName);
             return (
-              <span
-                className="text-sm text-foreground-2"
-                title={
-                  row.original.SuggestedComicID
-                    ? `ID ${row.original.SuggestedComicID}`
-                    : undefined
-                }
-              >
-                {suggestedName}
+              <span className="truncate text-sm text-foreground-2">
+                {name}
+                {year && (
+                  <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                    {year}
+                  </span>
+                )}
               </span>
             );
           },
@@ -185,93 +144,27 @@ export function useImportColumns({
               !row.original.SuggestedComicID &&
               !row.original.SuggestedComicName
             ) {
-              return <span className="mono-meta">No suggestion</span>;
+              return (
+                <span
+                  className="inline-flex items-center gap-2"
+                  title="No suggestion"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-1 w-10 rounded-full bg-surface-3"
+                  />
+                  <span className="mono-meta">–</span>
+                  <span className="sr-only">No suggestion</span>
+                </span>
+              );
             }
 
             return <ConfidenceBadge confidence={getValue() ?? null} />;
           },
+          size: 110,
           enableSorting: false,
-        }),
-        columnHelper.accessor("Status", {
-          header: "Status",
-          cell: ({ getValue }) => (
-            <span className="text-[13px] text-foreground-2">{getValue()}</span>
-          ),
-          enableSorting: false,
-        }),
-        columnHelper.display({
-          id: "actions",
-          header: () => <span className="sr-only">Actions</span>,
-          cell: ({ row }) => {
-            const files = row.original.files ?? [];
-            const allIgnored =
-              files.length > 0 && files.every((file) => file.IgnoreFile === 1);
-            const ignoreLabel = allIgnored
-              ? "Unignore import"
-              : "Ignore import";
-
-            return (
-              <div className="flex items-center justify-end gap-0.5 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="compact"
-                      variant="outline"
-                      aria-label="Match import"
-                      data-import-match={getImportGroupRowId(row.original)}
-                      disabled={isActionLoading}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMatchClick?.(row.original, e.currentTarget);
-                      }}
-                    >
-                      Match
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Match this review group</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={ignoreLabel}
-                      disabled={isActionLoading}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onIgnoreClick?.(row.original, !allIgnored);
-                      }}
-                    >
-                      {allIgnored ? <Eye /> : <EyeOff />}
-                      <span className="sr-only">{ignoreLabel}</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{ignoreLabel}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Delete import record"
-                      disabled={isActionLoading}
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteClick?.(row.original);
-                      }}
-                    >
-                      <Trash2 />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete import record</TooltipContent>
-                </Tooltip>
-              </div>
-            );
-          },
         }),
       ]),
-    [isActionLoading, onDeleteClick, onIgnoreClick, onMatchClick],
+    [],
   );
 }

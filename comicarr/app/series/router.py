@@ -19,11 +19,13 @@ import asyncio
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
-from comicarr import series_kind
+from comicarr import logger, series_kind
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session
+from comicarr.app.imports import candidates as import_picks
 from comicarr.app.imports import finalization as import_finalization
+from comicarr.app.imports import folder_memory
 from comicarr.app.series import location as series_locations
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
@@ -495,10 +497,17 @@ def get_import_pending(
     limit: int = Query(50),
     offset: int = Query(0),
     include_ignored: bool = Query(False, alias="include_ignored"),
+    bucket: str | None = Query(None),
+    q: str | None = Query(None),
     ctx: AppContext = Depends(get_context),
 ):
-    """Get pending import files grouped by series."""
-    return series_service.get_import_pending(ctx, limit=limit, offset=offset, include_ignored=include_ignored)
+    """Get pending import files grouped by series.
+
+    ``bucket`` is one of ``needs_pick``, ``confident`` or ``ignored``; ``q`` filters by name.
+    """
+    return series_service.get_import_pending(
+        ctx, limit=limit, offset=offset, include_ignored=include_ignored, bucket=bucket, search=q
+    )
 
 
 def _normalize_match_import_ids(imp_ids):
@@ -550,6 +559,11 @@ def match_import(
         }
 
     try:
+        folder = folder_memory.folder_of(imp_ids)
+    except Exception as e:
+        logger.fdebug("[IMPORT-MEMORY] Unable to read the folder for this match: %s" % e)
+        folder = None
+    try:
         result = import_finalization.finalize_manual_match(
             ctx,
             imp_ids,
@@ -560,6 +574,8 @@ def match_import(
         )
     except import_finalization.ImportFinalizationError as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
+    if result.matched:
+        folder_memory.remember(folder, result.series_id, result.series_name)
     return {
         "success": True,
         "matched": result.matched,
@@ -569,6 +585,45 @@ def match_import(
         "moved": result.moved,
         "archived": result.archived,
     }
+
+
+def _imp_id_list(raw):
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    if not isinstance(raw, list):
+        return []
+    return _normalize_match_import_ids(raw)
+
+
+@router.post("/import/candidates", dependencies=[Depends(require_session)])
+def import_candidates(request_body: dict = None, ctx: AppContext = Depends(get_context)):
+    """The pick panel for one review group: its files, why it stopped, and library series it could be."""
+    imp_ids = _imp_id_list((request_body or {}).get("imp_ids"))
+    if not imp_ids:
+        return JSONResponse(status_code=400, content={"detail": "Missing imp_ids"})
+    result = import_picks.group_candidates(ctx, imp_ids)
+    if result is None:
+        return JSONResponse(status_code=404, content={"detail": "Import records not found"})
+    return result
+
+
+@router.post("/import/candidates/remote", dependencies=[Depends(require_session)])
+def import_remote_candidates(request_body: dict = None, ctx: AppContext = Depends(get_context)):
+    """Series not in the library yet that a review group could be, from a provider search."""
+    body = request_body or {}
+    imp_ids = _imp_id_list(body.get("imp_ids"))
+    if not imp_ids:
+        return JSONResponse(status_code=400, content={"detail": "Missing imp_ids"})
+    result = import_picks.remote_candidates(ctx, imp_ids, content_type=body.get("content_type"))
+    if result is None:
+        return JSONResponse(status_code=404, content={"detail": "Import records not found"})
+    return result
+
+
+@router.post("/import/confident", dependencies=[Depends(require_session)])
+def import_confident(ctx: AppContext = Depends(get_context)):
+    """Import every Confident group as its suggested series."""
+    return import_picks.import_confident(ctx)
 
 
 @router.patch("/import/{imp_id}", dependencies=[Depends(require_session)])

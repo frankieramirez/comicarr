@@ -582,10 +582,77 @@ export interface ImportFile {
   MatchSource: string | null;
 }
 
+/** The Import page's tabs: groups that need a pick, confident ones, ignored files. */
+export type ImportBucket = "needs_pick" | "confident" | "ignored";
+
 /** Summary counts returned by GET /api/import */
 export interface ImportPendingSummary {
   group_count: number;
   file_count: number;
+  /** Groups per tab, whichever tab the page asked for. */
+  buckets?: Record<ImportBucket, number>;
+  /** The auto-import bar a confident group clears. */
+  confidence_bar?: number;
+}
+
+/** One series a review group could be, scored like the inbox scan scores it. */
+export interface ImportCandidate {
+  comic_id: string;
+  name: string;
+  year: string | null;
+  publisher: string | null;
+  issues: number | null;
+  have: number | null;
+  in_library: boolean;
+  /** Provider cover for a series not in the library; library ones use the art route. */
+  image: string | null;
+  score: number;
+}
+
+/** Why a review group stopped for a person instead of importing itself. */
+export type ImportPickReason =
+  | "remembered"
+  | "no_match"
+  | "tied"
+  | "mixed_years"
+  | "below_bar"
+  | "confident";
+
+/** POST /api/import/candidates: the pick panel for one review group. */
+export interface ImportPickPanel {
+  group_name: string;
+  match_name: string;
+  years: string[];
+  source: "inbox" | "library";
+  folder: string | null;
+  found_at: string | null;
+  total_bytes: number | null;
+  files: Array<{
+    impID: string;
+    filename: string;
+    bytes: number | null;
+    issue_number: string | null;
+  }>;
+  confidence_bar: number;
+  reason: ImportPickReason;
+  tied: number;
+  /** True for an inbox folder group, whose pick is kept for future files. */
+  remembers: boolean;
+  remembered: {
+    comic_id: string;
+    comic_name: string | null;
+    folder_name: string | null;
+    chosen_at: string;
+  } | null;
+  pick: string | null;
+  candidates: ImportCandidate[];
+}
+
+/** POST /api/import/candidates/remote */
+export interface ImportRemoteCandidates {
+  candidates: ImportCandidate[];
+  query: string;
+  error?: string | null;
 }
 
 /** Story Arc status for individual issues */

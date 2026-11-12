@@ -87,14 +87,12 @@ function issues(count: number): Issue[] {
 }
 
 function ImportHarness({ imports }: { imports: ImportGroup[] }) {
-  const columns = useImportColumns({});
+  const columns = useImportColumns();
   const { table } = useTableState({
     data: imports,
     columns,
     getRowId: getImportGroupRowId,
     selection: { scope: "filtered" },
-    getRowCanExpand: (row) =>
-      !!(row.original.files && row.original.files.length > 0),
   });
   return <ImportTable table={table} />;
 }
@@ -155,10 +153,10 @@ describe("accessible names for unlabeled controls", () => {
     vi.clearAllMocks();
   });
 
-  it("names ImportTable checkboxes and buttons", () => {
+  // Group actions moved to the pick panel, so the table has no buttons left.
+  it("names ImportTable checkboxes", () => {
     renderMinimal(<ImportHarness imports={[makeGroup()]} />);
     assertEveryHasAccessibleName("checkbox");
-    assertEveryHasAccessibleName("button");
   });
 
   it("names WantedTable checkboxes and buttons", () => {

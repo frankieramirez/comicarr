@@ -223,36 +223,35 @@ def _match_group(group_key, group_info, series_list):
 
     best_match = None
     best_score = 0.0
-
-    year_pattern = r"[\(\[]((?:19|20)\d{2})[\)\]]"
-    years = set(re.findall(year_pattern, group_name))
-    for filepath in pending_files:
-        years.update(re.findall(year_pattern, os.path.basename(filepath)))
-    match_name = re.sub(year_pattern, "", group_name).strip()
-    normalized_group = normalize_title(match_name)
+    match_name, years = match_terms(group_name, pending_files)
     tied_ids = set()
 
     for series in series_list:
-        names = [series.get("ComicName"), series.get("ComicSortName")]
-        if not any(names):
-            names = [series.get("DynamicName")]
-        score = 0.0
-        for candidate in names:
-            if not candidate:
-                continue
-            normalized_candidate = normalize_title(candidate)
-            if re.findall(r"\d+", normalized_group) != re.findall(r"\d+", normalized_candidate):
-                continue
-            score = max(score, name_similarity(match_name, candidate))
-        series_year = str(series.get("ComicYear") or "").strip()
-        if years and series_year and years != {series_year}:
-            score = 0.0
+        score = score_series(match_name, years, series)
         if score > best_score:
             best_score = score
             best_match = series
             tied_ids = {series["ComicID"]}
         elif score == best_score and score > 0:
             tied_ids.add(series["ComicID"])
+
+    from comicarr.app.imports import folder_memory
+
+    remembered = folder_memory.recall(group_key)
+    remembered_series = None
+    if remembered:
+        remembered_series = next(
+            (series for series in series_list if str(series.get("ComicID")) == remembered["comic_id"]), None
+        )
+    if remembered_series is not None:
+        logger.info(
+            "[IMPORT-INBOX] Folder '%s' was matched to '%s' before; using that pick"
+            % (group_name, remembered_series.get("ComicName", ""))
+        )
+        best_match = remembered_series
+        best_score = 1.0
+        tied_ids = {remembered_series["ComicID"]}
+        years = set()
 
     confidence = int(best_score * 100)
 
@@ -276,11 +275,14 @@ def _match_group(group_key, group_info, series_list):
             )
             file_title = parsed.get("series_name") if parsed else None
             file_identity = normalize_title(file_title) if file_title else None
-            identity_conflict = file_identity is None or not any(
-                candidate
-                and re.findall(r"\d+", file_identity) == re.findall(r"\d+", normalize_title(candidate))
-                and name_similarity(file_title, candidate) * 100 >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
-                for candidate in selected_titles
+            identity_conflict = remembered_series is None and (
+                file_identity is None
+                or not any(
+                    candidate
+                    and re.findall(r"\d+", file_identity) == re.findall(r"\d+", normalize_title(candidate))
+                    and name_similarity(file_title, candidate) * 100 >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
+                    for candidate in selected_titles
+                )
             )
             if identity_conflict or (issue_number and not get_issue_id(best_match["ComicID"], issue_number)):
                 logger.info(
@@ -339,6 +341,41 @@ def _match_group(group_key, group_info, series_list):
             result["queued_for_review"] += 1
 
     return result
+
+
+_YEAR_PATTERN = r"[\(\[]((?:19|20)\d{2})[\)\]]"
+
+
+def match_terms(group_name, filepaths):
+    """The name to match a file group on, and the years its folder and filenames name."""
+    years = set(re.findall(_YEAR_PATTERN, group_name or ""))
+    for filepath in filepaths:
+        years.update(re.findall(_YEAR_PATTERN, os.path.basename(filepath)))
+    return re.sub(_YEAR_PATTERN, "", group_name or "").strip(), years
+
+
+def score_series(match_name, years, series):
+    """How well a library series fits a file group, 0.0 to 1.0.
+
+    Titles must carry the same numbers, and a series whose start year is not
+    the one year the files name scores zero.
+    """
+    names = [series.get("ComicName"), series.get("ComicSortName")]
+    if not any(names):
+        names = [series.get("DynamicName")]
+    normalized_group = normalize_title(match_name)
+    score = 0.0
+    for candidate in names:
+        if not candidate:
+            continue
+        normalized_candidate = normalize_title(candidate)
+        if re.findall(r"\d+", normalized_group) != re.findall(r"\d+", normalized_candidate):
+            continue
+        score = max(score, name_similarity(match_name, candidate))
+    series_year = str(series.get("ComicYear") or "").strip()
+    if years and series_year and years != {series_year}:
+        score = 0.0
+    return score
 
 
 def _filepath_to_impid(filepath):
