@@ -76,7 +76,7 @@ function EventRow({ event }: { event: TimelineEvent }) {
       >
         <EventHeadline event={event} />
       </div>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+      <span className="mono-meta shrink-0">
         <RelativeTime value={event.created_at} compact />
       </span>
     </div>

@@ -318,7 +318,7 @@ function MyReleasesView() {
               type="button"
               aria-pressed={includeDownloaded === value}
               onClick={() => setIncludeDownloaded(value)}
-              className={`inline-flex h-7 items-center rounded-[5px] px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              className={`inline-flex h-7 items-center rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 includeDownloaded === value
                   ? "bg-surface-3 font-medium text-foreground"
                   : "text-foreground-2 hover:text-foreground"
@@ -330,7 +330,7 @@ function MyReleasesView() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="font-mono text-[11px] text-muted-foreground">
+          <div className="mono-meta">
             {issues.length} issue{issues.length !== 1 ? "s" : ""}
           </div>
 

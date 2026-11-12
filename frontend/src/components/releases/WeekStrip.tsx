@@ -26,7 +26,7 @@ function weekDays(today: Date): Date[] {
   });
 }
 
-export function releaseDay(issue: UpcomingIssue): string {
+function releaseDay(issue: UpcomingIssue): string {
   return String(issue.IssueDate || issue.ReleaseDate || "").slice(0, 10);
 }
 

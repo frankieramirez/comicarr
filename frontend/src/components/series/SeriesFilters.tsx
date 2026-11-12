@@ -104,7 +104,7 @@ export default function SeriesFilters({
               type="button"
               aria-pressed={typeFilter === value}
               onClick={() => onTypeChange(value)}
-              className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 typeFilter === value
                   ? "bg-surface-3 font-medium text-foreground"
                   : "text-foreground-2 hover:text-foreground"
@@ -112,9 +112,7 @@ export default function SeriesFilters({
             >
               {label}
               {typeCounts?.[value] != null && (
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {typeCounts[value]}
-                </span>
+                <span className="mono-meta">{typeCounts[value]}</span>
               )}
             </button>
           ))}
@@ -164,7 +162,7 @@ export default function SeriesFilters({
       )}
 
       {(resultCount !== undefined || sortLabel) && (
-        <div className="order-3 ml-auto flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+        <div className="mono-meta order-3 ml-auto flex items-center gap-1.5">
           {resultCount !== undefined && (
             <span>
               {resultCount} result{resultCount === 1 ? "" : "s"}

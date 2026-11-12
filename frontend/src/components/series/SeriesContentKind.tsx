@@ -75,7 +75,7 @@ export function SeriesContentKind({
                   const step = event.key === "ArrowRight" ? 1 : -1;
                   onChange(KINDS[(index + step + KINDS.length) % KINDS.length]);
                 }}
-                className={`rounded-[5px] px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
+                className={`rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
                   active
                     ? "bg-surface-3 text-foreground"
                     : "text-foreground-2 hover:text-foreground"

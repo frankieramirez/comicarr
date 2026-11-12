@@ -50,7 +50,7 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
         >
           {stageLabel(group.stage)}
         </span>
-        <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span className="mono-meta ml-auto tabular-nums">
           ×{group.member_count}
         </span>
       </div>
@@ -98,7 +98,7 @@ export function AttentionBand({
         <span className="text-[13px] font-semibold text-foreground">
           {total} need{total === 1 ? "s" : ""} attention
         </span>
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span className="mono-meta">
           {memberTotal === total
             ? "clears only by action"
             : `${memberTotal} issues · clears only by action`}

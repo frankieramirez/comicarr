@@ -8,9 +8,8 @@ import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "@/components/layout/PageHeader";
-import LibraryTabs, {
-  useLibrarySummary,
-} from "@/components/series/LibraryTabs";
+import LibraryTabs from "@/components/series/LibraryTabs";
+import { useLibrarySummary } from "@/hooks/useLibrarySummary";
 import { Info } from "lucide-react";
 
 export default function StoryArcsPage() {

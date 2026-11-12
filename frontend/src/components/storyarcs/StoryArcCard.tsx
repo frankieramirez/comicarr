@@ -18,7 +18,7 @@ export default function StoryArcCard({ arc }: StoryArcCardProps) {
       to={`/story-arcs/${arc.StoryArcID}`}
       className="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-4 border-b border-border-subtle px-2 py-2.5 transition-colors hover:bg-surface-1 md:grid-cols-[100px_minmax(0,1fr)_220px_140px]"
     >
-      <div className="h-[52px] w-[100px] overflow-hidden rounded-[4px] bg-surface-2">
+      <div className="h-[52px] w-[100px] overflow-hidden rounded-md bg-surface-2">
         {bannerUrl ? (
           <img
             src={bannerUrl}

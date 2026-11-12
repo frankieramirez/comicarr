@@ -285,7 +285,7 @@ export default function AttentionPage() {
                   type="button"
                   aria-pressed={stage === id}
                   onClick={() => setStage(id)}
-                  className="h-7 rounded-[5px] px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+                  className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
                 >
                   {label}
                 </button>

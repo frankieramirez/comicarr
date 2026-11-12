@@ -207,7 +207,7 @@ export default function DashboardPage() {
                           #{u.IssueNumber}
                         </span>
                       </span>
-                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      <span className="mono-meta shrink-0">
                         {u.IssueDate?.slice(5) || "—"}
                       </span>
                     </Link>

@@ -85,7 +85,7 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
         <h3 className="truncate text-[13px] font-medium leading-tight text-foreground">
           {comic.ComicName}
         </h3>
-        <div className="mt-1 flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+        <div className="mono-meta mt-1 flex items-center justify-between">
           <span>
             {have} / {total}
           </span>

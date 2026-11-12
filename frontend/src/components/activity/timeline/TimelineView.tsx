@@ -121,16 +121,8 @@ function DetailLine({ story }: { story: Story }) {
   return (
     <div className="truncate text-[12px] text-foreground-2">
       {line.phrase}
-      {line.rawCode && (
-        <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-          {line.rawCode}
-        </span>
-      )}
-      {line.detail && (
-        <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-          {line.detail}
-        </span>
-      )}
+      {line.rawCode && <span className="mono-meta ml-2">{line.rawCode}</span>}
+      {line.detail && <span className="mono-meta ml-2">{line.detail}</span>}
     </div>
   );
 }
@@ -287,7 +279,7 @@ export function TimelineView({
                 setActivity(f.key);
                 setPage(0);
               }}
-              className="h-7 rounded-[5px] px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+              className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
             >
               {f.label}
             </button>
@@ -357,7 +349,7 @@ export function TimelineView({
                     )}
                     {multi && (
                       <span
-                        className="ml-2 font-mono text-[11px] text-muted-foreground"
+                        className="mono-meta ml-2"
                         title={`${story.events.length} events in this story`}
                       >
                         ×{story.events.length}
@@ -405,7 +397,7 @@ export function TimelineView({
 
       {(filtered.length > 0 || hasMoreEvents) && (
         <div className="flex shrink-0 items-center gap-3 border-t border-border-subtle px-8 py-2.5">
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="mono-meta">
             {filtered.length === 0
               ? "0 stories"
               : `${start + 1}–${Math.min(start + STORY_PAGE_SIZE, filtered.length)} of ${filtered.length}${hasMoreEvents ? "+" : ""} stories`}
@@ -445,7 +437,7 @@ export function TimelineView({
           </div>
         </div>
       )}
-      <p className="shrink-0 px-8 pb-4 font-mono text-[11px] text-muted-foreground">
+      <p className="mono-meta shrink-0 px-8 pb-4">
         older than 90 days is deleted · History keeps the full ledger
       </p>
     </div>

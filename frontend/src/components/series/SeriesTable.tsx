@@ -367,7 +367,7 @@ export default function SeriesTable({
                   setParams({ view: value === "grid" ? "grid" : null });
                   clearSelection();
                 }}
-                className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors ${
+                className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors ${
                   pressed
                     ? "bg-surface-3 font-medium text-foreground"
                     : "text-foreground-2 hover:text-foreground"
@@ -647,7 +647,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
           >
             {comic.ComicName}
           </Link>
-          <span className="shrink-0 rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
             {kindLabel}
           </span>
         </div>
@@ -681,14 +681,12 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
             }}
           />
         </div>
-        <span className="font-mono text-[11px] text-muted-foreground w-9 text-right tabular-nums">
+        <span className="mono-meta w-9 text-right tabular-nums">
           {total > 0 ? `${progress}%` : "–"}
         </span>
       </div>
 
-      <div
-        className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground text-right`}
-      >
+      <div className={`mono-meta ${DESKTOP_COL} text-right`}>
         {comic.ComicYear || "—"}
       </div>
     </div>

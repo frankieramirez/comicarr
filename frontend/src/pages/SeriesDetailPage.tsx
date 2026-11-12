@@ -805,7 +805,7 @@ export default function SeriesDetailPage() {
               <span className="truncate text-foreground">
                 {comic.ComicName}
               </span>
-              <span className="ml-auto hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">
+              <span className="mono-meta ml-auto hidden shrink-0 sm:inline">
                 {providerCode}:{comic.ComicID} · {seriesSyncLabel(comic)}
               </span>
             </nav>
@@ -1070,23 +1070,18 @@ export default function SeriesDetailPage() {
                     aria-pressed={filter === key}
                     aria-label={`${label} ${count}`}
                     onClick={() => setFilter(key)}
-                    className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                    className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       filter === key
                         ? "bg-surface-3 font-medium text-foreground"
                         : "text-foreground-2 hover:text-foreground"
                     }`}
                   >
                     {label}
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {count}
-                    </span>
+                    <span className="mono-meta">{count}</span>
                   </button>
                 ))}
               </div>
-              <div
-                className="ml-auto font-mono text-[11px] text-muted-foreground"
-                data-testid="ledger-facets"
-              >
+              <div className="mono-meta ml-auto" data-testid="ledger-facets">
                 {ledgerFacets.length
                   ? `${total} · ${ledgerFacets.join(" · ")}`
                   : total}
@@ -1200,7 +1195,7 @@ export default function SeriesDetailPage() {
                         </div>
                         <div className={DESKTOP_COL}>
                           {ledgerKind && (
-                            <span className="rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                            <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                               {LEDGER_KIND_LABEL[ledgerKind]}
                             </span>
                           )}
@@ -1215,7 +1210,7 @@ export default function SeriesDetailPage() {
                           {ledgerKind ? (
                             <span
                               data-testid="phone-row-id"
-                              className="mr-1.5 hidden max-md:inline rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+                              className="mr-1.5 hidden max-md:inline rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
                             >
                               {LEDGER_KIND_LABEL[ledgerKind]}
                             </span>

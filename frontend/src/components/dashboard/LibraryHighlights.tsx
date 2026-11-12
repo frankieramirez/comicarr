@@ -82,7 +82,7 @@ export function RecentlyAdded() {
                 <div className="mt-2 truncate text-[13px] text-foreground">
                   {comic.ComicName}
                 </div>
-                <div className="font-mono text-[11px] text-muted-foreground">
+                <div className="mono-meta">
                   {count(comic.Have)} / {count(comic.Total)}
                 </div>
               </Link>

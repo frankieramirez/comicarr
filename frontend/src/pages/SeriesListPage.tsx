@@ -1,9 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import LibraryTabs, {
-  useLibrarySummary,
-} from "@/components/series/LibraryTabs";
+import LibraryTabs from "@/components/series/LibraryTabs";
+import { useLibrarySummary } from "@/hooks/useLibrarySummary";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
 import PageHeader from "@/components/layout/PageHeader";

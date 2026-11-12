@@ -74,7 +74,7 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
               {row.original.ComicName}
             </span>
             {row.original.ComicYear && (
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              <span className="mono-meta shrink-0">
                 {row.original.ComicYear}
               </span>
             )}

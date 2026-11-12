@@ -64,7 +64,7 @@ const SORT_LABELS: Record<SortKey, string> = {
 };
 
 const SEGMENT =
-  "h-7 rounded-[5px] px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground";
+  "h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground";
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
   return issue.state ?? "not_in_library";
@@ -191,10 +191,7 @@ export default function IndustryReleasesView() {
               onClick={() => setFollow(key)}
               className={SEGMENT}
             >
-              {label}{" "}
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {counts[key]}
-              </span>
+              {label} <span className="mono-meta">{counts[key]}</span>
             </button>
           ))}
         </div>
@@ -304,7 +301,7 @@ function WeekBar({
             {week ? weekLabel(week.offset) : "Loading week…"}
           </span>
           {week && (
-            <span className="truncate font-mono text-[11px] text-muted-foreground">
+            <span className="mono-meta truncate">
               {formatDay(week.start, false)} – {formatDay(week.end, true)}
             </span>
           )}
@@ -409,7 +406,7 @@ function WeeklyTable({
                 data-testid="weekly-publisher-group"
               >
                 {publisher}
-                <span className="font-mono text-[11px] font-normal text-muted-foreground">
+                <span className="mono-meta font-normal">
                   {groupCounts.get(publisher)}
                 </span>
               </div>
