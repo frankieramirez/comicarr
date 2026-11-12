@@ -1221,6 +1221,131 @@ export function mockApiResponse(
   if (m === "GET" && url === "/api/health") {
     return { status: "ok" };
   }
+  // One issue's story, for the issue page: Absolute Flash's newest issue
+  // was searched, grabbed and downloaded, then its file went missing.
+  const storyIssue = `${COVERS[0].id}-${COVERS[0].total}`;
+  const scopedIssue =
+    parsed.searchParams.get("scope_type") === "issue"
+      ? parsed.searchParams.get("scope_id")
+      : null;
+  if (m === "GET" && url === "/api/activity/timeline" && scopedIssue) {
+    const label = `${COVERS[0].title} #${COVERS[0].total}`;
+    const at = (minutesAgo: number) =>
+      new Date(Date.now() - minutesAgo * 60_000).toISOString();
+    const event = (
+      id: number,
+      minutesAgo: number,
+      activity: string,
+      status: string,
+      extra: Record<string, unknown> = {},
+    ) => ({
+      event_id: id,
+      created_at: at(minutesAgo),
+      activity,
+      status,
+      subject_type: "issue",
+      subject_id: storyIssue,
+      subject_label: label,
+      parent_series_id: COVERS[0].id,
+      ...extra,
+    });
+    const results =
+      scopedIssue === storyIssue
+        ? [
+            event(4, 17 * 1440, "import", "failed", {
+              reason_code: "sab_completed_file_not_found",
+              reason_detail: "Looked in /downloads/complete/comics",
+            }),
+            event(3, 17 * 1440 + 2, "download", "succeeded", {
+              provider: "SABnzbd",
+              reason_detail: "Saved to /data/usenet/complete/comics/",
+            }),
+            event(2, 17 * 1440 + 9, "grab", "succeeded", {
+              provider: "NZBgeek",
+              reason_detail: "Absolute.Flash.018.2026.Digital.cbz · 68 MB",
+            }),
+            event(1, 17 * 1440 + 9, "search", "succeeded", {
+              reason_detail: "41 results, 3 acceptable",
+            }),
+          ]
+        : [];
+    return {
+      results,
+      total: results.length,
+      limit: 25,
+      offset: 0,
+      has_more: false,
+    };
+  }
+  if (m === "GET" && url === "/api/attention" && scopedIssue) {
+    if (scopedIssue !== storyIssue) {
+      return {
+        results: [],
+        causes: [],
+        total: 0,
+        member_total: 0,
+        preview_cap: 5,
+      };
+    }
+    const group = {
+      group_key: `${COVERS[0].id}|sab_completed_file_not_found`,
+      comicid: COVERS[0].id,
+      series_label: COVERS[0].title,
+      base_reason: "sab_completed_file_not_found",
+      reason_phrase:
+        "completed download file was not found (path or storage mapping)",
+      member_count: 1,
+      newest_updated_at: "2026-10-26 14:09:00",
+      oldest_updated_at: "2026-10-26 14:09:00",
+      stage: "failed",
+      available_actions: ["retry", "search_again", "stop_wanting"],
+      members: [
+        {
+          release_key: `${storyIssue}-rk`,
+          issue_label: `${COVERS[0].title} #${COVERS[0].total}`,
+          issueid: storyIssue,
+          stage: "failed",
+          available_actions: ["retry", "search_again", "stop_wanting"],
+          updated_date: "2026-10-26 14:09:00",
+        },
+      ],
+    };
+    return {
+      results: [group],
+      causes: [
+        {
+          cause_key: "sab_completed_file_not_found|failed",
+          base_reason: group.base_reason,
+          reason_phrase: group.reason_phrase,
+          headline: "A finished download wasn't found on disk",
+          hint: "Usually a path mapping between Comicarr and the client.",
+          icon: "file",
+          fix: {
+            label: "Open path mappings",
+            href: "/settings?section=clients",
+          },
+          stage: "failed",
+          available_actions: group.available_actions,
+          series_count: 1,
+          member_count: 1,
+          newest_updated_at: group.newest_updated_at,
+          series: [
+            {
+              group_key: group.group_key,
+              comicid: group.comicid,
+              series_label: group.series_label,
+              member_count: 1,
+              issue_labels: [group.members[0].issue_label],
+            },
+          ],
+          release_keys: [group.members[0].release_key],
+        },
+      ],
+      total: 1,
+      member_total: 1,
+      preview_cap: 5,
+    };
+  }
   if (m === "GET" && url === "/api/activity/timeline") {
     const results = timelineEvents();
     return {
