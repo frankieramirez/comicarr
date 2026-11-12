@@ -95,6 +95,7 @@ Conventional PR titles keep history readable, but they do not control releases. 
 Issue tracker: GitHub frankieramirez/comicarr. See `docs/agents/issue-tracker.md`.
 Triage labels: mapped. See `docs/agents/triage-labels.md`.
 Validation: `npm run lint`
+Roadmap: https://github.com/frankieramirez/comicarr/issues/1184
 
 Release candidate matching is owned by `app/search/evaluation.py`. Automatic
 search, GetComics, and Interactive release search pass an `EvaluationSession`
