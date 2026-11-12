@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or setup help
+    url: https://github.com/frankieramirez/comicarr/discussions/new?category=q-a
+    about: Ask how to set something up or why Comicarr behaves a certain way. Start with the troubleshooting guide at https://comicarr.com/docs/troubleshooting.
+  - name: Idea or feature discussion
+    url: https://github.com/frankieramirez/comicarr/discussions/new?category=ideas
+    about: Share an idea or talk through a feature before it becomes a scoped request.
+  - name: Security vulnerability
+    url: https://github.com/frankieramirez/comicarr/security/policy
+    about: Report vulnerabilities privately. Do not open a public issue.
