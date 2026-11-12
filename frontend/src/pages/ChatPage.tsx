@@ -43,8 +43,8 @@ import type {
   PendingChatImage,
 } from "@/types/chat";
 import {
-  AlertTriangle,
   ArrowLeft,
+  Bot,
   LoaderCircle,
   Menu,
   Pencil,
@@ -486,10 +486,11 @@ export default function ChatPage() {
         <Button
           type="button"
           variant="ghost"
+          size="toolbar"
           className="absolute left-3 top-3"
           onClick={() => navigate("/")}
         >
-          <ArrowLeft data-icon="inline-start" />
+          <ArrowLeft />
           Back to Comicarr
         </Button>
         <LoaderCircle className="animate-spin text-muted-foreground" />
@@ -503,25 +504,40 @@ export default function ChatPage() {
 
   if (!aiStatus?.configured) {
     return (
-      <div className="relative flex h-full items-center justify-center px-5">
+      <div className="relative flex h-full flex-col items-center justify-center px-5">
         <Button
           type="button"
           variant="ghost"
+          size="toolbar"
           className="absolute left-3 top-3"
           onClick={() => navigate("/")}
         >
-          <ArrowLeft data-icon="inline-start" />
+          <ArrowLeft />
           Back to Comicarr
         </Button>
-        <div className="max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
-          <AlertTriangle className="mx-auto mb-4 text-primary" />
-          <h1 className="text-xl font-semibold">Connect an AI provider</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+        {/* EmptyState's shape, with the title as this route's h1. */}
+        <div className="flex flex-col items-center px-6 py-16 text-center">
+          <div className="mb-5 grid size-11 place-items-center rounded-full border border-border bg-surface-2">
+            <Bot
+              className="size-4 text-muted-foreground"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+          </div>
+          <div className="mono-label mb-2">Chat · AI</div>
+          <h1 className="mb-1.5 text-[15px] font-semibold tracking-tight">
+            Connect an AI provider
+          </h1>
+          <p className="mb-5 max-w-[340px] text-xs leading-relaxed text-muted-foreground">
             Chat needs an OpenAI-compatible provider and model before it can
             read your collection.
           </p>
-          <Button className="mt-5" onClick={() => navigate("/settings?tab=ai")}>
-            <Settings data-icon="inline-start" />
+          <Button
+            type="button"
+            size="toolbar"
+            onClick={() => navigate("/settings?tab=ai")}
+          >
+            <Settings />
             Open AI Settings
           </Button>
         </div>
@@ -532,11 +548,11 @@ export default function ChatPage() {
   return (
     <MessageScrollerProvider>
       <div className="flex h-full min-h-0 bg-background">
-        <aside className="hidden w-66 shrink-0 border-r lg:flex">
+        <aside className="hidden w-66 shrink-0 border-r border-border-subtle lg:flex">
           {threadList}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/70 px-3 backdrop-blur-sm sm:px-4">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border-subtle bg-background px-3 sm:px-6">
             <Button
               type="button"
               variant="ghost"
@@ -548,7 +564,7 @@ export default function ChatPage() {
               <Menu />
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-sm font-semibold tracking-tight">
+              <h1 className="truncate text-[15px] font-semibold tracking-tight">
                 {selectedThread?.title || "New chat"}
               </h1>
               <p className="mono-meta mt-0.5 truncate">
@@ -558,7 +574,7 @@ export default function ChatPage() {
               </p>
             </div>
             {aiStatus?.model && (
-              <div className="hidden h-7 items-center gap-1.5 rounded-full border bg-card px-2.5 sm:flex">
+              <div className="hidden h-7 items-center gap-1.5 rounded-control border border-border-subtle bg-surface-1 px-2.5 sm:flex">
                 <span
                   aria-hidden="true"
                   className="size-1.5 rounded-full"
@@ -601,7 +617,7 @@ export default function ChatPage() {
               type="button"
               variant="ghost"
               size="icon"
-              className="shrink-0 text-primary lg:hidden"
+              className="shrink-0 lg:hidden"
               onClick={handleNew}
               aria-label="New chat"
             >
@@ -660,7 +676,7 @@ export default function ChatPage() {
             )}
           </div>
 
-          <div className="shrink-0 bg-background/95 px-4 pt-2 pb-4 backdrop-blur-sm sm:px-6">
+          <div className="shrink-0 bg-background px-4 pt-2 pb-4 sm:px-6">
             <ChatComposer
               value={input}
               images={images}

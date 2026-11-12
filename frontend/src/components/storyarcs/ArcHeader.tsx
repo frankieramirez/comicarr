@@ -1,12 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  BookMarked,
-  RefreshCw,
-  Trash2,
-  Search,
-  Image as ImageIcon,
-} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookMarked, RefreshCw, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -97,113 +91,165 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
     });
   };
 
+  const missing = Math.max(0, arc.Total - arc.Have);
+  const sub = [arc.Publisher, arc.SpanYears].filter(Boolean).join(" · ");
+  const heldPct =
+    arc.Total > 0 ? Math.min(100, (arc.Have / arc.Total) * 100) : 0;
+
   return (
-    <div className="relative rounded-lg border border-border bg-card overflow-hidden">
-      {/* Banner */}
-      <div className="relative h-40 bg-muted">
-        {bannerUrl ? (
-          <img
-            src={bannerUrl}
-            alt={arc.StoryArc}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-      </div>
+    <div className="relative shrink-0 overflow-hidden">
+      {bannerUrl && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[260px] opacity-[0.16] dark:opacity-25"
+          style={{
+            backgroundImage: `url(${bannerUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center 30%",
+            filter: "blur(48px) saturate(1.2)",
+            maskImage: "linear-gradient(to bottom, black, transparent)",
+          }}
+        />
+      )}
 
-      {/* Content overlay */}
-      <div className="p-4 -mt-16 relative z-10">
-        <div className="flex items-end justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <BookMarked className="w-5 h-5 text-white" />
-              <h1 className="text-xl font-bold text-white">{arc.StoryArc}</h1>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-white/80">
-              {arc.Publisher && <span>{arc.Publisher}</span>}
-              {arc.SpanYears && <span>{arc.SpanYears}</span>}
-            </div>
-          </div>
-        </div>
+      <div className="relative px-8 pt-5">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
+        >
+          <Link to="/story-arcs" className="hover:text-foreground">
+            Story arcs
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="truncate text-foreground">{arc.StoryArc}</span>
+          {arc.CV_ArcID && (
+            <span className="mono-meta ml-auto hidden shrink-0 sm:inline">
+              cv:{arc.CV_ArcID}
+            </span>
+          )}
+        </nav>
 
-        {/* Stats + actions */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <span className="font-semibold text-foreground">{arc.Have}</span>
-              <span className="text-muted-foreground">
-                {" "}
-                / {arc.Total} issues
+        <div className="flex flex-col gap-5 md:flex-row md:items-start">
+          <div className="grid aspect-[2/3] w-24 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 shadow-sm">
+            {bannerUrl ? (
+              <img
+                src={bannerUrl}
+                alt={arc.StoryArc}
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            ) : (
+              <BookMarked
+                className="size-6 text-muted-foreground"
+                aria-hidden="true"
+              />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1 pt-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">
+                {arc.StoryArc}
+              </h1>
+              <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                Arc
               </span>
             </div>
-            {/* Progress bar */}
-            <div className="w-32 bg-muted rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(arc.percent, 100)}%` }}
-              />
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-foreground-2">
+              {sub && <span>{sub}</span>}
+              <span className="font-mono text-xs text-foreground">
+                {arc.Have} / {arc.Total}
+              </span>
+              <span>
+                {missing > 0
+                  ? `${missing} missing`
+                  : arc.Total > 0
+                    ? "Complete"
+                    : "No issues yet"}
+              </span>
             </div>
-            <span className="text-sm text-muted-foreground">
-              {Math.round(arc.percent)}%
-            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleWantAll}
-              disabled={anyPending}
-            >
-              <Search className="w-4 h-4 mr-1" />
-              Want All
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={anyPending}
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-1 ${refreshMutation.isPending ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
-
+          <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-8">
             {showDeleteConfirm ? (
-              <div className="flex items-center gap-1">
+              <>
+                <span className="text-[13px] text-foreground-2">
+                  Delete this arc?
+                </span>
                 <Button
+                  type="button"
                   variant="destructive"
-                  size="sm"
+                  size="toolbar"
                   onClick={handleDelete}
                   disabled={anyPending}
+                  className="font-semibold"
                 >
-                  Confirm
+                  <Trash2 />
+                  Confirm delete
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
-                  size="sm"
+                  size="toolbar"
                   onClick={() => setShowDeleteConfirm(false)}
                 >
                   Cancel
                 </Button>
-              </div>
+              </>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={anyPending}
-                aria-label="Delete story arc"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  size="toolbar"
+                  onClick={handleWantAll}
+                  disabled={anyPending || missing === 0}
+                >
+                  <Search />
+                  Want all
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="toolbar"
+                  className="bg-surface-2"
+                  onClick={handleRefresh}
+                  disabled={anyPending}
+                >
+                  <RefreshCw
+                    className={refreshMutation.isPending ? "animate-spin" : ""}
+                  />
+                  Refresh
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={anyPending}
+                  aria-label="Delete story arc"
+                >
+                  <Trash2 />
+                </Button>
+              </>
             )}
           </div>
+        </div>
+
+        {/* Held versus the rest of the arc: one thin bar, no percentage. */}
+        <div
+          className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full bg-surface-3"
+          role="img"
+          aria-label={`${Math.round(heldPct)}% held: ${arc.Have} of ${arc.Total}`}
+        >
+          <div
+            className="rounded-full"
+            style={{
+              width: `${heldPct}%`,
+              background: "var(--status-downloaded)",
+            }}
+          />
         </div>
       </div>
     </div>

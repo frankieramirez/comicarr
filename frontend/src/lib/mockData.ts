@@ -6,7 +6,7 @@
  * with `?mock=0` or `localStorage.removeItem('comicarr:mock')`.
  *
  * The goal is purely presentational: give Library, Series Detail, Dashboard,
- * Releases, and Wanted enough content to look realistic while we iterate on
+ * Releases, Wanted, Story arcs, Issue detail and Chat enough content to look realistic while we iterate on
  * the redesign. Nothing here hits the real backend.
  */
 
@@ -362,6 +362,233 @@ const ISSUES_BY_COMIC = new Map<string, Issue[]>(
   COVERS.map((c) => [c.id, buildIssues(c)]),
 );
 
+/**
+ * Issues for a series id, volume rows included. Volume rows (`x--v2`) carry
+ * their own ComicID and IssueID so the issue-detail route, which rejects an
+ * issue that belongs to another series, resolves for every row.
+ */
+function issuesFor(id: string): Issue[] {
+  const base = ISSUES_BY_COMIC.get(resolveCoverId(id)) || [];
+  if (id === resolveCoverId(id)) return base;
+  return base.map((issue) => ({
+    ...issue,
+    ComicID: id,
+    IssueID: `${id}-${issue.Int_IssueNumber}`,
+  }));
+}
+
+/** One issue by id, for `/api/metadata/issue/:id`. */
+function issueMetadata(issueId: string) {
+  const match = issueId.match(/^(.*)-(\d+)$/);
+  if (!match) return null;
+  const issue = issuesFor(match[1]).find((row) => row.IssueID === issueId);
+  if (!issue) return null;
+  return {
+    ...issue,
+    ComicSize: issue.Location ? "48.2 MB" : null,
+    DigitalDate: issue.IssueDate,
+    Type: "issue",
+  };
+}
+
+/** Story arcs threaded through the mock library. */
+const STORY_ARCS = [
+  {
+    id: "arc-absolute-universe",
+    name: "Absolute Universe: Year One",
+    publisher: "DC Comics",
+    span: "2024 - 2025",
+    reads: [
+      ["absolute-batman", 1],
+      ["absolute-flash", 1],
+      ["absolute-batman", 2],
+      ["absolute-flash", 2],
+      ["absolute-batman", 3],
+      ["absolute-flash", 3],
+      ["absolute-batman", 4],
+      ["absolute-flash", 15],
+      ["absolute-batman", 12],
+      ["absolute-flash", 16],
+    ],
+    missing: [
+      {
+        series_name: "Absolute Wonder Woman",
+        comic_id: "",
+        series_year: "2024",
+        publisher: "DC Comics",
+        issue_count: 3,
+        issue_numbers: ["1", "2", "3"],
+      },
+      {
+        series_name: "Absolute Superman",
+        comic_id: "",
+        series_year: "2024",
+        publisher: "DC Comics",
+        issue_count: 2,
+        issue_numbers: ["1", "2"],
+      },
+    ],
+  },
+  {
+    id: "arc-ultimate-invasion",
+    name: "Ultimate Invasion",
+    publisher: "Marvel Comics",
+    span: "2024",
+    reads: [
+      ["ultimate-wolverine", 1],
+      ["ultimate-wolverine", 2],
+      ["ultimate-wolverine", 3],
+      ["ultimate-wolverine", 4],
+      ["ultimate-wolverine", 13],
+      ["ultimate-wolverine", 14],
+    ],
+    missing: [],
+  },
+  {
+    id: "arc-chainsaw-public-safety",
+    name: "Public Safety",
+    publisher: "Viz Media",
+    span: "2019 - 2020",
+    reads: [
+      ["chainsaw", 1],
+      ["chainsaw", 2],
+      ["chainsaw", 3],
+      ["chainsaw", 4],
+    ],
+    missing: [],
+  },
+] as const;
+
+function storyArcIssues(arc: (typeof STORY_ARCS)[number]) {
+  return arc.reads.flatMap(([comicId, number], index) => {
+    const issue = (ISSUES_BY_COMIC.get(comicId) || []).find(
+      (row) => row.Int_IssueNumber === number,
+    );
+    if (!issue) return [];
+    const status = issue.Status === "Downloaded" ? "Downloaded" : "Wanted";
+    return [
+      {
+        IssueArcID: `${arc.id}-${index + 1}`,
+        ReadingOrder: index + 1,
+        ComicID: issue.ComicID,
+        ComicName: issue.ComicName,
+        IssueNumber: issue.Issue_Number,
+        IssueID: issue.IssueID,
+        Status: index < 2 && status === "Downloaded" ? "Read" : status,
+        IssueDate: issue.IssueDate,
+        IssueName: issue.IssueName,
+        IssuePublisher: arc.publisher,
+        Location: issue.Location,
+      },
+    ];
+  });
+}
+
+function storyArcSummary(arc: (typeof STORY_ARCS)[number]) {
+  const issues = storyArcIssues(arc);
+  const missingCount = arc.missing.reduce((n, s) => n + s.issue_count, 0);
+  const total = issues.length + missingCount;
+  const have = issues.filter(
+    (issue) => issue.Status === "Downloaded" || issue.Status === "Read",
+  ).length;
+  return {
+    StoryArcID: arc.id,
+    StoryArc: arc.name,
+    TotalIssues: total,
+    Have: have,
+    Total: total,
+    percent: total ? Math.round((have / total) * 1000) / 10 : 0,
+    SpanYears: arc.span,
+    CV_ArcID: null,
+    Publisher: arc.publisher,
+    ArcImage: null,
+  };
+}
+
+/** Saved chat threads for the mock AI workspace. */
+function chatThreads() {
+  const now = Date.now();
+  const at = (minutesAgo: number) =>
+    new Date(now - minutesAgo * 60_000).toISOString();
+  return [
+    {
+      id: "chat-gaps",
+      title: "Which series have the most gaps?",
+      created_at: at(40),
+      updated_at: at(38),
+      message_count: 2,
+    },
+    {
+      id: "chat-manga",
+      title: "Manga I haven't finished",
+      created_at: at(60 * 26),
+      updated_at: at(60 * 26),
+      message_count: 2,
+    },
+    {
+      id: "chat-this-week",
+      title: "What came out this week?",
+      created_at: at(60 * 24 * 4),
+      updated_at: at(60 * 24 * 4),
+      message_count: 2,
+    },
+  ];
+}
+
+function chatThread(id: string) {
+  const summary = chatThreads().find((thread) => thread.id === id);
+  if (!summary) return null;
+  const gaps = COVERS.filter((c) => c.total > c.have)
+    .sort((a, b) => b.total - b.have - (a.total - a.have))
+    .slice(0, 4);
+  const pick =
+    id === "chat-manga"
+      ? COVERS.filter((c) => c.kind === "manga" && c.total > c.have)
+      : id === "chat-this-week"
+        ? COVERS.slice(0, 3)
+        : gaps;
+  const answer =
+    id === "chat-manga"
+      ? `You have ${pick.length} manga series with chapters still missing. Monster is closest to done.`
+      : id === "chat-this-week"
+        ? "Three series you follow shipped an issue this week."
+        : `${gaps[0]?.title ?? "Transformers"} has the most missing issues. Here are the four series with the biggest gaps.`;
+  return {
+    ...summary,
+    messages: [
+      {
+        id: `${id}-q`,
+        thread_id: id,
+        role: "user",
+        content: summary.title,
+        status: "complete",
+        attachments: [],
+        created_at: summary.created_at,
+      },
+      {
+        id: `${id}-a`,
+        thread_id: id,
+        role: "assistant",
+        content: answer,
+        status: "complete",
+        attachments: [],
+        created_at: summary.updated_at,
+        results: pick.map((c) => ({
+          ComicID: c.id,
+          ComicName: c.title,
+          ComicYear: String(c.year),
+          ComicPublisher: c.publisher,
+          ComicImage: coverSvgDataUri(c),
+          Have: c.have,
+          Total: c.total,
+          Status: c.status,
+          gaps: c.total - c.have,
+        })),
+      },
+    ],
+  };
+}
+
 /** Narrative recent-activity fixture for the dashboard mock (not t_snatched). */
 function recentNarrativeEvents() {
   const now = new Date();
@@ -657,7 +884,7 @@ function seriesDetail(id: string) {
   const coverId = resolveCoverId(id);
   const cover = COVERS.find((c) => c.id === coverId);
   if (!cover) return null;
-  const issues = ISSUES_BY_COMIC.get(coverId) || [];
+  const issues = issuesFor(id);
   return {
     comic: coverToComic(cover),
     issues,
@@ -825,7 +1052,60 @@ export function mockApiResponse(
     return { db_empty: false, migration_dismissed: true };
   }
   if (m === "GET" && url === "/api/ai/status") {
-    return { configured: false };
+    return {
+      configured: true,
+      circuit_state: "closed",
+      model: "mock-model",
+      library_series: LIBRARY.length,
+      today_tokens: 18240,
+      today_requests: 12,
+      daily_limit: 200000,
+      rpm_limit: 20,
+    };
+  }
+  if (m === "GET" && url === "/api/ai/recommendations") {
+    return {
+      recommendations: [
+        {
+          comic_name: "Absolute Wonder Woman",
+          publisher: "DC Comics",
+          reason:
+            "You're reading Absolute Batman and Absolute Flash; this is the third pillar of the same line.",
+          because_of: "Absolute Batman",
+          comicid: "mock-rec-aww",
+          comicyear: "2024",
+          issues: 12,
+          comicimage: null,
+        },
+        {
+          comic_name: "Ultimate Spider-Man",
+          publisher: "Marvel Comics",
+          reason: "Same Ultimate universe as Ultimate Wolverine.",
+          because_of: "Ultimate Wolverine",
+          comicid: "mock-rec-usm",
+          comicyear: "2024",
+          issues: 14,
+          comicimage: null,
+        },
+        {
+          comic_name: "Dandadan",
+          publisher: "Viz Media",
+          reason: "Fast, strange action manga in the vein of Chainsaw Man.",
+          because_of: "Chainsaw Man",
+          comicid: "mock-rec-ddd",
+          comicyear: "2021",
+          issues: 16,
+          comicimage: null,
+        },
+      ],
+    };
+  }
+  if (m === "GET" && url === "/api/ai/chat/threads") {
+    return { threads: chatThreads(), next_cursor: null };
+  }
+  const chatThreadMatch = url.match(/^\/api\/ai\/chat\/threads\/([^/]+)$/);
+  if (m === "GET" && chatThreadMatch) {
+    return chatThread(chatThreadMatch[1]);
   }
   if (m === "GET" && url === "/api/health") {
     return { status: "ok" };
@@ -1032,7 +1312,38 @@ export function mockApiResponse(
     }));
   }
   if (m === "GET" && url === "/api/storyarcs") {
-    return [];
+    return STORY_ARCS.map(storyArcSummary);
+  }
+  const arcMissingMatch = url.match(/^\/api\/storyarcs\/([^/]+)\/missing$/);
+  if (m === "GET" && arcMissingMatch) {
+    const arc = STORY_ARCS.find((a) => a.id === arcMissingMatch[1]);
+    return {
+      success: true,
+      series: (arc?.missing ?? []).map((series) => ({
+        ...series,
+        match: {
+          comic_id: `mock-${series.series_name.toLowerCase().replace(/\W+/g, "-")}`,
+          name: series.series_name,
+          year: series.series_year,
+          publisher: series.publisher,
+          image: null,
+        },
+      })),
+    };
+  }
+  const arcMatch = url.match(/^\/api\/storyarcs\/([^/]+)$/);
+  if (m === "GET" && arcMatch) {
+    const arc = STORY_ARCS.find((a) => a.id === arcMatch[1]);
+    if (!arc) return null;
+    return {
+      arc: storyArcSummary(arc),
+      issues: storyArcIssues(arc),
+      missing: arc.missing,
+    };
+  }
+  const issueMetaMatch = url.match(/^\/api\/metadata\/issue\/([^/]+)$/);
+  if (m === "GET" && issueMetaMatch) {
+    return issueMetadata(issueMetaMatch[1]);
   }
   if (m === "GET" && url === "/api/downloads/queue") {
     const q = (parsed.searchParams.get("q") ?? "").trim().toLowerCase();
@@ -1110,7 +1421,7 @@ export function mockApiResponse(
 
   const issuesMatch = url.match(/^\/api\/series\/([^/]+)\/issues$/);
   if (m === "GET" && issuesMatch) {
-    return ISSUES_BY_COMIC.get(resolveCoverId(issuesMatch[1])) || [];
+    return issuesFor(issuesMatch[1]);
   }
 
   const artMatch = url.match(/^\/api\/metadata\/art\/([^/]+)$/);

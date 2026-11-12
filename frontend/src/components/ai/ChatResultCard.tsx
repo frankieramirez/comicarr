@@ -60,7 +60,7 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
           <div className="mt-2 flex items-center gap-2">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-[var(--status-downloaded)]"
                 style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
               />
             </div>

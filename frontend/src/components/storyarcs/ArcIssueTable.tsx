@@ -9,7 +9,13 @@ import {
   Trash2,
   ExternalLink,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { createColumnHelper } from "@tanstack/react-table";
+import StatusBadge from "@/components/StatusBadge";
+import { DataTable } from "@/components/data-table/DataTable";
+import {
+  type ComicarrTableFeatures,
+  useTableState,
+} from "@/components/data-table/useTableState";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,17 +36,12 @@ interface ArcIssueTableProps {
   storyArcId: string;
 }
 
-const STATUS_BADGE_MAP: Record<
-  ArcIssueStatus,
-  "downloaded" | "wanted" | "skipped" | "default"
-> = {
-  Downloaded: "downloaded",
-  Archived: "downloaded",
-  Wanted: "wanted",
-  Skipped: "skipped",
-  Read: "default",
-  Added: "default",
-};
+const columnHelper = createColumnHelper<ComicarrTableFeatures, ArcIssue>();
+
+/** Read issues are held issues; the dot says so while the word stays "Read". */
+function toneFor(status: ArcIssueStatus): string {
+  return status === "Read" ? "Downloaded" : status;
+}
 
 function ArcIssueRowMenu({
   issue,
@@ -70,8 +71,8 @@ function ArcIssueRowMenu({
       <DropdownMenuTrigger
         aria-label={triggerLabel}
         className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "h-8 w-8 p-0",
+          buttonVariants({ variant: "ghost", size: "icon-sm" }),
+          "opacity-60 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100",
         )}
       >
         <MoreHorizontal className="h-4 w-4" />
@@ -216,72 +217,100 @@ export default function ArcIssueTable({
     );
   };
 
+  // Rebuilt each render so the row menus see the current handlers; the
+  // menu element type is stable, so rows re-render rather than remount.
+  const columns = columnHelper.columns([
+    columnHelper.accessor("ReadingOrder", {
+      header: "#",
+      cell: ({ getValue }) => (
+        <span className="font-mono text-xs text-muted-foreground">
+          {getValue()}
+        </span>
+      ),
+      size: 48,
+    }),
+    columnHelper.display({
+      id: "issue",
+      header: "Issue",
+      cell: ({ row }) => {
+        const issue = row.original;
+        const label = (
+          <>
+            <span className="font-medium text-foreground">
+              {issue.ComicName}
+            </span>
+            <span className="font-mono text-xs text-foreground-2">
+              {" "}
+              #{issue.IssueNumber}
+            </span>
+          </>
+        );
+        return (
+          <div className="min-w-0 py-0.5 text-[13px]">
+            {issue.ComicID && issue.IssueID ? (
+              <Link
+                to={`/library/${issue.ComicID}/issue/${issue.IssueID}`}
+                className="hover:underline"
+              >
+                {label}
+              </Link>
+            ) : (
+              label
+            )}
+            {issue.IssueName && (
+              <p className="line-clamp-1 text-xs text-foreground-2">
+                {issue.IssueName}
+              </p>
+            )}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor("IssueDate", {
+      header: "Date",
+      cell: ({ getValue }) => (
+        <span className="mono-meta">{getValue() || "—"}</span>
+      ),
+      size: 120,
+    }),
+    columnHelper.accessor("Status", {
+      header: "Status",
+      cell: ({ getValue }) => (
+        <StatusBadge
+          variant="dot"
+          status={toneFor(getValue())}
+          label={getValue()}
+        />
+      ),
+      size: 128,
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <ArcIssueRowMenu
+            issue={row.original}
+            onStatusChange={handleStatusChange}
+            onRemove={handleRemove}
+            onInteractiveSearch={handleInteractiveSearch}
+          />
+        </div>
+      ),
+      size: 48,
+    }),
+  ]);
+
+  const { table } = useTableState({
+    data: issues,
+    columns,
+    getRowId: (row) => row.IssueArcID,
+  });
+
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/50">
-            <th className="w-12 px-4 py-3 text-left font-medium text-muted-foreground">
-              #
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Issue
-            </th>
-            <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground md:table-cell">
-              Date
-            </th>
-            <th className="w-28 px-4 py-3 text-left font-medium text-muted-foreground">
-              Status
-            </th>
-            <th className="w-12 px-4 py-3 text-right font-medium text-muted-foreground" />
-          </tr>
-        </thead>
-        <tbody>
-          {issues.map((issue) => (
-            <tr
-              key={issue.IssueArcID}
-              className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
-            >
-              <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                {issue.ReadingOrder}
-              </td>
-              <td className="px-4 py-3">
-                <div>
-                  <span className="font-medium text-foreground">
-                    {issue.ComicName}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {" "}
-                    #{issue.IssueNumber}
-                  </span>
-                </div>
-                {issue.IssueName && (
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                    {issue.IssueName}
-                  </p>
-                )}
-              </td>
-              <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                {issue.IssueDate || "-"}
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant={STATUS_BADGE_MAP[issue.Status] || "default"}>
-                  {issue.Status}
-                </Badge>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <ArcIssueRowMenu
-                  issue={issue}
-                  onStatusChange={handleStatusChange}
-                  onRemove={handleRemove}
-                  onInteractiveSearch={handleInteractiveSearch}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <>
+      <DataTable table={table} />
       <ReleaseReviewSheet {...reviewSheetProps} />
-    </div>
+    </>
   );
 }

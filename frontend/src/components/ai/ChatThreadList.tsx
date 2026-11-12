@@ -106,8 +106,8 @@ export function ChatThreadList({
   );
 
   return (
-    <div className="flex size-full min-h-0 flex-col bg-card/40">
-      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-3">
+    <div className="flex size-full min-h-0 flex-col bg-surface-1">
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border-subtle px-3">
         <Button
           type="button"
           variant="ghost"
@@ -133,14 +133,15 @@ export function ChatThreadList({
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-start"
+          size="toolbar"
+          className="w-full justify-start bg-surface-2"
           onClick={onNew}
         >
-          <Plus data-icon="inline-start" className="text-primary" />
+          <Plus />
           <span className="flex-1 text-left">New chat</span>
           <Kbd>⌘⇧K</Kbd>
         </Button>
-        <div className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 focus-within:border-primary">
+        <div className="flex h-8 items-center gap-2 rounded-control border border-border-strong bg-surface-2 px-2.5 focus-within:border-border-emphasis">
           <Search className="size-3.5 shrink-0 text-muted-foreground" />
           <input
             type="search"
@@ -185,13 +186,13 @@ export function ChatThreadList({
                   return (
                     <div
                       key={thread.id}
-                      className="group flex items-center rounded-lg border border-transparent data-[active=true]:border-border data-[active=true]:bg-accent"
+                      className="group flex items-center rounded-md hover:bg-surface-2 data-[active=true]:bg-surface-2"
                       data-active={active}
                     >
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left whitespace-normal"
+                        className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left whitespace-normal hover:bg-transparent"
                         onClick={() => onSelect(thread.id)}
                       >
                         <span className="block w-full truncate text-[13px] font-medium">
@@ -276,7 +277,7 @@ export function ChatThreadList({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2.5 border-t px-3 py-2.5">
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-border-subtle px-3 py-2.5">
         <Avatar className="size-6.5">
           <AvatarFallback className="bg-linear-to-br from-primary to-chart-2 text-[10px] font-semibold text-primary-foreground">
             {username.slice(0, 2).toUpperCase()}
