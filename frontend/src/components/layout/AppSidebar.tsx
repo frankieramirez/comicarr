@@ -141,6 +141,10 @@ export default function AppSidebar() {
     if (path === "/") {
       return location.pathname === "/";
     }
+    // Story arcs are a tab of the Library page.
+    if (path === "/library" && location.pathname.startsWith("/story-arcs")) {
+      return true;
+    }
     return location.pathname.startsWith(path);
   };
 

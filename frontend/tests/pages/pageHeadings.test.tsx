@@ -48,7 +48,8 @@ const listPages: Array<{ name: string; ui: ReactElement }> = [
     ),
   },
   { name: "Settings", ui: <SettingsPage /> },
-  { name: "Story Arcs", ui: <StoryArcsPage /> },
+  // Story arcs are a tab of the Library page, so they share its h1.
+  { name: "Library", ui: <StoryArcsPage /> },
   { name: "Wanted", ui: <WantedPage /> },
 ];
 

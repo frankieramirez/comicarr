@@ -116,6 +116,15 @@ export default function SeriesTable({
     [data],
   );
 
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<TypeFilter, number>> = { all: data.length };
+    for (const comic of data) {
+      const kind = seriesKindOf(comic) as TypeFilter;
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+    return counts;
+  }, [data]);
+
   const filteredData = useMemo(() => {
     return data.filter((comic) => {
       if (typeFilter !== "all" && seriesKindOf(comic) !== typeFilter) {
@@ -270,7 +279,7 @@ export default function SeriesTable({
 
   if (isLoading) {
     return (
-      <div className="px-5 py-4">
+      <div className="px-8 py-4">
         <div className="space-y-3">
           {isGridView ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -298,57 +307,12 @@ export default function SeriesTable({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Unified action bar: view · search · filters · results */}
-      <div className="shrink-0 px-5 py-2 border-b border-border flex flex-wrap items-center gap-2 min-h-[44px]">
-        <div className="inline-flex shrink-0 rounded-md border border-border overflow-hidden">
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                localStorage.setItem(LIBRARY_VIEW_KEY, "list");
-              } catch {
-                // Blocked storage must not stop the view change.
-              }
-              setParams({ view: null });
-              clearSelection();
-            }}
-            className={`px-2 py-1.5 transition-colors ${
-              !isGridView
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            aria-label="List view"
-            aria-pressed={!isGridView}
-          >
-            <LayoutList className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                localStorage.setItem(LIBRARY_VIEW_KEY, "grid");
-              } catch {
-                // Blocked storage must not stop the view change.
-              }
-              setParams({ view: "grid" });
-              clearSelection();
-            }}
-            className={`px-2 py-1.5 border-l border-border transition-colors ${
-              isGridView
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            aria-label="Grid view"
-            aria-pressed={isGridView}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="w-[min(220px,100%)] sm:w-[220px] shrink-0">
+      {/* Unified action bar: kind · search · filters · results · view */}
+      <div className="shrink-0 px-8 pb-3 flex flex-wrap items-center gap-2">
+        <div className="order-2 w-[min(240px,100%)] sm:w-[240px] shrink-0">
           <FilterField
             type="search"
-            placeholder="Filter series…"
+            placeholder="Filter series"
             aria-label="Filter series"
             shortcut="/"
             widthCap="full"
@@ -357,12 +321,13 @@ export default function SeriesTable({
           />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="contents">
           <SeriesFilters
             hasMagazines={hasMagazines}
             typeFilter={typeFilter}
             progressFilter={progressFilter}
             statusFilter={statusFilter}
+            typeCounts={typeCounts}
             onTypeChange={(value) =>
               setParams({ type: value === "all" ? null : value })
             }
@@ -376,11 +341,51 @@ export default function SeriesTable({
             sortLabel={sortLabel}
           />
         </div>
+
+        <div
+          role="group"
+          aria-label="View"
+          className="order-4 inline-flex shrink-0 items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+        >
+          {(
+            [
+              ["grid", "Grid", LayoutGrid],
+              ["list", "List", LayoutList],
+            ] as const
+          ).map(([value, label, Icon]) => {
+            const pressed = value === "grid" ? isGridView : !isGridView;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.setItem(LIBRARY_VIEW_KEY, value);
+                  } catch {
+                    // Blocked storage must not stop the view change.
+                  }
+                  setParams({ view: value === "grid" ? "grid" : null });
+                  clearSelection();
+                }}
+                className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors ${
+                  pressed
+                    ? "bg-surface-3 font-medium text-foreground"
+                    : "text-foreground-2 hover:text-foreground"
+                }`}
+                aria-label={`${label} view`}
+                aria-pressed={pressed}
+              >
+                <Icon className="size-3.5" aria-hidden="true" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Bulk action bar */}
       {!isGridView && selectedSeriesIds.length > 0 && (
-        <div className="shrink-0 px-5 py-2 border-b border-border flex items-center gap-3 bg-primary/5">
+        <div className="shrink-0 mx-8 mb-2 px-3 py-1.5 rounded-md border border-border-subtle bg-surface-1 flex items-center gap-3">
           <span className="text-xs font-medium">
             {selectedSeriesIds.length} selected
           </span>
@@ -431,7 +436,7 @@ export default function SeriesTable({
 
       {/* Body */}
       {isGridView ? (
-        <div className="flex-1 min-h-0 overflow-auto px-5 py-4">
+        <div className="flex-1 min-h-0 overflow-auto px-8 pb-6 pt-1">
           <SeriesGrid
             rows={pageRows}
             onCardClick={(comic) => navigate(`/library/${comic.ComicID}`)}
@@ -443,7 +448,7 @@ export default function SeriesTable({
               squeezed desktop table that collapses the title track (#414). */}
           <div className="flex flex-col min-h-full md:min-w-[820px]">
             <div
-              className={`sticky top-0 z-10 px-5 py-2 grid items-center gap-3 border-b border-border bg-muted/30 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70 ${LIST_ROW_COLS}`}
+              className={`sticky top-0 z-10 mx-8 px-2 h-8 grid items-center gap-3 border-b border-border-subtle bg-background text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground ${LIST_ROW_COLS}`}
             >
               <Checkbox
                 aria-label="Select all series on page"
@@ -477,7 +482,7 @@ export default function SeriesTable({
               <span className={DESKTOP_COL}>progress</span>
               <span className={`${DESKTOP_COL} text-right`}>
                 <SortHeader
-                  label="yr"
+                  label="year"
                   active={sorting[0]?.id === "ComicYear"}
                   desc={sorting[0]?.id === "ComicYear" && sorting[0].desc}
                   onClick={() => toggleSort("ComicYear")}
@@ -488,7 +493,7 @@ export default function SeriesTable({
 
             <div className="flex-1">
               {pageRows.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                <div className="px-8 py-10 text-center text-sm text-muted-foreground">
                   No results.
                 </div>
               ) : (
@@ -565,7 +570,7 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 hover:text-foreground ${
+      className={`group/sort inline-flex items-center gap-1 uppercase tracking-[0.04em] hover:text-foreground ${
         align === "right" ? "flex-row-reverse" : ""
       } ${active ? "text-foreground" : ""}`}
     >
@@ -577,7 +582,10 @@ function SortHeader({
           <ChevronUp className="w-3 h-3" aria-hidden />
         )
       ) : (
-        <ChevronsUpDown className="w-3 h-3 opacity-40" aria-hidden />
+        <ChevronsUpDown
+          className="w-3 h-3 opacity-0 transition-opacity group-hover/sort:opacity-60"
+          aria-hidden
+        />
       )}
       {sortAnnouncement ? (
         <span className="sr-only">{sortAnnouncement}</span>
@@ -613,8 +621,8 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
     <div
       onClick={onClick}
       data-series-row
-      className={`px-5 py-2 grid items-center gap-3 border-b border-border/50 text-[12.5px] cursor-pointer transition-colors ${LIST_ROW_COLS} ${
-        isSelected ? "bg-primary/10" : "hover:bg-muted/40"
+      className={`mx-8 px-2 py-1.5 grid items-center gap-3 border-b border-border-subtle text-[13px] cursor-pointer transition-colors ${LIST_ROW_COLS} ${
+        isSelected ? "bg-selection" : "hover:bg-surface-1"
       }`}
     >
       <div onClick={(e) => e.stopPropagation()}>
@@ -639,7 +647,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
           >
             {comic.ComicName}
           </Link>
-          <span className="font-mono text-[9px] text-muted-foreground/70 px-1 py-[1px] border border-border rounded-[3px] uppercase tracking-wider shrink-0">
+          <span className="shrink-0 rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
             {kindLabel}
           </span>
         </div>
@@ -648,14 +656,9 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
             {mobileMeta}
           </div>
         ) : null}
-        {comic.ComicYear ? (
-          <div className="mt-0.5 hidden text-[11px] text-muted-foreground md:block">
-            ({comic.ComicYear})
-          </div>
-        ) : null}
       </div>
 
-      <div className={`${DESKTOP_COL} text-muted-foreground truncate`}>
+      <div className={`${DESKTOP_COL} text-foreground-2 truncate`}>
         {comic.ComicPublisher || "—"}
       </div>
 
@@ -663,31 +666,28 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         <StatusBadge variant="dot" status={status || "unknown"} />
       </div>
 
-      <div className={`${DESKTOP_COL} font-mono text-[12px] tabular-nums`}>
+      <div className={`${DESKTOP_COL} font-mono text-xs tabular-nums`}>
         <span>{have}</span>
-        <span className="text-muted-foreground/60">/{total}</span>
+        <span className="text-muted-foreground"> / {total}</span>
       </div>
 
       <div className={`${DESKTOP_COL} flex items-center gap-2`}>
-        <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
+        <div className="flex-1 h-1 bg-surface-3 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all"
             style={{
               width: `${progress}%`,
-              background:
-                progress === 100
-                  ? "var(--status-active, #22c55e)"
-                  : "var(--primary)",
+              background: "var(--status-downloaded)",
             }}
           />
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground w-7 text-right tabular-nums">
-          {progress}
+        <span className="font-mono text-[11px] text-muted-foreground w-9 text-right tabular-nums">
+          {total > 0 ? `${progress}%` : "–"}
         </span>
       </div>
 
       <div
-        className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground/70 text-right`}
+        className={`${DESKTOP_COL} font-mono text-[11px] text-muted-foreground text-right`}
       >
         {comic.ComicYear || "—"}
       </div>
@@ -706,7 +706,7 @@ function CoverThumb({ comicId, alt }: CoverThumbProps) {
   const errored = erroredSrc !== null && erroredSrc === src;
 
   return (
-    <div className="w-[32px] h-[44px] bg-muted rounded-sm overflow-hidden flex-shrink-0">
+    <div className="w-[26px] h-[36px] bg-surface-2 rounded-[3px] overflow-hidden flex-shrink-0">
       {src && !errored ? (
         <img
           src={src}
