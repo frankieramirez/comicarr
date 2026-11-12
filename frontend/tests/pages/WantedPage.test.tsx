@@ -251,7 +251,7 @@ describe("WantedPage", () => {
     const user = userEvent.setup();
     render(<WantedPage />);
 
-    expect(await screen.findByText("53 issues in queue")).toBeTruthy();
+    expect(await screen.findByText("53 missing issues")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => {
       expect(requests.at(-1)?.searchParams.get("offset")).toBe("50");
@@ -269,7 +269,7 @@ describe("WantedPage", () => {
     });
 
     expect(await screen.findByText("12 matches")).toBeTruthy();
-    expect(screen.getByText("12 issues in queue")).toBeTruthy();
+    expect(screen.getByText("12 missing issues")).toBeTruthy();
     expect(await screen.findByText("1–12 of 12")).toBeTruthy();
     // One page of matches: the footer keeps the range and drops the pager
     // rather than showing two dead buttons.
@@ -300,7 +300,7 @@ describe("WantedPage", () => {
 
     const user = userEvent.setup();
     render(<WantedPage />);
-    await screen.findByText("90 issues in queue");
+    await screen.findByText("90 missing issues");
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => {

@@ -28,13 +28,13 @@ export function DataTable<TData extends RowData>({
   className,
 }: DataTableProps<TData>) {
   return (
-    <div className={cn("min-w-0", className)}>
+    <div className={cn("min-w-0 px-8", className)}>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="border-b border-border hover:bg-transparent"
+              className="border-b border-border-subtle hover:bg-transparent"
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
@@ -48,7 +48,7 @@ export function DataTable<TData extends RowData>({
                           : "none"
                       : undefined
                   }
-                  className="sticky top-0 z-10 h-8 bg-background px-5 py-0 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+                  className="sticky top-0 z-10 h-8 bg-background px-3 py-0 first:pl-2 last:pr-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
                   style={
                     header.column.getSize() !== 150
                       ? { width: header.column.getSize() }
@@ -75,7 +75,7 @@ export function DataTable<TData extends RowData>({
                   <TableRow
                     data-state={row.getIsSelected() && "selected"}
                     className={cn(
-                      "border-b border-border-subtle hover:bg-surface-1 data-[state=selected]:bg-selection",
+                      "group/row border-b border-border-subtle hover:bg-surface-1 data-[state=selected]:bg-selection",
                       onRowClick &&
                         "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     )}
@@ -94,7 +94,10 @@ export function DataTable<TData extends RowData>({
                     })}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="px-5 py-2">
+                      <TableCell
+                        key={cell.id}
+                        className="px-3 py-1.5 first:pl-2 last:pr-2"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
