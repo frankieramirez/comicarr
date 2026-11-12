@@ -1148,29 +1148,221 @@ export function mockApiResponse(
         updated_date: "2026-11-11 09:00:00",
       })),
     });
-    const results = [
-      group(
+    // Shaped like the v2 dashboard design: 13 series, 49 issues, three
+    // causes on show and the rest folded into one line.
+    const rows: [string, string, string, string, number, string[], string][] = [
+      [
         "mock-1",
         "Absolute Wonder Woman",
-        "postprocess_error",
-        "post-processing failed",
+        "invalid_postprocess_command",
+        "post-process command is invalid",
         12,
         ["retry", "stop_wanting"],
-      ),
-      group(
+        "failed",
+      ],
+      [
         "mock-2",
         "Absolute Batman",
-        "postprocess_error",
-        "post-processing failed",
+        "invalid_postprocess_command",
+        "post-process command is invalid",
         11,
         ["retry", "stop_wanting"],
-      ),
-      group("mock-3", "Absolute Flash", "search_error", "search failed", 1, [
-        "retry",
-        "stop_wanting",
-      ]),
+        "failed",
+      ],
+      [
+        "mock-4",
+        "Dandadan",
+        "submission_rejected",
+        "the downloader rejected the submission",
+        6,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-5",
+        "One Piece",
+        "submission_rejected",
+        "the downloader rejected the submission",
+        6,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-3",
+        "Absolute Flash",
+        "sab_completed_file_not_found",
+        "completed download file was not found (path or storage mapping)",
+        1,
+        ["import", "search_again", "stop_wanting"],
+        "manual_review",
+      ],
+      [
+        "mock-6",
+        "Saga",
+        "postprocess_error",
+        "post-processing failed",
+        3,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-7",
+        "Monstress",
+        "postprocess_error",
+        "post-processing failed",
+        2,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-8",
+        "Berserk",
+        "postprocess_error",
+        "post-processing failed",
+        2,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-9",
+        "Magi",
+        "sab_job_missing_from_client",
+        "SABnzbd no longer has this job (removed from queue or history)",
+        2,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-10",
+        "Negima!",
+        "sab_job_missing_from_client",
+        "SABnzbd no longer has this job (removed from queue or history)",
+        1,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-11",
+        "Paper Girls",
+        "torrent_monitor_unreachable",
+        "torrent client was unreachable while the download was still in progress",
+        1,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-12",
+        "Invincible",
+        "torrent_monitor_unreachable",
+        "torrent client was unreachable while the download was still in progress",
+        1,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
+      [
+        "mock-13",
+        "Chainsaw Man",
+        "torrent_monitor_unreachable",
+        "torrent client was unreachable while the download was still in progress",
+        1,
+        ["retry", "stop_wanting"],
+        "failed",
+      ],
     ];
-    return { results, total: 5, member_total: 27, preview_cap: 3 };
+    const results = rows.map(
+      ([id, label, reason, phrase, n, actions, stage]) => ({
+        ...group(id, label, reason, phrase, n, actions),
+        stage,
+        members: Array.from({ length: n }, (_, i) => ({
+          release_key: `${id}-rk-${i}`,
+          issue_label:
+            n === 1 && id === "mock-3" ? `${label} #18` : `${label} #${i + 1}`,
+          issueid: `${id}-iss-${i}`,
+          stage,
+          available_actions: actions,
+          updated_date: "2026-11-11 09:00:00",
+        })),
+      }),
+    );
+    const copy: Record<
+      string,
+      {
+        headline: string;
+        hint?: string;
+        icon: string;
+        fix?: { label: string; href: string };
+      }
+    > = {
+      invalid_postprocess_command: {
+        headline: "Post-processing is misconfigured",
+        hint: "One settings fix clears them all.",
+        icon: "settings",
+        fix: { label: "Open post-processing", href: "/settings?section=media" },
+      },
+      submission_rejected: {
+        headline: "The downloader rejected these submissions",
+        icon: "failed",
+      },
+      sab_completed_file_not_found: {
+        headline: "A finished download wasn't found on disk",
+        hint: "Usually a path mapping between Comicarr and the client.",
+        icon: "file",
+      },
+      postprocess_error: { headline: "Post-processing failed", icon: "failed" },
+      sab_job_missing_from_client: {
+        headline: "SABnzbd no longer has these jobs",
+        hint: "They were removed from its queue or history.",
+        icon: "file",
+      },
+      torrent_monitor_unreachable: {
+        headline: "The torrent client was unreachable",
+        hint: "Check that the client is running and reachable from Comicarr.",
+        icon: "failed",
+      },
+    };
+    const order = [
+      "invalid_postprocess_command",
+      "submission_rejected",
+      "sab_completed_file_not_found",
+      "postprocess_error",
+      "sab_job_missing_from_client",
+      "torrent_monitor_unreachable",
+    ];
+    const causes = order.map((reason) => {
+      const groups = results.filter((g) => g.base_reason === reason);
+      const c = copy[reason];
+      return {
+        cause_key: `${reason}|${groups[0].stage}`,
+        base_reason: reason,
+        reason_phrase: groups[0].reason_phrase,
+        headline: c.headline,
+        hint: c.hint ?? null,
+        icon: c.icon,
+        fix: c.fix ?? null,
+        stage: groups[0].stage,
+        available_actions: groups[0].available_actions,
+        series_count: groups.length,
+        member_count: groups.reduce((n, g) => n + g.member_count, 0),
+        newest_updated_at: "2026-11-11 09:00:00",
+        series: groups.map((g) => ({
+          group_key: g.group_key,
+          comicid: g.comicid,
+          series_label: g.series_label,
+          member_count: g.member_count,
+          issue_labels: g.members.slice(0, 3).map((m) => m.issue_label),
+        })),
+        release_keys: groups.flatMap((g) =>
+          g.members.map((m) => m.release_key),
+        ),
+      };
+    });
+    return {
+      results,
+      causes,
+      total: results.length,
+      member_total: results.reduce((n, g) => n + g.member_count, 0),
+      preview_cap: 5,
+    };
   }
   if (m === "GET" && url === "/api/search/health") {
     const now = Math.floor(Date.now() / 1000);
@@ -1204,7 +1396,13 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/activity/status") {
-    return { in_flight: 2, recovery_pending: 1, attention: 5 };
+    return {
+      in_flight: 296,
+      in_flight_stuck: 295,
+      recovery_pending: 0,
+      attention: 13,
+      attention_members: 49,
+    };
   }
   if (m === "GET" && url === "/api/activity/in-flight") {
     return {

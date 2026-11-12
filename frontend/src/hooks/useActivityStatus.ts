@@ -7,6 +7,8 @@ const STATUS_POLL_MS = 30 * 1000;
 /** Derived open-work counts from GET /api/activity/status (never narrative). */
 export interface ActivityStatusResponse {
   in_flight: number;
+  /** Subset of in_flight not updated for over 7 days; the rest is moving. */
+  in_flight_stuck?: number;
   /**
    * Subset of in_flight that has already survived a restart — a qualifier on
    * in_flight, never added to it. Lets a surface say "N in flight (K recovered

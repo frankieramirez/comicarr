@@ -147,9 +147,14 @@ describe("DashboardPage", () => {
   it("reports in-flight work from the activity status endpoint", async () => {
     render(<DashboardPage />);
 
-    // The default fixture reports 2 in flight, none of it recovered.
-    expect(await screen.findByRole("link", { name: "In flight" })).toBeTruthy();
-    expect(screen.getByText("2 in flight")).toBeTruthy();
+    // The default fixture reports 2 in flight, none of it stuck or recovered.
+    const rail = await screen.findByRole("region", { name: "In flight" });
+    expect(
+      within(rail).getByText("Moving now").parentElement?.textContent,
+    ).toBe("Moving now2");
+    expect(
+      within(rail).getByText("Stuck over 7 days").parentElement?.textContent,
+    ).toBe("Stuck over 7 days0");
   });
 
   it("surfaces a quiet needs-attention line on the default empty band", async () => {
@@ -172,10 +177,33 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     // Qualified, never summed: 12 total, of which 3 survived a restart.
+    expect(await screen.findByText("3 recovered from a restart")).toBeTruthy();
+    const rail = screen.getByRole("region", { name: "In flight" });
     expect(
-      await screen.findByText("12 in flight (3 recovered from a restart)"),
-    ).toBeTruthy();
-    expect(screen.queryByText("15 in flight")).toBeNull();
+      within(rail).getByText("Moving now").parentElement?.textContent,
+    ).toBe("Moving now12");
+  });
+
+  it("splits in-flight work into moving and stuck over 7 days", async () => {
+    server.use(
+      http.get("/api/activity/status", () =>
+        HttpResponse.json({
+          in_flight: 296,
+          in_flight_stuck: 295,
+          attention: 0,
+        }),
+      ),
+    );
+
+    render(<DashboardPage />);
+
+    const rail = await screen.findByRole("region", { name: "In flight" });
+    expect(
+      within(rail).getByText("Stuck over 7 days").parentElement?.textContent,
+    ).toBe("Stuck over 7 days295");
+    expect(within(rail).getByRole("img").getAttribute("aria-label")).toBe(
+      "1 moving, 295 stuck",
+    );
   });
 
   it("says nothing is in flight rather than nothing at all", async () => {
@@ -360,7 +388,7 @@ describe("DashboardPage", () => {
     expect(screen.queryByText(/No activity in the last 30 days/)).toBeNull();
 
     // Neighbours still render their own content.
-    expect(screen.getByText("2 in flight")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "In flight" })).toBeTruthy();
     expect(screen.getByText("Batman")).toBeTruthy();
   });
 
@@ -428,7 +456,7 @@ describe("DashboardPage", () => {
       expect(screen.getByText("library unavailable")).toBeTruthy();
     });
     expect(screen.queryByText(/0 series/)).toBeNull();
-    expect(screen.getByText("2 in flight")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "In flight" })).toBeTruthy();
   });
 
   it("says so when the scan targets cannot be read", async () => {
@@ -546,7 +574,7 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Needs attention unavailable")).toBeTruthy();
     });
-    expect(screen.getByText("2 in flight")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "In flight" })).toBeTruthy();
     expect(screen.getByTestId("attention-inflight-row")).toBeTruthy();
   });
 

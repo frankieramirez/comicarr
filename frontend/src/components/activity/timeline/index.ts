@@ -25,6 +25,8 @@ export {
 } from "./attentionStage";
 export type {
   Activity,
+  AttentionCause,
+  AttentionCauseSeries,
   AttentionGroup,
   AttentionMember,
   BandAction,

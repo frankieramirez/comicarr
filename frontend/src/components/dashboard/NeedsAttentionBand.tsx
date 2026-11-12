@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { MoreHorizontal } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { CircleX, FileWarning, MoreHorizontal, Wrench } from "lucide-react";
 import {
   actionLabel,
   stageAccent,
-  type AttentionGroup,
+  type AttentionCause,
   type BandAction,
 } from "@/components/activity/timeline";
 import { StopWantingDialog } from "@/components/activity/attention/StopWantingDialog";
@@ -13,7 +13,9 @@ import {
   SectionHeader,
 } from "@/components/dashboard/DashboardPanel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { causeSubline, plural, seriesList } from "@/lib/attentionCause";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,113 +60,136 @@ function batchSummary(result: BandBatchResult): string {
   return `${head} ${result.skipped_for_cap} left for another go (max ${result.cap} at a time).`;
 }
 
-function GroupRow({
-  group,
+/** Causes shown before the rest fold into one line (v2 dashboard). */
+const CAUSE_PREVIEW = 3;
+
+function causeActionText(action: BandAction, count: number) {
+  if (action === "stop_wanting") {
+    return count > 1 ? `${actionLabel(action)}…` : actionLabel(action);
+  }
+  return count > 1
+    ? `${actionLabel(action)} all ${count}`
+    : actionLabel(action);
+}
+
+const CAUSE_ICONS = {
+  settings: Wrench,
+  file: FileWarning,
+  failed: CircleX,
+} as const;
+
+function CauseRow({
+  cause,
   busy,
   primaryRow,
   onAction,
 }: {
-  group: AttentionGroup;
+  cause: AttentionCause;
   busy: boolean;
   /** The first row carries the view's one filled button. */
   primaryRow: boolean;
-  onAction: (action: BandAction, group: AttentionGroup) => void;
+  onAction: (action: BandAction, cause: AttentionCause) => void;
 }) {
-  const accent = stageAccent(group.stage);
-  const mixed = group.available_actions.length === 0;
-  const triageGroupHref = `${TRIAGE_HREF}?group=${encodeURIComponent(
-    group.group_key,
-  )}`;
-  const [primary, ...rest] = group.available_actions;
-  const actionText = (action: BandAction) =>
-    `${actionLabel(action)}${
-      action === "stop_wanting" && group.member_count > 1 ? "…" : ""
-    }`;
-  const issues = `${group.member_count} ${
-    group.member_count === 1 ? "issue" : "issues"
-  }`;
+  const navigate = useNavigate();
+  const Icon = CAUSE_ICONS[cause.icon as keyof typeof CAUSE_ICONS] ?? CircleX;
+  const mixed = cause.available_actions.length === 0;
+  const firstGroup = cause.series[0]?.group_key;
+  const triageHref =
+    cause.series.length === 1 && firstGroup
+      ? `${TRIAGE_HREF}?group=${encodeURIComponent(firstGroup)}`
+      : TRIAGE_HREF;
+  // A settings fix clears the whole cause, so it leads and every
+  // per-issue action moves to the menu.
+  const [primary, ...rest] = cause.fix ? [] : cause.available_actions;
+  const menuActions = cause.fix ? cause.available_actions : rest;
+  const filled = primaryRow ? "default" : "outline";
 
   return (
     <div
-      className="flex items-center gap-3 border-b border-border-subtle py-2.5"
-      data-testid="needs-attention-group"
+      className="flex items-center gap-3.5 border-b border-border-subtle py-3"
+      data-testid="needs-attention-cause"
     >
-      <span
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ background: accent }}
+      <Icon
+        className="size-[18px] shrink-0 self-start mt-0.5"
+        style={{ color: stageAccent(cause.stage) }}
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-foreground">
-          {group.comicid ? (
-            <Link
-              to={`/library/${group.comicid}`}
-              className="hover:underline underline-offset-2"
-            >
-              {group.series_label}
-            </Link>
-          ) : (
-            <span>{group.series_label}</span>
-          )}
+          {cause.headline}
         </div>
         <div className="truncate text-[13px] text-foreground-2">
-          <span className="first-letter:uppercase">{group.reason_phrase}</span>
-          {group.member_count > 1 && <span> · {issues}</span>}
+          {causeSubline(cause)}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        {mixed ? (
+      <div className="flex shrink-0 items-center gap-2">
+        {cause.fix ? (
           <Link
-            to={triageGroupHref}
-            className="inline-flex h-8 items-center rounded-control border border-border-strong bg-surface-2 px-3 text-[13px] font-medium hover:bg-surface-3"
+            to={cause.fix.href}
+            className={cn(buttonVariants({ variant: filled, size: "toolbar" }))}
+          >
+            {cause.fix.label}
+          </Link>
+        ) : mixed ? (
+          <Link
+            to={triageHref}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "toolbar" }),
+            )}
           >
             Open triage
           </Link>
         ) : (
-          <>
-            <Button
-              type="button"
-              variant={primaryRow ? "default" : "outline"}
-              size="toolbar"
-              className={primaryRow ? "" : "bg-surface-2"}
-              disabled={busy}
-              onClick={() => onAction(primary, group)}
-            >
-              {actionText(primary)}
-            </Button>
-            {rest.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={busy}
-                      aria-label={`More actions for ${group.series_label}`}
-                    >
-                      <MoreHorizontal />
-                    </Button>
-                  }
-                />
-                <DropdownMenuContent align="end">
-                  {rest.map((action) => (
-                    <DropdownMenuItem
-                      key={action}
-                      onClick={() => onAction(action, group)}
-                    >
-                      {actionText(action)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </>
+          <Button
+            type="button"
+            variant={filled}
+            size="toolbar"
+            disabled={busy}
+            onClick={() => onAction(primary, cause)}
+          >
+            {causeActionText(primary, cause.member_count)}
+          </Button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={busy}
+                aria-label={`More actions for ${cause.headline}`}
+              >
+                <MoreHorizontal />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            {menuActions.map((action) => (
+              <DropdownMenuItem
+                key={action}
+                onClick={() => onAction(action, cause)}
+              >
+                {causeActionText(action, cause.member_count)}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem onClick={() => navigate(triageHref)}>
+              Open in Activity
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
+}
+
+function seriesIdentity(series: AttentionCause["series"][number]) {
+  return series.comicid ?? series.group_key;
+}
+
+function distinctSeries(causes: AttentionCause[]) {
+  return new Set(causes.flatMap((c) => c.series.map(seriesIdentity))).size;
 }
 
 export default function NeedsAttentionBand() {
@@ -195,10 +220,13 @@ export default function NeedsAttentionBand() {
     }
   };
 
-  const onGroupAction = (action: BandAction, group: AttentionGroup) => {
-    const releaseKeys = group.members.map((member) => member.release_key);
+  const onCauseAction = (action: BandAction, cause: AttentionCause) => {
+    const releaseKeys = cause.release_keys;
     if (action === "stop_wanting" && releaseKeys.length >= 2) {
-      setConfirming({ releaseKeys, seriesLabel: group.series_label });
+      setConfirming({
+        releaseKeys,
+        seriesLabel: seriesList(cause.series.map((s) => s.series_label)),
+      });
       return;
     }
     void runAction(action, releaseKeys);
@@ -226,12 +254,13 @@ export default function NeedsAttentionBand() {
     );
   }
 
-  const groups = band.data?.results ?? [];
-  const total = band.data?.total ?? groups.length;
-  const memberTotal = band.data?.member_total;
-  const previewCap = band.data?.preview_cap ?? 5;
-  const preview = groups.slice(0, previewCap);
-  const more = Math.max(0, total - preview.length);
+  const causes = band.data?.causes ?? [];
+  const total = band.data?.total ?? 0;
+  const memberTotal = band.data?.member_total ?? 0;
+  const preview = causes.slice(0, CAUSE_PREVIEW);
+  const hidden = causes.slice(CAUSE_PREVIEW);
+  const hiddenSeries = distinctSeries(hidden);
+  const hiddenIssues = hidden.reduce((n, c) => n + c.member_count, 0);
 
   if (total === 0) {
     return (
@@ -253,36 +282,28 @@ export default function NeedsAttentionBand() {
     <section aria-label="Needs attention" data-testid="needs-attention-band">
       <SectionHeader
         title="Needs you"
-        meta={
-          <>
-            <span>
-              {total} need{total === 1 ? "s" : ""} attention
-            </span>
-            {memberTotal != null && memberTotal > total && (
-              <> · {memberTotal} issues</>
-            )}
-          </>
-        }
-        action={{ label: `See all ${total}`, to: TRIAGE_HREF }}
+        meta={`${distinctSeries(causes)} series · ${plural(memberTotal, "issue")}`}
+        action={{ label: "See all", to: TRIAGE_HREF }}
       />
 
       <div className="border-t border-border-subtle">
-        {preview.map((group, index) => (
-          <GroupRow
-            key={group.group_key}
-            group={group}
+        {preview.map((cause, index) => (
+          <CauseRow
+            key={cause.cause_key}
+            cause={cause}
             primaryRow={index === 0}
             busy={batch.isPending}
-            onAction={onGroupAction}
+            onAction={onCauseAction}
           />
         ))}
-        {more > 0 && (
+        {hidden.length > 0 && (
           <Link
             to={TRIAGE_HREF}
-            className="block py-2.5 pl-[18px] text-[13px] text-foreground-2 hover:text-foreground"
+            className="block py-2.5 pl-8 text-[13px] text-foreground-2 hover:text-foreground"
             data-testid="needs-attention-more"
           >
-            +{more} more in other series
+            {hiddenSeries} more series with {plural(hiddenIssues, "issue")}, in
+            other causes
           </Link>
         )}
       </div>

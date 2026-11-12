@@ -14,6 +14,7 @@ every count. These queries never aggregate ``activity_events`` for open-work
 or attention numbers — only ordered time slices of that table are allowed.
 """
 
+import datetime
 import json
 
 from sqlalchemy import and_, func, or_, select
@@ -33,6 +34,10 @@ TIMELINE_LIMIT_DEFAULT = 50
 TIMELINE_SCOPE_TYPES = frozenset({"issue", "annual", "series"})
 
 IN_FLIGHT_ITEM_STATES = (ItemOutcome.ACCEPTED.value, ItemOutcome.RUNNING.value)
+
+# An in-flight row that has not moved for this long is "stuck" rather than
+# "moving now". The dashboard's Downloads rail splits the in-flight count on it.
+STUCK_AFTER = datetime.timedelta(days=7)
 
 
 def _clamp_timeline_limit(limit):
@@ -246,6 +251,44 @@ def _in_flight_sort_key(item):
     return (item.get("updated_at") or "", item.get("kind") or "", str(identity or ""))
 
 
+def _parse_updated_at(value):
+    """Parse a ledger timestamp into an aware datetime, or ``None``.
+
+    Run items store aware UTC ISO strings; journal rows store naive local
+    ``YYYY-MM-DD HH:MM:SS``. A naive value is read as local time, which is how
+    the journal wrote it.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.datetime.fromisoformat(str(value).strip())
+        except ValueError:
+            return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        parsed = parsed.astimezone()
+    return parsed
+
+
+def is_stuck(item, *, now=None):
+    """True when an in-flight item has not been updated within ``STUCK_AFTER``.
+
+    A row with no readable timestamp is not called stuck: we cannot say how
+    long it has waited, and "moving" is the existing reading of in-flight.
+    """
+    updated = _parse_updated_at(item.get("updated_at"))
+    if updated is None:
+        return False
+    current = now or datetime.datetime.now(datetime.timezone.utc)
+    return current - updated > STUCK_AFTER
+
+
+def count_stuck(items, *, now=None):
+    return sum(1 for item in items if is_stuck(item, now=now))
+
+
 def list_in_flight_items():
     """Return the same rows ``get_open_work_counts()['in_flight']`` counts.
 
@@ -261,6 +304,9 @@ def list_in_flight_items():
     items = [_shape_run_item(row) for row in run_rows]
     items.extend(_shape_journal_item(row) for row in journal_rows)
     items.sort(key=_in_flight_sort_key, reverse=True)
+    current = datetime.datetime.now(datetime.timezone.utc)
+    for item in items:
+        item["stuck"] = is_stuck(item, now=current)
     return items
 
 
@@ -272,13 +318,18 @@ def get_open_work_counts():
     survived a restart — a qualifier on ``in_flight``, not an addition to it.
     ``attention`` = unresolved band **group** count — the number of distinct
     problems, which is what the band shows and what the operator has to act on.
+    ``in_flight_stuck`` = the subset of ``in_flight`` not updated within
+    ``STUCK_AFTER`` (7 days); the rest is "moving now".
     ``attention_members`` keeps the underlying row count available for copy that
     needs "N issues across K problems".
     Never reads ``activity_events``.
     """
     attention = read()
+    in_flight = count_in_flight_run_items() + count_open_journal_stages()
+    stuck = sum(1 for item in list_in_flight_items() if item["stuck"])
     return {
-        "in_flight": count_in_flight_run_items() + count_open_journal_stages(),
+        "in_flight": in_flight,
+        "in_flight_stuck": min(stuck, in_flight),
         "recovery_pending": count_recovery_pending_run_items(),
         "attention": attention.total,
         "attention_members": attention.member_total,

@@ -52,6 +52,62 @@ REASON_PHRASES = {
 
 UNMAPPED_REASON_PHRASE = "something went wrong"
 
+# Cause-level copy for the dashboard's "Needs you" rows, which group every
+# series sharing one base reason. A headline names the problem once; a hint
+# says what usually fixes it; a fix links to the one setting that clears the
+# whole cause. Reasons without an entry fall back to their reason phrase.
+POSTPROCESS_SETTINGS_FIX = {"label": "Open post-processing", "href": "/settings?section=media"}
+_MISCONFIGURED = {
+    "headline": "Post-processing is misconfigured",
+    "hint": "One settings fix clears them all.",
+    "icon": "settings",
+    "fix": POSTPROCESS_SETTINGS_FIX,
+}
+CAUSE_COPY = {
+    "invalid_postprocess_command": _MISCONFIGURED,
+    "invalid_recovered_postprocess_command": _MISCONFIGURED,
+    "downloaded_invalid_artifact_command": _MISCONFIGURED,
+    "postprocess_error": {"headline": "Post-processing failed", "icon": "failed"},
+    "recovered_postprocess_error": {"headline": "Post-processing failed after a restart", "icon": "failed"},
+    "recovery_attempts_exhausted": {
+        "headline": "Post-processing couldn't finish after several restarts",
+        "icon": "failed",
+    },
+    "submission_rejected": {"headline": "The downloader rejected these submissions", "icon": "failed"},
+    "sab_completed_file_not_found": {
+        "headline": "A finished download wasn't found on disk",
+        "hint": "Usually a path mapping between Comicarr and the client.",
+        "icon": "file",
+    },
+    "sab_job_missing_from_client": {
+        "headline": "SABnzbd no longer has these jobs",
+        "hint": "They were removed from its queue or history.",
+        "icon": "file",
+    },
+    "done_signal_without_library_placement": {
+        "headline": "Finished downloads were never imported",
+        "icon": "file",
+    },
+    "torrent_monitor_unreachable": {
+        "headline": "The torrent client was unreachable",
+        "hint": "Check that the client is running and reachable from Comicarr.",
+        "icon": "failed",
+    },
+}
+
+
+def cause_copy(token):
+    """Return headline, hint, icon and fix for one base reason."""
+    copy = CAUSE_COPY.get(token or "", {})
+    phrase = REASON_PHRASES.get(token or "", UNMAPPED_REASON_PHRASE)
+    return {
+        "headline": copy.get("headline") or phrase[:1].upper() + phrase[1:],
+        "hint": copy.get("hint"),
+        "icon": copy.get("icon", "failed"),
+        "fix": dict(copy["fix"]) if copy.get("fix") else None,
+    }
+
+
 NON_ACTIONABLE_FLAT = frozenset(
     {
         "download_gone",

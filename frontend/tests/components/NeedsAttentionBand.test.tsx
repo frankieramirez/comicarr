@@ -1,9 +1,10 @@
 /**
- * Dashboard needs-attention band (dashboard-spec.md §3.2).
+ * Dashboard needs-attention band (dashboard-spec.md §3.2, v2 dashboard).
  *
- * Covers the three band shapes the ticket names — nothing waiting, a short
- * list under the cap, and a list that folds the rest into triage — plus an
- * in-place action so the count updates without a manual refresh.
+ * The band shows one row per *cause*: every series sharing a base reason and
+ * stage, folded server-side. Covers nothing waiting, the cause copy, the fold
+ * past the preview, a settings fix that leads the row, and an in-place action
+ * that resolves every release key in the cause.
  */
 
 import { describe, expect, it } from "vitest";
@@ -12,48 +13,82 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen, waitFor } from "../test-utils";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
+import { causeSubline, seriesList } from "@/lib/attentionCause";
+import type { AttentionCause } from "@/components/activity/timeline";
 
-function group(overrides: Record<string, unknown> = {}) {
+function series(label: string, count: number, comicid = label) {
   return {
-    group_key: "42|postprocess_error",
-    comicid: "42",
-    series_label: "Saga",
+    group_key: `${comicid}|r`,
+    comicid,
+    series_label: label,
+    member_count: count,
+    issue_labels: [`${label} #1`],
+  };
+}
+
+function cause(overrides: Partial<AttentionCause> = {}): AttentionCause {
+  const s = overrides.series ?? [series("Saga", 1, "42")];
+  const members = s.reduce((n, x) => n + x.member_count, 0);
+  return {
+    cause_key: "postprocess_error|failed",
     base_reason: "postprocess_error",
     reason_phrase: "post-processing failed",
-    member_count: 1,
-    newest_updated_at: "2026-08-03 12:00:00",
-    oldest_updated_at: "2026-08-03 12:00:00",
+    headline: "Post-processing failed",
+    hint: null,
+    icon: "failed",
+    fix: null,
     stage: "failed",
     available_actions: ["retry", "stop_wanting"],
-    members: [
-      {
-        release_key: "rk-1",
-        issue_label: "Saga #12",
-        issueid: "iss-1",
-        stage: "failed",
-        available_actions: ["retry", "stop_wanting"],
-        updated_date: "2026-08-03 12:00:00",
-      },
-    ],
+    series_count: s.length,
+    member_count: members,
+    newest_updated_at: "2026-08-03 12:00:00",
+    series: s,
+    release_keys: Array.from({ length: members }, (_, i) => `rk-${i + 1}`),
     ...overrides,
   };
 }
 
-function bandHandler(
-  groups: ReturnType<typeof group>[],
-  opts: { total?: number; preview_cap?: number } = {},
-) {
-  const preview_cap = opts.preview_cap ?? 5;
-  const total = opts.total ?? groups.length;
+function bandHandler(causes: AttentionCause[]) {
   return http.get("/api/attention", () =>
     HttpResponse.json({
-      results: groups,
-      total,
-      member_total: groups.reduce((n, g) => n + g.member_count, 0),
-      preview_cap,
+      results: [],
+      causes,
+      total: causes.reduce((n, c) => n + c.series_count, 0),
+      member_total: causes.reduce((n, c) => n + c.member_count, 0),
+      preview_cap: 5,
     }),
   );
 }
+
+describe("cause copy", () => {
+  it("joins series names the way the design reads", () => {
+    expect(seriesList(["A"])).toBe("A");
+    expect(seriesList(["A", "B"])).toBe("A and B");
+    expect(seriesList(["A", "B", "C"])).toBe("A, B and C");
+    expect(seriesList(["A", "B", "C", "D", "E"])).toBe(
+      "A, B and 3 more series",
+    );
+  });
+
+  it("names the issue, the series, or the share each one has", () => {
+    expect(causeSubline(cause())).toBe("Saga #1.");
+    expect(
+      causeSubline(
+        cause({
+          series: [series("Absolute Wonder Woman", 12), series("Batman", 11)],
+          hint: "One settings fix clears them all.",
+        }),
+      ),
+    ).toBe(
+      "23 issues in Absolute Wonder Woman and Batman. One settings fix clears them all.",
+    );
+    expect(
+      causeSubline(
+        cause({ series: [series("Dandadan", 6), series("One Piece", 6)] }),
+      ),
+    ).toBe("Dandadan and One Piece, 6 issues each.");
+  });
+});
 
 describe("NeedsAttentionBand", () => {
   it("renders one quiet line when nothing needs attention", async () => {
@@ -65,28 +100,26 @@ describe("NeedsAttentionBand", () => {
     expect(
       screen.queryByRole("region", { name: "Needs attention" }),
     ).toBeNull();
-    expect(screen.queryByText(/need attention/i)).toBeNull();
   });
 
-  it("shows the group count and each group's phrase under the cap", async () => {
+  it("shows one row per cause with series and issue totals", async () => {
     server.use(
       bandHandler([
-        group(),
-        group({
-          group_key: "7|search_error",
-          comicid: "7",
-          series_label: "Invincible",
-          reason_phrase: "search failed",
-          members: [
-            {
-              release_key: "rk-2",
-              issue_label: "Invincible #1",
-              issueid: "iss-2",
-              stage: "failed",
-              available_actions: ["retry", "stop_wanting"],
-              updated_date: "2026-08-03 11:00:00",
-            },
-          ],
+        cause({
+          cause_key: "invalid_postprocess_command|failed",
+          headline: "Post-processing is misconfigured",
+          hint: "One settings fix clears them all.",
+          icon: "settings",
+          fix: {
+            label: "Open post-processing",
+            href: "/settings?section=media",
+          },
+          series: [series("Absolute Wonder Woman", 12), series("Batman", 11)],
+        }),
+        cause({
+          cause_key: "submission_rejected|failed",
+          headline: "The downloader rejected these submissions",
+          series: [series("Dandadan", 6), series("One Piece", 6)],
         }),
       ]),
     );
@@ -96,70 +129,67 @@ describe("NeedsAttentionBand", () => {
     expect(
       await screen.findByRole("region", { name: "Needs attention" }),
     ).toBeTruthy();
-    expect(screen.getByText("2 need attention")).toBeTruthy();
-    expect(screen.getByText("Saga")).toBeTruthy();
-    expect(screen.getByText(/post-processing failed/)).toBeTruthy();
-    expect(screen.getByText("Invincible")).toBeTruthy();
-    expect(screen.getByText(/search failed/)).toBeTruthy();
-    expect(screen.getAllByTestId("needs-attention-group")).toHaveLength(2);
+    expect(screen.getByText("4 series · 35 issues")).toBeTruthy();
+    expect(screen.getAllByTestId("needs-attention-cause")).toHaveLength(2);
+    expect(screen.getByText("Post-processing is misconfigured")).toBeTruthy();
+    // A settings fix leads the row instead of a per-issue action.
+    expect(
+      screen
+        .getByRole("link", { name: "Open post-processing" })
+        .getAttribute("href"),
+    ).toBe("/settings?section=media");
+    expect(screen.getByRole("button", { name: "Retry all 12" })).toBeTruthy();
     expect(screen.queryByTestId("needs-attention-more")).toBeNull();
-    // Group-level actions match the triage route's exits.
-    expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2);
   });
 
-  it("folds groups past the preview cap into a triage link", async () => {
-    const groups = Array.from({ length: 5 }, (_, i) =>
-      group({
-        group_key: `${i}|r`,
-        comicid: String(i),
-        series_label: `Series ${i}`,
-        members: [
-          {
-            release_key: `rk-${i}`,
-            issue_label: `Series ${i} #1`,
-            issueid: `iss-${i}`,
-            stage: "failed",
-            available_actions: ["retry", "stop_wanting"],
-            updated_date: "2026-08-03 12:00:00",
-          },
-        ],
+  it("folds causes past the preview into one line", async () => {
+    const causes = Array.from({ length: 5 }, (_, i) =>
+      cause({
+        cause_key: `r${i}|failed`,
+        headline: `Cause ${i}`,
+        series: [series(`Series ${i}`, i + 1)],
       }),
     );
-    // Server can report a total larger than the rows it returned (band envelope).
-    server.use(bandHandler(groups, { total: 8, preview_cap: 5 }));
+    server.use(bandHandler(causes));
 
     render(<NeedsAttentionBand />);
 
-    expect(await screen.findByText("8 need attention")).toBeTruthy();
-    expect(screen.getAllByTestId("needs-attention-group")).toHaveLength(5);
-    const more = await screen.findByTestId("needs-attention-more");
-    expect(more.textContent).toContain("+3 more");
+    await screen.findByText("Cause 0");
+    expect(screen.getAllByTestId("needs-attention-cause")).toHaveLength(3);
+    const more = screen.getByTestId("needs-attention-more");
+    // Causes 3 and 4 hold 4 + 5 issues in two series.
+    expect(more.textContent).toBe(
+      "2 more series with 9 issues, in other causes",
+    );
     expect(more.getAttribute("href")).toBe("/activity/attention");
     expect(
-      screen.getByRole("link", { name: "See all 8" }).getAttribute("href"),
+      screen.getByRole("link", { name: "See all" }).getAttribute("href"),
     ).toBe("/activity/attention");
   });
 
-  it("runs a group action through the same batch endpoint and refreshes the band", async () => {
+  it("resolves every release key in the cause and refreshes the band", async () => {
     const requests: Array<{ action: string; release_keys: string[] }> = [];
     let hits = 0;
+    const two = cause({
+      series: [series("Saga", 1, "42"), series("Paper Girls", 1, "7")],
+    });
     server.use(
       http.get("/api/attention", () => {
         hits += 1;
-        // After a successful action the band is empty — the count moves without
-        // the operator refreshing.
         if (hits > 1) {
           return HttpResponse.json({
             results: [],
+            causes: [],
             total: 0,
             member_total: 0,
             preview_cap: 5,
           });
         }
         return HttpResponse.json({
-          results: [group()],
-          total: 1,
-          member_total: 1,
+          results: [],
+          causes: [two],
+          total: 2,
+          member_total: 2,
           preview_cap: 5,
         });
       }),
@@ -173,14 +203,18 @@ describe("NeedsAttentionBand", () => {
           success: true,
           partial: false,
           action: body.action,
-          requested: 1,
-          processed: 1,
-          succeeded: 1,
+          requested: 2,
+          processed: 2,
+          succeeded: 2,
           failed: 0,
           capped: false,
           skipped_for_cap: 0,
           cap: 25,
-          results: [{ release_key: "rk-1", ok: true, status: "retried" }],
+          results: body.release_keys.map((release_key) => ({
+            release_key,
+            ok: true,
+            status: "retried",
+          })),
         });
       }),
     );
@@ -188,14 +222,16 @@ describe("NeedsAttentionBand", () => {
     const user = userEvent.setup();
     render(<NeedsAttentionBand />);
 
-    expect(await screen.findByText("1 needs attention")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Retry all 2" }),
+    );
 
     await waitFor(() => {
-      expect(requests).toEqual([{ action: "retry", release_keys: ["rk-1"] }]);
+      expect(requests).toEqual([
+        { action: "retry", release_keys: ["rk-1", "rk-2"] },
+      ]);
     });
     expect(await screen.findByText("Nothing needs you")).toBeTruthy();
-    expect(screen.queryByText("1 needs attention")).toBeNull();
   });
 
   it("says so when the band cannot be read", async () => {

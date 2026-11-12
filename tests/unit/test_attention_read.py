@@ -167,6 +167,32 @@ def test_canonical_get_serializes_the_attention_view(attention_db):
                 "available_actions": ["retry", "stop_wanting"],
             }
         ],
+        "causes": [
+            {
+                "cause_key": "submission_rejected|failed",
+                "base_reason": "submission_rejected",
+                "reason_phrase": "the downloader rejected the submission",
+                "headline": "The downloader rejected these submissions",
+                "hint": None,
+                "icon": "failed",
+                "fix": None,
+                "stage": "failed",
+                "available_actions": ["retry", "stop_wanting"],
+                "series_count": 1,
+                "member_count": 1,
+                "newest_updated_at": "2026-07-10 12:00:00",
+                "series": [
+                    {
+                        "group_key": "42|submission_rejected",
+                        "comicid": "42",
+                        "series_label": "Saga",
+                        "member_count": 1,
+                        "issue_labels": ["Saga"],
+                    }
+                ],
+                "release_keys": ["actionable"],
+            }
+        ],
         "total": 1,
         "member_total": 1,
         "preview_cap": 5,
@@ -206,3 +232,59 @@ def test_downloads_and_activity_attention_adapters_are_removed():
     assert ("/api/downloads/needs-attention", "GET") not in routes
     assert ("/api/activity/band", "GET") not in routes
     assert not any("needs-attention" in path for path, _method in routes)
+
+
+def test_view_folds_series_groups_into_causes(attention_db):
+    """The dashboard's "Needs you" rows: one row per cause, every series it touches."""
+    from comicarr.app.attention import PREVIEW_CAP, read
+    from comicarr.app.attention._serialization import serialize_view
+
+    def saga(**kw):
+        return _journal(payload_json=json.dumps({"comicid": "42", "comicname": "Saga"}), **kw)
+
+    def batman(**kw):
+        return _journal(payload_json=json.dumps({"comicid": "7", "comicname": "Batman"}), **kw)
+
+    with attention_db.begin() as conn:
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                saga(release_key="s-1", issueid="s1", fail_reason="invalid_postprocess_command"),
+                saga(release_key="s-2", issueid="s2", fail_reason="invalid_postprocess_command"),
+                batman(release_key="b-1", issueid="b1", fail_reason="invalid_postprocess_command:exit 2"),
+                batman(release_key="b-2", issueid="b2", fail_reason="submission_rejected"),
+            ],
+        )
+
+    body = serialize_view(read(), preview_cap=PREVIEW_CAP)
+    assert body["total"] == 3
+    causes = body["causes"]
+    assert [cause["base_reason"] for cause in causes] == ["invalid_postprocess_command", "submission_rejected"]
+
+    misconfigured = causes[0]
+    assert misconfigured["headline"] == "Post-processing is misconfigured"
+    assert misconfigured["fix"] == {"label": "Open post-processing", "href": "/settings?section=media"}
+    assert misconfigured["series_count"] == 2
+    assert misconfigured["member_count"] == 3
+    assert [series["series_label"] for series in misconfigured["series"]] == ["Saga", "Batman"]
+    assert sorted(misconfigured["release_keys"]) == ["b-1", "s-1", "s-2"]
+    assert misconfigured["available_actions"] == ["retry", "stop_wanting"]
+
+    rejected = causes[1]
+    assert rejected["headline"] == "The downloader rejected these submissions"
+    assert rejected["fix"] is None
+    assert rejected["release_keys"] == ["b-2"]
+    # Totals across causes equal the series view's member total.
+    assert sum(cause["member_count"] for cause in causes) == body["member_total"]
+
+
+def test_unmapped_reason_cause_falls_back_to_its_phrase(attention_db):
+    from comicarr.app.attention import PREVIEW_CAP, read
+    from comicarr.app.attention._serialization import serialize_view
+
+    with attention_db.begin() as conn:
+        conn.execute(insert(pipeline_journal), [_journal(fail_reason="postprocess_error")])
+
+    (cause,) = serialize_view(read(), preview_cap=PREVIEW_CAP)["causes"]
+    assert cause["headline"] == "Post-processing failed"
+    assert cause["hint"] is None
