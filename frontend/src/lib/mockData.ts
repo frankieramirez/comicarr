@@ -530,6 +530,60 @@ function timelineEvents() {
   );
 }
 
+/** Pending import groups: a spread of confident, shaky and unmatched guesses. */
+function importGroups() {
+  const rows: Array<
+    [string, string | null, number, string, string | null, number | null]
+  > = [
+    [
+      "BLAME! Master Edition",
+      null,
+      6,
+      "inbox/BLAME! Master Edition",
+      "BLAME! (2016)",
+      72,
+    ],
+    ["superman_ann_2025", "2025", 1, "inbox", "Superman Annual (2025)", 41],
+    [
+      "Ashita no Joe",
+      "1968",
+      20,
+      "library/manga/Ashita no Joe",
+      "Ashita no Joe (1968)",
+      64,
+    ],
+    ["Magi", "2018", 1, "inbox", "Magi (2009)", 58],
+    ["Scan_0042", null, 1, "inbox", null, null],
+  ];
+  return rows.map(([name, year, count, folder, suggested, confidence], i) => ({
+    DynamicName: `folder:${folder}`,
+    ComicName: name,
+    Volume: null,
+    ComicYear: year,
+    FileCount: count,
+    Status: suggested ? "Suggested" : "Unmatched",
+    SRID: null,
+    ComicID: null,
+    MatchConfidence: confidence,
+    SuggestedComicID: suggested ? `mock-${i}` : null,
+    SuggestedComicName: suggested,
+    files: Array.from({ length: count }, (_, f) => ({
+      impID: `imp-${i}-${f}`,
+      ComicFilename: `${name} ${String(f + 1).padStart(2, "0")}.cbz`,
+      ComicLocation: `/data/${folder}/${name} ${String(f + 1).padStart(2, "0")}.cbz`,
+      IssueNumber: count > 1 ? String(f + 1) : null,
+      ComicYear: year,
+      Status: "Unmatched",
+      IgnoreFile: 0,
+      MatchConfidence: confidence,
+      SuggestedComicID: suggested ? `mock-${i}` : null,
+      SuggestedComicName: suggested,
+      SuggestedIssueID: null,
+      MatchSource: suggested ? "comicvine" : null,
+    })),
+  }));
+}
+
 function upcomingReleases() {
   const base = new Date();
   const addDays = (d: Date, n: number) => {
@@ -1022,7 +1076,27 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/config") {
-    return {};
+    return {
+      import_dir: "/data/downloads/comics/inbox",
+      comic_dir: "/data/comics",
+      manga_dir: "/data/manga",
+    };
+  }
+  if (m === "GET" && url === "/api/import") {
+    const imports = importGroups();
+    return {
+      imports,
+      pagination: {
+        total: imports.length,
+        limit: 50,
+        offset: 0,
+        has_more: false,
+      },
+      summary: {
+        group_count: imports.length,
+        file_count: imports.reduce((n, g) => n + g.FileCount, 0),
+      },
+    };
   }
 
   const detailMatch = url.match(/^\/api\/series\/([^/]+)$/);

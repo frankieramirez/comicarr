@@ -26,10 +26,7 @@ export default function ImportInboxSection() {
   const busy = refreshImportMutation.isPending;
 
   return (
-    <div
-      className="rounded-lg border px-3.5 py-3"
-      style={{ borderColor: "var(--border)", background: "var(--card)" }}
-    >
+    <div className="rounded-lg border border-border-subtle bg-surface-1 px-3.5 py-3">
       <div className="flex items-center gap-3">
         <div
           className="w-7 h-7 rounded-control grid place-items-center shrink-0"

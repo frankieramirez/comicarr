@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import {
-  ChevronRight,
-  ChevronDown,
-  Link2,
-  Eye,
-  EyeOff,
-  Trash2,
-} from "lucide-react";
+import { ChevronRight, ChevronDown, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -15,7 +8,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import StatusBadge from "@/components/StatusBadge";
 import ConfidenceBadge from "./ConfidenceBadge";
 import { encodeRowId } from "@/components/data-table/rowId";
 import {
@@ -27,6 +19,15 @@ import { getImportGroupTypeLabel } from "@/lib/importUtils";
 import type { ImportGroup } from "@/types";
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, ImportGroup>();
+
+/** The folder the group's files sit in, trimmed to its last two segments. */
+function folderOf(group: ImportGroup): string | null {
+  const location = group.files[0]?.ComicLocation;
+  if (!location) return null;
+  const parts = location.split(/[\\/]/).filter(Boolean);
+  parts.pop();
+  return parts.length ? `${parts.slice(-2).join("/")}/` : null;
+}
 
 /**
  * `queries.py` returns the SQL group-by key as `DynamicName`, so distinct rows
@@ -129,88 +130,78 @@ export function useImportColumns({
           size: 40,
         }),
         columnHelper.accessor("ComicName", {
-          header: "Series",
-          cell: ({ row }) => (
-            <div>
-              <div className="font-medium">{row.original.ComicName}</div>
-              <div className="mt-1">
-                <span className="inline-flex items-center rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {getImportGroupTypeLabel(row.original)}
-                </span>
+          header: "Files",
+          cell: ({ row }) => {
+            const group = row.original;
+            const count = group.FileCount ?? group.files.length;
+            const folder = folderOf(group);
+            return (
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">
+                    {group.ComicName}
+                    {group.Volume ? ` v${group.Volume}` : ""}
+                    {group.ComicYear ? ` (${group.ComicYear})` : ""}
+                  </span>
+                </div>
+                <div className="mono-meta truncate">
+                  {count} file{count === 1 ? "" : "s"}
+                  {folder ? ` · ${folder}` : ""} ·{" "}
+                  <span>{getImportGroupTypeLabel(group)}</span>
+                </div>
               </div>
-              {row.original.Volume && (
-                <div className="text-sm text-muted-foreground">
-                  Volume {row.original.Volume}
-                </div>
-              )}
-              {row.original.ComicYear && (
-                <div className="text-xs text-muted-foreground">
-                  ({row.original.ComicYear})
-                </div>
-              )}
-            </div>
-          ),
+            );
+          },
           enableSorting: false,
         }),
-        columnHelper.accessor("FileCount", {
-          header: "Files",
-          cell: ({ getValue }) => (
-            <span className="font-mono text-sm">{getValue()}</span>
-          ),
+        columnHelper.accessor("SuggestedComicName", {
+          header: "Best guess",
+          cell: ({ row }) => {
+            const suggestedName = row.original.SuggestedComicName;
+            if (!suggestedName) {
+              return (
+                <span className="text-sm text-muted-foreground">No match</span>
+              );
+            }
+            return (
+              <span
+                className="text-sm text-foreground-2"
+                title={
+                  row.original.SuggestedComicID
+                    ? `ID ${row.original.SuggestedComicID}`
+                    : undefined
+                }
+              >
+                {suggestedName}
+              </span>
+            );
+          },
           enableSorting: false,
         }),
         columnHelper.accessor("MatchConfidence", {
-          header: "Confidence",
+          header: "Match",
           cell: ({ row, getValue }) => {
             if (
               !row.original.SuggestedComicID &&
               !row.original.SuggestedComicName
             ) {
-              return (
-                <span className="text-xs text-muted-foreground/70">
-                  No suggestion
-                </span>
-              );
+              return <span className="mono-meta">No suggestion</span>;
             }
 
             return <ConfidenceBadge confidence={getValue() ?? null} />;
           },
           enableSorting: false,
         }),
-        columnHelper.accessor("SuggestedComicName", {
-          header: "Suggested Match",
-          cell: ({ row }) => {
-            const suggestedName = row.original.SuggestedComicName;
-            const suggestedId = row.original.SuggestedComicID;
-
-            if (!suggestedName) {
-              return (
-                <span className="text-muted-foreground/70">No match found</span>
-              );
-            }
-
-            return (
-              <div className="flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{suggestedName}</span>
-                {suggestedId && (
-                  <span className="text-xs text-muted-foreground">
-                    (ID: {suggestedId})
-                  </span>
-                )}
-              </div>
-            );
-          },
-          enableSorting: false,
-        }),
         columnHelper.accessor("Status", {
           header: "Status",
-          cell: ({ getValue }) => <StatusBadge status={getValue()} />,
+          cell: ({ getValue }) => (
+            <span className="text-[13px] text-foreground-2">{getValue()}</span>
+          ),
           enableSorting: false,
         }),
         columnHelper.display({
           id: "actions",
-          header: "Actions",
+          header: () => <span className="sr-only">Actions</span>,
           cell: ({ row }) => {
             const files = row.original.files ?? [];
             const allIgnored =
@@ -220,22 +211,20 @@ export function useImportColumns({
               : "Ignore import";
 
             return (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center justify-end gap-0.5 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      size="sm"
+                      size="compact"
                       variant="outline"
                       aria-label="Match import"
                       data-import-match={getImportGroupRowId(row.original)}
                       disabled={isActionLoading}
-                      className="h-8 px-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         onMatchClick?.(row.original, e.currentTarget);
                       }}
                     >
-                      <Link2 className="w-4 h-4" />
                       Match
                     </Button>
                   </TooltipTrigger>
@@ -244,8 +233,8 @@ export function useImportColumns({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      size="icon"
-                      variant="outline"
+                      size="icon-sm"
+                      variant="ghost"
                       aria-label={ignoreLabel}
                       disabled={isActionLoading}
                       onClick={(e) => {
@@ -253,11 +242,7 @@ export function useImportColumns({
                         onIgnoreClick?.(row.original, !allIgnored);
                       }}
                     >
-                      {allIgnored ? (
-                        <Eye className="w-4 h-4" />
-                      ) : (
-                        <EyeOff className="w-4 h-4" />
-                      )}
+                      {allIgnored ? <Eye /> : <EyeOff />}
                       <span className="sr-only">{ignoreLabel}</span>
                     </Button>
                   </TooltipTrigger>
@@ -266,17 +251,17 @@ export function useImportColumns({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       variant="ghost"
                       aria-label="Delete import record"
                       disabled={isActionLoading}
-                      className="text-destructive hover:text-destructive"
+                      className="text-muted-foreground hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteClick?.(row.original);
                       }}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 />
                       <span className="sr-only">Delete</span>
                     </Button>
                   </TooltipTrigger>

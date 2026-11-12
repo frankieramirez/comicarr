@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { EyeOff, Eye, Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw } from "lucide-react";
 import {
   useImportPending,
   useMatchImport,
@@ -24,35 +24,14 @@ import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import LibraryScanSection from "@/components/import/LibraryScanSection";
 import ImportInboxSection from "@/components/import/ImportInboxSection";
 import PageHeader from "@/components/layout/PageHeader";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { SectionHeader } from "@/components/dashboard/DashboardPanel";
+import ImportSourcesStrip from "@/components/import/ImportSourcesStrip";
 import { useServerPage } from "@/components/data-table/useServerPage";
 import { useTableState } from "@/components/data-table/useTableState";
 import type { ImportGroup } from "@/types";
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function SectionHeader({
-  label,
-  title,
-  meta,
-}: {
-  label: string;
-  title: string;
-  meta?: string;
-}) {
-  return (
-    <div className="mb-3">
-      <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-muted-foreground mb-1">
-        {label}
-      </div>
-      <div className="text-[14px] font-semibold tracking-tight">{title}</div>
-      {meta && (
-        <div className="text-[12px] text-muted-foreground mt-0.5">{meta}</div>
-      )}
-    </div>
-  );
 }
 
 export default function ImportPage() {
@@ -295,40 +274,75 @@ export default function ImportPage() {
     <div className="page-transition flex h-full min-h-0 flex-col">
       <PageHeader
         title="Import"
-        meta={isLoading ? "loading…" : pendingReviewMeta}
+        meta={
+          isLoading
+            ? "loading…"
+            : error
+              ? pendingReviewMeta
+              : "Files Comicarr found but couldn't place on its own. Confirm a series and they move into your library."
+        }
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="toolbar"
+            onClick={() => void handleScanInboxNow()}
+            disabled={
+              !importDirectoryConfigured || refreshImportMutation.isPending
+            }
+            title={
+              importDirectoryConfigured
+                ? "Scan the watched inbox for new files"
+                : "Set an import directory first"
+            }
+          >
+            <RefreshCw
+              className={refreshImportMutation.isPending ? "animate-spin" : ""}
+            />
+            Scan now
+          </Button>
+        }
       />
 
       {/* Import stacks several sections, so the whole body scrolls as one. */}
-      <div className="flex-1 min-h-0 overflow-auto px-5 py-5 space-y-8">
+      <div className="flex-1 min-h-0 overflow-auto px-8 pb-8 space-y-8">
+        <ImportSourcesStrip />
+
         {/* Pending */}
         <section>
-          <SectionHeader
-            label="PENDING · REVIEW"
-            title="Files awaiting review"
-            meta={isLoading ? "Loading review groups." : pendingReviewHelp}
-          />
-
-          <div className="flex items-center gap-3 mb-4">
-            <ToggleChip
-              pressed={showIgnored}
-              onPressedChange={(next) => {
-                setShowIgnored(next);
-                resetPage();
-                clearSelection();
-              }}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <SectionHeader title="Files awaiting review" />
+              <p className="text-[13px] text-foreground-2">
+                {isLoading ? "Loading review groups." : pendingReviewHelp}
+              </p>
+            </div>
+            <div
+              role="group"
+              aria-label="Ignored files"
+              className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
             >
-              {showIgnored ? (
-                <>
-                  <Eye className="w-3 h-3" />
-                  showing ignored
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-3 h-3" />
-                  ignored hidden
-                </>
-              )}
-            </ToggleChip>
+              {(
+                [
+                  [false, "Pending"],
+                  [true, "Include ignored"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={showIgnored === value}
+                  onClick={() => {
+                    setShowIgnored(value);
+                    resetPage();
+                    clearSelection();
+                  }}
+                  className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {isLoading && (
@@ -365,17 +379,17 @@ export default function ImportPage() {
                 isMetadataSaving={updateImportMetadataMutation.isPending}
               />
             ) : (
-              <div className="rounded-md border border-dashed border-border bg-card/40 px-5 py-8">
+              <div className="rounded-lg border border-dashed border-border-subtle px-5 py-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-md border border-border bg-muted/40 p-2">
+                    <div className="mt-0.5 rounded-md border border-border-subtle bg-surface-1 p-2">
                       <Inbox className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
                       <div className="text-sm font-semibold">
                         No pending imports
                       </div>
-                      <div className="mt-1 max-w-xl text-sm text-muted-foreground">
+                      <div className="mt-1 max-w-xl text-sm text-foreground-2">
                         The review queue is clear. Scan the watched inbox to
                         check for new files.
                       </div>
@@ -422,26 +436,21 @@ export default function ImportPage() {
 
         {/* Sources and scans */}
         <section>
-          <SectionHeader
-            label="SOURCES · SCANS"
-            title="Sources and scans"
-            meta="Setup and maintenance tools for library directories and the watched inbox."
-          />
+          <SectionHeader title="Sources and scans" />
+          <p className="mb-4 text-[13px] text-foreground-2">
+            Find series already on disk, or check the watched inbox now.
+          </p>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <div>
-              <SectionHeader
-                label="LIBRARY · SCAN"
-                title="Scan existing directories"
-                meta="Find and import series already present on disk."
-              />
+              <h3 className="mb-2 text-[13px] font-semibold text-foreground">
+                Scan existing directories
+              </h3>
               <LibraryScanSection />
             </div>
             <div>
-              <SectionHeader
-                label="INBOX · AUTO-MATCH"
-                title="Monitor an import directory"
-                meta="Drop files into a watched folder to auto-match against your library."
-              />
+              <h3 className="mb-2 text-[13px] font-semibold text-foreground">
+                Watched inbox
+              </h3>
               <ImportInboxSection />
             </div>
           </div>

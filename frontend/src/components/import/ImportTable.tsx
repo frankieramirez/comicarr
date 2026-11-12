@@ -204,7 +204,7 @@ export default function ImportTable({
     <TooltipProvider delayDuration={150}>
       <DataTable
         table={table}
-        className="overflow-x-auto"
+        className="overflow-x-auto px-0"
         onRowClick={(row) => {
           const tableRow = table
             .getRowModel()
@@ -215,7 +215,7 @@ export default function ImportTable({
           row.original.files ? (
             <TableRow key={`${row.id}-expanded`}>
               <TableCell colSpan={colSpan} className="p-0">
-                <div className="bg-muted/20">
+                <div className="bg-surface-1">
                   {row.original.files.map((file) => (
                     <FileRow
                       key={`${file.impID}-${file.IssueNumber ?? ""}`}
@@ -232,11 +232,13 @@ export default function ImportTable({
         }
       />
       {pagination && onNextPage && onPrevPage && (
-        <DataTableServerPagination
-          pagination={pagination}
-          onNextPage={onNextPage}
-          onPrevPage={onPrevPage}
-        />
+        <div className="-mx-8">
+          <DataTableServerPagination
+            pagination={pagination}
+            onNextPage={onNextPage}
+            onPrevPage={onPrevPage}
+          />
+        </div>
       )}
     </TooltipProvider>
   );
