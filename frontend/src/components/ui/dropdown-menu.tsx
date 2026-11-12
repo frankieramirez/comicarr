@@ -74,7 +74,7 @@ const DropdownMenuContent = React.forwardRef<
       <DropdownMenuPrimitive.Popup
         ref={ref}
         className={cn(
-          "z-50 max-h-(--available-height) min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-[opacity,transform] data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 origin-(--transform-origin)",
+          "z-50 max-h-(--available-height) min-w-[8rem] outline-none overflow-y-auto overflow-x-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-[opacity,transform] data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 origin-(--transform-origin)",
           className,
         )}
         {...props}
