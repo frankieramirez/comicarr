@@ -67,6 +67,7 @@ export type {
   WantedBucket,
   WantedSeries,
   WantedSeriesResponse,
+  WantedPacing,
 } from "./entities";
 
 export type { User, AuthContextValue } from "./auth";

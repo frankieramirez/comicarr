@@ -14,6 +14,30 @@ const wantedResponse = {
 function renderWantedWithForceResult(result: Record<string, unknown>) {
   server.use(
     http.get("/api/wanted", () => HttpResponse.json(wantedResponse)),
+    // By series (the default view), "Search now" sits in the pacing banner.
+    http.get("/api/wanted/series", () =>
+      HttpResponse.json({
+        series: [],
+        counts: { all: 1, not_found: 0, searching: 0, queued: 1 },
+        pacing: {
+          state: "checking",
+          total: 1,
+          checked: 0,
+          waiting: 1,
+          per_hour: 750,
+          measured: false,
+          per_pass: 250,
+          interval_minutes: 20,
+          finishes_in_hours: 0.1,
+          next_pass_at: null,
+          new_issue_days: 14,
+          search_interval_minutes: 1440,
+          next_search_at: null,
+          indexers: 2,
+        },
+        pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+      }),
+    ),
     http.post("/api/search/force", () => HttpResponse.json(result)),
   );
   vi.stubGlobal(
@@ -57,7 +81,7 @@ describe("WantedPage", () => {
     });
 
     await user.click(
-      await screen.findByRole("button", { name: /force search/i }),
+      await screen.findByRole("button", { name: /search now/i }),
     );
 
     expect(
@@ -78,7 +102,7 @@ describe("WantedPage", () => {
     });
 
     await user.click(
-      await screen.findByRole("button", { name: /force search/i }),
+      await screen.findByRole("button", { name: /search now/i }),
     );
 
     expect(
@@ -103,7 +127,7 @@ describe("WantedPage", () => {
     });
 
     await user.click(
-      await screen.findByRole("button", { name: /force search/i }),
+      await screen.findByRole("button", { name: /search now/i }),
     );
 
     expect(
@@ -129,7 +153,7 @@ describe("WantedPage", () => {
     });
 
     await user.click(
-      await screen.findByRole("button", { name: /force search/i }),
+      await screen.findByRole("button", { name: /search now/i }),
     );
 
     expect(await screen.findByText("Search partially accepted")).toBeTruthy();
@@ -149,7 +173,7 @@ describe("WantedPage", () => {
     });
 
     await user.click(
-      await screen.findByRole("button", { name: /force search/i }),
+      await screen.findByRole("button", { name: /search now/i }),
     );
 
     expect(await screen.findByText("Search failed to start")).toBeTruthy();

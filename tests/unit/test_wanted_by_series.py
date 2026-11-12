@@ -149,6 +149,8 @@ def test_wanted_series_endpoint_paginates_series_and_expands_one(wanted_db):
         assert [s["comic_name"] for s in body["series"]] == ["Monstress", "Saga"]
         assert body["series"][0]["max_attempts"] == 2
         assert body["series"][1]["which"] == "#1-3"
+        assert body["pacing"]["state"] == "off"
+        assert body["series"][0]["eta_hours"] is None
 
         expanded = client.get("/api/wanted", params={"comic_id": "c1", "limit": 50}).json()
         assert sorted(i["IssueID"] for i in expanded["issues"]) == ["c1-1", "c1-2", "c1-3"]

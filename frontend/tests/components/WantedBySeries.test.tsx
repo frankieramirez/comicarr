@@ -62,6 +62,7 @@ describe("Wanted by series", () => {
                     which: "#1-249",
                     why: "queued",
                     max_attempts: 0,
+                    eta_hours: 50,
                   }),
                 ],
           counts,
@@ -84,6 +85,8 @@ describe("Wanted by series", () => {
     expect(within(rows[0]).getByText("#23-24")).toBeTruthy();
     expect(within(rows[0]).getByText("Not found 3×")).toBeTruthy();
     expect(within(rows[1]).getByText("249")).toBeTruthy();
+    // Queued series say roughly when auto-search reaches them.
+    expect(rows[1].textContent).toContain("Queued · ~2 days");
 
     await user.click(screen.getByRole("button", { name: /^Not found/ }));
     await waitFor(() => {

@@ -1153,11 +1153,17 @@ def get_wanted(ctx, limit=None, offset=None, include_story_arcs=False, search=No
 
 def get_wanted_by_series(ctx, limit=50, offset=0, search=None, state="all", kind="all", sort="problems"):
     """Wanted folded by series, paginated over series rather than issues."""
-    from comicarr.app.series import wanted_groups
+    from comicarr.app.series import wanted_groups, wanted_pacing
 
     rows = _attach_wanted_acquisition_annotations(series_queries.get_wanted_issues(search=search))
     grouped = wanted_groups.group_wanted(rows, state=state, kind=kind, sort=sort)
+    # Pacing is about the whole Wanted list, whatever the filter shows.
+    every_row = rows if not search else series_queries.get_wanted_issues()
+    pacing, eta = wanted_pacing.pacing(every_row, config=getattr(ctx, "config", None))
     series = grouped["series"]
+    for group in series:
+        hours = eta.get(str(group.get("comicid")))
+        group["eta_hours"] = round(hours, 1) if hours is not None else None
     total = len(series)
     limit = max(1, min(int(limit or 50), 200))
     offset = max(0, int(offset or 0))
@@ -1165,6 +1171,7 @@ def get_wanted_by_series(ctx, limit=50, offset=0, search=None, state="all", kind
     return {
         "series": page,
         "counts": grouped["counts"],
+        "pacing": pacing,
         "pagination": {
             "total": total,
             "limit": limit,

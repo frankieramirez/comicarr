@@ -21,6 +21,8 @@ import {
   wantedSeriesWhy as whyLabel,
 } from "@/lib/wantedAnnotation";
 import { cn } from "@/lib/utils";
+import { approxDuration } from "@/lib/wantedPacing";
+import WantedPacingBanner from "@/components/queue/WantedPacingBanner";
 import type { WantedBucket, WantedSeries } from "@/types";
 
 const PAGE_SIZE = 50;
@@ -64,6 +66,12 @@ function WhyCell({ series }: { series: WantedSeries }) {
         }
       >
         {whyLabel(series)}
+        {series.why === "queued" && series.eta_hours != null && (
+          <span className="text-muted-foreground">
+            {" "}
+            · {approxDuration(series.eta_hours)}
+          </span>
+        )}
       </span>
     </span>
   );
@@ -219,8 +227,13 @@ function SeriesRow({ series }: { series: WantedSeries }) {
 export default function WantedBySeries({
   search,
   onTotals,
+  onSearchNow,
+  searching,
 }: {
   search: string;
+  /** Starts a search of everything Wanted, from the pacing banner. */
+  onSearchNow?: () => void;
+  searching?: boolean;
   /** Reports issue and series totals for the page header. */
   onTotals?: (totals: { issues: number; series: number }) => void;
 }) {
@@ -257,6 +270,13 @@ export default function WantedBySeries({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {data?.pacing && (
+        <WantedPacingBanner
+          pacing={data.pacing}
+          onSearchNow={onSearchNow}
+          searching={searching}
+        />
+      )}
       <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 md:px-8">
         <div
           role="group"

@@ -1912,10 +1912,41 @@ export function mockApiResponse(
       );
     const limit = Number(parsed.searchParams.get("limit") ?? 50);
     const offset = Number(parsed.searchParams.get("offset") ?? 0);
-    const page = series.slice(offset, offset + limit);
+    // Pacing: the RSS pass checks four issues every 20 minutes here,
+    // newest first (a real library uses 250 per pass).
+    const perHour = 12;
+    const queuedTotal = counts.queued;
+    let ahead = 0;
+    const etaFor = new Map<string, number>();
+    for (const g of [...series].sort((a, b) =>
+      (b.comic_year ?? "").localeCompare(a.comic_year ?? ""),
+    )) {
+      ahead += g.buckets.queued;
+      if (g.buckets.queued) etaFor.set(g.comicid, ahead / perHour);
+    }
+    const page = series
+      .slice(offset, offset + limit)
+      .map((g) => ({ ...g, eta_hours: etaFor.get(g.comicid) ?? null }));
+    const waiting = queuedTotal;
     return {
       series: page,
       counts,
+      pacing: {
+        state: "checking",
+        total: counts.all,
+        checked: counts.all - waiting,
+        waiting,
+        per_hour: perHour,
+        measured: true,
+        per_pass: 4,
+        interval_minutes: 20,
+        finishes_in_hours: Math.round((waiting / perHour) * 10) / 10,
+        next_pass_at: new Date(Date.now() + 18 * 60_000).toISOString(),
+        new_issue_days: 14,
+        search_interval_minutes: 1440,
+        next_search_at: new Date(Date.now() + 6 * 3_600_000).toISOString(),
+        indexers: 13,
+      },
       pagination: {
         total: series.length,
         limit,
