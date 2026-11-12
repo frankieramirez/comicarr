@@ -791,6 +791,56 @@ class TestConfigService:
         )
 
     @pytest.mark.parametrize(
+        ("host_key", "secret_key", "old", "new", "label"),
+        (
+            ("qbittorrent_host", "qbittorrent_password", "http://qbit:8080", "http://evil:8080", "qBittorrent"),
+            ("nzbget_host", "nzbget_password", "http://nzbget", "https://nzbget", "NZBGet"),
+            ("deluge_host", "deluge_password", "deluge:58846", "other:58846", "Deluge"),
+            ("transmission_host", "transmission_password", "http://tr:9091", "http://tr:9092", "Transmission"),
+        ),
+    )
+    def test_update_config_requires_the_client_secret_when_its_server_changes(
+        self, host_key, secret_key, old, new, label
+    ):
+        ctx = _make_test_ctx()
+        setattr(ctx.config, host_key.upper(), old)
+        setattr(ctx.config, secret_key.upper(), "stored-secret")
+
+        result = system_service.update_config(ctx, {host_key: new})
+        assert result == {"success": False, "error": "%s password is required when changing the server" % label}
+        ctx.config.apply_transaction.assert_not_called()
+
+        # Re-saving the same server (any case, a trailing path) keeps the stored secret.
+        same = old.upper() if "://" not in old else old + "/"
+        assert system_service.update_config(ctx, {host_key: same}) == {"success": True}
+        assert system_service.update_config(ctx, {host_key: new, secret_key: "fresh"}) == {"success": True}
+
+    @pytest.mark.parametrize("value", (-1, 6, True, "5"))
+    def test_update_config_rejects_unknown_torrent_clients(self, value):
+        ctx = _make_test_ctx()
+        result = system_service.update_config(ctx, {"torrent_downloader": value})
+        assert result == {"success": False, "error": "TORRENT_DOWNLOADER must be an integer between 0 and 5"}
+
+    def test_saving_a_client_forgets_its_last_connection_check(self):
+        ctx = _make_test_ctx()
+        with patch("comicarr.app.system.connections.reset") as reset:
+            system_service.update_config(ctx, {"qbittorrent_label": "comics"})
+            reset.assert_called_once()
+            system_service.update_config(ctx, {"search_interval": 720})
+            reset.assert_called_once()
+
+    def test_safe_config_reports_client_passwords_only_as_set(self):
+        ctx = _make_test_ctx()
+        ctx.config.QBITTORRENT_HOST = "http://user:pw@qbit:8080"
+        ctx.config.QBITTORRENT_PASSWORD = "secret"
+        ctx.config.NZBGET_PASSWORD = None
+        safe = system_service.get_safe_config(ctx)
+        assert safe["qbittorrent_host"] == "http://qbit:8080"
+        assert safe["qbittorrent_password_set"] is True
+        assert safe["nzbget_password_set"] is False
+        assert "qbittorrent_password" not in safe
+
+    @pytest.mark.parametrize(
         ("provider_type", "config_key"),
         (("newznab", "EXTRA_NEWZNABS"), ("torznab", "EXTRA_TORZNABS")),
     )

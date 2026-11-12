@@ -111,6 +111,39 @@ def _set_projected_runtime_field(context_field, legacy_name, value):
     return value
 
 
+# A download client's host and the secret Comicarr sends it. Pointing a client
+# at a new server must come with its secret again, or a settings edit could
+# send the stored one to a server the operator never vetted.
+_CLIENT_SECRET_FOR_HOST = {
+    "NZBGET_HOST": ("NZBGET_PASSWORD", "NZBGet password"),
+    "QBITTORRENT_HOST": ("QBITTORRENT_PASSWORD", "qBittorrent password"),
+    "DELUGE_HOST": ("DELUGE_PASSWORD", "Deluge password"),
+    "TRANSMISSION_HOST": ("TRANSMISSION_PASSWORD", "Transmission password"),
+}
+
+
+_CLIENT_KEY_PREFIXES = (
+    "NZB_DOWNLOADER",
+    "TORRENT_DOWNLOADER",
+    "ENABLE_TORRENTS",
+    "ENABLE_DDL",
+    "SAB_",
+    "NZBGET_",
+    "QBITTORRENT_",
+    "DELUGE_",
+    "TRANSMISSION_",
+)
+
+
+def _host_key(value):
+    """A client host compared by scheme, host and port; Deluge's bare host:port counts too."""
+    text = str(value or "").strip()
+    if not text or text == "None":
+        return None
+    origin = _http_origin(text if "://" in text else "http://" + text)
+    return origin or text.casefold()
+
+
 def _secret_is_configured(value):
     """Return True when a config secret has a meaningful stored value."""
     return bool(value and value != "None")
@@ -298,7 +331,7 @@ def get_safe_config(ctx):
         val = getattr(ctx.config, key, None)
         if val is not None:
             result[key] = val
-    for host_key in ("SAB_HOST", "PROWLARR_HOST"):
+    for host_key in ("SAB_HOST", "PROWLARR_HOST", *_CLIENT_SECRET_FOR_HOST):
         if host_key in result:
             result[host_key] = _safe_provider_host(result[host_key])
 
@@ -314,6 +347,10 @@ def get_safe_config(ctx):
         "discord_webhook_url_set": "DISCORD_WEBHOOK_URL",
         "sab_apikey_set": "SAB_APIKEY",
         "prowlarr_apikey_set": "PROWLARR_APIKEY",
+        "nzbget_password_set": "NZBGET_PASSWORD",
+        "qbittorrent_password_set": "QBITTORRENT_PASSWORD",
+        "deluge_password_set": "DELUGE_PASSWORD",
+        "transmission_password_set": "TRANSMISSION_PASSWORD",
     }
     for output_key, config_key in secret_indicators.items():
         result[output_key] = _secret_is_configured(getattr(ctx.config, config_key, None))
@@ -431,6 +468,25 @@ def update_config(ctx, key_values):
         if isinstance(nzb_downloader, bool) or not isinstance(nzb_downloader, int) or not 0 <= nzb_downloader <= 3:
             return {"success": False, "error": "NZB_DOWNLOADER must be an integer between 0 and 3"}
 
+    if "TORRENT_DOWNLOADER" in filtered:
+        torrent_downloader = filtered["TORRENT_DOWNLOADER"]
+        if (
+            isinstance(torrent_downloader, bool)
+            or not isinstance(torrent_downloader, int)
+            or not 0 <= torrent_downloader <= 5
+        ):
+            return {"success": False, "error": "TORRENT_DOWNLOADER must be an integer between 0 and 5"}
+
+    for host_key, (secret_key, secret_label) in _CLIENT_SECRET_FOR_HOST.items():
+        if host_key not in filtered:
+            continue
+        if _host_key(filtered[host_key]) == _host_key(getattr(ctx.config, host_key, None)):
+            continue
+        if _secret_is_configured(getattr(ctx.config, secret_key, None)) and not _secret_is_configured(
+            filtered.get(secret_key)
+        ):
+            return {"success": False, "error": "%s is required when changing the server" % secret_label}
+
     if "IMP_FILE_OPTS" in filtered:
         import_mode = filtered["IMP_FILE_OPTS"]
         if import_mode is None:
@@ -465,7 +521,9 @@ def update_config(ctx, key_values):
     if prowlarr_error:
         return {"success": False, "error": prowlarr_error}
 
-    interval_changed = any(k in set(SCHEDULER_JOB_INTERVALS.values()) for k in filtered)
+    interval_changed = any(
+        k in set(SCHEDULER_JOB_INTERVALS.values()) or k in set(SCHEDULER_JOB_REQUIRED_CONFIG.values()) for k in filtered
+    )
 
     with config_transaction_lock():
         try:
@@ -484,6 +542,12 @@ def update_config(ctx, key_values):
 
     if interval_changed:
         _reconfigure_schedulers(ctx)
+
+    if any(k.startswith(_CLIENT_KEY_PREFIXES) for k in filtered):
+        # A stored check describes the old settings; show none rather than a stale one.
+        from comicarr.app.system import connections
+
+        connections.reset()
 
     for notice in level_notices:
         logger.warn("[CONFIG] %s" % notice)
