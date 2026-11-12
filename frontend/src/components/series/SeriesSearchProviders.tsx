@@ -108,13 +108,16 @@ export function SeriesSearchProviders({
 
   return (
     <section
-      className="mb-3.5 max-w-[640px] rounded-md border border-border p-3"
+      className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-3"
       aria-labelledby="series-providers-title"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span id="series-providers-title" className="text-xs font-semibold">
+            <span
+              id="series-providers-title"
+              className="text-[13px] font-semibold"
+            >
               Search providers
             </span>
             <span className="mono-label">
@@ -128,7 +131,7 @@ export function SeriesSearchProviders({
             {used.length > 0 ? used.join(" → ") : "No providers enabled"}
           </p>
           {skipped.length > 0 ? (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
               Skips {skipped.join(", ")} for this series.
             </p>
           ) : null}

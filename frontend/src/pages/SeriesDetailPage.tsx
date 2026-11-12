@@ -4,6 +4,7 @@ import {
   Activity,
   ChevronDown,
   ExternalLink,
+  MoreHorizontal,
   Pause,
   Play,
   RefreshCw,
@@ -16,7 +17,14 @@ import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesSearchProviders } from "@/components/series/SeriesSearchProviders";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { Button } from "@/components/ui/button";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Callout } from "@/components/ui/callout";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -276,6 +284,7 @@ export default function SeriesDetailPage() {
   }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState<IssueFilter>("all");
+  const [tab, setTab] = useState<"issues" | "settings">("issues");
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [preview, setPreview] = useState<SearchMissingPreview | null>(null);
   const [searchOutcome, setSearchOutcome] =
@@ -548,7 +557,6 @@ export default function SeriesDetailPage() {
     : comicId?.startsWith("mal-")
       ? "mal"
       : "cv";
-  const slug = (comic.ComicName || "").toLowerCase().replace(/\s+/g, "-");
   const filteredIssues = allIssues.filter((issue) => {
     if (filter === "have") return isIssueOwned(issue);
     if (filter === "missing") return isIssueMissing(issue);
@@ -708,29 +716,54 @@ export default function SeriesDetailPage() {
     }
   };
 
+  const segments = [
+    { key: "have", value: have, color: "var(--status-downloaded)" },
+    { key: "in-flight", value: inFlight, color: "var(--in-flight)" },
+    {
+      key: "rest",
+      value: Math.max(0, total - have - inFlight),
+      color: "var(--surface-3)",
+    },
+  ].filter((segment) => segment.value > 0);
+  const progressSummary = [
+    missing > 0 ? `${missing} missing` : null,
+    inFlight > 0 ? `${inFlight} in progress` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const statusTone = isPaused
+    ? "var(--status-paused)"
+    : comic.Status?.toLowerCase() === "ended"
+      ? "var(--status-ended)"
+      : "var(--status-active)";
+  const statusWord = isPaused
+    ? "Paused"
+    : comic.Status?.toLowerCase() === "ended"
+      ? "Ended"
+      : "Continuing";
+
+  const startMissingReview = (unfiltered: boolean) => {
+    if (!comicId) return;
+    void startReview(
+      {
+        ComicName: comic.ComicName,
+        Status: comic.Status,
+        scope: "series",
+        missingCount: reviewableMissing,
+        ...(unfiltered ? { unfiltered: true } : {}),
+      },
+      {
+        entityType: "series",
+        entityId: String(comicId),
+        ...(unfiltered ? { mode: "unfiltered" as const } : {}),
+      },
+    );
+  };
+  const reviewDisabled =
+    !comicId || reviewableMissing === 0 || reviewSheetProps.startPending;
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col page-transition">
-      <div
-        className="flex shrink-0 items-center gap-2.5 border-b px-5 py-3.5 font-mono text-[11px]"
-        style={{
-          borderColor: "var(--border)",
-          color: "var(--muted-foreground)",
-        }}
-      >
-        <Link to="/library" className="transition-colors hover:text-foreground">
-          library
-        </Link>
-        <span style={{ color: "var(--text-muted)" }}>/</span>
-        <span>{isManga ? "manga" : "comics"}</span>
-        <span style={{ color: "var(--text-muted)" }}>/</span>
-        <span className="truncate" style={{ color: "var(--foreground)" }}>
-          {slug}
-        </span>
-        <span className="ml-auto hidden shrink-0 sm:inline">
-          {providerCode}:{comic.ComicID} · {seriesSyncLabel(comic)}
-        </span>
-      </div>
-
       {/*
         Full-bleed Layout clips this page. On narrow or short viewports
         (phones in either orientation) the hero can be taller than the
@@ -744,346 +777,559 @@ export default function SeriesDetailPage() {
         className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${headerFits ? "split:flex split:flex-col split:overflow-hidden" : ""}`}
         data-testid="series-body-scroll"
       >
-        <div
-          className="grid shrink-0 gap-7 border-b px-5 py-6 md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(0,1fr)_260px]"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <div
-            className="aspect-[2/3] w-[112px] overflow-hidden rounded-control border md:w-[140px]"
-            style={{ borderColor: "var(--border)" }}
-          >
-            {coverSrc && (
-              <img
-                src={coverSrc}
-                alt={comic.ComicName}
-                className="h-full w-full object-cover"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                }}
-              />
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.08em]">
-              <span
-                className="rounded-[3px] px-1.5 py-0.5"
-                style={{
-                  background:
-                    "color-mix(in oklab, var(--primary) 14%, transparent)",
-                  color: "var(--primary)",
-                }}
-              >
-                {isManga ? "MANGA" : "COMIC"}
-              </span>
-              {comic.ComicPublisher && (
-                <span style={{ color: "var(--muted-foreground)" }}>
-                  {comic.ComicPublisher}
-                </span>
-              )}
-              {comic.ComicYear && (
-                <>
-                  <span style={{ color: "var(--text-muted)" }}>·</span>
-                  <span style={{ color: "var(--muted-foreground)" }}>
-                    {comic.ComicYear}
-                  </span>
-                </>
-              )}
-              <span style={{ color: "var(--text-muted)" }}>·</span>
-              <span
-                style={{
-                  color: isPaused
-                    ? "var(--status-paused)"
-                    : "var(--status-active)",
-                }}
-              >
-                ● {isPaused ? "paused" : "ongoing"}
-              </span>
-              <span style={{ color: "var(--text-muted)" }}>·</span>
-              <span style={{ color: "var(--muted-foreground)" }}>
-                monitored
-              </span>
-            </div>
-
-            <h1 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.02em]">
-              {comic.ComicName}
-            </h1>
-
-            {seriesData.providerLinks && seriesData.providerLinks.length > 0 ? (
-              <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-                {seriesData.providerLinks.map((link) => (
-                  <a
-                    key={`${link.provider}-${link.url}`}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline"
-                    style={{ color: "var(--primary)" }}
-                  >
-                    View on {link.label}
-                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                  </a>
-                ))}
-              </div>
-            ) : null}
-
-            {comic.Description && (
-              <p
-                className="mb-3.5 max-h-40 max-w-[640px] overflow-y-auto text-[13px] leading-relaxed"
-                style={{ color: "var(--muted-foreground)" }}
-                data-testid="series-description"
-              >
-                {comic.Description}
-              </p>
-            )}
-
-            <SeriesContentKind
-              value={contentKind}
-              provider={provider}
-              pending={contentKindMutation.isPending}
-              onChange={(nextKind) => void handleContentKindChange(nextKind)}
-            />
-
-            {comicId ? (
-              <SeriesFolder
-                comicId={comicId}
-                location={comic.ComicLocation}
-                override={comic.LocationOverride === 1}
-                retained={retainedLocations(comic.RetainedLocations)}
-              />
-            ) : null}
-
-            {comicId && seriesData.searchProviders ? (
-              <SeriesSearchProviders
-                comicId={comicId}
-                available={seriesData.searchProviders.available}
-                override={seriesData.searchProviders.override}
-              />
-            ) : null}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="toolbar"
-                onClick={handleOpenSearch}
-                disabled={!comicId || searchPreview.isFetching}
-                className="px-3.5 font-semibold"
-              >
-                <Search />
-                Search all missing
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="toolbar"
-                onClick={() =>
-                  comicId
-                    ? void startReview(
-                        {
-                          ComicName: comic.ComicName,
-                          Status: comic.Status,
-                          scope: "series",
-                          missingCount: reviewableMissing,
-                        },
-                        {
-                          entityType: "series",
-                          entityId: String(comicId),
-                        },
-                      )
-                    : undefined
-                }
-                disabled={
-                  !comicId ||
-                  reviewableMissing === 0 ||
-                  reviewSheetProps.startPending
-                }
-                aria-label="Interactive Search for missing issues"
-              >
-                <Search />
-                Review missing
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="toolbar"
-                onClick={() =>
-                  comicId
-                    ? void startReview(
-                        {
-                          ComicName: comic.ComicName,
-                          Status: comic.Status,
-                          scope: "series",
-                          missingCount: reviewableMissing,
-                          unfiltered: true,
-                        },
-                        {
-                          entityType: "series",
-                          entityId: String(comicId),
-                          mode: "unfiltered",
-                        },
-                      )
-                    : undefined
-                }
-                disabled={
-                  !comicId ||
-                  reviewableMissing === 0 ||
-                  reviewSheetProps.startPending
-                }
-                aria-label="Browse every indexer's releases for this series"
-                title="One bare series-title query per indexer, every returned release shown — indexers without a title search are marked unsupported"
-              >
-                <TextSearch />
-                Browse releases
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="toolbar"
-                onClick={handleRefresh}
-                disabled={refreshMutation.isPending}
-              >
-                <RefreshCw
-                  className={refreshMutation.isPending ? "animate-spin" : ""}
-                />
-                Refresh
-              </Button>
-              {comicId ? (
-                <Button variant="outline" size="toolbar" asChild>
-                  <Link
-                    to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
-                    aria-label="View activity for this series"
-                  >
-                    <Activity />
-                    Activity
-                  </Link>
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="toolbar"
-                onClick={handlePauseResume}
-                disabled={pauseMutation.isPending || resumeMutation.isPending}
-              >
-                {isPaused ? <Play /> : <Pause />}
-                {isPaused ? "Resume" : "Pause"}
-              </Button>
-              {!showDeleteConfirm ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="toolbar"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-muted-foreground"
-                >
-                  <Trash2 />
-                  Delete
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="toolbar"
-                    onClick={handleDelete}
-                    disabled={deleteMutation.isPending}
-                    className="font-semibold"
-                  >
-                    <Trash2 />
-                    Confirm delete
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="toolbar"
-                    onClick={() => setShowDeleteConfirm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="rounded-lg border md:col-span-2 xl:col-span-1"
-            style={{ borderColor: "var(--border)", background: "var(--card)" }}
-          >
+        <div className="relative shrink-0 overflow-hidden">
+          {/* Blurred cover wash: the series' own colors, kept faint. */}
+          {coverSrc && (
             <div
-              className="border-b px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em]"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[300px] opacity-[0.16] dark:opacity-25"
               style={{
-                borderColor: "var(--border)",
-                color: "var(--text-muted)",
+                backgroundImage: `url(${coverSrc})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center 30%",
+                filter: "blur(48px) saturate(1.2)",
+                maskImage: "linear-gradient(to bottom, black, transparent)",
               }}
+            />
+          )}
+
+          <div className="relative px-8 pt-5">
+            <nav
+              aria-label="Breadcrumb"
+              className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
             >
-              Status
+              <Link to="/library" className="hover:text-foreground">
+                Library
+              </Link>
+              <span className="text-muted-foreground">/</span>
+              <span className="truncate text-foreground">
+                {comic.ComicName}
+              </span>
+              <span className="ml-auto hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">
+                {providerCode}:{comic.ComicID} · {seriesSyncLabel(comic)}
+              </span>
+            </nav>
+
+            <div className="flex flex-col gap-5 md:flex-row md:items-start">
+              <div className="aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-md bg-surface-2 shadow-sm">
+                {coverSrc && (
+                  <img
+                    src={coverSrc}
+                    alt={comic.ComicName}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 pt-1">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">
+                    {comic.ComicName}
+                  </h1>
+                  <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                    {isManga ? "Manga" : "Comic"}
+                  </span>
+                </div>
+
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-foreground-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="size-1.5 rounded-full"
+                      style={{ background: statusTone }}
+                      aria-hidden="true"
+                    />
+                    {statusWord}
+                  </span>
+                  {(comic.ComicPublisher || comic.ComicYear) && (
+                    <span>
+                      {[comic.ComicPublisher, comic.ComicYear]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
+                  <span className="font-mono text-xs text-foreground">
+                    {have} / {total}
+                  </span>
+                  {progressSummary && <span>{progressSummary}</span>}
+                </div>
+
+                {comic.Description && (
+                  <p
+                    className="mt-2 max-h-40 max-w-[640px] overflow-y-auto text-[13px] leading-relaxed text-foreground-2"
+                    data-testid="series-description"
+                  >
+                    {comic.Description}
+                  </p>
+                )}
+
+                {seriesData.providerLinks &&
+                seriesData.providerLinks.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {seriesData.providerLinks.map((link) => (
+                      <a
+                        key={`${link.provider}-${link.url}`}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[12px] text-foreground-2 hover:text-foreground hover:underline"
+                      >
+                        View on {link.label}
+                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-12">
+                {!showDeleteConfirm ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="toolbar"
+                      onClick={handleOpenSearch}
+                      disabled={!comicId || searchPreview.isFetching}
+                      aria-label="Search all missing"
+                    >
+                      <Search />
+                      {missing > 0
+                        ? `Search ${missing} missing`
+                        : "Search missing"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="toolbar"
+                      className="bg-surface-2"
+                      onClick={handleRefresh}
+                      disabled={refreshMutation.isPending}
+                    >
+                      <RefreshCw
+                        className={
+                          refreshMutation.isPending ? "animate-spin" : ""
+                        }
+                      />
+                      Refresh
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="More series actions"
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="min-w-52">
+                        <DropdownMenuItem
+                          disabled={reviewDisabled}
+                          onClick={() => startMissingReview(false)}
+                          aria-label="Interactive Search for missing issues"
+                        >
+                          <Search />
+                          Review missing
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={reviewDisabled}
+                          onClick={() => startMissingReview(true)}
+                          aria-label="Browse every indexer's releases for this series"
+                        >
+                          <TextSearch />
+                          Browse releases
+                        </DropdownMenuItem>
+                        {comicId ? (
+                          <DropdownMenuItem
+                            render={
+                              <Link
+                                to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
+                              />
+                            }
+                            aria-label="View activity for this series"
+                          >
+                            <Activity />
+                            Activity
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem
+                          disabled={
+                            pauseMutation.isPending || resumeMutation.isPending
+                          }
+                          onClick={() => void handlePauseResume()}
+                        >
+                          {isPaused ? <Play /> : <Pause />}
+                          {isPaused ? "Resume" : "Pause"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setShowDeleteConfirm(true)}
+                          className="text-[var(--status-error)]"
+                        >
+                          <Trash2 />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[13px] text-foreground-2">
+                      Delete this series?
+                    </span>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="toolbar"
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                      className="font-semibold"
+                    >
+                      <Trash2 />
+                      Confirm delete
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="toolbar"
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="px-3 py-2.5">
-              <div className="mb-1.5 flex items-baseline gap-2">
-                <div className="text-[28px] font-bold leading-none tracking-[-0.02em]">
-                  {completionPct}%
-                </div>
-                <div
-                  className="font-mono text-[10px]"
-                  style={{
-                    color:
-                      completionPct === 100
-                        ? "var(--status-active)"
-                        : "var(--muted-foreground)",
-                  }}
-                >
-                  {completionPct === 100 ? "complete" : "in progress"}
-                </div>
+
+            {/* Owned, in progress, the rest: one bar, no percentage score. */}
+            <div
+              className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full"
+              role="img"
+              aria-label={`${completionPct}% held: ${have} of ${total}${progressSummary ? `, ${progressSummary}` : ""}`}
+            >
+              {segments.length === 0 ? (
+                <div className="flex-1 bg-surface-3" />
+              ) : (
+                segments.map((segment) => (
+                  <div
+                    key={segment.key}
+                    style={{
+                      flexGrow: segment.value,
+                      background: segment.color,
+                    }}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="relative mt-4">
+            <TabRow ariaLabel="Series sections">
+              <Tab
+                active={tab === "issues"}
+                label={ledgerLabel}
+                meta={total}
+                onClick={() => setTab("issues")}
+              />
+              <Tab
+                active={tab === "settings"}
+                label="Settings"
+                onClick={() => setTab("settings")}
+              />
+            </TabRow>
+          </div>
+        </div>
+
+        {tab === "issues" ? (
+          <>
+            <div className="flex shrink-0 flex-wrap items-center gap-3 px-8 py-3">
+              <div className="sr-only" data-testid="ledger-label">
+                {ledgerLabel}
               </div>
               <div
-                className="mb-2.5 h-1 overflow-hidden rounded-full"
-                style={{ background: "var(--border)" }}
+                role="group"
+                aria-label="Filter issues"
+                className="inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
               >
-                <div
-                  className="h-full"
-                  style={{
-                    width: `${completionPct}%`,
-                    background:
-                      completionPct === 100
-                        ? "var(--status-active)"
-                        : "var(--primary)",
-                  }}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 font-mono text-[10px]">
                 {(
                   [
-                    ["have", String(have)],
-                    ["total", String(total)],
-                    ["missing", String(missing)],
-                    ["in flight", String(inFlight)],
+                    ["all", "All", total],
+                    ["have", "Have", have],
+                    ["missing", "Missing", missing],
+                    ["monitored", "Monitored", monitored],
                   ] as const
-                ).map(([label, value], index) => (
-                  <div
-                    key={label}
-                    className="flex justify-between py-1"
-                    style={{
-                      borderTop: index > 1 ? "1px solid var(--border)" : "none",
-                    }}
+                ).map(([key, label, count]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={filter === key}
+                    aria-label={`${label} ${count}`}
+                    onClick={() => setFilter(key)}
+                    className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                      filter === key
+                        ? "bg-surface-3 font-medium text-foreground"
+                        : "text-foreground-2 hover:text-foreground"
+                    }`}
                   >
-                    <span style={{ color: "var(--muted-foreground)" }}>
-                      {label}
+                    {label}
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {count}
                     </span>
-                    <span>{value}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
-            </div>
-            <div
-              className="border-t px-3 py-2.5"
-              style={{ borderColor: "var(--border)" }}
-            >
               <div
-                className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em]"
-                style={{ color: "var(--muted-foreground)" }}
+                className="ml-auto font-mono text-[11px] text-muted-foreground"
+                data-testid="ledger-facets"
               >
-                Search options
+                {ledgerFacets.length
+                  ? `${total} · ${ledgerFacets.join(" · ")}`
+                  : total}
               </div>
+            </div>
+
+            {selectedTargets.length > 0 && (
+              <div className="mx-8 mb-2 flex shrink-0 flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-surface-1 px-3 py-1.5">
+                <span
+                  className="mono-label"
+                  data-testid="issue-selection-count"
+                >
+                  {selectedTargets.length} selected
+                </span>
+                <IssueStatusMenu
+                  disabled={
+                    bulkSetIssueStatus.isPending || setIssueStatus.isPending
+                  }
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="toolbar"
+                      aria-label="Set status on selected issues"
+                    >
+                      Set status
+                      <ChevronDown aria-hidden="true" />
+                    </Button>
+                  }
+                  onSelect={(status) => void handleBulkSetStatus(status)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedRows(new Set())}
+                  disabled={bulkSetIssueStatus.isPending}
+                  className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            <div
+              className={`min-w-0 md:overflow-x-auto ${headerFits ? "split:min-h-0 split:flex-1 split:overflow-auto" : ""}`}
+              data-testid="series-issue-list"
+            >
+              <div className="md:min-w-[920px]">
+                <div
+                  className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} h-8 items-center gap-3 border-b border-border-subtle bg-background mx-8 px-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
+                >
+                  <div className={`${DESKTOP_COL} flex items-center`}>
+                    <Checkbox
+                      checked={
+                        allFilteredSelected
+                          ? true
+                          : someFilteredSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleAllFiltered}
+                      aria-label="Select all visible issues"
+                      disabled={bulkSetIssueStatus.isPending}
+                    />
+                  </div>
+                  <div className={DESKTOP_COL}>type</div>
+                  <div>#</div>
+                  <div>title</div>
+                  <div className={DESKTOP_COL}>arc</div>
+                  <div className={DESKTOP_COL}>date</div>
+                  <div>state</div>
+                  <div className="sr-only">search</div>
+                </div>
+
+                {filteredIssues.length === 0 ? (
+                  <div
+                    className="px-5 py-8 text-center font-mono text-[11px]"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    no issues to display
+                  </div>
+                ) : (
+                  filteredIssues.map((issue) => {
+                    const issueId = issue.id ?? issue.IssueID;
+                    const issueNumber = issue.number ?? issue.Issue_Number;
+                    const issueName = issue.name ?? issue.IssueName;
+                    const issueDate = pickComicDate(
+                      issue.releaseDate,
+                      issue.ReleaseDate,
+                      issue.issueDate,
+                      issue.IssueDate,
+                    );
+                    const status = getIssueStatus(issue);
+                    const separateIntent = getSeparateIntent(issue);
+                    const ledgerKind = getLedgerKind(issue, isManga);
+                    const rowKey = issueRowKey(issue);
+                    const rowLabel =
+                      issueName ||
+                      `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
+                    return (
+                      <div
+                        key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
+                        className={`grid ${ISSUE_GRID_COLS} min-h-9 items-center gap-3 border-b border-border-subtle mx-8 px-2 py-1 text-[13px] transition-colors hover:bg-surface-1`}
+                      >
+                        <div className={`${DESKTOP_COL} flex items-center`}>
+                          <Checkbox
+                            checked={selectedRows.has(rowKey)}
+                            onCheckedChange={() => toggleRowSelected(rowKey)}
+                            aria-label={`Select ${rowLabel}`}
+                            disabled={!issueId || bulkSetIssueStatus.isPending}
+                          />
+                        </div>
+                        <div className={DESKTOP_COL}>
+                          {ledgerKind && (
+                            <span className="rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                              {LEDGER_KIND_LABEL[ledgerKind]}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="font-mono"
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          #{String(issueNumber ?? "").padStart(2, "0")}
+                        </div>
+                        <div className="min-w-0 truncate" data-grid-title="">
+                          {ledgerKind ? (
+                            <span
+                              data-testid="phone-row-id"
+                              className="mr-1.5 hidden max-md:inline rounded-[4px] border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+                            >
+                              {LEDGER_KIND_LABEL[ledgerKind]}
+                            </span>
+                          ) : null}
+                          <Link
+                            to={`/library/${comicId}/issue/${issueId}`}
+                            className="underline-offset-2 hover:underline"
+                          >
+                            {issueName ||
+                              `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`}
+                          </Link>
+                        </div>
+                        <div
+                          className={`${DESKTOP_COL} truncate text-[11px]`}
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          {issue.Arc || "—"}
+                        </div>
+                        <div
+                          className={`${DESKTOP_COL} font-mono text-[10px]`}
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          {displayComicDate(issueDate)}
+                        </div>
+                        <div
+                          className="flex min-w-0 flex-wrap items-center gap-1.5"
+                          data-grid-status=""
+                        >
+                          <IssueStatusMenu
+                            current={status}
+                            label={`Change status for ${rowLabel}`}
+                            disabled={
+                              !issueId ||
+                              setIssueStatus.isPending ||
+                              bulkSetIssueStatus.isPending
+                            }
+                            onSelect={(next) =>
+                              handleIssueStatusSelect(issue, next)
+                            }
+                          />
+                          {separateIntent && (
+                            <span
+                              className="font-mono text-[9px] lowercase"
+                              style={{ color: "var(--muted-foreground)" }}
+                            >
+                              intent: {separateIntent}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
+                            style={{ color: "var(--muted-foreground)" }}
+                            aria-label={interactiveSearchLabel(issue)}
+                            title="Interactive Search"
+                            disabled={!issueId}
+                            onClick={() =>
+                              void startReview(
+                                toReleaseReviewIssue(issue, comic.ComicName),
+                                {
+                                  entityType: issue.annual ? "annual" : "issue",
+                                  entityId: String(issueId ?? ""),
+                                },
+                              )
+                            }
+                          >
+                            <Search
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div
+            className="grid max-w-[720px] gap-4 px-8 py-6"
+            data-testid="series-settings"
+          >
+            <section>
+              <SeriesContentKind
+                value={contentKind}
+                provider={provider}
+                pending={contentKindMutation.isPending}
+                onChange={(nextKind) => void handleContentKindChange(nextKind)}
+              />
+            </section>
+            {comicId ? (
+              <section>
+                <SeriesFolder
+                  comicId={comicId}
+                  location={comic.ComicLocation}
+                  override={comic.LocationOverride === 1}
+                  retained={retainedLocations(comic.RetainedLocations)}
+                />
+              </section>
+            ) : null}
+            {comicId && seriesData.searchProviders ? (
+              <section>
+                <SeriesSearchProviders
+                  comicId={comicId}
+                  available={seriesData.searchProviders.available}
+                  override={seriesData.searchProviders.override}
+                />
+              </section>
+            ) : null}
+            <section className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-3">
+              <h2 className="mb-1 text-[13px] font-semibold">Matching</h2>
               {[
                 {
                   key: "allowPacks" as const,
@@ -1103,11 +1349,9 @@ export default function SeriesDetailPage() {
                 <label
                   key={key}
                   title={title}
-                  className="flex cursor-pointer items-center justify-between gap-2 py-1 font-mono text-[10px]"
+                  className="flex cursor-pointer items-center justify-between gap-2 py-1.5 text-sm"
                 >
-                  <span style={{ color: "var(--muted-foreground)" }}>
-                    {label}
-                  </span>
+                  <span className="text-foreground">{label}</span>
                   <Checkbox
                     checked={checked}
                     disabled={searchSettingsMutation.isPending}
@@ -1120,14 +1364,13 @@ export default function SeriesDetailPage() {
               ))}
               {isManga ? (
                 <div className="mt-2 grid gap-2">
-                  <label className="grid gap-1 font-mono text-[10px]">
+                  <label className="grid gap-1 text-sm">
                     <span style={{ color: "var(--muted-foreground)" }}>
                       Bare numbers
                     </span>
                     <select
                       aria-label="Bare numbers"
-                      className="h-7 rounded-control border bg-background px-2"
-                      style={{ borderColor: "var(--border)" }}
+                      className="h-8 rounded-control border border-border-strong bg-surface-2 px-2"
                       disabled={searchSettingsMutation.isPending}
                       value={comic.BareNumberMode || "auto"}
                       onChange={(event) =>
@@ -1142,14 +1385,13 @@ export default function SeriesDetailPage() {
                       <option value="chapters">Chapters</option>
                     </select>
                   </label>
-                  <label className="grid gap-1 font-mono text-[10px]">
+                  <label className="grid gap-1 text-sm">
                     <span style={{ color: "var(--muted-foreground)" }}>
                       Monitor
                     </span>
                     <select
                       aria-label="Monitor"
-                      className="h-7 rounded-control border bg-background px-2"
-                      style={{ borderColor: "var(--border)" }}
+                      className="h-8 rounded-control border border-border-strong bg-surface-2 px-2"
                       disabled={searchSettingsMutation.isPending}
                       value={comic.MonitorMode || "blended"}
                       onChange={(event) =>
@@ -1166,261 +1408,9 @@ export default function SeriesDetailPage() {
                   </label>
                 </div>
               ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-2.5"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <div className="text-[13px] font-semibold" data-testid="ledger-label">
-            {ledgerLabel}
-          </div>
-          <div
-            className="font-mono text-[10px] uppercase tracking-[0.08em]"
-            style={{ color: "var(--muted-foreground)" }}
-            data-testid="ledger-facets"
-          >
-            {ledgerFacets.length
-              ? `${total} · ${ledgerFacets.join(" · ")}`
-              : total}
-          </div>
-          <div className="ml-auto flex flex-wrap gap-1.5 font-mono text-[10px]">
-            {(
-              [
-                ["all", `All ${total}`],
-                ["have", `Have ${have}`],
-                ["missing", `Missing ${missing}`],
-                ["monitored", `Monitored ${monitored}`],
-              ] as const
-            ).map(([key, label]) => (
-              <ToggleChip
-                key={key}
-                size="xs"
-                pressed={filter === key}
-                onPressedChange={() => setFilter(key)}
-              >
-                {label}
-              </ToggleChip>
-            ))}
-          </div>
-        </div>
-
-        {selectedTargets.length > 0 && (
-          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-5 py-2">
-            <span className="mono-label" data-testid="issue-selection-count">
-              {selectedTargets.length} selected
-            </span>
-            <IssueStatusMenu
-              disabled={
-                bulkSetIssueStatus.isPending || setIssueStatus.isPending
-              }
-              trigger={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="toolbar"
-                  aria-label="Set status on selected issues"
-                >
-                  Set status
-                  <ChevronDown aria-hidden="true" />
-                </Button>
-              }
-              onSelect={(status) => void handleBulkSetStatus(status)}
-            />
-            <button
-              type="button"
-              onClick={() => setSelectedRows(new Set())}
-              disabled={bulkSetIssueStatus.isPending}
-              className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Clear
-            </button>
+            </section>
           </div>
         )}
-
-        <div
-          className={`min-w-0 md:overflow-x-auto ${headerFits ? "split:min-h-0 split:flex-1 split:overflow-auto" : ""}`}
-          data-testid="series-issue-list"
-        >
-          <div className="md:min-w-[920px]">
-            <div
-              className={`sticky top-0 z-10 grid ${ISSUE_GRID_COLS} gap-3 border-b px-5 py-2 font-mono text-[10px] uppercase tracking-[0.1em]`}
-              style={{
-                borderColor: "var(--border)",
-                color: "var(--text-muted)",
-                background: "var(--card)",
-              }}
-            >
-              <div className={`${DESKTOP_COL} flex items-center`}>
-                <Checkbox
-                  checked={
-                    allFilteredSelected
-                      ? true
-                      : someFilteredSelected
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={toggleAllFiltered}
-                  aria-label="Select all visible issues"
-                  disabled={bulkSetIssueStatus.isPending}
-                />
-              </div>
-              <div className={DESKTOP_COL}>type</div>
-              <div>#</div>
-              <div>title</div>
-              <div className={DESKTOP_COL}>arc</div>
-              <div className={DESKTOP_COL}>date</div>
-              <div>state</div>
-              <div className="sr-only">search</div>
-            </div>
-
-            {filteredIssues.length === 0 ? (
-              <div
-                className="px-5 py-8 text-center font-mono text-[11px]"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                no issues to display
-              </div>
-            ) : (
-              filteredIssues.map((issue) => {
-                const issueId = issue.id ?? issue.IssueID;
-                const issueNumber = issue.number ?? issue.Issue_Number;
-                const issueName = issue.name ?? issue.IssueName;
-                const issueDate = pickComicDate(
-                  issue.releaseDate,
-                  issue.ReleaseDate,
-                  issue.issueDate,
-                  issue.IssueDate,
-                );
-                const status = getIssueStatus(issue);
-                const separateIntent = getSeparateIntent(issue);
-                const ledgerKind = getLedgerKind(issue, isManga);
-                const rowKey = issueRowKey(issue);
-                const rowLabel =
-                  issueName ||
-                  `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
-                return (
-                  <div
-                    key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
-                    className={`grid ${ISSUE_GRID_COLS} items-center gap-3 border-b px-5 py-2 text-[12px]`}
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    <div className={`${DESKTOP_COL} flex items-center`}>
-                      <Checkbox
-                        checked={selectedRows.has(rowKey)}
-                        onCheckedChange={() => toggleRowSelected(rowKey)}
-                        aria-label={`Select ${rowLabel}`}
-                        disabled={!issueId || bulkSetIssueStatus.isPending}
-                      />
-                    </div>
-                    <div className={DESKTOP_COL}>
-                      {ledgerKind && (
-                        <span
-                          className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
-                          style={{
-                            background:
-                              "color-mix(in oklab, var(--primary) 12%, transparent)",
-                            color: "var(--primary)",
-                          }}
-                        >
-                          {LEDGER_KIND_LABEL[ledgerKind]}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="font-mono"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      #{String(issueNumber ?? "").padStart(2, "0")}
-                    </div>
-                    <div className="min-w-0 truncate" data-grid-title="">
-                      {ledgerKind ? (
-                        <span
-                          data-testid="phone-row-id"
-                          className="mr-1.5 hidden max-md:inline rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] uppercase"
-                          style={{
-                            background:
-                              "color-mix(in oklab, var(--primary) 12%, transparent)",
-                            color: "var(--primary)",
-                          }}
-                        >
-                          {LEDGER_KIND_LABEL[ledgerKind]}
-                        </span>
-                      ) : null}
-                      <Link
-                        to={`/library/${comicId}/issue/${issueId}`}
-                        className="transition-colors hover:text-primary"
-                      >
-                        {issueName ||
-                          `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`}
-                      </Link>
-                    </div>
-                    <div
-                      className={`${DESKTOP_COL} truncate text-[11px]`}
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      {issue.Arc || "—"}
-                    </div>
-                    <div
-                      className={`${DESKTOP_COL} font-mono text-[10px]`}
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      {displayComicDate(issueDate)}
-                    </div>
-                    <div
-                      className="flex min-w-0 flex-wrap items-center gap-1.5"
-                      data-grid-status=""
-                    >
-                      <IssueStatusMenu
-                        current={status}
-                        label={`Change status for ${rowLabel}`}
-                        disabled={
-                          !issueId ||
-                          setIssueStatus.isPending ||
-                          bulkSetIssueStatus.isPending
-                        }
-                        onSelect={(next) =>
-                          handleIssueStatusSelect(issue, next)
-                        }
-                      />
-                      {separateIntent && (
-                        <span
-                          className="font-mono text-[9px] lowercase"
-                          style={{ color: "var(--muted-foreground)" }}
-                        >
-                          intent: {separateIntent}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
-                        style={{ color: "var(--muted-foreground)" }}
-                        aria-label={interactiveSearchLabel(issue)}
-                        title="Interactive Search"
-                        disabled={!issueId}
-                        onClick={() =>
-                          void startReview(
-                            toReleaseReviewIssue(issue, comic.ComicName),
-                            {
-                              entityType: issue.annual ? "annual" : "issue",
-                              entityId: String(issueId ?? ""),
-                            },
-                          )
-                        }
-                      >
-                        <Search className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
       </div>
 
       <Dialog open={searchDialogOpen} onOpenChange={handleSearchDialogChange}>

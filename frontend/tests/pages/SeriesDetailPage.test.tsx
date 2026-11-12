@@ -163,6 +163,21 @@ function renderDetail() {
   );
 }
 
+/** Catalog, folder, providers and matching live on the Settings tab. */
+async function renderDetailSettings() {
+  const view = renderDetail();
+  const settingsTab = await screen.findByRole("button", { name: "Settings" });
+  await userEvent.setup().click(settingsTab);
+  return view;
+}
+
+/** Secondary series actions live behind the ⋯ menu. */
+async function openSeriesMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    await screen.findByRole("button", { name: "More series actions" }),
+  );
+}
+
 describe("SeriesDetailPage", () => {
   beforeEach(() => {
     server.use(
@@ -417,7 +432,7 @@ describe("SeriesDetailPage", () => {
     expect(
       body.contains(
         screen.getByRole("button", {
-          name: "Interactive Search for missing issues",
+          name: "More series actions",
         }),
       ),
     ).toBe(true);
@@ -520,9 +535,10 @@ describe("SeriesDetailPage", () => {
 
   it("deep-links to scoped Activity without embedding a feed", async () => {
     renderDetail();
-    await screen.findByText("Absolute Batman");
+    await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
-    const activityLink = screen.getByRole("link", {
+    await openSeriesMenu(userEvent.setup());
+    const activityLink = await screen.findByRole("menuitem", {
       name: "View activity for this series",
     });
     expect(activityLink.getAttribute("href")).toBe(
@@ -566,7 +582,7 @@ describe("SeriesDetailPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderDetail();
+    await renderDetailSettings();
 
     expect(
       await screen.findByText(/Metadata still comes from ComicVine/),
@@ -623,7 +639,7 @@ describe("SeriesDetailPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderDetail();
+    await renderDetailSettings();
 
     await user.click(await screen.findByRole("radio", { name: "Magazine" }));
 
@@ -659,7 +675,7 @@ describe("SeriesDetailPage", () => {
         }),
       ),
     );
-    renderDetail();
+    await renderDetailSettings();
 
     expect((await screen.findByTestId("series-folder")).textContent).toBe(
       "/magazines/Absolute Batman",
@@ -679,7 +695,7 @@ describe("SeriesDetailPage", () => {
       ),
     );
     const user = userEvent.setup();
-    renderDetail();
+    await renderDetailSettings();
 
     await user.click(await screen.findByRole("radio", { name: "Manga" }));
 
@@ -693,9 +709,11 @@ describe("SeriesDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByText("Absolute Batman");
+    await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
-    expect(screen.getByText("20%")).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: /^20% held: 2 of 10/ }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "All 10" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Have 2" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Missing 6" })).toBeTruthy();
@@ -775,7 +793,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("One-Punch Man");
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
     expect(screen.getAllByText("Volume")).toHaveLength(4);
@@ -790,7 +808,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("One-Punch Man");
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Volumes");
     expect(screen.getAllByText("Volume")).toHaveLength(4);
@@ -805,7 +823,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("One-Punch Man");
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
     // The second row carries both numbers; the chapter is the more specific
@@ -823,7 +841,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("One-Punch Man");
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe(
       "Volumes & chapters",
@@ -841,7 +859,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("One-Punch Man");
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Chapters");
   });
@@ -853,7 +871,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("Invincible");
+    await screen.findByRole("heading", { level: 1, name: "Invincible" });
 
     expect(screen.getByTestId("ledger-label").textContent).toBe("Issues");
     expect(screen.queryByText("Volume")).toBeNull();
@@ -864,7 +882,7 @@ describe("SeriesDetailPage", () => {
     serveLedger({ ComicName: "Invincible" }, [ledgerRow("1", {})]);
     renderDetail();
 
-    await screen.findByText("Invincible");
+    await screen.findByRole("heading", { level: 1, name: "Invincible" });
     expect(screen.getByTestId("ledger-facets").textContent).toBe("1");
   });
 
@@ -874,7 +892,7 @@ describe("SeriesDetailPage", () => {
     ]);
     renderDetail();
 
-    await screen.findByText("Invincible");
+    await screen.findByRole("heading", { level: 1, name: "Invincible" });
     expect(screen.getByTestId("ledger-facets").textContent).toBe(
       "1 · grouped by arc",
     );
@@ -967,7 +985,7 @@ describe("SeriesDetailPage", () => {
 
     renderDetail();
 
-    await screen.findByText("Date Edge Cases");
+    await screen.findByRole("heading", { level: 1, name: "Date Edge Cases" });
     expect(screen.getByText("Sentinel release")).toBeTruthy();
     expect(screen.getByText("Valid cover date")).toBeTruthy();
     expect(screen.getByText("2025-08-15")).toBeTruthy();
@@ -1254,8 +1272,9 @@ describe("SeriesDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
+    await openSeriesMenu(user);
     await user.click(
-      await screen.findByRole("button", {
+      await screen.findByRole("menuitem", {
         name: "Interactive Search for missing issues",
       }),
     );
@@ -1301,8 +1320,9 @@ describe("SeriesDetailPage", () => {
     const user = userEvent.setup();
     renderDetail();
 
+    await openSeriesMenu(user);
     await user.click(
-      await screen.findByRole("button", {
+      await screen.findByRole("menuitem", {
         name: "Browse every indexer's releases for this series",
       }),
     );
@@ -1342,7 +1362,7 @@ describe("SeriesDetailPage", () => {
       const calls = captureStatusCalls();
       const user = userEvent.setup();
       renderDetail();
-      await screen.findByText("Absolute Batman");
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
         screen.getByRole("button", {
@@ -1362,7 +1382,7 @@ describe("SeriesDetailPage", () => {
       const calls = captureStatusCalls();
       const user = userEvent.setup();
       renderDetail();
-      await screen.findByText("Absolute Batman");
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
         screen.getByRole("button", { name: "Change status for Annual event" }),
@@ -1382,7 +1402,7 @@ describe("SeriesDetailPage", () => {
       const calls = captureStatusCalls();
       const user = userEvent.setup();
       renderDetail();
-      await screen.findByText("Absolute Batman");
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
         screen.getByRole("checkbox", { name: "Select Explicitly skipped" }),
@@ -1432,7 +1452,7 @@ describe("SeriesDetailPage", () => {
       );
       const user = userEvent.setup();
       renderDetail();
-      await screen.findByText("Absolute Batman");
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
         screen.getByRole("checkbox", { name: "Select Explicitly skipped" }),
@@ -1476,7 +1496,7 @@ describe("SeriesDetailPage", () => {
       ).length;
       const user = userEvent.setup();
       renderDetail();
-      await screen.findByText("Absolute Batman");
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
         screen.getByRole("button", { name: `Missing ${missingCount}` }),
@@ -1492,8 +1512,11 @@ describe("SeriesDetailPage", () => {
 
     it("labels the delete control instead of an icon-only affordance", async () => {
       renderDetail();
-      await screen.findByText("Absolute Batman");
-      expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
+      await openSeriesMenu(userEvent.setup());
+      expect(
+        await screen.findByRole("menuitem", { name: "Delete" }),
+      ).toBeTruthy();
     });
   });
 });

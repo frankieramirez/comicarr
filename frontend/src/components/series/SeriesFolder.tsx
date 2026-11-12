@@ -105,13 +105,16 @@ export function SeriesFolder({
 
   return (
     <section
-      className="mb-3.5 max-w-[640px] rounded-md border border-border p-3"
+      className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-3"
       aria-labelledby="series-folder-title"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span id="series-folder-title" className="text-xs font-semibold">
+            <span
+              id="series-folder-title"
+              className="text-[13px] font-semibold"
+            >
               Library folder
             </span>
             <span className="mono-label">
@@ -122,7 +125,7 @@ export function SeriesFolder({
             {location || "Not set yet"}
           </p>
           {retained.length > 0 ? (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
               Earlier files are still read from {retained.join(", ")}.
             </p>
           ) : null}
