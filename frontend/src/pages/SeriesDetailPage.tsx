@@ -1,5 +1,5 @@
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState, type UIEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
@@ -257,6 +257,15 @@ export default function SeriesDetailPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [headerFits, setHeaderFits] = useState(false);
+  // Compact bar: shown once the hero has scrolled out of the body scroller.
+  // In the split layout the body never scrolls, so the hero stays put.
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const onBodyScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    setCompact(event.currentTarget.scrollTop > hero.offsetHeight - 56);
+  }, []);
   const observeBody = useCallback((body: HTMLDivElement | null) => {
     if (!body) return;
     const measure = () => {
@@ -764,7 +773,80 @@ export default function SeriesDetailPage() {
     !comicId || reviewableMissing === 0 || reviewSheetProps.startPending;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col page-transition">
+    <div className="relative flex h-full min-h-0 min-w-0 flex-col page-transition">
+      {compact && (
+        <div
+          data-testid="series-compact-bar"
+          className="absolute inset-x-0 top-0 z-20 flex h-14 items-center gap-3 border-b border-border-subtle bg-background/95 px-8 backdrop-blur"
+        >
+          <div className="h-8 w-6 shrink-0 overflow-hidden rounded-sm bg-surface-2">
+            {coverSrc && (
+              <img
+                src={coverSrc}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            )}
+          </div>
+          <span className="truncate text-[15px] font-semibold">
+            {comic.ComicName}
+          </span>
+          <span className="hidden shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground sm:inline">
+            {isManga ? "Manga" : "Comic"}
+          </span>
+          <div
+            aria-hidden="true"
+            className="ml-3 hidden h-1 w-[120px] shrink-0 gap-0.5 overflow-hidden rounded-full md:flex"
+          >
+            {segments.length === 0 ? (
+              <div className="flex-1 bg-surface-3" />
+            ) : (
+              segments.map((segment) => (
+                <div
+                  key={segment.key}
+                  style={{ flexGrow: segment.value, background: segment.color }}
+                />
+              ))
+            )}
+          </div>
+          <span className="hidden shrink-0 font-mono text-xs text-foreground md:inline">
+            {have} / {total}
+          </span>
+          {missing > 0 && (
+            <span className="hidden shrink-0 text-[13px] text-foreground-2 lg:inline">
+              {missing} missing
+            </span>
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="toolbar"
+              onClick={handleOpenSearch}
+              disabled={!comicId || searchPreview.isFetching}
+            >
+              <Search />
+              {missing > 0 ? `Search ${missing} missing` : "Search missing"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="toolbar"
+              className="hidden bg-surface-2 sm:inline-flex"
+              onClick={handleRefresh}
+              disabled={refreshMutation.isPending}
+              aria-label="Refresh series"
+            >
+              <RefreshCw
+                className={refreshMutation.isPending ? "animate-spin" : ""}
+              />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
       {/*
         Full-bleed Layout clips this page. On narrow or short viewports
         (phones in either orientation) the hero can be taller than the
@@ -775,10 +857,11 @@ export default function SeriesDetailPage() {
       */}
       <div
         ref={observeBody}
+        onScroll={onBodyScroll}
         className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${headerFits ? "split:flex split:flex-col split:overflow-hidden" : ""}`}
         data-testid="series-body-scroll"
       >
-        <div className="relative shrink-0 overflow-hidden">
+        <div ref={heroRef} className="relative shrink-0 overflow-hidden">
           {/* Blurred cover wash: the series' own colors, kept faint. */}
           {coverSrc && (
             <div
