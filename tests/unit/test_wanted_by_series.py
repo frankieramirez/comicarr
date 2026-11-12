@@ -115,10 +115,7 @@ def test_wanted_series_endpoint_paginates_series_and_expands_one(wanted_db):
         )
         conn.execute(
             insert(issues),
-            [
-                {"IssueID": "c1-%d" % n, "ComicID": "c1", "Issue_Number": str(n), "Status": "Wanted"}
-                for n in range(1, 4)
-            ]
+            [{"IssueID": "c1-%d" % n, "ComicID": "c1", "Issue_Number": str(n), "Status": "Wanted"} for n in range(1, 4)]
             + [{"IssueID": "c2-1", "ComicID": "c2", "Issue_Number": "1", "Status": "Wanted"}]
             + [{"IssueID": "c3-1", "ComicID": "c3", "Issue_Number": "1", "Status": "Wanted"}]
             + [{"IssueID": "c3-2", "ComicID": "c3", "Issue_Number": "2", "Status": "Downloaded"}],
